@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
+import { Spinner } from '@/components/ui/spinner';
 import ManyHitlInlineCard from './ManyHitlInlineCard';
-import ManyMinimalStatusRow from './ManyMinimalStatusRow';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
 import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
@@ -11,9 +12,6 @@ interface ManyHitlInlineSectionProps {
   onDismissApproval?: () => void;
 }
 
-/**
- * Renders HITL inline in the Many message stream (approval queue + agent interrupt).
- */
 export default function ManyHitlInlineSection({
   pendingApproval,
   onDismissApproval,
@@ -53,7 +51,6 @@ export default function ManyHitlInlineSection({
   );
 
   const showWaiting = Boolean(current || pendingApproval);
-
   if (!showWaiting) return null;
 
   const isShell = current?.kind === 'shell_exec';
@@ -62,7 +59,7 @@ export default function ManyHitlInlineSection({
   const contextLine = cwd ? `en: ${cwd}` : t('many.hitl_cwd_default');
 
   return (
-    <div className="many-hitl-stream-block many-message-group w-full">
+    <div className="flex w-full flex-col gap-3">
       {current && isShell ? (
         <ManyHitlInlineCard
           action="shell_exec"
@@ -92,9 +89,14 @@ export default function ManyHitlInlineSection({
         <HITLReviewPanel pendingApproval={pendingApproval} onDismiss={onDismissApproval} inline />
       ) : null}
 
-      <div className="many-hitl-stream-status">
-        <ManyMinimalStatusRow variant="dots" label={t('many.hitl_waiting')} />
-        <p className="many-hitl-stream-status__hint">{t('many.hitl_waiting_detail')}</p>
+      <div className="flex flex-col gap-1">
+        <Marker role="status">
+          <MarkerIcon>
+            <Spinner />
+          </MarkerIcon>
+          <MarkerContent>{t('many.hitl_waiting')}</MarkerContent>
+        </Marker>
+        <p className="text-xs text-muted-foreground">{t('many.hitl_waiting_detail')}</p>
       </div>
     </div>
   );

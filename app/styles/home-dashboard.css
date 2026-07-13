@@ -1,18 +1,18 @@
 /* ─── Home redesign — additional styles on top of styles.css ─── */
 
 :root {
-  --home-bg: #FAFAFA;
-  --home-surface: #FFFFFF;
-  --home-surface-2: #F5F4EE;
-  --home-edge: #ECECE7;
-  --home-edge-soft: #F2F1EC;
-  --home-ink: #1A1A1A;
-  --home-ink-2: #4A4A45;
-  --home-ink-3: #7A7A72;
-  --home-ink-4: #A8A8A0;
-  --home-accent: #596037;
+  --home-bg: var(--background);
+  --home-surface: var(--card);
+  --home-surface-2: var(--muted);
+  --home-edge: var(--border);
+  --home-edge-soft: var(--border);
+  --home-ink: var(--foreground);
+  --home-ink-2: var(--muted-foreground);
+  --home-ink-3: var(--muted-foreground);
+  --home-ink-4: var(--muted-foreground);
+  --home-accent: var(--primary);
   --home-accent-soft: #E0EAB4;
-  --home-accent-bg: #EEF1DC;
+  --home-accent-bg: color-mix(in srgb, var(--primary) 12%, transparent);
   --home-warm: #C7723E;
   --home-warm-soft: #F2DDC9;
   --home-cool: #5E7DAA;
@@ -35,18 +35,18 @@
 }
 
 [data-theme="dark"] {
-  --home-bg: #121210;
-  --home-surface: #1A1A18;
-  --home-surface-2: #1F1F1C;
-  --home-edge: #2A2A26;
-  --home-edge-soft: #232320;
-  --home-ink: #E8E8E2;
-  --home-ink-2: #C0C0B8;
-  --home-ink-3: #88887F;
-  --home-ink-4: #5A5A53;
-  --home-accent: #B8C28A;
+  --home-bg: var(--background);
+  --home-surface: var(--card);
+  --home-surface-2: var(--muted);
+  --home-edge: var(--border);
+  --home-edge-soft: var(--border);
+  --home-ink: var(--foreground);
+  --home-ink-2: var(--muted-foreground);
+  --home-ink-3: var(--muted-foreground);
+  --home-ink-4: var(--muted-foreground);
+  --home-accent: var(--primary);
   --home-accent-soft: #3A4020;
-  --home-accent-bg: #2A2F18;
+  --home-accent-bg: color-mix(in srgb, var(--primary) 12%, transparent);
   --home-warm-soft: #3A2418;
   --home-cool-soft: #1F2A38;
   --home-rose-soft: #3A1F25;
@@ -171,7 +171,7 @@
 .h-hero-eyebrow { margin-bottom: 10px; }
 
 .h-greeting {
-  font-family: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: clamp(26px, 4cqi + 14px, 40px);
   line-height: 1.08;
   letter-spacing: -0.02em;
@@ -184,7 +184,7 @@
 }
 
 .h-page-title {
-  font-family: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: clamp(26px, 2.8vw, 34px);
   line-height: 1.08;
   letter-spacing: -0.02em;
@@ -291,7 +291,7 @@
   opacity: 0.85;
 }
 .h-streak-card .value {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 32px;
   line-height: 1;
   font-weight: 500;
@@ -337,7 +337,7 @@
   font-weight: 500;
 }
 .h-energy-card .value {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 22px;
   line-height: 1;
   font-weight: 500;
@@ -486,7 +486,7 @@
   margin-bottom: 4px;
 }
 .h-today-title {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.015em;
@@ -638,7 +638,7 @@
   margin-bottom: 14px;
 }
 .h-card-title {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -669,7 +669,7 @@
 }
 .h-stats .cell:hover { background: var(--home-surface-2); }
 .h-stats .cell .v {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 26px;
   font-weight: 500;
   color: var(--home-ink);
@@ -837,7 +837,7 @@
   margin-bottom: 12px;
 }
 .h-section-title {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.015em;
@@ -956,11 +956,11 @@
   flex-shrink: 0;
 }
 .h-activity-item .attach-icon.h-activity-icon--chat {
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
 }
 .h-activity-item .attach-icon[data-resource-tone="pdf"] {
-  background: color-mix(in srgb, var(--error) 15%, transparent);
+  background: color-mix(in srgb, var(--destructive) 15%, transparent);
   color: var(--home-tone-pdf-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="note"] {
@@ -968,8 +968,8 @@
   color: var(--info);
 }
 .h-activity-item .attach-icon[data-resource-tone="notebook"] {
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
 }
 .h-activity-item .attach-icon[data-resource-tone="sheet"] {
   background: color-mix(in srgb, var(--home-tone-sheet) 14%, transparent);
@@ -996,13 +996,13 @@
   color: var(--info);
 }
 .h-activity-item .attach-icon[data-resource-tone="folder"] {
-  background: color-mix(in srgb, var(--tertiary-text) 12%, transparent);
-  color: var(--secondary-text);
+  background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
+  color: var(--muted-foreground);
 }
 .h-activity-item .attach-icon[data-resource-tone="artifact"],
 .h-activity-item .attach-icon[data-resource-tone="neutral"] {
-  background: var(--bg-tertiary);
-  color: var(--secondary-text);
+  background: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .h-activity-body { min-width: 0; }

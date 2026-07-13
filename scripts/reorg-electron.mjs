@@ -34,7 +34,6 @@ const DOMAIN_MAP = {
   'deep-link-handler.cjs': 'core',
   'observability.cjs': 'core',
   'update-service.cjs': 'core',
-  'guide-bootstrap.cjs': 'core',
   'install-devtools-extension.cjs': 'core',
   'database.cjs': 'core',
   'security.cjs': 'core',

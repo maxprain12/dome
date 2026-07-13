@@ -33,7 +33,7 @@ function OmittedNodesNotice({ count }: { count: number }) {
     <div
       style={{
         fontSize: 12,
-        color: 'var(--tertiary-text)',
+        color: 'var(--muted-foreground)',
         padding: '6px 8px',
         marginTop: 4,
         fontStyle: 'italic',
@@ -60,7 +60,7 @@ export function JsonPrettyPrinter({
 
   if (depth >= JSON_PRETTY_MAX_DEPTH) {
     budget.omitted += 1;
-    return <span style={{ color: 'var(--tertiary-text)' }}>…</span>;
+    return <span className="text-muted-foreground">…</span>;
   }
 
   if (budget.nodes >= JSON_PRETTY_MAX_NODES) {
@@ -68,22 +68,22 @@ export function JsonPrettyPrinter({
     return showOmittedNotice && depth === 0 ? (
       <OmittedNodesNotice count={budget.omitted} />
     ) : (
-      <span style={{ color: 'var(--tertiary-text)' }}>…</span>
+      <span className="text-muted-foreground">…</span>
     );
   }
 
   budget.nodes += 1;
 
-  if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
-  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
-  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
+  if (value === null) return <span className="text-muted-foreground">null</span>;
+  if (typeof value === 'boolean') return <span className="text-[var(--warning)]">{String(value)}</span>;
+  if (typeof value === 'number') return <span className="text-[var(--success)]">{value}</span>;
   if (typeof value === 'string') {
     const display = value.length > 240 ? `${value.slice(0, 237)}…` : value;
-    return <span style={{ color: 'var(--secondary-text)' }}>"{display}"</span>;
+    return <span className="text-muted-foreground">"{display}"</span>;
   }
 
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
+    if (value.length === 0) return <span className="text-muted-foreground">[]</span>;
     return (
       <span>
         {'[\u200B'}
@@ -93,11 +93,11 @@ export function JsonPrettyPrinter({
               key={i}
               style={{
                 paddingLeft: 16,
-                background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
+                background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--accent) 50%, transparent)',
               }}
             >
               <JsonPrettyPrinter value={item} depth={depth + 1} showOmittedNotice={false} />
-              {i < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
+              {i < value.length - 1 && <span className="text-muted-foreground">,</span>}
             </div>
           ))}
         </span>
@@ -109,7 +109,7 @@ export function JsonPrettyPrinter({
 
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>{'{}'}</span>;
+    if (entries.length === 0) return <span className="text-muted-foreground">{'{}'}</span>;
     return (
       <div>
         {entries.map(([k, v], i) => (
@@ -120,10 +120,10 @@ export function JsonPrettyPrinter({
               gap: 6,
               padding: '2px 6px',
               borderRadius: 3,
-              background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
+              background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--accent) 50%, transparent)',
             }}
           >
-            <span style={{ color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
+            <span style={{ color: 'var(--primary)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
             <span style={{ wordBreak: 'break-word', minWidth: 0 }}>
               <JsonPrettyPrinter value={v} depth={depth + 1} showOmittedNotice={false} />
             </span>

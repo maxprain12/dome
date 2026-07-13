@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--dome-bg);
+  background: var(--background);
   container-type: inline-size;
   container-name: folder-view;
 }
@@ -20,8 +20,8 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background: color-mix(in srgb, var(--dome-bg, var(--bg)) 72%, transparent);
-  border: 2px dashed var(--dome-accent, var(--accent));
+  background: color-mix(in srgb, var(--background, var(--background)) 72%, transparent);
+  border: 2px dashed var(--primary, var(--primary));
   border-radius: var(--radius-lg, 8px);
   animation: overlay-appear 0.15s ease-out;
 }
@@ -33,9 +33,9 @@
   gap: 8px;
   padding: 20px 28px;
   border-radius: var(--radius-xl, 12px);
-  border: 1px solid var(--dome-border, var(--border));
-  background: var(--dome-surface, var(--bg-secondary));
-  color: var(--dome-accent, var(--accent));
+  border: 1px solid var(--border, var(--border));
+  background: var(--card, var(--card));
+  color: var(--primary, var(--primary));
   font-size: 13px;
   font-weight: 600;
   box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
@@ -48,8 +48,8 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 65%, transparent);
-  background: var(--dome-surface);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background: var(--card);
   min-height: 44px;
 }
 
@@ -71,15 +71,15 @@
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: background 0.12s, color 0.12s, opacity 0.12s;
 }
 
 .dome-folder-view__nav-btn:hover:not(:disabled),
 .dome-folder-view__icon-btn:hover {
-  background: var(--dome-bg-hover);
-  color: var(--dome-text);
+  background: var(--accent);
+  color: var(--foreground);
 }
 
 .dome-folder-view__nav-btn:disabled {
@@ -88,8 +88,8 @@
 }
 
 .dome-folder-view__icon-btn--active {
-  background: color-mix(in srgb, var(--dome-accent) 14%, transparent);
-  color: var(--dome-accent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
 }
 
 .dome-folder-view__breadcrumb {
@@ -99,7 +99,7 @@
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   overflow: hidden;
 }
 
@@ -120,12 +120,12 @@
 }
 
 .dome-folder-view__breadcrumb button:hover {
-  color: var(--dome-text);
-  background: var(--dome-bg-hover);
+  color: var(--foreground);
+  background: var(--accent);
 }
 
 .dome-folder-view__breadcrumb-current {
-  color: var(--dome-text);
+  color: var(--foreground);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -151,19 +151,19 @@
   min-width: 140px;
   padding: 4px 10px;
   border-radius: 8px;
-  border: 1px solid var(--dome-border);
-  background: var(--dome-bg);
+  border: 1px solid var(--border);
+  background: var(--background);
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 
 .dome-folder-view__search:focus-within {
-  border-color: color-mix(in srgb, var(--dome-accent) 40%, var(--dome-border));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dome-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
 .dome-folder-view__search-icon {
   flex-shrink: 0;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .dome-folder-view__search-input {
@@ -172,13 +172,13 @@
   border: none;
   background: transparent;
   font-size: 12px;
-  color: var(--dome-text);
+  color: var(--foreground);
   outline: none;
   padding: 2px 0;
 }
 
 .dome-folder-view__search-input::placeholder {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .dome-folder-view__search-input::-webkit-search-cancel-button {
@@ -192,19 +192,19 @@
   padding: 2px;
   border: none;
   background: none;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   border-radius: 4px;
   flex-shrink: 0;
 }
 
 .dome-folder-view__search-clear:hover {
-  color: var(--dome-text);
-  background: var(--dome-bg-hover);
+  color: var(--foreground);
+  background: var(--accent);
 }
 
 .dome-folder-view__search-mark {
-  background: color-mix(in srgb, var(--dome-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--primary) 24%, transparent);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
@@ -219,8 +219,8 @@
   padding: 0;
   border-radius: 7px;
   border: none;
-  background: var(--dome-accent);
-  color: var(--dome-on-accent);
+  background: var(--primary);
+  color: var(--primary-foreground);
   cursor: pointer;
   transition: filter 0.12s, transform 0.12s;
 }
@@ -230,17 +230,17 @@
 }
 
 .dome-folder-view__menu-dropdown {
-  background: var(--dome-surface) !important;
-  border: 1px solid var(--dome-border) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .dome-folder-view__menu-item {
   font-size: 12px !important;
-  color: var(--dome-text) !important;
+  color: var(--foreground) !important;
 }
 
 .dome-folder-view__menu-item[data-hovered] {
-  background: var(--dome-bg-hover) !important;
+  background: var(--accent) !important;
 }
 
 /* ── View toggle (grid / list) ── */
@@ -250,7 +250,7 @@
   align-items: center;
   padding: 2px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--dome-text-muted) 8%, transparent);
+  background: color-mix(in srgb, var(--muted-foreground) 8%, transparent);
   gap: 1px;
   flex-shrink: 0;
 }
@@ -265,19 +265,19 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
 .dome-folder-view__view-toggle-btn:hover {
-  color: var(--dome-text);
+  color: var(--foreground);
 }
 
 .dome-folder-view__view-toggle-btn--active {
-  background: var(--dome-surface);
-  color: var(--dome-accent);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--dome-text) 8%, transparent);
+  background: var(--card);
+  color: var(--primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
 /* ── List ── */
@@ -300,9 +300,9 @@
   padding: 8px 16px;
   font-size: 11px;
   font-weight: 500;
-  color: var(--dome-text-muted);
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 55%, transparent);
-  background: color-mix(in srgb, var(--dome-surface) 80%, var(--dome-bg));
+  color: var(--muted-foreground);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  background: color-mix(in srgb, var(--card) 80%, var(--background));
   position: sticky;
   top: 0;
   z-index: 1;
@@ -318,7 +318,7 @@
 .dome-folder-view__list-header-count {
   font-size: 11px;
   font-weight: 400;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   opacity: 0.8;
   white-space: nowrap;
 }
@@ -335,18 +335,18 @@
   font-variant-numeric: tabular-nums;
   padding: 0 12px 0 16px;
   min-height: 38px;
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   transition: background 0.1s;
 }
 
 .dome-fs-tree-row:hover,
 .dome-fs-tree-row--focused {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .dome-fs-tree-row--selected {
-  background: color-mix(in srgb, var(--dome-accent) 10%, var(--dome-bg-hover));
-  outline: 1px solid color-mix(in srgb, var(--dome-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, var(--accent));
+  outline: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
   outline-offset: -1px;
 }
 
@@ -373,7 +373,7 @@
 }
 
 .dome-fs-tree-name {
-  color: var(--dome-text);
+  color: var(--foreground);
   background: none;
   border: none;
   cursor: pointer;
@@ -396,8 +396,8 @@
   padding: 2px 6px;
   border-radius: 4px;
   letter-spacing: 0.01em;
-  background: color-mix(in srgb, var(--dome-text-muted) 10%, transparent);
-  color: var(--dome-text-muted);
+  background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+  color: var(--muted-foreground);
   max-width: 88px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -406,7 +406,7 @@
 
 .dome-fs-tree-row__modified {
   font-size: 11px;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -435,14 +435,14 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 }
 
 .dome-fs-tree-row__menu-btn:hover {
-  background: color-mix(in srgb, var(--dome-text-muted) 12%, transparent);
-  color: var(--dome-text);
+  background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
+  color: var(--foreground);
 }
 
 .dome-fs-tree-row__rename-input {
@@ -452,9 +452,9 @@
   padding: 4px 8px;
   outline: none;
   min-width: 0;
-  background: var(--dome-bg);
-  border: 1px solid var(--dome-accent);
-  color: var(--dome-text);
+  background: var(--background);
+  border: 1px solid var(--primary);
+  color: var(--foreground);
 }
 
 .dome-fs-tree-row__rename-btn {
@@ -466,17 +466,17 @@
 }
 
 .dome-fs-tree-row__rename-btn--confirm {
-  color: var(--dome-accent);
+  color: var(--primary);
 }
 
 .dome-fs-tree-row__rename-btn--cancel {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .dome-fs-tree-row__checkbox {
   flex-shrink: 0;
   cursor: pointer;
-  accent-color: var(--dome-accent);
+  accent-color: var(--primary);
   border-radius: 4px;
 }
 
@@ -484,11 +484,11 @@
   position: fixed;
   z-index: var(--z-popover);
   border-radius: 8px;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--dome-text) 12%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 12%, transparent);
   padding: 4px 0;
   min-width: 156px;
-  background: var(--dome-surface);
-  border: 1px solid var(--dome-border);
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
 .dome-folder-view__row-menu-item {
@@ -502,27 +502,27 @@
   border: none;
   background: none;
   cursor: pointer;
-  color: var(--dome-text);
+  color: var(--foreground);
   transition: background 0.1s;
 }
 
 .dome-folder-view__row-menu-item:hover {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .dome-folder-view__row-menu-item--danger {
-  color: var(--dome-error);
+  color: var(--destructive);
 }
 
 .dome-folder-view__row-menu-divider {
   height: 1px;
   margin: 4px 0;
-  background: var(--dome-border);
+  background: var(--border);
 }
 
 .dome-folder-view__inline-create {
   padding: 8px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
 }
 
 .dome-folder-view__inline-create--grid {
@@ -540,14 +540,14 @@
 .dome-fs-card--creating {
   cursor: default;
   border-style: dashed;
-  border-color: var(--dome-border);
+  border-color: var(--border);
   min-height: 200px;
 }
 
 .dome-fs-card--creating:hover {
   transform: none;
   box-shadow: none;
-  border-color: color-mix(in srgb, var(--dome-accent) 35%, var(--dome-border));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
 }
 
 .dome-new-folder__body {
@@ -567,13 +567,13 @@
   border: none;
   outline: none;
   background: transparent;
-  color: var(--dome-text);
+  color: var(--foreground);
   padding: 0;
   min-width: 0;
 }
 
 .dome-new-folder__input::placeholder {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   font-weight: 400;
 }
 
@@ -635,7 +635,7 @@
 .dome-folder-view__empty {
   padding: 32px 16px;
   font-size: 13px;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   text-align: center;
 }
 
@@ -699,13 +699,13 @@
   top: 0;
   z-index: 1;
   padding: 8px 20px;
-  background: color-mix(in srgb, var(--dome-surface) 80%, var(--dome-bg));
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 55%, transparent);
+  background: color-mix(in srgb, var(--card) 80%, var(--background));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   display: flex;
   justify-content: flex-end;
   align-items: center;
   font-size: 11px;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .dome-folder-view__grid {
@@ -744,39 +744,39 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--dome-surface);
-  border: 1px solid color-mix(in srgb, var(--dome-border) 80%, transparent);
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: 12px;
   overflow: hidden;
   min-height: 0;
   cursor: pointer;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--dome-text) 6%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
   container-type: inline-size;
   container-name: fs-card;
 }
 
 .dome-fs-card:hover {
-  border-color: color-mix(in srgb, var(--dome-accent) 40%, var(--dome-border));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--dome-text) 8%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
 .dome-fs-card--focused,
 .dome-fs-card--selected {
-  border-color: color-mix(in srgb, var(--dome-accent) 55%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-accent) 35%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 .dome-fs-card--selected {
-  background: color-mix(in srgb, var(--dome-accent) 6%, var(--dome-surface));
+  background: color-mix(in srgb, var(--primary) 6%, var(--card));
 }
 
 .dome-fs-card__cover {
   position: relative;
   flex-shrink: 0;
   height: 120px;
-  background-color: var(--dome-bg-secondary);
+  background-color: var(--card);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -784,7 +784,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 50%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
 .dome-fs-card__cover-icon {
@@ -807,7 +807,7 @@
   height: auto;
   min-height: 0;
   aspect-ratio: 16 / 9;
-  background: color-mix(in srgb, black 45%, var(--dome-bg-secondary));
+  background: color-mix(in srgb, black 45%, var(--card));
 }
 
 .dome-fs-card--media .dome-fs-card__cover:has(.dome-fs-card__cover-img) {
@@ -823,14 +823,14 @@
   height: auto;
   aspect-ratio: 4 / 5;
   max-height: 250px;
-  background: var(--dome-surface);
+  background: var(--card);
 }
 
 .dome-fs-card--doc .dome-fs-card__cover-snippet {
   -webkit-line-clamp: 14;
   padding: 14px 16px;
   font-size: 10.5px;
-  background: var(--dome-surface);
+  background: var(--card);
 }
 
 /* Persisted artifact: 4:3 live mini-render. */
@@ -855,7 +855,7 @@
   object-fit: cover;
   object-position: top center;
   max-height: 250px;
-  background: var(--dome-surface);
+  background: var(--card);
 }
 
 .dome-fs-card__play-badge {
@@ -895,7 +895,7 @@
   transform: scale(0.5);
   transform-origin: top left;
   pointer-events: none;
-  background: var(--dome-surface);
+  background: var(--card);
 }
 
 .dome-fs-card__cover--artifact::after {
@@ -906,7 +906,7 @@
   background: linear-gradient(
     180deg,
     transparent 55%,
-    color-mix(in srgb, var(--dome-surface) 88%, transparent)
+    color-mix(in srgb, var(--card) 88%, transparent)
   );
 }
 
@@ -920,11 +920,11 @@
   font-size: 11px;
   line-height: 1.45;
   text-align: left;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--dome-surface) 92%, transparent),
-    var(--dome-bg-secondary)
+    color-mix(in srgb, var(--card) 92%, transparent),
+    var(--card)
   );
   overflow: hidden;
   display: -webkit-box;
@@ -944,85 +944,9 @@
   overflow: hidden;
   pointer-events: none;
   text-align: left;
-  font-size: 10px;
-  line-height: 1.5;
-  color: var(--dome-text-secondary);
-  background: var(--dome-surface);
+  background: var(--card);
   -webkit-mask-image: linear-gradient(180deg, black 70%, transparent);
   mask-image: linear-gradient(180deg, black 70%, transparent);
-}
-
-.dome-fs-card__md-thumb h1,
-.dome-fs-card__md-thumb h2,
-.dome-fs-card__md-thumb h3,
-.dome-fs-card__md-thumb h4 {
-  margin: 0 0 4px;
-  font-weight: 700;
-  color: var(--dome-text);
-  line-height: 1.3;
-}
-
-.dome-fs-card__md-thumb h1 { font-size: 13px; }
-.dome-fs-card__md-thumb h2 { font-size: 12px; }
-.dome-fs-card__md-thumb h3,
-.dome-fs-card__md-thumb h4 { font-size: 11px; }
-
-.dome-fs-card__md-thumb p {
-  margin: 0 0 5px;
-}
-
-.dome-fs-card__md-thumb ul,
-.dome-fs-card__md-thumb ol {
-  margin: 0 0 5px;
-  padding-left: 14px;
-}
-
-.dome-fs-card__md-thumb li {
-  margin: 0 0 2px;
-}
-
-.dome-fs-card__md-thumb strong {
-  color: var(--dome-text);
-}
-
-.dome-fs-card__md-thumb code {
-  font-size: 9px;
-  padding: 0 3px;
-  border-radius: 3px;
-  background: var(--dome-bg-secondary);
-}
-
-.dome-fs-card__md-thumb pre {
-  margin: 0 0 5px;
-  padding: 5px 7px;
-  border-radius: 5px;
-  overflow: hidden;
-  background: var(--dome-bg-secondary);
-}
-
-.dome-fs-card__md-thumb blockquote {
-  margin: 0 0 5px;
-  padding-left: 8px;
-  border-left: 2px solid var(--dome-border);
-  color: var(--dome-text-muted);
-}
-
-.dome-fs-card__md-thumb table {
-  margin: 0 0 5px;
-  font-size: 9px;
-  border-collapse: collapse;
-}
-
-.dome-fs-card__md-thumb th,
-.dome-fs-card__md-thumb td {
-  padding: 1px 5px;
-  border: 1px solid var(--dome-border);
-}
-
-.dome-fs-card__md-thumb hr {
-  margin: 5px 0;
-  border: none;
-  border-top: 1px solid var(--dome-border);
 }
 
 .dome-fs-card__select {
@@ -1034,7 +958,7 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  background: color-mix(in srgb, var(--dome-surface) 80%, transparent);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
   backdrop-filter: blur(2px);
   border-radius: 6px;
   cursor: pointer;
@@ -1052,17 +976,17 @@
   padding: 0;
   border: none;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--dome-surface) 80%, transparent);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
   backdrop-filter: blur(2px);
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   z-index: 1;
 }
 
 .dome-fs-card__menu-btn:hover {
-  background: var(--dome-surface);
-  color: var(--dome-text);
+  background: var(--card);
+  color: var(--foreground);
 }
 
 .dome-fs-card__body {
@@ -1083,7 +1007,7 @@
 }
 
 .dome-fs-card__body:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--dome-accent) 50%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--primary) 50%, transparent);
   outline-offset: -2px;
   border-radius: 0 0 11px 11px;
 }
@@ -1093,7 +1017,7 @@
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
-  color: var(--dome-text);
+  color: var(--foreground);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1105,7 +1029,7 @@
 .dome-fs-card__snippet {
   font-size: 11px;
   line-height: 1.4;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1132,8 +1056,8 @@
   padding: 2px 7px;
   border-radius: 999px;
   letter-spacing: 0.02em;
-  background: color-mix(in srgb, var(--dome-text-muted) 10%, var(--dome-bg-secondary));
-  color: var(--dome-text-muted);
+  background: color-mix(in srgb, var(--muted-foreground) 10%, var(--card));
+  color: var(--muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1142,7 +1066,7 @@
 .dome-fs-card__modified {
   flex-shrink: 0;
   font-size: 10px;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

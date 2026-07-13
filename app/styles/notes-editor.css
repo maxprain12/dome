@@ -2,10 +2,10 @@
  * Scoped to .note-area; uses Dome design tokens (--accent, --bg, etc. from globals). */
 
 .note-area {
-  --rail-bg: var(--dome-bg, var(--bg));
-  --doc-bg: var(--dome-bg-secondary, var(--bg-secondary));
-  --border-soft-note: color-mix(in srgb, var(--dome-border, var(--border)) 92%, transparent);
-  --focus-ring-note: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  --rail-bg: var(--background, var(--background));
+  --doc-bg: var(--card, var(--card));
+  --border-soft-note: color-mix(in srgb, var(--border, var(--border)) 92%, transparent);
+  --focus-ring-note: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 
   --doc-width: 720px;
   --doc-px: 56px;
@@ -14,16 +14,16 @@
   --doc-line-height: 1.7;
   --doc-title-size: 40px;
 
-  --font-display: 'Source Serif 4', 'Charter', 'Iowan Old Style', Georgia, serif;
+  --font-display: var(--font-sans);
 
   --info-soft-note: color-mix(in srgb, var(--info, #7b9dd0) 14%, transparent);
-  --info-text-note: color-mix(in srgb, var(--info, #7b9dd0) 70%, var(--text, var(--primary-text)));
+  --info-text-note: color-mix(in srgb, var(--info, #7b9dd0) 70%, var(--foreground, var(--foreground)));
   --warn-soft-note: color-mix(in srgb, var(--warning) 14%, transparent);
-  --warn-text-note: color-mix(in srgb, var(--warning) 55%, var(--text));
-  --rose-soft-note: color-mix(in srgb, var(--error) 14%, transparent);
-  --rose-text-note: color-mix(in srgb, var(--error) 55%, var(--text));
-  --olive-soft-note: var(--accent-bg);
-  --olive-text-note: var(--accent);
+  --warn-text-note: color-mix(in srgb, var(--warning) 55%, var(--foreground));
+  --rose-soft-note: color-mix(in srgb, var(--destructive) 14%, transparent);
+  --rose-text-note: color-mix(in srgb, var(--destructive) 55%, var(--foreground));
+  --olive-soft-note: color-mix(in srgb, var(--primary) 12%, transparent);
+  --olive-text-note: var(--primary);
 
   flex: 1;
   display: flex;
@@ -90,7 +90,7 @@
 .note-area[data-note-mode='focused'] {
   background: radial-gradient(
     ellipse at center top,
-    color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 14%, transparent) 0%,
     var(--rail-bg) 55%
   );
 }
@@ -119,7 +119,7 @@
   border: none;
   border-radius: var(--radius-md, 8px);
   background: transparent;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -128,12 +128,12 @@
   transition: background 120ms ease, color 120ms ease;
 }
 .note-area .note-actionbar .note-icon-btn:hover:not(:disabled) {
-  background: var(--dome-bg-hover, var(--bg-hover));
-  color: var(--text);
+  background: var(--accent, var(--accent));
+  color: var(--foreground);
 }
 .note-area .note-actionbar .note-icon-btn.active {
-  background: var(--dome-accent-bg);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
 }
 .note-area .note-actionbar .note-icon-btn.note-icon-btn-sm {
   width: 26px;
@@ -149,7 +149,7 @@
   align-items: center;
   gap: 3px;
   font-size: 12px;
-  color: var(--dome-text-muted, var(--tertiary-text));
+  color: var(--muted-foreground, var(--muted-foreground));
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -182,16 +182,16 @@ button.note-crumb--interactive {
   color: inherit;
 }
 button.note-crumb--interactive:hover {
-  background: var(--dome-bg-hover, var(--bg-hover));
-  color: var(--dome-text, var(--text));
+  background: var(--accent, var(--accent));
+  color: var(--foreground, var(--foreground));
 }
 
 .note-area .note-crumb--current {
-  color: var(--dome-text, var(--text));
+  color: var(--foreground, var(--foreground));
   font-weight: 500;
 }
 .note-area .note-crumb-sep {
-  color: var(--quaternary-text);
+  color: var(--muted-foreground);
   flex-shrink: 0;
   opacity: 0.5;
 }
@@ -213,17 +213,13 @@ button.note-crumb--interactive:hover {
   font-size: 13px;
   font-weight: 650;
   letter-spacing: -0.015em;
-  color: var(--text);
+  color: var(--foreground);
   padding: 4px 2px;
   margin: 0 2px;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 .note-actionbar-title-input::placeholder {
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   font-weight: 500;
 }
 
@@ -240,7 +236,7 @@ button.note-crumb--interactive:hover {
   background: transparent;
   border: 1px solid transparent;
   font-size: 11.5px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   font-weight: 500;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
@@ -248,36 +244,36 @@ button.note-crumb--interactive:hover {
   flex-shrink: 0;
 }
 .note-save-pill:hover {
-  background: var(--bg-tertiary);
+  background: var(--muted);
 }
 .note-save-pill .note-save-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--quaternary-text);
+  background: var(--muted-foreground);
   transition: background 140ms ease;
 }
 .note-save-pill.saved .note-save-dot {
-  background: var(--accent);
+  background: var(--primary);
 }
 .note-save-pill.dirty .note-save-dot {
   background: var(--warning);
 }
 .note-save-pill.saving .note-save-dot {
-  background: var(--accent);
+  background: var(--primary);
   animation: note-saving-pulse 1.2s ease-in-out infinite;
 }
 @keyframes note-saving-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent);
   }
   50% {
     box-shadow: 0 0 0 5px transparent;
   }
 }
 .note-save-pill.error .note-save-dot {
-  background: var(--error);
+  background: var(--destructive);
 }
 
 .note-area .note-actionbar-sep {
@@ -303,7 +299,7 @@ button.note-crumb--interactive:hover {
   padding: var(--doc-py) var(--doc-px) 200px;
   font-size: var(--doc-font-size);
   line-height: var(--doc-line-height);
-  color: var(--text);
+  color: var(--foreground);
 }
 
 .note-area[data-note-mode='focused'] .note-doc {
@@ -316,7 +312,7 @@ button.note-crumb--interactive:hover {
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.15;
-  color: var(--text);
+  color: var(--foreground);
   margin: 0 0 12px;
   outline: none;
   border: none;
@@ -337,13 +333,13 @@ button.note-crumb--interactive:hover {
 /* Placeholder for contentEditable h1 */
 .note-doc-title-editable:empty::before {
   content: attr(data-placeholder);
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   font-weight: 700;
   pointer-events: none;
 }
 
 .note-doc-title-editable.note-doc-title-editable-placeholder {
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 .note-hero-cover {
@@ -365,7 +361,7 @@ button.note-crumb--interactive:hover {
   background:
     radial-gradient(
       120% 90% at 20% -10%,
-      color-mix(in srgb, var(--accent) 42%, transparent) 0%,
+      color-mix(in srgb, var(--primary) 42%, transparent) 0%,
       transparent 55%
     ),
     radial-gradient(
@@ -373,7 +369,7 @@ button.note-crumb--interactive:hover {
       color-mix(in srgb, var(--warning) 22%, transparent) 0%,
       transparent 52%
     ),
-    linear-gradient(to bottom, var(--bg-tertiary) 0%, var(--rail-bg) 100%);
+    linear-gradient(to bottom, var(--muted) 0%, var(--rail-bg) 100%);
   filter: saturate(105%) blur(2px);
   transform: scale(1.04);
 }
@@ -389,7 +385,7 @@ button.note-crumb--interactive:hover {
   place-items: center;
   font-size: 28px;
   line-height: 1;
-  background: var(--dome-bg-secondary, var(--bg-secondary));
+  background: var(--card, var(--card));
   border: 1px solid var(--border-soft-note);
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.08);
   margin-left: 1px;
@@ -412,7 +408,7 @@ button.note-crumb--interactive:hover {
   gap: 6px 14px;
   padding: 4px 0 12px;
   font-size: 11.5px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   border-bottom: 1px solid var(--border-soft-note);
   margin-bottom: 28px;
 }
@@ -449,14 +445,14 @@ button.note-crumb--interactive:hover {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--quaternary-text);
+  background: var(--muted-foreground);
 }
 .note-meta-chip.ai-chip {
-  color: var(--accent);
+  color: var(--primary);
   font-weight: 500;
 }
 .note-meta-chip.ai-chip .note-meta-dot-small {
-  background: var(--accent);
+  background: var(--primary);
   box-shadow: 0 0 0 3px var(--accent-soft-bg);
 }
 
@@ -472,16 +468,16 @@ button.note-crumb--interactive:hover {
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
-  border: 1px dashed var(--dome-border, var(--border));
+  border: 1px dashed var(--border, var(--border));
   font-size: 11px;
   font-weight: 600;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   background: transparent;
   cursor: pointer;
 }
 .note-meta-tag-add:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .note-meta-tag-add:disabled {
   opacity: 0.45;
@@ -489,19 +485,19 @@ button.note-crumb--interactive:hover {
 }
 
 .note-meta-ai-muted {
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 .note-area[data-note-mode='focused'] .note-meta-chip.ai-chip {
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 .note-area[data-note-mode='focused'] .note-meta-chip.ai-chip .note-meta-dot-small {
-  background: var(--quaternary-text);
+  background: var(--muted-foreground);
 }
 
 .backlinks-chip {
-  color: var(--secondary-text, var(--tertiary-text));
+  color: var(--muted-foreground, var(--muted-foreground));
 }
 
 .note-meta-tag {
@@ -510,33 +506,33 @@ button.note-crumb--interactive:hover {
   gap: 3px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--bg-tertiary);
+  background: var(--muted);
   font-size: 11px;
   font-weight: 500;
   border: 1px solid var(--border-soft-note);
-  color: var(--secondary-text, var(--tertiary-text));
+  color: var(--muted-foreground, var(--muted-foreground));
 }
 .note-meta-tag::before {
   content: '#';
-  color: var(--quaternary-text);
+  color: var(--muted-foreground);
 }
 
 .note-empty-hint-area {
   padding-top: 4px;
   padding-bottom: 8px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 .note-empty-intro {
   margin-bottom: 20px;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--quaternary-text);
+  color: var(--muted-foreground);
   letter-spacing: -0.01em;
 }
 
 .note-area[data-note-mode='focused'] .note-empty-intro {
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .note-empty-shortcuts {
@@ -556,7 +552,7 @@ button.note-crumb--interactive:hover {
   line-height: 1.35;
 }
 .note-empty-tip-copy {
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 .note-empty-key-chip {
@@ -577,9 +573,9 @@ button.note-crumb--interactive:hover {
     monospace;
   font-size: 12px;
   font-weight: 600;
-  color: var(--secondary-text, var(--tertiary-text));
-  background: var(--dome-bg-secondary, var(--bg-secondary));
-  border: 1px solid color-mix(in srgb, var(--dome-border, var(--border)) 94%, transparent);
+  color: var(--muted-foreground, var(--muted-foreground));
+  background: var(--card, var(--card));
+  border: 1px solid color-mix(in srgb, var(--border, var(--border)) 94%, transparent);
   border-radius: 8px;
   box-shadow: 0 1px 0 rgb(0 0 0 / 0.03);
 }
@@ -610,7 +606,7 @@ button.note-crumb--interactive:hover {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--quaternary-text);
+  color: var(--muted-foreground);
   font-weight: 600;
   margin-bottom: 14px;
 }
@@ -628,10 +624,10 @@ button.note-crumb--interactive:hover {
   padding: 7px 14px;
   border-radius: 999px;
   background: var(--doc-bg);
-  border: 1px solid color-mix(in srgb, var(--dome-border, var(--border)) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border, var(--border)) 94%, transparent);
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--secondary-text, var(--tertiary-text));
+  color: var(--muted-foreground, var(--muted-foreground));
   cursor: pointer;
   transition:
     border-color 140ms,
@@ -641,19 +637,19 @@ button.note-crumb--interactive:hover {
 }
 .note-template-pill-icon {
   opacity: 0.78;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 .note-template-pill:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--primary);
+  color: var(--primary);
   background: var(--accent-soft-bg);
   transform: translateY(-1px);
 }
 
 .note-template-pill:hover:not(:disabled) .note-template-pill-icon {
   opacity: 1;
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .bubble-menu-shell {
@@ -674,18 +670,18 @@ button.note-crumb--interactive:hover {
 }
 
 .bubble-menu-shell.note-bubble-scope {
-  background: color-mix(in srgb, var(--dome-surface) 92%, transparent);
-  color: var(--dome-text, var(--primary-text));
-  border: 1px solid var(--dome-border, var(--border-soft-note));
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: var(--foreground, var(--foreground));
+  border: 1px solid var(--border, var(--border-soft-note));
   box-shadow:
     0 16px 40px rgb(0 0 0 / 0.14),
     0 2px 8px rgb(0 0 0 / 0.06);
 }
 
 [data-theme='dark'] .bubble-menu-shell.note-bubble-scope {
-  background: color-mix(in srgb, var(--dome-surface) 94%, transparent);
-  color: var(--dome-text, var(--text));
-  border-color: color-mix(in srgb, var(--dome-text) 12%, transparent);
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  color: var(--foreground, var(--foreground));
+  border-color: color-mix(in srgb, var(--foreground) 12%, transparent);
   box-shadow:
     0 16px 44px rgb(0 0 0 / 0.45),
     0 1px 0 rgb(255 255 255 / 0.04) inset;
@@ -731,7 +727,7 @@ button.note-crumb--interactive:hover {
   align-items: center;
 }
 .bubble-menu-shell.note-bubble-scope button:hover:not(:disabled):not(.bubble-ai-pill) {
-  background: var(--dome-bg-hover, var(--bg-tertiary));
+  background: var(--accent, var(--muted));
 }
 
 .bubble-menu-shell.note-bubble-scope .bubble-ai-pill,
@@ -739,65 +735,65 @@ button.note-crumb--interactive:hover {
 .bubble-menu-shell.note-bubble-scope .bubble-ai-pill.is-open {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 88%, var(--base-active)) 0%,
-    var(--accent) 100%
+    color-mix(in srgb, var(--primary) 88%, color-mix(in oklch, var(--primary) 78%, var(--background))) 0%,
+    var(--primary) 100%
   ) !important;
-  color: var(--dome-on-accent) !important;
+  color: var(--primary-foreground) !important;
 }
 .bubble-menu-shell .bubble-ai-pill span,
 .bubble-menu-shell .bubble-ai-pill svg {
-  color: var(--dome-on-accent);
+  color: var(--primary-foreground);
 }
 
 .bubble-menu-shell.note-bubble-scope .bubble-bb-sep {
-  background: color-mix(in srgb, var(--dome-text, var(--text)) 14%, transparent);
+  background: color-mix(in srgb, var(--foreground, var(--foreground)) 14%, transparent);
 }
 
 .bubble-menu-shell.note-bubble-scope .bubble-type-btn:hover {
-  background: var(--dome-bg-hover, var(--bg-tertiary));
+  background: var(--accent, var(--muted));
   opacity: 1;
 }
 
 .bubble-menu-shell.note-bubble-scope .bb-icon-btn:hover:not(:disabled) {
-  background: var(--dome-bg-hover, var(--bg-tertiary));
+  background: var(--accent, var(--muted));
 }
 
 .bubble-menu-shell.note-bubble-scope .bb-icon-btn.active {
-  color: var(--dome-accent, var(--accent));
-  background: color-mix(in srgb, var(--dome-accent, var(--accent)) 14%, transparent);
+  color: var(--primary, var(--primary));
+  background: color-mix(in srgb, var(--primary, var(--primary)) 14%, transparent);
 }
 
 .bubble-menu-shell.note-bubble-scope .tiptap-button {
-  color: var(--dome-text, inherit) !important;
+  color: var(--foreground, inherit) !important;
   background: transparent !important;
 }
 
 .bubble-menu-shell.note-bubble-scope .tiptap-button:hover:not(:disabled) {
-  background: var(--dome-bg-hover, var(--bg-tertiary)) !important;
+  background: var(--accent, var(--muted)) !important;
 }
 
 .bubble-menu-shell.note-bubble-scope .tiptap-button[data-active-state='on'] {
-  background: color-mix(in srgb, var(--dome-accent, var(--accent)) 16%, transparent) !important;
-  color: var(--dome-accent, var(--accent)) !important;
+  background: color-mix(in srgb, var(--primary, var(--primary)) 16%, transparent) !important;
+  color: var(--primary, var(--primary)) !important;
 }
 
 .bubble-menu-shell .bubble-ai-pill {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 88%, var(--base-active)) 0%,
-    var(--accent) 100%
+    color-mix(in srgb, var(--primary) 88%, color-mix(in oklch, var(--primary) 78%, var(--background))) 0%,
+    var(--primary) 100%
   );
-  color: var(--dome-on-accent);
+  color: var(--primary-foreground);
   padding: 4px 10px;
   gap: 5px;
   border-radius: 8px;
   font-weight: 600;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 .bubble-menu-shell .bubble-ai-pill.is-open,
 .bubble-menu-shell .bubble-ai-pill[aria-expanded='true'] {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 .bubble-menu-shell button:disabled {
@@ -823,9 +819,9 @@ button.note-crumb--interactive:hover {
   letter-spacing: 0.03em;
   padding: 2px 5px;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  color: var(--tertiary-text);
+  border: 1px solid color-mix(in srgb, var(--foreground) 18%, transparent);
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--muted-foreground);
 }
 
 .bubble-ai-sparkle-btn {
@@ -838,12 +834,12 @@ button.note-crumb--interactive:hover {
   justify-content: center;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 85%, black) 0%,
-    var(--accent) 100%
+    color-mix(in srgb, var(--primary) 85%, black) 0%,
+    var(--primary) 100%
   );
-  color: var(--dome-on-accent);
+  color: var(--primary-foreground);
   cursor: pointer;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 42%, transparent);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 42%, transparent);
 }
 .bubble-ai-sparkle-btn:disabled {
   opacity: 0.45;
@@ -859,7 +855,7 @@ button.note-crumb--interactive:hover {
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
-  background: color-mix(in srgb, var(--dome-text, currentColor) 5%, transparent);
+  background: color-mix(in srgb, var(--foreground, currentColor) 5%, transparent);
   border: none;
   border-radius: 8px;
   color: inherit;
@@ -869,8 +865,8 @@ button.note-crumb--interactive:hover {
   font-weight: 600;
 }
 .bubble-menu-shell .bubble-type-btn[aria-expanded='true'] {
-  background: color-mix(in srgb, var(--dome-accent, var(--accent)) 12%, transparent);
-  color: var(--dome-accent, var(--accent));
+  background: color-mix(in srgb, var(--primary, var(--primary)) 12%, transparent);
+  color: var(--primary, var(--primary));
 }
 
 /* Generic icon button inside bubble menu (for stubs like Comment/More) */
@@ -894,7 +890,7 @@ button.note-crumb--interactive:hover {
 
 /* Legacy dark bubble mark buttons — overridden by .note-bubble-scope above */
 .bubble-menu-shell:not(.note-bubble-scope) .tiptap-button {
-  color: var(--dome-on-accent) !important;
+  color: var(--primary-foreground) !important;
   background: transparent !important;
   height: 28px;
   min-width: 28px;
@@ -907,7 +903,7 @@ button.note-crumb--interactive:hover {
 }
 .bubble-menu-shell .tiptap-button[data-active-state='on'] {
   background: rgb(255 255 255 / 0.2) !important;
-  color: var(--dome-on-accent) !important;
+  color: var(--primary-foreground) !important;
 }
 .bubble-menu-shell .tiptap-button-icon {
   color: inherit;
@@ -926,7 +922,7 @@ button.note-crumb--interactive:hover {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--dome-text-muted, var(--tt-dropdown-menu-label-color));
+  color: var(--muted-foreground, var(--tt-dropdown-menu-label-color));
 }
 
 .bubble-submenu-item {
@@ -950,7 +946,7 @@ button.note-crumb--interactive:hover {
   opacity: 0.72;
 }
 .bubble-submenu-item:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--dome-accent, var(--accent)) 10%, var(--dome-bg-hover, rgb(0 0 0 / 0.05)));
+  background: color-mix(in srgb, var(--primary, var(--primary)) 10%, var(--accent, rgb(0 0 0 / 0.05)));
 }
 .bubble-submenu-item:disabled {
   opacity: 0.45;
@@ -959,12 +955,12 @@ button.note-crumb--interactive:hover {
 .bubble-submenu-sep {
   height: 1px;
   margin: 0.35rem 0.5rem;
-  background: var(--dome-border, color-mix(in srgb, currentColor 12%, transparent));
+  background: var(--border, color-mix(in srgb, currentColor 12%, transparent));
 }
 .bubble-submenu-panel {
-  background: var(--dome-surface, var(--tt-dropdown-menu-bg-color));
-  color: var(--dome-text, var(--tt-dropdown-menu-text-color));
-  border: 1px solid var(--dome-border, transparent);
+  background: var(--card, var(--tt-dropdown-menu-bg-color));
+  color: var(--foreground, var(--tt-dropdown-menu-text-color));
+  border: 1px solid var(--border, transparent);
   border-radius: 12px;
   padding: 0.35rem;
   max-height: min(70vh, 420px);
@@ -997,8 +993,8 @@ button.note-crumb--interactive:hover {
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
-  background: color-mix(in srgb, var(--dome-surface) 94%, transparent);
-  border: 1px solid var(--dome-border, var(--border));
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  border: 1px solid var(--border, var(--border));
   border-radius: 999px;
   box-shadow:
     0 14px 36px rgb(0 0 0 / 0.12),
@@ -1007,8 +1003,8 @@ button.note-crumb--interactive:hover {
 }
 
 [data-theme='dark'] .note-insert-bar-inner {
-  background: color-mix(in srgb, var(--dome-surface) 92%, transparent);
-  border-color: color-mix(in srgb, var(--dome-text) 10%, transparent);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 10%, transparent);
   box-shadow:
     0 16px 40px rgb(0 0 0 / 0.42),
     0 1px 0 rgb(255 255 255 / 0.04) inset;
@@ -1018,7 +1014,7 @@ button.note-crumb--interactive:hover {
   width: 1px;
   height: 22px;
   margin: 0 2px;
-  background: color-mix(in srgb, var(--dome-text, currentColor) 14%, transparent);
+  background: color-mix(in srgb, var(--foreground, currentColor) 14%, transparent);
   flex-shrink: 0;
 }
 .note-insert-bar-inner button {
@@ -1028,20 +1024,20 @@ button.note-crumb--interactive:hover {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: color-mix(in srgb, var(--dome-text, var(--text)) 72%, transparent);
+  color: color-mix(in srgb, var(--foreground, var(--foreground)) 72%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .note-insert-bar-inner button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--dome-text, var(--text)) 8%, transparent);
-  color: var(--dome-text, var(--text));
+  background: color-mix(in srgb, var(--foreground, var(--foreground)) 8%, transparent);
+  color: var(--foreground, var(--foreground));
 }
 .note-insert-bar-inner button.note-insert-plus-btn {
   width: 28px;
   height: 28px;
-  background: color-mix(in srgb, var(--dome-text, var(--text)) 8%, transparent);
-  color: var(--dome-text, var(--text));
+  background: color-mix(in srgb, var(--foreground, var(--foreground)) 8%, transparent);
+  color: var(--foreground, var(--foreground));
 }
 .note-insert-bar-inner button.note-insert-kbd-btn {
   width: auto;
@@ -1058,42 +1054,42 @@ button.note-crumb--interactive:hover {
   min-width: 30px;
   padding: 0;
   border-radius: 999px;
-  color: color-mix(in srgb, var(--dome-text, var(--text)) 72%, transparent);
+  color: color-mix(in srgb, var(--foreground, var(--foreground)) 72%, transparent);
 }
 .note-insert-bar-inner .tiptap-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--dome-text, var(--text)) 8%, transparent);
-  color: var(--dome-text, var(--text));
+  background: color-mix(in srgb, var(--foreground, var(--foreground)) 8%, transparent);
+  color: var(--foreground, var(--foreground));
 }
 .note-insert-bar-inner .tiptap-button[data-active-state='on'] {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
 }
 .note-insert-bar-inner button.note-ai-insert-trigger {
   width: 34px;
   height: 34px;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 88%, var(--base-active)) 0%,
-    var(--accent) 100%
+    color-mix(in srgb, var(--primary) 88%, color-mix(in oklch, var(--primary) 78%, var(--background))) 0%,
+    var(--primary) 100%
   );
-  color: var(--dome-on-accent);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 38%, transparent);
+  color: var(--primary-foreground);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 38%, transparent);
 }
 .note-insert-bar-inner button.note-ai-insert-trigger:hover {
   filter: brightness(1.06);
-  color: var(--dome-on-accent);
+  color: var(--primary-foreground);
 }
 .note-insert-bar-inner .note-insert-bar-label-kbd {
   padding: 0 12px;
   font-size: 12px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   border-left: 1px solid var(--border-soft-note);
 }
 
 /* ── Slash menu (prototype layout) ─────────────────────── */
 .slash-menu-proto {
   width: 340px;
-  background: var(--bg);
+  background: var(--background);
   border: 1px solid var(--border-soft-note);
   border-radius: 16px;
   overflow: hidden;
@@ -1103,7 +1099,7 @@ button.note-crumb--interactive:hover {
   max-height: 420px;
 }
 [data-theme='dark'] .slash-menu-proto {
-  background: var(--bg-secondary);
+  background: var(--card);
 }
 
 .slash-search-row {
@@ -1112,10 +1108,10 @@ button.note-crumb--interactive:hover {
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-soft-note);
-  background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+  background: color-mix(in srgb, var(--primary) 4%, var(--background));
 }
 .slash-search-icon {
-  color: var(--accent);
+  color: var(--primary);
   opacity: 0.7;
   flex-shrink: 0;
   display: flex;
@@ -1126,19 +1122,19 @@ button.note-crumb--interactive:hover {
   border: none;
   outline: none;
   font-size: 13px;
-  color: var(--primary-text);
+  color: var(--foreground);
   font-family: var(--font-sans);
 }
 .slash-search-input::placeholder {
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 .slash-kbd-chip {
   font-size: 10px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 5px;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  color: var(--tertiary-text);
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  color: var(--muted-foreground);
   border: 1px solid var(--border-soft-note);
   flex-shrink: 0;
 }
@@ -1153,7 +1149,7 @@ button.note-crumb--interactive:hover {
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   padding: 8px 10px 3px;
 }
 .slash-item-btn {
@@ -1171,14 +1167,14 @@ button.note-crumb--interactive:hover {
 }
 .slash-item-btn:hover,
 .slash-item-btn.active {
-  background: color-mix(in srgb, var(--accent) 12%, var(--dome-bg-hover, var(--bg-secondary)));
+  background: color-mix(in srgb, var(--primary) 12%, var(--accent, var(--card)));
 }
 .slash-item-btn.active .slash-item-name {
-  color: var(--primary-text);
+  color: var(--foreground);
   font-weight: 600;
 }
 .slash-item-btn.active .slash-item-desc {
-  color: var(--secondary-text);
+  color: var(--muted-foreground);
 }
 .slash-item-icon {
   display: flex;
@@ -1187,26 +1183,26 @@ button.note-crumb--interactive:hover {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: color-mix(in srgb, var(--dome-text, var(--text)) 6%, var(--dome-surface, var(--bg)));
-  border: 1px solid color-mix(in srgb, var(--dome-text, var(--text)) 10%, transparent);
-  color: color-mix(in srgb, var(--dome-text, var(--text)) 78%, transparent);
+  background: color-mix(in srgb, var(--foreground, var(--foreground)) 6%, var(--card, var(--background)));
+  border: 1px solid color-mix(in srgb, var(--foreground, var(--foreground)) 10%, transparent);
+  color: color-mix(in srgb, var(--foreground, var(--foreground)) 78%, transparent);
   flex-shrink: 0;
 }
 .slash-item-icon--accent {
-  background: color-mix(in srgb, var(--accent) 10%, var(--dome-surface, var(--bg)));
-  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--primary) 10%, var(--card, var(--background)));
+  border-color: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--primary);
 }
 .slash-item-icon.is-active,
 .slash-item-btn.active .slash-item-icon {
-  background: color-mix(in srgb, var(--accent) 14%, var(--dome-surface, var(--bg)));
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--primary) 14%, var(--card, var(--background)));
+  border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+  color: var(--primary);
 }
 .slash-item-btn.active .slash-item-icon--accent {
-  background: var(--accent);
+  background: var(--primary);
   border-color: transparent;
-  color: var(--dome-on-accent);
+  color: var(--primary-foreground);
 }
 .slash-item-text {
   min-width: 0;
@@ -1214,7 +1210,7 @@ button.note-crumb--interactive:hover {
 .slash-item-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--primary-text);
+  color: var(--foreground);
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -1222,7 +1218,7 @@ button.note-crumb--interactive:hover {
 }
 .slash-item-desc {
   font-size: 11.5px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -1230,7 +1226,7 @@ button.note-crumb--interactive:hover {
 }
 .slash-empty {
   font-size: 13px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
   text-align: center;
   padding: 24px 0;
 }
@@ -1241,7 +1237,7 @@ button.note-crumb--interactive:hover {
   padding: 8px 14px;
   border-top: 1px solid var(--border-soft-note);
   font-size: 11px;
-  color: var(--tertiary-text);
+  color: var(--muted-foreground);
 }
 
 /* Slash / mention shell overrides */
@@ -1252,8 +1248,8 @@ button.note-crumb--interactive:hover {
 }
 
 .mention-suggestion-menu {
-  background: var(--dome-surface);
-  border: 1px solid var(--dome-border);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px;
   min-width: 220px;
@@ -1263,7 +1259,7 @@ button.note-crumb--interactive:hover {
 
 .mention-suggestion-menu--empty {
   overflow-y: hidden;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -1282,24 +1278,24 @@ button.note-crumb--interactive:hover {
 }
 
 .mention-suggestion-item.is-selected {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .mention-suggestion-item__label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--dome-text);
+  color: var(--foreground);
 }
 
 .mention-suggestion-item__type {
   font-size: 12px;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .note-slash-footer,
 .note-mention-footer {
   font-size: 11px !important;
-  color: var(--tertiary-text) !important;
+  color: var(--muted-foreground) !important;
   gap: 14px !important;
 }
 
@@ -1309,7 +1305,7 @@ button.note-crumb--interactive:hover {
 }
 .note-area .mention-thumb-note {
   background: var(--accent-soft-bg) !important;
-  color: var(--accent) !important;
+  color: var(--primary) !important;
 }
 
 /* Drag handle gutter */
@@ -1329,15 +1325,15 @@ button.note-crumb--interactive:hover {
   border-radius: 6px;
   border: none;
   cursor: default;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .note-editor-drag-host button.note-drag-mini:hover {
-  background: var(--dome-bg-hover);
-  color: var(--dome-text);
+  background: var(--accent);
+  color: var(--foreground);
 }
 .note-editor-drag-host button.note-drag-grip {
   cursor: grab;
@@ -1361,12 +1357,12 @@ button.note-crumb--interactive:hover {
 }
 
 .note-editor-wrapper.is-dragging-block .note-editor-content .ProseMirror-selectednode:not(img):not(pre) {
-  background: color-mix(in srgb, var(--dome-accent) 7%, transparent);
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
   border-radius: 4px;
 }
 
 .note-editor-content .ProseMirror-hideselection *::selection {
-  background: color-mix(in srgb, var(--dome-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 /* ─── Prototype block styles inside note editor (.tiptap) ─── */
@@ -1381,7 +1377,7 @@ button.note-crumb--interactive:hover {
   padding: 14px 16px;
   border-radius: var(--radius-lg, 10px);
   background: var(--olive-soft-note);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent) !important;
   margin: 4px 0;
   border-left: none !important;
 }
@@ -1401,7 +1397,7 @@ button.note-crumb--interactive:hover {
   border-color: color-mix(in srgb, var(--rose-text-note) 20%, transparent) !important;
 }
 .note-editor-content .tiptap [data-type='callout'].dome-callout--success {
-  border-color: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--primary) 18%, transparent) !important;
 }
 .note-editor-content .tiptap [data-type='callout'].dome-callout--olive {
   background: var(--olive-soft-note);
@@ -1413,7 +1409,7 @@ button.note-crumb--interactive:hover {
 .note-editor-content .tiptap .dome-ai-block {
   border-radius: var(--radius-lg, 12px);
   border: 1px solid var(--border-soft-note);
-  background: var(--bg-elevated, var(--bg-secondary));
+  background: var(--card, var(--card));
   padding: 14px 16px;
   margin: 8px 0;
 }
@@ -1442,15 +1438,15 @@ button.note-crumb--interactive:hover {
 .note-editor-content .tiptap [data-type='toggle-body'] {
   margin-left: 22px;
   margin-top: 4px;
-  border-left: 1px solid var(--dome-border, var(--border));
+  border-left: 1px solid var(--border, var(--border));
   padding-left: 14px;
 }
 
 .note-editor-content .tiptap blockquote {
-  border-left: 3px solid var(--accent) !important;
+  border-left: 3px solid var(--primary) !important;
   padding: 4px 0 4px 16px !important;
   margin: 8px 0 !important;
-  color: var(--secondary-text, var(--tertiary-text));
+  color: var(--muted-foreground, var(--muted-foreground));
   font-style: italic !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -1463,10 +1459,10 @@ button.note-crumb--interactive:hover {
   padding: 1px 8px 1px 4px;
   border-radius: 999px;
   background: var(--accent-soft-bg);
-  color: var(--accent);
+  color: var(--primary);
   font-size: 0.92em;
   font-weight: 500;
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
   vertical-align: baseline;
   text-decoration: none !important;
   cursor: pointer;
@@ -1487,7 +1483,7 @@ button.note-crumb--interactive:hover {
   width: 16px !important;
   height: 16px !important;
   border-radius: 4px;
-  accent-color: var(--accent);
+  accent-color: var(--primary);
 }
 
 .note-editor-content .tiptap .doc-table-tip,
@@ -1509,7 +1505,7 @@ button.note-crumb--interactive:hover {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--quaternary-text);
+  color: var(--muted-foreground);
   padding: 10px 8px !important;
   border: none !important;
   border-bottom: 1px solid var(--border-soft-note) !important;
@@ -1526,8 +1522,8 @@ button.note-crumb--interactive:hover {
 
 .note-editor-content .tiptap .dome-code-block-view {
   border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--dome-border, var(--border));
-  background: var(--bg-secondary);
+  border: 1px solid var(--border, var(--border));
+  background: var(--card);
   overflow: hidden;
 }
 
@@ -1537,8 +1533,8 @@ button.note-crumb--interactive:hover {
   justify-content: space-between;
   gap: 8px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--dome-border, var(--border));
-  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border, var(--border));
+  background: var(--muted);
   font-size: 12px;
 }
 
@@ -1554,9 +1550,9 @@ button.note-crumb--interactive:hover {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: var(--radius-sm, 6px);
-  border: 1px solid var(--dome-border, var(--border));
-  background: var(--bg-secondary);
-  color: var(--secondary-text, var(--tertiary-text));
+  border: 1px solid var(--border, var(--border));
+  background: var(--card);
+  color: var(--muted-foreground, var(--muted-foreground));
 }
 
 .note-editor-content .tiptap .dome-code-block-view__lang {
@@ -1572,14 +1568,14 @@ button.note-crumb--interactive:hover {
   border-radius: var(--radius-sm, 6px);
   border: 1px solid transparent;
   background: transparent;
-  color: var(--secondary-text, var(--tertiary-text));
+  color: var(--muted-foreground, var(--muted-foreground));
   cursor: pointer;
 }
 
 .note-editor-content .tiptap .dome-code-block-view__copy:hover {
-  color: var(--primary-text);
-  background: var(--bg-secondary);
-  border-color: var(--dome-border, var(--border));
+  color: var(--foreground);
+  background: var(--card);
+  border-color: var(--border, var(--border));
 }
 
 .note-editor-content .tiptap .dome-code-block-view__pre {

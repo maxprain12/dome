@@ -1,4 +1,6 @@
 {
+  "faq_title": "Frequently Asked Questions",
+  "faq_question_count": "{{count}} questions",
   "filter_rows_label": "Filter rows",
   "filter_rows_placeholder": "Filter rows...",
   "no_matching_rows": "No matching rows",

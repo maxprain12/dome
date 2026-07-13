@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import ManyHitlInlineCard from '@/components/many/ManyHitlInlineCard';
 import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
@@ -80,7 +81,7 @@ export default function HITLReviewPanel({
     [actionRequests, flushDecisions, t],
   );
 
-  const wrapperCls = inline ? 'flex flex-col gap-3' : 'many-hitl-panel px-4 py-3 border-t border-[var(--border-soft)] bg-[var(--bg)]';
+  const wrapperCls = inline ? 'flex flex-col gap-3' : 'many-hitl-panel px-4 py-3 border-t border-border bg-background';
 
   return (
     <div className={wrapperCls}>
@@ -138,12 +139,12 @@ export default function HITLReviewPanel({
 
         {actionRequests.length > 1 ? (
           <div className="mt-2 flex justify-end gap-2">
-            <button type="button" className="btn btn-danger" onClick={() => flushDecisions(actionRequests.map(() => ({ type: 'reject', message: t('chat.rejected_by_user') })))}>
+            <Button type="button" variant="destructive" onClick={() => flushDecisions(actionRequests.map(() => ({ type: 'reject', message: t('chat.rejected_by_user') })))}>
               {t('chat.reject_all')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-primary"
+              
               onClick={() => {
                 flushDecisions(
                   decisionsRef.current.map((d, i) =>
@@ -155,7 +156,7 @@ export default function HITLReviewPanel({
               }}
             >
               {t('many.hitl_continue')}
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>

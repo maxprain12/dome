@@ -270,8 +270,57 @@ const DOME_MODELS = [
 ];
 
 /**
+ * Plan-filtered model list for the Dome provider. The catalog lives in
+ * dome-provider (`model-catalog.json`) and is served per-plan by
+ * `GET /api/v1/me/quota` (`models: [{ id, displayName, multiplier, available }]`).
+ * Falls back to `dome/auto` when not connected or on any error.
+ * @param {object} [database]
+ * @returns {Promise<{ success: boolean, models?: NormalizedModel[], error?: string }>}
+ */
+async function fetchDomeModels(database) {
+  if (!database) return { success: true, models: DOME_MODELS };
+  try {
+    const domeOauth = require('../auth/dome-oauth.cjs');
+    const session = await domeOauth.getOrRefreshSession(database);
+    if (!session?.connected || !session?.accessToken) {
+      return { success: true, models: DOME_MODELS };
+    }
+    const cached = getCached('dome', session.accessToken);
+    if (cached) return { success: true, models: cached };
+
+    const res = await domeOauth.fetchWithDomeAuth(
+      database,
+      `${domeOauth.getDomeProviderBaseUrl()}/api/v1/me/quota`,
+    );
+    if (!res.ok) return { success: true, models: DOME_MODELS };
+    const json = /** @type {Record<string, unknown>} */ (await res.json());
+    const planModels = Array.isArray(json.models) ? json.models : [];
+    const models = [...DOME_MODELS];
+    for (const row of planModels) {
+      if (!row || typeof row !== 'object') continue;
+      const r = /** @type {Record<string, unknown>} */ (row);
+      const id = typeof r.id === 'string' ? r.id : '';
+      if (!id || r.available !== true) continue;
+      const displayName = typeof r.displayName === 'string' ? r.displayName : id;
+      const multiplier = Number(r.multiplier);
+      models.push(makeModel(id, displayName, {
+        api: 'openai-completions',
+        description: Number.isFinite(multiplier) && multiplier > 0 ? `Créditos ×${multiplier}` : undefined,
+      }));
+    }
+    if (models.length > DOME_MODELS.length) {
+      setCached('dome', session.accessToken, models);
+    }
+    return { success: true, models };
+  } catch (err) {
+    console.warn('[Provider models] dome:', err instanceof Error ? err.message : String(err));
+    return { success: true, models: DOME_MODELS };
+  }
+}
+
+/**
  * @param {string} provider
- * @param {{ apiKey?: string }} [options]
+ * @param {{ apiKey?: string, database?: object }} [options]
  * @returns {Promise<{ success: boolean, models?: NormalizedModel[], error?: string }>}
  */
 async function fetchProviderModels(provider, options = {}) {
@@ -279,7 +328,7 @@ async function fetchProviderModels(provider, options = {}) {
   const apiKey = String(options.apiKey || '').trim();
 
   if (normalized === 'dome') {
-    return { success: true, models: DOME_MODELS };
+    return fetchDomeModels(options.database);
   }
 
   if (normalized === 'opencode' || normalized === 'opencode-go') {

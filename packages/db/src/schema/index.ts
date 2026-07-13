@@ -6,6 +6,7 @@ export * from './calendar.js';
 export * from './learn.js';
 export * from './github.js';
 export * from './pipelines.js';
+export * from './sync.js';
 
 import * as core from './core.js';
 import * as agents from './agents.js';
@@ -15,6 +16,7 @@ import * as calendar from './calendar.js';
 import * as learn from './learn.js';
 import * as github from './github.js';
 import * as pipelines from './pipelines.js';
+import * as sync from './sync.js';
 
 /** Full schema object passed to drizzle(). FTS5 virtual tables are managed via raw SQL. */
 export const schema = {
@@ -26,4 +28,5 @@ export const schema = {
   ...learn,
   ...github,
   ...pipelines,
+  ...sync,
 };

@@ -1,10 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Plus, X, Search } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Add01Icon, Cancel01Icon, Search01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
 import { filterOutDeletedSessions, deriveManySessionTitle } from '@/lib/store/manySessionStorage';
 import ChatHistorySessionList from '@/components/chat/ChatHistorySessionList';
 import { buildChatHistorySections, filterAndSortSessions } from '@/components/chat/chatHistoryUtils';
+import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 
 interface ManyChatHistoryPanelProps {
   sessions: ManyChatSession[];
@@ -29,8 +32,6 @@ export default function ManyChatHistoryPanel({
 
   const sessionsForList = useMemo(() => {
     const visible = filterOutDeletedSessions(sessions);
-    // Only surface the current session as an "orphan" row if it has real
-    // messages. An empty draft (fresh "New chat") must NOT appear in history.
     if (!currentSessionId || liveMessages.length === 0 || visible.some((s) => s.id === currentSessionId)) {
       return visible;
     }
@@ -57,60 +58,44 @@ export default function ManyChatHistoryPanel({
   const emptyTitle = query ? t('many.search_no_results') : t('many.history_empty');
 
   return (
-    <div
-      className="many-history-panel chat-history-panel"
-      style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 20,
-      }}
-    >
-      <header className="chat-history-hd">
-        <h3 className="chat-history-hd__title">{t('many.history')}</h3>
-        <button
-          type="button"
-          className="many-icon-btn"
-          onClick={onNewChat}
-          title={t('many.newChat')}
-          aria-label={t('many.newChat')}
-        >
-          <Plus size={15} />
-        </button>
-        <button
-          type="button"
-          className="many-icon-btn"
-          onClick={onClose}
-          aria-label={t('many.close_chat_aria')}
-        >
-          <X size={14} />
-        </button>
-      </header>
+    <div className="absolute inset-0 z-10 flex flex-col bg-background">
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2.5">
+        <h2 className="flex-1 text-sm font-semibold">{t('many.history')}</h2>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onNewChat} aria-label={t('many.newChat')}>
+          <HugeiconsIcon icon={Add01Icon} />
+        </Button>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('many.close_chat_aria')}>
+          <HugeiconsIcon icon={Cancel01Icon} />
+        </Button>
+      </div>
 
-      <div className="chat-history-search">
-        <label className="chat-history-search-box">
-          <Search size={13} strokeWidth={2} aria-hidden />
-          <input
+      <div className="shrink-0 border-b px-3 py-2">
+        <InputGroup>
+          <InputGroupAddon align="inline-start">
+            <HugeiconsIcon icon={Search01Icon} />
+          </InputGroupAddon>
+          <InputGroupInput
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('many.search_chats')}
             aria-label={t('many.search_chats')}
           />
-        </label>
+        </InputGroup>
       </div>
 
-      <ChatHistorySessionList
-        sections={sections}
-        currentSessionId={currentSessionId}
-        emptyTitle={emptyTitle}
-        onSelectSession={(session) => {
-          onSelectSession(session.id);
-          onClose();
-        }}
-        onDeleteSession={onDeleteSession}
-      />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ChatHistorySessionList
+          sections={sections}
+          currentSessionId={currentSessionId}
+          emptyTitle={emptyTitle}
+          onSelectSession={(session) => {
+            onSelectSession(session.id);
+            onClose();
+          }}
+          onDeleteSession={onDeleteSession}
+        />
+      </div>
     </div>
   );
 }

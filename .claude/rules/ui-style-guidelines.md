@@ -1,5 +1,23 @@
 # Dome - UI Style Guidelines
 
+## shadcn/ui (librería principal)
+
+Dome migra a **[shadcn/ui](https://ui.shadcn.com/)** con primitivos **Base UI** (preset `base-luma`, color `olive`, iconos Hugeicons).
+
+| Qué | Dónde |
+|-----|-------|
+| Componentes shadcn | `app/components/ui/` (`button.tsx`, …) |
+| Config CLI | `components.json` (raíz del repo) |
+| Utilidad `cn()` | `app/lib/utils.ts` |
+| Init / add en monorepo pnpm | [`.claude/sops/shadcn-ui.md`](../sops/shadcn-ui.md) |
+
+**Reglas:**
+- UI **nueva** → importar desde `@/components/ui/<componente>` (shadcn).
+- Componentes `Dome*` / `Hub*` → ELIMINADOS (jul-2026). `ui/` = solo shadcn originales; composiciones de app en `app/components/shared/`.
+- Mantine → en desuso; no añadir imports nuevos de `@mantine/*`.
+
+---
+
 ## Design Principles
 
 ### 1. Clarity Over Decoration
@@ -491,6 +509,10 @@ When implementing dark mode, swap these values:
 ---
 
 ## Implementation Checklist
+
+### Reduced motion
+
+Keep opacity and color feedback available, but disable spatial movement, blur, pulsing, and decorative transforms with `motion-reduce:transition-none` or `motion-reduce:animate-none`. Global reduced-motion rules are intentionally scoped to shared entrance/exit classes; each feature that adds motion must provide its own local reduced-motion behavior.
 
 Before shipping a component:
 

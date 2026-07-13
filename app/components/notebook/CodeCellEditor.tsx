@@ -65,9 +65,9 @@ export default function CodeCellEditor({
       spellCheck={false}
       className={`flex-1 min-h-[80px] min-w-0 rounded overflow-hidden resize-none w-full p-2 text-sm font-mono outline-none border-0 ${className}`}
       style={{
-        backgroundColor: 'var(--bg)',
-        color: 'var(--primary-text)',
-        caretColor: 'var(--primary-text)',
+        backgroundColor: 'var(--background)',
+        color: 'var(--foreground)',
+        caretColor: 'var(--foreground)',
         fontFamily: 'var(--font-mono)',
         ...style,
       }}

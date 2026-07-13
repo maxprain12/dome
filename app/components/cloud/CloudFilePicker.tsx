@@ -1,13 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Cloud, Folder, File, ChevronRight, ChevronLeft,
-  Search, X, Download, Loader2, AlertCircle, CheckCircle2,
-} from 'lucide-react';
-import DomeButton from '@/components/ui/DomeButton';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AlertCircleIcon, ArrowLeft01Icon, ArrowRight01Icon, Cancel01Icon, CheckmarkCircle02Icon, CloudIcon, Download04Icon, File01Icon, Folder01Icon, Search01Icon } from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface CloudFile {
+export interface CloudFile {
   id: string;
   name: string;
   mimeType: string | null;
@@ -37,7 +45,7 @@ interface Props {
 }
 
 const PROVIDER_ICON = {
-  google: <Cloud className="size-4" />,
+  google: <HugeiconsIcon icon={CloudIcon} />,
 };
 
 const IMPORTABLE_TYPES = new Set([
@@ -54,7 +62,7 @@ const IMPORTABLE_TYPES = new Set([
   'application/vnd.google-apps.spreadsheet',
 ]);
 
-function isImportable(file: CloudFile) {
+export function isImportable(file: CloudFile) {
   if (file.isFolder) return false;
   if (!file.mimeType) return false;
   return IMPORTABLE_TYPES.has(file.mimeType);
@@ -168,143 +176,78 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
   };
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center" role="presentation">
-      <button
-        type="button"
-        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
-        style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
-        aria-label={t('ui.close')}
-        onClick={onClose}
-      />
-      <dialog
-        open
-        className="relative z-10 flex flex-col rounded-2xl overflow-hidden m-0 max-w-none max-h-none p-0 border-0"
-        style={{
-          width: 680, height: 520,
-          backgroundColor: 'var(--bg)', border: '1px solid var(--border)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-        }}
-        aria-modal="true"
-        aria-labelledby="cloud-file-picker-title"
-        onCancel={(e) => { e.preventDefault(); onClose(); }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div className="flex items-center gap-2">
-            <Cloud className="size-4" style={{ color: 'var(--accent)' }} />
-            <span id="cloud-file-picker-title" className="font-semibold text-sm" style={{ color: 'var(--primary-text)' }}>
-              Importar desde Cloud
-            </span>
-          </div>
-          <button type="button" onClick={onClose} className="p-1 rounded-lg hover:opacity-70 transition-opacity">
-            <X className="size-4" style={{ color: 'var(--tertiary-text)' }} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="flex h-[min(80vh,560px)] max-w-3xl flex-col overflow-hidden">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><HugeiconsIcon icon={CloudIcon} />{t('cloud.import_title', 'Import from Cloud')}</DialogTitle><DialogDescription>{t('cloud.import_description', 'Browse a connected account and import compatible documents into Dome.')}</DialogDescription></DialogHeader>
 
         {/* Account selector (if multiple) */}
         {accounts.length > 1 && (
-          <div className="flex gap-2 px-5 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-            {accounts.map((acc) => (
-              <button
-                type="button"
-                key={acc.accountId}
-                onClick={() => { setSelectedAccount(acc); setBreadcrumbs([{ id: null, name: 'Mi unidad' }]); }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: selectedAccount?.accountId === acc.accountId ? 'var(--accent)' : 'var(--bg-secondary)',
-                  color: selectedAccount?.accountId === acc.accountId ? 'var(--base-text)' : 'var(--secondary-text)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                {PROVIDER_ICON[acc.provider]}
-                {acc.email}
-              </button>
-            ))}
-          </div>
+          <Tabs value={selectedAccount?.accountId ?? ''} onValueChange={(accountId) => { const account = accounts.find((entry) => entry.accountId === accountId); if (account) { setSelectedAccount(account); setBreadcrumbs([{ id: null, name: t('cloud.my_drive', 'My drive') }]); } }}><TabsList>{accounts.map((account) => <TabsTrigger value={account.accountId} key={account.accountId}>{PROVIDER_ICON[account.provider]}{account.email}</TabsTrigger>)}</TabsList></Tabs>
         )}
 
         {/* No accounts */}
         {accounts.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'var(--tertiary-text)' }}>
-            <Cloud className="size-10 opacity-30" />
-            <p className="text-sm">No hay cuentas cloud conectadas.</p>
-            <p className="text-xs">Conecta Google Drive en Settings → Cloud.</p>
-          </div>
+          <Empty className="flex-1"><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon icon={CloudIcon} /></EmptyMedia><EmptyTitle>No hay cuentas cloud conectadas</EmptyTitle><EmptyDescription>Conecta Google Drive en Settings → Cloud.</EmptyDescription></EmptyHeader></Empty>
         )}
 
         {/* File browser */}
         {selectedAccount && (
           <>
             {/* Toolbar: breadcrumbs + search */}
-            <div className="flex items-center gap-2 px-5 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
-              <button
+            <div className="flex items-center gap-2 border-b px-5 py-2.5">
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={handleBack}
                 disabled={breadcrumbs.length <= 1}
-                className="p-1.5 rounded-lg disabled:opacity-30 transition-opacity hover:opacity-70"
               >
-                <ChevronLeft className="size-3.5" style={{ color: 'var(--secondary-text)' }} />
-              </button>
+                <HugeiconsIcon icon={ArrowLeft01Icon} className="size-3.5" />
+              </Button>
 
               {/* Breadcrumb trail */}
-              <div className="flex items-center gap-1 flex-1 overflow-hidden">
+              <Breadcrumb className="min-w-0 flex-1 overflow-hidden"><BreadcrumbList>
                 {breadcrumbs.map((crumb, i) => (
-                  <span key={`trail:${breadcrumbs.slice(0, i + 1).map((c) => String(c.id ?? 'root')).join('/')}`} className="flex items-center gap-1 shrink-0">
-                    {i > 0 && <ChevronRight className="size-3 opacity-40" style={{ color: 'var(--tertiary-text)' }} />}
-                    <button
-                      type="button"
-                      onClick={() => handleBreadcrumb(i)}
-                      className="text-xs hover:opacity-70 transition-opacity truncate max-w-[120px]"
-                      style={{ color: i === breadcrumbs.length - 1 ? 'var(--primary-text)' : 'var(--accent)', fontWeight: i === breadcrumbs.length - 1 ? 600 : 400 }}
-                    >
-                      {crumb.name}
-                    </button>
+                  <span key={`trail:${breadcrumbs.slice(0, i + 1).map((c) => String(c.id ?? 'root')).join('/')}`} className="contents">
+                    {i > 0 ? <BreadcrumbSeparator /> : null}
+                    <BreadcrumbItem>{i === breadcrumbs.length - 1 ? <BreadcrumbPage className="max-w-32 truncate">{crumb.name}</BreadcrumbPage> : <Button type="button" variant="link" size="xs" className="max-w-32 truncate p-0" onClick={() => handleBreadcrumb(i)}>{crumb.name}</Button>}</BreadcrumbItem>
                   </span>
                 ))}
-              </div>
+              </BreadcrumbList></Breadcrumb>
 
               {/* Search */}
-              <div className="flex items-center gap-1" style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border)', padding: '4px 10px' }}>
-                <Search className="size-3 shrink-0" style={{ color: 'var(--tertiary-text)' }} />
-                <input
+              <InputGroup className="w-52">
+                <InputGroupAddon><HugeiconsIcon icon={Search01Icon} /></InputGroupAddon>
+                <InputGroupInput
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="Buscar archivos..."
                   aria-label="Buscar archivos"
-                  className="text-xs bg-transparent outline-none w-36"
-                  style={{ color: 'var(--primary-text)' }}
                 />
                 {search && (
-                  <button type="button" onClick={() => { setSearch(''); if (selectedAccount) loadFiles(selectedAccount, currentFolderId); }}>
-                    <X className="size-3" style={{ color: 'var(--tertiary-text)' }} />
-                  </button>
+                  <InputGroupButton size="icon-xs" onClick={() => { setSearch(''); if (selectedAccount) loadFiles(selectedAccount, currentFolderId); }}><HugeiconsIcon icon={Cancel01Icon} /></InputGroupButton>
                 )}
-              </div>
+              </InputGroup>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 mx-5 mt-3 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: 'var(--dome-error)' }}>
-                <AlertCircle className="size-3.5 shrink-0" />
-                {error}
-              </div>
+              <Alert variant="destructive"><HugeiconsIcon icon={AlertCircleIcon} /><AlertDescription className="flex items-center justify-between gap-3"><span>{error}</span><Button type="button" variant="outline" size="sm" onClick={() => selectedAccount && void loadFiles(selectedAccount, currentFolderId)}>{t('common.retry', 'Retry')}</Button></AlertDescription></Alert>
             )}
+            {importing ? <Progress value={null} aria-label={t('cloud.importing', 'Importing file')} /> : null}
 
             {/* File list */}
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {loading ? (
-                <div className="flex items-center justify-center h-full gap-2" style={{ color: 'var(--tertiary-text)' }}>
-                  <Loader2 className="size-4 animate-spin" />
+                <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
+                  <Spinner />
                   <span className="text-xs">Cargando...</span>
                 </div>
               ) : files.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: 'var(--tertiary-text)' }}>
-                  <Folder className="size-8 opacity-30" />
-                  <span className="text-xs">Carpeta vacía</span>
-                </div>
+                <Empty className="h-full"><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon icon={Folder01Icon} /></EmptyMedia><EmptyTitle>Carpeta vacía</EmptyTitle></EmptyHeader></Empty>
               ) : (
-                <div className="space-y-0.5">
+                <ItemGroup className="gap-0.5">
                   {files.map((file) => {
                     const canImport = isImportable(file);
                     const alreadyImported = importedIds.has(file.id);
@@ -325,72 +268,72 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                       : {};
 
                     return (
-                      <div
+                      <Item
                         key={file.id}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-xl group transition-colors hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 ${file.isFolder ? 'cursor-pointer' : ''}`}
+                        size="xs"
+                        variant="default"
+                        className={file.isFolder ? 'cursor-pointer' : undefined}
                         {...folderRowHandlers}
                       >
                         {/* Icon */}
-                        <div className="shrink-0 size-7 flex items-center justify-center rounded-lg" style={{ backgroundColor: file.isFolder ? 'var(--bg-tertiary)' : 'var(--bg-secondary)' }}>
+                        <ItemMedia variant="icon">
                           {file.isFolder
-                            ? <Folder className="size-4" style={{ color: 'var(--accent)' }} />
-                            : <File className="size-4" style={{ color: 'var(--secondary-text)' }} />
+                            ? <HugeiconsIcon icon={Folder01Icon} />
+                            : <HugeiconsIcon icon={File01Icon} />
                           }
-                        </div>
+                        </ItemMedia>
 
                         {/* Name + meta */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>{file.name}</p>
+                        <ItemContent>
+                          <ItemTitle>{file.name}</ItemTitle>
                           {!file.isFolder && (
-                            <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                            <ItemDescription>
                               {formatSize(file.size)}
                               {!canImport && ' · tipo no soportado'}
-                            </p>
+                            </ItemDescription>
                           )}
-                        </div>
+                        </ItemContent>
 
                         {/* Action */}
-                        <div className="shrink-0">
+                        <ItemActions>
                           {file.isFolder ? (
-                            <ChevronRight className="size-3.5 opacity-40" style={{ color: 'var(--tertiary-text)' }} />
+                            <HugeiconsIcon icon={ArrowRight01Icon} />
                           ) : alreadyImported ? (
-                            <CheckCircle2 className="size-4" style={{ color: 'var(--success)' }} />
+                            <Badge variant="secondary"><HugeiconsIcon icon={CheckmarkCircle02Icon} />{t('cloud.imported', 'Imported')}</Badge>
                           ) : canImport ? (
-                            <DomeButton
-                              type="button"
-                              variant="primary"
-                              size="sm"
-                              onClick={(e) => {
+                            <Button type="button"
+  onClick={(e) => {
                                 e.stopPropagation();
                                 handleImport(file);
                               }}
-                              disabled={!!importing}
-                              loading={isImportingThis}
-                              leftIcon={!isImportingThis ? <Download className="size-3" aria-hidden /> : undefined}
-                            >
+  disabled={!!importing}
+  size="sm">{isImportingThis ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Download04Icon} data-icon="inline-start" />}
                               {isImportingThis ? 'Importando...' : 'Importar'}
-                            </DomeButton>
+                            </Button>
                           ) : null}
-                        </div>
-                      </div>
+                        </ItemActions>
+                      </Item>
                     );
                   })}
-                </div>
+                </ItemGroup>
               )}
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
-              <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+            <DialogFooter className="items-center sm:justify-between">
+              <span className="text-xs text-muted-foreground">
                 {selectedAccount.email} · {files.filter((f) => !f.isFolder).length} archivos
               </span>
-              <DomeButton type="button" variant="secondary" size="sm" onClick={onClose}>
+              <Button type="button"
+  variant="secondary"
+  onClick={onClose}
+  size="sm">
                 Cerrar
-              </DomeButton>
-            </div>
+              </Button>
+            </DialogFooter>
           </>
         )}
-      </dialog>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,12 +1,20 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
+import type { ComponentProps } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AlertCircleIcon, CheckmarkCircle02Icon, Mail01Icon, UserIcon } from '@hugeicons/core-free-icons';
 import { validateEmail, validateName } from '@/lib/utils/validation';
-import { DomeInput } from '@/components/ui/DomeInput';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import { ACCENT_END } from '@/lib/ui/accent';
 
+import { Input } from '@/components/ui/input';
+import { Field, FieldError } from '@/components/ui/field';
+
+type InlineIconProps = Omit<ComponentProps<typeof HugeiconsIcon>, 'icon'>;
+const User = (props: InlineIconProps) => <HugeiconsIcon icon={UserIcon} {...props} />;
+const Mail = (props: InlineIconProps) => <HugeiconsIcon icon={Mail01Icon} {...props} />;
+const CheckCircle2 = (props: InlineIconProps) => <HugeiconsIcon icon={CheckmarkCircle02Icon} {...props} />;
+const AlertCircle = (props: InlineIconProps) => <HugeiconsIcon icon={AlertCircleIcon} {...props} />;
 interface ProfileStepProps {
   initialName?: string;
   initialEmail?: string;
@@ -62,60 +70,50 @@ export default function ProfileStep({
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-4">
         <div
-          className="size-14 rounded-2xl flex items-center justify-center shrink-0 transition-all"
+          className="size-14 rounded-2xl flex items-center justify-center shrink-0 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
           style={{
             background: initials
-              ? `linear-gradient(135deg, var(--dome-accent) 0%, ${ACCENT_END} 100%)`
-              : 'var(--dome-bg-hover)',
+              ? `linear-gradient(135deg, var(--primary) 0%, ${ACCENT_END} 100%)`
+              : 'var(--accent)',
             boxShadow: initials ? `0 4px 16px ${ACCENT_END}33` : 'none',
           }}
         >
           {initials ? (
-            <span className="font-bold text-lg select-none" style={{ color: 'var(--base-text)' }}>
+            <span className="font-bold text-lg select-none text-primary-foreground">
               {initials}
             </span>
           ) : (
-            <User className="size-6" style={{ color: 'var(--dome-text-muted)' }} />
+            <User className="size-6 text-muted-foreground" />
           )}
         </div>
         <div>
-          <p className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
+          <p className="font-semibold text-sm text-foreground">
             {name.trim() || t('onboarding.your_name')}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-xs mt-0.5 text-muted-foreground">
             {email.trim() || t('onboarding.your_email')}
           </p>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <DomeSectionLabel>
-          {t('onboarding.full_name')} <span style={{ color: 'var(--dome-accent)' }}>*</span>
-        </DomeSectionLabel>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('onboarding.full_name')} <span className="text-primary">*</span>
+        </p>
         <div className="relative">
           <span
             className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10"
-            style={{ color: nameError ? 'var(--dome-error)' : nameValid && touched.name ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
+            style={{ color: nameError ? 'var(--destructive)' : nameValid && touched.name ? 'var(--primary)' : 'var(--muted-foreground)' }}
           >
             <User className="size-4" />
           </span>
-          <DomeInput
-            id="profile-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
-            placeholder={t('onboarding.full_name_placeholder')}
-            error={nameError}
-            inputClassName="pl-9 pr-9"
-            className="[&_input]:pl-9 [&_input]:pr-9"
-          />
+          <Field className="gap-1.5 [&_input]:pl-9 [&_input]:pr-9" data-invalid={Boolean(nameError)}><Input id="profile-name" className="pl-9 pr-9" type="text" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((prev) => ({ ...prev, name: true }))} placeholder={t('onboarding.full_name_placeholder')} aria-invalid={Boolean(nameError) || undefined} /><FieldError className="text-xs">{nameError}</FieldError></Field>
           {touched.name && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
               {nameValid ? (
-                <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent)' }} />
+                <CheckCircle2 className="size-4 text-primary" />
               ) : (
-                <AlertCircle className="size-4" style={{ color: 'var(--dome-error)' }} />
+                <AlertCircle className="size-4 text-destructive" />
               )}
             </span>
           )}
@@ -123,42 +121,30 @@ export default function ProfileStep({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <DomeSectionLabel>
-          {t('onboarding.email_address')} <span style={{ color: 'var(--dome-accent)' }}>*</span>
-        </DomeSectionLabel>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('onboarding.email_address')} <span className="text-primary">*</span>
+        </p>
         <div className="relative">
           <span
             className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10"
-            style={{ color: emailError ? 'var(--dome-error)' : emailValid && touched.email ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
+            style={{ color: emailError ? 'var(--destructive)' : emailValid && touched.email ? 'var(--primary)' : 'var(--muted-foreground)' }}
           >
             <Mail className="size-4" />
           </span>
-          <DomeInput
-            id="profile-email"
-            type="text"
-            inputMode="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
-            placeholder={t('onboarding.email_placeholder')}
-            error={emailError}
-            inputClassName="pl-9 pr-9"
-            className="[&_input]:pl-9 [&_input]:pr-9"
-          />
+          <Field className="gap-1.5 [&_input]:pl-9 [&_input]:pr-9" data-invalid={Boolean(emailError)}><Input id="profile-email" className="pl-9 pr-9" type="text" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((prev) => ({ ...prev, email: true }))} placeholder={t('onboarding.email_placeholder')} aria-invalid={Boolean(emailError) || undefined} /><FieldError className="text-xs">{emailError}</FieldError></Field>
           {touched.email && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
               {emailValid ? (
-                <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent)' }} />
+                <CheckCircle2 className="size-4 text-primary" />
               ) : (
-                <AlertCircle className="size-4" style={{ color: 'var(--dome-error)' }} />
+                <AlertCircle className="size-4 text-destructive" />
               )}
             </span>
           )}
         </div>
       </div>
 
-      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="text-xs text-muted-foreground">
         {t('onboarding.privacy_note')}
       </p>
     </div>

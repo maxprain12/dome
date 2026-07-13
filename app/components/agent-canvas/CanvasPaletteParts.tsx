@@ -1,6 +1,13 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import {
+  ChevronDownIcon as ChevronDownIcon,
+  ChevronRightIcon as ChevronRightIcon,
+  PlusSignIcon as PlusIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export function CanvasPaletteSectionHeader({
   expanded,
@@ -17,36 +24,30 @@ export function CanvasPaletteSectionHeader({
 }) {
   return (
     <div className="mb-1.5 flex items-center gap-1">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--dome-bg)]"
+        className="min-w-0 flex-1 justify-start px-1"
       >
         {expanded ? (
-          <ChevronDown className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <HugeiconsIcon icon={ChevronDownIcon} className="size-3 shrink-0 text-muted-foreground" />
         ) : (
-          <ChevronRight className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <HugeiconsIcon icon={ChevronRightIcon} className="size-3 shrink-0 text-muted-foreground" />
         )}
         <span
-          className="truncate text-[10px] font-semibold uppercase tracking-wider"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
         >
           {label}
         </span>
         {typeof count === 'number' ? (
-          <span
-            className="shrink-0 rounded-full px-1.5 text-[9px] font-semibold tabular-nums"
-            style={{
-              background: 'var(--dome-bg-hover)',
-              color: 'var(--dome-text-muted)',
-              border: '1px solid var(--dome-border)',
-            }}
-          >
+          <Badge variant="secondary" className="tabular-nums">
             {count}
-          </span>
+          </Badge>
         ) : null}
-      </button>
+      </Button>
       {trailing}
     </div>
   );
@@ -78,13 +79,13 @@ export function CanvasPaletteRow({
   title?: string;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       draggable
       onDragStart={onDragStart}
       onClick={onAdd}
-      className="group flex w-full cursor-grab select-none items-center gap-2.5 rounded-xl border px-2 py-2 text-left transition-all active:cursor-grabbing hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1"
-      style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
+      className="group h-auto w-full cursor-grab select-none justify-start gap-2.5 px-2 py-2 text-left active:cursor-grabbing"
       title={title ?? description}
     >
       <div
@@ -98,20 +99,20 @@ export function CanvasPaletteRow({
         ) : null}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--dome-text)' }}>
+        <p className="truncate text-xs font-semibold leading-tight text-foreground">
           {label}
         </p>
-        <p className="mt-0.5 truncate text-[10px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="mt-0.5 truncate text-[10px] leading-snug text-muted-foreground">
           {description}
         </p>
       </div>
       <span
         aria-hidden
         className="flex size-5 shrink-0 items-center justify-center rounded-md opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-        style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
+        style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)', color: 'var(--primary)' }}
       >
-        <Plus className="size-3" />
+        <HugeiconsIcon icon={PlusIcon} />
       </span>
-    </button>
+    </Button>
   );
 }

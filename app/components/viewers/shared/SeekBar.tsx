@@ -36,7 +36,7 @@ function SeekBarComponent({
         onChange={(e) => onSeek(parseFloat(e.target.value))}
         className="dome-media-seekbar w-full h-2 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${progress}%, var(--border) ${progress}%, var(--border) 100%)`,
+          background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${progress}%, var(--border) ${progress}%, var(--border) 100%)`,
         }}
         aria-label="Seek"
         aria-valuemin={0}
@@ -45,10 +45,10 @@ function SeekBarComponent({
       />
       {showTimestamps && (
         <div className="flex justify-between mt-1">
-          <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+          <span className="text-xs text-muted-foreground">
             {formatTime(currentTime)}
           </span>
-          <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+          <span className="text-xs text-muted-foreground">
             {formatTime(duration)}
           </span>
         </div>

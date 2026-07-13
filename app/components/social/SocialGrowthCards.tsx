@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Linkedin, Instagram, Twitter, TrendingUp, TrendingDown, Minus, Building2 } from 'lucide-react';
-import type { SocialGrowthAccount } from '@/components/social/socialTypes';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { Building2Icon, InstagramIcon, Linkedin01Icon, MinusSignIcon, TradeDownIcon, TradeUpIcon, TwitterIcon } from '@hugeicons/core-free-icons';
+import type { SocialGrowthAccount, SocialProvider } from '@/components/social/socialTypes';
 
-const PROVIDER_ICONS = { linkedin: Linkedin, instagram: Instagram, x: Twitter } as const;
+const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = { linkedin: Linkedin01Icon, instagram: InstagramIcon, x: TwitterIcon };
 
 function Sparkline({ points }: { points: { t: number; followers: number | null }[] }) {
   const values = points.map((p) => p.followers).filter((v): v is number => v != null);
@@ -22,7 +23,7 @@ function Sparkline({ points }: { points: { t: number; followers: number | null }
       <polyline
         points={coords.join(' ')}
         fill="none"
-        stroke="var(--dome-accent)"
+        stroke="var(--primary)"
         strokeWidth="1.5"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -36,7 +37,7 @@ export default function SocialGrowthCards({ accounts }: { accounts: SocialGrowth
 
   if (accounts.length === 0) {
     return (
-      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="text-xs text-muted-foreground">
         {t('social.hub.growth_empty')}
       </p>
     );
@@ -45,44 +46,44 @@ export default function SocialGrowthCards({ accounts }: { accounts: SocialGrowth
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
       {accounts.map((acc) => {
-        const Icon = acc.provider === 'linkedin' && acc.accountKind === 'organization'
-          ? Building2
+        const icon = acc.provider === 'linkedin' && acc.accountKind === 'organization'
+          ? Building2Icon
           : PROVIDER_ICONS[acc.provider];
         const delta = acc.delta;
-        const DeltaIcon = delta == null || delta === 0 ? Minus : delta > 0 ? TrendingUp : TrendingDown;
+        const deltaIcon = delta == null || delta === 0 ? MinusSignIcon : delta > 0 ? TradeUpIcon : TradeDownIcon;
         const deltaColor = delta == null || delta === 0
-          ? 'var(--dome-text-muted)'
-          : delta > 0 ? 'var(--success)' : 'var(--dome-error)';
+          ? 'var(--muted-foreground)'
+          : delta > 0 ? 'var(--success)' : 'var(--destructive)';
         return (
           <div
             key={acc.accountId}
             className="rounded-lg px-4 py-3"
-            style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             <div className="flex items-center gap-2 mb-1.5">
-              <Icon className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-              <span className="text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
+              <HugeiconsIcon icon={icon} className="size-4 shrink-0 text-primary" />
+              <span className="text-sm font-medium truncate text-foreground">
                 {acc.handle || acc.displayName || acc.provider}
               </span>
             </div>
             {acc.latest?.followers != null ? (
               <>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-semibold" style={{ color: 'var(--dome-text)' }}>
+                  <span className="text-xl font-semibold text-foreground">
                     {Intl.NumberFormat().format(acc.latest.followers)}
                   </span>
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                  <span className="text-xs text-muted-foreground">
                     {t('social.hub.growth_followers')}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 mt-0.5 text-xs" style={{ color: deltaColor }}>
-                  <DeltaIcon className="size-3" />
+                  <HugeiconsIcon icon={deltaIcon} className="size-3" />
                   {delta == null ? '—' : `${delta > 0 ? '+' : ''}${Intl.NumberFormat().format(delta)}`}
                 </div>
                 <div className="mt-2">
                   <Sparkline points={acc.points} />
                 </div>
-                <div className="flex items-center gap-3 mt-1.5 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                   {acc.latest.following != null && (
                     <span>{t('social.hub.growth_following')}: {Intl.NumberFormat().format(acc.latest.following)}</span>
                   )}
@@ -92,7 +93,7 @@ export default function SocialGrowthCards({ accounts }: { accounts: SocialGrowth
                 </div>
               </>
             ) : (
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs text-muted-foreground">
                 {acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'member'
                   ? t('social.hub.growth_unavailable_linkedin_member')
                   : t('social.hub.growth_pending')}

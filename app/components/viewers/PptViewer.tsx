@@ -4,10 +4,10 @@ import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, f
 import { PPT_SLIDE_LIGHT_DEFAULT } from '@/lib/ui/palettes';
 import { init as initPptxPreview } from '@/lib/pptx-preview';
 import { type Resource } from '@/types';
-import LoadingState from '@/components/ui/LoadingState';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
 import { normalizePptxArrayBuffer, countSlidesInArrayBuffer } from '@/lib/pptx-normalize';
+import { useTranslation } from 'react-i18next';
 
 // Fixed internal resolution — used for aspect ratio and scaling
 const SLIDE_W = 960;
@@ -80,6 +80,7 @@ function applyThemeTextColor(previewer: PptxPreviewer, container: HTMLElement): 
 
 const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
   function PptViewerComponent({ resource, activeIndex, onSlidesLoaded, onThumbnailElementsReady }, ref) {
+    const { t } = useTranslation();
     const hostRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const previewerRef = useRef<PptxPreviewer | null>(null);
@@ -333,7 +334,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
       };
     }, []);
 
-    if (error) return <ErrorState error={error} />;
+    if (error) return <ListState variant="error" errorMessage={error} fullHeight />;
 
     const scaledW = Math.round(SLIDE_W * scale);
     const scaledH = Math.round(SLIDE_H * scale);
@@ -342,10 +343,10 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
       <div
         ref={hostRef}
         className="ppt-viewer-host size-full flex items-center justify-center"
-        style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}
+        style={{ backgroundColor: 'var(--card)', overflow: 'hidden' }}
       >
         <div
-          className="ppt-viewer-stage relative shrink-0 overflow-hidden rounded-sm bg-[var(--bg)] shadow-[0_16px_56px_-8px_rgba(0,0,0,0.75),0_4px_20px_rgba(0,0,0,0.5)]"
+          className="ppt-viewer-stage relative shrink-0 overflow-hidden rounded-sm bg-background shadow-[0_16px_56px_-8px_rgba(0,0,0,0.75),0_4px_20px_rgba(0,0,0,0.5)]"
           style={{
             width: scaledW,
             height: scaledH,
@@ -361,14 +362,14 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
               height: SLIDE_H,
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              ['--ppt-text-default' as string]: 'var(--base-text)',
+              ['--ppt-text-default' as string]: 'var(--primary-foreground)',
             }}
           />
         </div>
 
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
-            <LoadingState message="Cargando presentación..." />
+            <ListState variant="loading" loadingLabel={t('viewer.loading_presentation')} fullHeight />
           </div>
         )}
       </div>

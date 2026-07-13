@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * IPC: Domain Sync v1 (social, pipelines, calendar) — gated by Dome subscription.
+ * IPC: Domain Sync v1 (todos los dominios, incl. contenido) — gated by Dome subscription.
  */
 'use strict';
 
@@ -10,7 +10,7 @@ const planGate = require('../../storage/plan-gate.cjs');
 const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
 const { getSocialService } = require('../../social/social-service.cjs');
 
-const DomainSchema = z.enum(['social', 'pipelines', 'calendar', 'settings']);
+const DomainSchema = z.enum(domainSync.VALID_DOMAINS);
 const SetDomainEnabledSchema = z.object({
   domain: DomainSchema,
   enabled: z.boolean(),

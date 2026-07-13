@@ -1,6 +1,23 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  FolderOpenIcon as FolderOpen,
+  RefreshIcon as RefreshCw,
+  Loading03Icon as Loader2,
+  ZapIcon as Zap,
+  GithubIcon as Github,
+  Search01Icon as Search,
+  Download04Icon as Download,
+  ChevronDownIcon as ChevronDown,
+  ChevronUpIcon as ChevronUp,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
-import { FolderOpen, RefreshCw, Loader2, Zap, Github, Search, Download, ChevronDown, ChevronUp } from 'lucide-react';
+
 import {
   listSkills,
   openSkillsFolder,
@@ -9,11 +26,9 @@ import {
   type SkillItem,
   type SkillRepoEntry,
 } from '@/lib/skills/client';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeListState from '@/components/ui/DomeListState';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import ListState from '@/components/shared/ListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
-import { cn } from '@/lib/utils';
 
 export default function SkillsSettingsPanel() {
   const { t } = useTranslation();
@@ -45,60 +60,47 @@ export default function SkillsSettingsPanel() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader>
-  <DomeSubpageHeader.Title>{t('settings.skills.title', 'Skills')}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{t('settings.skills.subtitle_file', 'Skills live as SKILL.md files in ~/.dome/skills. Each skill is automatically available to every AI agent.')}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
+      <SubpageHeader>
+  <SubpageHeader.Title>{t('settings.skills.title', 'Skills')}</SubpageHeader.Title>
+  <SubpageHeader.Subtitle>{t('settings.skills.subtitle_file', 'Skills live as SKILL.md files in ~/.dome/skills. Each skill is automatically available to every AI agent.')}</SubpageHeader.Subtitle>
+</SubpageHeader>
 
-      <div className="settings-action-row mb-5">
-        <DomeButton
-          variant="secondary"
-          size="sm"
-          onClick={() => void openSkillsFolder()}
-          leftIcon={<FolderOpen size={14} />}
-        >
+      <div className="flex items-center gap-2 mb-5">
+        <Button variant="secondary"
+  onClick={() => void openSkillsFolder()}
+  size="sm">{<HugeiconsIcon icon={FolderOpen} size={14} />}
           {t('settings.skills.open_personal_dir', 'Open skills folder')}
-        </DomeButton>
-        <DomeButton
-          variant="ghost"
-          size="sm"
-          onClick={() => void loadData()}
-          leftIcon={loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          disabled={loading}
-        >
+        </Button>
+        <Button variant="ghost"
+  onClick={() => void loadData()}
+  disabled={loading}
+  size="sm">{loading ? <HugeiconsIcon icon={Loader2} size={14} className="animate-spin" /> : <HugeiconsIcon icon={RefreshCw} size={14} />}
           {t('common.refresh', 'Refresh')}
-        </DomeButton>
+        </Button>
       </div>
 
       <InstallFromGitHub onInstalled={() => void loadData()} />
 
-      {error && (
-        <p style={{ color: 'var(--error)', fontSize: 13, marginBottom: 12 }}>{error}</p>
-      )}
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
       {!loading && skills.length > 0 && (
-        <div className="settings-split-row mt-5 mb-2.5">
-          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+        <div className="flex items-center justify-between gap-4 mt-5 mb-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('settings.skills.section_configured', 'Configured skills')}
           </span>
-          <span style={{
-            fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-            backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
-          }}>
-            {skills.length}
-          </span>
+          <Badge variant="secondary">{skills.length}</Badge>
         </div>
       )}
 
       {loading ? (
-        <DomeListState variant="loading" />
+        <ListState variant="loading" />
       ) : skills.length === 0 ? (
-        <DomeListState
+        <ListState
           variant="empty"
           description={t('settings.skills.empty', 'No skills installed. Add SKILL.md files to the skills folder or install from a GitHub repository.')}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="grid gap-2">
           {skills.map((skill) => (
             <SkillRow key={skill.id} skill={skill} />
           ))}
@@ -190,131 +192,112 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
   }
 
   return (
-    <div className="skills-github-panel">
-      <button
+    <Card className="mb-5 overflow-hidden">
+      <Button variant="ghost"
         type="button"
         onClick={() => { setExpanded((e) => !e); setMessage(null); setRepoSkills([]); }}
-        className="skills-github-panel__toggle"
+        className="h-auto w-full justify-between rounded-none px-4 py-3"
+        aria-expanded={expanded}
       >
-        <div className="skills-github-panel__toggle-label">
-          <Github size={15} color="var(--secondary-text)" />
-          <span className="skills-github-panel__toggle-title">
+        <div className="flex items-center gap-2">
+          <HugeiconsIcon icon={Github} data-icon="inline-start" />
+          <span className="font-medium">
             {t('settings.skills.install_from_github', 'Install from GitHub')}
           </span>
         </div>
-        {expanded ? <ChevronUp size={14} color="var(--tertiary-text)" /> : <ChevronDown size={14} color="var(--tertiary-text)" />}
-      </button>
+        {expanded ? <HugeiconsIcon icon={ChevronUp} data-icon="inline-end" /> : <HugeiconsIcon icon={ChevronDown} data-icon="inline-end" />}
+      </Button>
 
       {expanded && (
-        <div style={{ padding: '0 14px 14px' }}>
-          <p style={{ fontSize: 12.5, color: 'var(--secondary-text)', marginBottom: 10, lineHeight: 1.5 }}>
+        <CardContent className="grid gap-3 border-t pt-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             {t('settings.skills.github_hint', 'Enter a GitHub repo URL and optional skill name (e.g. pptx). Equivalent to: npx skills add <repo> --skill <name>')}
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-            <input
+          <div className="grid gap-2">
+            <Input
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
               placeholder={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
               aria-label={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
-              className="skills-github-input skills-github-input--full"
             />
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input
+            <div className="flex gap-2">
+              <Input
                 type="text"
                 value={skillName}
                 onChange={(e) => setSkillName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
                 placeholder={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
                 aria-label={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
-                className="skills-github-input skills-github-input--grow"
+                className="min-w-0 flex-1"
               />
-              <DomeButton
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleBrowse()}
-                leftIcon={browsing ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-                disabled={browsing || installing || !url.trim()}
-              >
+              <Button variant="ghost"
+  onClick={() => void handleBrowse()}
+  disabled={browsing || installing || !url.trim()}
+  size="sm">{browsing ? <HugeiconsIcon icon={Loader2} size={13} className="animate-spin" /> : <HugeiconsIcon icon={Search} size={13} />}
                 {t('common.browse', 'Browse')}
-              </DomeButton>
-              <DomeButton
-                variant="secondary"
-                size="sm"
-                onClick={() => void handleInstall()}
-                leftIcon={installing ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                disabled={installing || browsing || !url.trim()}
-              >
+              </Button>
+              <Button variant="secondary"
+  onClick={() => void handleInstall()}
+  disabled={installing || browsing || !url.trim()}
+  size="sm">{installing ? <HugeiconsIcon icon={Loader2} size={13} className="animate-spin" /> : <HugeiconsIcon icon={Download} size={13} />}
                 {t('common.install', 'Install')}
-              </DomeButton>
+              </Button>
             </div>
           </div>
 
-          {message && (
-            <p style={{ fontSize: 12.5, color: message.type === 'success' ? 'var(--success)' : 'var(--error)', marginBottom: repoSkills.length ? 10 : 0 }}>
-              {message.text}
-            </p>
-          )}
+          {message && <Alert variant={message.type === 'error' ? 'destructive' : 'default'}><AlertDescription>{message.text}</AlertDescription></Alert>}
 
           {repoSkills.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--tertiary-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div className="grid gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {repoSkills.length} {t('settings.skills.skills_found', 'skills found')}
               </span>
               {repoSkills.map((entry) => (
-                <div key={entry.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px',
-                  border: '1px solid var(--border)', borderRadius: 7, backgroundColor: 'var(--bg)',
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--primary-text)' }}>{entry.name}</div>
+                <div key={entry.id} className="flex items-center gap-3 rounded-xl border bg-background p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-foreground">{entry.name}</div>
                     {entry.description && (
-                      <div style={{ fontSize: 12, color: 'var(--secondary-text)', marginTop: 2 }}>{entry.description}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{entry.description}</div>
                     )}
                   </div>
-                  <DomeButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void handleInstallRepoSkill(entry)}
-                    leftIcon={installingIds.has(entry.id) ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                    disabled={installingIds.has(entry.id)}
-                  >
+                  <Button variant="ghost"
+  onClick={() => void handleInstallRepoSkill(entry)}
+  disabled={installingIds.has(entry.id)}
+  size="sm">{installingIds.has(entry.id) ? <HugeiconsIcon icon={Loader2} size={12} className="animate-spin" /> : <HugeiconsIcon icon={Download} size={12} />}
                     {t('common.install', 'Install')}
-                  </DomeButton>
+                  </Button>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }
 
 function SkillRow({ skill }: { skill: SkillItem }) {
   return (
-    <div className="skills-row">
-      <div className="skills-row__icon">
-        <Zap size={14} color="var(--accent)" strokeWidth={2.2} />
-      </div>
-
-      <div className="skills-row__body">
-        <div className={cn('skills-row__header', skill.description && 'skills-row__header--with-desc')}>
-          <span className="skills-row__name">
-            {skill.name}
-          </span>
-          <span className="skills-row__slug">
-            {skill.slug}
-          </span>
+    <Card>
+      <CardHeader className="flex-row items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <HugeiconsIcon icon={Zap} />
         </div>
-        {skill.description && (
-          <p style={{ fontSize: 12.5, color: 'var(--secondary-text)', lineHeight: 1.45, margin: 0 }}>
+        <div className="min-w-0 flex-1">
+          <CardTitle className="truncate text-sm">{skill.name}</CardTitle>
+          <Badge variant="outline" className="mt-1 font-mono text-[10px]">{skill.slug}</Badge>
+        </div>
+      </CardHeader>
+      {skill.description && (
+        <CardContent className="pt-0">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             {skill.description}
           </p>
-        )}
-      </div>
-    </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }

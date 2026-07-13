@@ -1,16 +1,21 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListChecks, Circle, CircleDot, CheckCircle2, Loader2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckListIcon, CheckmarkCircle02Icon, CircleDotIcon, CircleIcon } from '@hugeicons/core-free-icons';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 import type { TodoItem, TodoStatus } from '@/lib/chat/todos';
 
 function StatusIcon({ status }: { status: TodoStatus }) {
   if (status === 'completed') {
-    return <CheckCircle2 className="size-4 shrink-0" style={{ color: 'var(--success)' }} aria-hidden />;
+    return <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-4 shrink-0 text-success" aria-hidden />;
   }
   if (status === 'in_progress') {
-    return <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--accent)' }} aria-hidden />;
+    return <Spinner className="size-4 shrink-0 text-primary" aria-hidden />;
   }
-  return <Circle className="size-4 shrink-0" style={{ color: 'var(--tertiary-text)' }} aria-hidden />;
+  return <HugeiconsIcon icon={CircleIcon} className="size-4 shrink-0 text-muted-foreground" aria-hidden />;
 }
 
 interface ChatTodoListProps {
@@ -34,52 +39,32 @@ export default function ChatTodoList({ todos, className = '' }: ChatTodoListProp
   const allDone = completed === total;
 
   return (
-    <div
-      className={`w-full min-w-0 max-w-full rounded-xl border overflow-hidden ${className}`.trim()}
-      style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
-    >
+    <Card className={cn('w-full min-w-0 max-w-full gap-0 overflow-hidden py-0', className)}>
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <div
-          className="flex items-center justify-center size-7 rounded-md shrink-0"
-          style={{
-            background: allDone ? 'var(--accent-bg)' : 'var(--bg-tertiary)',
-            color: allDone ? 'var(--accent)' : 'var(--secondary-text)',
-          }}
-        >
-          <ListChecks className="size-4" aria-hidden />
+      <CardHeader className="flex flex-row items-center gap-2.5 px-3 py-2.5">
+        <div className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg', allDone ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
+          <HugeiconsIcon icon={CheckListIcon} className="size-4" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--primary-text)' }}>
+          <div className="text-[13px] font-semibold truncate text-foreground">
             {t('chat.todo_list_title', { defaultValue: 'Plan de tareas' })}
           </div>
           {activeLabel ? (
-            <div className="text-[11.5px] truncate" style={{ color: 'var(--tertiary-text)' }}>
+            <div className="text-[11.5px] truncate text-muted-foreground">
               {activeLabel}
             </div>
           ) : null}
         </div>
-        <span
-          className="text-[11px] font-medium tabular-nums shrink-0"
-          style={{ color: allDone ? 'var(--success)' : 'var(--secondary-text)' }}
-        >
+        <span className={cn('shrink-0 text-[11px] font-medium tabular-nums', allDone ? 'text-success' : 'text-muted-foreground')}>
           {completed}/{total}
         </span>
-      </div>
+      </CardHeader>
 
       {/* Progress bar */}
-      <div className="h-[3px] w-full" style={{ background: 'var(--bg-tertiary)' }}>
-        <div
-          className="h-full transition-[width] duration-300 ease-out"
-          style={{
-            width: `${pct}%`,
-            background: allDone ? 'var(--success)' : 'var(--accent)',
-          }}
-        />
-      </div>
+      <Progress value={pct} className={cn('h-1 rounded-none', allDone && '[&_[data-slot=progress-indicator]]:bg-success')} />
 
       {/* Items */}
-      <ul className="flex flex-col py-1.5">
+      <CardContent className="px-0 py-1.5"><ul className="flex flex-col">
         {todos.map((td, i) => (
           <li
             key={`${i}-${td.content.slice(0, 24)}`}
@@ -88,26 +73,19 @@ export default function ChatTodoList({ todos, className = '' }: ChatTodoListProp
             <span className="mt-px">
               <StatusIcon status={td.status} />
             </span>
-            <span
-              className="text-[12.5px] leading-snug break-words"
-              style={{
-                color: td.status === 'completed' ? 'var(--tertiary-text)' : 'var(--secondary-text)',
-                textDecoration: td.status === 'completed' ? 'line-through' : 'none',
-                fontWeight: td.status === 'in_progress' ? 600 : 400,
-              }}
-            >
+            <span className={cn('break-words text-[12.5px] leading-snug text-muted-foreground', td.status === 'completed' && 'line-through', td.status === 'in_progress' && 'font-semibold')}>
               {td.content}
             </span>
             {td.status === 'in_progress' ? (
-              <CircleDot
-                className="size-3 shrink-0 ml-auto mt-0.5 animate-pulse"
-                style={{ color: 'var(--accent)' }}
+              <HugeiconsIcon
+                icon={CircleDotIcon}
+                className="ml-auto mt-0.5 size-3 shrink-0 animate-pulse text-primary motion-reduce:animate-none"
                 aria-hidden
               />
             ) : null}
           </li>
         ))}
-      </ul>
-    </div>
+      </ul></CardContent>
+    </Card>
   );
 }

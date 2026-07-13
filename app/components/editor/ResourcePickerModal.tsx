@@ -1,14 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { TextInput, Stack, Text, ScrollArea, UnstyledButton } from '@mantine/core';
-import DomeModal from '@/components/ui/DomeModal';
 import type { Resource, ResourceType } from '@/types';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useTranslation } from 'react-i18next';
+import ListState from '@/components/shared/ListState';
 function ResourceRowIcon({ type, title }: { type: ResourceType; title?: string }) {
   return (
-    <DomeResourceIcon
+    <ResourceIcon
       type={type}
       name={title}
       size={16}
@@ -36,14 +39,17 @@ export default function ResourcePickerModal({
   onSelect,
   title = 'Insertar referencia a recurso',
 }: ResourcePickerModalProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Resource[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const api = window.electron?.db?.resources;
     if (!api || !projectId) return;
     setLoading(true);
+    setError(null);
     try {
       const q = query.trim();
       if (!q) {
@@ -63,8 +69,9 @@ export default function ResourcePickerModal({
           ),
         );
       } else setItems([]);
-    } catch {
+    } catch (loadError) {
       setItems([]);
+      setError(loadError instanceof Error ? loadError.message : t('common.unknown_error'));
     } finally {
       setLoading(false);
     }
@@ -77,56 +84,42 @@ export default function ResourcePickerModal({
   }, [opened, load, query]);
 
   return (
-    <DomeModal open={opened} onClose={onClose} title={title} size="md">
-      <Stack gap="sm">
-        <TextInput
+    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{title}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex flex-col gap-3">
+        <Input
           placeholder="Buscar en la librería…"
           value={query}
-          onChange={(e) => setQuery(e.currentTarget.value)}
+          onChange={(e) => setQuery(e.target.value)}
         />
-        <Text size="xs" c="dimmed">
+        <p className="text-xs text-muted-foreground">
           {loading ? 'Buscando…' : `${items.length} resultado(s)`}
-        </Text>
-        <ScrollArea h={280} type="auto">
-          <Stack gap={4}>
+        </p>
+        <ScrollArea className="h-[280px]">
+          <div className="flex flex-col gap-1 pr-2">
             {items.map((r) => (
-              <UnstyledButton
+              <button
                 key={r.id}
+                type="button"
                 onClick={() => {
                   onSelect(r);
                   onClose();
                 }}
-                styles={{
-                  root: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    textAlign: 'left',
-                  },
-                }}
-                className="hover:bg-[var(--dome-bg-hover)]"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
               >
                 <ResourceRowIcon type={r.type} title={r.title} />
-                <div style={{ minWidth: 0 }}>
-                  <Text size="sm" fw={500} truncate>
-                    {r.title || 'Sin título'}
-                  </Text>
-                  <Text size="xs" c="dimmed" truncate>
-                    {r.type}
-                  </Text>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{r.title || 'Sin título'}</p>
+                  <p className="truncate text-xs text-muted-foreground">{r.type}</p>
                 </div>
-              </UnstyledButton>
+              </button>
             ))}
-            {!loading && items.length === 0 && (
-              <Text size="sm" c="dimmed" ta="center" py="md">
-                Sin resultados
-              </Text>
+            {error ? <ListState variant="error" errorMessage={error} compact /> : null}
+            {!loading && !error && items.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">Sin resultados</p>
             )}
-          </Stack>
+          </div>
         </ScrollArea>
-      </Stack>
-    </DomeModal>
+      </div>
+    </div></DialogContent></Dialog>
   );
 }

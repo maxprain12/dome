@@ -1,19 +1,39 @@
 'use client';
 
 import {
-  Search,
-  BookOpen,
-  PenTool,
-  BarChart2,
-  Presentation,
-  FolderKanban,
-} from 'lucide-react';
+  Search01Icon as SearchIcon,
+  BookOpen01Icon as BookOpenIcon,
+  PenTool03Icon as PenToolIcon,
+  BarChartIcon as BarChart2Icon,
+  Presentation01Icon as PresentationIcon,
+  FolderKanbanIcon as FolderKanbanIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import type { CanvasNodeData, SystemAgentRole, WorkflowNode } from '@/types/canvas';
 import { SYSTEM_AGENT_LIST } from '@/lib/agent-canvas/system-agents';
 import { canvasSystemAgentNameKey, canvasSystemAgentDescKey } from '@/lib/agent-canvas/canvas-layout';
 import { CanvasPaletteSectionHeader, CanvasPaletteRow } from './CanvasPaletteParts';
 import { createCanvasPaletteNode, handleCanvasPaletteDragStart } from './createCanvasPaletteNode';
+
+const Search = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={SearchIcon} {...props} />
+);
+const BookOpen = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BookOpenIcon} {...props} />
+);
+const PenTool = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={PenToolIcon} {...props} />
+);
+const BarChart2 = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BarChart2Icon} {...props} />
+);
+const Presentation = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={PresentationIcon} {...props} />
+);
+const FolderKanban = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={FolderKanbanIcon} {...props} />
+);
 
 const SYSTEM_AGENT_ICONS: Record<SystemAgentRole, React.ElementType> = {
   research: Search,
@@ -44,7 +64,7 @@ export function CanvasSystemAgentsPalette({
         count={SYSTEM_AGENT_LIST.length}
       />
       {expanded && (
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           {SYSTEM_AGENT_LIST.map((sysAgent) => (
             <CanvasPaletteRow
               key={sysAgent.role}

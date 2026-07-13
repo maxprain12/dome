@@ -1,45 +1,94 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
 import {
-  X,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Clock,
-  Globe,
-  Search,
-  FileText,
-  Database,
-  Plug,
-  FileTextIcon,
-  ShoppingBag,
-  GitBranch,
-  Bot,
-  Zap,
-  Network,
-  GraduationCap,
-  Crop,
-  Layers,
-  Calendar,
-} from 'lucide-react';
+  Cancel01Icon as XIcon,
+  CheckmarkCircle02Icon as CheckCircle2Icon,
+  CancelCircleIcon as XCircleIcon,
+  Loading03Icon as Loader2Icon,
+  Clock01Icon as ClockIcon,
+  GlobeIcon as GlobeIcon,
+  Search01Icon as SearchIcon,
+  File02Icon as FileTextGlyph,
+  DatabaseIcon as DatabaseIcon,
+  Plug01Icon as PlugIcon,
+  File02Icon as FileTextIconIcon,
+  ShoppingBag01Icon as ShoppingBagIcon,
+  GitBranchIcon as GitBranchIcon,
+  BotIcon as BotIcon,
+  ZapIcon as ZapIcon,
+  HierarchySquare01Icon as NetworkIcon,
+  GraduationCapIcon as GraduationCapIcon,
+  CropIcon as CropIcon,
+  Layers01Icon as LayersIcon,
+  Calendar03Icon as CalendarIcon,
+  AlertCircleIcon as AlertCircleIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
-import DomeDrawerLayout from '@/components/ui/DomeDrawerLayout';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeListState from '@/components/ui/DomeListState';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import SubpageFooter from '@/components/shared/SubpageFooter';
+import ListState from '@/components/shared/ListState';
+import CollapsibleRow from '@/components/shared/CollapsibleRow';
 import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
 import { getRunProgress } from '@/lib/automations/run-progress';
-import { statusLabel } from '@/lib/automations/run-status';
 import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
 import { RunProgressBar } from '@/lib/automations/run-log-ui';
 import { JsonPrettyPrinterRoot as JsonPrettyPrinter } from '@/lib/chat/jsonPrettyPrinter';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import RunStatusBadge from '@/components/automations/RunStatusBadge';
+
+const Clock = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ClockIcon} {...props} />
+);
+const Globe = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={GlobeIcon} {...props} />
+);
+const Search = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={SearchIcon} {...props} />
+);
+const FileText = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={FileTextGlyph} {...props} />
+);
+const Database = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={DatabaseIcon} {...props} />
+);
+const Plug = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={PlugIcon} {...props} />
+);
+const FileTextIcon = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={FileTextIconIcon} {...props} />
+);
+const ShoppingBag = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ShoppingBagIcon} {...props} />
+);
+const GitBranch = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={GitBranchIcon} {...props} />
+);
+const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BotIcon} {...props} />
+);
+const Zap = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ZapIcon} {...props} />
+);
+const Network = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={NetworkIcon} {...props} />
+);
+const GraduationCap = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={GraduationCapIcon} {...props} />
+);
+const Crop = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={CropIcon} {...props} />
+);
+const Layers = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={LayersIcon} {...props} />
+);
+const Calendar = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={CalendarIcon} {...props} />
+);
 // ─── Shared helpers (aligned with ChatToolCard icons + toolDisplayLabels) ───
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -138,15 +187,15 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
   const parsedContent = useMemo(() => parseJson(step.content), [step.content]);
 
   const statusIcon = isError
-    ? <XCircle size={13} style={{ color: 'var(--error)', flexShrink: 0 }} />
+    ? <HugeiconsIcon icon={XCircleIcon} size={13} style={{ color: 'var(--destructive)', flexShrink: 0 }} />
     : isCancelled
-      ? <XCircle size={13} className="opacity-60" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
+      ? <HugeiconsIcon icon={XCircleIcon} size={13} className="opacity-60" style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />
       : isWaitingApproval
-        ? <Clock size={13} className="opacity-80" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
+        ? <HugeiconsIcon icon={ClockIcon} size={13} className="opacity-80" style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />
     : step.status === 'running'
-      ? <Loader2 size={13} className="animate-spin opacity-80" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
+      ? <HugeiconsIcon icon={Loader2Icon} size={13} className="animate-spin opacity-80" style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />
       : step.status === 'completed' || step.status === 'done'
-        ? <CheckCircle2 size={13} className="opacity-70" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
+        ? <HugeiconsIcon icon={CheckCircle2Icon} size={13} className="opacity-70" style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />
         : null;
 
   // Render content based on type
@@ -160,10 +209,10 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
           className="mt-2 rounded-lg p-3 text-xs"
           style={{
             background: isError
-              ? 'color-mix(in srgb, var(--error) 8%, transparent)'
+              ? 'color-mix(in srgb, var(--destructive) 8%, transparent)'
               : isCancelled
-                ? 'color-mix(in srgb, var(--bg-hover) 80%, transparent)'
-                : 'var(--bg-tertiary)',
+                ? 'color-mix(in srgb, var(--accent) 80%, transparent)'
+                : 'var(--muted)',
           }}
         >
           <MarkdownRenderer content={text} />
@@ -176,7 +225,7 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
         const raw = typeof step.content === 'string' ? step.content : JSON.stringify(step.content, null, 2);
         return (
           <pre className="mt-2 rounded-lg p-3 text-[11px] font-mono overflow-auto max-h-64"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--secondary-text)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            style={{ background: 'var(--muted)', color: 'var(--muted-foreground)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {raw}
           </pre>
         );
@@ -184,8 +233,7 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
 
       if (parsedContent !== null && typeof parsedContent === 'object') {
         return (
-          <div className="mt-2 rounded-lg p-3 text-[11px] font-mono overflow-auto max-h-72"
-            style={{ background: 'var(--bg-tertiary)' }}>
+          <div className="mt-2 rounded-lg p-3 text-[11px] font-mono overflow-auto max-h-72 bg-muted">
             <JsonPrettyPrinter value={parsedContent} />
           </div>
         );
@@ -194,7 +242,7 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
       if (typeof step.content === 'string') {
         return (
           <div className="mt-2 rounded-lg p-3 text-[11px] font-mono overflow-auto max-h-64"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--secondary-text)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            style={{ background: 'var(--muted)', color: 'var(--muted-foreground)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {step.content}
           </div>
         );
@@ -207,12 +255,15 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
   const hasContent = Boolean(step.content);
 
   const panelBody = hasContent ? (
-    <div className="px-3 pb-3 bg-[var(--bg)]">
+    <div className="px-3 pb-3 bg-background">
       {isToolCall ? (
         <div className="flex justify-end pb-2">
-          <DomeButton type="button" variant="outline" size="xs" onClick={() => setShowRaw(!showRaw)}>
+          <Button type="button"
+  variant="outline"
+  onClick={() => setShowRaw(!showRaw)}
+  size="xs">
             {showRaw ? t('runLog.view_pretty') : t('runLog.view_raw')}
-          </DomeButton>
+          </Button>
         </div>
       ) : null}
       {renderContent()}
@@ -221,24 +272,24 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
 
   return (
     <div
-      className="rounded-md border border-[var(--border)] overflow-hidden bg-[var(--bg-secondary)]"
+      className="rounded-md border border-border overflow-hidden bg-card"
     >
-      <DomeCollapsibleRow
+      <CollapsibleRow
         expanded={expanded}
         onExpandedChange={setExpanded}
-        triggerClassName="px-3 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)]"
+        triggerClassName="px-3 py-2 bg-card hover:bg-accent"
         trigger={
           <>
-            <Icon size={13} className="shrink-0 opacity-60" style={{ color: 'var(--tertiary-text)' }} />
+            <Icon size={13} className="shrink-0 opacity-60 text-muted-foreground" />
             <div className="flex-1 min-w-0">
               <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-baseline sm:gap-2">
-                <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--tertiary-text)' }}>
+                <span className="text-[11px] shrink-0 tabular-nums text-muted-foreground">
                   {toolName || step.stepType}
                 </span>
-                <span className="text-sm font-normal leading-snug break-words text-[var(--primary-text)]">{label}</span>
+                <span className="text-sm font-normal leading-snug break-words text-foreground">{label}</span>
               </div>
               {argsSummary ? (
-                <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--tertiary-text)]">{argsSummary}</p>
+                <p className="text-[11px] mt-0.5 line-clamp-2 text-muted-foreground">{argsSummary}</p>
               ) : null}
             </div>
             <div className="flex items-center shrink-0">{statusIcon}</div>
@@ -246,7 +297,7 @@ function RunStepCard({ step }: { step: PersistentRunStep }) {
         }
       >
         {panelBody}
-      </DomeCollapsibleRow>
+      </CollapsibleRow>
     </div>
   );
 }
@@ -268,7 +319,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
   const isRunning = run.status === 'running' || run.status === 'queued';
 
   const subtitle = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--tertiary-text)]">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
       <span>
         {t('runLog.started')} {formatRunDate(run.startedAt)}
       </span>
@@ -282,92 +333,57 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
       </span>
       <span>{steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}</span>
       {progress?.mode === 'determinate' ? (
-        <span className="font-medium text-[var(--accent)]">
+        <span className="font-medium text-primary">
           {progress.percent ?? 0}% · {progress.completed}/{progress.total}
         </span>
       ) : null}
     </div>
   );
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default border-0 p-0"
-        style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
-        aria-label={t('runLog.close_panel')}
-        onClick={onClose}
-      />
-      <dialog
-        open
-        className="absolute right-0 top-0 flex h-full min-h-0 w-[min(720px,92vw)] flex-col border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)] m-0 max-w-none max-h-none p-0"
-        style={{ animation: 'slideInRight 0.2s ease-out' }}
-        aria-label={run.title || run.id}
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent
+        side="right"
+        className="bottom-0 top-[var(--app-header-total)] h-auto w-[min(720px,92vw)] max-w-none sm:max-w-none"
+        showCloseButton={false}
       >
-        <DomeDrawerLayout
-          className="h-full border-0 shadow-none bg-transparent"
-          header={
-            <DomeSubpageHeader className="bg-[var(--bg-secondary)]">
-              <DomeSubpageHeader.Title>{run.title || run.id}</DomeSubpageHeader.Title>
-              <DomeSubpageHeader.Subtitle>{subtitle}</DomeSubpageHeader.Subtitle>
-              <DomeSubpageHeader.Trailing>
+        <SheetTitle className="sr-only">{run.title || run.id}</SheetTitle>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
+            <SubpageHeader className="bg-card">
+              <SubpageHeader.Title>{run.title || run.id}</SubpageHeader.Title>
+              <SubpageHeader.Subtitle>{subtitle}</SubpageHeader.Subtitle>
+              <SubpageHeader.Trailing>
                 <>
-                  <DomeStatusBadge status={run.status} />
-                  <DomeButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    onClick={onClose}
-                    aria-label={t('runLog.close_panel')}
-                  >
-                    <X className="size-[18px]" aria-hidden />
-                  </DomeButton>
+                  <RunStatusBadge status={run.status} />
+                  <Button type="button"
+  variant="ghost"
+  onClick={onClose}
+  aria-label={t('runLog.close_panel')}
+  size="icon-sm">
+                    <HugeiconsIcon icon={XIcon} className="size-[18px]" aria-hidden />
+                  </Button>
                 </>
-              </DomeSubpageHeader.Trailing>
-            </DomeSubpageHeader>
-          }
-          afterHeader={
-            isRunning ? (
-              <div className="shrink-0 px-5 py-2 border-b border-[var(--border)] bg-[var(--bg)]">
+              </SubpageHeader.Trailing>
+            </SubpageHeader>
+            {isRunning ? (
+              <div className="shrink-0 px-5 py-2 border-b border-border bg-background">
                 <RunProgressBar run={run} />
               </div>
-            ) : undefined
-          }
-          footer={
-            <DomeSubpageFooter className="bg-[var(--bg-secondary)]">
-              <DomeSubpageFooter.Leading>
-                <span className="text-[11px] text-[var(--tertiary-text)]">ID: {run.id}</span>
-              </DomeSubpageFooter.Leading>
-              <DomeSubpageFooter.Trailing>
-                <DomeButton type="button" variant="secondary" size="sm" onClick={onClose}>
-                  {t('runLog.close')}
-                </DomeButton>
-              </DomeSubpageFooter.Trailing>
-            </DomeSubpageFooter>
-          }
-        >
-          <div className="px-5 py-4 space-y-5">
+            ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-5 px-5 py-4">
             {run.error ? (
-              <DomeCallout tone="error" title={t('runLog.error_title')}>
+              <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertTitle className="text-xs">{t('runLog.error_title')}</AlertTitle><AlertDescription className="text-xs">
                 <p className="font-mono text-[11px] whitespace-pre-wrap break-all">{run.error}</p>
-              </DomeCallout>
+              </AlertDescription></Alert>
             ) : null}
 
             {run.outputText ? (
               <div>
-                <DomeSectionLabel compact={false} className="mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   {t('runLog.response')}
-                </DomeSectionLabel>
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 text-sm">
+                </p>
+                <div className="rounded-xl border border-border bg-card p-4 text-sm">
                   <MarkdownRenderer content={run.outputText} />
                 </div>
               </div>
@@ -375,10 +391,10 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
 
             {toolSteps.length > 0 ? (
               <div>
-                <DomeSectionLabel compact={false} className="mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   {t('runLog.tools_used', { count: toolSteps.length })}
-                </DomeSectionLabel>
-                <div className="space-y-2">
+                </p>
+                <div className="flex flex-col gap-2">
                   {toolSteps.map((step) => (
                     <RunStepCard key={step.id} step={step} />
                   ))}
@@ -388,10 +404,10 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
 
             {otherSteps.length > 0 ? (
               <div>
-                <DomeSectionLabel compact={false} className="mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   {t('runLog.agent_steps', { count: otherSteps.length })}
-                </DomeSectionLabel>
-                <div className="space-y-2">
+                </p>
+                <div className="flex flex-col gap-2">
                   {otherSteps.map((step) => (
                     <RunStepCard key={step.id} step={step} />
                   ))}
@@ -401,30 +417,37 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
 
             {steps.length === 0 && !run.outputText && !run.error ? (
               isRunning ? (
-                <DomeListState variant="loading" loadingLabel={t('runLog.executing')} fullHeight />
+                <ListState variant="loading" loadingLabel={t('runLog.executing')} fullHeight />
               ) : (
-                <DomeListState variant="empty" title={t('runLog.no_steps')} fullHeight />
+                <ListState variant="empty" title={t('runLog.no_steps')} fullHeight />
               )
             ) : null}
 
             {run.summary ? (
               <div>
-                <DomeSectionLabel compact={false} className="mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   {t('runLog.summary')}
-                </DomeSectionLabel>
-                <p className="text-sm text-[var(--secondary-text)]">{run.summary}</p>
+                </p>
+                <p className="text-sm text-muted-foreground">{run.summary}</p>
               </div>
             ) : null}
           </div>
-        </DomeDrawerLayout>
-      </dialog>
-
-      <style>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
-    </div>
+          </div>
+            <SubpageFooter className="bg-card">
+              <SubpageFooter.Leading>
+                <span className="text-[11px] text-muted-foreground">ID: {run.id}</span>
+              </SubpageFooter.Leading>
+              <SubpageFooter.Trailing>
+                <Button type="button"
+  variant="secondary"
+  onClick={onClose}
+  size="sm">
+                  {t('runLog.close')}
+                </Button>
+              </SubpageFooter.Trailing>
+            </SubpageFooter>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

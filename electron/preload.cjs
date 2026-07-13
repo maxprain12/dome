@@ -108,6 +108,7 @@ const ALLOWED_CHANNELS = {
     'db:projects:create',
     'db:projects:getAll',
     'db:projects:getById',
+    'db:projects:update',
     'db:projects:setVaultRoot',
     'db:projects:getVaultRoot',
     'db:projects:getDeletionImpact',
@@ -513,13 +514,6 @@ const ALLOWED_CHANNELS = {
     // Sync export/import
     'sync:export',
     'sync:import',
-    'cloudSync:getStatus',
-    'cloudSync:push',
-    'cloudSync:pull',
-    'cloudSync:startRevisionWatcher',
-    'cloudSync:stopRevisionWatcher',
-    'cloudSync:getSettings',
-    'cloudSync:setSettings',
     'domainSync:getEntitlements',
     'domainSync:getStatus',
     'domainSync:setDomainEnabled',
@@ -805,11 +799,8 @@ const ALLOWED_CHANNELS = {
     'ppt-capture:render-slide',
     // In-app approval (HITL — main requests approval, renderer shows modal)
     'approval:requested',
-    'cloud-sync:revision',
-    'cloud-sync:pull-done',
-    'cloud-sync:pushed',
-    'cloud-sync:reindex-done',
     'domain-sync:completed',
+    'domain-sync:progress',
     'settings:cloud-updated',
     'domeauth:sessionState',
   ],
@@ -1003,26 +994,6 @@ const electronHandler = {
     import: () => ipcRenderer.invoke('sync:import'),
   },
 
-  cloudSync: {
-    getStatus: () => ipcRenderer.invoke('cloudSync:getStatus'),
-    push: () => ipcRenderer.invoke('cloudSync:push'),
-    pull: () => ipcRenderer.invoke('cloudSync:pull'),
-    startRevisionWatcher: () => ipcRenderer.invoke('cloudSync:startRevisionWatcher'),
-    stopRevisionWatcher: () => ipcRenderer.invoke('cloudSync:stopRevisionWatcher'),
-    onRevision: (callback) => {
-      const subscription = (_event, data) => callback(data);
-      ipcRenderer.on('cloud-sync:revision', subscription);
-      return () => ipcRenderer.removeListener('cloud-sync:revision', subscription);
-    },
-    onPullDone: (callback) => {
-      const subscription = (_event, data) => callback(data);
-      ipcRenderer.on('cloud-sync:pull-done', subscription);
-      return () => ipcRenderer.removeListener('cloud-sync:pull-done', subscription);
-    },
-    getSettings: () => ipcRenderer.invoke('cloudSync:getSettings'),
-    setSettings: (partial) => ipcRenderer.invoke('cloudSync:setSettings', partial),
-  },
-
   domainSync: {
     getEntitlements: () => ipcRenderer.invoke('domainSync:getEntitlements'),
     getStatus: () => ipcRenderer.invoke('domainSync:getStatus'),
@@ -1032,6 +1003,11 @@ const electronHandler = {
       const subscription = (_event, data) => callback(data);
       ipcRenderer.on('domain-sync:completed', subscription);
       return () => ipcRenderer.removeListener('domain-sync:completed', subscription);
+    },
+    onProgress: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('domain-sync:progress', subscription);
+      return () => ipcRenderer.removeListener('domain-sync:progress', subscription);
     },
   },
 
@@ -1233,6 +1209,7 @@ const electronHandler = {
       create: (project) => ipcRenderer.invoke('db:projects:create', project),
       getAll: () => ipcRenderer.invoke('db:projects:getAll'),
       getById: (id) => ipcRenderer.invoke('db:projects:getById', id),
+      update: (project) => ipcRenderer.invoke('db:projects:update', project),
       setVaultRoot: (args) => ipcRenderer.invoke('db:projects:setVaultRoot', args),
       getVaultRoot: (projectId) => ipcRenderer.invoke('db:projects:getVaultRoot', projectId),
       getDeletionImpact: (projectId) => ipcRenderer.invoke('db:projects:getDeletionImpact', projectId),

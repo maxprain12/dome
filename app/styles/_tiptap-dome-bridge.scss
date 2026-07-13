@@ -49,12 +49,12 @@
   --tt-gray-light-a-900: color-mix(in srgb, #1A1A1A 96%, transparent);
 
   /* Brand scale → Dome warm-stone accent */
-  --tt-brand-color-50:  color-mix(in srgb, var(--accent) 8%,  var(--bg-secondary));
-  --tt-brand-color-100: color-mix(in srgb, var(--accent) 14%, var(--bg-secondary));
-  --tt-brand-color-200: color-mix(in srgb, var(--accent) 24%, var(--bg-secondary));
-  --tt-brand-color-300: color-mix(in srgb, var(--accent) 40%, var(--bg-secondary));
-  --tt-brand-color-400: color-mix(in srgb, var(--accent) 70%, var(--bg-secondary));
-  --tt-brand-color-500: var(--accent);
+  --tt-brand-color-50:  color-mix(in srgb, var(--dome-accent) 8%,  var(--bg-secondary));
+  --tt-brand-color-100: color-mix(in srgb, var(--dome-accent) 14%, var(--bg-secondary));
+  --tt-brand-color-200: color-mix(in srgb, var(--dome-accent) 24%, var(--bg-secondary));
+  --tt-brand-color-300: color-mix(in srgb, var(--dome-accent) 40%, var(--bg-secondary));
+  --tt-brand-color-400: color-mix(in srgb, var(--dome-accent) 70%, var(--bg-secondary));
+  --tt-brand-color-500: var(--dome-accent);
   --tt-brand-color-600: var(--accent-hover);
   --tt-brand-color-700: #3B4025;
   --tt-brand-color-800: #2D3019;
@@ -67,8 +67,8 @@
   --tt-border-color-tint: color-mix(in srgb, var(--border) 60%, transparent);
   --tt-sidebar-bg-color: var(--bg);
   --tt-scrollbar-color: color-mix(in srgb, var(--primary-text) 12%, transparent);
-  --tt-cursor-color: var(--accent);
-  --tt-selection-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tt-cursor-color: var(--dome-accent);
+  --tt-selection-color: color-mix(in srgb, var(--dome-accent) 22%, transparent);
   --tt-card-bg-color: var(--bg-secondary);
   --tt-card-border-color: var(--border);
 }
@@ -100,12 +100,12 @@
   --tt-gray-dark-a-900: color-mix(in srgb, #FFFFFF 96%, transparent);
 
   /* Brand scale (dark) — accent muted but recognizable */
-  --tt-brand-color-50:  color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
-  --tt-brand-color-100: color-mix(in srgb, var(--accent) 18%, var(--bg-secondary));
-  --tt-brand-color-200: color-mix(in srgb, var(--accent) 28%, var(--bg-secondary));
-  --tt-brand-color-300: color-mix(in srgb, var(--accent) 42%, var(--bg-secondary));
-  --tt-brand-color-400: color-mix(in srgb, var(--accent) 78%, #FFFFFF);
-  --tt-brand-color-500: var(--accent);
+  --tt-brand-color-50:  color-mix(in srgb, var(--dome-accent) 10%, var(--bg-secondary));
+  --tt-brand-color-100: color-mix(in srgb, var(--dome-accent) 18%, var(--bg-secondary));
+  --tt-brand-color-200: color-mix(in srgb, var(--dome-accent) 28%, var(--bg-secondary));
+  --tt-brand-color-300: color-mix(in srgb, var(--dome-accent) 42%, var(--bg-secondary));
+  --tt-brand-color-400: color-mix(in srgb, var(--dome-accent) 78%, #FFFFFF);
+  --tt-brand-color-500: var(--dome-accent);
   --tt-brand-color-600: var(--accent-hover);
   --tt-brand-color-700: #4F5731;
   --tt-brand-color-800: #3F4628;
@@ -118,8 +118,8 @@
   --tt-border-color-tint: color-mix(in srgb, var(--border) 50%, transparent);
   --tt-sidebar-bg-color: var(--bg);
   --tt-scrollbar-color: color-mix(in srgb, #FFFFFF 14%, transparent);
-  --tt-cursor-color: var(--accent);
-  --tt-selection-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  --tt-cursor-color: var(--dome-accent);
+  --tt-selection-color: color-mix(in srgb, var(--dome-accent) 30%, transparent);
   --tt-card-bg-color: var(--bg-secondary);
   --tt-card-border-color: var(--border);
 

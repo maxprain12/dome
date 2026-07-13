@@ -20,6 +20,7 @@ import TableView from '../table/TableView';
 import type { DeckSettings } from './DeckSettingsTab';
 import { computeQuizDeckStats } from '@/lib/learn/quizStats';
 import { flashcardStudyableCount, resolveFlashDeckId } from '@/lib/learn/deckItems';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export default function DeckOverview() {
   const { t } = useTranslation();
@@ -45,6 +46,7 @@ export default function DeckOverview() {
   const [quizRuns, setQuizRuns] = useState<QuizRunRecord[]>([]);
   const [sourceTitles, setSourceTitles] = useState<Record<string, string>>({});
   const [playingQuiz, setPlayingQuiz] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const output = studioOutputs.find((o) => o.id === activeDeckId);
   const deck =
@@ -101,33 +103,39 @@ export default function DeckOverview() {
 
   useEffect(() => {
     if (!flashDeckId || !isFlashDeck) return;
+    let cancelled = false;
     void loadDeckStats(flashDeckId);
     void (async () => {
       const cardsResult = await window.electron.db.flashcards.getCards(flashDeckId);
-      if (cardsResult.success && cardsResult.data) setCards(cardsResult.data as Flashcard[]);
+      if (!cancelled && cardsResult.success && cardsResult.data) setCards(cardsResult.data as Flashcard[]);
       const sessResult = await window.electron.db.flashcards.getSessions(flashDeckId, 20);
-      if (sessResult.success && sessResult.data) setSessions(sessResult.data as FlashcardStudySession[]);
+      if (!cancelled && sessResult.success && sessResult.data) setSessions(sessResult.data as FlashcardStudySession[]);
     })();
+    return () => { cancelled = true; };
   }, [flashDeckId, isFlashDeck, loadDeckStats]);
 
   useEffect(() => {
     if (!activeDeckId || output?.type !== 'quiz') return;
+    let cancelled = false;
     void (async () => {
       const result = await window.electron.db.quiz.listRuns(activeDeckId);
-      if (result.success && result.data) setQuizRuns(result.data as QuizRunRecord[]);
+      if (!cancelled && result.success && result.data) setQuizRuns(result.data as QuizRunRecord[]);
     })();
+    return () => { cancelled = true; };
   }, [activeDeckId, output?.type]);
 
   useEffect(() => {
     if (sourceIds.length === 0) return;
+    let cancelled = false;
     void (async () => {
       const titles: Record<string, string> = {};
       for (const id of sourceIds.slice(0, 8)) {
         const res = await window.electron.db.resources.getById(id);
         if (res.success && res.data?.title) titles[id] = res.data.title as string;
       }
-      setSourceTitles(titles);
+      if (!cancelled) setSourceTitles(titles);
     })();
+    return () => { cancelled = true; };
   }, [sourceIds]);
 
   if (!activeDeckId) return null;
@@ -180,7 +188,7 @@ export default function DeckOverview() {
 
   if (output?.type === 'mindmap' && output.content) {
     return (
-      <div className="lr-frame">
+      <div className="h-full">
         <MindMapView output={output} onBack={closeDeck} />
       </div>
     );
@@ -188,7 +196,7 @@ export default function DeckOverview() {
 
   if (output?.type === 'guide' && output.content) {
     return (
-      <div className="lr-frame">
+      <div className="h-full">
         <GuideReader output={output} onBack={closeDeck} />
       </div>
     );
@@ -196,7 +204,7 @@ export default function DeckOverview() {
 
   if (output?.type === 'faq' && output.content) {
     return (
-      <div className="lr-frame">
+      <div className="h-full">
         <FaqReader output={output} onBack={closeDeck} />
       </div>
     );
@@ -204,7 +212,7 @@ export default function DeckOverview() {
 
   if (output?.type === 'timeline' && output.content) {
     return (
-      <div className="lr-frame">
+      <div className="h-full">
         <TimelineView output={output} onBack={closeDeck} />
       </div>
     );
@@ -212,7 +220,7 @@ export default function DeckOverview() {
 
   if (output?.type === 'table' && output.content) {
     return (
-      <div className="lr-frame">
+      <div className="h-full">
         <TableView output={output} onBack={closeDeck} />
       </div>
     );
@@ -226,18 +234,16 @@ export default function DeckOverview() {
     });
   };
 
-  const handleDelete = () => {
-    const msg = isFlashDeck
-      ? t('flashcard.confirm_delete_deck', 'Delete this deck?')
-      : t('content.confirm_delete_content', 'Delete this content?');
-    if (!confirm(msg)) return;
+  const handleDelete = () => setDeleteOpen(true);
+  const confirmDelete = () => {
     if (isFlashDeck && deck) void deleteDeck(deck.id);
     else if (output) void deleteStudioOutput(output.id);
+    setDeleteOpen(false);
     closeDeck();
   };
 
   return (
-    <div className="lr-frame">
+    <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
       <DeckHeader
         title={title}
         typeLabel={typeLabel}
@@ -293,6 +299,7 @@ export default function DeckOverview() {
           onDelete={handleDelete}
         />
       ) : null}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{isFlashDeck ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}</AlertDialogTitle><AlertDialogDescription>{title}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={confirmDelete}>{t('ui.delete', 'Delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
 }

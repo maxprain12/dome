@@ -10,20 +10,20 @@
 
   /* Map Crepe theme tokens → dome-ui */
   --crepe-color-background: transparent;
-  --crepe-color-on-background: var(--dome-text);
-  --crepe-color-surface: var(--dome-surface);
-  --crepe-color-surface-low: var(--dome-bg-hover);
-  --crepe-color-on-surface: var(--dome-text);
-  --crepe-color-on-surface-variant: var(--dome-text-secondary);
-  --crepe-color-outline: var(--dome-border);
-  --crepe-icon-color: var(--dome-text-secondary);
-  --crepe-color-primary: var(--dome-accent);
-  --crepe-color-secondary: var(--dome-bg-hover);
-  --crepe-color-on-secondary: var(--dome-text);
-  --crepe-color-hover: var(--dome-bg-hover);
-  --crepe-color-selected: color-mix(in srgb, var(--dome-accent) 12%, var(--dome-bg-hover));
+  --crepe-color-on-background: var(--foreground);
+  --crepe-color-surface: var(--card);
+  --crepe-color-surface-low: var(--accent);
+  --crepe-color-on-surface: var(--foreground);
+  --crepe-color-on-surface-variant: var(--muted-foreground);
+  --crepe-color-outline: var(--border);
+  --crepe-icon-color: var(--muted-foreground);
+  --crepe-color-primary: var(--primary);
+  --crepe-color-secondary: var(--accent);
+  --crepe-color-on-secondary: var(--foreground);
+  --crepe-color-hover: var(--accent);
+  --crepe-color-selected: color-mix(in srgb, var(--primary) 12%, var(--accent));
   --crepe-font-default: var(--font-sans, inherit);
-  --crepe-shadow-1: 0 10px 40px color-mix(in srgb, var(--dome-text) 14%, transparent);
+  --crepe-shadow-1: 0 10px 40px color-mix(in srgb, var(--foreground) 14%, transparent);
 }
 
 .markdown-note-editor-host .crepe-frame {
@@ -33,8 +33,8 @@
 }
 
 .markdown-note-editor-host .ProseMirror {
-  color: var(--dome-text);
-  font-family: var(--dome-font-body, inherit);
+  color: var(--foreground);
+  font-family: var(--font-sans, inherit);
   line-height: 1.65;
   padding: 0 0 2rem;
   min-height: 240px;
@@ -45,24 +45,24 @@
 }
 
 .markdown-note-editor-host .ProseMirror a {
-  color: var(--dome-accent);
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .markdown-note-editor-host .ProseMirror a:hover {
-  color: var(--dome-accent-hover, var(--dome-accent));
+  color: var(--primary);
 }
 
 .markdown-note-editor-host .ProseMirror .ProseMirror-selectednode a,
 .markdown-note-editor-host .ProseMirror a.ProseMirror-selectednode {
-  background: color-mix(in srgb, var(--dome-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   border-radius: 2px;
 }
 
 /* ── Crepe floating UI — icon contrast (Crepe uses outline for SVG fill) ── */
 .markdown-note-editor-host .milkdown .milkdown-toolbar {
-  border: 1px solid var(--dome-border);
+  border: 1px solid var(--border);
 }
 
 .markdown-note-editor-host .milkdown .milkdown-toolbar .toolbar-item svg,
@@ -79,42 +79,42 @@
 .markdown-note-editor-host .milkdown .milkdown-link-preview .link-icon:hover svg,
 .markdown-note-editor-host .milkdown .milkdown-link-edit .button:hover svg,
 .markdown-note-editor-host .milkdown .milkdown-block-handle .operation-item:hover svg {
-  color: var(--dome-text);
-  fill: var(--dome-text);
+  color: var(--foreground);
+  fill: var(--foreground);
 }
 
 .markdown-note-editor-host .milkdown .milkdown-toolbar .toolbar-item.active svg {
-  color: var(--dome-accent);
-  fill: var(--dome-accent);
+  color: var(--primary);
+  fill: var(--primary);
 }
 
 .markdown-note-editor-host .milkdown .milkdown-link-preview > .link-preview,
 .markdown-note-editor-host .milkdown .milkdown-link-edit > .link-edit {
-  border: 1px solid var(--dome-border);
+  border: 1px solid var(--border);
 }
 
 .markdown-note-editor-host .milkdown .milkdown-link-preview .link-display {
-  color: var(--dome-text);
+  color: var(--foreground);
 }
 
 /* ── Milkdown slash menu (Crepe BlockEdit) ───────────────── */
 .note-area .markdown-note-editor-host .milkdown-slash-menu {
   z-index: 10001;
   width: min(320px, calc(100vw - 24px));
-  border: 1px solid var(--border-soft-note, var(--dome-border));
+  border: 1px solid var(--border-soft-note, var(--border));
   border-radius: 12px;
   overflow: hidden;
-  background: var(--dome-surface);
-  color: var(--dome-text);
+  background: var(--card);
+  color: var(--foreground);
   font-family: var(--font-sans, inherit);
   box-shadow: var(--crepe-shadow-1);
   animation: slash-menu-in 0.15s ease-out;
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .tab-group {
-  border-bottom: 1px solid var(--border-soft-note, var(--dome-border));
+  border-bottom: 1px solid var(--border-soft-note, var(--border));
   padding: 8px 8px 0;
-  background: color-mix(in srgb, var(--dome-accent) 4%, var(--dome-surface));
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .tab-group ul {
@@ -129,19 +129,19 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.3;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
   border-radius: 8px;
   transition: background 100ms, color 100ms;
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .tab-group ul li:hover {
-  background: var(--dome-bg-hover);
-  color: var(--dome-text-secondary);
+  background: var(--accent);
+  color: var(--muted-foreground);
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .tab-group ul li.selected {
-  background: color-mix(in srgb, var(--dome-accent) 12%, var(--dome-bg-hover));
-  color: var(--dome-text);
+  background: color-mix(in srgb, var(--primary) 12%, var(--accent));
+  color: var(--foreground);
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups {
@@ -159,7 +159,7 @@
   line-height: 1.3;
   padding: 8px 10px 3px;
   margin: 0;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group li {
@@ -174,12 +174,12 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 1.3;
-  color: var(--dome-text);
+  color: var(--foreground);
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group li.hover,
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group li.active {
-  background: color-mix(in srgb, var(--dome-accent) 12%, var(--dome-bg-hover));
+  background: color-mix(in srgb, var(--primary) 12%, var(--accent));
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group li.hover > span,
@@ -194,21 +194,21 @@
   padding: 4px;
   box-sizing: content-box;
   border-radius: 7px;
-  background: color-mix(in srgb, var(--dome-text) 6%, var(--dome-surface));
-  border: 1px solid color-mix(in srgb, var(--dome-text) 10%, transparent);
-  color: var(--dome-text-secondary);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--muted-foreground);
   fill: currentColor;
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group li.hover svg,
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group li.active svg {
-  background: color-mix(in srgb, var(--dome-accent) 14%, var(--dome-surface));
-  border-color: color-mix(in srgb, var(--dome-accent) 28%, transparent);
-  color: var(--dome-accent);
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+  color: var(--primary);
 }
 
 .note-area .markdown-note-editor-host .milkdown-slash-menu .menu-groups .menu-group + .menu-group::before {
-  background: var(--border-soft-note, var(--dome-border));
+  background: var(--border-soft-note, var(--border));
   margin: 4px 10px;
 }
 

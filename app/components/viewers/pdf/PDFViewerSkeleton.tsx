@@ -8,12 +8,12 @@ export default function PDFViewerSkeleton() {
       {/* Toolbar skeleton */}
       <div
         className="flex items-center gap-4 px-4 py-2 border-b"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
       >
         <div className="skeleton size-9 rounded-md" />
         <div className="skeleton h-4 w-20 rounded" />
         <div className="skeleton size-9 rounded-md" />
-        <div className="w-px h-5" style={{ background: 'var(--border)' }} />
+        <div className="w-px h-5 bg-border" />
         <div className="skeleton size-9 rounded-md" />
         <div className="skeleton h-4 w-12 rounded" />
         <div className="skeleton size-9 rounded-md" />
@@ -22,7 +22,7 @@ export default function PDFViewerSkeleton() {
       {/* Annotation toolbar skeleton */}
       <div
         className="flex items-center gap-2 px-3 py-2 border-b"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
       >
         <div className="skeleton size-9 rounded-md" />
         <div className="skeleton size-9 rounded-md" />

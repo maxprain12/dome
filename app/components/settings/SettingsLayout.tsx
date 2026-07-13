@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react';
+import type { IconSvgElement } from '@hugeicons/react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import SettingsNavDropdown from '@/components/settings/SettingsNavDropdown';
+import SettingsSearch from '@/components/settings/SettingsSearch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   NAV_GROUPS,
   filterNavGroups,
   getGroupItems,
   type SettingsSection,
 } from '@/components/settings/settingsNavConfig';
-import '@/styles/settings-layout.css';
 
 export type { SettingsSection } from '@/components/settings/settingsNavConfig';
 
@@ -29,25 +30,25 @@ function SettingsNavItem({
   onSelect,
 }: {
   id: SettingsSection;
-  icon: ReactNode;
+  icon: IconSvgElement;
   isActive: boolean;
   label: string;
   onSelect: (section: SettingsSection) => void;
 }) {
   return (
-    <DomeButton
+    <Button
       type="button"
-      variant="ghost"
-      size="sm"
+      variant={isActive ? 'secondary' : 'ghost'}
       title={label}
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
       onClick={() => onSelect(id)}
-      className={cn('settings-nav-item', isActive && 'is-active')}
+      className="w-full justify-start"
+      size="sm"
     >
-      <span className="settings-nav-icon">{icon}</span>
-      <span className="settings-nav-text">{label}</span>
-    </DomeButton>
+      <HugeiconsIcon icon={icon} data-icon="inline-start" />
+      <span className="truncate">{label}</span>
+    </Button>
   );
 }
 
@@ -58,34 +59,26 @@ export default function SettingsLayout({ activeSection, onSectionChange, hiddenS
     : NAV_GROUPS;
 
   return (
-    <div className="settings-shell h-full w-full min-h-0">
-      <aside className="settings-sidebar" aria-label={t('settings.title')}>
-        <div className="settings-sidebar-header">
-          <DomeSectionLabel
-            compact={false}
-            className="!text-xs !font-bold !tracking-widest text-[var(--dome-text-muted)]"
-          >
+    <div className="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden md:grid-cols-[14rem_minmax(0,1fr)]">
+      <aside className="hidden min-h-0 flex-col border-r border-border bg-card md:flex" aria-label={t('settings.title')}>
+        <div className="shrink-0 px-4 pb-3 pt-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {t('settings.title')}
-          </DomeSectionLabel>
+          </p>
+          <div className="mt-3">
+            <SettingsSearch onSectionChange={onSectionChange} hiddenSections={hiddenSections} />
+          </div>
         </div>
-
-        <div className="settings-nav-dropdown">
-          <SettingsNavDropdown
-            activeSection={activeSection}
-            onSectionChange={onSectionChange}
-            hiddenSections={hiddenSections}
-          />
-        </div>
-
-        <nav className="settings-nav" aria-label={t('settings.nav.sidebar')}>
+        <ScrollArea className="min-h-0 flex-1">
+        <nav className="flex flex-col gap-5 px-2 pb-5" aria-label={t('settings.nav.sidebar')}>
           {navGroups.map((group) => {
             const runs = getGroupItems(group);
             return (
-              <div key={group.labelKey} className="settings-nav-group">
-                <p className="settings-nav-group-label">{t(group.labelKey)}</p>
+              <div key={group.labelKey} className="flex flex-col gap-1">
+                <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t(group.labelKey)}</p>
 
                 {runs.map((run, runIndex) => (
-                  <div key={`${group.labelKey}-${runIndex}`} className="settings-nav-subgroup">
+                  <div key={`${group.labelKey}-${runIndex}`} className="flex flex-col gap-0.5">
                     {run.map(({ id, icon }) => (
                       <SettingsNavItem
                         key={id}
@@ -102,10 +95,15 @@ export default function SettingsLayout({ activeSection, onSectionChange, hiddenS
             );
           })}
         </nav>
+        </ScrollArea>
       </aside>
 
-      <main className="settings-content">
-        <div className="settings-content-inner">
+      <main className="min-h-0 min-w-0 overflow-y-auto bg-background">
+        <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-border bg-background/95 p-3 backdrop-blur md:hidden">
+          <SettingsNavDropdown activeSection={activeSection} onSectionChange={onSectionChange} hiddenSections={hiddenSections} />
+          <SettingsSearch onSectionChange={onSectionChange} hiddenSections={hiddenSections} />
+        </div>
+        <div className="mx-auto w-full max-w-3xl p-5 pb-20 md:p-8 md:pb-20">
           {children}
         </div>
       </main>

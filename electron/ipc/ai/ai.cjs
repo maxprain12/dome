@@ -578,7 +578,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         : (resolveSettingSecretForApi(queries, `ai_api_key_${provider}`, candidate)
           || readProviderApiKey(queries, provider)
           || '');
-      return await fetchProviderModels(provider, { apiKey });
+      return await fetchProviderModels(provider, { apiKey, database });
     } catch (error) {
       return { success: false, error: error.message || String(error) };
     }

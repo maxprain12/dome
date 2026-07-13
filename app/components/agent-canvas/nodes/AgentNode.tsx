@@ -2,22 +2,42 @@
 
 import { useState, useRef } from 'react';
 import {
-  Bot,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  ChevronRight,
-  Search,
-  BookOpen,
-  PenTool,
-  BarChart2,
-  Presentation,
-  FolderKanban,
-} from 'lucide-react';
+  BotIcon as BotIcon,
+  Loading03Icon as Loader2Icon,
+  CheckmarkCircle02Icon as CheckCircle2Icon,
+  AlertCircleIcon as AlertCircleIcon,
+  ChevronRightIcon as ChevronRightIcon,
+  Search01Icon as SearchIcon,
+  BookOpen01Icon as BookOpenIcon,
+  PenTool03Icon as PenToolIcon,
+  BarChartIcon as BarChart2Icon,
+  Presentation01Icon as PresentationIcon,
+  FolderKanbanIcon as FolderKanbanIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import type { AgentNodeData, SystemAgentRole } from '@/types/canvas';
 import { SYSTEM_AGENTS } from '@/lib/agent-canvas/system-agents';
 import { canvasSystemAgentDescKey } from '@/lib/agent-canvas/canvas-layout';
+
+const Search = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={SearchIcon} {...props} />
+);
+const BookOpen = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BookOpenIcon} {...props} />
+);
+const PenTool = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={PenToolIcon} {...props} />
+);
+const BarChart2 = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BarChart2Icon} {...props} />
+);
+const Presentation = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={PresentationIcon} {...props} />
+);
+const FolderKanban = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={FolderKanbanIcon} {...props} />
+);
 
 const SYSTEM_ROLE_ICONS: Record<SystemAgentRole, React.ElementType> = {
   research: Search,
@@ -29,10 +49,10 @@ const SYSTEM_ROLE_ICONS: Record<SystemAgentRole, React.ElementType> = {
 };
 
 const STATUS_COLORS = {
-  idle: { header: 'var(--dome-bg)', textColor: 'var(--dome-accent)' },
-  running: { header: 'var(--dome-accent-bg)', textColor: 'var(--dome-accent)' },
+  idle: { header: 'var(--background)', textColor: 'var(--primary)' },
+  running: { header: 'color-mix(in srgb, var(--primary) 12%, transparent)', textColor: 'var(--primary)' },
   done: { header: 'var(--success-bg)', textColor: 'var(--success)' },
-  error: { header: 'var(--error-bg)', textColor: 'var(--error)' },
+  error: { header: 'color-mix(in srgb, var(--destructive) 12%, transparent)', textColor: 'var(--destructive)' },
 };
 
 function AgentNodeStatusIcon({
@@ -44,11 +64,11 @@ function AgentNodeStatusIcon({
 }) {
   switch (status) {
     case 'running':
-      return <Loader2 className="size-3.5 animate-spin" style={{ color: systemColor }} />;
+      return <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" style={{ color: systemColor }} />;
     case 'done':
-      return <CheckCircle2 className="size-3.5" style={{ color: 'var(--success)' }} />;
+      return <HugeiconsIcon icon={CheckCircle2Icon} className="size-3.5 text-[var(--success)]" />;
     case 'error':
-      return <AlertCircle className="size-3.5" style={{ color: 'var(--error)' }} />;
+      return <HugeiconsIcon icon={AlertCircleIcon} className="size-3.5 text-destructive" />;
     default:
       return null;
   }
@@ -74,7 +94,7 @@ export default function AgentNode({
 
   const isSystemAgent = !data.agentId && !!data.systemAgentRole;
   const systemDef = data.systemAgentRole ? SYSTEM_AGENTS[data.systemAgentRole] : null;
-  const systemColor = systemDef?.color ?? 'var(--dome-accent)';
+  const systemColor = systemDef?.color ?? 'var(--primary)';
 
   const agentInitials = data.agentName ? data.agentName.slice(0, 2).toUpperCase() : '?';
 
@@ -84,15 +104,15 @@ export default function AgentNode({
 
   const headerBg =
     isSystemAgent && systemDef
-      ? `color-mix(in srgb, ${systemDef.color} 10%, var(--dome-bg))`
+      ? `color-mix(in srgb, ${systemDef.color} 10%, var(--background))`
       : colors.header;
 
   const borderColor =
     selected && isSystemAgent && systemDef
       ? systemDef.color
       : selected
-        ? 'var(--dome-accent)'
-        : 'var(--dome-border)';
+        ? 'var(--primary)'
+        : 'var(--border)';
 
   return (
     <div
@@ -101,16 +121,16 @@ export default function AgentNode({
         width: 220,
         border: `1px solid ${borderColor}`,
         boxShadow: selected
-          ? `0 0 0 2px color-mix(in srgb, ${isSystemAgent && systemDef ? systemDef.color : 'var(--dome-accent)'} 18%, transparent)`
+          ? `0 0 0 2px color-mix(in srgb, ${isSystemAgent && systemDef ? systemDef.color : 'var(--primary)'} 18%, transparent)`
           : 'none',
-        background: 'var(--dome-surface)',
+        background: 'var(--card)',
       }}
     >
       <div
         className="workflow-node-header flex items-center gap-2 px-3 py-2"
         style={{
           background: headerBg,
-          borderBottom: '1px solid var(--dome-border)',
+          borderBottom: '1px solid var(--border)',
         }}
       >
         <div
@@ -152,8 +172,8 @@ export default function AgentNode({
 
       <div className="p-3 min-h-[48px]">
         {data.status === 'idle' && !data.agentId && !data.systemAgentRole && (
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <Bot className="size-4 opacity-40 shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <HugeiconsIcon icon={BotIcon} className="size-4 opacity-40 shrink-0" />
             <span className="italic leading-snug">{t('canvas.no_agent_assigned')}</span>
           </div>
         )}
@@ -164,27 +184,27 @@ export default function AgentNode({
         )}
 
         {data.status === 'idle' && data.agentId && (
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <ChevronRight className="size-3.5 opacity-40 shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5 opacity-40 shrink-0" />
             <span className="italic leading-snug">{t('canvas.ready_to_execute')}</span>
           </div>
         )}
 
         {data.status === 'running' && (
-          <div className="space-y-1.5">
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+          <div className="flex flex-col gap-1.5">
+            <div className="h-1.5 rounded-full overflow-hidden bg-background">
               <div
                 className="size-full rounded-full animate-pulse"
                 style={{
-                  background: 'linear-gradient(90deg, transparent 0%, var(--dome-accent) 50%, transparent 100%)',
+                  background: 'linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%)',
                 }}
               />
             </div>
-            <p className="text-xs leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs leading-snug text-muted-foreground">
               {t('canvas.processing')}
             </p>
             {data.outputText && (
-              <p className="text-xs line-clamp-3 mt-0.5 leading-snug" style={{ color: 'var(--dome-text-secondary)' }}>
+              <p className="text-xs line-clamp-3 mt-0.5 leading-snug text-muted-foreground">
                 {data.outputText}
               </p>
             )}
@@ -192,13 +212,13 @@ export default function AgentNode({
         )}
 
         {data.status === 'done' && data.outputText && (
-          <p className="text-xs line-clamp-4 leading-snug" style={{ color: 'var(--dome-text-secondary)', lineHeight: 1.45 }}>
+          <p className="text-xs line-clamp-4 leading-snug" style={{ color: 'var(--muted-foreground)', lineHeight: 1.45 }}>
             {data.outputText}
           </p>
         )}
 
         {data.status === 'error' && (
-          <p className="text-xs leading-snug" style={{ color: 'var(--error)' }}>
+          <p className="text-xs leading-snug text-destructive">
             {data.errorMessage ?? t('canvas.unknown_error')}
           </p>
         )}

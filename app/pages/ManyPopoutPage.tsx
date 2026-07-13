@@ -11,7 +11,6 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
-import ToastContainer from '@/components/ui/Toast';
 
 export default function ManyPopoutPage() {
   const { t } = useTranslation();
@@ -46,7 +45,7 @@ export default function ManyPopoutPage() {
   if (!ManyPanelComp) {
     return (
       <div className="many-popout-root flex h-screen w-screen items-center justify-center">
-        <span className="text-xs text-[var(--dome-text-muted)]">{t('common.loading')}</span>
+        <span className="text-xs text-muted-foreground">{t('common.loading')}</span>
       </div>
     );
   }
@@ -63,7 +62,6 @@ export default function ManyPopoutPage() {
         />
       </div>
       <ApprovalProvider />
-      <ToastContainer />
     </>
   );
 }

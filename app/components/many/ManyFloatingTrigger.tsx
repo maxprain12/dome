@@ -1,7 +1,10 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import ManyIcon from './ManyIcon';
 import type { ManyStatus } from '@/lib/store/useManyStore';
+import { cn } from '@/lib/utils';
 
 interface ManyFloatingTriggerProps {
   onClick: () => void;
@@ -16,32 +19,37 @@ export default memo(function ManyFloatingTrigger({
 }: ManyFloatingTriggerProps) {
   const { t } = useTranslation();
   return (
-    <button
+    <Button
       type="button"
       data-tour="many"
       onClick={onClick}
-      className="many-floating-trigger fixed bottom-6 right-6 z-[--z-max] flex size-14 cursor-pointer items-center justify-center rounded-full border-2 border-[var(--border)] bg-[var(--bg-secondary)] shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-shadow duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
+      size="icon"
+      className={cn(
+        'fixed bottom-6 right-6 z-(--z-max) size-14 rounded-full border-2 shadow-lg',
+      )}
       aria-label={t('many.openChat')}
     >
       <ManyIcon size={32} />
 
       {totalNotifications > 0 ? (
-        <span
-          className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full border-2 border-[var(--bg)] bg-[var(--error)] text-[11px] font-bold text-white"
+        <Badge
+          variant="destructive"
+          className="absolute -top-1 -right-1 size-5 justify-center p-0 text-[11px]"
           aria-hidden
         >
           {totalNotifications > 9 ? '9+' : totalNotifications}
-        </span>
+        </Badge>
       ) : null}
 
-      {status !== 'idle' && (
+      {status !== 'idle' ? (
         <span
-          className={`absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-[var(--bg)] ${
-            status === 'thinking' ? 'bg-[var(--warning)] animate-many-pulse' : 'bg-[var(--success)]'
-          }`}
+          className={cn(
+            'absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-background',
+            status === 'thinking' ? 'bg-warning opacity-80' : 'bg-success',
+          )}
           aria-hidden
         />
-      )}
-    </button>
+      ) : null}
+    </Button>
   );
 });

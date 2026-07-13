@@ -1,16 +1,9 @@
 
 import { useState, useMemo, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import {
-  FileText,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Check,
-  ChevronRight,
-  PlusCircle,
-  Users,
-} from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckmarkCircle02Icon, File02Icon, PlusSignCircleIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard from './ArtifactCard';
 import ChatTodoList from './ChatTodoList';
@@ -19,14 +12,13 @@ import { parseTodos } from '@/lib/chat/todos';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-utils';
-import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeBadge from '@/components/ui/DomeBadge';
+import { ChatToolMarker, ChatToolGroupMarker } from './ChatToolMarker';
 import { getSubagentDisplayLabel } from '@/lib/chat/toolCatalog';
 import { getToolDisplayLabelForCall } from '@/lib/chat/toolDisplayLabels';
 import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import { isFilesystemTreeTool, parseTreeToolSummary } from '@/lib/chat/treeToolSummary';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
+import { cn } from '@/lib/utils';
 import './chat-tool-card.css';
 
 /**
@@ -54,9 +46,6 @@ interface ChatToolCardProps {
 
 // Config, parsers y highlights extraídos (03/T02) — misma API pública.
 import {
-  type ToolCategory,
-  CATEGORY_COLORS,
-  getCategory,
   getIconForTool,
 } from './tool-card/toolCardConfig';
 import {
@@ -74,6 +63,9 @@ import {
 import { renderToolSuccessHighlight } from '@/lib/chat/toolResultHighlights';
 import { renderTreeToolSummary } from '@/lib/chat/renderTreeToolSummary';
 
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 function formatToolResult(result: unknown): string {
   if (typeof result === 'string') return result;
   if (result === null || result === undefined) return '';
@@ -85,7 +77,7 @@ function dispatchSoftConfirm(approved: boolean) {
   window.dispatchEvent(new CustomEvent('dome:quick-reply', { detail: { text } }));
 }
 
-export default function ChatToolCard({ toolCall, className = '', surfaceVariant = 'default' }: ChatToolCardProps) {
+export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
@@ -93,8 +85,6 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
 
   const Icon = getIconForTool(toolCall.name);
   const label = getToolDisplayLabelForCall(toolCall, t);
-  const category = getCategory(toolCall.name);
-  const accentColor = CATEGORY_COLORS[category];
 
   // Subagent delegation: explicit relay (agentName) or the deepagents `task` target.
   const rawSubagentKey =
@@ -155,57 +145,34 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     if (!needsConfirmation || toolCall.status !== 'success') return null;
     const msg = (parsedResult as Record<string, unknown>)?.error;
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          padding: '8px 10px',
-          background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-        }}
-      >
-        <p style={{ fontSize: 13, color: 'var(--secondary-text)', margin: 0 }}>
+      <Alert className="border-primary/20 bg-primary/5">
+        <AlertDescription className="text-sm">
           {typeof msg === 'string' ? msg : 'Esta acción requiere confirmación.'}
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
+        </AlertDescription>
+        <div className="mt-3 flex gap-2">
+          <Button
             type="button"
-            className="btn btn-secondary"
-            style={{ fontSize: 12, padding: '5px 12px' }}
+            variant="secondary"
+            size="sm"
             onClick={() => dispatchSoftConfirm(false)}
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-primary"
-            style={{ fontSize: 12, padding: '5px 12px' }}
+            size="sm"
             onClick={() => dispatchSoftConfirm(true)}
           >
             Confirmar
-          </button>
+          </Button>
         </div>
-      </div>
+      </Alert>
     );
   };
 
   const renderErrorBlock = (): ReactNode => {
     if (!toolCall.error) return null;
-    return (
-      <div
-        style={{
-          fontSize: 12,
-          color: 'var(--error)',
-          padding: '6px 8px',
-          background: 'color-mix(in srgb, var(--error) 8%, transparent)',
-          borderRadius: 4,
-        }}
-      >
-        {toolCall.error}
-      </div>
-    );
+    return <Alert variant="destructive"><AlertDescription>{toolCall.error}</AlertDescription></Alert>;
   };
 
   const renderFormattedView = (): ReactNode => {
@@ -214,7 +181,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     const codegen = getCodegenPreview(toolCall.name, toolCall.arguments);
     if (codegen) return <CodegenPreview preview={codegen} t={t} />;
     const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
-    if (highlight) return <div style={{ marginTop: 4 }}>{highlight}</div>;
+    if (highlight) return <div className="mt-1">{highlight}</div>;
     return null;
   };
 
@@ -231,20 +198,20 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     if (!documentItems || documentItems.length === 0) return null;
     const counts = new Map<string, number>();
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="flex flex-col gap-3">
         {documentItems.map((item) => {
           const h = stableStringHash(JSON.stringify(item));
           const ord = (counts.get(h) ?? 0) + 1;
           counts.set(h, ord);
           return (
-            <div key={`doc:${h}:${ord}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div key={`doc:${h}:${ord}`} className="flex flex-col gap-1">
               {item.metadata?.title != null && (
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary-text)', margin: 0 }}>
+                <p className="text-xs font-semibold text-foreground">
                   {String(item.metadata.title)}
                 </p>
               )}
               {item.content && (
-                <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
+                <div className="text-xs text-muted-foreground">
                   <MarkdownRenderer content={typeof item.content === 'string' ? item.content : ''} />
                 </div>
               )}
@@ -258,47 +225,35 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const renderPersistedArtifact = (): ReactNode => {
     if (!persistedArtifact) return null;
     return (
-      <div
-        style={{
-          marginTop: 6,
-          padding: '10px 12px',
-          borderRadius: 8,
-          border: '1px solid var(--border)',
-          background: 'var(--bg-secondary)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}
-      >
-        <div>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--primary-text)' }}>
+      <Card className="mt-1.5 gap-2 py-3">
+        <CardHeader className="px-3">
+          <CardTitle className="text-sm">
             {persistedArtifact.title}
-          </p>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--secondary-text)' }}>
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
             {persistedArtifact.artifactType}
           </p>
-        </div>
-        <DomeButton
-          size="xs"
-          variant="primary"
-          onClick={() =>
+        </CardHeader>
+        <CardContent className="px-3">
+        <Button onClick={() =>
             useTabStore.getState().openResourceTab(
               persistedArtifact.resourceId,
               'artifact',
               persistedArtifact.title,
             )
           }
-        >
+  size="xs">
           {t('artifacts.open_artifact', { defaultValue: 'Abrir artifact' })}
-        </DomeButton>
-      </div>
+        </Button>
+        </CardContent>
+      </Card>
     );
   };
 
   const renderArtifactCardItem = (): ReactNode => {
     if (!artifactItems) return null;
     return (
-      <div style={{ marginTop: 6 }}>
+      <div className="mt-1.5">
         <ArtifactCard artifact={artifactItems} />
       </div>
     );
@@ -308,29 +263,23 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     if (!contentImages || contentImages.length === 0) return null;
     const imgCounts = new Map<string, number>();
     return (
-      <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="mt-1.5 flex flex-col gap-3">
         {contentImages.map((item) => {
           const h = stableStringHash(item.dataUrl);
           const ord = (imgCounts.get(h) ?? 0) + 1;
           imgCounts.set(h, ord);
           const figureN = ord;
           return (
-            <div key={`fig:${h}:${ord}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <figure key={`fig:${h}:${ord}`} className="flex flex-col gap-1">
               {item.label && (
-                <p style={{ fontSize: 12, color: 'var(--secondary-text)', margin: 0 }}>{item.label}</p>
+                <figcaption className="text-xs text-muted-foreground">{item.label}</figcaption>
               )}
               <img
                 src={item.dataUrl}
                 alt={item.label || `Figure ${figureN}`}
-                style={{
-                  maxWidth: 280,
-                  maxHeight: 200,
-                  objectFit: 'contain',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                }}
+                className="max-h-52 max-w-72 rounded-lg border object-contain"
               />
-            </div>
+            </figure>
           );
         })}
       </div>
@@ -340,21 +289,15 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const renderImageResult = (): ReactNode => {
     if (!imageItems) return null;
     return (
-      <div style={{ marginTop: 6, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div className="mt-1.5 flex items-start gap-3">
         <img
           src={imageItems.dataUrl}
           alt={imageItems.alt || t('chat.tool_image_processed')}
-          style={{
-            maxWidth: 200,
-            maxHeight: 200,
-            objectFit: 'contain',
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-          }}
+          className="max-h-52 max-w-52 rounded-lg border object-contain"
         />
-        <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
-          <p style={{ fontWeight: 600, color: 'var(--primary-text)', margin: '0 0 4px' }}>{t('chat.tool_image_processed')}</p>
-          <p style={{ opacity: 0.7, margin: 0 }}>{t('chat.tool_image_expand')}</p>
+        <div className="text-xs text-muted-foreground">
+          <p className="mb-1 font-semibold text-foreground">{t('chat.tool_image_processed')}</p>
+          <p className="opacity-70">{t('chat.tool_image_expand')}</p>
         </div>
       </div>
     );
@@ -363,64 +306,47 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const renderResourceList = (): ReactNode => {
     if (!resourceItems || resourceItems.length === 0) return null;
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="flex flex-col gap-1">
         {resourceItems.map((item) => {
           const isPinned = pinnedIds.has(item.id);
           return (
             <div
               key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 6,
-                padding: '5px 6px',
-                borderRadius: 5,
-                border: '1px solid var(--border)',
-                background: isPinned ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : 'var(--bg-tertiary)',
-              }}
+              className={cn('flex items-start gap-1.5 rounded-lg border px-2 py-1.5', isPinned ? 'bg-primary/5' : 'bg-muted')}
             >
-              <FileText style={{ width: 12, height: 12, flexShrink: 0, marginTop: 2, color: 'var(--tertiary-text)' }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--primary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <HugeiconsIcon icon={File02Icon} className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium text-foreground">
                   {item.title}
                 </span>
                 {item.snippet && (
-                  <span style={{ fontSize: 12, color: 'var(--tertiary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span className="block truncate text-xs text-muted-foreground">
                     {item.snippet}
                   </span>
                 )}
               </div>
               {item.similarity != null && (
-                <DomeBadge
-                  label={`${Math.round(item.similarity * 100)}%`}
-                  variant="soft"
-                  size="xs"
-                  color="var(--tertiary-text)"
-                  className="shrink-0 mt-0.5"
-                />
+                <Badge variant="secondary" className="mt-0.5 h-auto max-w-full shrink-0 gap-1 px-1.5 py-0.5 text-[10px] font-semibold"><span className="truncate">{`${Math.round(item.similarity * 100)}%`}</span></Badge>
               )}
-              <DomeButton
-                type="button"
-                variant="ghost"
-                size="xs"
-                iconOnly
-                onClick={() => {
+              <Button type="button"
+  variant="ghost"
+  onClick={() => {
                   if (isPinned) {
                     removePinnedResource(item.id);
                   } else {
                     addPinnedResource({ id: item.id, title: item.title, type: item.type });
                   }
                 }}
-                title={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
-                aria-label={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
-                className="!p-0 size-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
-              >
+  title={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
+  aria-label={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
+  className="!p-0 size-5 min-w-0 shrink-0 text-muted-foreground hover:text-primary"
+  size="icon-xs">
                 {isPinned ? (
-                  <CheckCircle2 className="w-[13px] h-[13px]" />
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" />
                 ) : (
-                  <PlusCircle className="w-[13px] h-[13px]" />
+                  <HugeiconsIcon icon={PlusSignCircleIcon} className="size-3.5" />
                 )}
-              </DomeButton>
+              </Button>
             </div>
           );
         })}
@@ -431,17 +357,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const renderJsonPrettyView = (): ReactNode => {
     if (!parsedResult || typeof parsedResult !== 'object') return null;
     return (
-      <div
-        style={{
-          fontSize: 12,
-          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-          overflowY: 'auto',
-          maxHeight: 256,
-          background: 'var(--bg-tertiary)',
-          borderRadius: 4,
-          padding: '8px 10px',
-        }}
-      >
+      <div className="max-h-64 overflow-y-auto rounded-lg bg-muted px-2.5 py-2 font-mono text-xs">
         <JsonPrettyPrinterRoot value={parsedResult} />
       </div>
     );
@@ -478,180 +394,66 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const canExpand = !isPending && hasResult;
   const cardSummary = smartToolSummary(toolCall.name, toolCall.arguments);
 
-  // ── Many panel: new card-based design ──────────────────────────────────────
-  if (surfaceVariant === 'many') {
-    const stateKey = isPending ? (toolCall.status === 'running' ? 'running' : 'pending') : toolCall.status;
-    return (
-      <div className={`many-tool-card-v2 state-${stateKey} ${className}`.trim()}>
-        <button
-          type="button"
-          className="many-tool-card-v2-trigger"
-          onClick={() => { if (canExpand) setExpanded((o) => !o); }}
-          aria-expanded={expanded}
+  const toolLabel = (
+    <>
+      {label}
+      {showSubagentBadge ? (
+        <Badge
+          variant="secondary"
+          className="ml-1.5 inline-flex h-auto max-w-full gap-1 border-transparent bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-primary"
         >
-          {/* Icon box */}
-          <div className={`many-tool-card-v2-icon state-${stateKey}`}>
-            {isPending
-              ? <Loader2 size={12} className="many-tool-spinner animate-spin" />
-              : <Icon size={14} strokeWidth={1.8} />}
-          </div>
+          <span className="truncate">{subagentName}</span>
+        </Badge>
+      ) : null}
+    </>
+  );
 
-          {/* Label + summary */}
-          <div className="many-tool-card-v2-copy">
-            <span className="many-tool-card-v2-title">
-              {label}
-              {showSubagentBadge ? (
-                <DomeBadge
-                  label={subagentName}
-                  variant="soft"
-                  size="xs"
-                  color="var(--accent)"
-                  className="ml-1.5 align-middle"
-                />
-              ) : null}
-            </span>
-            {cardSummary ? <span className="many-tool-card-v2-summary">{cardSummary}</span> : null}
-          </div>
-
-          <div className="many-tool-card-v2-trail">
-            {toolCall.status === 'success' && !isPending ? (
-              <Check size={12} strokeWidth={2.4} className="many-tool-card-v2-status-icon" aria-hidden />
-            ) : null}
-            {toolCall.status === 'error' && !isPending ? (
-              <XCircle size={12} className="many-tool-card-v2-status-icon is-error" aria-hidden />
-            ) : null}
-            {canExpand ? (
-              <ChevronRight
-                size={14}
-                className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`}
-                aria-hidden
-              />
-            ) : null}
-          </div>
-        </button>
-
-        {/* Expanded body */}
-        {expanded && canExpand ? (
-          <div className="many-tool-card-v2-body is-detail">
-            {/* Args */}
-            {Object.keys(toolCall.arguments).length > 0 && (
-              <>
-                <div className="many-tool-card-v2-section-label">Args</div>
-                <dl className="many-tool-card-v2-kv" style={{ marginBottom: 10 }}>
-                  {Object.entries(toolCall.arguments).slice(0, 4).map(([k, v]) => (
-                    <div key={k} style={{ display: 'contents' }}>
-                      <dt>{k}</dt>
-                      <dd style={{ color: typeof v === 'string' ? 'var(--accent)' : typeof v === 'number' ? 'var(--info)' : 'var(--primary-text)' }}>
-                        {typeof v === 'string' ? `"${v.slice(0, 120)}"` : JSON.stringify(v)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </>
-            )}
-            {/* Result */}
-            {!toolCall.error && hasResult ? (
-              <>
-                <div className="many-tool-card-v2-section-label">Result</div>
-                <div className="mb-1.5">
-                  <DomeButton
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => setShowRawJson(!showRawJson)}
-                    className="!h-auto !px-0 !py-0 font-mono text-[11px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
-                  >
-                    {showRawJson ? t('chat.formatted_view') : t('chat.view_json')}
-                  </DomeButton>
-                </div>
-              </>
-            ) : null}
-            {renderResultContent()}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  // ── Default surface: original left-border style ────────────────────────────
-  return (
-    <div
-      className={className}
-      style={{
-        minWidth: 0,
-        maxWidth: '100%',
-        fontSize: 13,
-        borderLeft: `2px solid ${accentColor}`,
-        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
-        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
-        transition: 'background 150ms ease',
-      }}
-    >
-      <DomeCollapsibleRow
-        expanded={expanded}
-        onExpandedChange={(next) => {
-          if (canExpand) setExpanded(next);
-        }}
-        disabled={isPending || !canExpand}
-        triggerClassName="!px-2 !py-1.5 rounded-r-md"
-        trigger={
-          <>
-            <div className="flex shrink-0 size-4 items-center justify-center">
-              {isPending ? (
-                <Loader2 className="w-[13px] h-[13px] animate-spin" style={{ color: accentColor }} />
-              ) : toolCall.status === 'error' ? (
-                <XCircle className="w-[13px] h-[13px] text-[var(--error)]" />
-              ) : toolCall.status === 'success' ? (
-                <CheckCircle2 className="w-[13px] h-[13px] text-[var(--success)]" />
-              ) : (
-                <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
-              )}
-            </div>
-            <span className="flex flex-col min-w-0 flex-1">
-              <span
-                className="text-[13px] font-semibold leading-snug"
-                style={{ color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)' }}
-              >
-                {label}
-                {showSubagentBadge ? (
-                  <DomeBadge
-                    label={subagentName}
-                    variant="soft"
-                    size="xs"
-                    color="var(--accent)"
-                    className="ml-1.5 align-middle"
-                  />
-                ) : null}
-              </span>
-              {argsSummary ? (
-                <span className="text-[var(--tertiary-text)] leading-snug mt-px truncate text-[12px]">
-                  {argsSummary}
-                </span>
-              ) : null}
-            </span>
-          </>
-        }
-        panelClassName="!pl-2 !pb-1.5 !ml-2 border-l border-[var(--border)]"
-      >
-        {canExpand ? (
-          <div className="pt-1.5 pl-4">
-            {!toolCall.error && hasResult ? (
-              <div className="mb-1.5">
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setShowRawJson(!showRawJson)}
-                  className="!h-auto !px-0 !py-0 font-mono text-[12px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
-                >
-                  {showRawJson ? t('chat.formatted_view') : t('chat.view_json')}
-                </DomeButton>
+  const expandedBody = expanded && canExpand ? (
+    <div className="not-typeset ml-1 border-l border-border py-1 pl-3">
+      {Object.keys(toolCall.arguments).length > 0 ? (
+        <>
+          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Args</div>
+          <dl className="mb-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11.5px]">
+            {Object.entries(toolCall.arguments).slice(0, 4).map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-muted-foreground">{k}</dt>
+                <dd className="m-0 break-all text-foreground">
+                  {typeof v === 'string' ? `"${v.slice(0, 120)}"` : JSON.stringify(v)}
+                </dd>
               </div>
-            ) : null}
-            {renderResultContent()}
-          </div>
-        ) : null}
-      </DomeCollapsibleRow>
+            ))}
+          </dl>
+        </>
+      ) : null}
+      {!toolCall.error && hasResult ? (
+        <div className="mb-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setShowRawJson(!showRawJson)}
+            className="h-auto px-0 py-0 font-mono text-[11px] underline text-muted-foreground opacity-70 hover:opacity-100"
+            size="xs"
+          >
+            {showRawJson ? t('chat.formatted_view') : t('chat.view_json')}
+          </Button>
+        </div>
+      ) : null}
+      {renderResultContent()}
+    </div>
+  ) : null;
+
+  return (
+    <div className={cn('flex min-w-0 max-w-full flex-col gap-1', className)}>
+      <ChatToolMarker
+        label={toolLabel}
+        summary={cardSummary || argsSummary}
+        status={toolCall.status}
+        icon={Icon}
+        expanded={expanded}
+        expandable={canExpand}
+        onToggle={canExpand ? () => setExpanded((open) => !open) : undefined}
+      />
+      {expandedBody}
     </div>
   );
 }
@@ -676,7 +478,6 @@ interface SubagentToolSectionProps {
 export function SubagentToolSection({
   agentKey,
   agentLabel,
-  surfaceVariant = 'default',
   className = '',
   children,
 }: SubagentToolSectionProps) {
@@ -684,50 +485,29 @@ export function SubagentToolSection({
   const [expanded, setExpanded] = useState(true);
   const childArray = useMemo(() => (Array.isArray(children) ? children : [children]).filter(Boolean), [children]);
 
-  if (surfaceVariant === 'many') {
-    return (
-      <div className={`many-subagent-section ${className}`.trim()}>
-        <button
-          type="button"
-          className="many-subagent-section-trigger"
-          onClick={() => setExpanded((o) => !o)}
-          aria-expanded={expanded}
-        >
-          <Users size={14} strokeWidth={1.8} className="many-subagent-section-icon" aria-hidden />
-          <span className="many-subagent-section-title">
-            {t('chat.subagent_section_title', { agent: agentLabel, defaultValue: agentLabel })}
-          </span>
-          <DomeBadge label={agentKey} variant="soft" size="xs" color="var(--accent)" />
-          <ChevronRight size={14} className={`many-tool-card-v2-chevron ml-auto ${expanded ? 'expanded' : ''}`} aria-hidden />
-        </button>
-        {expanded ? <div className="many-subagent-section-body space-y-1">{childArray}</div> : null}
-      </div>
-    );
-  }
+  const sectionLabel = (
+    <>
+      {t('chat.subagent_section_title', { agent: agentLabel, defaultValue: agentLabel })}
+      <Badge
+        variant="secondary"
+        className="ml-1.5 inline-flex h-auto max-w-full gap-1 border-transparent bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-primary"
+      >
+        <span className="truncate">{agentKey}</span>
+      </Badge>
+    </>
+  );
 
   return (
-    <div
-      className={className}
-      style={{
-        borderLeft: '2px solid var(--accent)',
-        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
-        background: 'color-mix(in srgb, var(--accent) 5%, transparent)',
-        padding: '4px 0 4px 0',
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setExpanded((o) => !o)}
-        className="flex w-full items-center gap-2 px-2 py-1.5 text-left rounded-r-md hover:bg-[var(--bg-hover)]"
-        aria-expanded={expanded}
-      >
-        <Users className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
-        <span className="text-[12px] font-semibold text-[var(--secondary-text)]">
-          {t('chat.subagent_section_title', { agent: agentLabel, defaultValue: agentLabel })}
-        </span>
-        <ChevronRight className={`size-3.5 ml-auto transition-transform ${expanded ? 'rotate-90' : ''}`} aria-hidden />
-      </button>
-      {expanded ? <div className="pl-3 pr-1 pb-1 flex flex-col gap-1">{childArray}</div> : null}
+    <div className={cn('flex flex-col gap-1', className)}>
+      <ChatToolMarker
+        label={sectionLabel}
+        status="success"
+        icon={UserMultiple02Icon}
+        expanded={expanded}
+        expandable
+        onToggle={() => setExpanded((open) => !open)}
+      />
+      {expanded ? <div className="flex flex-col gap-1 pl-1">{childArray}</div> : null}
     </div>
   );
 }
@@ -742,93 +522,35 @@ export function ChatToolCardGroup({
   const { t } = useTranslation();
   const Icon = getIconForTool(name);
   const label = getToolDisplayLabelForCall({ name, arguments: calls[0]?.arguments ?? {} }, t);
-  const category = getCategory(name);
-  const accentColor = CATEGORY_COLORS[category];
   const count = calls.length;
   const hasError = calls.some((c) => c.status === 'error');
   const hasPending = calls.some((c) => c.status === 'pending' || c.status === 'running');
   const allSuccess = calls.every((c) => c.status === 'success');
-  const stateKey = hasPending ? 'running' : hasError ? 'error' : allSuccess ? 'success' : 'pending';
+  const groupStatus: ToolCallData['status'] = hasPending
+    ? 'running'
+    : hasError
+      ? 'error'
+      : allSuccess
+        ? 'success'
+        : 'pending';
+  void surfaceVariant;
 
-  // ── Many panel: card-based group ──────────────────────────────────────────
-  if (surfaceVariant === 'many') {
-    return (
-      <div className={`many-tool-card-v2 state-${stateKey} ${className}`.trim()}>
-        <button
-          type="button"
-          className="many-tool-card-v2-trigger"
-          onClick={() => setExpanded((o) => !o)}
-          aria-expanded={expanded}
-        >
-          <div className={`many-tool-card-v2-icon state-${stateKey}`}>
-            {hasPending
-              ? <Loader2 size={12} className="many-tool-spinner animate-spin" />
-              : <Icon size={14} strokeWidth={1.8} />}
-          </div>
-          <span className="many-tool-card-v2-copy">
-            <span className="many-tool-card-v2-title">{t('chat.tool_group_count', { label, count })}</span>
-          </span>
-          <div className="many-tool-card-v2-trail">
-            {allSuccess ? <Check size={12} strokeWidth={2.4} className="many-tool-card-v2-status-icon" aria-hidden /> : null}
-            {hasError ? <XCircle size={12} className="many-tool-card-v2-status-icon is-error" aria-hidden /> : null}
-            <ChevronRight size={14} className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`} aria-hidden />
-          </div>
-        </button>
-        {expanded ? (
-          <div className="many-tool-card-v2-body is-nested">
-            <div className="many-tool-card-v2-list">
-              {calls.map((tc) => (
-                <ChatToolCard key={tc.id} toolCall={tc} surfaceVariant={surfaceVariant} />
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  // ── Default surface: original left-border style ────────────────────────────
   return (
-    <div
-      className={className}
-      style={{
-        minWidth: 0,
-        maxWidth: '100%',
-        fontSize: 13,
-        borderLeft: `2px solid ${accentColor}`,
-        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
-        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
-        transition: 'background 150ms ease',
-      }}
-    >
-      <DomeCollapsibleRow
+    <div className={cn('flex flex-col gap-1', className)}>
+      <ChatToolGroupMarker
+        label={t('chat.tool_group_count', { label, count })}
+        status={groupStatus}
+        icon={Icon}
         expanded={expanded}
-        onExpandedChange={setExpanded}
-        triggerClassName="!px-2 !py-1.5 rounded-r-md"
-        trigger={
-          <>
-            <div className="flex shrink-0 size-4 items-center justify-center">
-              {hasPending ? (
-                <Loader2 className="w-[13px] h-[13px] animate-spin" style={{ color: accentColor }} />
-              ) : hasError ? (
-                <XCircle className="w-[13px] h-[13px] text-[var(--error)]" />
-              ) : allSuccess ? (
-                <CheckCircle2 className="w-[13px] h-[13px] text-[var(--success)]" />
-              ) : (
-                <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
-              )}
-            </div>
-            <span className="text-[13px] font-semibold text-[var(--secondary-text)] leading-snug">
-              {t('chat.tool_group_count', { label, count })}
-            </span>
-          </>
-        }
-        panelClassName="!mt-0.5 !ml-2 !pl-3 border-l border-[var(--border)] flex flex-col gap-1"
-      >
-        {calls.map((tc) => (
-          <ChatToolCard key={tc.id} toolCall={tc} surfaceVariant={surfaceVariant} />
-        ))}
-      </DomeCollapsibleRow>
+        onToggle={() => setExpanded((open) => !open)}
+      />
+      {expanded ? (
+        <div className="flex flex-col gap-1 pl-1">
+          {calls.map((tc) => (
+            <ChatToolCard key={tc.id} toolCall={tc} surfaceVariant={surfaceVariant} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

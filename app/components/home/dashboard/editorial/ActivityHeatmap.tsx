@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@mantine/core';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { HomeCardHeader } from '@/components/home/dashboard/editorial/HomeSectionHeader';
 
 const WEEKS = 18;
@@ -136,21 +136,21 @@ export function ActivityHeatmap({
                       count: cell.count,
                     });
                     return (
-                      <Tooltip
-                        key={cell.key}
-                        label={tooltipLabel}
-                        position="top"
-                        withArrow
-                        openDelay={120}
-                        classNames={{
-                          tooltip:
-                            'border border-[var(--home-edge)] bg-[var(--home-surface)] text-[var(--home-ink)] text-xs font-medium shadow-md',
-                        }}
-                      >
-                        <div
-                          className={`h-heat-cell lvl-${cell.level} ${cell.inRange ? '' : 'future'}`}
-                          role="presentation"
+                      <Tooltip key={cell.key}>
+                        <TooltipTrigger
+                          render={
+                            <div
+                              className={`h-heat-cell lvl-${cell.level} ${cell.inRange ? '' : 'future'}`}
+                              role="presentation"
+                            />
+                          }
                         />
+                        <TooltipContent
+                          side="top"
+                          className="border border-[var(--home-edge)] bg-[var(--home-surface)] text-[var(--home-ink)] text-xs font-medium shadow-md"
+                        >
+                          {tooltipLabel}
+                        </TooltipContent>
                       </Tooltip>
                     );
                   })}

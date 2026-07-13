@@ -1,18 +1,22 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Calendar03Icon as Calendar,
+  PlugSocketIcon as Unplug,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Unplug } from 'lucide-react';
+
 import { showToast } from '@/lib/store/useToastStore';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeToggle from '@/components/ui/DomeToggle';
-import { DomeInput } from '@/components/ui/DomeInput';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeIconBox from '@/components/ui/DomeIconBox';
-import DomeListState from '@/components/ui/DomeListState';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import ListState from '@/components/shared/ListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 import { useAppStore } from '@/lib/store/useAppStore';
 
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
 export default function CalendarSettingsPanel() {
   const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
@@ -105,105 +109,85 @@ export default function CalendarSettingsPanel() {
   };
 
   if (loading) {
-    return <DomeListState variant="loading" fullHeight loadingLabel={t('common.loading')} />;
+    return <ListState variant="loading" fullHeight loadingLabel={t('common.loading')} />;
   }
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2">
-        <DomeSubpageHeader.Title>{t('settings.calendar.title')}</DomeSubpageHeader.Title>
-        <DomeSubpageHeader.Subtitle>{t('settings.calendar.subtitle')}</DomeSubpageHeader.Subtitle>
-        <DomeSubpageHeader.Trailing>
-          <DomeIconBox size="md" className="!w-10 !h-10" background="var(--accent)">
-            <Calendar className="size-5 text-[var(--base-text)]" aria-hidden />
-          </DomeIconBox>
-        </DomeSubpageHeader.Trailing>
-      </DomeSubpageHeader>
+      <SubpageHeader className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 mb-2">
+        <SubpageHeader.Title>{t('settings.calendar.title')}</SubpageHeader.Title>
+        <SubpageHeader.Subtitle>{t('settings.calendar.subtitle')}</SubpageHeader.Subtitle>
+        <SubpageHeader.Trailing>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary">
+            <HugeiconsIcon icon={Calendar} className="size-5 text-primary-foreground" aria-hidden />
+          </div>
+        </SubpageHeader.Trailing>
+      </SubpageHeader>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.calendar.section_google')}</DomeSectionLabel>
-        <DomeCard>
-          <div className="space-y-3">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">{t('settings.calendar.section_google')}</p>
+        <Card className="p-4">
+          <div className="flex flex-col gap-3">
             {accounts.length === 0 ? (
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-sm text-muted-foreground">
                 {t('settings.calendar.no_accounts')}
               </p>
             ) : (
               accounts.map((a) => (
                 <div key={a.id} className="flex items-center justify-between gap-2 py-1">
-                  <span className="text-sm truncate" style={{ color: 'var(--dome-text)' }}>
+                  <span className="text-sm truncate text-foreground">
                     {a.account_email}
                   </span>
-                  <DomeButton
-                    type="button"
-                    variant="outline"
-                    size="xs"
-                    leftIcon={<Unplug className="size-3.5" />}
-                    onClick={() => void disconnect(a.id)}
-                  >
+                  <Button type="button"
+  variant="outline"
+  onClick={() => void disconnect(a.id)}
+  size="xs">{<HugeiconsIcon icon={Unplug} className="size-3.5" />}
                     {t('settings.calendar.disconnect')}
-                  </DomeButton>
+                  </Button>
                 </div>
               ))
             )}
-            <DomeButton type="button" variant="primary" size="sm" onClick={() => void connectGoogle()}>
+            <Button type="button"
+  onClick={() => void connectGoogle()}
+  size="sm">
               {t('settings.calendar.connect_google')}
-            </DomeButton>
+            </Button>
           </div>
-        </DomeCard>
+        </Card>
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.calendar.section_sync')}</DomeSectionLabel>
-        <DomeCard>
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">{t('settings.calendar.section_sync')}</p>
+        <Card className="p-4">
           <div className="flex items-start gap-3 mb-4">
-            <DomeToggle checked={syncAuto} onChange={setSyncAuto} size="sm" className="mt-0.5" />
-            <span className="text-sm pt-0.5" style={{ color: 'var(--dome-text)' }}>
+            <Switch checked={syncAuto} onCheckedChange={setSyncAuto} size="sm" className="mt-0.5" />
+            <span className="text-sm pt-0.5 text-foreground">
               {t('settings.calendar.sync_auto')}
             </span>
           </div>
-          <DomeInput
-            label={t('settings.calendar.sync_interval')}
-            type="number"
-            min={5}
-            max={1440}
-            value={String(syncInterval)}
-            onChange={(e) => setSyncInterval(Math.max(5, Math.min(1440, Number(e.target.value) || 30)))}
-            className="max-w-[160px]"
-          />
-        </DomeCard>
+          <Field className="gap-1.5 max-w-[160px]"><FieldLabel htmlFor="fld-input-7" className="text-xs">{t('settings.calendar.sync_interval')}</FieldLabel><Input id="fld-input-7" type="number" min={5} max={1440} value={String(syncInterval)} onChange={(e) => setSyncInterval(Math.max(5, Math.min(1440, Number(e.target.value) || 30)))} /></Field>
+        </Card>
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.calendar.section_notifications')}</DomeSectionLabel>
-        <DomeCard>
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">{t('settings.calendar.section_notifications')}</p>
+        <Card className="p-4">
           <div className="flex items-start gap-3 mb-4">
-            <DomeToggle checked={inAppOn} onChange={setInAppOn} size="sm" className="mt-0.5" />
-            <span className="text-sm pt-0.5" style={{ color: 'var(--dome-text)' }}>
+            <Switch checked={inAppOn} onCheckedChange={setInAppOn} size="sm" className="mt-0.5" />
+            <span className="text-sm pt-0.5 text-foreground">
               {t('settings.calendar.in_app_enable')}
             </span>
           </div>
-          <DomeInput
-            label={t('settings.calendar.in_app_lead')}
-            type="number"
-            min={1}
-            max={10080}
-            value={String(leadMin)}
-            onChange={(e) => setLeadMin(Math.max(1, Math.min(10080, Number(e.target.value) || 15)))}
-            className="max-w-[160px]"
-          />
-        </DomeCard>
+          <Field className="gap-1.5 max-w-[160px]"><FieldLabel htmlFor="fld-input-8" className="text-xs">{t('settings.calendar.in_app_lead')}</FieldLabel><Input id="fld-input-8" type="number" min={1} max={10080} value={String(leadMin)} onChange={(e) => setLeadMin(Math.max(1, Math.min(10080, Number(e.target.value) || 15)))} /></Field>
+        </Card>
       </div>
 
-      <DomeButton
-        type="button"
-        variant="primary"
-        disabled={saving}
-        loading={saving}
-        onClick={() => void save()}
-      >
+      <Button type="button"
+  disabled={saving}
+  loading={saving}
+  onClick={() => void save()}>
         {t('settings.calendar.save')}
-      </DomeButton>
+      </Button>
     </SettingsPanel>
   );
 }

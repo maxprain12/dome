@@ -1,12 +1,11 @@
 import { StrictMode, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import ThemeProvider from '@/components/ui/ThemeProvider';
+import ThemeProvider from '@/components/shared/ThemeProvider';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useUserStore } from '@/lib/store/useUserStore';
 import type { StudioOutput } from '@/types';
-import PromptModal from '@/components/ui/PromptModal';
-import ToastContainer from '@/components/ui/Toast';
+import PromptModal from '@/components/shared/PromptModal';
 import { showToast } from '@/lib/store/useToastStore';
 import AnalyticsProvider from '@/components/analytics/AnalyticsProvider';
 import AppShell from '@/components/shell/AppShell';
@@ -198,7 +197,6 @@ function MainApp() {
     <>
       <AppShell />
       <PromptModal />
-      <ToastContainer />
     </>
   );
 }

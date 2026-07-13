@@ -1,5 +1,10 @@
-import { AlertTriangle, Check, Edit3 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Alert02Icon, PencilEdit01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 
 export type HitlPreviewLine = {
   add?: string;
@@ -8,15 +13,10 @@ export type HitlPreviewLine = {
 };
 
 export interface ManyHitlInlineCardProps {
-  /** Tool or action name, e.g. shell_exec */
   action: string;
-  /** Short target shown in subtitle (command summary, path, etc.) */
   target: string;
-  /** Monospace preview lines (diff) — omit to use previewCommand only */
   previewLines?: HitlPreviewLine[];
-  /** Single command block in preview (shell_exec) */
   previewCommand?: string;
-  /** Secondary line under preview (e.g. working directory) */
   contextLine?: string | null;
   onApprove: () => void;
   onReject?: () => void;
@@ -27,9 +27,6 @@ export interface ManyHitlInlineCardProps {
   className?: string;
 }
 
-/**
- * Inline HITL card in the chat stream (prototype: warning border, preview, Aprobar/Rechazar).
- */
 export default function ManyHitlInlineCard({
   action,
   target,
@@ -48,67 +45,71 @@ export default function ManyHitlInlineCard({
   const hasPreview = (previewLines && previewLines.length > 0) || Boolean(previewCommand?.trim());
 
   return (
-    <div className={`hitl many-hitl-inline ${className}`.trim()}>
-      <div className="hitl-hd">
-        <div className="hitl-badge" aria-hidden>
-          <AlertTriangle size={14} strokeWidth={2} />
-        </div>
+    <Card className={cn('border-warning/40 bg-warning/5', className)}>
+      <CardHeader className="flex flex-row items-start gap-3 pb-2">
+        <Badge variant="outline" className="shrink-0 border-warning/40 text-warning">
+          <HugeiconsIcon icon={Alert02Icon} data-icon="inline-start" />
+          {t('many.hitl_confirm_title')}
+        </Badge>
         <div className="min-w-0 flex-1">
-          <div className="hitl-title">{t('many.hitl_confirm_title')}</div>
-          <div className="hitl-sub">
+          <p className="text-sm font-medium">
             {action}
-            <span className="hitl-sub__sep"> · </span>
-            <span className="hitl-sub__mono">{target}</span>
-          </div>
+            <span className="text-muted-foreground"> · </span>
+            <span className="font-mono text-xs">{target}</span>
+          </p>
         </div>
-      </div>
+      </CardHeader>
 
       {hasPreview ? (
-        <div className="hitl-preview">
-          {previewCommand ? (
-            <span className="diff-line hitl-preview__command">{previewCommand.startsWith('$') ? previewCommand : `$ ${previewCommand}`}</span>
-          ) : null}
-          {previewLines?.map((line, i) => (
-            <span key={i} className="diff-line">
-              {line.add ? <span className="diff-add">+ {line.add}</span> : null}
-              {line.rem ? <span className="diff-rem">- {line.rem}</span> : null}
-              {line.ctx ? <span className="diff-ctx">{line.ctx}</span> : null}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {contextLine && !hasPreview ? (
-        <p className="hitl-context-line">{contextLine}</p>
-      ) : null}
-      {contextLine && hasPreview && previewCommand ? (
-        <p className="hitl-context-line hitl-context-line--after">{contextLine}</p>
+        <CardContent className="pb-2">
+          <div className="rounded-lg bg-muted/50 p-3 font-mono text-xs">
+            {previewCommand ? (
+              <span className="block whitespace-pre-wrap break-all">
+                {previewCommand.startsWith('$') ? previewCommand : `$ ${previewCommand}`}
+              </span>
+            ) : null}
+            {previewLines?.map((line, i) => (
+              <span key={i} className="block">
+                {line.add ? <span className="text-success">+ {line.add}</span> : null}
+                {line.rem ? <span className="text-destructive">- {line.rem}</span> : null}
+                {line.ctx ? <span className="text-muted-foreground">{line.ctx}</span> : null}
+              </span>
+            ))}
+          </div>
+        </CardContent>
       ) : null}
 
-      <div className="hitl-actions">
-        <button type="button" className="btn btn-primary" onClick={onApprove}>
-          <Check size={14} strokeWidth={2.2} aria-hidden />
+      {contextLine ? (
+        <CardContent className={cn('pt-0', hasPreview && 'pb-2')}>
+          <p className="text-xs text-muted-foreground">{contextLine}</p>
+        </CardContent>
+      ) : null}
+
+      <CardFooter className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" onClick={onApprove}>
+          <HugeiconsIcon icon={Tick02Icon} data-icon="inline-start" />
           {t('many.hitl_approve')}
-        </button>
+        </Button>
         {showReject ? (
-          <button type="button" className="btn btn-danger" onClick={onReject}>
+          <Button type="button" size="sm" variant="destructive" onClick={onReject}>
             {t('chat.reject')}
-          </button>
+          </Button>
         ) : null}
         {showEditArgs && onEditArgs ? (
-          <button type="button" className="btn btn-ghost" onClick={onEditArgs}>
-            <Edit3 size={13} aria-hidden />
+          <Button type="button" size="sm" variant="ghost" onClick={onEditArgs}>
+            <HugeiconsIcon icon={PencilEdit01Icon} data-icon="inline-start" />
             {t('chat.edit_args')}
-          </button>
+          </Button>
         ) : null}
-        <span className="hitl-actions__spacer" aria-hidden />
+        <span className="flex-1" aria-hidden />
         {expiresSeconds != null && expiresSeconds > 0 ? (
-          <span className="hitl-expires tabular-nums">
+          <span className="text-xs tabular-nums text-muted-foreground">
             {t('many.hitl_expires', { seconds: expiresSeconds })}
           </span>
         ) : (
-          <span className="hitl-paused">{t('many.hitl_run_paused')}</span>
+          <span className="text-xs text-muted-foreground">{t('many.hitl_run_paused')}</span>
         )}
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }

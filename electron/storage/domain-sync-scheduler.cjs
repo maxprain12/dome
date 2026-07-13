@@ -4,8 +4,7 @@
  * Background scheduler for Domain Sync v1 — 60 s interval + on-demand domain pulls.
  * Maintains its own long-lived SSE connection to `/api/v1/sync/events` (see
  * `runSseLoop` below); on `{ type: 'domain', domain }` it calls
- * `notifyDomainChanged(domain)` to queue an immediate pull. This is independent
- * from `cloud-sync-service.cjs` (bundle sync v3), which has no SSE client of its own.
+ * `notifyDomainChanged(domain)` to queue an immediate pull.
  */
 /* eslint-disable no-console */
 
@@ -160,6 +159,20 @@ async function tick() {
     const db = deps.database.getDB?.();
     if (!db) return;
 
+    // Refresh the Many JSONL manifest BEFORE the domain sync so new/edited
+    // session bodies push in the same tick (cheap: size+mtime skip).
+    if (
+      ent.entitlements.features.includes('cloud_sync') &&
+      domainSync.getDomainState(db, 'conversations').enabled
+    ) {
+      try {
+        const manySessionSync = require('./many-session-sync.cjs');
+        await manySessionSync.refreshManifest(db);
+      } catch (err) {
+        console.warn('[domain-sync] session manifest refresh failed', err?.message || err);
+      }
+    }
+
     const domains =
       pendingDomains.size > 0
         ? [...pendingDomains].filter((d) => ent.entitlements.features.includes(planGate.featureForDomain(d)))
@@ -172,7 +185,10 @@ async function tick() {
 
     for (const domain of domains) {
       try {
-        await domainSync.syncDomain(deps, domain);
+        const result = await domainSync.syncDomain(deps, domain);
+        if (result && result.success === false) {
+          console.warn(`[domain-sync] ${domain} sync error:`, String(result.error).slice(0, 300));
+        }
       } catch (err) {
         console.warn('[domain-sync] tick failed', domain, err?.message || err);
       }
@@ -185,6 +201,26 @@ async function tick() {
         await actionQueue.processActionQueue(deps);
       } catch (err) {
         console.warn('[domain-sync] action queue failed', err?.message || err);
+      }
+
+      // Vault blob bytes (files domain): ingest → upload → hydrate.
+      if (domainSync.getDomainState(db, 'files').enabled) {
+        try {
+          const blobSync = require('./blob-sync.cjs');
+          await blobSync.run(deps);
+        } catch (err) {
+          console.warn('[domain-sync] blob sync failed', err?.message || err);
+        }
+      }
+
+      // Many session bodies: restore files listed in pulled manifests.
+      if (domainSync.getDomainState(db, 'conversations').enabled) {
+        try {
+          const manySessionSync = require('./many-session-sync.cjs');
+          await manySessionSync.restoreMissingSessions(deps, db);
+        } catch (err) {
+          console.warn('[domain-sync] session restore failed', err?.message || err);
+        }
       }
     }
   } finally {

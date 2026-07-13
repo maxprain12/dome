@@ -6,7 +6,7 @@ function TabInner({ content }: { content: TabContent }) {
   switch (content.type) {
     case 'text':
       return (
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--primary-text)', whiteSpace: 'pre-wrap' }}>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>
           {content.text}
         </p>
       );
@@ -42,8 +42,8 @@ function TabInner({ content }: { content: TabContent }) {
                       textAlign: 'left',
                       fontWeight: 600,
                       borderBottom: '2px solid var(--border)',
-                      backgroundColor: 'var(--bg-hover)',
-                      color: 'var(--primary-text)',
+                      backgroundColor: 'var(--accent)',
+                      color: 'var(--foreground)',
                     }}
                   >
                     {header}
@@ -60,7 +60,7 @@ function TabInner({ content }: { content: TabContent }) {
                       style={{
                         padding: '5px 10px',
                         borderBottom: '1px solid var(--border)',
-                        color: 'var(--secondary-text)',
+                        color: 'var(--muted-foreground)',
                       }}
                     >
                       {cell}
@@ -74,7 +74,7 @@ function TabInner({ content }: { content: TabContent }) {
       );
     case 'placeholder':
       return (
-        <p style={{ fontSize: 12, color: 'var(--secondary-text)', margin: 0 }}>{content.message}</p>
+        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>{content.message}</p>
       );
     default:
       return null;
@@ -151,8 +151,8 @@ export default function TabsArtifact({ artifact }: { artifact: TabsArtifactV }) 
                     fontSize: 12,
                     padding: '1px 6px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'var(--bg-tertiary)',
-                    color: 'var(--secondary-text)',
+                    background: 'var(--muted)',
+                    color: 'var(--muted-foreground)',
                   }}
                 >
                   {tab.badge}

@@ -122,7 +122,7 @@ function installSemanticGraphSimulation(
     .join('path')
     .attr('fill', 'none')
     .attr('stroke', (d) =>
-      d.relation_type === 'auto' ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+      d.relation_type === 'auto' ? 'var(--primary)' : 'var(--muted-foreground)',
     )
     .attr('stroke-opacity', (d) => 0.2 + (d.similarity ?? 0) * 0.65)
     .attr('stroke-width', (d) => Math.max(0.9, (d.similarity ?? 0.3) * 3))
@@ -185,7 +185,7 @@ function installSemanticGraphSimulation(
       const r = 8 + Math.min(8, d.connectionCount ?? 0);
       return d.isCurrentNote ? r + 7 : 0;
     })
-    .attr('fill', 'color-mix(in srgb, var(--dome-accent) 16%, transparent)')
+    .attr('fill', 'color-mix(in srgb, var(--primary) 16%, transparent)')
     .attr('stroke', 'none')
     .attr('opacity', (d) => (d.isCurrentNote ? 1 : 0))
     .style('pointer-events', 'none');
@@ -194,11 +194,11 @@ function installSemanticGraphSimulation(
     .append('circle')
     .attr('r', (d) => 8 + Math.min(8, d.connectionCount ?? 0))
     .attr('fill', (d) => {
-      if (d.isCurrentNote) return 'var(--dome-accent)';
+      if (d.isCurrentNote) return 'var(--primary)';
       const rt = d.resourceType || 'note';
-      return SEMANTIC_RESOURCE_TYPE_FILL[rt] ?? 'var(--dome-bg-hover)';
+      return SEMANTIC_RESOURCE_TYPE_FILL[rt] ?? 'var(--accent)';
     })
-    .attr('stroke', (d) => (d.isCurrentNote ? 'var(--dome-accent)' : 'var(--dome-border)'))
+    .attr('stroke', (d) => (d.isCurrentNote ? 'var(--primary)' : 'var(--border)'))
     .attr('stroke-width', (d) => (d.isCurrentNote ? 2 : 1.2));
 
   node
@@ -208,9 +208,9 @@ function installSemanticGraphSimulation(
     .attr('dy', (d) => 20 + Math.min(8, d.connectionCount ?? 0))
     .attr('font-size', 11)
     .attr('font-weight', '500')
-    .attr('fill', 'var(--dome-text-secondary)')
+    .attr('fill', 'var(--muted-foreground)')
     .attr('paint-order', 'stroke fill')
-    .attr('stroke', 'var(--dome-surface)')
+    .attr('stroke', 'var(--card)')
     .attr('stroke-width', 5)
     .attr('stroke-linejoin', 'round');
 

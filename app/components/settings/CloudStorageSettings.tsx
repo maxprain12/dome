@@ -1,191 +1,25 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { CloudIcon, Delete02Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Trash2, Loader2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
 import { showToast } from '@/lib/store/useToastStore';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeIconBox from '@/components/ui/DomeIconBox';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeListState from '@/components/ui/DomeListState';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import ListState from '@/components/shared/ListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
-
-const DOME_GREEN = 'var(--dome-accent)';
-const DOME_GREEN_LIGHT = 'color-mix(in srgb, var(--success) 20%, transparent)';
-
-interface CloudAccount {
-  provider: 'google';
-  accountId: string;
-  email: string;
-  connected: boolean;
-}
-
-const PROVIDER_LABELS: Record<string, string> = {
-  google: 'Google Drive',
-};
-
+interface CloudAccount { provider: 'google'; accountId: string; email: string; connected: boolean; }
+const PROVIDER_LABELS: Record<string, string> = { google: 'Google Drive' };
 export default function CloudStorageSettings() {
-  const { t } = useTranslation();
-  const [accounts, setAccounts] = useState<CloudAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState<string | null>(null);
-
-  const loadAccounts = useCallback(async () => {
-    if (!window.electron?.cloud) return;
-    setLoading(true);
-    try {
-      const result = await window.electron.cloud.getAccounts();
-      if (result.success) setAccounts(result.accounts ?? []);
-    } catch (err) {
-      console.error('[CloudStorage] load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAccounts();
-
-    const cleanup = window.electron?.cloud?.onAuthResult?.((data: { success: boolean; provider: string; email?: string; error?: string }) => {
-      if (data.success) {
-        showToast('success', `${PROVIDER_LABELS[data.provider] ?? data.provider} conectado: ${data.email}`);
-        loadAccounts();
-      } else {
-        showToast('error', data.error || t('settings.cloud.toast_error'));
-      }
-      setConnecting(null);
-    });
-
-    return () => cleanup?.();
-  }, [loadAccounts, t]);
-
-  // Start polling when a connect action is in progress
-  useEffect(() => {
-    if (!connecting) return;
-    const interval = setInterval(async () => {
-      if (!window.electron?.cloud) return;
-      const result = await window.electron.cloud.getAccounts();
-      if (result.success && (result.accounts ?? []).length > 0) {
-        setAccounts(result.accounts ?? []);
-        setConnecting(null);
-      }
-    }, 1500);
-    const timeout = setTimeout(() => clearInterval(interval), 90_000);
-    return () => { clearInterval(interval); clearTimeout(timeout); };
-  }, [connecting]);
-
-  const handleConnect = async () => {
-    if (!window.electron?.cloud) return;
-    setConnecting('google');
-    try {
-      const result = await window.electron.cloud.authGoogle();
-      if (!result.success) {
-        showToast('error', result.error || t('settings.cloud.toast_error'));
-        setConnecting(null);
-      }
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : t('settings.cloud.toast_error'));
-      setConnecting(null);
-    }
-  };
-
-  const handleDisconnect = async (accountId: string) => {
-    if (!window.electron?.cloud) return;
-    try {
-      const result = await window.electron.cloud.disconnect(accountId);
-      if (result.success) {
-        showToast('success', t('settings.cloud.toast_disconnected'));
-        setAccounts((prev) => prev.filter((a) => a.accountId !== accountId));
-      } else {
-        showToast('error', result.error || t('settings.cloud.toast_disconnect_error'));
-      }
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : t('settings.cloud.toast_disconnect_error'));
-    }
-  };
-
-  const googleConnected = accounts.some((a) => a.provider === 'google');
-
-  return (
-    <SettingsPanel>
-      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
-  <DomeSubpageHeader.Title>{"Cloud Storage"}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{"Conecta Google Drive para explorar e importar archivos directamente en Dome."}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
-
-      {/* Connected accounts */}
-      {loading ? (
-        <DomeListState variant="loading" loadingLabel={t('settings.cloud.loading_accounts')} compact />
-      ) : accounts.length > 0 ? (
-        <div>
-          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.cloud.section_connected')}</DomeSectionLabel>
-          <div className="space-y-2">
-            {accounts.map((account) => (
-              <DomeCard key={account.accountId} className="px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <DomeIconBox size="md" className="!w-8 !h-8" background={DOME_GREEN_LIGHT}>
-                      <Cloud className="size-4" style={{ color: DOME_GREEN }} />
-                    </DomeIconBox>
-                    <div>
-                      <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                        {PROVIDER_LABELS[account.provider] ?? account.provider}
-                      </p>
-                      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{account.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <DomeBadge label="Conectado" size="xs" color={DOME_GREEN} />
-                    <DomeButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      iconOnly
-                      onClick={() => void handleDisconnect(account.accountId)}
-                      className="text-[var(--dome-text-muted)]"
-                      title={t('settings.cloud.disconnect')}
-                      aria-label={t('settings.cloud.disconnect')}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </DomeButton>
-                  </div>
-                </div>
-              </DomeCard>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Connect button */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{googleConnected ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</DomeSectionLabel>
-        <DomeButton
-          type="button"
-          variant="outline"
-          size="md"
-          onClick={() => void handleConnect()}
-          disabled={connecting === 'google'}
-          className="w-full !justify-start !h-auto py-3 px-4 text-left"
-          leftIcon={
-            <DomeIconBox size="md" className="!w-8 !h-8" background="var(--dome-bg-hover)">
-              {connecting === 'google' ? (
-                <Loader2 className="size-4 animate-spin" style={{ color: DOME_GREEN }} aria-hidden />
-              ) : (
-                <Cloud className="size-4" style={{ color: DOME_GREEN }} aria-hidden />
-              )}
-            </DomeIconBox>
-          }
-        >
-          <div className="min-w-0 text-left">
-            <p className="text-sm font-medium text-[var(--dome-text)]">
-              {googleConnected ? t('settings.cloud.connect_google_another') : t('settings.cloud.connect_google')}
-            </p>
-            <p className="text-xs text-[var(--dome-text-muted)]">{t('settings.cloud.oauth_google')}</p>
-          </div>
-        </DomeButton>
-      </div>
-    </SettingsPanel>
-  );
+  const { t } = useTranslation(); const [accounts, setAccounts] = useState<CloudAccount[]>([]); const [loading, setLoading] = useState(true); const [connecting, setConnecting] = useState<string | null>(null); const [pendingDisconnect, setPendingDisconnect] = useState<CloudAccount | null>(null);
+  const loadAccounts = useCallback(async () => { if (!window.electron?.cloud) return; setLoading(true); try { const result = await window.electron.cloud.getAccounts(); if (result.success) setAccounts(result.accounts ?? []); } finally { setLoading(false); } }, []);
+  useEffect(() => { void loadAccounts(); const cleanup = window.electron?.cloud?.onAuthResult?.((data: { success: boolean; provider: string; email?: string; error?: string }) => { if (data.success) { showToast('success', t('settings.cloud.toast_connected', { provider: PROVIDER_LABELS[data.provider] ?? data.provider, email: data.email })); void loadAccounts(); } else showToast('error', data.error || t('settings.cloud.toast_error')); setConnecting(null); }); return () => cleanup?.(); }, [loadAccounts, t]);
+  useEffect(() => { if (!connecting) return; const interval = window.setInterval(async () => { const result = await window.electron?.cloud?.getAccounts(); if (result?.success && (result.accounts ?? []).length > 0) { setAccounts(result.accounts ?? []); setConnecting(null); } }, 1500); const timeout = window.setTimeout(() => window.clearInterval(interval), 90_000); return () => { window.clearInterval(interval); window.clearTimeout(timeout); }; }, [connecting]);
+  const handleConnect = async () => { if (!window.electron?.cloud) return; setConnecting('google'); try { const result = await window.electron.cloud.authGoogle(); if (!result.success) { showToast('error', result.error || t('settings.cloud.toast_error')); setConnecting(null); } } catch (error) { showToast('error', error instanceof Error ? error.message : t('settings.cloud.toast_error')); setConnecting(null); } };
+  const handleDisconnect = async () => { if (!pendingDisconnect || !window.electron?.cloud) return; const result = await window.electron.cloud.disconnect(pendingDisconnect.accountId); if (result.success) { showToast('success', t('settings.cloud.toast_disconnected')); setAccounts((current) => current.filter((account) => account.accountId !== pendingDisconnect.accountId)); } else showToast('error', result.error || t('settings.cloud.toast_disconnect_error')); setPendingDisconnect(null); };
+  return <SettingsPanel><SubpageHeader className="border-0 bg-transparent p-0"><SubpageHeader.Title>{t('settings.cloud.title', 'Cloud Storage')}</SubpageHeader.Title><SubpageHeader.Subtitle>{t('settings.cloud.description', 'Connect Google Drive to browse and import files directly into Dome.')}</SubpageHeader.Subtitle></SubpageHeader>{loading ? <ListState variant="loading" loadingLabel={t('settings.cloud.loading_accounts')} compact /> : accounts.length ? <ItemGroup>{accounts.map((account) => <Item key={account.accountId} variant="outline"><ItemMedia variant="icon"><HugeiconsIcon icon={CloudIcon} /></ItemMedia><ItemContent><ItemTitle>{PROVIDER_LABELS[account.provider] ?? account.provider}</ItemTitle><ItemDescription>{account.email} · OAuth · {account.provider}</ItemDescription></ItemContent><Badge variant="secondary">{t('settings.cloud.connected')}</Badge><ItemActions><Button type="button" variant="ghost" size="icon-sm" onClick={() => setPendingDisconnect(account)} aria-label={t('settings.cloud.disconnect')}><HugeiconsIcon icon={Delete02Icon} /></Button></ItemActions></Item>)}</ItemGroup> : null}<Card><CardHeader><CardTitle>{accounts.length ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</CardTitle><CardDescription>{t('settings.cloud.oauth_google')}</CardDescription></CardHeader><CardContent><p className="text-xs text-muted-foreground">{t('settings.cloud.permissions', 'Dome requests access only to browse and import files you select.')}</p></CardContent><CardFooter><Button type="button" variant="outline" onClick={() => void handleConnect()} disabled={connecting === 'google'}>{connecting === 'google' ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={CloudIcon} data-icon="inline-start" />}{t(accounts.some((account) => account.provider === 'google') ? 'settings.cloud.connect_google_another' : 'settings.cloud.connect_google')}</Button></CardFooter></Card><AlertDialog open={Boolean(pendingDisconnect)} onOpenChange={(open) => { if (!open) setPendingDisconnect(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t('settings.cloud.disconnect')}</AlertDialogTitle><AlertDialogDescription>{pendingDisconnect?.email}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => void handleDisconnect()}>{t('settings.cloud.disconnect')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></SettingsPanel>;
 }

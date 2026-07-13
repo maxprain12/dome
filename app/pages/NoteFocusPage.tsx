@@ -67,7 +67,7 @@ export default function NoteFocusPage({ resourceId }: NoteFocusPageProps) {
   return (
     <div
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
-      style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
+      style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
       <MarkdownNoteWorkspace resourceId={resourceId} />
     </div>

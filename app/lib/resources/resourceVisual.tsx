@@ -1,23 +1,23 @@
-import type { LucideIcon } from 'lucide-react';
+import type { IconSvgElement } from '@hugeicons/react';
 import {
-  BookOpen,
-  File,
-  FileSpreadsheet,
-  FileText,
-  FileType,
-  Folder,
-  GitBranch,
-  Globe,
-  Image,
-  Layers,
-  MessageSquare,
-  Music,
-  Presentation,
-  Sparkles,
-  StickyNote,
-  Video,
-  Youtube,
-} from 'lucide-react';
+  BookOpen01Icon,
+  Comment01Icon,
+  File01Icon,
+  File02Icon,
+  FileSpreadsheetIcon,
+  FileTypeIcon,
+  Folder01Icon,
+  GitBranchIcon,
+  GlobeIcon,
+  Image01Icon,
+  Layers01Icon,
+  MusicNote01Icon,
+  Presentation01Icon,
+  SparklesIcon,
+  StickyNote02Icon,
+  Video01Icon,
+  YoutubeIcon,
+} from '@hugeicons/core-free-icons';
 
 /** Canonical visual kinds for resources, attachments, and citations. */
 export type ResourceVisualKind =
@@ -103,25 +103,25 @@ const EXT_TO_KIND: Record<string, ResourceVisualKind> = {
   webm: 'video',
 };
 
-export const RESOURCE_ICON_MAP: Record<ResourceVisualKind, LucideIcon> = {
-  pdf: File,
-  note: FileText,
-  notebook: BookOpen,
-  docx: FileType,
-  excel: FileSpreadsheet,
-  ppt: Presentation,
-  image: Image,
-  audio: Music,
-  video: Video,
-  url: Globe,
-  youtube: Youtube,
-  folder: Folder,
-  artifact: Layers,
-  chat: MessageSquare,
-  graph: GitBranch,
-  studio: Sparkles,
-  annotation: StickyNote,
-  file: File,
+export const RESOURCE_ICON_MAP: Record<ResourceVisualKind, IconSvgElement> = {
+  pdf: File01Icon,
+  note: File02Icon,
+  notebook: BookOpen01Icon,
+  docx: FileTypeIcon,
+  excel: FileSpreadsheetIcon,
+  ppt: Presentation01Icon,
+  image: Image01Icon,
+  audio: MusicNote01Icon,
+  video: Video01Icon,
+  url: GlobeIcon,
+  youtube: YoutubeIcon,
+  folder: Folder01Icon,
+  artifact: Layers01Icon,
+  chat: Comment01Icon,
+  graph: GitBranchIcon,
+  studio: SparklesIcon,
+  annotation: StickyNote02Icon,
+  file: File01Icon,
 };
 
 export function normalizeResourceType(type?: string | null): string {

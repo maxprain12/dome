@@ -1,5 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { Layers } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Layers01Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
 
 export interface CompactionNoticeData {
   tokensBefore: number;
@@ -20,7 +23,6 @@ interface Props {
   onDismiss?: () => void;
 }
 
-/** Inline notice when the agent session was compacted to free context. */
 export default function CompactionNotice({ event, onDismiss }: Props) {
   const { t } = useTranslation();
   const title = event.automatic
@@ -37,33 +39,30 @@ export default function CompactionNotice({ event, onDismiss }: Props) {
         });
 
   return (
-    <output
-      className="mx-3 mb-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px]"
-      style={{
-        borderColor: 'var(--border-soft)',
-        background: 'var(--bg-secondary)',
-        color: 'var(--secondary-text)',
-      }}
-    >
-      <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium" style={{ color: 'var(--primary-text)' }}>
-          {title}
-        </p>
-        <p className="mt-0.5 tabular-nums">{detail}</p>
-        {event.summaryPreview ? (
-          <p className="mt-1 line-clamp-2 text-[11px] opacity-80">{event.summaryPreview}</p>
-        ) : null}
-      </div>
-      {onDismiss ? (
-        <button
-          type="button"
-          className="shrink-0 text-[11px] underline opacity-70 hover:opacity-100"
-          onClick={onDismiss}
-        >
-          {t('many.compaction_dismiss')}
-        </button>
-      ) : null}
+    <output className="mx-3 mb-2 block not-typeset">
+      <Marker variant="border">
+        <MarkerIcon>
+          <HugeiconsIcon icon={Layers01Icon} />
+        </MarkerIcon>
+        <MarkerContent className="min-w-0 flex-1 text-xs">
+          <p className="font-medium text-foreground">{title}</p>
+          <p className="mt-0.5 tabular-nums text-muted-foreground">{detail}</p>
+          {event.summaryPreview ? (
+            <p className="mt-1 line-clamp-2 text-[11px] opacity-80">{event.summaryPreview}</p>
+          ) : null}
+          {onDismiss ? (
+            <Button
+              type="button"
+              variant="link"
+              size="xs"
+              className="mt-1 h-auto p-0 text-[11px] opacity-70"
+              onClick={onDismiss}
+            >
+              {t('many.compaction_dismiss')}
+            </Button>
+          ) : null}
+        </MarkerContent>
+      </Marker>
     </output>
   );
 }

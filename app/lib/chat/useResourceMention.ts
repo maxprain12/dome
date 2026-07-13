@@ -227,6 +227,7 @@ export function useResourceMention({
     mentionQuery,
     mentionResources,
     mentionSelectedIdx,
+    setMentionSelectedIdx,
     mentionRect,
     mentionDropdownRef,
     selectMentionResource,

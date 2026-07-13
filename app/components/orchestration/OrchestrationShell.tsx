@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, GitBranch, Zap, Activity, type LucideIcon } from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { Activity01Icon, BotIcon, GitBranchIcon, ZapIcon } from '@hugeicons/core-free-icons';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 export type OrchestrationSection = 'agents' | 'workflows' | 'automations' | 'runs';
 
@@ -16,42 +21,32 @@ interface Props {
   section: OrchestrationSection;
   title: string;
   subtitle: string;
-  icon: LucideIcon;
   stats: OrchestrationStat[];
-  /** Right-aligned CTA buttons in the hero. */
   actions?: ReactNode;
-  /** Optional row under the stats (filters, search…). */
   toolbar?: ReactNode;
   children: ReactNode;
 }
 
-const SECTION_META: Record<OrchestrationSection, { icon: LucideIcon; tint: string; tintBg: string }> = {
-  agents: { icon: Bot, tint: 'var(--dome-accent)', tintBg: 'var(--dome-accent-bg)' },
-  workflows: { icon: GitBranch, tint: 'var(--info)', tintBg: 'var(--info-bg)' },
-  automations: { icon: Zap, tint: 'var(--warning)', tintBg: 'var(--warning-bg)' },
-  runs: { icon: Activity, tint: 'var(--success)', tintBg: 'var(--success-bg)' },
+const SECTION_ICONS: Record<OrchestrationSection, IconSvgElement> = {
+  agents: BotIcon,
+  workflows: GitBranchIcon,
+  automations: ZapIcon,
+  runs: Activity01Icon,
 };
 
-const STAT_TONE_COLOR: Record<NonNullable<OrchestrationStat['tone']>, string> = {
-  default: 'var(--dome-text)',
-  accent: 'var(--dome-accent)',
-  success: 'var(--success)',
-  error: 'var(--error)',
-  warning: 'var(--warning)',
-  info: 'var(--info)',
+const STAT_TONE_CLASS: Record<NonNullable<OrchestrationStat['tone']>, string> = {
+  default: 'text-foreground',
+  accent: 'text-primary',
+  success: 'text-success',
+  error: 'text-destructive',
+  warning: 'text-warning',
+  info: 'text-info',
 };
 
-/**
- * Shared frame for the four orchestration sections (Agents, Workflows,
- * Automations, Runs): cross-section pills, hero with live KPI cards and a
- * scrollable content area. The zero-data state is a first-class dashboard —
- * stats always render (with zeros) so no screen is ever empty.
- */
 export default function OrchestrationShell({
   section,
   title,
   subtitle,
-  icon: Icon,
   stats,
   actions,
   toolbar,
@@ -59,7 +54,7 @@ export default function OrchestrationShell({
 }: Props) {
   const { t } = useTranslation();
   const { openAgentsTab, openWorkflowsTab, openAutomationsTab, openRunsTab } = useTabStore();
-  const meta = SECTION_META[section];
+  const sectionIcon = SECTION_ICONS[section];
 
   const crossNav: Array<{ key: OrchestrationSection; label: string; open: () => void }> = [
     { key: 'agents', label: t('tabs.agents'), open: openAgentsTab },
@@ -68,97 +63,57 @@ export default function OrchestrationShell({
     { key: 'runs', label: t('tabs.runs'), open: openRunsTab },
   ];
 
+  const navigate = (value: string) => {
+    if (value === section) return;
+    crossNav.find((item) => item.key === value)?.open();
+  };
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-      <header className="shrink-0 px-6 pt-4 pb-4" style={{ borderBottom: '1px solid var(--dome-border)' }}>
-        {/* Cross-section navigation */}
-        <nav className="mb-4 flex items-center gap-1.5 flex-wrap" aria-label={t('orchestration.sections_nav')}>
-          {crossNav.map(({ key, label, open }) => {
-            const ItemIcon = SECTION_META[key].icon;
-            const active = key === section;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={active ? undefined : open}
-                aria-current={active ? 'page' : undefined}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors"
-                style={{
-                  background: active ? SECTION_META[key].tintBg : 'transparent',
-                  color: active ? SECTION_META[key].tint : 'var(--dome-text-muted)',
-                  border: `1px solid ${active ? SECTION_META[key].tint : 'var(--dome-border)'}`,
-                  cursor: active ? 'default' : 'pointer',
-                }}
-              >
-                <ItemIcon className="size-3" />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <header className="shrink-0 border-b px-6 py-4">
+        <Tabs value={section} onValueChange={navigate} className="mb-5">
+          <TabsList aria-label={t('orchestration.sections_nav')}>
+            {crossNav.map(({ key, label }) => (
+              <TabsTrigger key={key} value={key}>
+                <HugeiconsIcon icon={SECTION_ICONS[key]} data-icon="inline-start" />
                 {label}
-              </button>
-            );
-          })}
-        </nav>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-        {/* Title + actions */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: meta.tintBg, color: meta.tint }}
-            >
-              <Icon className="size-5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--dome-text)' }}>
-                {title}
-              </h1>
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {subtitle}
-              </p>
-            </div>
-          </div>
-          {actions ? <div className="flex items-center gap-2 flex-wrap">{actions}</div> : null}
-        </div>
+        <PageHeader
+          title={title}
+          description={subtitle}
+          actions={actions}
+          eyebrow={
+            <span className="inline-flex items-center gap-1.5">
+              <HugeiconsIcon icon={sectionIcon} className="size-3.5" />
+              {t('orchestration.sections_nav')}
+            </span>
+          }
+        />
 
-        {/* KPI cards */}
         {stats.length > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                className="rounded-xl px-3.5 py-3"
-                style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-              >
-                <div
-                  className="text-[10px] font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--dome-text-muted)' }}
-                >
-                  {s.label}
-                </div>
-                <div
-                  className="mt-0.5 text-2xl font-bold leading-tight tabular-nums"
-                  style={{ color: STAT_TONE_COLOR[s.tone ?? 'default'] }}
-                >
-                  {s.value}
-                </div>
-                {s.sub ? (
-                  <div className="text-[11px] truncate" style={{ color: 'var(--dome-text-muted)' }} title={s.sub}>
-                    {s.sub}
+          <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <Card key={stat.label} className="gap-1 py-3 shadow-none">
+                <CardContent className="px-3.5">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {stat.label}
                   </div>
-                ) : null}
-              </div>
+                  <div className={cn('mt-0.5 text-2xl font-semibold leading-tight tabular-nums', STAT_TONE_CLASS[stat.tone ?? 'default'])}>
+                    {stat.value}
+                  </div>
+                  {stat.sub ? <div className="truncate text-xs text-muted-foreground" title={stat.sub}>{stat.sub}</div> : null}
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : null}
       </header>
 
-      {toolbar ? (
-        <div
-          className="shrink-0 px-6 py-2.5"
-          style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
-        >
-          {toolbar}
-        </div>
-      ) : null}
-
+      {toolbar ? <div className="shrink-0 border-b bg-background px-6 py-2.5">{toolbar}</div> : null}
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </div>
   );

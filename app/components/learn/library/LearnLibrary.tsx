@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLearnStore, type LearnSection as LearnSectionId } from '@/lib/store/useLearnStore';
 import {
@@ -15,6 +15,9 @@ import LearnFilterBar from './LearnFilterBar';
 import LearnSection from './LearnSection';
 import LearnDeckCard from './LearnDeckCard';
 import LearnEmptyState from './LearnEmptyState';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import type { LearnDeckItem } from '@/lib/learn/types';
 
 export default function LearnLibrary() {
   const { t } = useTranslation();
@@ -33,6 +36,7 @@ export default function LearnLibrary() {
     deleteDeck,
     deleteStudioOutput,
   } = useLearnStore();
+  const [pendingDelete, setPendingDelete] = useState<LearnDeckItem | null>(null);
 
   useEffect(() => {
     void loadDecks();
@@ -72,19 +76,16 @@ export default function LearnLibrary() {
     }
   };
 
-  const handleDelete = (item: (typeof filtered)[number]) => {
-    const msg =
-      item.kind === 'flashcard_deck'
-        ? t('flashcard.confirm_delete_deck', 'Delete this deck?')
-        : t('content.confirm_delete_content', 'Delete this content?');
-    if (!confirm(msg)) return;
-    if (item.kind === 'flashcard_deck') void deleteDeck(item.id);
-    else void deleteStudioOutput(item.id);
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    if (pendingDelete.kind === 'flashcard_deck') void deleteDeck(pendingDelete.id);
+    else void deleteStudioOutput(pendingDelete.id);
+    setPendingDelete(null);
   };
 
   if (allItems.length === 0) {
     return (
-      <div className="lr-frame">
+      <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
         <LearnHeader />
         <LearnKpiStrip />
         <LearnStreakStrip />
@@ -108,25 +109,22 @@ export default function LearnLibrary() {
     const filterLabel = activeSection !== 'all' ? sectionLabels[activeSection] : null;
 
     return (
-      <div className="lr-frame">
+      <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
         <LearnHeader />
         <LearnKpiStrip />
         <LearnStreakStrip />
         <LearnFilterBar />
-        <div className="lr-empty lr-empty-filtered">
-          <h2>
+        <Empty className="py-16"><EmptyHeader><EmptyTitle>
             {searchQuery.trim()
               ? t('learn.filter_no_search', 'No results for your search')
               : t('learn.filter_no_section', 'No {{section}} yet', {
                   section: filterLabel ?? t('learn.content', 'content'),
                 })}
-          </h2>
-          <p>
+          </EmptyTitle><EmptyDescription>
             {searchQuery.trim()
               ? t('learn.filter_no_search_sub', 'Try another term or clear the search filter.')
               : t('learn.filter_no_section_sub', 'Generate content or switch to another category.')}
-          </p>
-        </div>
+          </EmptyDescription></EmptyHeader></Empty>
       </div>
     );
   }
@@ -155,17 +153,17 @@ export default function LearnLibrary() {
           ? () => setDeckEditorOpen(true, item.id)
           : undefined
       }
-      onDelete={() => handleDelete(item)}
+      onDelete={() => setPendingDelete(item)}
     />
   );
 
   return (
-    <div className="lr-frame">
+    <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
       <LearnHeader />
       <LearnKpiStrip />
       <LearnStreakStrip />
       <LearnFilterBar />
-      <div className="lr-body">
+      <div className="flex flex-col gap-6 pb-6">
         {activeSection !== 'all' ? (
           <LearnSection
             title={sectionTitle ?? activeSection}
@@ -203,6 +201,9 @@ export default function LearnLibrary() {
           </>
         )}
       </div>
+      <AlertDialog open={Boolean(pendingDelete)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{pendingDelete?.kind === 'flashcard_deck' ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}</AlertDialogTitle><AlertDialogDescription>{pendingDelete?.title}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={confirmDelete}>{t('ui.delete', 'Delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

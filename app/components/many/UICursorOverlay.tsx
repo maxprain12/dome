@@ -34,7 +34,7 @@ export default function UICursorOverlay() {
       return;
     }
     const selector = resolveSelector(targetSelector);
-    const tick = () => {
+    const update = () => {
       const next = getElementPos(selector);
       setPos((prev) => {
         if (!next && !prev) return prev;
@@ -50,11 +50,25 @@ export default function UICursorOverlay() {
         }
         return next;
       });
-      rafRef.current = requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
+    const scheduleUpdate = () => {
+      if (rafRef.current != null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        update();
+      });
+    };
+    const element = document.querySelector(selector);
+    const resizeObserver = element ? new ResizeObserver(scheduleUpdate) : null;
+    if (element) resizeObserver?.observe(element);
+    scheduleUpdate();
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('scroll', scheduleUpdate, true);
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('scroll', scheduleUpdate, true);
     };
   }, [visible, targetSelector]);
 
@@ -93,8 +107,7 @@ export default function UICursorOverlay() {
       <div
         className="dome-ui-cursor-ring"
         style={{
-          left: pos.x - pos.w / 2 - 2,
-          top: pos.y - pos.h / 2 - 2,
+          transform: `translate3d(${pos.x - pos.w / 2 - 2}px, ${pos.y - pos.h / 2 - 2}px, 0)`,
           width: pos.w + 4,
           height: pos.h + 4,
         }}
@@ -106,14 +119,13 @@ export default function UICursorOverlay() {
         viewBox="0 0 13 18"
         className="dome-ui-cursor-arrow"
         style={{
-          left: tipX,
-          top: tipY,
+          transform: `translate3d(${tipX}px, ${tipY}px, 0)`,
         }}
       >
         <path
           d={ARROW_PATH}
-          fill="var(--dome-surface)"
-          stroke="var(--dome-border)"
+          fill="var(--card)"
+          stroke="var(--border)"
           strokeWidth="0.85"
           strokeLinejoin="round"
         />
@@ -123,8 +135,7 @@ export default function UICursorOverlay() {
         <div
           className="dome-ui-cursor-tooltip tabular-nums"
           style={{
-            left: tipX + CURSOR_W + 6,
-            top: tipY + CURSOR_H * 0.35,
+            transform: `translate3d(${tipX + CURSOR_W + 6}px, ${tipY + CURSOR_H * 0.35}px, 0)`,
           }}
         >
           {tooltip}

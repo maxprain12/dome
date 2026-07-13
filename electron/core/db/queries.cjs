@@ -16,6 +16,9 @@ function buildQueries(db) {
     `),
     getProjects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC'),
     getProjectById: db.prepare('SELECT * FROM projects WHERE id = ?'),
+    updateProject: db.prepare(`
+      UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ?
+    `),
 
     // Resources
     createResource: db.prepare(`

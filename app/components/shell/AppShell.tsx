@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ManyIcon from '@/components/many/ManyIcon';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,8 +10,12 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
 import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
-import ResizeHandle from '@/components/workspace/ResizeHandle';
-import WindowControls from '@/components/ui/WindowControls';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CommandIcon, SidebarLeftIcon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 import SystemErrorNotifier from '@/components/shell/SystemErrorNotifier';
 import TranscriptionPill from '@/components/transcription/TranscriptionPill';
@@ -58,6 +62,18 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
   return fallback;
 }
 
+function useNarrowShell(): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return narrow;
+}
+
 // Eagerly start the import at module level so it's already resolving before
 // AppShell renders. Using useState+useEffect instead of React.lazy()+Suspense
 // prevents React 18's concurrent scheduler from deferring the Suspense resolution
@@ -87,8 +103,8 @@ function ManyPanelWithSuspense(props: ManyPanelWithSuspenseProps) {
 
   if (!ManyPanelComp) {
     return (
-      <div className="flex flex-1 items-center justify-center h-full min-h-[80px]" style={{ background: 'var(--dome-bg)' }}>
-        <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('common.loading')}</span>
+      <div className="flex flex-1 items-center justify-center h-full min-h-[80px] bg-background">
+        <span className="text-xs text-muted-foreground">{t('common.loading')}</span>
       </div>
     );
   }
@@ -102,9 +118,7 @@ export default function AppShell() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(() => readManyPanelOpen());
   /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
   const [manyRightOverride, setManyRightOverride] = useState(false);
-
-  const manyWidthRef = useRef(manyWidth);
-  manyWidthRef.current = manyWidth;
+  const narrowShell = useNarrowShell();
 
   const openChatTab = useTabStore((s) => s.openChatTab);
   const { activeTabId, tabs } = useTabStore(
@@ -122,7 +136,7 @@ export default function AppShell() {
   const isMac = isElectron && window.electron!.isMac;
   const isWindows = isElectron && window.electron!.isWindows;
   const isLinux = isElectron && window.electron!.isLinux;
-  /** Windows overlay + controles dibujados en Linux (no usar titleBarOverlay de Win). */
+  /** Windows/Linux use Electron's native window-controls overlay. */
   const needsRightTitleInset = Boolean(isWindows || isLinux);
 
   useEffect(() => {
@@ -162,12 +176,14 @@ export default function AppShell() {
     return () => off?.();
   }, []);
 
-  const handleManyResize = useCallback((deltaX: number) => {
-    // Panel is on the right: dragging handle left (negative deltaX) expands it
-    const newWidth = manyWidthRef.current - deltaX;
-    if (newWidth >= MANY_MIN && newWidth <= MANY_MAX) {
-      setManyWidth(newWidth);
-    }
+  const handleManyResize = useCallback((width: number) => {
+    const next = Math.round(width);
+    if (next < MANY_MIN || next > MANY_MAX) return;
+    setManyWidth(next);
+    useResizeStore.getState().setRightSidebarWidth(next);
+    try {
+      localStorage.setItem(MANY_WIDTH_KEY, String(next));
+    } catch { /* ignore unavailable storage */ }
   }, []);
 
   const handleToggleRightSidebar = useCallback(() => {
@@ -263,6 +279,7 @@ export default function AppShell() {
   }, []);
 
   const showManyInSidebar = Boolean(rightSidebarOpen && (!isChatTab || manyRightOverride));
+  const showManyInDesktopSidebar = showManyInSidebar && !narrowShell;
 
   const headerPlatform = !isElectron
     ? 'web'
@@ -274,10 +291,9 @@ export default function AppShell() {
 
   return (
     <div
-      className="flex flex-col h-screen overflow-hidden"
+      className="flex flex-col h-screen overflow-hidden bg-background"
       data-platform={headerPlatform}
       data-sidebar-collapsed={leftSidebarCollapsed ? 'true' : 'false'}
-      style={{ background: 'var(--dome-bg)' }}
     >
 
       {/* ── Unified top bar (CSS grid: left chrome | tabs | actions) ── */}
@@ -289,85 +305,125 @@ export default function AppShell() {
       >
         <div className="dome-shell-header-left" aria-hidden="true" />
 
-        <button
+        <Button
           type="button"
-          className="dome-chrome-icon-btn dome-chrome-icon-btn--strip-edge dome-shell-sidebar-toggle"
+          variant="ghost"
+          size="icon-sm"
+          className="dome-shell-sidebar-toggle rounded-none"
           data-active={!leftSidebarCollapsed ? 'true' : 'false'}
           onClick={toggleLeftSidebar}
           title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
           aria-label={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-          </svg>
-        </button>
+          <HugeiconsIcon icon={SidebarLeftIcon} />
+        </Button>
 
         <div className="dome-shell-header-tabs">
           <DomeTabBar onNewChat={handleNewChat} />
 
-          <button
+          <Button
             type="button"
-            className="dome-chrome-icon-btn dome-chrome-icon-btn--strip-edge"
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-none"
             data-active={rightSidebarOpen ? 'true' : 'false'}
             onClick={handleToggleRightSidebar}
             title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
             aria-label={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
+            data-tour="many"
           >
-            <span aria-hidden style={{ filter: 'var(--dome-logo-filter)', display: 'inline-flex' }}>
+            <span aria-hidden className="inline-flex [filter:var(--logo-filter)]">
               <ManyIcon size={14} />
             </span>
-          </button>
+          </Button>
         </div>
 
         <div className="dome-shell-header-actions">
           <div className="dome-header-drag-zone" aria-hidden />
 
           <div className="dome-header-actions-inner no-drag">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('search.command_palette', 'Command')}
+              data-tour="search"
+              onClick={() => window.dispatchEvent(new CustomEvent('dome:open-command-palette'))}
+            >
+              <HugeiconsIcon icon={CommandIcon} />
+            </Button>
             <TranscriptionPill />
           </div>
 
           {needsRightTitleInset ? <div className="dome-titlebar-inset-spacer" aria-hidden /> : null}
         </div>
 
-        <WindowControls />
       </header>
 
       {/* ── Body row ── */}
-      <div className="dome-app-body flex flex-1 min-h-0 overflow-hidden">
+      <SidebarProvider
+        open={!leftSidebarCollapsed}
+        onOpenChange={(open) => {
+          if (open === leftSidebarCollapsed) toggleLeftSidebar();
+        }}
+        className="dome-app-body min-h-0 flex-1 overflow-hidden"
+      >
         {/* Left sidebar */}
         <UnifiedSidebar collapsed={leftSidebarCollapsed} onCollapse={toggleLeftSidebar} />
 
-        {/* Main content */}
-        <main
-          className="dome-main-content flex flex-col flex-1 min-w-0 overflow-hidden"
-          style={{ background: 'var(--dome-surface)' }}
-        >
-          <ContentRouter />
-        </main>
+        <ResizablePanelGroup orientation="horizontal" className="min-w-0 flex-1">
+          <ResizablePanel id="dome-content" minSize={420}>
+            <main className="dome-main-content flex h-full min-w-0 flex-col overflow-hidden bg-card">
+              <ContentRouter />
+            </main>
+          </ResizablePanel>
 
-        {/* Right sidebar: Many en modo panel (no en pestaña Chat fullscreen — historial va dentro de Many). */}
-        {showManyInSidebar ? (
-          <>
-            <ResizeHandle onResize={handleManyResize} direction="horizontal" />
-            <div
-              className="dome-right-panel shrink-0 overflow-hidden"
-              style={{
-                width: manyWidth,
-                minWidth: manyWidth,
-              }}
-            >
-              <ManyPanelWithSuspense
-                width={manyWidth}
-                onClose={handleToggleRightSidebar}
-                isVisible
-                isFullscreen={false}
-              />
-            </div>
-          </>
-        ) : null}
+          {/* Many es la única sidebar derecha de aplicación. */}
+          {showManyInDesktopSidebar ? (
+            <>
+              <ResizableHandle aria-label={t('shell.resize_right_panel', 'Redimensionar Many')} />
+              <ResizablePanel
+                id="many-sidebar"
+                defaultSize={manyWidth}
+                minSize={MANY_MIN}
+                maxSize={MANY_MAX}
+                groupResizeBehavior="preserve-pixel-size"
+                onResize={(size) => handleManyResize(size.inPixels)}
+              >
+                <aside className="dome-right-panel h-full overflow-hidden border-l border-border" aria-label="Many">
+                  <ManyPanelWithSuspense
+                    width={manyWidth}
+                    onClose={handleToggleRightSidebar}
+                    isVisible
+                    isFullscreen={false}
+                  />
+                </aside>
+              </ResizablePanel>
+            </>
+          ) : null}
+        </ResizablePanelGroup>
 
-      </div>
+      </SidebarProvider>
+
+      <Sheet
+        open={showManyInSidebar && narrowShell}
+        onOpenChange={(open) => {
+          if (!open && rightSidebarOpen) handleToggleRightSidebar();
+        }}
+      >
+        <SheetContent side="right" showCloseButton={false} className="w-[min(92vw,30rem)] p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Many</SheetTitle>
+            <SheetDescription>{t('shell.right_panel_description', 'Asistente contextual de Dome')}</SheetDescription>
+          </SheetHeader>
+          <ManyPanelWithSuspense
+            width={Math.min(manyWidth, 480)}
+            onClose={handleToggleRightSidebar}
+            isVisible
+            isFullscreen={false}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Pet mascot overlay */}
       <PetPluginSlot />

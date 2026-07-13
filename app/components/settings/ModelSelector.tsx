@@ -1,12 +1,25 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Film01Icon as Film,
+  ChevronDownIcon as ChevronDown,
+  Search01Icon as Search,
+  CheckIcon as Check,
+  GiftIcon as Gift,
+  Shield01Icon as Shield,
+  BrainIcon as Brain,
+  Image01Icon as ImageIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Film, ChevronDown, Search, Check, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
+
 import type { ModelDefinition } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeInput } from '@/components/ui/DomeInput';
 
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command } from '@/components/ui/command';
 interface ModelSelectorProps {
   models: ModelDefinition[];
   selectedModelId: string;
@@ -53,7 +66,6 @@ export default function ModelSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -95,19 +107,6 @@ export default function ModelSelector({
     rowRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
   }, [highlightedIndex, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      const el = containerRef.current;
-      if (el && !el.contains(e.target as Node)) {
-        setIsOpen(false);
-        setSearchQuery('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen]);
-
   const commitSelection = useCallback(
     (model: ModelDefinition | undefined) => {
       if (!model) return;
@@ -144,45 +143,45 @@ export default function ModelSelector({
     if (!showBadges) return null;
     const nodes: ReactNode[] = [];
     if (model.recommended) {
-      nodes.push(<DomeBadge key="rec" label="Recommended" variant="soft" color="var(--accent)" size="xs" />);
+      nodes.push(<Badge variant="secondary" className="max-w-full text-primary" key="rec"><span className="truncate">Recommended</span></Badge>);
     }
     if (isFreeProvider) {
       nodes.push(
         <span key="free" className="inline-flex items-center gap-0.5">
-          <Gift size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
-          <DomeBadge label="Free" variant="soft" color="var(--accent)" size="xs" />
+          <HugeiconsIcon icon={Gift} size={10} className="shrink-0 text-primary" aria-hidden />
+          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Free</span></Badge>
         </span>,
       );
     }
     if (isPrivateProvider) {
       nodes.push(
         <span key="priv" className="inline-flex items-center gap-0.5">
-          <Shield size={10} className="shrink-0 text-[var(--secondary-text)]" aria-hidden />
-          <DomeBadge label="Private" variant="soft" color="var(--secondary-text)" size="xs" />
+          <HugeiconsIcon icon={Shield} size={10} className="shrink-0 text-muted-foreground" aria-hidden />
+          <Badge variant="secondary" className="max-w-full text-muted-foreground"><span className="truncate">Private</span></Badge>
         </span>,
       );
     }
     if (model.reasoning) {
       nodes.push(
         <span key="reason" className="inline-flex items-center gap-0.5">
-          <Brain size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
-          <DomeBadge label="Reasoning" variant="soft" color="var(--accent)" size="xs" />
+          <HugeiconsIcon icon={Brain} size={10} className="shrink-0 text-primary" aria-hidden />
+          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Reasoning</span></Badge>
         </span>,
       );
     }
     if (model.input?.includes('image')) {
       nodes.push(
         <span key="vision" className="inline-flex items-center gap-0.5">
-          <ImageIcon size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
-          <DomeBadge label="Vision" variant="soft" color="var(--accent)" size="xs" />
+          <HugeiconsIcon icon={ImageIcon} size={10} className="shrink-0 text-primary" aria-hidden />
+          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Vision</span></Badge>
         </span>,
       );
     }
     if (model.input?.includes('video')) {
       nodes.push(
         <span key="video" className="inline-flex items-center gap-0.5">
-          <Film size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
-          <DomeBadge label="Video" variant="soft" color="var(--accent)" size="xs" />
+          <HugeiconsIcon icon={Film} size={10} className="shrink-0 text-primary" aria-hidden />
+          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Video</span></Badge>
         </span>,
       );
     }
@@ -193,7 +192,7 @@ export default function ModelSelector({
   const providerBadge = (extraClass = '') =>
     providerId ? (
       <span
-        className={cn('font-mono text-[11px] shrink-0 text-[var(--tertiary-text)]', extraClass)}
+        className={cn('font-mono text-[11px] shrink-0 text-muted-foreground', extraClass)}
       >
         [{providerId}]
       </span>
@@ -203,68 +202,61 @@ export default function ModelSelector({
   const footerModel = isOpen ? filteredModels[highlightedIndex] : undefined;
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <DomeButton
-        type="button"
-        variant="outline"
-        size="md"
-        disabled={disabled}
-        onClick={() => !disabled && setIsOpen((o) => !o)}
-        onKeyDown={(e) => {
+    <Popover open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setSearchQuery(''); }}>
+      <PopoverTrigger render={<Button type="button"
+  variant="outline"
+  disabled={disabled}
+  onKeyDown={(e) => {
           if (e.key === 'Escape') setIsOpen(false);
         }}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        className={cn(
+  aria-haspopup="listbox"
+  aria-expanded={isOpen}
+  className={cn(
           'w-full justify-between gap-3 px-4 py-3 h-auto min-h-0 rounded-lg text-left font-normal',
-          'bg-[var(--bg-secondary)]',
-          isOpen && 'ring-2 ring-[var(--accent)] border-[var(--accent)]',
-        )}
-        rightIcon={
-          <ChevronDown
-            size={18}
-            className="shrink-0 text-[var(--secondary-text)] transition-transform"
-            style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
-            aria-hidden
-          />
-        }
-      >
+          'bg-card',
+          isOpen && 'ring-2 ring-primary border-primary',
+        )} />}>
         <div className="flex-1 min-w-0 text-left">
           {selectedModel ? (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-medium truncate text-[var(--primary-text)]">
+              <span className="font-mono text-sm font-medium truncate text-foreground">
                 {selectedModel.id}
               </span>
               {providerBadge()}
               {renderBadges(selectedModel)}
             </div>
           ) : (
-            <span className="text-sm text-[var(--tertiary-text)]">{placeholder}</span>
+            <span className="text-sm text-muted-foreground">{placeholder}</span>
           )}
         </div>
-      </DomeButton>
+      {
+          <HugeiconsIcon icon={ChevronDown}
+            size={18}
+            className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')}
+            aria-hidden
+          />
+        }
+      </PopoverTrigger>
 
       {isOpen && (
-        <div
-          className="absolute left-0 right-0 top-full mt-1 z-[600] rounded-xl border overflow-hidden shadow-lg bg-[var(--bg)] border-[var(--border)]"
-        >
+        <PopoverContent align="start" className="w-[var(--anchor-width)] gap-0 overflow-hidden rounded-xl border border-border bg-background p-0 shadow-lg">
+          <Command shouldFilter={false} className="rounded-none bg-background p-0">
           {configuredHint && (
-            <div className="px-3 pt-2.5 pb-1.5 text-[11px] leading-snug text-[var(--tertiary-text)]">
+            <div className="px-3 pt-2.5 pb-1.5 text-[11px] leading-snug text-muted-foreground">
               {t('settings.ai.models_configured_only')}
             </div>
           )}
           {searchable && (
-            <div className="p-2 border-b border-[var(--border)]">
+            <div className="p-2 border-b border-border">
               <div className="relative">
-                <Search
+                <HugeiconsIcon icon={Search}
                   size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-[var(--tertiary-text)]"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-muted-foreground"
                   aria-hidden
                 />
-                <DomeInput
+                <Input
                   ref={searchInputRef}
-                  className="gap-0"
-                  inputClassName="pl-9 font-mono"
+                  className="pl-9 font-mono"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -276,7 +268,7 @@ export default function ModelSelector({
           )}
           <ul ref={listRef} role="listbox" tabIndex={-1} className="max-h-60 overflow-y-auto py-1 list-none m-0 p-0" onKeyDown={handleListKeyDown}>
             {filteredModels.length === 0 ? (
-              <li className="list-none p-4 text-center text-sm text-[var(--secondary-text)]">
+              <li className="list-none p-4 text-center text-sm text-muted-foreground">
                 {searchQuery ? t('settings.ai.no_models_found', { query: searchQuery }) : emptyMessage}
               </li>
             ) : (
@@ -285,7 +277,7 @@ export default function ModelSelector({
                 const isHighlighted = idx === highlightedIndex;
                 return (
                   <li key={model.id} className="list-none">
-                  <button
+                  <Button variant="ghost"
                     ref={(el) => { rowRefs.current[idx] = el; }}
                     type="button"
                     role="option"
@@ -294,13 +286,13 @@ export default function ModelSelector({
                     onClick={() => commitSelection(model)}
                     className={cn(
                       'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
-                      isHighlighted ? 'bg-[var(--bg-tertiary)]' : 'bg-transparent',
+                      isHighlighted ? 'bg-muted' : 'bg-transparent',
                     )}
                   >
                     <span
                       className={cn(
                         'w-3 shrink-0 text-center',
-                        isHighlighted ? 'text-[var(--accent)]' : 'text-transparent',
+                        isHighlighted ? 'text-primary' : 'text-transparent',
                       )}
                       aria-hidden
                     >
@@ -309,16 +301,16 @@ export default function ModelSelector({
                     <span
                       className={cn(
                         'font-mono text-sm truncate',
-                        isHighlighted ? 'text-[var(--accent)]' : 'text-[var(--primary-text)]',
+                        isHighlighted ? 'text-primary' : 'text-foreground',
                       )}
                     >
                       {model.id}
                     </span>
                     {providerBadge()}
                     {isCurrent && (
-                      <Check size={14} className="ml-auto shrink-0 text-[var(--accent)]" aria-hidden />
+                      <HugeiconsIcon icon={Check} size={14} className="ml-auto shrink-0 text-primary" aria-hidden />
                     )}
-                  </button>
+                  </Button>
                   </li>
                 );
               })
@@ -326,23 +318,24 @@ export default function ModelSelector({
           </ul>
 
           {footerModel && (
-            <div className="border-t border-[var(--border)] px-3 py-2 flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-[var(--tertiary-text)]">
+            <div className="border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-muted-foreground">
                 {t('settings.ai.model_name_label')}:
               </span>
-              <span className="text-xs font-medium text-[var(--secondary-text)] truncate">
+              <span className="text-xs font-medium text-muted-foreground truncate">
                 {footerModel.name}
               </span>
               {showContextWindow && footerModel.contextWindow > 0 && (
-                <span className="text-xs tabular-nums text-[var(--tertiary-text)]">
+                <span className="text-xs tabular-nums text-muted-foreground">
                   · {formatContextWindow(footerModel.contextWindow)} ctx
                 </span>
               )}
               {renderBadges(footerModel)}
             </div>
           )}
-        </div>
+          </Command>
+        </PopoverContent>
       )}
-    </div>
+    </Popover>
   );
 }

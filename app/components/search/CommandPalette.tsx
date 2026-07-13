@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useMenuNavigation } from '@/hooks/use-menu-navigation';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, HOME_TAB_ID } from '@/lib/store/useTabStore';
@@ -15,6 +13,19 @@ import { matchesQuery, modKeyLabel, type PaletteRow } from './commandPaletteType
 import { useCommandPaletteSearch } from './useCommandPaletteSearch';
 import { CommandPaletteResultsList } from './CommandPaletteResultsList';
 import CommandPaletteResourcePreview from './CommandPaletteResourcePreview';
+import { Command, CommandInput } from '@/components/ui/command';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 
 export default function CommandPalette() {
   const { t } = useTranslation();
@@ -59,8 +70,11 @@ export default function CommandPalette() {
   );
 
   const [isOpen, setIsOpen] = useState(false);
+  const [addUrlOpen, setAddUrlOpen] = useState(false);
+  const [urlValue, setUrlValue] = useState('');
+  const [urlSubmitting, setUrlSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const panelRef = useRef<HTMLDialogElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const projectId = currentProject?.id ?? 'default';
@@ -111,17 +125,6 @@ export default function CommandPalette() {
     };
   }, [open, resetSearch]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onBackdrop = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        close();
-      }
-    };
-    document.addEventListener('mousedown', onBackdrop);
-    return () => document.removeEventListener('mousedown', onBackdrop);
-  }, [isOpen, close]);
-
   const goHome = useCallback(() => {
     setHomeSidebarSection('library');
     activateTab(HOME_TAB_ID);
@@ -146,6 +149,34 @@ export default function CommandPalette() {
     },
     [close, openFolderTab, openResourceTab, trimmedQuery],
   );
+
+  const createUrlResource = useCallback(async () => {
+    const rawUrl = urlValue.trim();
+    if (!rawUrl || !window.electron?.db?.resources?.create) return;
+    const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    setUrlSubmitting(true);
+    try {
+      const now = Date.now();
+      const id = `res_${now}_${Math.random().toString(36).slice(2, 11)}`;
+      const title = normalizedUrl.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0] || normalizedUrl;
+      const result = await window.electron.db.resources.create({
+        id,
+        type: 'url',
+        title,
+        project_id: projectId,
+        content: normalizedUrl,
+        created_at: now,
+        updated_at: now,
+      });
+      if (result.success && result.data) {
+        openResourceTab(result.data.id, 'url', result.data.title, projectId);
+      }
+      setAddUrlOpen(false);
+      setUrlValue('');
+    } finally {
+      setUrlSubmitting(false);
+    }
+  }, [openResourceTab, projectId, urlValue]);
 
   const navigationDestinations = useMemo(
     () =>
@@ -192,6 +223,7 @@ export default function CommandPalette() {
         close,
         projectId,
         openResourceTab,
+        requestAddUrl: () => setAddUrlOpen(true),
       }),
     [close, projectId, openResourceTab, t],
   );
@@ -219,9 +251,6 @@ export default function CommandPalette() {
         type: r.type,
         resourceId: r.id,
         sublabel: r.updated_at ? formatDistanceToNow(r.updated_at * 1000) : undefined,
-        icon: (
-          <DomeResourceIcon type={r.type} name={r.title} size={16} className="size-4 shrink-0" strokeWidth={1.5} />
-        ),
         run: () => openResource(r, filteredNav.length + index + 1, 'resource'),
       });
     });
@@ -234,9 +263,6 @@ export default function CommandPalette() {
         type: r.type,
         resourceId: r.id,
         sublabel: t('command.notes_annotations'),
-        icon: (
-          <DomeResourceIcon type={r.type} name={r.title} size={16} className="size-4 shrink-0" strokeWidth={1.5} />
-        ),
         run: () => openResource(r, filteredNav.length + resources.length + index + 1, 'interaction'),
       });
     });
@@ -258,8 +284,6 @@ export default function CommandPalette() {
     el?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
-  if (!isOpen) return null;
-
   const showEmptyQuery = !trimmedQuery;
   const hasResults = flatRows.length > 0;
   const showNoResults = Boolean(trimmedQuery) && !isSearching && !hasResults;
@@ -269,109 +293,98 @@ export default function CommandPalette() {
   const selectedRow = selectedIndex !== undefined ? flatRows[selectedIndex] : undefined;
   const hasResourceResults = Boolean(trimmedQuery) && (resources.length > 0 || interactions.length > 0);
   const previewResourceId = hasResourceResults
-    ? (selectedRow?.resourceId ?? resources[0]?.id ?? interactions[0]?.id ?? null)
+    ? (selectedRow && 'resourceId' in selectedRow ? selectedRow.resourceId : resources[0]?.id ?? interactions[0]?.id ?? null)
     : null;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
-      style={{
-        background: 'color-mix(in srgb, var(--dome-bg) 55%, transparent)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-      }}
-      role="presentation"
-    >
-      <dialog
-        ref={panelRef}
-        open
-        // `static` neutralizes the <dialog> UA stylesheet (position: absolute
-        // + inset: 0) which would pin the panel to the overlay's left edge
-        // instead of letting flexbox center it.
-        className={`static w-full ${previewResourceId ? 'max-w-3xl' : 'max-w-xl'} overflow-hidden rounded-2xl border shadow-2xl m-0 max-h-none p-0 transition-[max-width] duration-150`}
-        style={{
-          background: 'var(--dome-bg)',
-          borderColor: 'var(--dome-border)',
-          boxShadow: '0 24px 80px color-mix(in srgb, var(--dome-bg) 40%, transparent)',
-        }}
-        aria-label={t('command.palette_title')}
-      >
-        <div
-          className="flex items-center gap-3 border-b px-4 py-3.5"
-          style={{ borderColor: 'var(--dome-border)' }}
+    <>
+      <Dialog open={isOpen} onOpenChange={(next) => { if (!next) close(); }}>
+        <DialogContent
+          ref={panelRef}
+          className={`top-[12vh] w-full translate-y-0 gap-0 overflow-hidden rounded-2xl border-border p-0 shadow-2xl animate-none data-open:animate-none data-closed:animate-none ${previewResourceId ? 'sm:max-w-3xl' : 'sm:max-w-xl'}`}
+          showCloseButton={false}
+          aria-label={t('command.palette_title')}
         >
-          <Search className="size-4 shrink-0" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
-          <input
+          <DialogTitle className="sr-only">{t('command.palette_title')}</DialogTitle>
+          <Command shouldFilter={false} className="rounded-none p-0">
+            <CommandInput
             ref={inputRef}
-            type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onValueChange={setQuery}
             placeholder={t('command.palette_placeholder')}
             aria-label={t('command.palette_placeholder')}
-            className="flex-1 border-0 bg-transparent text-sm shadow-none outline-none focus-visible:border-0 focus-visible:shadow-none"
-            style={{ color: 'var(--dome-text)' }}
             autoComplete="off"
             spellCheck={false}
           />
-          {isSearching ? (
-            <div
-              className="size-4 shrink-0 animate-spin rounded-full border-2 border-t-transparent"
-              style={{ borderColor: 'var(--dome-accent)', borderTopColor: 'transparent' }}
-            />
-          ) : null}
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="rounded p-0.5 hover:bg-[var(--dome-surface)]"
-              aria-label={t('command.clear_search')}
-            >
-              <X className="size-4" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
-            </button>
-          ) : null}
-          <kbd
-            className="hidden rounded border px-1.5 py-0.5 text-[10px] font-medium sm:inline"
-            style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)', background: 'var(--dome-surface)' }}
-          >
-            {modKeyLabel()}
-          </kbd>
-        </div>
-
-        <div className="flex min-h-0">
-          <div className="min-w-0 flex-1">
-            <CommandPaletteResultsList
-              showEmptyQuery={showEmptyQuery}
-              showNoResults={showNoResults}
-              trimmedQuery={trimmedQuery}
-              quickActions={quickActions}
-              navigationDestinations={navigationDestinations}
-              filteredNav={filteredNav}
-              resources={resources}
-              interactions={interactions}
-              flatRows={flatRows}
-              selectedIndex={selectedIndex}
-              setSelectedIndex={setSelectedIndex}
-              listRef={listRef}
-            />
-          </div>
-          {previewResourceId ? (
-            <div
-              className="hidden w-[290px] shrink-0 overflow-hidden border-l sm:block"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-            >
-              <CommandPaletteResourcePreview resourceId={previewResourceId} query={trimmedQuery} />
+            <div className="flex min-h-0 border-t">
+              <div className="min-w-0 flex-1">
+                <CommandPaletteResultsList
+                  showEmptyQuery={showEmptyQuery}
+                  showNoResults={showNoResults}
+                  trimmedQuery={trimmedQuery}
+                  quickActions={quickActions}
+                  navigationDestinations={navigationDestinations}
+                  filteredNav={filteredNav}
+                  resources={resources}
+                  interactions={interactions}
+                  flatRows={flatRows}
+                  selectedIndex={selectedIndex}
+                  setSelectedIndex={setSelectedIndex}
+                  listRef={listRef}
+                />
+              </div>
+              {previewResourceId ? (
+                <div className="hidden w-[290px] shrink-0 overflow-hidden border-l bg-muted/30 sm:block">
+                  <CommandPaletteResourcePreview resourceId={previewResourceId} query={trimmedQuery} />
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
+            <div className="flex items-center justify-between border-t px-4 py-2 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-2">
+                {isSearching ? <Spinner className="size-3" /> : null}
+                {t('command.palette_hint')}
+              </span>
+              <span>{modKeyLabel()} · {t('command.palette_esc')}</span>
+            </div>
+          </Command>
+        </DialogContent>
+      </Dialog>
 
-        <div
-          className="flex items-center justify-between border-t px-4 py-2 text-[11px]"
-          style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-        >
-          <span>{t('command.palette_hint')}</span>
-          <span>{t('command.palette_esc')}</span>
-        </div>
-      </dialog>
-    </div>
+      <Dialog open={addUrlOpen} onOpenChange={setAddUrlOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('command.add_url')}</DialogTitle>
+            <DialogDescription>{t('command.please_enter_url')}</DialogDescription>
+          </DialogHeader>
+          <form
+            className="contents"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createUrlResource();
+            }}
+          >
+            <Field>
+              <FieldLabel htmlFor="command-add-url">URL</FieldLabel>
+              <Input
+                id="command-add-url"
+                type="url"
+                value={urlValue}
+                onChange={(event) => setUrlValue(event.target.value)}
+                placeholder="https://example.com"
+              />
+              <FieldDescription>{t('command.add_url')}</FieldDescription>
+            </Field>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddUrlOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" loading={urlSubmitting} disabled={!urlValue.trim()}>
+                {t('command.add_url')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

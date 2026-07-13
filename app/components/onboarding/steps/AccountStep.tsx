@@ -1,24 +1,27 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogIn, HardDrive, Mail, Lock, User, ArrowLeft } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowLeft01Icon, InformationCircleIcon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import { validateEmail, validateName } from '@/lib/utils/validation';
-import { DomeInput } from '@/components/ui/DomeInput';
-import DomeCallout from '@/components/ui/DomeCallout';
-import { ACCENT_END } from '@/lib/ui/accent';
+import AccountChoiceView, { type AccountChoice } from './account/AccountChoiceView';
+import DomeLoginView from './account/DomeLoginView';
+import DomeRegisterView from './account/DomeRegisterView';
 
-type Choice = 'account' | 'local';
-type SubView = 'choice' | 'form';
-type AuthMode = 'login' | 'register';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+type SubView = 'choice' | 'login' | 'register';
 
 interface AccountStepProps {
   onComplete: (data: {
-    mode: Choice;
+    mode: 'account' | 'local';
     email?: string;
     name?: string;
     hadRemoteData?: boolean;
+    alreadyOnboarded?: boolean;
   }) => void;
   onValidationChange?: (isValid: boolean) => void;
+  onSubViewChange?: (subView: SubView) => void;
 }
 
 const ERROR_CODE_TO_KEY: Record<string, string> = {
@@ -32,11 +35,10 @@ const ERROR_CODE_TO_KEY: Record<string, string> = {
 
 const MIN_PASSWORD_LENGTH = 8;
 
-export default function AccountStep({ onComplete, onValidationChange }: AccountStepProps) {
+export default function AccountStep({ onComplete, onValidationChange, onSubViewChange }: AccountStepProps) {
   const { t } = useTranslation();
   const [subView, setSubView] = useState<SubView>('choice');
-  const [choice, setChoice] = useState<Choice | null>(null);
-  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [choice, setChoice] = useState<AccountChoice | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,16 +49,22 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
 
   const emailValid = validateEmail(email);
   const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
-  const nameValid = authMode !== 'register' || validateName(name);
+  const nameValid = validateName(name);
 
   const canProceed =
     subView === 'choice'
       ? choice !== null
-      : emailValid && passwordValid && nameValid && !isSubmitting && !pendingConfirmation;
+      : subView === 'login'
+        ? emailValid && passwordValid && !isSubmitting && !pendingConfirmation
+        : emailValid && passwordValid && nameValid && !isSubmitting && !pendingConfirmation;
 
   useEffect(() => {
     onValidationChange?.(canProceed);
   }, [canProceed, onValidationChange]);
+
+  useEffect(() => {
+    onSubViewChange?.(subView);
+  }, [subView, onSubViewChange]);
 
   const handleNextRef = useRef<() => void>(() => {});
 
@@ -66,13 +74,23 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
         onComplete({ mode: 'local' });
         return;
       }
-      if (choice === 'account') {
-        setSubView('form');
+      if (choice === 'login') {
+        setSubView('login');
+        setError(null);
+        return;
+      }
+      if (choice === 'register') {
+        setSubView('register');
+        setError(null);
+        return;
       }
       return;
     }
 
-    if (!emailValid || !passwordValid || !nameValid) {
+    const isRegister = subView === 'register';
+    const formNameValid = isRegister ? nameValid : true;
+
+    if (!emailValid || !passwordValid || !formNameValid) {
       setTouched({ name: true, email: true, password: true });
       return;
     }
@@ -83,11 +101,15 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
       const result = await window.electron.domeAuth.nativeLogin(
         email.trim(),
         password,
-        authMode === 'register',
-        authMode === 'register' ? name.trim() : undefined,
+        isRegister,
+        isRegister ? name.trim() : undefined,
       );
       if (!result.success) {
-        setError(result.errorCode ? ERROR_CODE_TO_KEY[result.errorCode] ?? 'onboarding.account_error_generic' : 'onboarding.account_error_generic');
+        setError(
+          result.errorCode
+            ? ERROR_CODE_TO_KEY[result.errorCode] ?? 'onboarding.account_error_generic'
+            : 'onboarding.account_error_generic',
+        );
         return;
       }
       if (result.pendingConfirmation) {
@@ -97,192 +119,115 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
       onComplete({
         mode: 'account',
         email: result.email ?? email.trim(),
-        name: result.name ?? (authMode === 'register' ? name.trim() : undefined),
+        name: result.name ?? (isRegister ? name.trim() : undefined),
         hadRemoteData: Boolean(result.hadRemoteData),
+        alreadyOnboarded: Boolean(result.alreadyOnboarded),
       });
     } catch {
       setError('onboarding.account_error_generic');
     } finally {
       setIsSubmitting(false);
     }
-  }, [subView, choice, emailValid, passwordValid, nameValid, email, password, name, authMode, onComplete]);
+  }, [
+    subView,
+    choice,
+    emailValid,
+    passwordValid,
+    nameValid,
+    email,
+    password,
+    name,
+    onComplete,
+  ]);
 
   handleNextRef.current = handleNext;
 
-  useEffect(() => {
-    const handler = () => void handleNextRef.current();
-    window.addEventListener('onboarding:account-validate', handler);
-    return () => window.removeEventListener('onboarding:account-validate', handler);
+  const handleBackToChoice = useCallback(() => {
+    setSubView('choice');
+    setError(null);
+    setTouched({});
   }, []);
 
-  if (subView === 'choice') {
-    return (
-      <div className="flex flex-col gap-2.5">
-        <button
-          type="button"
-          onClick={() => setChoice('account')}
-          className="flex items-start gap-3 rounded-xl p-3.5 text-left transition-all"
-          style={{
-            background: choice === 'account' ? 'var(--dome-accent-subtle, rgba(101,93,197,0.12))' : 'var(--dome-surface)',
-            border: `1px solid ${choice === 'account' ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-          }}
-        >
-          <div
-            className="size-9 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: `linear-gradient(135deg, var(--dome-accent) 0%, ${ACCENT_END} 100%)` }}
-          >
-            <LogIn className="size-4" style={{ color: 'var(--base-text)' }} />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
-              {t('onboarding.account_login_title')}
-            </p>
-            <p className="text-xs leading-snug mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('onboarding.account_login_subtitle')}
-            </p>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setChoice('local')}
-          className="flex items-start gap-3 rounded-xl p-3.5 text-left transition-all"
-          style={{
-            background: choice === 'local' ? 'var(--dome-accent-subtle, rgba(101,93,197,0.12))' : 'var(--dome-surface)',
-            border: `1px solid ${choice === 'local' ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-          }}
-        >
-          <div
-            className="size-9 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'var(--dome-bg-hover)' }}
-          >
-            <HardDrive className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
-              {t('onboarding.account_local_title')}
-            </p>
-            <p className="text-xs leading-snug mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('onboarding.account_local_subtitle')}
-            </p>
-          </div>
-        </button>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const validateHandler = () => void handleNextRef.current();
+    const backHandler = () => handleBackToChoice();
+    window.addEventListener('onboarding:account-validate', validateHandler);
+    window.addEventListener('onboarding:account-back', backHandler);
+    return () => {
+      window.removeEventListener('onboarding:account-validate', validateHandler);
+      window.removeEventListener('onboarding:account-back', backHandler);
+    };
+  }, [handleBackToChoice]);
 
   if (pendingConfirmation) {
     return (
       <div className="flex flex-col gap-4">
-        <DomeCallout tone="info">{t('onboarding.account_pending_confirmation')}</DomeCallout>
-        <button
+        <Alert role="note"><HugeiconsIcon icon={InformationCircleIcon} aria-hidden /><AlertDescription className="text-xs">{t('onboarding.account_pending_confirmation')}</AlertDescription></Alert>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setPendingConfirmation(false);
             setSubView('choice');
             setChoice('local');
           }}
-          className="flex items-center gap-1.5 text-xs w-fit"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="w-fit text-xs text-muted-foreground"
         >
-          <ArrowLeft className="size-3.5" />
+          <HugeiconsIcon icon={ArrowLeft01Icon} className="size-3.5" />
           {t('onboarding.account_back_to_choice')}
-        </button>
+        </Button>
       </div>
     );
   }
 
-  const nameError = touched.name && authMode === 'register' && !nameValid
-    ? t('onboarding.name_min_length')
-    : undefined;
+  if (subView === 'choice') {
+    return <AccountChoiceView choice={choice} onChoiceChange={setChoice} />;
+  }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <button
-        type="button"
-        onClick={() => {
-          setSubView('choice');
+  if (subView === 'login') {
+    return (
+      <DomeLoginView
+        email={email}
+        password={password}
+        touched={touched}
+        emailValid={emailValid}
+        passwordValid={passwordValid}
+        error={error}
+        isSubmitting={isSubmitting}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onEmailBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+        onPasswordBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+        onSwitchToRegister={() => {
+          setSubView('register');
           setError(null);
         }}
-        className="flex items-center gap-1.5 text-xs w-fit"
-        style={{ color: 'var(--dome-text-muted)' }}
-      >
-        <ArrowLeft className="size-3.5" />
-        {t('onboarding.account_back_to_choice')}
-      </button>
+      />
+    );
+  }
 
-      {error ? <DomeCallout tone="error">{t(error)}</DomeCallout> : null}
-
-      {authMode === 'register' ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10" style={{ color: 'var(--dome-text-muted)' }}>
-              <User className="size-4" />
-            </span>
-            <DomeInput
-              id="account-name"
-              type="text"
-              autoComplete="name"
-              label={t('onboarding.account_name_label')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
-              error={nameError}
-              inputClassName="pl-9"
-            />
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-col gap-1.5">
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10" style={{ color: 'var(--dome-text-muted)' }}>
-            <Mail className="size-4" />
-          </span>
-          <DomeInput
-            id="account-email"
-            type="text"
-            inputMode="email"
-            autoComplete="email"
-            label={t('onboarding.account_email_label')}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
-            error={touched.email && !emailValid ? t('onboarding.email_invalid') : undefined}
-            inputClassName="pl-9"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10" style={{ color: 'var(--dome-text-muted)' }}>
-            <Lock className="size-4" />
-          </span>
-          <DomeInput
-            id="account-password"
-            type="password"
-            autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
-            label={t('onboarding.account_password_label')}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
-            error={touched.password && !passwordValid ? t('onboarding.password_min_length') : undefined}
-            inputClassName="pl-9"
-          />
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-        className="text-xs text-left w-fit"
-        style={{ color: 'var(--dome-accent)' }}
-      >
-        {authMode === 'login'
-          ? t('onboarding.account_toggle_to_register')
-          : t('onboarding.account_toggle_to_login')}
-      </button>
-    </div>
+  return (
+    <DomeRegisterView
+      name={name}
+      email={email}
+      password={password}
+      touched={touched}
+      nameValid={nameValid}
+      emailValid={emailValid}
+      passwordValid={passwordValid}
+      error={error}
+      isSubmitting={isSubmitting}
+      onNameChange={setName}
+      onEmailChange={setEmail}
+      onPasswordChange={setPassword}
+      onNameBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
+      onEmailBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+      onPasswordBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+      onSwitchToLogin={() => {
+        setSubView('login');
+        setError(null);
+      }}
+    />
   );
 }

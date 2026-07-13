@@ -10,7 +10,7 @@
 
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
-const { getOrCreateDeviceId } = require('./cloud-sync-service.cjs');
+const { getOrCreateDeviceId } = require('./device-id.cjs');
 const planGate = require('./plan-gate.cjs');
 
 const PULL_LIMIT = 500;

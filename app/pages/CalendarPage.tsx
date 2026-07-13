@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
 import {
   startOfWeek, endOfWeek,
   startOfYear, endOfYear, startOfMonth, endOfMonth,
 } from 'date-fns';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import type { EventDateChangePayload } from '@/components/calendar/CalendarGrid';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import EventModal from '@/components/calendar/EventModal';
 import DayEventsModal from '@/components/calendar/DayEventsModal';
 import { CalendarHero } from '@/components/calendar/CalendarHero';
@@ -20,6 +18,22 @@ import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getEventsForDay } from '@/lib/calendar/dayEvents';
+import { cn } from '@/lib/utils';
+
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
+import { Toggle } from '@/components/ui/toggle';
 
 type CalRow = { id: string; title: string; color?: string; account_id?: string; is_selected?: boolean };
 
@@ -104,6 +118,7 @@ const loadCalendars = useCallback(async () => {
     const r = await window.electron.calendar.listCalendars({ projectId });
     if (r.success && r.calendars) {
       const rows = r.calendars as CalRow[];
+      setCalendars(rows);
       const rowIds = new Set(rows.map((c) => c.id));
       const isVisibleCalendar = (id: string) => rowIds.has(id);
       setVisibleCalendarIds((prev) => {
@@ -335,7 +350,7 @@ const loadCalendars = useCallback(async () => {
         : t('calendarPage.sync_never');
 
   return (
-    <div className="home-shell c-calendar-shell">
+    <div className="home-shell">
       <div className="home-scroll">
         <div className="home-canvas">
           <CalendarHero
@@ -349,20 +364,24 @@ const loadCalendars = useCallback(async () => {
           />
 
           {calendars.length > 0 ? (
-            <div className="c-calendar-filters">
-              <span className="c-calendar-filters-label">{t('calendarPage.filter_calendars')}</span>
+            <div className="mb-4 flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                {t('calendarPage.filter_calendars')}
+              </span>
               {calendars.map((c) => {
                 const on = visibleCalendarIds.includes(c.id);
                 return (
-                  <button
+                  <Toggle
                     key={c.id}
-                    type="button"
-                    onClick={() => toggleCalendarFilter(c.id)}
-                    className={`c-calendar-filter-chip ${on ? 'is-on' : 'is-off'}`}
+                    variant="outline"
+                    size="sm"
+                    pressed={on}
+                    onPressedChange={() => toggleCalendarFilter(c.id)}
+                    className={cn('h-6 rounded-full px-2.5 text-[11px]', !on && 'opacity-50')}
                     style={{ borderColor: c.color || undefined }}
                   >
                     {c.title}
-                  </button>
+                  </Toggle>
                 );
               })}
             </div>
@@ -371,8 +390,8 @@ const loadCalendars = useCallback(async () => {
           <div className="c-calendar-body">
             <div className="c-calendar-main">
               {loading ? (
-                <div className="c-calendar-loading">
-                  <Loader2 className="size-7 animate-spin" aria-hidden />
+                <div className="flex min-h-[320px] flex-1 items-center justify-center text-muted-foreground">
+                  <Spinner className="size-7" aria-hidden />
                 </div>
               ) : (
                 <div className="c-calendar-grid-panel">
@@ -396,45 +415,56 @@ const loadCalendars = useCallback(async () => {
       </div>
 
       {showImport && importPreview ? (
-        <dialog
-          open
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
-          aria-modal="true"
-          aria-labelledby="calendar-import-dialog-title"
-          onCancel={(e) => { e.preventDefault(); setShowImport(false); }}
-        >
-          <div className="p-projects-modal">
-            <h3 id="calendar-import-dialog-title" className="p-projects-modal-title">
-              {t('calendarPage.import_title')}
-            </h3>
-            <p className="p-projects-modal-body">
-              {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
-            </p>
-            <DomeSelectMenu
-              label={t('calendarPage.import_target')}
-              value={importTargetId}
-              onChange={setImportTargetId}
-              options={calendars.map((c) => ({ value: c.id, label: c.title }))}
-            />
-            <label className="c-calendar-modal-check mt-3">
-              <input type="checkbox" checked={importSkipDup} onChange={(e) => setImportSkipDup(e.target.checked)} />
+        <Dialog open onOpenChange={(next) => { if (!next && !importBusy) setShowImport(false); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('calendarPage.import_title')}</DialogTitle>
+              <DialogDescription>
+                {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
+              </DialogDescription>
+            </DialogHeader>
+
+            <Field className="gap-1.5">
+              <FieldLabel className="text-xs">{t('calendarPage.import_target')}</FieldLabel>
+              <Select
+                value={importTargetId || null}
+                onValueChange={(next) => { if (next != null) setImportTargetId(String(next)); }}
+                items={calendars.map((c) => ({ value: c.id, label: c.title }))}
+              >
+                <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {calendars.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="block truncate">{c.title}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <FieldLabel className="flex items-center gap-2 text-sm font-normal">
+              <Checkbox
+                checked={importSkipDup}
+                onCheckedChange={(checked) => setImportSkipDup(checked === true)}
+              />
               {t('calendarPage.import_skip_dup')}
-            </label>
-            <div className="p-projects-modal-actions">
-              <button type="button" disabled={importBusy} onClick={() => setShowImport(false)} className="h-pill-btn">
+            </FieldLabel>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={importBusy} onClick={() => setShowImport(false)}>
                 {t('common.cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={importBusy || importPreview.events.length === 0}
+                loading={importBusy}
                 onClick={() => void runImport()}
-                className="h-pill-btn primary"
               >
-                {importBusy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : t('calendarPage.import_confirm')}
-              </button>
-            </div>
-          </div>
-        </dialog>
+                {t('calendarPage.import_confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {dayModalDate ? (

@@ -11,12 +11,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import HubListState from '@/components/ui/HubListState';
+import ListState from '@/components/shared/ListState';
 import { useTranslation } from 'react-i18next';
 
 const LOADER_DELAY_MS = 150;
 const REVEAL_MS = 150;
-const BLUR_PX = 10;
 
 type TabPaneReadyContextValue = {
   tabId: string;
@@ -149,14 +148,15 @@ export default function TabPaneShell({
       <div
         data-tab-pane={tabId}
         className={stackClass}
-        style={{ background: 'var(--dome-bg)' }}
+        style={{ background: 'var(--background)' }}
         aria-hidden={!isActive}
       >
         <div
-          className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden"
+          className="tab-pane-reveal relative flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden"
+          data-reveal-phase={revealPhase}
           style={{
             opacity: revealPhase === 'shown' ? 1 : 0,
-            filter: revealPhase === 'shown' ? 'none' : `blur(${BLUR_PX}px)`,
+            filter: revealPhase === 'shown' ? 'none' : 'blur(10px)',
             transition:
               revealPhase === 'animating' || revealPhase === 'shown'
                 ? `opacity ${REVEAL_MS}ms ease-out, filter ${REVEAL_MS}ms ease-out`
@@ -172,7 +172,7 @@ export default function TabPaneShell({
             aria-busy
             aria-live="polite"
           >
-            <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
+            <ListState variant="loading" loadingLabel={t('common.loading')} compact />
           </div>
         ) : null}
       </div>

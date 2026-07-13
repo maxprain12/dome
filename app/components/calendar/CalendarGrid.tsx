@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Fragment, useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   startOfDay, addDays, addWeeks, addMonths, addYears,
@@ -82,23 +85,25 @@ function EventChip({
   onDragStart?: (e: React.DragEvent) => void;
 }) {
   const { t } = useTranslation();
-  const bg = event.calendar_color ?? 'var(--dome-accent)';
+  const bg = event.calendar_color ?? 'var(--primary)';
   const start = new Date(event.start_at);
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="xs"
       draggable={draggable}
       onDragStart={onDragStart}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-      className="text-left rounded px-1.5 truncate w-full text-[11px] py-0.5 transition-opacity hover:opacity-80"
-      style={{ backgroundColor: bg, color: 'var(--dome-on-accent)', lineHeight: '18px' }}
+      className="w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-[18px] text-primary-foreground transition-opacity hover:opacity-80"
+      style={{ backgroundColor: bg }}
       title={event.title}
     >
       {!event.all_day && (
         <span className="opacity-70 mr-1">{format(start, 'HH:mm')}</span>
       )}
       {event.title || t('workspace.untitled')}
-    </button>
+    </Button>
   );
 }
 
@@ -119,6 +124,7 @@ function MonthView({
   onEventDateChange?: (p: EventDateChangePayload) => void;
   weekdayShortLabels: string[];
 }) {
+  const { t } = useTranslation();
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const dragEventRef = useRef<CalendarEvent | null>(null);
 
@@ -144,9 +150,9 @@ function MonthView({
   return (
     <div className="size-full flex flex-col">
       {/* Weekday header */}
-      <div className="grid grid-cols-7 border-b shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
+      <div className="grid shrink-0 grid-cols-7 border-b">
         {weekdayShortLabels.map((wd) => (
-          <div key={wd} className="py-2 text-center text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+          <div key={wd} className="py-2 text-center text-xs font-medium text-muted-foreground">
             {wd}
           </div>
         ))}
@@ -170,16 +176,11 @@ function MonthView({
               role="button"
               tabIndex={0}
               aria-label={format(day, 'PPPP')}
-              className="border-b border-r p-1 transition-colors cursor-pointer overflow-hidden"
-              style={{
-                borderColor: 'var(--dome-border)',
-                opacity: inMonth ? 1 : 0.35,
-                background: isDragTarget
-                  ? 'var(--dome-accent-bg)'
-                  : today
-                    ? 'color-mix(in srgb, var(--dome-accent) 8%, transparent)'
-                    : undefined,
-              }}
+              className={cn(
+                'cursor-pointer overflow-hidden border-b border-r p-1 transition-colors',
+                !inMonth && 'opacity-35',
+                isDragTarget ? 'bg-primary/10' : today && 'bg-primary/5',
+              )}
               onClick={() => onDayClick(day)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -203,14 +204,12 @@ function MonthView({
               }}
             >
               {/* Day number */}
-              <div className="flex items-center justify-end mb-0.5">
+              <div className="mb-0.5 flex items-center justify-end">
                 <span
-                  className="size-6 flex items-center justify-center text-xs rounded-full"
-                  style={{
-                    background: today ? 'var(--dome-accent)' : undefined,
-                    color: today ? 'var(--dome-on-accent)' : 'var(--dome-text-muted)',
-                    fontWeight: today ? 700 : 400,
-                  }}
+                  className={cn(
+                    'flex size-6 items-center justify-center rounded-full text-xs',
+                    today ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground',
+                  )}
                 >
                   {format(day, 'd')}
                 </span>
@@ -228,8 +227,8 @@ function MonthView({
                   />
                 ))}
                 {dayEvs.length > 3 && (
-                  <span className="text-[12px] pl-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                    +{dayEvs.length - 3} más
+                  <span className="pl-1.5 text-[12px] text-muted-foreground">
+                    {t('calendarPage.more_events', { count: dayEvs.length - 3 })}
                   </span>
                 )}
               </div>
@@ -318,7 +317,7 @@ function DraggableTimeEvent({
       role="button"
       tabIndex={0}
       className={cn(
-        'calendar-time-event absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden text-[var(--dome-on-accent)] z-[2]',
+        'calendar-time-event absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden text-primary-foreground z-[2]',
         dragging && 'calendar-time-event--dragging z-20 opacity-85',
         onEventDateChange && (dragging === 'move' ? 'cursor-grabbing' : 'cursor-grab'),
         !onEventDateChange && 'cursor-pointer',
@@ -326,7 +325,7 @@ function DraggableTimeEvent({
       style={{
         top: renderTop,
         height: renderHeight,
-        backgroundColor: event.calendar_color ?? 'var(--dome-accent)',
+        backgroundColor: event.calendar_color ?? 'var(--primary)',
       }}
       aria-label={event.title || t('workspace.untitled')}
       onPointerDown={handleMoveStart}
@@ -372,8 +371,8 @@ function CurrentTimeLine({ hourHeight }: { hourHeight: number }) {
   return (
     <div className="absolute left-0 right-0 pointer-events-none z-10" style={{ top: minuteOffset }}>
       <div className="flex items-center">
-        <div className="size-2 rounded-full shrink-0 -ml-1" style={{ background: 'var(--dome-accent)' }} />
-        <div className="flex-1 h-px" style={{ background: 'var(--dome-accent)' }} />
+        <div className="size-2 rounded-full shrink-0 -ml-1 bg-primary" />
+        <div className="flex-1 h-px bg-primary" />
       </div>
     </div>
   );
@@ -423,24 +422,18 @@ function WeekView({
     <div ref={scrollRef} className="overflow-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
       <div className="grid" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
         {/* Header */}
-        <div className="sticky top-0 z-10" style={{ background: 'var(--dome-bg)' }} />
+        <div className="sticky top-0 z-10 bg-background" />
         {days.map((day) => (
           <div
             key={day.toISOString()}
-            className="sticky top-0 z-10 text-center py-2 border-b border-l"
-            style={{
-              borderColor: 'var(--dome-border)',
-              background: 'var(--dome-bg)',
-            }}
+            className="sticky top-0 z-10 border-b border-l bg-background py-2 text-center"
           >
-            <div className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{format(day, 'EEE', { locale: dfLocale })}</div>
+            <div className="text-[11px] text-muted-foreground">{format(day, 'EEE', { locale: dfLocale })}</div>
             <div
-              className="text-base mx-auto mt-0.5 size-8 flex items-center justify-center rounded-full font-medium"
-              style={{
-                background: isToday(day) ? 'var(--dome-accent)' : undefined,
-                color: isToday(day) ? 'var(--dome-on-accent)' : 'var(--dome-text)',
-                fontWeight: isToday(day) ? 700 : 500,
-              }}
+              className={cn(
+                'mx-auto mt-0.5 flex size-8 items-center justify-center rounded-full text-base font-medium',
+                isToday(day) && 'bg-primary font-bold text-primary-foreground',
+              )}
             >
               {format(day, 'd')}
             </div>
@@ -449,11 +442,10 @@ function WeekView({
 
         {/* Hour rows */}
         {hours.map((hour) => (
-          <>
+          <Fragment key={hour}>
             <div
-              key={`label-${hour}`}
-              className="text-[10px] text-right pr-2 pt-1 shrink-0"
-              style={{ color: 'var(--dome-text-muted)', height: HOUR_HEIGHT }}
+              className="shrink-0 pr-2 pt-1 text-right text-[10px] text-muted-foreground"
+              style={{ height: HOUR_HEIGHT }}
             >
               {hour > 0 ? `${hour}:00` : ''}
             </div>
@@ -464,9 +456,9 @@ function WeekView({
               );
               return (
                 <div
-                  key={`${key}-${hour}`}
-                  className="border-b border-l relative"
-                  style={{ borderColor: 'var(--dome-border)', height: HOUR_HEIGHT }}
+                  key={key}
+                  className="relative border-b border-l"
+                  style={{ height: HOUR_HEIGHT }}
                 >
                   {hour === currentHour && isToday(day) && (
                     <CurrentTimeLine hourHeight={HOUR_HEIGHT} />
@@ -483,7 +475,7 @@ function WeekView({
                 </div>
               );
             })}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>
@@ -526,18 +518,16 @@ function DayView({
         {hours.map((hour) => {
           const hourEvs = dayEvents.filter((ev) => getHours(new Date(ev.start_at)) === hour);
           return (
-            <>
+            <Fragment key={hour}>
               <div
-                key={`label-${hour}`}
-                className="text-[11px] text-right pr-3 pt-1"
-                style={{ color: 'var(--dome-text-muted)', height: HOUR_HEIGHT }}
+                className="pr-3 pt-1 text-right text-[11px] text-muted-foreground"
+                style={{ height: HOUR_HEIGHT }}
               >
                 {hour > 0 ? `${hour}:00` : ''}
               </div>
               <div
-                key={`cell-${hour}`}
-                className="border-b border-l relative"
-                style={{ borderColor: 'var(--dome-border)', height: HOUR_HEIGHT }}
+                className="relative border-b border-l"
+                style={{ height: HOUR_HEIGHT }}
               >
                 {hour === currentHour && isToday(date) && (
                   <CurrentTimeLine hourHeight={HOUR_HEIGHT} />
@@ -552,7 +542,7 @@ function DayView({
                   />
                 ))}
               </div>
-            </>
+            </Fragment>
           );
         })}
       </div>
@@ -573,7 +563,15 @@ function YearView({
   onMonthClick: (d: Date) => void;
   dfLocale: Locale;
 }) {
+  const { t } = useTranslation();
   const months = eachMonthOfInterval({ start: startOfYear(date), end: endOfYear(date) });
+
+  const weekdayNarrowLabels = useMemo(() => {
+    const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) =>
+      format(addDays(ws, i), 'EEEEE', { locale: dfLocale }).toUpperCase(),
+    );
+  }, [dfLocale]);
 
   const eventsByMonth = useMemo(() => {
     const map = new Map<number, CalendarEvent[]>();
@@ -597,27 +595,29 @@ function YearView({
         const isCurrentMonth = isSameMonth(month, new Date());
 
         return (
-          <button
+          <Button
             key={month.toISOString()}
             type="button"
-            aria-label={`${format(month, 'MMMM yyyy', { locale: dfLocale })}`}
-            className="rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md w-full text-left"
-            style={{
-              borderColor: isCurrentMonth ? 'var(--dome-accent)' : 'var(--dome-border)',
-              background: 'var(--dome-surface)',
-            }}
+            variant="outline"
+            aria-label={format(month, 'MMMM yyyy', { locale: dfLocale })}
+            className={cn(
+              'h-auto w-full cursor-pointer rounded-xl bg-card p-3 text-left transition-[box-shadow,border-color] hover:shadow-md',
+              isCurrentMonth && 'border-primary',
+            )}
             onClick={() => onMonthClick(month)}
           >
             <div
-              className="text-[12px] font-semibold mb-2 capitalize"
-              style={{ color: isCurrentMonth ? 'var(--dome-accent)' : 'var(--dome-text)' }}
+              className={cn(
+                'mb-2 text-[12px] font-semibold capitalize',
+                isCurrentMonth && 'text-primary',
+              )}
             >
               {format(month, 'MMMM', { locale: dfLocale })}
             </div>
 
-            <div className="grid grid-cols-7 gap-px mb-1">
-              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-                <div key={i} className="text-[12px] text-center leading-none" style={{ color: 'var(--dome-text-muted)' }}>{d}</div>
+            <div className="mb-1 grid grid-cols-7 gap-px">
+              {weekdayNarrowLabels.map((d, i) => (
+                <div key={`${d}-${i}`} className="text-center text-[12px] leading-none text-muted-foreground">{d}</div>
               ))}
               {days.map((day) => {
                 const inMonth = isSameMonth(day, month);
@@ -626,24 +626,19 @@ function YearView({
                 return (
                   <div
                     key={day.toISOString()}
-                    className="flex items-center justify-center relative"
-                    style={{ height: 16 }}
+                    className="relative flex h-4 items-center justify-center"
                   >
                     <span
-                      className="size-4 flex items-center justify-center rounded-full text-[12px] leading-none"
-                      style={{
-                        background: today && inMonth ? 'var(--dome-accent)' : undefined,
-                        color: !inMonth ? 'transparent' : today ? 'var(--dome-on-accent)' : 'var(--dome-text)',
-                        fontWeight: today ? 700 : 400,
-                      }}
+                      className={cn(
+                        'flex size-4 items-center justify-center rounded-full text-[12px] leading-none',
+                        !inMonth && 'text-transparent',
+                        inMonth && today && 'bg-primary font-bold text-primary-foreground',
+                      )}
                     >
                       {inMonth ? format(day, 'd') : '·'}
                     </span>
                     {hasEvs && inMonth && !today && (
-                      <div
-                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[3px] h-[3px] rounded-full"
-                        style={{ background: 'var(--dome-accent)' }}
-                      />
+                      <div className="absolute bottom-0 left-1/2 size-[3px] -translate-x-1/2 rounded-full bg-primary" />
                     )}
                   </div>
                 );
@@ -651,11 +646,11 @@ function YearView({
             </div>
 
             {monthEvs.length > 0 && (
-              <div className="text-[12px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {monthEvs.length} evento{monthEvs.length !== 1 ? 's' : ''}
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                {t('calendarPage.events_count', { count: monthEvs.length })}
               </div>
             )}
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -710,43 +705,48 @@ export default function CalendarGrid({
   }, [onCurrentDateChange, onViewModeChange]);
 
   return (
-    <div className="c-calendar-grid w-full flex flex-col h-full">
-      <div className="c-cal-nav">
-        <div className="c-cal-nav-left">
-          <button
+    <div className="flex size-full flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
+        <div className="flex min-w-0 items-center gap-1">
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={handlePrev}
-            className="c-cal-nav-btn"
             aria-label={t('common.back')}
           >
-            <ChevronLeft className="size-4" />
-          </button>
-          <button
+            <HugeiconsIcon icon={ArrowLeft01Icon} />
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={handleNext}
-            className="c-cal-nav-btn"
             aria-label={t('common.next')}
           >
-            <ChevronRight className="size-4" />
-          </button>
-          <button type="button" onClick={handleToday} className="c-cal-today-btn">
+            <HugeiconsIcon icon={ArrowRight01Icon} />
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={handleToday}>
             {t('calendarPage.today')}
-          </button>
-          <span className="c-cal-nav-title">{headerTitle}</span>
+          </Button>
+          <span className="ml-2 truncate text-[15px] font-medium capitalize tracking-tight">
+            {headerTitle}
+          </span>
         </div>
 
-        <div className="c-cal-mode-switch">
-          {MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onViewModeChange(m)}
-              className={`c-cal-mode-btn ${m === viewMode ? 'is-active' : ''}`}
-            >
-              {modeLabels[m]}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={viewMode}
+          onValueChange={(v) => onViewModeChange(v as CalendarViewMode)}
+          className="shrink-0"
+        >
+          <TabsList className="h-8">
+            {MODES.map((m) => (
+              <TabsTrigger key={m} value={m} className="px-2.5 text-xs">
+                {modeLabels[m]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Calendar content */}

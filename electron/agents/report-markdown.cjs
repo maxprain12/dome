@@ -100,24 +100,24 @@ function buildReportHtml(title, subtitle, markdown) {
      adapts to light/dark). Fallbacks make the standalone exported HTML a clean
      light document. */
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg, #fbfbfe);color:var(--secondary-text, #4a4766);font-family:var(--font-sans, -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif);line-height:1.6;padding:2rem 1rem;}
-  .report{max-width:820px;margin:0 auto;background:var(--bg-secondary, #f2f2f9);border:1px solid var(--border, #dcdce8);border-radius:14px;overflow:hidden;}
+  body{margin:0;background:var(--background, #fbfbfe);color:var(--muted-foreground, #4a4766);font-family:var(--font-sans, -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif);line-height:1.6;padding:2rem 1rem;}
+  .report{max-width:820px;margin:0 auto;background:var(--card, #f2f2f9);border:1px solid var(--border, #dcdce8);border-radius:14px;overflow:hidden;}
   .header{padding:1.5rem 2rem;border-bottom:1px solid var(--border, #dcdce8);}
-  .header h1{margin:0;font-size:1.5rem;color:var(--primary-text, #040316);}
-  .header .sub{margin:.25rem 0 0;color:var(--tertiary-text, #858299);font-size:.9rem;}
+  .header h1{margin:0;font-size:1.5rem;color:var(--foreground, #040316);}
+  .header .sub{margin:.25rem 0 0;color:var(--muted-foreground, #858299);font-size:.9rem;}
   .content{padding:1.5rem 2rem;}
-  .content h1,.content h2,.content h3{margin:1.25rem 0 .6rem;line-height:1.3;color:var(--primary-text, #040316);}
+  .content h1,.content h2,.content h3{margin:1.25rem 0 .6rem;line-height:1.3;color:var(--foreground, #040316);}
   .content h1{font-size:1.4rem;} .content h2{font-size:1.2rem;} .content h3{font-size:1.05rem;}
   .content p{margin:0 0 .8rem;}
   .content ul,.content ol{margin:0 0 .8rem;padding-left:1.4rem;}
   .content li{margin:.2rem 0;}
-  .content code{background:var(--bg-tertiary, #e8e8f2);padding:.1rem .35rem;border-radius:4px;font-size:.85em;color:var(--accent, #7b76d0);}
-  .content strong{color:var(--primary-text, #040316);}
-  .content a{color:var(--accent, #7b76d0);}
+  .content code{background:var(--muted, #e8e8f2);padding:.1rem .35rem;border-radius:4px;font-size:.85em;color:var(--primary, #7b76d0);}
+  .content strong{color:var(--foreground, #040316);}
+  .content a{color:var(--primary, #7b76d0);}
   .md-table{width:100%;border-collapse:collapse;margin:0 0 1rem;font-size:.92em;}
-  .md-table th,.md-table td{border:1px solid var(--border, #dcdce8);padding:.45rem .65rem;text-align:left;vertical-align:top;color:var(--secondary-text, #4a4766);}
-  .md-table th{background:var(--bg-tertiary, #e8e8f2);color:var(--primary-text, #040316);font-weight:600;}
-  .footer{padding:1rem 2rem;color:var(--tertiary-text, #858299);font-size:.78rem;border-top:1px solid var(--border, #dcdce8);}
+  .md-table th,.md-table td{border:1px solid var(--border, #dcdce8);padding:.45rem .65rem;text-align:left;vertical-align:top;color:var(--muted-foreground, #4a4766);}
+  .md-table th{background:var(--muted, #e8e8f2);color:var(--foreground, #040316);font-weight:600;}
+  .footer{padding:1rem 2rem;color:var(--muted-foreground, #858299);font-size:.78rem;border-top:1px solid var(--border, #dcdce8);}
 </style>
 </head>
 <body>

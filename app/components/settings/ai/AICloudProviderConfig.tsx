@@ -1,14 +1,22 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  EyeIcon as Eye,
+  EyeOffIcon as EyeOff,
+  Loading03Icon as Loader2,
+  RefreshIcon as RefreshCw,
+  Alert02Icon as AlertTriangle,
+} from '@hugeicons/core-free-icons';
 import { useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
+
 import { PROVIDERS, getDefaultModelId, type AIProviderType } from '@/lib/ai/models';
 import { useProviderModels } from '@/lib/ai/useProviderModels';
 import ModelSelector from '../ModelSelector';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeCard from '@/components/ui/DomeCard';
-import { DomeInput } from '@/components/ui/DomeInput';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 export interface AICloudProviderConfigProps {
   provider: AIProviderType;
   apiKey: string;
@@ -47,40 +55,28 @@ export default function AICloudProviderConfig({
   const content = (
     <>
       <div>
-        <label htmlFor="ai-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
+        <label htmlFor="ai-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-muted-foreground">
           API Key
         </label>
         <div className="relative w-full">
-          <DomeInput
-            id="ai-api-key"
-            type={showApiKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(e) => onApiKeyChange(e.target.value)}
-            placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || t('onboarding.enter_api_key')}
-            inputClassName="pr-10"
-            className="w-full [&_input]:pr-10"
-          />
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="xs"
-            iconOnly
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-[var(--dome-text-muted)]"
-            onClick={() => setShowApiKey((v) => !v)}
-            aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
-          >
-            {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-          </DomeButton>
+          <Input className="w-full [&_input]:pr-10 pr-10" id="ai-api-key" type={showApiKey ? 'text' : 'password'} value={apiKey} onChange={(e) => onApiKeyChange(e.target.value)} placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || t('onboarding.enter_api_key')} />
+          <Button type="button"
+  variant="ghost"
+  className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
+  onClick={() => setShowApiKey((v) => !v)}
+  aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+  size="icon-xs">
+            {showApiKey ? <HugeiconsIcon icon={EyeOff} className="size-3.5" /> : <HugeiconsIcon icon={Eye} className="size-3.5" />}
+          </Button>
         </div>
         {PROVIDERS[provider]?.docsUrl && (
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-[11px] mt-1.5 text-muted-foreground">
             {t('settings.ai.free_key_at')}{' '}
             <a
               href={PROVIDERS[provider].docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:opacity-80"
-              style={{ color: 'var(--dome-accent)' }}
+              className="underline hover:opacity-80 text-primary"
             >
               {PROVIDERS[provider].docsUrl.replace('https://', '')}
             </a>
@@ -89,45 +85,40 @@ export default function AICloudProviderConfig({
       </div>
 
       {providerModelsLoading ? (
-        <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-          <Loader2 className="size-3.5 animate-spin shrink-0" aria-hidden /> {t('settings.ai.models_loading')}
+        <p className="text-[11px] flex items-center gap-1.5 text-muted-foreground">
+          <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin shrink-0" aria-hidden /> {t('settings.ai.models_loading')}
         </p>
       ) : null}
       {providerModelsError && !providerModelsLoading ? (
-        <DomeCallout tone="warning">{providerModelsError}</DomeCallout>
+        <Alert role="note"><HugeiconsIcon icon={AlertTriangle} aria-hidden /><AlertDescription className="text-xs">{providerModelsError}</AlertDescription></Alert>
       ) : null}
 
       {currentProviderModels.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1.5 gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('settings.ai.model')}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               {canRefreshProviderModels ? (
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => void refreshProviderModels()}
-                  disabled={providerModelsLoading || !apiKey.trim()}
-                  leftIcon={<RefreshCw className={`size-3 ${providerModelsLoading ? 'animate-spin' : ''}`} aria-hidden />}
-                >
+                <Button type="button"
+  variant="ghost"
+  onClick={() => void refreshProviderModels()}
+  disabled={providerModelsLoading || !apiKey.trim()}
+  size="xs">{<HugeiconsIcon icon={RefreshCw} className={`size-3 ${providerModelsLoading ? 'animate-spin' : ''}`} aria-hidden />}
                   {t('settings.ai.refresh')}
-                </DomeButton>
+                </Button>
               ) : null}
-              <DomeButton type="button" variant="ghost" size="xs" onClick={() => onCustomModelChange(!customModel)}>
+              <Button type="button"
+  variant="ghost"
+  onClick={() => onCustomModelChange(!customModel)}
+  size="xs">
                 {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
-              </DomeButton>
+              </Button>
             </div>
           </div>
           {customModel ? (
-            <DomeInput
-              value={model}
-              onChange={(e) => onModelChange(e.target.value)}
-              placeholder={getDefaultModelId(provider)}
-              autoComplete="off"
-            />
+            <Input value={model} onChange={(e) => onModelChange(e.target.value)} placeholder={getDefaultModelId(provider)} autoComplete="off" />
           ) : (
             <ModelSelector
               models={currentProviderModels}
@@ -150,8 +141,8 @@ export default function AICloudProviderConfig({
   );
 
   if (!wrapInCard) {
-    return <div className="space-y-4">{content}</div>;
+    return <div className="flex flex-col gap-4">{content}</div>;
   }
 
-  return <DomeCard className="space-y-4">{content}</DomeCard>;
+  return <Card className="p-4 flex flex-col gap-4">{content}</Card>;
 }

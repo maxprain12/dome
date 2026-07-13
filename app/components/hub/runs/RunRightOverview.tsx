@@ -8,6 +8,7 @@ import { getRunProgress } from '@/lib/automations/run-progress';
 import type { PersistentRun } from '@/lib/automations/api';
 import { formatIntToken } from './runPresentation';
 import { RunOverviewStatRow } from './RunStepBits';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface RunRightOverviewProps {
   run: PersistentRun;
@@ -30,14 +31,14 @@ export default function RunRightOverview({
 }: RunRightOverviewProps) {
   const { t, i18n } = useTranslation();
   const panelClass =
-    'min-w-0 rounded-md border border-[var(--dome-border)] bg-[var(--dome-surface)] px-3 py-2.5';
+    'min-w-0 rounded-md border border-border bg-card px-3 py-2.5';
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
       <section className={panelClass}>
-        <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+        <h3 className="text-[11px] font-medium mb-2 text-muted-foreground">
           {t('runLog.detail_run_overview')}
         </h3>
-        <div className="min-w-0 divide-y divide-[var(--dome-border)]">
+        <div className="min-w-0 divide-y divide-border">
           <RunOverviewStatRow label={t('runLog.detail_owner')} value={ownerKindLabel} />
           {providerLabel || modelId ? (
             <RunOverviewStatRow
@@ -63,10 +64,10 @@ export default function RunRightOverview({
       </section>
 
       <section className={panelClass}>
-        <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+        <h3 className="text-[11px] font-medium mb-2 text-muted-foreground">
           {t('runLog.detail_section_time')}
         </h3>
-        <div className="min-w-0 divide-y divide-[var(--dome-border)]">
+        <div className="min-w-0 divide-y divide-border">
           <RunOverviewStatRow label={t('runLog.duration')} value={formatDuration(run.startedAt, run.finishedAt)} />
           {run.lastHeartbeatAt ? (
             <RunOverviewStatRow label={t('runLog.detail_heartbeat')} value={formatRunDate(run.lastHeartbeatAt)} />
@@ -81,7 +82,7 @@ export default function RunRightOverview({
       </section>
 
       <section className={panelClass}>
-        <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+        <h3 className="text-[11px] font-medium mb-2 text-muted-foreground">
           {t('runLog.detail_section_usage')}
         </h3>
         {usage ? (
@@ -92,48 +93,43 @@ export default function RunRightOverview({
               { k: 'tot' as const, label: t('runLog.detail_tokens_total'), v: usage.totalTokens },
             ].map(({ k, label, v }) => (
               <div key={k} className="min-w-0">
-                <dt style={{ color: 'var(--dome-text-muted)' }}>{label}</dt>
-                <dd className="mt-0.5 tabular-nums font-medium break-all" style={{ color: 'var(--dome-text)' }}>
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="mt-0.5 tabular-nums font-medium break-all text-foreground">
                   {formatIntToken(v, i18n.language)}
                 </dd>
               </div>
             ))}
           </dl>
         ) : (
-          <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-xs text-muted-foreground">
             {t('runLog.detail_no_usage')}
           </p>
         )}
-        <div className="mt-3 pt-2 border-t border-[var(--dome-border)]">
-          <p className="text-xs tabular-nums" style={{ color: 'var(--dome-text)' }}>
+        <div className="mt-3 pt-2 border-t border-border">
+          <p className="text-xs tabular-nums text-foreground">
             {t('runLog.detail_estimated_cost')}: {costLabel}
           </p>
-          <p className="text-[10px] mt-1.5 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-[10px] mt-1.5 leading-relaxed text-muted-foreground">
             {t('runLog.detail_cost_disclaimer')}
           </p>
         </div>
       </section>
 
       {run.error ? (
-        <div
-          className="rounded-md border px-3 py-2 text-sm min-w-0 overflow-hidden"
-          style={{
-            borderColor: 'var(--error)',
-            background: 'color-mix(in srgb, var(--error) 6%, transparent)',
-            color: 'var(--error)',
-          }}
-        >
-          <p className="font-medium mb-1 text-xs">{t('runLog.error_title')}</p>
-          <p className="text-[11px] font-mono break-words whitespace-pre-wrap">{run.error}</p>
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>{t('runLog.error_title')}</AlertTitle>
+          <AlertDescription className="font-mono text-[11px] whitespace-pre-wrap break-words">
+            {run.error}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {run.outputText ? (
         <section className={panelClass}>
-          <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+          <h3 className="text-[11px] font-medium mb-2 text-muted-foreground">
             {t('runLog.response')}
           </h3>
-          <div className="text-sm min-w-0 overflow-x-auto border-t border-[var(--dome-border)] pt-2 -mx-1 px-1">
+          <div className="text-sm min-w-0 overflow-x-auto border-t border-border pt-2 -mx-1 px-1">
             <div className="min-w-0 break-words">
               <MarkdownRenderer content={run.outputText} />
             </div>
@@ -145,4 +141,3 @@ export default function RunRightOverview({
 }
 
 // ─── Run Detail Screen ────────────────────────────────────────────────────────
-

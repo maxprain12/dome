@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { notifications } from '@mantine/notifications';
+import { notifications } from '@/lib/notifications';
 import type { Resource, TranscriptionSegment } from '@/types';
 import {
   getStructuredTranscript,
@@ -255,7 +255,7 @@ export default function StructuredTranscriptWorkspace({
   const canCopy = Boolean(getTranscriptPlainTextForCopy(meta));
 
   return (
-    <div className="flex h-full min-h-0 flex-col" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex h-full min-h-0 flex-col bg-background">
       <TranscriptStatusBanner
         t={t}
         transcribing={transcribing}
@@ -288,7 +288,7 @@ export default function StructuredTranscriptWorkspace({
       {!showEmpty ? (
         <div
           className="flex flex-wrap items-center justify-between gap-4 border-b px-4 py-2 md:px-6"
-          style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
+          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
           <TranscriptSearchBar
             t={t}

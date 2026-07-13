@@ -134,7 +134,7 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
   const selectedNode = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null;
 
   return (
-    <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex flex-col h-full min-h-0 bg-background">
       <CanvasToolbar
         onRun={handleRun}
         onStop={handleStop}

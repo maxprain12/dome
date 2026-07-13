@@ -4,6 +4,8 @@
  * Modular chat UI components inspired by clawdbot's design
  */
 
+export { ChatToolMarker, ChatToolGroupMarker } from './ChatToolMarker';
+export { ChatStateMarker, ChatSeparatorMarker } from './ChatStateMarker';
 export { default as ReadingIndicator } from './ReadingIndicator';
 export { default as ChatMessage, type ChatMessageData, type ChatSurfaceVariant } from './ChatMessage';
 export { default as ChatToolCard, type ToolCallData, type ChatToolSurfaceVariant } from './ChatToolCard';

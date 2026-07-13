@@ -132,11 +132,11 @@ function buildArtifactDesignLayout(spec) {
 
       const badgeClass = `dome-design-badge dome-design-badge--${badgeTone}`;
 
-      html += `<article class="dome-design-card" style="margin-bottom:var(--space-4);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--bg-secondary);">`;
+      html += `<article class="dome-design-card" style="margin-bottom:var(--space-4);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);">`;
       if (kicker || badge) {
         html += `<header style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap;">`;
         if (kicker) {
-          html += `<span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text);">${kicker}</span>`;
+          html += `<span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted-foreground);">${kicker}</span>`;
         } else {
           html += `<span></span>`;
         }
@@ -163,7 +163,7 @@ function buildArtifactDesignLayout(spec) {
         if (type === 'paragraph') {
           const text = typeof b.text === 'string' ? clipStr(b.text, MAX_STRING_LEN) : '';
           if (text) {
-            html += `<p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.6;color:var(--primary-text);">${text}</p>`;
+            html += `<p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.6;color:var(--foreground);">${text}</p>`;
           }
         } else if (type === 'numbered') {
           const num = typeof b.number === 'number' && b.number >= 0 ? Math.floor(b.number) : 0;
@@ -171,17 +171,17 @@ function buildArtifactDesignLayout(spec) {
           const body = typeof b.body === 'string' ? clipStr(b.body, MAX_STRING_LEN) : '';
           html += `<div style="margin-bottom:var(--space-4);">`;
           html += `<div style="display:flex;gap:var(--space-2);align-items:flex-start;">`;
-          html += `<span style="flex-shrink:0;font-size:14px;font-weight:600;color:var(--accent);">${num || ''}</span>`;
+          html += `<span style="flex-shrink:0;font-size:14px;font-weight:600;color:var(--primary);">${num || ''}</span>`;
           html += `<div style="flex:1;min-width:0;">`;
           if (bt) {
-            html += `<div style="font-size:14px;font-weight:600;color:var(--primary-text);margin-bottom:var(--space-2);">${bt}</div>`;
+            html += `<div style="font-size:14px;font-weight:600;color:var(--foreground);margin-bottom:var(--space-2);">${bt}</div>`;
           }
           if (body) {
-            html += `<p style="margin:0;font-size:14px;line-height:1.6;color:var(--secondary-text);">${body}</p>`;
+            html += `<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted-foreground);">${body}</p>`;
           }
           const bullets = b.bullets;
           if (Array.isArray(bullets) && bullets.length > 0) {
-            html += `<ul style="margin:var(--space-2) 0 0;padding-left:var(--space-5);color:var(--secondary-text);font-size:14px;line-height:1.5;">`;
+            html += `<ul style="margin:var(--space-2) 0 0;padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;">`;
             let bi = 0;
             for (const item of bullets) {
               if (bi >= MAX_BULLETS) break;
@@ -195,7 +195,7 @@ function buildArtifactDesignLayout(spec) {
         } else if (type === 'bullets') {
           const items = b.items;
           if (Array.isArray(items) && items.length > 0) {
-            html += `<ul style="margin:0 0 var(--space-3);padding-left:var(--space-5);color:var(--secondary-text);font-size:14px;line-height:1.5;">`;
+            html += `<ul style="margin:0 0 var(--space-3);padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;">`;
             let bi = 0;
             for (const item of items) {
               if (bi >= MAX_BULLETS) break;
@@ -208,7 +208,7 @@ function buildArtifactDesignLayout(spec) {
         } else if (type === 'code') {
           const text = typeof b.text === 'string' ? clipStr(b.text, 8000) : '';
           if (text) {
-            html += `<pre style="margin:0 0 var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);background:var(--bg-tertiary);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;line-height:1.5;color:var(--primary-text);white-space:pre-wrap;word-break:break-word;">${text}</pre>`;
+            html += `<pre style="margin:0 0 var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;line-height:1.5;color:var(--foreground);white-space:pre-wrap;word-break:break-word;">${text}</pre>`;
           }
         }
       }
@@ -225,16 +225,16 @@ function buildArtifactDesignLayout(spec) {
   if (titleEmojiRaw) {
     bodyHtml += `<div style="font-size:28px;line-height:1;margin-bottom:var(--space-2);" aria-hidden="true">${escapeHtml(titleEmojiRaw)}</div>`;
   }
-  bodyHtml += `<h1 style="margin:0;font-size:22px;font-weight:600;color:var(--primary-text);line-height:1.3;">${clipStr(titleRaw, 500)}</h1>`;
+  bodyHtml += `<h1 style="margin:0;font-size:22px;font-weight:600;color:var(--foreground);line-height:1.3;">${clipStr(titleRaw, 500)}</h1>`;
   if (subtitleRaw) {
-    bodyHtml += `<p style="margin:var(--space-2) 0 0;font-size:14px;color:var(--secondary-text);line-height:1.5;">${clipStr(subtitleRaw, MAX_STRING_LEN)}</p>`;
+    bodyHtml += `<p style="margin:var(--space-2) 0 0;font-size:14px;color:var(--muted-foreground);line-height:1.5;">${clipStr(subtitleRaw, MAX_STRING_LEN)}</p>`;
   }
   bodyHtml += `</header>`;
 
   bodyHtml += `<div role="tablist" aria-label="Sections" style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-5);border-bottom:1px solid var(--border);padding-bottom:var(--space-3);">`;
   for (const t of tabs) {
     const selected = t.id === activeTab;
-    bodyHtml += `<button type="button" role="tab" class="dome-design-tab" data-dome-tab="${escapeHtml(t.id)}" aria-selected="${selected ? 'true' : 'false'}" tabindex="${selected ? '0' : '-1'}" style="cursor:pointer;border:none;background:${selected ? 'color-mix(in oklab, var(--accent) 14%, transparent)' : 'transparent'};color:${selected ? 'var(--accent)' : 'var(--secondary-text)'};font-family:var(--font-sans);font-size:13px;font-weight:500;padding:var(--space-2) var(--space-3);border-radius:var(--radius-lg);transition:background-color 0.16s ease,color 0.16s ease;">${t.label}</button>`;
+    bodyHtml += `<button type="button" role="tab" class="dome-design-tab" data-dome-tab="${escapeHtml(t.id)}" aria-selected="${selected ? 'true' : 'false'}" tabindex="${selected ? '0' : '-1'}" style="cursor:pointer;border:none;background:${selected ? 'color-mix(in oklab, var(--primary) 14%, transparent)' : 'transparent'};color:${selected ? 'var(--primary)' : 'var(--muted-foreground)'};font-family:var(--font-sans);font-size:13px;font-weight:500;padding:var(--space-2) var(--space-3);border-radius:var(--radius-lg);transition:background-color 0.16s ease,color 0.16s ease;">${t.label}</button>`;
   }
   bodyHtml += `</div>`;
 
@@ -249,11 +249,11 @@ function buildArtifactDesignLayout(spec) {
   bodyHtml += `</div>`;
 
   const badgeCss = `
-.dome-design-badge--neutral { background: var(--bg-tertiary); color: var(--secondary-text); }
+.dome-design-badge--neutral { background: var(--muted); color: var(--muted-foreground); }
 .dome-design-badge--info { background: var(--info-bg); color: var(--info); }
 .dome-design-badge--success { background: var(--success-bg); color: var(--success); }
 .dome-design-badge--warning { background: var(--warning-bg); color: var(--warning); }
-.dome-design-badge--error { background: var(--error-bg); color: var(--error); }
+.dome-design-badge--error { background: var(--error-bg); color: var(--destructive); }
 `;
 
   const script = `
@@ -270,8 +270,8 @@ function buildArtifactDesignLayout(spec) {
       var on = id === tabId;
       b.setAttribute('aria-selected', on ? 'true' : 'false');
       b.setAttribute('tabindex', on ? '0' : '-1');
-      b.style.background = on ? 'color-mix(in oklab, var(--accent) 14%, transparent)' : 'transparent';
-      b.style.color = on ? 'var(--accent)' : 'var(--secondary-text)';
+      b.style.background = on ? 'color-mix(in oklab, var(--primary) 14%, transparent)' : 'transparent';
+      b.style.color = on ? 'var(--primary)' : 'var(--muted-foreground)';
     }
     for (var j = 0; j < panels.length; j++) {
       var p = panels[j];

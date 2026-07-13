@@ -1,6 +1,30 @@
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown, Share2, Bot, GitBranch, Zap, Activity, LogIn } from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import {
+  Activity01Icon,
+  BookOpen01Icon,
+  BotIcon,
+  Calendar03Icon,
+  ChevronDownIcon,
+  FolderAddIcon,
+  FolderSymlinkIcon,
+  GitBranchIcon,
+  Home01Icon,
+  Layers01Icon,
+  Login01Icon,
+  Mail01Icon,
+  MoonIcon,
+  PlusSignIcon,
+  RefreshIcon,
+  Settings01Icon,
+  Share08Icon,
+  Store01Icon,
+  Sun03Icon,
+  Task01Icon,
+  WorkflowSquare01Icon,
+  ZapIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -22,14 +46,28 @@ import FileTree from './sidebar/SidebarFileTree';
 import { NewFolderModal, UrlInputModal } from './sidebar/SidebarModals';
 import AddResourceMenu from './sidebar/AddResourceMenu';
 import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
-import './unified-sidebar.css';
+import { Button } from '@/components/ui/button';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from '@/components/ui/sidebar';
 
 interface UnifiedSidebarProps {
   collapsed: boolean;
   onCollapse: () => void;
 }
 
-export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: UnifiedSidebarProps) {
+export default function UnifiedSidebar({ collapsed: _collapsed, onCollapse: _onCollapse }: UnifiedSidebarProps) {
   const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -261,7 +299,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       title: t('artifacts.new_artifact'),
       artifactType: 'custom',
       state: {
-        html: '<div style="padding:1.5rem;color:var(--secondary-text)">' +
+        html: '<div style="padding:1.5rem;color:var(--muted-foreground)">' +
           '<p>Ask Many to generate content for this artifact.</p>' +
           '</div>',
         data: {},
@@ -409,34 +447,33 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   }, []);
 
   type UnifiedNavItem =
-    | { key: string; kind: 'section'; sectionId: string; label: string; icon: ReactNode }
+    | { key: string; kind: 'section'; sectionId: string; label: string; icon: IconSvgElement }
     | {
         key: string;
         kind: 'tab';
         tabType: TabType;
         label: string;
-        icon: ReactNode;
+        icon: IconSvgElement;
         onOpen: () => void;
         count?: number;
       };
 
   /** Navegación principal: acceso diario (biblioteca, agenda, núcleo de automatización). */
   const primaryUnifiedNavItems = useMemo((): UnifiedNavItem[] => {
-    const sw = 1.75;
     return [
       {
         key: 'library',
         kind: 'section',
         sectionId: 'library',
         label: t('workspace.home'),
-        icon: <Home className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Home01Icon,
       },
       {
         key: 'projects',
         kind: 'tab',
         tabType: 'projects',
         label: t('tabs.projects'),
-        icon: <Layers className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Layers01Icon,
         onOpen: openProjectsTab,
       },
       {
@@ -444,7 +481,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'calendar',
         label: t('workspace.calendar'),
-        icon: <Calendar className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Calendar03Icon,
         onOpen: openCalendarTab,
       },
       {
@@ -452,7 +489,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'github',
         label: t('github.tab_title'),
-        icon: <ListTodo className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Task01Icon,
         onOpen: openGitHubTab,
       },
       {
@@ -460,7 +497,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'email',
         label: t('email.tab_title'),
-        icon: <Mail className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Mail01Icon,
         onOpen: openEmailTab,
       },
       {
@@ -468,7 +505,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'social',
         label: t('social.tab_title'),
-        icon: <Share2 className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Share08Icon,
         onOpen: openSocialTab,
       },
       {
@@ -476,7 +513,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'pipelines',
         label: t('tabs.pipelines'),
-        icon: <Workflow className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: WorkflowSquare01Icon,
         onOpen: openPipelinesTab,
       },
       {
@@ -484,7 +521,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'agents',
         label: t('tabs.agents'),
-        icon: <Bot className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: BotIcon,
         onOpen: openAgentsTab,
       },
       {
@@ -492,7 +529,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'workflows',
         label: t('tabs.workflows'),
-        icon: <GitBranch className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: GitBranchIcon,
         onOpen: openWorkflowsTab,
       },
       {
@@ -500,7 +537,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'automations',
         label: t('tabs.automations'),
-        icon: <Zap className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: ZapIcon,
         onOpen: openAutomationsTab,
       },
       {
@@ -508,7 +545,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'runs',
         label: t('tabs.runs'),
-        icon: <Activity className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Activity01Icon,
         onOpen: openRunsTab,
       },
     ];
@@ -528,14 +565,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   /** Menos uso típico: estudio, taxonomía, extensiones — encima de Ajustes. */
   const secondaryUnifiedNavItems = useMemo((): UnifiedNavItem[] => {
-    const sw = 1.75;
     return [
       {
         key: 'learn',
         kind: 'tab',
         tabType: 'learn',
         label: t('workspace.learn'),
-        icon: <BookOpen className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: BookOpen01Icon,
         onOpen: openLearnTab,
       },
       {
@@ -543,7 +579,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'marketplace',
         label: t('workspace.marketplace'),
-        icon: <Store className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: Store01Icon,
         onOpen: openMarketplaceTab,
       },
     ];
@@ -588,116 +624,107 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     return activeTab?.type === item.tabType;
   };
 
-  if (collapsed) {
-    return null;
-  }
-
   return (
-    <aside
-      className="dome-left-sidebar flex flex-col h-full relative shrink-0 overflow-hidden"
-      style={{ width: 260, minWidth: 260, background: 'var(--dome-sidebar-bg)', borderRight: '1px solid var(--dome-border)' }}
-    >
-      <div className="dome-sidebar-project-picker shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
+    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
+      <SidebarHeader>
         <ShellProjectPicker />
-      </div>
+      </SidebarHeader>
 
       {/* Navegación principal */}
-      <div className="shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
-        <div className="flex flex-col gap-0.5">
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>{t('sidebar.navigation', 'Navegación')}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
           {visiblePrimaryUnifiedNavItems.map((item) => {
             const isActive = getUnifiedNavActive(item);
             const count = item.kind === 'tab' ? item.count : undefined;
             return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => handleUnifiedNavClick(item)}
-                className={`sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md${isActive ? ' is-active' : ''}`}
-              >
-                <span className="sidebar-nav-btn-icon shrink-0">
-                  {item.icon}
-                </span>
-                <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
-                {count !== undefined ? (
-                  <span className="sidebar-nav-btn-count shrink-0 tabular-nums">
-                    {count}
-                  </span>
-                ) : null}
-              </button>
+              <SidebarMenuItem key={item.key}>
+                <SidebarMenuButton
+                  type="button"
+                  tooltip={item.label}
+                  isActive={isActive}
+                  data-tour={item.key}
+                  onClick={() => handleUnifiedNavClick(item)}
+                >
+                  <HugeiconsIcon icon={item.icon} />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+                {count !== undefined ? <SidebarMenuBadge>{count}</SidebarMenuBadge> : null}
+              </SidebarMenuItem>
             );
           })}
-        </div>
-      </div>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
       {/* Workspace tree */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="border-b" style={{ borderColor: 'var(--dome-border)' }}>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="border-b border-border">
           {/* Header row */}
-          <div className="flex items-center px-2 py-1.5 gap-0.5">
-            <button
+          <div className="flex items-center gap-1 px-2 py-1.5">
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
-              className="sidebar-chevron-btn shrink-0 rounded-md transition-colors"
               aria-expanded={workspaceOpen}
               aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
             >
-              <ChevronDown className={`size-3 shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} strokeWidth={2.5} />
-            </button>
-            <button
+              <HugeiconsIcon icon={ChevronDownIcon} className={`shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} />
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleOpenProjectRootFolder}
-              className="sidebar-workspace-title-btn flex items-center flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
+              className="min-w-0 flex-1 justify-start"
             >
-              <span>Workspace</span>
-            </button>
+              <span className="truncate">Workspace</span>
+            </Button>
 
             {/* New resource button */}
-            <button
+            <Button
               type="button"
-              title="Nuevo recurso"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('sidebar.new_resource', 'Nuevo recurso')}
               onClick={(e) => {
                 const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
                 setAddMenu({ x: rect.left, y: rect.bottom + 4 });
               }}
-              className="flex items-center justify-center rounded transition-colors shrink-0"
-              style={{ width: 22, height: 22, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
             >
-              <Plus className="size-3.5" strokeWidth={2.5} />
-            </button>
+              <HugeiconsIcon icon={PlusSignIcon} />
+            </Button>
 
             {/* New folder button */}
-            <button
+            <Button
               type="button"
-              title="Nueva carpeta"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('sidebar.new_folder', 'Nueva carpeta')}
               onClick={() => setNewFolderInWorkspace(true)}
-              className="flex items-center justify-center rounded transition-colors shrink-0"
-              style={{ width: 22, height: 22, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
             >
-              <FolderPlus className="size-3.5" strokeWidth={2} />
-            </button>
+              <HugeiconsIcon icon={FolderAddIcon} />
+            </Button>
 
             {/* Open workspace folder in Finder/Explorer */}
-            <button
+            <Button
               type="button"
-              title={t('workspace.open_vault_folder')}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('workspace.open_vault_folder')}
               onClick={() => { void window.electron?.resource?.openVaultRoot(hubProjectId); }}
-              className="flex items-center justify-center rounded transition-colors shrink-0"
-              style={{ width: 22, height: 22, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
             >
-              <FolderSymlink className="size-3.5" strokeWidth={2} />
-            </button>
+              <HugeiconsIcon icon={FolderSymlinkIcon} />
+            </Button>
           </div>
           {workspaceOpen && (
             <div className="pb-2">
               {loading ? (
                 <div className="flex items-center justify-center py-6">
-                  <RefreshCw className="size-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <HugeiconsIcon icon={RefreshIcon} className="animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <FileTree
@@ -710,6 +737,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           )}
         </div>
       </div>
+      </SidebarContent>
 
       {/* Add resource dropdown */}
       {addMenu && (
@@ -754,126 +782,82 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       )}
 
       {/* Footer: enlaces secundarios, luego Ajustes */}
-      <div className="shrink-0 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-        <div className="px-2 pt-2 pb-1.5">
-          <p
-            className="px-2 pb-1 uppercase tracking-wide"
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: '0.06em',
-              color: 'var(--dome-text-muted)',
-            }}
-          >
-            {t('sidebar.more_tools')}
-          </p>
-          <div className="flex flex-col gap-0.5">
+      <SidebarFooter className="border-t border-sidebar-border">
+        <SidebarGroup className="p-0">
+          <SidebarGroupLabel>{t('sidebar.more_tools')}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
             {visibleSecondaryUnifiedNavItems.map((item) => {
               const isActive = getUnifiedNavActive(item);
               const count = item.kind === 'tab' ? item.count : undefined;
               return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => handleUnifiedNavClick(item)}
-                  className={`sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md${isActive ? ' is-active' : ''}`}
-                >
-                  <span className="sidebar-nav-btn-icon shrink-0">
-                    {item.icon}
-                  </span>
-                  <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
-                  {count !== undefined ? (
-                    <span className="sidebar-nav-btn-count shrink-0 tabular-nums">
-                      {count}
-                    </span>
-                  ) : null}
-                </button>
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    type="button"
+                    tooltip={item.label}
+                    isActive={isActive}
+                    data-tour={item.key}
+                    onClick={() => handleUnifiedNavClick(item)}
+                  >
+                    <HugeiconsIcon icon={item.icon} />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                  {count !== undefined ? <SidebarMenuBadge>{count}</SidebarMenuBadge> : null}
+                </SidebarMenuItem>
               );
             })}
-          </div>
-        </div>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         {showSignInCta ? (
-          <div className="px-2 pt-2">
-            <button
-              type="button"
-              onClick={() => void handleSignIn()}
-              disabled={connectingAccount}
-              className="sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md"
-              style={{ opacity: connectingAccount ? 0.7 : 1 }}
-            >
-              <span className="sidebar-nav-btn-icon shrink-0">
-                <LogIn className="size-4" />
-              </span>
-              <span className="truncate flex-1 min-w-0 text-left">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton type="button" tooltip={t('sidebar.sign_in')} onClick={() => void handleSignIn()} disabled={connectingAccount}>
+                <HugeiconsIcon icon={Login01Icon} />
+                <span>
                 {connectingAccount ? t('sidebar.sign_in_connecting') : t('sidebar.sign_in')}
-              </span>
-            </button>
-          </div>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         ) : null}
-        {hiddenFeatureCount > 0 && (
-          <div className="px-2 pt-2">
-            <button
+        <SidebarMenu>
+          {hiddenFeatureCount > 0 ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton type="button" tooltip={t('features.hidden_notice_title')} onClick={goToFeatureSettings}>
+                <HugeiconsIcon icon={Layers01Icon} />
+                <span>{t('features.hidden_notice', { n: hiddenFeatureCount })}</span>
+              </SidebarMenuButton>
+              <SidebarMenuBadge>{hiddenFeatureCount}</SidebarMenuBadge>
+            </SidebarMenuItem>
+          ) : null}
+          <SidebarMenuItem>
+            <SidebarMenuButton
               type="button"
-              onClick={goToFeatureSettings}
-              className="flex items-center gap-2 w-full text-left rounded-md px-2 py-1.5 transition-colors"
-              style={{
-                fontSize: 12,
-                color: 'var(--dome-text-muted)',
-                background: 'var(--dome-bg-hover)',
-                border: '1px solid var(--dome-border)',
-                cursor: 'pointer',
+              tooltip={t('tabs.settings')}
+              data-tour="settings"
+              isActive={activeTab?.type === 'settings'}
+              onClick={() => {
+                openSettingsTab();
+                if (updateAvailable) {
+                  setTimeout(() => window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'advanced' })), 50);
+                }
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-accent)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)'; }}
-              title={t('features.hidden_notice_title')}
             >
-              <span className="truncate">{t('features.hidden_notice', { n: hiddenFeatureCount })}</span>
-            </button>
-          </div>
-        )}
-        <div className="p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-        <button
-          type="button"
-          onClick={() => {
-            openSettingsTab();
-            if (updateAvailable) {
-              // Give the tab a frame to mount before signalling the section
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'advanced' }));
-              }, 50);
-            }
-          }}
-          className="flex items-center gap-2 w-full text-left transition-colors rounded-md px-2 py-1.5"
-          style={{ fontSize: 12, color: 'var(--dome-text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-        >
-          <div className="relative shrink-0">
-            <Settings className="size-4" strokeWidth={1.75} />
-            {updateAvailable && (
-              <span
-                className="absolute -top-0.5 -right-0.5 rounded-full"
-                style={{ width: 6, height: 6, background: 'var(--accent)', display: 'block' }}
-              />
-            )}
-          </div>
-          <span>Settings</span>
-        </button>
-        </div>
-        <div className="flex items-center justify-between p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-          <span style={{ fontSize: 12, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Made with ❤️ by <a href="https://www.linkedin.com/in/advo2/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Alder</a> and <a href="https://www.linkedin.com/in/maria-sugasaga/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Mery</a></span>
-          <button
-            type="button"
-            onClick={() => updateTheme(isDark ? 'light' : 'dark')}
-            className="flex items-center justify-center rounded transition-colors"
-            style={{ width: 24, height: 24, background: 'transparent', color: 'var(--dome-text-muted)', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-          >
-            {isDark ? <Sun className="size-3.5" strokeWidth={1.75} /> : <Moon className="size-3.5" strokeWidth={1.75} />}
-          </button>
-        </div>
-      </div>
-    </aside>
+              <HugeiconsIcon icon={Settings01Icon} />
+              <span>{t('tabs.settings')}</span>
+            </SidebarMenuButton>
+            {updateAvailable ? <SidebarMenuBadge>1</SidebarMenuBadge> : null}
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton type="button" tooltip={isDark ? t('settings.appearance.light') : t('settings.appearance.dark')} onClick={() => updateTheme(isDark ? 'light' : 'dark')}>
+              <HugeiconsIcon icon={isDark ? Sun03Icon : MoonIcon} />
+              <span>{isDark ? t('settings.appearance.light') : t('settings.appearance.dark')}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
   );
 }

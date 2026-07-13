@@ -420,33 +420,6 @@ declare global {
         import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
       };
 
-      /** Cloud library sync via Dome Provider + Supabase (subscription `cloud_sync` feature). */
-      cloudSync: {
-        getStatus: () => Promise<{
-          success: boolean;
-          connected?: boolean;
-          localRevision?: number;
-          currentRevision?: number;
-          syncSchemaVersion?: number;
-          error?: string;
-        }>;
-        push: () => Promise<{ success: boolean; newRevision?: number; error?: string }>;
-        pull: () => Promise<{ success: boolean; revision?: number; error?: string }>;
-        startRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
-        stopRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
-        onRevision: (cb: (data: { revision: number }) => void) => () => void;
-        onPullDone: (cb: (data: { revision: number }) => void) => () => void;
-        getSettings: () => Promise<{
-          success: boolean;
-          settings?: { auto_enabled: boolean; interval_minutes: number };
-          error?: string;
-        }>;
-        setSettings: (partial: {
-          auto_enabled?: boolean;
-          interval_minutes?: number;
-        }) => Promise<{ success: boolean; error?: string }>;
-      };
-
       domainSync: {
         getEntitlements: () => Promise<{
           success: boolean;
@@ -475,16 +448,19 @@ declare global {
           error?: string;
         }>;
         setDomainEnabled: (args: {
-          domain: 'social' | 'pipelines' | 'calendar';
+          domain: string;
           enabled: boolean;
         }) => Promise<{ success: boolean; error?: string; feature?: string }>;
-        syncNow: (args?: { domain?: 'social' | 'pipelines' | 'calendar' }) => Promise<{
+        syncNow: (args?: { domain?: string }) => Promise<{
           success: boolean;
           skipped?: boolean;
           error?: string;
           gated?: boolean;
         }>;
         onCompleted: (cb: (data: { domain: string; success?: boolean }) => void) => () => void;
+        onProgress: (
+          cb: (data: { phase: string; domain?: string; index?: number; total?: number }) => void,
+        ) => () => void;
       };
 
       socialCloud: {
@@ -675,6 +651,7 @@ declare global {
           name?: string | null;
           email?: string | null;
           hadRemoteData?: boolean;
+          alreadyOnboarded?: boolean;
           pendingConfirmation?: boolean;
           error?: string;
           errorCode?: string;
@@ -806,6 +783,7 @@ declare global {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
           getById: (id: string) => Promise<DBResponse<Project>>;
+          update: (project: Pick<Project, 'id' | 'name'> & Partial<Pick<Project, 'description'>>) => Promise<DBResponse<Project>>;
           setVaultRoot: (args: { projectId: string; vaultRoot: string | null }) => Promise<DBResponse<never> & { root?: string }>;
           getVaultRoot: (projectId: string) => Promise<DBResponse<{ root: string; custom: boolean }>>;
           getDeletionImpact: (projectId: string) => Promise<DBResponse<Record<string, number>>>;
@@ -2503,4 +2481,3 @@ declare module '*.module.css' {
   const classes: Record<string, string>;
   export default classes;
 }
-

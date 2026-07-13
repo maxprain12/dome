@@ -1,20 +1,12 @@
-import {
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  ExternalLink,
-  FileText,
-  Loader2,
-  RefreshCw,
-  Settings,
-} from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowDown01Icon, ArrowUp01Icon, Copy01Icon, ExternalLinkIcon, File02Icon, RefreshIcon, Settings01Icon } from '@hugeicons/core-free-icons';
 import type { TFunction } from 'i18next';
-import DomeToolbar from '@/components/ui/DomeToolbar';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeToggle from '@/components/ui/DomeToggle';
-import DomeDivider from '@/components/ui/DomeDivider';
-
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import Toolbar from '@/components/shared/Toolbar';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
 interface TranscriptToolbarProps {
   t: TFunction;
   resourceTitle: string;
@@ -60,149 +52,115 @@ export default function TranscriptToolbar({
   onFollowPlaybackChange,
   isPlaying,
 }: TranscriptToolbarProps) {
-  const iconBtn =
-    'rounded-lg !p-1.5 min-w-0 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]';
-
   return (
-    <DomeToolbar className="!px-4 !py-3 md:!px-6 !border-[var(--dome-border)] !bg-transparent">
-      <DomeToolbar.Leading>
+    <Toolbar className="!px-4 !py-3 md:!px-6 !border-border !bg-transparent">
+      <Toolbar.Leading>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold tracking-tight text-[var(--dome-text)]">{resourceTitle}</h2>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--dome-text-muted)]">
-            <DomeBadge
-              label={mediaLabel === 'audio' ? t('media.media_type_audio') : t('media.media_type_video')}
-              variant="soft"
-              size="xs"
-              color="var(--dome-text-muted)"
-              className="!rounded !uppercase !tracking-wide !font-semibold !bg-[var(--dome-bg-hover)]"
-            />
+          <h2 className="truncate text-base font-semibold tracking-tight text-foreground">{resourceTitle}</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <Badge variant="secondary"><span className="truncate">{mediaLabel === 'audio' ? t('media.media_type_audio') : t('media.media_type_video')}</span></Badge>
             {sessionLine ? <span>{sessionLine}</span> : null}
             {diarizationHeuristicBadge ? (
               <span title={t('media.diarization_heuristic_hint')}>{t('media.diarization_heuristic_badge')}</span>
             ) : null}
           </div>
         </div>
-      </DomeToolbar.Leading>
-      <DomeToolbar.Trailing>
+      </Toolbar.Leading>
+      <Toolbar.Trailing>
         <div className="flex flex-wrap items-center gap-1.5 justify-end">
-          <div className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-[var(--dome-bg-hover)] transition-colors">
-            <DomeToggle size="sm" checked={followPlayback} onChange={onFollowPlaybackChange} />
+          <div className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-accent transition-colors">
+            <Switch size="sm" checked={followPlayback} onCheckedChange={onFollowPlaybackChange} />
             <span
-              className="text-[11px] font-medium text-[var(--dome-text-muted)] inline-flex items-center gap-1.5"
+              className="text-[11px] font-medium text-muted-foreground inline-flex items-center gap-1.5"
               title={t('media.transcript_follow_playback_hint')}
             >
               {t('media.transcript_follow_playback')}
               {isPlaying ? (
                 <span
-                  className="size-1.5 animate-pulse rounded-full shrink-0"
-                  style={{ background: 'var(--dome-accent)' }}
+                  className="size-1.5 animate-pulse rounded-full shrink-0 bg-primary motion-reduce:animate-none"
                   aria-hidden
                 />
               ) : null}
             </span>
           </div>
 
-          <DomeDivider
+          <Separator
             orientation="vertical"
-            spacingClass="mx-1"
-            className="h-4 min-h-[16px] opacity-50 self-center bg-[var(--dome-border)]"
+            className="mx-1 h-4 min-h-4 self-center"
           />
 
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            onClick={onCopyTranscript}
-            disabled={!canCopy}
-            title={t('media.transcript_copy')}
-            aria-label={t('media.transcript_copy')}
-            className={`${iconBtn} disabled:opacity-50`}
-          >
-            <Copy className="size-4" aria-hidden />
-          </DomeButton>
+          <Button type="button"
+  variant="ghost"
+  onClick={onCopyTranscript}
+  disabled={!canCopy}
+  title={t('media.transcript_copy')}
+  aria-label={t('media.transcript_copy')}
+  size="icon-sm">
+            <HugeiconsIcon icon={Copy01Icon} aria-hidden />
+          </Button>
 
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            onClick={onOpenTranscriptionSettings}
-            title={t('media.transcript_open_settings')}
-            aria-label={t('media.transcript_open_settings')}
-            className={iconBtn}
-          >
-            <Settings className="size-4" aria-hidden />
-          </DomeButton>
+          <Button type="button"
+  variant="ghost"
+  onClick={onOpenTranscriptionSettings}
+  title={t('media.transcript_open_settings')}
+  aria-label={t('media.transcript_open_settings')}
+  size="icon-sm">
+            <HugeiconsIcon icon={Settings01Icon} aria-hidden />
+          </Button>
 
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            onClick={onToggleMiniPlayer}
-            title={miniPlayerCollapsed ? t('media.show_mini_player') : t('media.hide_mini_player')}
-            aria-label={miniPlayerCollapsed ? t('media.show_mini_player') : t('media.hide_mini_player')}
-            className={iconBtn}
-          >
+          <Button type="button"
+  variant="ghost"
+  onClick={onToggleMiniPlayer}
+  title={miniPlayerCollapsed ? t('media.show_mini_player') : t('media.hide_mini_player')}
+  aria-label={miniPlayerCollapsed ? t('media.show_mini_player') : t('media.hide_mini_player')}
+  size="icon-sm">
             {miniPlayerCollapsed ? (
-              <ChevronUp className="size-4" aria-hidden />
+              <HugeiconsIcon icon={ArrowUp01Icon} aria-hidden />
             ) : (
-              <ChevronDown className="size-4" aria-hidden />
+              <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden />
             )}
-          </DomeButton>
+          </Button>
 
           {noteId ? (
             <>
-              <DomeButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                iconOnly
-                onClick={onRegenerateNote}
-                disabled={regenerating || !hasStructured}
-                title={t('media.regenerate_linked_note')}
-                aria-label={t('media.regenerate_linked_note')}
-                className={`${iconBtn} disabled:opacity-50`}
-              >
+              <Button type="button"
+  variant="ghost"
+  onClick={onRegenerateNote}
+  disabled={regenerating || !hasStructured}
+  title={t('media.regenerate_linked_note')}
+  aria-label={t('media.regenerate_linked_note')}
+  size="icon-sm">
                 {regenerating ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  <Spinner aria-hidden />
                 ) : (
-                  <RefreshCw className="size-4" aria-hidden />
+                  <HugeiconsIcon icon={RefreshIcon} aria-hidden />
                 )}
-              </DomeButton>
-              <DomeButton
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={onOpenNote}
-                className="ml-1 gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs !h-auto min-h-0 !bg-[var(--dome-accent)] !text-[var(--dome-on-accent)]"
-                leftIcon={<ExternalLink className="size-3.5" aria-hidden />}
-              >
+              </Button>
+              <Button type="button"
+  onClick={onOpenNote}
+  className="ml-1"
+  size="sm"><HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" aria-hidden />
                 {t('media.open_linked_note')}
-              </DomeButton>
+              </Button>
             </>
           ) : (
-            <DomeButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onTranscribe}
-              disabled={transcribing}
-              className="ml-1 gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs !h-auto min-h-0 border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text)] hover:bg-[var(--dome-bg-hover)] disabled:opacity-50"
-              leftIcon={
+            <Button type="button"
+  variant="outline"
+  onClick={onTranscribe}
+  disabled={transcribing}
+  className="ml-1"
+  size="sm">{
                 transcribing ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  <Spinner data-icon="inline-start" aria-hidden />
                 ) : (
-                  <FileText className="size-3.5" aria-hidden />
+                  <HugeiconsIcon icon={File02Icon} data-icon="inline-start" aria-hidden />
                 )
               }
-            >
               {transcribing ? t('media.transcribing') : t('media.transcribe_to_note')}
-            </DomeButton>
+            </Button>
           )}
         </div>
-      </DomeToolbar.Trailing>
-    </DomeToolbar>
+      </Toolbar.Trailing>
+    </Toolbar>
   );
 }

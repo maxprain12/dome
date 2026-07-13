@@ -1,4 +1,6 @@
-import { Sparkles, X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Cancel01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 
 export function ChatSkillChip({
@@ -19,21 +21,23 @@ export function ChatSkillChip({
       }`}
     >
       <span className="composer-inline-token__icon" aria-hidden>
-        <Sparkles size={12} strokeWidth={2} />
+        <HugeiconsIcon icon={SparklesIcon} className="size-3" />
       </span>
       <span className="composer-inline-token__badge">{sticky ? '∞' : '1×'}</span>
       <span className="composer-inline-token__label" title={label}>
         {label}
       </span>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         onClick={onRemove}
         className="composer-inline-token__remove"
         title={t('chat.remove_skill_context')}
         aria-label={t('chat.remove_skill_context')}
       >
-        <X size={11} strokeWidth={2} aria-hidden />
-      </button>
+        <HugeiconsIcon icon={Cancel01Icon} className="size-3" aria-hidden />
+      </Button>
     </span>
   );
 }

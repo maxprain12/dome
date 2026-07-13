@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Semantic search**: Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB (`dome-lance`); hybrid search combines FTS + graph + vectors; PDF/image text via your configured cloud LLM (vision) where applicable
 - **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). LangGraph has been fully removed — workflows are sequenced by a native topological DAG executor in `run-engine.cjs` (each node runs through the harness).
 - **State**: Zustand stores + Jotai atoms
-- **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
+- **Styling**: Tailwind CSS + CSS Variables + **shadcn/ui** (Base UI primitives; config in `components.json`, components in `app/components/ui/`). `app/components/ui/` contains **only** original shadcn components; app-level compositions (SubpageHeader, ListState, DatePicker, ThemeProvider…) live in `app/components/shared/`. The legacy `Dome*`/`Hub*` wrappers were fully removed — see `.claude/sops/shadcn-ui.md`.
 - **i18n**: react-i18next, translations in `app/lib/i18n.ts` (en/es/fr/pt)
 - **Language**: TypeScript (strict mode)
 
@@ -139,7 +139,7 @@ dome/
 │   ├── preload.cjs             # contextBridge, IPC channel whitelist (anchor)
 │   ├── dome-mcp-bridge.cjs     # stdio MCP bridge subprocess (anchor; asar-unpacked path)
 │   ├── paths.cjs               # Centralized path resolution (getAppRoot/getDistDir/…) — keeps domain modules location-independent
-│   ├── core/                   # init, window-manager, database, security, runtime-env, deep-link-handler, observability, update-service, guide-bootstrap, install-devtools-extension
+│   ├── core/                   # init, window-manager, database, security, runtime-env, deep-link-handler, observability, update-service, install-devtools-extension
 │   ├── ai/                     # llm-service (unified LLM), model-factory/params, ai-settings, auto-metadata, message-multimodal, minimax/openrouter/provider configs, dome-provider-url, openai-key
 │   ├── agents/                 # agent-runtime (single Dome-native runtime → @dome/agent-core) (+context), run-engine, automation-service, kb-llm-*
 │   ├── tools/                  # ai-tools-handler(+extra), tool-dispatcher/selector/cap, docx/excel/ppt tool handlers, file-tree, crop-image, browser-context-service, tool-result-*
@@ -159,7 +159,7 @@ dome/
 │   └── services/               # LangChain embeddings, indexing.pipeline, chunking, hybrid search, feeders, web providers
 │
 ├── app/                         # Renderer Process (Browser context)
-│   ├── main.tsx                # Vite entry point (MantineProvider + BrowserRouter)
+│   ├── main.tsx                # Vite entry point (BrowserRouter + global providers)
 │   ├── App.tsx                 # Root React component with Routes
 │   ├── pages/                  # React Router pages
 │   ├── components/             # React components by feature
@@ -335,6 +335,16 @@ When adding a dependency that calls a binary or loads a native addon:
 3. All IPC handlers must validate sender and sanitize inputs
 4. Use `sanitizePath()` for file paths from renderer
 
+## Component Lifecycle — No Residual Code (MANDATORY)
+
+When replacing or rewriting a component, **never leave residual code behind**:
+
+1. **No versioned names**: never create `FooV2`, `FooNew`, `FooRedesign`, `Foo2`. The replacement takes the original name.
+2. **Delete before recreate**: when a component is superseded, first migrate ALL consumers, then **delete the old file in the same change** — only then does the new implementation exist under the old name. Never ship both.
+3. **No deprecated alias re-exports**: do not leave `/** @deprecated */ export const Old = New` shims or re-export files "for incremental migration". Migrate consumers and remove the alias in the same PR.
+4. **No dead variants/props**: if a prop value (e.g. `variant="legacy"`) has no callers, delete the prop and its branches — don't keep it "just in case".
+5. **Prefer shadcn primitives over hand-rolled popups**: any anchored floating UI (menus, model pickers, capability panels) must use `Popover`/`DropdownMenu` from `app/components/ui/` — never `createPortal` + manual rect/click-outside tracking, and never a custom card nested inside a `*Content` neutralized with `bg-transparent border-0 shadow-none` (the base `w-(--anchor-width)`/`overflow-x-hidden` classes clip it to the trigger width — this is what broke the composer «+» menu). Exception: caret-anchored pickers (@/#//), which anchor to a text position, not an element.
+
 ## Common Pitfalls
 
 1. **SQLite**: Use `better-sqlite3` only in the main process. The renderer must not import SQLite or `node:fs` directly.
@@ -343,6 +353,7 @@ When adding a dependency that calls a binary or loads a native addon:
 4. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
 5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
 6. **Native addons / bundled binaries**: Any new dep with a `.node` addon or a spawned executable MUST be added to `asarUnpack` (and `after-pack.cjs` `criticalModules`), and its path rewritten from `app.asar` → `app.asar.unpacked` before `spawn`. See **Build & Packaging → asarUnpack**. Forgetting this crashes the packaged app only (dev is fine).
+7. **Residual components**: no `*V2`/`*New` names, no deprecated alias re-exports, no dead variants — delete the old component before creating its replacement. See **Component Lifecycle — No Residual Code**.
 
 ## File-based skills (Claude / Agent Skills)
 
@@ -370,30 +381,3 @@ Actionable checklists for common tasks — follow these before opening a PR or i
 - `.claude/sops/release.md` — How to cut a release
 - `.claude/rules/ui-style-guidelines.md` — UI design system
 - `.claude/rules/new-color-palette.md` — Current color palette variables
-
-
-## dome-meta — memoria cross-repo (úsala AUTOMÁTICAMENTE, sin que el usuario lo pida)
-
-Dome son **4 repos**: `dome` (app Electron/React), `dome-provider` (backend Next.js+Supabase), `dome-companion` (iOS SwiftUI), `landing-page-dome` (Astro). **Cada repo solo se ve a sí mismo.** `dome-meta` (en `/Users/maxprain/Documents/dome-meta`) es la **fuente de verdad cross-repo**: KB+RAG de los 4 repos, contratos (rutas API, canales IPC, deep links `dome://`, tablas), mapa de integración y generador de planes.
-
-**Consúltala al INICIO de cada tarea, de forma proactiva** — no esperes a que el usuario lo pida:
-
-- **Antes de implementar/modificar una feature o arreglar un bug** → `get_plan` (plan paso-a-paso) o `get_brief` (orientación) con la descripción de la tarea.
-- **¿No sabes dónde vive una lógica?** → `kb_search` (recupera **código real** cross-repo, no solo docs).
-- **¿La tarea toca integración** (auth/OAuth, REST `/api/v1/*`, deep links `dome://`, cuota, cloud sync, billing)**?** → `get_integration_map` y `list_contracts`, para no romper el contrato en el otro repo.
-- **Al empezar a trabajar** → `freshness`; si la KB está desactualizada, ejecuta `dome-meta sync` antes de fiarte de los resultados.
-
-**Cómo — MCP (ya registrado a nivel usuario; herramientas `mcp__dome-meta__*`):**
-`get_brief`, `get_plan`, `kb_search`, `get_integration_map`, `list_contracts`, `repo_overview`, `freshness`.
-
-**Fallback CLI** (si el MCP no está conectado):
-```
-pnpm -C /Users/maxprain/Documents/dome-meta dome-meta plan   "<feature>"
-pnpm -C /Users/maxprain/Documents/dome-meta dome-meta search "<consulta>"
-pnpm -C /Users/maxprain/Documents/dome-meta dome-meta freshness
-```
-
-**Reglas de oro:**
-- Hazlo al principio, **antes de leer archivos a ciegas**: ahorra tiempo y evita romper costuras cross-repo.
-- Si dome-meta y el código real difieren, **gana el código**: verifica los archivos que te indique antes de editar.
-- Mantén la KB fresca: deja `dome-meta watch` corriendo o instala el hook con `dome-meta install-hooks`.

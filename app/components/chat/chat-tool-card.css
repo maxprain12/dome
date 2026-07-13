@@ -4,8 +4,8 @@
   word-break: break-word;
   overflow-y: auto;
   max-height: 256px;
-  color: var(--secondary-text);
-  background: var(--bg-tertiary);
+  color: var(--muted-foreground);
+  background: var(--muted);
   border-radius: 4px;
   padding: 8px 10px;
   margin: 0;

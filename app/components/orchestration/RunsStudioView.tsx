@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Activity, Bot, Clock, Loader2, Square, Trash2, Workflow, Sparkles } from 'lucide-react';
+import {
+  Activity01Icon as ActivityIcon,
+  BotIcon as BotIcon,
+  Clock01Icon as ClockIcon,
+  Loading03Icon as Loader2Icon,
+  SquareIcon as SquareIcon,
+  Delete02Icon as Trash2Icon,
+  WorkflowSquare01Icon as WorkflowIcon,
+  SparklesIcon as SparklesIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
   abortRun,
   deleteRun,
@@ -19,12 +30,21 @@ import { HUB_RUNS_CHANGED } from '@/lib/hub/hubEvents';
 import { PENDING_RUN_ID_KEY } from '@/lib/hub/hubStorageKeys';
 import { formatHubDate } from '@/components/hub/runs/runPresentation';
 import RunDetailView from './RunDetailView';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
-import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
-import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
 
+import { Skeleton } from '@/components/ui/skeleton';
+import RunStatusBadge from '@/components/automations/RunStatusBadge';
+
+const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BotIcon} {...props} />
+);
+const Workflow = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={WorkflowIcon} {...props} />
+);
+const Sparkles = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={SparklesIcon} {...props} />
+);
 type OwnerFilter = 'all' | 'agent' | 'workflow' | 'many';
 type StatusFilter = 'all' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -298,65 +318,56 @@ export default function RunsStudioView() {
       section="runs"
       title={t('tabs.runs')}
       subtitle={t('automationHub.runs_subtitle')}
-      icon={Activity}
       stats={stats}
       toolbar={
         <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span
-              className="text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--dome-text-muted)' }}
+              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
             >
               {t('runLog.filter_group_type')}
             </span>
-            <DomeFilterChipGroup
-              dense
-              options={ownerOptions.map((o) => ({ value: o.value, label: o.label }))}
-              value={ownerFilter}
-              onChange={(v) => setOwnerFilter(v as OwnerFilter)}
-            />
+            <ToggleGroup value={[ownerFilter]} onValueChange={(values) => values[0] && setOwnerFilter(values[0] as OwnerFilter)}>
+              {ownerOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} size="sm">{option.label}</ToggleGroupItem>)}
+            </ToggleGroup>
           </div>
           <div className="flex items-center gap-1.5">
             <span
-              className="text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--dome-text-muted)' }}
+              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
             >
               {t('runLog.filter_group_status')}
             </span>
-            <DomeFilterChipGroup
-              dense
-              options={statusOptions.map((o) => ({
-                value: o.value,
-                label: o.label,
-                selectedColor: runStatusColor(o.value === 'all' ? 'completed' : o.value),
-              }))}
-              value={statusFilter}
-              onChange={(v) => setStatusFilter(v as StatusFilter)}
-            />
+            <ToggleGroup value={[statusFilter]} onValueChange={(values) => values[0] && setStatusFilter(values[0] as StatusFilter)}>
+              {statusOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} size="sm">{option.label}</ToggleGroupItem>)}
+            </ToggleGroup>
           </div>
         </div>
       }
     >
       {loading ? (
         <div className="p-6">
-          <DomeSkeletonGrid count={8} />
+          <output className="flex w-full max-w-full flex-col gap-3" aria-live="polite">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            ))}
+          </output>
         </div>
       ) : filtered.length === 0 ? (
         <div className="p-6">
           <div
             className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl px-8 py-10 text-center"
-            style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             <div
               className="flex size-14 items-center justify-center rounded-2xl"
               style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
             >
-              <Activity className="size-7" strokeWidth={1.5} />
+              <HugeiconsIcon icon={ActivityIcon} className="size-7" strokeWidth={1.5} />
             </div>
-            <h2 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
+            <h2 className="text-base font-semibold text-foreground">
               {t('runLog.empty_runs')}
             </h2>
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-sm text-muted-foreground">
               {t('runLog.empty_runs_hint')}
             </p>
           </div>
@@ -392,10 +403,10 @@ export default function RunsStudioView() {
                       void handleSelectRun(run);
                     }
                   }}
-                  className="relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-2xl py-3 pl-5 pr-4 transition-colors hover:bg-[var(--dome-bg-hover)]"
+                  className="relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-2xl py-3 pl-5 pr-4 transition-colors hover:bg-accent"
                   style={{
-                    background: 'var(--dome-surface)',
-                    border: '1px solid var(--dome-border)',
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
                     opacity: loadingDetail === run.id ? 0.6 : 1,
                   }}
                 >
@@ -407,28 +418,26 @@ export default function RunsStudioView() {
                   />
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
+                    style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
                   >
                     <OwnerIcon className="size-4" strokeWidth={1.75} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span
-                        className="min-w-0 truncate text-sm font-semibold"
-                        style={{ color: 'var(--dome-text)' }}
+                        className="min-w-0 truncate text-sm font-semibold text-foreground"
                         title={run.title || run.id}
                       >
                         {run.title || run.id}
                       </span>
-                      <DomeStatusBadge status={run.status} />
+                      <RunStatusBadge status={run.status} />
                     </div>
                     <div
-                      className="mt-0.5 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px]"
-                      style={{ color: 'var(--dome-text-muted)' }}
+                      className="mt-0.5 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-muted-foreground"
                     >
                       <span>{ownerLabel}</span>
                       <span className="inline-flex items-center gap-1">
-                        <Clock className="size-3" aria-hidden />
+                        <HugeiconsIcon icon={ClockIcon} className="size-3" aria-hidden />
                         {formatHubDate(run.updatedAt, t('runLog.never'))}
                       </span>
                       {duration ? <span>{t('orchestration.runs.duration', { duration })}</span> : null}
@@ -442,12 +451,11 @@ export default function RunsStudioView() {
                     </div>
                     {(active || progressPercent > 0) && progressPercent < 100 ? (
                       <div
-                        className="mt-1.5 h-1 w-full max-w-xs overflow-hidden rounded-full"
-                        style={{ background: 'var(--dome-bg-hover)' }}
+                        className="mt-1.5 h-1 w-full max-w-xs overflow-hidden rounded-full bg-accent"
                         aria-hidden
                       >
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full rounded-full transition-transform duration-200 ease-[var(--ease-out)]"
                           style={{
                             width: `${Math.min(100, Math.max(active && progressPercent === 0 ? 8 : progressPercent, 0))}%`,
                             background: runStatusColor(run.status),
@@ -463,38 +471,21 @@ export default function RunsStudioView() {
                     role="presentation"
                   >
                     {active ? (
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('orchestration.runs.stop')}
-                        aria-label={t('orchestration.runs.stop')}
-                        disabled={stoppingId === run.id}
-                        onClick={() => void handleStop(run.id)}
-                      >
+                      <Button variant="ghost" title={t('orchestration.runs.stop')} aria-label={t('orchestration.runs.stop')} disabled={stoppingId === run.id} onClick={() => void handleStop(run.id)} size="icon-xs">
                         {stoppingId === run.id ? (
-                          <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                          <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin text-muted-foreground" />
                         ) : (
-                          <Square className="size-3.5" style={{ color: 'var(--warning)' }} />
+                          <HugeiconsIcon icon={SquareIcon} className="size-3.5 text-[var(--warning)]" />
                         )}
-                      </DomeButton>
+                      </Button>
                     ) : null}
-                    <DomeButton
-                      variant="ghost"
-                      size="xs"
-                      iconOnly
-                      title={t('runLog.delete_run_aria')}
-                      aria-label={t('runLog.delete_run_aria')}
-                      disabled={deletingId === run.id}
-                      className="!text-[var(--error)] hover:!bg-[var(--error-bg)] disabled:!opacity-50"
-                      onClick={() => void handleDelete(run.id)}
-                    >
+                    <Button variant="ghost" title={t('runLog.delete_run_aria')} aria-label={t('runLog.delete_run_aria')} disabled={deletingId === run.id} className="!text-destructive hover:!bg-[color-mix(in srgb, var(--destructive) 12%, transparent)] disabled:!opacity-50" onClick={() => void handleDelete(run.id)} size="icon-xs">
                       {deletingId === run.id ? (
-                        <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                        <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin text-muted-foreground" />
                       ) : (
-                        <Trash2 className="size-3.5" />
+                        <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
                       )}
-                    </DomeButton>
+                    </Button>
                   </div>
                 </div>
               </li>

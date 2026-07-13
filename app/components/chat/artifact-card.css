@@ -2,7 +2,7 @@
   margin-top: 8px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--primary);
   background: none;
   border: none;
   cursor: pointer;
@@ -36,8 +36,8 @@
   overflow-x: auto;
   padding: 10px 12px;
   border-radius: 6px;
-  background-color: var(--bg-secondary);
-  color: var(--primary-text);
+  background-color: var(--card);
+  color: var(--foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   margin: 0;
   line-height: 1.55;
@@ -46,7 +46,7 @@
 .artifact-card-list {
   padding-left: 20px;
   margin: 0;
-  color: var(--primary-text);
+  color: var(--foreground);
   font-size: 13px;
   display: flex;
   flex-direction: column;
@@ -84,10 +84,10 @@
 }
 
 .artifact-card-action-btn.is-primary {
-  color: var(--base-text);
+  color: var(--primary-foreground);
 }
 
 .artifact-card-action-btn.is-secondary {
-  background: var(--bg-hover);
-  color: var(--secondary-text);
+  background: var(--accent);
+  color: var(--muted-foreground);
 }

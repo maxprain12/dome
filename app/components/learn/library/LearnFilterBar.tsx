@@ -1,6 +1,9 @@
-import { Search } from 'lucide-react';
+import { Search01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useLearnStore, type LearnSection } from '@/lib/store/useLearnStore';
 import { buildLearnDeckItems, countBySection } from '@/lib/learn/deckItems';
 
@@ -17,47 +20,22 @@ const SECTIONS: { id: LearnSection; labelKey: string; fallback: string }[] = [
 
 export default function LearnFilterBar() {
   const { t } = useTranslation();
-  const activeSection = useLearnStore((s) => s.activeSection);
-  const setActiveSection = useLearnStore((s) => s.setActiveSection);
-  const searchQuery = useLearnStore((s) => s.searchQuery);
-  const setSearchQuery = useLearnStore((s) => s.setSearchQuery);
-  const decks = useLearnStore((s) => s.decks);
-  const studioOutputs = useLearnStore((s) => s.studioOutputs);
-  const deckStats = useLearnStore((s) => s.deckStats);
-
-  const counts = useMemo(
-    () => countBySection(buildLearnDeckItems(decks, studioOutputs, deckStats)),
-    [decks, studioOutputs, deckStats],
-  );
+  const { activeSection, setActiveSection, searchQuery, setSearchQuery, decks, studioOutputs, deckStats } = useLearnStore();
+  const counts = useMemo(() => countBySection(buildLearnDeckItems(decks, studioOutputs, deckStats)), [decks, studioOutputs, deckStats]);
 
   return (
-    <div className="lr-filters">
-      <div className="lr-filter-chips">
-        {SECTIONS.map((section) => {
-          const active = activeSection === section.id;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              className={`lr-chip${active ? ' active' : ''}`}
-              onClick={() => setActiveSection(section.id)}
-            >
-              {t(section.labelKey, section.fallback)}
-              <span className="count">{counts[section.id]}</span>
-            </button>
-          );
-        })}
-      </div>
-      <label className="lr-search">
-        <Search size={14} aria-hidden />
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t('learn.search_placeholder', 'Search learn…')}
-          aria-label={t('learn.search_placeholder', 'Search learn…')}
-        />
-      </label>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <ToggleGroup value={[activeSection]} onValueChange={(value) => value[0] && setActiveSection(value[0] as LearnSection)} variant="outline" size="sm" className="max-w-full flex-wrap">
+        {SECTIONS.map((section) => (
+          <ToggleGroupItem key={section.id} value={section.id} aria-label={t(section.labelKey, section.fallback)}>
+            {t(section.labelKey, section.fallback)} · {counts[section.id]}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      <InputGroup className="w-full sm:w-64">
+        <InputGroupAddon><HugeiconsIcon icon={Search01Icon} /></InputGroupAddon>
+        <InputGroupInput type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('learn.search_placeholder', 'Search learn…')} aria-label={t('learn.search_placeholder', 'Search learn…')} />
+      </InputGroup>
     </div>
   );
 }

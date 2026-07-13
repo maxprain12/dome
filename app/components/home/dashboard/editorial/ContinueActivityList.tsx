@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { ActivityItem } from '@/lib/hooks/useDashboardData';
 import { formatShortDistance, getResourceTypeLabel } from '@/lib/utils';
-import { DomeResourceIconBox } from '@/components/ui/DomeResourceIcon';
+import { ResourceIconBox } from '@/components/shared/ResourceIcon';
 import { inferResourceVisualKind, type ResourceVisualKind } from '@/lib/resources/resourceVisual';
 import { HomeSectionHeader } from '@/components/home/dashboard/editorial/HomeSectionHeader';
 
@@ -51,7 +51,7 @@ export function ContinueActivityList({
               onClick={() => onContinue(item)}
               disabled={item.kind === 'resource' ? !item.resourceId : !item.sessionId}
             >
-              <DomeResourceIconBox
+              <ResourceIconBox
                 kind={activityIconKind(item)}
                 type={item.resourceType}
                 name={item.title}

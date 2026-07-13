@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { notifications } from '@mantine/notifications';
+import { notifications } from '@/lib/notifications';
 import { useTabStore } from '@/lib/store/useTabStore';
 
 interface SystemErrorPayload {

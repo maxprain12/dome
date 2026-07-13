@@ -3,6 +3,7 @@
   "send": "Send",
   "stop": "Stop",
   "message_placeholder": "Type a message...",
+  "messages": "Chat messages",
   "thinking": "Thinking...",
   "responding": "Responding...",
   "no_conversations": "No conversations yet",

@@ -37,7 +37,7 @@ Keep copy concise — oversized specs are clipped server-side. Split long conten
 
 - **Icons:** never emoji/pictographs/OS-font glyphs. Inline SVG only, Lucide style: `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, round caps/joins, 16–20px, `aria-hidden="true"` when decorative.
 - **Language:** all user-visible strings in the user's conversation language. No CJK unless explicitly requested.
-- **Styling:** the generator emits only injected CSS variables (`--bg`, `--bg-secondary`, `--primary-text`, `--accent`, `--border`, semantic tokens, `--radius-*`, `--space-*`, `--font-sans`, `--font-mono`). Keep any HTML you add on the same tokens — no hex, no gradients, no `prefers-color-scheme`.
+- **Styling:** the generator emits only injected CSS variables (`--background`, `--card`, `--foreground`, `--primary`, `--border`, semantic tokens, `--radius-*`, `--space-*`, `--font-sans`, `--font-mono`). Keep any HTML you add on the same tokens — no hex, no gradients, no `prefers-color-scheme`.
 - **Runtime:** no `localStorage`/`sessionStorage`/remote assets; persistence goes through `__dome_updateState` (see `artifact_persisted`).
 
 ## Extending after the scaffold

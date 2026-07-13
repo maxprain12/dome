@@ -1,6 +1,13 @@
-import { Tooltip } from '@mantine/core';
-import { CircleHelp, ExternalLink, Info } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  HelpCircleIcon as CircleHelp,
+  ExternalLinkIcon as ExternalLink,
+  InformationCircleIcon as Info,
+} from '@hugeicons/core-free-icons';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { DEFAULT_ZOHO_REGION, EMAIL_PROVIDER_BY_ID, getZohoGuides, type EmailProviderId, type ZohoRegionId } from '@/lib/email/providerPresets';
 
 export interface EmailProviderGuidesProps {
@@ -17,15 +24,21 @@ function GuideTooltip({ labelKey, chipLabel }: { labelKey: string; chipLabel: st
   const { t } = useTranslation();
 
   return (
-    <Tooltip label={t(labelKey)} multiline w={260} withArrow position="top">
-      <button
-        type="button"
-        className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-        aria-label={t('email.settings.guides.tooltip_aria', { topic: chipLabel })}
-        style={{ color: 'var(--dome-text-muted)' }}
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button variant="ghost"
+            type="button"
+            className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted-foreground"
+            aria-label={t('email.settings.guides.tooltip_aria', { topic: chipLabel })}
+          />
+        }
       >
-        <CircleHelp className="size-3.5" aria-hidden />
-      </button>
+        <HugeiconsIcon icon={CircleHelp} className="size-3.5" aria-hidden />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px] whitespace-normal">
+        {t(labelKey)}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -39,7 +52,7 @@ export default function EmailProviderGuides({ providerId, zohoRegion = DEFAULT_Z
 
   return (
     <div className="email-provider-guides min-w-0">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {t('email.settings.guides.title')}
       </p>
       <ul className="flex flex-col gap-1.5 min-w-0">
@@ -50,27 +63,17 @@ export default function EmailProviderGuides({ providerId, zohoRegion = DEFAULT_Z
               href={guide.helpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={chipLinkClass}
-              style={{
-                background: 'var(--dome-accent-subtle, rgba(101, 93, 197, 0.12))',
-                color: 'var(--dome-accent)',
-                border: '1px solid color-mix(in srgb, var(--dome-accent) 25%, transparent)',
-              }}
+              className={cn(chipLinkClass, 'border border-primary/25 bg-primary/10 text-primary')}
             >
-              <Info className="size-3 shrink-0" aria-hidden />
+              <HugeiconsIcon icon={Info} className="size-3 shrink-0" aria-hidden />
               <span className="min-w-0">{label}</span>
-              <ExternalLink className="size-2.5 shrink-0 opacity-70" aria-hidden />
+              <HugeiconsIcon icon={ExternalLink} className="size-2.5 shrink-0 opacity-70" aria-hidden />
             </a>
           ) : (
             <span
-              className={chipMutedClass}
-              style={{
-                background: 'var(--dome-bg-hover)',
-                color: 'var(--dome-text-muted)',
-                border: '1px solid var(--dome-border)',
-              }}
+              className={cn(chipMutedClass, 'border bg-accent text-muted-foreground')}
             >
-              <Info className="size-3 shrink-0" aria-hidden />
+              <HugeiconsIcon icon={Info} className="size-3 shrink-0" aria-hidden />
               <span className="min-w-0">{label}</span>
             </span>
           );

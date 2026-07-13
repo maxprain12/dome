@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
-import type { DomePluginInfo } from '@/types/plugin';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeModal from '@/components/ui/DomeModal';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  RefreshIcon as RefreshCw,
+} from '@hugeicons/core-free-icons';
 
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+
+import type { DomePluginInfo } from '@/types/plugin';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { permissionForPluginMethod } from '@/components/plugins/pluginPermissions';
 type PluginRuntimeModalProps = {
   plugin: DomePluginInfo;
   onClose: () => void;
@@ -60,11 +68,12 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
 
   const pluginLoadKey = `${plugin.id}:${entry}:${reloadKey}`;
   const prevPluginLoadKeyRef = useRef(pluginLoadKey);
-  if (pluginLoadKey !== prevPluginLoadKeyRef.current) {
+  useEffect(() => {
+    if (pluginLoadKey === prevPluginLoadKeyRef.current) return;
     prevPluginLoadKeyRef.current = pluginLoadKey;
     setLoading(true);
     setError(null);
-  }
+  }, [pluginLoadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,35 +120,24 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
       };
 
       try {
+        const requiredPermission = permissionForPluginMethod(String(data.method || ''));
+        if (requiredPermission && !permissions.has(requiredPermission)) {
+          throw new Error(`Permiso ${requiredPermission} requerido`);
+        }
         switch (data.method) {
           case 'resources.search':
-            if (!permissions.has('resources')) {
-              throw new Error('Permiso resources requerido');
-            }
             respond({ result: await electronDb.resources.search(String(data.params?.query || '')) });
             return;
           case 'resources.list':
-            if (!permissions.has('resources')) {
-              throw new Error('Permiso resources requerido');
-            }
             respond({ result: await electronDb.resources.getAll(200) });
             return;
           case 'projects.list':
-            if (!permissions.has('projects')) {
-              throw new Error('Permiso projects requerido');
-            }
             respond({ result: await electronDb.projects.getAll() });
             return;
           case 'calendar.upcoming':
-            if (!permissions.has('calendar')) {
-              throw new Error('Permiso calendar requerido');
-            }
             respond({ result: await window.electron.calendar.getUpcoming({ windowMinutes: 60 * 24, limit: 20 }) });
             return;
           case 'settings.get':
-            if (!permissions.has('settings')) {
-              throw new Error('Permiso settings requerido');
-            }
             respond({ result: await electronDb.settings.get(String(data.params?.key || '')) });
             return;
           default:
@@ -155,36 +153,19 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
   }, [permissions]);
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={plugin.name}
-      subtitle={entry}
-      size="full"
-      className="!p-0"
-      headerActions={
-        <DomeButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          iconOnly
-          onClick={() => setReloadKey((value) => value + 1)}
-          title="Recargar plugin"
-          aria-label="Recargar plugin"
-        >
-          <RefreshCw className="size-4" />
-        </DomeButton>
-      }
-    >
-      <div className="relative h-full min-h-[60vh] bg-[var(--bg)]">
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}><DialogContent className="flex h-[85vh] max-h-[min(90vh,640px)] flex-col overflow-hidden sm:max-w-6xl"><DialogHeader className="shrink-0"><DialogTitle className="truncate">{plugin.name}</DialogTitle><DialogDescription className="truncate">{plugin.author} · v{plugin.version} · {entry}</DialogDescription><div className="flex flex-wrap gap-1">{plugin.permissions?.map((permission) => <Badge key={permission} variant="outline">{permission}</Badge>)}</div><Button type="button"
+  variant="ghost"
+  onClick={() => setReloadKey((value) => value + 1)}
+  title="Recargar plugin"
+  aria-label="Recargar plugin"
+  size="icon-sm">
+          <HugeiconsIcon icon={RefreshCw} />
+        </Button></DialogHeader><div className="min-h-0 flex-1">
+      <div className="relative h-full min-h-[60vh] overflow-hidden rounded-xl border bg-background">
         {loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-[var(--secondary-text)]">
-            Cargando plugin...
-          </div>
+          <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground"><Spinner />Cargando plugin...</div>
         ) : error ? (
-          <div className="flex h-full items-center justify-center px-8 text-sm text-[var(--dome-error)]">
-            {error}
-          </div>
+          <div className="flex h-full items-center justify-center p-8"><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>
         ) : (
           <iframe
             key={reloadKey}
@@ -196,6 +177,6 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
           />
         )}
       </div>
-    </DomeModal>
+    </div></DialogContent></Dialog>
   );
 }

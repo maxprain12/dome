@@ -10,34 +10,34 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--dome-text-secondary);
+  color: var(--muted-foreground);
 }
 
 .sidebar-nav-btn:hover:not(.is-active) {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .sidebar-nav-btn.is-active {
-  background: var(--dome-surface);
-  color: var(--dome-text);
+  background: var(--card);
+  color: var(--foreground);
 }
 
 .sidebar-nav-btn-icon {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sidebar-nav-btn.is-active .sidebar-nav-btn-icon {
-  color: var(--dome-text);
+  color: var(--foreground);
 }
 
 .sidebar-nav-btn-count {
   font-size: 12px;
   font-weight: 500;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sidebar-workspace-title-btn {
-  color: var(--dome-text);
+  color: var(--foreground);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -48,7 +48,7 @@
 }
 
 .sidebar-workspace-title-btn:hover {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .sidebar-chevron-btn {
@@ -57,14 +57,14 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  color: var(--dome-text);
+  color: var(--foreground);
   background: transparent;
   border: none;
   cursor: pointer;
 }
 
 .sidebar-chevron-btn:hover {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .sidebar-icon-btn {
@@ -76,10 +76,10 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sidebar-icon-btn:hover {
-  background: var(--dome-bg-hover);
-  color: var(--dome-text);
+  background: var(--accent);
+  color: var(--foreground);
 }

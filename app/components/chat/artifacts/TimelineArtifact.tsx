@@ -28,7 +28,7 @@ export default function TimelineArtifact({ artifact }: { artifact: TimelineArtif
           <time
             style={{
               fontSize: 12,
-              color: 'var(--tertiary-text)',
+              color: 'var(--muted-foreground)',
               whiteSpace: 'nowrap',
               fontVariantNumeric: 'tabular-nums',
             }}
@@ -37,7 +37,7 @@ export default function TimelineArtifact({ artifact }: { artifact: TimelineArtif
           </time>
           <div>
             <div
-              style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-text)' }}
+              style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}
             >
               {ev.title}
             </div>
@@ -49,8 +49,8 @@ export default function TimelineArtifact({ artifact }: { artifact: TimelineArtif
                   fontSize: 12,
                   padding: '2px 6px',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'var(--bg-tertiary)',
-                  color: 'var(--secondary-text)',
+                  background: 'var(--muted)',
+                  color: 'var(--muted-foreground)',
                 }}
               >
                 {ev.status}
@@ -60,7 +60,7 @@ export default function TimelineArtifact({ artifact }: { artifact: TimelineArtif
               <p
                 style={{
                   fontSize: 13,
-                  color: 'var(--secondary-text)',
+                  color: 'var(--muted-foreground)',
                   margin: '6px 0 0',
                   lineHeight: 1.5,
                 }}

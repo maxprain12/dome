@@ -3,8 +3,8 @@
   overflow-x: auto;
   padding: 10px 12px;
   border-radius: 6px;
-  background-color: var(--bg-secondary);
-  color: var(--primary-text);
+  background-color: var(--card);
+  color: var(--foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   margin: 0;
   line-height: 1.55;
@@ -13,7 +13,7 @@
 .tabs-artifact-list {
   padding-left: 20px;
   margin: 0;
-  color: var(--primary-text);
+  color: var(--foreground);
   font-size: 13px;
   display: flex;
   flex-direction: column;
@@ -44,13 +44,13 @@
 }
 
 .tabs-artifact-tab-btn.is-active {
-  border: 1px solid var(--accent);
-  background: color-mix(in oklab, var(--accent) 14%, transparent);
-  color: var(--accent);
+  border: 1px solid var(--primary);
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  color: var(--primary);
 }
 
 .tabs-artifact-tab-btn.is-inactive {
   border: 1px solid var(--border);
   background: transparent;
-  color: var(--secondary-text);
+  color: var(--muted-foreground);
 }

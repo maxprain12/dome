@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles } from 'lucide-react';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Button } from '@/components/ui/button';
 import { useManyStore } from '@/lib/store/useManyStore';
 import type { DomePluginInfo } from '@/types/plugin';
 
@@ -85,7 +87,7 @@ export default function PetMascot({ plugin }: PetMascotProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [plugin.id, plugin.sprites]);
 
   // Navigation: move randomly within the main content area
   useEffect(() => {
@@ -161,25 +163,18 @@ export default function PetMascot({ plugin }: PetMascotProps) {
   if (!loaded) return null;
 
   return (
-    <button
+    <Button
       type="button"
       ref={containerRef}
       aria-label={`Open chat with ${plugin.name}`}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="pet-mascot-btn absolute z-[9997] flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-transparent bg-transparent p-0 transition-[left,top] duration-[800ms] ease-out"
+      variant="ghost"
+      size="icon-lg"
+      className="pet-mascot-btn absolute left-0 top-0 size-12 rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none"
       style={{
-        left: position.x,
-        top: position.y,
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.borderColor = 'var(--accent)';
-        e.currentTarget.style.boxShadow = '0 0 12px var(--accent)';
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.borderColor = 'transparent';
-        e.currentTarget.style.boxShadow = 'none';
+        transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
       }}
     >
       {displaySrc ? (
@@ -188,16 +183,16 @@ export default function PetMascot({ plugin }: PetMascotProps) {
           alt=""
           width={SPRITE_SIZE}
           height={SPRITE_SIZE}
-          style={{ pointerEvents: 'none', imageRendering: 'pixelated' }}
+          className="pointer-events-none [image-rendering:pixelated]"
         />
       ) : (
         <div
-          className="flex size-12 items-center justify-center rounded-full bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]"
+          className="flex size-12 items-center justify-center rounded-full bg-[color-mix(in srgb, var(--primary) 12%, transparent)] text-primary"
           aria-hidden
         >
-          <Sparkles size={28} strokeWidth={1.5} />
+          <HugeiconsIcon icon={SparklesIcon} />
         </div>
       )}
-    </button>
+    </Button>
   );
 }

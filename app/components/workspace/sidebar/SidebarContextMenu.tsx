@@ -1,13 +1,13 @@
 /** Sidebar resource/folder context menu — shared items with folder tab view. */
 
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { Resource } from '@/lib/hooks/useResources';
 import { FOLDER_COLOR_DEFAULT } from '@/lib/ui/palettes';
 import ColorPickerPopover from '@/components/shell/folder-tab/ColorPickerPopover';
 import ResourceContextMenuItems from '@/components/shell/folder-tab/ResourceContextMenuItems';
 import { parseMeta, type CtxState } from './sidebarHelpers';
 import '@/styles/folder-view.css';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export interface ContextMenuProps {
   state: CtxState;
@@ -37,7 +37,6 @@ export default function ContextMenu({
   onOpenInWindow,
   canOpenInSplit,
 }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
   const resourceRef = useRef<Resource | null>(null);
   const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -48,22 +47,6 @@ export default function ContextMenu({
   useEffect(() => {
     if (state.visible) setColorPickerPos(null);
   }, [state.visible]);
-
-  useEffect(() => {
-    if (!state.visible) return;
-    const handle = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', handle);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handle);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [state.visible, onClose]);
 
   useEffect(() => {
     if (!colorPickerPos) return;
@@ -90,17 +73,12 @@ export default function ContextMenu({
 
   if (typeof document === 'undefined') return null;
 
-  return createPortal(
+  return (
     <>
       {state.visible && !colorPickerPos ? (
-        <div
-          ref={menuRef}
-          role="menu"
-          tabIndex={-1}
-          className="dome-folder-view__row-menu"
-          style={{ top: state.y, right: window.innerWidth - state.x }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
+        <DropdownMenu open onOpenChange={(open) => { if (!open) onClose(); }}>
+          <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: state.y, left: state.x }} aria-hidden />} />
+          <DropdownMenuContent align="start" side="bottom" sideOffset={0} className="dome-folder-view__row-menu p-1.5">
           <ResourceContextMenuItems
             resource={r}
             options={{
@@ -120,7 +98,8 @@ export default function ContextMenu({
             }}
             onDismiss={onClose}
           />
-        </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
 
       {colorPickerPos ? (
@@ -131,7 +110,6 @@ export default function ContextMenu({
           onClose={() => setColorPickerPos(null)}
         />
       ) : null}
-    </>,
-    document.body,
+    </>
   );
 }

@@ -1,9 +1,26 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Share08Icon as Share2,
+  Linkedin01Icon as Linkedin,
+  InstagramIcon as Instagram,
+  TwitterIcon as Twitter,
+  Delete02Icon as Trash2,
+  Loading03Icon as Loader2,
+  CheckmarkCircle02Icon as CheckCircle2,
+  Alert02Icon as AlertTriangle,
+  CopyIcon as Copy,
+  Key01Icon as KeyRound,
+  Link02Icon as Link2,
+  HelpCircleIcon as HelpCircle,
+  Building2Icon as Building2,
+  RefreshIcon as RefreshCw,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Share2, Linkedin, Instagram, Twitter, Trash2, Loader2, CheckCircle2,
-  AlertTriangle, Copy, KeyRound, Link2, HelpCircle, Building2, RefreshCw,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+
 import SettingsPanel from '@/components/settings/SettingsPanel';
 import SocialConnectWizard from '@/components/settings/SocialConnectWizard';
 import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
@@ -89,29 +106,28 @@ export default function SocialSettings() {
   return (
     <SettingsPanel>
       <div className="flex items-center gap-2 mb-1">
-        <Share2 className="size-5" style={{ color: 'var(--dome-accent)' }} />
-        <h1 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+        <HugeiconsIcon icon={Share2} className="size-5 text-primary" />
+        <h1 className="text-lg font-semibold text-foreground">
           {t('social.settings.title')}
         </h1>
       </div>
-      <p className="text-sm mb-6" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="text-sm mb-6 text-muted-foreground">
         {t('social.settings.description')}
       </p>
 
       {!encryptionAvailable && (
         <div
-          className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4 text-xs"
-          style={{ background: 'var(--warning-bg)', color: 'var(--warning-text)' }}
+          className="mb-4 flex items-center gap-2 rounded-lg bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--warning-text)]"
         >
-          <AlertTriangle className="size-4 shrink-0" />
+          <HugeiconsIcon icon={AlertTriangle} className="size-4 shrink-0" />
           {t('social.settings.no_encryption')}
         </div>
       )}
       {error && (
-        <div className="text-xs mb-4" style={{ color: 'var(--dome-error)' }}>{error}</div>
+        <div className="text-xs mb-4 text-destructive">{error}</div>
       )}
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {providers.map((p) => (
           <ProviderCard
             key={p.provider}
@@ -124,22 +140,20 @@ export default function SocialSettings() {
       </div>
 
       <div
-        className="mt-6 rounded-lg px-4 py-3"
-        style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+        className="mt-6 rounded-lg border bg-card px-4 py-3"
       >
-        <div className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+        <div className="text-sm font-medium mb-1 text-foreground">
           {t('social.settings.oauth_port')}
         </div>
-        <p className="text-xs mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-xs mb-2 text-muted-foreground">
           {t('social.settings.oauth_port_hint')}
         </p>
-        <input
+        <Input
           type="number"
           value={oauthPort}
           onChange={(e) => setOauthPort(Number(e.target.value) || 8737)}
           onBlur={() => void savePort(oauthPort)}
-          className="w-32 rounded-md px-3 py-2 text-sm"
-          style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+          className="w-32"
         />
       </div>
     </SettingsPanel>
@@ -268,13 +282,12 @@ function ProviderCard({
 
   return (
     <div
-      className="rounded-lg px-4 py-4 space-y-3"
-      style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+      className="flex flex-col gap-3 rounded-lg border bg-card px-4 py-4"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Icon className="size-4" style={{ color: 'var(--dome-accent)' }} />
-          <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+          <HugeiconsIcon icon={Icon} className="size-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
             {PROVIDER_LABELS[status.provider]}
           </span>
         </div>
@@ -283,20 +296,19 @@ function ProviderCard({
             href={DEV_PORTAL_URLS[status.provider]}
             target="_blank"
             rel="noreferrer"
-            className="text-xs hover:underline"
-            style={{ color: 'var(--dome-accent)' }}
+            className="text-xs hover:underline text-primary"
           >
             {t('social.settings.open_dev_portal')}
           </a>
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={() => setGuideOpen(true)}
-            className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)]"
+            className="p-1.5 rounded-md hover:bg-accent"
             title={t('social.wizard.button', { provider: PROVIDER_LABELS[status.provider] })}
             aria-label={t('social.wizard.button', { provider: PROVIDER_LABELS[status.provider] })}
           >
-            <HelpCircle className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-          </button>
+            <HugeiconsIcon icon={HelpCircle} className="size-4 text-muted-foreground" />
+          </Button>
         </div>
       </div>
 
@@ -311,37 +323,34 @@ function ProviderCard({
 
       {/* Not configured yet → prominent guided-setup CTA */}
       {accounts.length === 0 && !configured && (
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => setGuideOpen(true)}
-          className="w-full rounded-md px-3 py-2 text-xs font-medium text-center"
-          style={{ background: 'var(--dome-bg)', border: '1px dashed var(--dome-border)', color: 'var(--dome-accent)' }}
+          className="w-full rounded-md border-dashed bg-background px-3 py-2 text-center text-xs font-medium text-primary"
         >
           {t('social.wizard.cta', { provider: PROVIDER_LABELS[status.provider] })}
-        </button>
+        </Button>
       )}
 
       {/* Connected accounts */}
       {accounts.length > 0 && (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {accounts.map((acc) => (
             <div
               key={acc.id}
-              className="flex items-center justify-between gap-2 rounded-md px-3 py-2"
-              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+              className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'organization' && (
-                    <Building2 className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+                    <HugeiconsIcon icon={Building2} className="size-3.5 shrink-0 text-primary" />
                   )}
-                  <div className="text-sm truncate" style={{ color: 'var(--dome-text)' }}>
+                  <div className="text-sm truncate text-foreground">
                     {acc.displayName || acc.handle || acc.id}
                   </div>
                   {acc.provider === 'linkedin' && (
                     <span
-                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                      style={{ background: 'var(--dome-bg-secondary)', color: 'var(--dome-text-muted)', border: '1px solid var(--dome-border)' }}
+                      className="shrink-0 rounded-full border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
                     >
                       {(acc.accountKind || 'member') === 'organization'
                         ? t('social.settings.account_kind_organization')
@@ -350,42 +359,41 @@ function ProviderCard({
                   )}
                 </div>
                 {acc.handle && acc.displayName && (
-                  <div className="text-xs truncate mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{acc.handle}</div>
+                  <div className="text-xs truncate mt-0.5 text-muted-foreground">{acc.handle}</div>
                 )}
                 {acc.status !== 'active' && (
-                  <div className="text-xs" style={{ color: 'var(--dome-error)' }}>
+                  <div className="text-xs text-destructive">
                     {acc.lastError || t(`social.settings.status_${acc.status}`)}
                   </div>
                 )}
                 {hasSocialCloud && acc.status === 'active' && (
-                  <label className="mt-2 flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--dome-text-muted)' }}>
-                    <input
-                      type="checkbox"
+                  <label className="mt-2 flex items-center gap-2 text-xs cursor-pointer text-muted-foreground">
+                    <Checkbox
                       checked={Boolean(acc.cloudPublishing)}
                       disabled={cloudBusyId === acc.id}
-                      onChange={(e) => void toggleCloudPublishing(acc.id, e.target.checked)}
+                      onCheckedChange={(checked) => void toggleCloudPublishing(acc.id, checked)}
                     />
                     <span>{t('social.settings.cloud_publishing')}</span>
                   </label>
                 )}
                 {hasSocialCloud && acc.cloudPublishing && (
-                  <p className="text-[10px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
+                  <p className="text-[10px] mt-1 text-muted-foreground">
                     {t('social.settings.cloud_publishing_consent')}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-1">
                 {acc.status === 'active' && (
-                  <CheckCircle2 className="size-4" style={{ color: 'var(--success)' }} />
+                  <HugeiconsIcon icon={CheckCircle2} className="size-4 text-[var(--success)]" />
                 )}
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() => void disconnect(acc.id)}
-                  className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)]"
+                  className="p-1.5 rounded-md hover:bg-accent"
                   title={t('social.settings.disconnect')}
                 >
-                  <Trash2 className="size-4" style={{ color: 'var(--dome-error)' }} />
-                </button>
+                  <HugeiconsIcon icon={Trash2} className="size-4 text-destructive" />
+                </Button>
               </div>
             </div>
           ))}
@@ -393,146 +401,134 @@ function ProviderCard({
       )}
 
       {status.provider === 'linkedin' && orgEnabled && linkedInMemberAccount && (
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => void syncLinkedInOrgs(linkedInMemberAccount.id)}
           disabled={syncingOrgs}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-          style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-accent)' }}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-primary"
         >
-          <RefreshCw className={`size-3.5 ${syncingOrgs ? 'animate-spin' : ''}`} />
+          <HugeiconsIcon icon={RefreshCw} className={`size-3.5 ${syncingOrgs ? 'animate-spin' : ''}`} />
           {syncingOrgs ? t('social.settings.linkedin_sync_orgs_busy') : t('social.settings.linkedin_sync_orgs')}
-        </button>
+        </Button>
       )}
 
       {status.provider === 'linkedin' && (
-        <label
-          aria-label={t('social.settings.linkedin_org_enabled')}
-          className="flex items-start gap-2 rounded-md px-3 py-2 cursor-pointer"
-          style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-        >
-          <input
-            type="checkbox"
+        <div className="flex items-start gap-2 rounded-md border bg-background px-3 py-2">
+          <Checkbox
+            aria-label={t('social.settings.linkedin_org_enabled')}
             checked={orgEnabled}
-            onChange={() => void toggleOrgEnabled()}
+            onCheckedChange={() => void toggleOrgEnabled()}
             disabled={saving}
             className="mt-0.5"
           />
           <span className="min-w-0">
-            <span className="text-xs font-medium block" style={{ color: 'var(--dome-text)' }}>
+            <span className="text-xs font-medium block text-foreground">
               {t('social.settings.linkedin_org_enabled')}
             </span>
-            <span className="text-xs block mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+            <span className="text-xs block mt-0.5 text-muted-foreground">
               {t('social.settings.linkedin_org_hint')}
             </span>
           </span>
-        </label>
+        </div>
       )}
 
       {/* App credentials */}
-      <div className="settings-field-grid settings-field-grid--2 gap-3">
+      <div className="grid sm:grid-cols-2 gap-3">
         <label className="block min-w-0">
-          <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-xs font-medium text-muted-foreground">
             {t('social.settings.client_id')}
           </span>
-          <input
+          <Input
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             placeholder={t('social.settings.client_id_placeholder')}
-            className="mt-1 w-full min-w-0 rounded-md px-3 py-2 text-sm"
-            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            className="mt-1 w-full min-w-0"
           />
         </label>
         <label className="block min-w-0">
-          <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-xs font-medium text-muted-foreground">
             {t('social.settings.client_secret')}
           </span>
-          <input
+          <Input
             type="password"
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
             placeholder={status.hasClientSecret ? t('social.settings.secret_saved') : t('social.settings.client_secret_placeholder')}
-            className="mt-1 w-full min-w-0 rounded-md px-3 py-2 text-sm"
-            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            className="mt-1 w-full min-w-0"
           />
         </label>
       </div>
 
       {/* Redirect URI helper */}
-      <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-        <Link2 className="size-3.5 shrink-0" />
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <HugeiconsIcon icon={Link2} className="size-3.5 shrink-0" />
         <span className="truncate">
           {t('social.settings.redirect_uri')}: <code>{status.redirectUri}</code>
         </span>
-        <button
+        <Button variant="outline"
           type="button"
           onClick={copyRedirect}
-          className="p-1 rounded hover:bg-[var(--dome-bg-hover)]"
+          className="p-1 rounded hover:bg-accent"
           title={t('social.settings.copy')}
         >
-          <Copy className="size-3.5" />
-        </button>
+          <HugeiconsIcon icon={Copy} className="size-3.5" />
+        </Button>
       </div>
 
-      {error && <div className="text-xs" style={{ color: 'var(--dome-error)' }}>{error}</div>}
+      {error && <div className="text-xs text-destructive">{error}</div>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={() => void saveConfig()}
           disabled={saving}
           className="rounded-md px-3 py-1.5 text-xs font-medium"
-          style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
         >
-          {saving ? <Loader2 className="size-3.5 animate-spin inline" /> : saved ? t('social.settings.saved') : t('social.settings.save')}
-        </button>
-        <button
+          {saving ? <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin inline" /> : saved ? t('social.settings.saved') : t('social.settings.save')}
+        </Button>
+        <Button
           type="button"
           onClick={() => void connectOAuth()}
           disabled={connecting || !configured}
-          className="rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-          style={{ background: 'var(--dome-accent)', color: 'white' }}
+          className="rounded-md px-3 py-1.5 text-xs font-medium"
         >
           {connecting
             ? t('social.settings.connecting')
             : t('social.settings.connect_oauth')}
-        </button>
+        </Button>
         {status.supportsManualToken && (
-          <button
+          <Button variant="outline"
             type="button"
             onClick={() => setShowManual((v) => !v)}
-            className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium"
-            style={{ background: 'transparent', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
+            className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground"
           >
-            <KeyRound className="size-3.5" />
+            <HugeiconsIcon icon={KeyRound} className="size-3.5" />
             {t('social.settings.connect_token')}
-          </button>
+          </Button>
         )}
       </div>
 
       {showManual && status.supportsManualToken && (
         <div className="flex items-center gap-2">
-          <input
+          <Input
             type="password"
             value={manualToken}
             onChange={(e) => setManualToken(e.target.value)}
             placeholder={t('social.settings.token_placeholder')}
-            className="flex-1 min-w-0 rounded-md px-3 py-2 text-sm"
-            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            className="min-w-0 flex-1"
           />
-          <button
+          <Button
             type="button"
             onClick={() => void connectToken()}
             disabled={connecting || !manualToken.trim()}
-            className="rounded-md px-3 py-2 text-xs font-medium disabled:opacity-50"
-            style={{ background: 'var(--dome-accent)', color: 'white' }}
+            className="rounded-md px-3 py-2 text-xs font-medium"
           >
             {t('social.settings.connect')}
-          </button>
+          </Button>
         </div>
       )}
 
-      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="text-xs text-muted-foreground">
         {t(`social.settings.hint_${status.provider}`)}
       </p>
     </div>

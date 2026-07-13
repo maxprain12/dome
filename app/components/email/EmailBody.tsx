@@ -23,7 +23,7 @@ export default function EmailBody({ message }: { message: unknown }) {
         sandbox=""
         srcDoc={srcDoc}
         className="w-full rounded-md"
-        style={{ border: '1px solid var(--dome-border)', minHeight: '60vh', background: '#ffffff' }}
+        style={{ border: '1px solid var(--border)', minHeight: '60vh', background: '#ffffff' }}
       />
     );
   }
@@ -31,7 +31,7 @@ export default function EmailBody({ message }: { message: unknown }) {
   return (
     <pre
       className="text-sm whitespace-pre-wrap font-sans"
-      style={{ color: 'var(--dome-text-secondary, var(--dome-text))', wordBreak: 'break-word' }}
+      style={{ color: 'var(--muted-foreground, var(--foreground))', wordBreak: 'break-word' }}
     >
       {text}
     </pre>

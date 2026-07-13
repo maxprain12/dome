@@ -1,10 +1,10 @@
 import { memo } from 'react';
 import type { ComponentProps } from 'react';
-import ManyChatInput from '@/components/many/ManyChatInput';
+import ManyComposer from '@/components/many/chat/ManyComposer';
 import AgentChatInput from '@/components/agents/AgentChatInput';
 
 export type UnifiedChatInputProps =
-  | ({ mode: 'many' } & ComponentProps<typeof ManyChatInput>)
+  | ({ mode: 'many' } & ComponentProps<typeof ManyComposer>)
   | ({ mode: 'agent' } & ComponentProps<typeof AgentChatInput>);
 
 /**
@@ -18,7 +18,7 @@ function UnifiedChatInput(props: UnifiedChatInputProps) {
     return <AgentChatInput {...rest} />;
   }
   const { mode: _m, children, ...rest } = props;
-  return <ManyChatInput {...rest}>{children}</ManyChatInput>;
+  return <ManyComposer {...rest}>{children}</ManyComposer>;
 }
 
 export default memo(UnifiedChatInput);

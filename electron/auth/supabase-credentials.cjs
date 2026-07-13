@@ -1,33 +1,96 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 /**
  * Resolved Supabase Auth credentials for native login/signup (onboarding).
  *
  * Precedence:
- * 1. process.env.SUPABASE_URL / SUPABASE_ANON_KEY (dev / overrides)
+ * 1. process.env SUPABASE_* or NEXT_PUBLIC_SUPABASE_* (dev / overrides)
  * 2. electron/app-credentials.cjs SUPABASE_URL / SUPABASE_ANON_KEY (CI embed-env)
+ * 3. Dev only: sibling dome-provider/.env.local or .env (same keys as dome-provider)
  *
- * No hardcoded production fallback (unlike getDomeProviderBaseUrl()) — if unset,
- * callers must surface a clear "not configured" error instead of hitting an
- * empty URL. Both values are public (the anon key is designed to be shipped
- * client-side; dome-provider's own web bundle already embeds it), so baking
- * them here is not a secrets-handling concern.
+ * No hardcoded production fallback — if unset, callers surface "not configured".
+ * The anon key is public by design (shipped in dome-provider's web bundle).
  */
-function getSupabaseCredentials() {
-  const envUrl = (process.env.SUPABASE_URL || '').trim();
-  const envKey = (process.env.SUPABASE_ANON_KEY || '').trim();
-  if (envUrl && envKey) return { url: envUrl, anonKey: envKey };
-
-  try {
-    const creds = require('../app-credentials.cjs');
-    const url = (creds.SUPABASE_URL || '').trim();
-    const anonKey = (creds.SUPABASE_ANON_KEY || '').trim();
-    if (url && anonKey) return { url, anonKey };
-  } catch (_) {
-    // app-credentials.cjs absent (dev without embed-env)
+function parseDotEnv(content) {
+  /** @type {Record<string, string>} */
+  const out = {};
+  for (const line of String(content).split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+    if (key) out[key] = val;
   }
-
-  return { url: '', anonKey: '' };
+  return out;
 }
 
-module.exports = { getSupabaseCredentials };
+function pickSupabaseFromRecord(record) {
+  const url = (record.SUPABASE_URL || record.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const anonKey = (record.SUPABASE_ANON_KEY || record.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  if (url && anonKey) return { url, anonKey };
+  return null;
+}
+
+function resolveFromProcessEnv() {
+  return pickSupabaseFromRecord(process.env);
+}
+
+function resolveFromAppCredentials() {
+  try {
+    const creds = require('../app-credentials.cjs');
+    return pickSupabaseFromRecord(creds);
+  } catch (_) {
+    return null;
+  }
+}
+
+function isPackagedApp() {
+  try {
+    const { app } = require('electron');
+    return Boolean(app?.isPackaged);
+  } catch (_) {
+    return false;
+  }
+}
+
+function resolveFromSiblingProviderEnv() {
+  if (isPackagedApp()) return null;
+
+  const candidates = [
+    path.join(__dirname, '../../../dome-provider/.env.local'),
+    path.join(__dirname, '../../../dome-provider/.env'),
+  ];
+
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      const parsed = parseDotEnv(fs.readFileSync(filePath, 'utf-8'));
+      const creds = pickSupabaseFromRecord(parsed);
+      if (creds) return creds;
+    } catch (_) {
+      // ignore unreadable sibling env
+    }
+  }
+
+  return null;
+}
+
+function getSupabaseCredentials() {
+  return (
+    resolveFromProcessEnv() ||
+    resolveFromAppCredentials() ||
+    resolveFromSiblingProviderEnv() ||
+    { url: '', anonKey: '' }
+  );
+}
+
+module.exports = {
+  getSupabaseCredentials,
+  parseDotEnv,
+  pickSupabaseFromRecord,
+};

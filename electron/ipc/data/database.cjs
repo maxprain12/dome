@@ -292,6 +292,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  ipcMain.handle('db:projects:update', (event, project) => {
+    try {
+      validateSender(event, windowManager);
+      const id = typeof project?.id === 'string' ? project.id.trim() : '';
+      const name = typeof project?.name === 'string' ? project.name.trim() : '';
+      if (!id || !name) return { success: false, error: 'id and name required' };
+      const description = typeof project.description === 'string' && project.description.trim()
+        ? project.description.trim()
+        : null;
+      const updatedAt = Date.now();
+      const queries = database.getQueries();
+      const result = queries.updateProject.run(name, description, updatedAt, id);
+      if (result.changes === 0) return { success: false, error: 'Project not found' };
+      const updated = queries.getProjectById.get(id);
+      windowManager.broadcast('project:updated', updated);
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error('[DB] Error updating project:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Set (or clear) a project's custom Markdown vault root. Moves existing note
   // .md files to the new location and (re)watches it for external edits.
   ipcMain.handle('db:projects:setVaultRoot', (event, args) => {

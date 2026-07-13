@@ -28,7 +28,7 @@ Never define light vs dark themes in CSS: Dome injects the active theme tokens. 
 Design system (styling):
 - Surfaces/text/borders/accent ONLY via Dome CSS variables injected into the iframe; no hex/rgb literals for chrome.
 - Form controls: stable id, name, or data-dome-key aligned with keys in state.data.
-- Buttons: background var(--accent); text color var(--base-text, var(--primary-text)) so contrast follows the Shell theme automatically.
+- Buttons: background var(--primary); text color var(--primary-foreground, var(--foreground)) so contrast follows the Shell theme automatically.
 `;
 
 // =============================================================================

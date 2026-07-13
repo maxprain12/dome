@@ -48,8 +48,8 @@ export function getStepVisualKind(step: PersistentRunStep): StepVisualKind {
 /** Muted accent for timelines / status (minimal UI). */
 export function getStepAccent(step: PersistentRunStep): string {
   const k = getStepVisualKind(step);
-  if (k === 'error') return 'var(--error)';
-  return 'color-mix(in srgb, var(--dome-text) 26%, var(--dome-border))';
+  if (k === 'error') return 'var(--destructive)';
+  return 'color-mix(in srgb, var(--foreground) 26%, var(--border))';
 }
 
 export function getStepBadgeLabel(
@@ -271,11 +271,11 @@ export function buildTranscriptRows(
 }
 
 export const AGENT_LANE_PALETTE = [
-  'color-mix(in srgb, var(--dome-text) 34%, var(--dome-border))',
-  'color-mix(in srgb, var(--dome-text) 22%, var(--dome-border))',
-  'color-mix(in srgb, var(--dome-text) 44%, var(--dome-border))',
-  'color-mix(in srgb, var(--dome-accent) 24%, var(--dome-border))',
-  'color-mix(in srgb, var(--dome-text) 16%, var(--dome-border))',
+  'color-mix(in srgb, var(--foreground) 34%, var(--border))',
+  'color-mix(in srgb, var(--foreground) 22%, var(--border))',
+  'color-mix(in srgb, var(--foreground) 44%, var(--border))',
+  'color-mix(in srgb, var(--primary) 24%, var(--border))',
+  'color-mix(in srgb, var(--foreground) 16%, var(--border))',
 ];
 
 export function getOverviewSegmentColor(

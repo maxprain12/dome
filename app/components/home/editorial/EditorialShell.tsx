@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 export interface EditorialShellProps {
   children: ReactNode;
-  /** Extra class on `home-shell` (e.g. `hub-tab-shell`, `c-calendar-shell`) */
+  /** Extra class on `home-shell` (e.g. `hub-tab-shell`) */
   shellClassName?: string;
   canvasClassName?: string;
   /**

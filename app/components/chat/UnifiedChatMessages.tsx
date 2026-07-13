@@ -1,5 +1,6 @@
 import { forwardRef, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { cn } from '@/lib/utils';
+import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerProvider, MessageScrollerViewport } from '@/components/ui/message-scroller';
 
 export interface UnifiedChatMessageAreaProps {
   children: ReactNode;
@@ -23,18 +24,21 @@ export const UnifiedChatMessageArea = forwardRef(function UnifiedChatMessageArea
   ref: Ref<HTMLDivElement>,
 ) {
   return (
-    <div
-      ref={ref}
+    <MessageScrollerProvider>
+    <MessageScroller
       {...(dataSurface ? { 'data-surface': dataSurface } : {})}
       {...(dataDensity ? { 'data-density': dataDensity } : {})}
       className={cn(
-        'overflow-y-auto overflow-x-hidden overscroll-contain',
         fullHeight && 'flex-1 min-h-0',
         className,
       )}
       style={style}
     >
-      {children}
-    </div>
+      <MessageScrollerViewport ref={ref}>
+        <MessageScrollerContent className="gap-5 p-4">{children}</MessageScrollerContent>
+      </MessageScrollerViewport>
+      <MessageScrollerButton />
+    </MessageScroller>
+    </MessageScrollerProvider>
   );
 });

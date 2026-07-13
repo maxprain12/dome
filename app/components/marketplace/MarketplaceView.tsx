@@ -1,21 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { MARKETPLACE_TYPE_TINTS } from '@/lib/ui/palettes';
-import {
-  Search,
-  Store,
-  Bot,
-  Workflow,
-  Sparkles,
-  Plug,
-  FolderCog,
-  RefreshCw,
-  Download,
-  Star,
-  CheckCircle2,
-  Zap,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BotIcon, CheckmarkCircle02Icon, Download04Icon, GitBranchIcon, Plug02Icon, PuzzleIcon, RefreshIcon, Search01Icon, SparklesIcon, Store01Icon, ZapIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import type { MarketplaceAgent } from '@/types';
 import type { WorkflowTemplate } from '@/types/canvas';
 import { useMarketplaceStore } from '@/lib/store/useMarketplaceStore';
@@ -40,23 +28,22 @@ import { loadAvailablePlugins, type AvailablePlugin } from '@/lib/marketplace/lo
 import { loadMcpServersSetting, saveMcpServersSetting } from '@/lib/mcp/settings';
 import { openSkillsFolder, installBundledSkill, listSkills } from '@/lib/skills/client';
 import type { MCPServerConfig } from '@/types';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
-import DomeListState from '@/components/ui/DomeListState';
-import HubSearchField from '@/components/ui/HubSearchField';
-import { EditorialShell } from '@/components/home/editorial/EditorialShell';
-import { EditorialPageHero } from '@/components/home/editorial/EditorialPageHero';
-import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { getWorkflow } from '@/lib/agent-canvas/api';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import MarketplaceAgentDetail from './MarketplaceAgentDetail';
 import WorkflowDetail from './WorkflowDetail';
-
+import { Badge } from '@/components/ui/badge';
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarProvider } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FilterType = 'all' | 'agents' | 'workflows' | 'mcp' | 'skills' | 'plugins';
@@ -76,30 +63,18 @@ interface UnifiedItem {
 // ─── Type config ──────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG = {
-  all:       { Icon: Store,     iconBg: 'var(--bg-tertiary)',   iconColor: 'var(--tertiary-text)', label: '' },
-  agents:    { Icon: Bot,       iconBg: 'var(--accent-bg)', iconColor: 'var(--accent)',  label: 'Agent' },
-  workflows: { Icon: Workflow,  iconBg: MARKETPLACE_TYPE_TINTS.workflows.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.workflows.iconColor,              label: 'Workflow' },
-  mcp:       { Icon: FolderCog, iconBg: MARKETPLACE_TYPE_TINTS.mcp.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.mcp.iconColor,              label: 'MCP' },
-  skills:    { Icon: Sparkles,  iconBg: MARKETPLACE_TYPE_TINTS.skills.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.skills.iconColor,              label: 'Skill' },
-  plugins:   { Icon: Plug,      iconBg: MARKETPLACE_TYPE_TINTS.plugins.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.plugins.iconColor,              label: 'Plugin' },
-} satisfies Record<FilterType, { Icon: React.ElementType; iconBg: string; iconColor: string; label: string }>;
+  all: { icon: Store01Icon, label: 'All' }, agents: { icon: BotIcon, label: 'Agent' }, workflows: { icon: GitBranchIcon, label: 'Workflow' }, mcp: { icon: PuzzleIcon, label: 'MCP' }, skills: { icon: SparklesIcon, label: 'Skill' }, plugins: { icon: Plug02Icon, label: 'Plugin' },
+} satisfies Record<FilterType, { icon: IconSvgElement; label: string }>;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function TypeIconBox({ type }: { type: Exclude<FilterType, 'all'> }) {
-  const { Icon, iconBg, iconColor } = TYPE_CONFIG[type];
-  return (
-    <div className="hub-marketplace-type-icon" style={{ backgroundColor: iconBg }}>
-      <Icon size={18} color={iconColor} strokeWidth={2} />
-    </div>
-  );
+  return <div className="flex size-9 items-center justify-center rounded-xl bg-muted"><HugeiconsIcon icon={TYPE_CONFIG[type].icon} /></div>;
 }
 
 function TagChip({ tag }: { tag: string }) {
   return (
-    <span className="hub-marketplace-tag-chip">
-      {tag}
-    </span>
+    <Badge variant="secondary">{tag}</Badge>
   );
 }
 
@@ -111,67 +86,7 @@ interface ItemCardProps {
 }
 
 function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
-  const { label, iconBg, iconColor } = TYPE_CONFIG[item.type];
-  const interactive = Boolean(onClick);
-
-  return (
-    <div
-      role={interactive ? 'button' : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={(e) => { if (interactive && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick?.(); } }}
-      className={cn(
-        'hub-marketplace-item-card',
-        featured && 'hub-marketplace-item-card--featured',
-        interactive && 'hub-marketplace-item-card--interactive',
-      )}
-    >
-      {/* Header row: icon + name + star + action */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <TypeIconBox type={item.type} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-            <span style={{
-              fontWeight: 700, fontSize: 13.5, color: 'var(--primary-text)',
-              lineHeight: 1.3, wordBreak: 'break-word',
-            }}>
-              {item.name}
-            </span>
-            {item.featured && <Star size={13} fill="var(--warning)" color="var(--warning)" />}
-            <span
-              className="hub-marketplace-item-type-badge"
-              style={{ backgroundColor: iconBg, color: iconColor }}
-            >
-              {label}
-            </span>
-          </div>
-          <p className="hub-marketplace-item-desc">
-            {item.description}
-          </p>
-        </div>
-        {/* Action pinned to top-right — handlers only isolate events from the
-            clickable card behind (propagation barrier, not an interaction). */}
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-        <div
-          style={{ flexShrink: 0 }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          {action}
-        </div>
-      </div>
-
-      {/* Footer row: author + tags */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 12, color: 'var(--tertiary-text)' }}>
-          {item.author ?? 'Dome Team'}{item.version ? ` · v${item.version}` : ''}
-        </span>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {item.tags.slice(0, 3).map((t) => <TagChip key={t} tag={t} />)}
-        </div>
-      </div>
-    </div>
-  );
+  return <Card size="sm"><CardHeader><TypeIconBox type={item.type} /><CardTitle>{item.name}</CardTitle><CardDescription>{item.description}</CardDescription><CardAction>{action}</CardAction></CardHeader><CardContent className="flex flex-wrap gap-1"><Badge variant={featured ? 'default' : 'outline'}>{TYPE_CONFIG[item.type].label}</Badge>{item.tags.slice(0, 3).map((tag) => <TagChip key={tag} tag={tag} />)}</CardContent><CardFooter className="justify-between"><span className="text-xs text-muted-foreground">{item.author ?? 'Dome Team'}{item.version ? ` · v${item.version}` : ''}</span>{onClick ? <Button type="button" variant="outline" size="sm" onClick={onClick}>Details</Button> : null}</CardFooter></Card>;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -517,17 +432,17 @@ export default function MarketplaceView() {
     return types.map((type) => ({
       value: type,
       label: `${labels[type]} (${type === 'all' ? allItems.length : totalByType[type] ?? 0})`,
-      selectedColor: 'var(--dome-accent)',
+      selectedColor: 'var(--primary)',
     }));
   }, [t, allItems.length, totalByType]);
 
   const categoryFilterOptions = useMemo(
     () => [
-      { value: 'all', label: t('marketplace.category_all'), selectedColor: 'var(--dome-accent)' },
+      { value: 'all', label: t('marketplace.category_all'), selectedColor: 'var(--primary)' },
       ...availableCategories.map((cat) => ({
         value: cat,
         label: categoryLabel(cat),
-        selectedColor: 'var(--dome-accent)',
+        selectedColor: 'var(--primary)',
       })),
     ],
     [availableCategories, categoryLabel, t],
@@ -543,19 +458,16 @@ export default function MarketplaceView() {
       const isInstalling = installingId === agent.id;
       if (isInstalled && !hasUpdate) {
         return (
-          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 size={13} /> {t('marketplace.installed')}
-          </span>
+          <Badge variant="secondary"><HugeiconsIcon icon={CheckmarkCircle02Icon} />{t('marketplace.installed')}</Badge>
         );
       }
       return (
-        <DomeButton type="button" variant="primary" size="sm"
-          onClick={(e) => { e.stopPropagation(); void handleInstallAgent(agent); }}
-          disabled={!!installingId} loading={isInstalling}
-          leftIcon={!isInstalling ? <Download size={12} /> : undefined}
-        >
+        <Button type="button"
+  onClick={(e) => { e.stopPropagation(); void handleInstallAgent(agent); }}
+  disabled={!!installingId}
+  size="sm">{isInstalling ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Download04Icon} data-icon="inline-start" />}
           {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install')}
-        </DomeButton>
+        </Button>
       );
     }
 
@@ -566,13 +478,12 @@ export default function MarketplaceView() {
       const hasUpdate = workflowInstall?.version != null && workflowInstall.version !== workflow.version;
       const isInstalling = installingWorkflowId === workflow.id;
       return (
-        <DomeButton type="button" variant="primary" size="sm"
-          onClick={(e) => { e.stopPropagation(); void handleInstallWorkflow(workflow); }}
-          disabled={!!installingWorkflowId} loading={isInstalling}
-          leftIcon={!isInstalling ? <Download size={12} /> : undefined}
-        >
+        <Button type="button"
+  onClick={(e) => { e.stopPropagation(); void handleInstallWorkflow(workflow); }}
+  disabled={!!installingWorkflowId}
+  size="sm">{isInstalling ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Download04Icon} data-icon="inline-start" />}
           {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : isInstalled ? t('marketplace.open') : t('marketplace.install')}
-        </DomeButton>
+        </Button>
       );
     }
 
@@ -581,19 +492,16 @@ export default function MarketplaceView() {
       const isInstalled = installedPluginIds.has(plugin.id);
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 size={13} /> {t('marketplace.installed')}
-          </span>
+          <Badge variant="secondary"><HugeiconsIcon icon={CheckmarkCircle02Icon} />{t('marketplace.installed')}</Badge>
         );
       }
       return (
-        <DomeButton type="button" variant="primary" size="sm"
-          onClick={(e) => { e.stopPropagation(); void handleInstallPlugin(); }}
-          disabled={!!installingPlugin} loading={!!installingPlugin}
-          leftIcon={!installingPlugin ? <Download size={12} /> : undefined}
-        >
+        <Button type="button"
+  onClick={(e) => { e.stopPropagation(); void handleInstallPlugin(); }}
+  disabled={!!installingPlugin}
+  size="sm">{installingPlugin ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Download04Icon} data-icon="inline-start" />}
           {installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin')}
-        </DomeButton>
+        </Button>
       );
     }
 
@@ -603,19 +511,16 @@ export default function MarketplaceView() {
       const isInstalling = installingMcpId === server.id;
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 size={13} /> {t('marketplace.added')}
-          </span>
+          <Badge variant="secondary"><HugeiconsIcon icon={CheckmarkCircle02Icon} />{t('marketplace.added')}</Badge>
         );
       }
       return (
-        <DomeButton type="button" variant="primary" size="sm"
-          onClick={(e) => { e.stopPropagation(); void handleInstallMcp(server); }}
-          disabled={!!installingMcpId} loading={isInstalling}
-          leftIcon={!isInstalling ? <Download size={12} /> : undefined}
-        >
+        <Button type="button"
+  onClick={(e) => { e.stopPropagation(); void handleInstallMcp(server); }}
+  disabled={!!installingMcpId}
+  size="sm">{isInstalling ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Download04Icon} data-icon="inline-start" />}
           {isInstalling ? t('marketplace.adding') : t('marketplace.add')}
-        </DomeButton>
+        </Button>
       );
     }
 
@@ -625,19 +530,16 @@ export default function MarketplaceView() {
       const isInstalling = installingSkillId === skill.id;
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
-            <Zap size={13} /> {t('marketplace.active')}
-          </span>
+          <Badge variant="secondary"><HugeiconsIcon icon={ZapIcon} />{t('marketplace.active')}</Badge>
         );
       }
       return (
-        <DomeButton type="button" variant="primary" size="sm"
-          onClick={(e) => { e.stopPropagation(); void handleInstallSkill(skill); }}
-          disabled={!!installingSkillId} loading={isInstalling}
-          leftIcon={!isInstalling ? <Zap size={12} /> : undefined}
-        >
+        <Button type="button"
+  onClick={(e) => { e.stopPropagation(); void handleInstallSkill(skill); }}
+  disabled={!!installingSkillId}
+  size="sm">{isInstalling ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={ZapIcon} data-icon="inline-start" />}
           {isInstalling ? t('marketplace.installing') : t('marketplace.activate')}
-        </DomeButton>
+        </Button>
       );
     }
 
@@ -646,158 +548,9 @@ export default function MarketplaceView() {
 
   const showFeatured = filterType === 'all' && !searchQuery.trim() && filterCategory === 'all' && featuredItems.length > 0;
 
-  const marketplaceBody = (
-    <div className="hub-marketplace-body">
-      <div className="hub-marketplace-sidebar">
-        <div>
-          <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 12, letterSpacing: '0.08em' }}>
-            {t('marketplace.filter_type')}
-          </DomeSectionLabel>
-          <DomeFilterChipGroup
-            options={typeFilterOptions}
-            value={filterType}
-            onChange={(v) => { setFilterType(v); setFilterCategory('all'); }}
-            layout="vertical"
-            className="gap-0.5"
-          />
-        </div>
-
-        {availableCategories.length > 0 ? (
-          <div>
-            <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 12, letterSpacing: '0.08em' }}>
-              {t('marketplace.filter_category')}
-            </DomeSectionLabel>
-            <DomeFilterChipGroup
-              options={categoryFilterOptions}
-              value={filterCategory}
-              onChange={setFilterCategory}
-              layout="vertical"
-              className="gap-0.5"
-            />
-          </div>
-        ) : null}
-      </div>
-
-      <div className="hub-marketplace-main">
-        {initialLoading ? (
-          <div style={{ padding: 20 }}>
-            <DomeSkeletonGrid count={8} cellHeightClass="h-28" />
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <DomeListState
-            variant="empty"
-            fullHeight
-            icon={<Search size={40} style={{ opacity: 0.2 }} />}
-            title={t('marketplace.no_results')}
-            description={t('marketplace.no_results_hint')}
-          />
-        ) : (
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {showFeatured ? (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Star size={13} fill="var(--warning)" color="var(--warning)" />
-                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
-                    {t('marketplace.featured', 'Featured')}
-                  </span>
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: 12,
-                }}>
-                  {featuredItems.map((item) => (
-                    <ItemCard
-                      key={`featured-${item.type}-${item.id}`}
-                      item={item}
-                      action={renderAction(item)}
-                      onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
-                        : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
-                        : undefined}
-                      featured
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {regularItems.length > 0 ? (
-              <div>
-                {showFeatured ? (
-                  <div style={{ marginBottom: 12 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
-                      {t('marketplace.all_items', 'All')}
-                      <span style={{
-                        marginLeft: 8, fontSize: 12, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
-                        backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
-                      }}>
-                        {regularItems.length}
-                      </span>
-                    </span>
-                  </div>
-                ) : null}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                  gap: 10,
-                }}>
-                  {regularItems.map((item) => (
-                    <ItemCard
-                      key={`${item.type}-${item.id}`}
-                      item={item}
-                      action={renderAction(item)}
-                      onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
-                        : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
-                        : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <>
-    <EditorialShell shellClassName="hub-tab-shell hub-marketplace-shell" variant="split" body={marketplaceBody}>
-      <EditorialPageHero
-        title={t('marketplace.title')}
-        subtitle={
-          initialLoading
-            ? t('marketplace.loading')
-            : t('marketplace.subtitle_count', { count: allItems.length })
-        }
-        stat={{
-          label: t('marketplace.filter_type'),
-          value: allItems.length,
-        }}
-        actions={
-          <>
-            <div className="hub-marketplace-toolbar" style={{ width: '100%', marginBottom: 0 }}>
-              <div className="hub-marketplace-search">
-                <HubSearchField
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={t('marketplace.search_placeholder')}
-                  ariaLabel={t('marketplace.search_placeholder')}
-                />
-              </div>
-            </div>
-            <button
-              type="button"
-              className="h-pill-btn"
-              onClick={() => void handleRefresh()}
-              disabled={loading}
-            >
-              <RefreshCw size={12} strokeWidth={2} className={loading ? 'animate-spin' : ''} aria-hidden />
-              {t('marketplace.refresh')}
-            </button>
-          </>
-        }
-      />
-    </EditorialShell>
+      <div className="flex h-full min-h-0 flex-col gap-4 p-5"><PageHeader title={t('marketplace.title')} description={initialLoading ? t('marketplace.loading') : t('marketplace.subtitle_count', { count: allItems.length })} actions={<Button type="button" variant="outline" onClick={() => void handleRefresh()} disabled={loading}>{loading ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />}{t('marketplace.refresh')}</Button>} /><InputGroup className="max-w-xl"><InputGroupAddon><HugeiconsIcon icon={Search01Icon} /></InputGroupAddon><InputGroupInput type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('marketplace.search_placeholder')} aria-label={t('marketplace.search_placeholder')} /></InputGroup><SidebarProvider className="min-h-0 flex-1 overflow-hidden rounded-xl border"><Sidebar collapsible="none" className="w-56 border-r"><SidebarContent><SidebarGroup><SidebarGroupLabel>{t('marketplace.filter_type')}</SidebarGroupLabel><SidebarGroupContent><ToggleGroup orientation="vertical" className="w-full" value={[filterType]} onValueChange={(values) => { const value = values[0] as FilterType | undefined; if (value) { setFilterType(value); setFilterCategory('all'); } }}>{typeFilterOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} className="w-full justify-start">{option.label}</ToggleGroupItem>)}</ToggleGroup></SidebarGroupContent></SidebarGroup>{availableCategories.length ? <SidebarGroup><SidebarGroupLabel>{t('marketplace.filter_category')}</SidebarGroupLabel><SidebarGroupContent><ToggleGroup orientation="vertical" className="w-full" value={[filterCategory]} onValueChange={(values) => values[0] && setFilterCategory(values[0])}>{categoryFilterOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} className="w-full justify-start">{option.label}</ToggleGroupItem>)}</ToggleGroup></SidebarGroupContent></SidebarGroup> : null}</SidebarContent></Sidebar><main className="min-w-0 flex-1 overflow-y-auto p-4">{initialLoading ? <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="h-44" />)}</div> : filteredItems.length === 0 ? <Empty className="h-full"><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon icon={Search01Icon} /></EmptyMedia><EmptyTitle>{t('marketplace.no_results')}</EmptyTitle><EmptyDescription>{t('marketplace.no_results_hint')}</EmptyDescription></EmptyHeader></Empty> : <div className="flex flex-col gap-6">{showFeatured ? <section className="flex flex-col gap-3"><div className="flex items-center gap-2"><Badge>{t('marketplace.featured', 'Featured')}</Badge><span className="text-xs text-muted-foreground">{featuredItems.length}</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{featuredItems.map((item) => <ItemCard key={`featured-${item.type}-${item.id}`} item={item} action={renderAction(item)} onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent) : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate) : undefined} featured />)}</div></section> : null}<section className="flex flex-col gap-3"><div className="flex items-center gap-2"><h2 className="text-sm font-medium">{t('marketplace.all_items', 'All')}</h2><Badge variant="secondary">{regularItems.length}</Badge></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{regularItems.map((item) => <ItemCard key={`${item.type}-${item.id}`} item={item} action={renderAction(item)} onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent) : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate) : undefined} />)}</div></section></div>}</main></SidebarProvider></div>
 
       {selectedAgent ? (
         <MarketplaceAgentDetail

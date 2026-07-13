@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import {
   buildComposerHighlightSpans,
@@ -6,6 +6,8 @@ import {
   type ComposerTokenTooltip,
 } from '@/lib/chat/composerInlineHighlight';
 import { AI_COMPOSER_INPUT_HANDLER } from '@/components/chat/AIComposer';
+import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 export interface ManyComposerRichInputProps {
   value: string;
@@ -17,12 +19,15 @@ export interface ManyComposerRichInputProps {
   placeholder?: string;
   disabled?: boolean;
   rows?: number;
-  style?: CSSProperties;
   mentionLabels?: string[];
   skillLabels?: string[];
   fileNames?: string[];
   tokenTooltips?: Record<string, ComposerTokenTooltip>;
+  className?: string;
 }
+
+const FIELD_BASE =
+  'box-border m-0 w-full resize-none border-0 bg-transparent font-inherit text-sm font-normal not-italic tracking-normal [tab-size:8] whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-[1.55]';
 
 function syncMirrorScroll(textarea: HTMLTextAreaElement, mirror: HTMLDivElement | null) {
   if (!mirror) return;
@@ -40,11 +45,11 @@ export default memo(function ManyComposerRichInput({
   placeholder,
   disabled,
   rows = 1,
-  style,
   mentionLabels = [],
   skillLabels = [],
   fileNames = [],
   tokenTooltips = {},
+  className,
 }: ManyComposerRichInputProps) {
   const mirrorRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{
@@ -118,18 +123,21 @@ export default memo(function ManyComposerRichInput({
 
   return (
     <div
-      className="many-composer-rich-input"
+      className={cn('relative min-w-0', className)}
       onMouseMove={handlePointerMove}
       onMouseLeave={clearTooltip}
     >
       <div
         ref={mirrorRef}
-        className="many-composer-rich-input__mirror"
+        className={cn(
+          FIELD_BASE,
+          className,
+          'pointer-events-none absolute inset-0 z-0 overflow-hidden text-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        )}
         aria-hidden
-        style={style}
         dangerouslySetInnerHTML={{ __html: mirrorHtml }}
       />
-<textarea
+      <Textarea
         ref={inputRef}
         value={value}
         onChange={onChange}
@@ -141,21 +149,26 @@ export default memo(function ManyComposerRichInput({
         aria-label={placeholder ?? 'Message'}
         disabled={disabled}
         rows={rows}
-        className="many-composer-rich-input__field focus:outline-none focus:ring-0 disabled:opacity-50"
-        style={style}
+        data-slot="input-group-control"
+        className={cn(
+          FIELD_BASE,
+          className,
+          'relative z-1 block text-transparent caret-foreground [-webkit-text-fill-color:transparent] focus:outline-none focus:ring-0 disabled:opacity-50',
+          'placeholder:text-muted-foreground placeholder:[-webkit-text-fill-color:var(--muted-foreground)] placeholder:opacity-100',
+        )}
       />
       {tooltip && typeof document !== 'undefined'
         ? createPortal(
             <div
-              className="composer-token-tooltip"
+              className="pointer-events-none fixed z-[var(--z-popover)] max-w-[260px] -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-lg border bg-background px-2.5 py-2 shadow-md"
               style={{
                 left: tooltip.x,
                 top: tooltip.y,
               }}
               role="tooltip"
             >
-              <p className="composer-token-tooltip__title">{tooltip.title}</p>
-              <p className="composer-token-tooltip__desc">{tooltip.description}</p>
+              <p className="mb-0.5 text-xs font-semibold leading-snug text-foreground">{tooltip.title}</p>
+              <p className="m-0 text-[11px] leading-snug text-muted-foreground">{tooltip.description}</p>
             </div>,
             document.body,
           )

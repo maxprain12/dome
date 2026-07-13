@@ -1,18 +1,22 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckmarkCircle02Icon as CheckCircle2,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 import { getAnalyticsEnabled, setAnalyticsEnabled } from '@/lib/settings';
 import { initPostHog, shutdownPostHog, isPostHogConfigured } from '@/lib/analytics/posthog';
 import { initSentry, shutdownSentry } from '@/lib/analytics/sentry';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import { DomeInput } from '@/components/ui/DomeInput';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeToggle from '@/components/ui/DomeToggle';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 export default function GeneralSettings() {
   const { t } = useTranslation();
   const { name, email, updateUserProfile, loadUserProfile } = useUserStore();
@@ -61,82 +65,60 @@ export default function GeneralSettings() {
   return (
     <SettingsPanel>
       <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
+        <h2 className="text-lg font-semibold mb-0.5 text-foreground">
           {t('settings.general.title')}
         </h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-xs text-muted-foreground">
           {t('settings.general.subtitle')}
         </p>
       </div>
 
       <div>
-        <DomeSectionLabel className="settings-section-label">{t('settings.general.profile')}</DomeSectionLabel>
-        <DomeCard>
-          <div className="space-y-4">
-            <DomeInput
-              id="user-name"
-              label={t('settings.general.full_name')}
-              value={localName}
-              onChange={(e) => {
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ">{t('settings.general.profile')}</p>
+        <Card className="p-4">
+          <div className="flex flex-col gap-4">
+            <Field className="gap-1.5" data-invalid={Boolean(errors.name)}><FieldLabel htmlFor="user-name" className="text-xs">{t('settings.general.full_name')}</FieldLabel><Input id="user-name" value={localName} onChange={(e) => {
                 setLocalName(e.target.value);
                 if (errors.name && validateName(e.target.value)) setErrors((p) => ({ ...p, name: undefined }));
-              }}
-              placeholder={t('settings.general.name_placeholder')}
-              autoComplete="name"
-              error={errors.name}
-            />
+              }} placeholder={t('settings.general.name_placeholder')} autoComplete="name" aria-invalid={Boolean(errors.name) || undefined} /><FieldError className="text-xs">{errors.name}</FieldError></Field>
 
-            <DomeInput
-              id="user-email"
-              label={t('settings.general.email')}
-              type="text"
-              inputMode="email"
-              value={localEmail}
-              onChange={(e) => {
+            <Field className="gap-1.5" data-invalid={Boolean(errors.email)}><FieldLabel htmlFor="user-email" className="text-xs">{t('settings.general.email')}</FieldLabel><Input id="user-email" type="text" inputMode="email" value={localEmail} onChange={(e) => {
                 setLocalEmail(e.target.value);
                 if (errors.email && validateEmail(e.target.value)) setErrors((p) => ({ ...p, email: undefined }));
-              }}
-              placeholder={t('settings.general.email_placeholder')}
-              autoComplete="email"
-              error={errors.email}
-            />
+              }} placeholder={t('settings.general.email_placeholder')} autoComplete="email" aria-invalid={Boolean(errors.email) || undefined} /><FieldError className="text-xs">{errors.email}</FieldError></Field>
 
-            <div className="settings-action-row pt-1">
-              <DomeButton type="button" variant="primary" size="sm" onClick={handleSave}>
+            <div className="flex items-center gap-2 pt-1">
+              <Button type="button"
+  onClick={handleSave}
+  size="sm">
                 {t('settings.general.save_changes')}
-              </DomeButton>
+              </Button>
               {isSaved && (
-                <span className="flex items-center gap-1.5 text-xs animate-in fade-in text-[var(--accent)]">
-                  <CheckCircle2 className="size-3.5" aria-hidden />
+                <span className="flex items-center gap-1.5 text-xs animate-in fade-in text-primary">
+                  <HugeiconsIcon icon={CheckCircle2} className="size-3.5" aria-hidden />
                   {t('settings.general.saved')}
                 </span>
               )}
             </div>
           </div>
-        </DomeCard>
+        </Card>
       </div>
 
       <div>
-        <DomeSectionLabel className="settings-section-label">{t('settings.general.privacy')}</DomeSectionLabel>
-        <DomeCard>
-          <div className="settings-toggle-row">
-            <div className="settings-toggle-row__label">
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ">{t('settings.general.privacy')}</p>
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
                 {t('settings.general.analytics_label')}
               </p>
-              <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs mt-0.5 leading-relaxed text-muted-foreground">
                 {t('settings.general.analytics_description')}
               </p>
             </div>
-            <DomeToggle
-              checked={analyticsEnabled}
-              onChange={(v) => void handleAnalyticsToggle(v)}
-              disabled={analyticsLoading || !isPostHogConfigured()}
-              size="sm"
-              className="settings-toggle-row__control mt-0.5"
-            />
+            <Switch checked={analyticsEnabled} onCheckedChange={(v) => void handleAnalyticsToggle(v)} disabled={analyticsLoading || !isPostHogConfigured()} size="sm" className="shrink-0 mt-0.5" />
           </div>
-        </DomeCard>
+        </Card>
       </div>
     </SettingsPanel>
   );

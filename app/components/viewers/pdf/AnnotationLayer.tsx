@@ -79,7 +79,7 @@ export default function AnnotationLayer({
             width: coordinates.width,
             height: coordinates.height,
           });
-          ctx.strokeStyle = resolveCssColor('var(--accent)') ?? PDF_CANVAS_FALLBACKS.accent;
+          ctx.strokeStyle = resolveCssColor('var(--primary)') ?? PDF_CANVAS_FALLBACKS.accent;
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
           ctx.strokeRect(
@@ -364,7 +364,7 @@ export default function AnnotationLayer({
           <div
             className="flex flex-col gap-2 p-2 rounded shadow-lg"
             style={{
-              background: 'var(--bg)',
+              background: 'var(--background)',
               border: '1px solid var(--border)',
               minWidth: '250px',
               minHeight: '150px',
@@ -385,9 +385,9 @@ export default function AnnotationLayer({
               aria-label="Note text"
               className="px-2 py-1 text-sm rounded resize-none"
               style={{
-                background: 'var(--bg-secondary)',
+                background: 'var(--card)',
                 border: '1px solid var(--border)',
-                color: 'var(--primary-text)',
+                color: 'var(--foreground)',
                 minHeight: '100px',
               }}
               rows={4}
@@ -398,8 +398,8 @@ export default function AnnotationLayer({
                 onClick={handleNoteSubmit}
                 className="px-3 py-1 text-xs rounded"
                 style={{
-                  background: 'var(--accent)',
-                  color: 'var(--base-text)',
+                  background: 'var(--primary)',
+                  color: 'var(--primary-foreground)',
                 }}
               >
                 Add Note
@@ -413,8 +413,8 @@ export default function AnnotationLayer({
                 }}
                 className="px-3 py-1 text-xs rounded"
                 style={{
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--secondary-text)',
+                  background: 'var(--card)',
+                  color: 'var(--muted-foreground)',
                 }}
               >
                 Cancel

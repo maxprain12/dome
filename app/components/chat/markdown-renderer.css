@@ -2,11 +2,11 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: var(--accent);
+  color: var(--primary);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
   border: none;
   border-radius: 4px;
   padding: 1px 6px 1px 4px;
@@ -20,7 +20,7 @@
 }
 
 .md-external-link {
-  color: var(--accent);
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -28,20 +28,4 @@
   border: none;
   padding: 0;
   font: inherit;
-}
-
-.md-code-block {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  padding: 10px 12px;
-  background-color: var(--bg-tertiary);
-  border-radius: 6px;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  overflow-x: auto;
-  line-height: 1.5;
-  color: var(--primary-text);
 }

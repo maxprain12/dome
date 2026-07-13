@@ -1,15 +1,34 @@
 'use client';
 
-import { Type, FileText, Image, Terminal } from 'lucide-react';
+import {
+  TextFontIcon as TypeIcon,
+  File02Icon as FileTextIcon,
+  Image01Icon as ImageIcon,
+  TerminalIcon as TerminalIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import type { CanvasNodeData, WorkflowNode } from '@/types/canvas';
 import { CanvasPaletteSectionHeader, CanvasPaletteRow } from './CanvasPaletteParts';
 import { createCanvasPaletteNode, handleCanvasPaletteDragStart } from './createCanvasPaletteNode';
 
+const Type = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={TypeIcon} {...props} />
+);
+const FileText = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={FileTextIcon} {...props} />
+);
+const Image = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ImageIcon} {...props} />
+);
+const Terminal = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={TerminalIcon} {...props} />
+);
+
 const INPUT_NODE_CONFIG = [
   {
     type: 'text-input' as const,
-    color: 'var(--dome-accent)',
+    color: 'var(--primary)',
     icon: Type,
     labelKey: 'canvas.input_text_label',
     descKey: 'canvas.input_text_desc',
@@ -50,7 +69,7 @@ export function CanvasInputsPalette({
         count={INPUT_NODE_CONFIG.length}
       />
       {expanded && (
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           {INPUT_NODE_CONFIG.map((n) => (
             <CanvasPaletteRow
               key={n.type}

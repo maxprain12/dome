@@ -57,10 +57,10 @@ What you do NOT have:
 
 Style ONLY with the injected CSS variables — hardcoded colors are rejected:
 
-- Surfaces: `var(--bg)`, `var(--bg-secondary)`, `var(--bg-tertiary)`, `var(--bg-hover)`
-- Text: `var(--primary-text)`, `var(--secondary-text)`, `var(--tertiary-text)`
-- Borders/accent: `var(--border)`, `var(--border-hover)`, `var(--accent)`
-- Semantic: `var(--success)`, `var(--warning)`, `var(--error)`, `var(--info)` (+ `-bg` variants)
+- Surfaces: `var(--background)`, `var(--card)`, `var(--muted)`, `var(--accent)` (hover)
+- Text: `var(--foreground)`, `var(--muted-foreground)`
+- Interactive: `var(--primary)` + `var(--primary-foreground)`; borders/focus: `var(--border)`, `var(--ring)`
+- Semantic: `var(--success)`, `var(--warning)`, `var(--info)` (+ `-bg` variants), `var(--destructive)`
 - Radii/spacing/fonts: `var(--radius-sm|md|lg|xl)`, `var(--space-1..12)`, `var(--font-sans)`, `var(--font-mono)`
 
 Rules: no gradients, no `prefers-color-scheme` forks (the theme arrives through the variables and live-updates), no emoji as icons — inline SVG in Lucide style only (`viewBox="0 0 24 24"`, `stroke="currentColor"`, `fill="none"`). Layout must be usable at 800px width. Every list/table needs a designed empty state ("No entries yet — add the first one"), never a blank area.

@@ -1,18 +1,35 @@
-import type { ReactNode } from 'react';
+import type { IconSvgElement } from '@hugeicons/react';
 
 export type PaletteKind = 'nav' | 'action' | 'resource' | 'interaction';
 
-export interface PaletteRow {
+interface PaletteRowBase {
   id: string;
-  kind: PaletteKind;
   label: string;
   sublabel?: string;
-  type?: string;
-  icon: ReactNode;
   run: () => void;
-  /** Backing resource id (resource/interaction rows) for the preview pane. */
-  resourceId?: string;
 }
+
+export type PaletteRow =
+  | (PaletteRowBase & {
+      kind: 'nav';
+      icon: IconSvgElement;
+    })
+  | (PaletteRowBase & {
+      kind: 'action';
+      icon: IconSvgElement;
+    })
+  | (PaletteRowBase & {
+      kind: 'resource';
+      type: string;
+      /** Backing resource id for the preview pane. */
+      resourceId: string;
+    })
+  | (PaletteRowBase & {
+      kind: 'interaction';
+      type: string;
+      /** Backing resource id for the preview pane. */
+      resourceId: string;
+    });
 
 export interface SearchResourceRow {
   id: string;

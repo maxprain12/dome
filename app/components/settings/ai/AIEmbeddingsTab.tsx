@@ -1,6 +1,18 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckmarkCircle02Icon as CheckCircle2,
+  EyeIcon as Eye,
+  EyeOffIcon as EyeOff,
+  Key01Icon as KeyRound,
+  Loading03Icon as Loader2,
+  Layers01Icon as Layers,
+  AlertCircleIcon as AlertCircle,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Layers } from 'lucide-react';
+
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import {
   EMBEDDINGS_PROVIDER_IDS,
@@ -12,12 +24,12 @@ import {
 } from '@/lib/ai/models';
 import ModelSelector from '../ModelSelector';
 import ProviderBrandIcon from './ProviderBrandIcon';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import { DomeInput } from '@/components/ui/DomeInput';
 import { cn } from '@/lib/utils';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { showToast } from '@/lib/store/useToastStore';
 function embeddingModelsAsSelector(
   provider: EmbeddingsProviderType,
   discovered?: Array<{
@@ -45,13 +57,12 @@ function embeddingModelsAsSelector(
 
 function EmbeddingsProviderCheck({ selected }: { selected: boolean }) {
   return (
-    <CheckCircle2
+    <HugeiconsIcon icon={CheckCircle2}
       aria-hidden
       className={cn(
-        'pointer-events-none absolute top-2 right-2 size-3.5 shrink-0 transition-opacity duration-150',
+        'pointer-events-none absolute top-2 right-2 size-3.5 shrink-0 text-primary transition-opacity duration-150',
         selected ? 'opacity-100' : 'opacity-0',
       )}
-      style={{ color: 'var(--dome-accent)' }}
     />
   );
 }
@@ -67,6 +78,7 @@ export default function AIEmbeddingsTab() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmReindex, setConfirmReindex] = useState(false);
   const [status, setStatus] = useState<{
     configured?: boolean;
     modelVersion?: string | null;
@@ -75,6 +87,7 @@ export default function AIEmbeddingsTab() {
     indexedResourceCount?: number;
   } | null>(null);
   const initialKeyRef = useRef('');
+  const skipConfirmRef = useRef(false);
   const [selectorModels, setSelectorModels] = useState<ModelDefinition[]>(() =>
     embeddingModelsAsSelector('openai'),
   );
@@ -200,10 +213,11 @@ export default function AIEmbeddingsTab() {
   const handleSave = async () => {
     const nextKey = `${provider}|${model}|${apiKey}|${baseUrl}`;
     const changed = nextKey !== initialKeyRef.current;
-    if (changed) {
-      const ok = window.confirm(t('settings.ai.embeddings.reindex_warning'));
-      if (!ok) return;
+    if (changed && !skipConfirmRef.current) {
+      setConfirmReindex(true);
+      return;
     }
+    skipConfirmRef.current = false;
     setSaving(true);
     try {
       await saveAIConfig({
@@ -221,6 +235,7 @@ export default function AIEmbeddingsTab() {
       await loadStatus();
     } catch (e) {
       console.error('[AIEmbeddingsTab] save', e);
+      showToast('error', e instanceof Error ? e.message : t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -229,88 +244,77 @@ export default function AIEmbeddingsTab() {
   const hasApiKey = provider !== 'ollama' && apiKey.trim().length > 0;
 
   return (
-    <div className="min-w-0 w-full space-y-4">
-      <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
+    <div className="min-w-0 w-full flex flex-col gap-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         {t('settings.ai.embeddings.description')}
       </p>
 
       <div>
-        <div className="ai-settings__section-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span>{t('settings.ai.embeddings.provider')}</span>
           <span className="text-[11px] font-normal normal-case tracking-normal opacity-80">
             {t('settings.ai.active_provider')}:{' '}
-            <span className="font-medium text-[var(--dome-text)]">{PROVIDERS[provider].name}</span>
+            <span className="font-medium text-foreground">{PROVIDERS[provider].name}</span>
           </span>
         </div>
         <div
           role="radiogroup"
           aria-label={t('settings.ai.embeddings.provider')}
-          className="ai-provider-picker__grid settings-choice-grid settings-choice-grid--3 gap-2"
+          className=" grid sm:grid-cols-3 gap-2"
         >
           {EMBEDDINGS_PROVIDER_IDS.map((id) => {
             const def = PROVIDERS[id];
             const active = provider === id;
             return (
-              <button
+              <Button variant="ghost"
                 key={id}
                 type="button"
                 role="radio"
                 aria-checked={active}
                 onClick={() => handleProviderChange(id)}
                 className={cn(
-                  'ai-provider-picker__card settings-provider-card relative flex w-full min-w-0 flex-col items-start p-2.5 pr-7 rounded-xl text-left transition-all',
+                  '  relative flex w-full min-w-0 flex-col items-start p-2.5 pr-7 rounded-xl text-left transition-[color,background-color,border-color,box-shadow,opacity,transform]',
                   active
-                    ? 'border border-[var(--dome-accent)] bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] shadow-sm'
-                    : 'border border-[var(--dome-border)] bg-[var(--dome-surface)] hover:border-[var(--dome-border-hover,var(--dome-border))]',
+                    ? 'border border-primary bg-[color-mix(in srgb, var(--primary) 12%, transparent)] shadow-sm'
+                    : 'border border-border bg-card hover:border-[var(--ring,var(--border))]',
                 )}
               >
                 <EmbeddingsProviderCheck selected={active} />
                 <ProviderBrandIcon provider={id} size={20} />
-                <span className="settings-provider-card__title mt-1.5 w-full min-w-0 truncate text-xs font-semibold text-[var(--dome-text)]">
+                <span className=" mt-1.5 w-full min-w-0 truncate text-xs font-semibold text-foreground">
                   {def.name}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>
       </div>
 
-      <DomeCard className="space-y-4">
+      <Card className="p-4 flex flex-col gap-4">
         {provider !== 'ollama' ? (
           <div>
             <label
               htmlFor="embeddings-api-key"
-              className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-[var(--dome-text)]"
+              className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground"
             >
               {t('settings.ai.embeddings.api_key')}
               {hasApiKey ? (
-                <KeyRound className="size-3 text-[var(--success)]" aria-label={t('settings.ai.provider_status_configured')} />
+                <HugeiconsIcon icon={KeyRound} className="size-3 text-[var(--success)]" aria-label={t('settings.ai.provider_status_configured')} />
               ) : null}
             </label>
             <div className="relative w-full">
-              <DomeInput
-                id="embeddings-api-key"
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || ''}
-                inputClassName="pr-10"
-                className="w-full [&_input]:pr-10"
-              />
-              <DomeButton
-                type="button"
-                variant="ghost"
-                size="xs"
-                iconOnly
-                className="absolute right-1 top-1/2 -translate-y-1/2"
-                onClick={() => setShowApiKey((v) => !v)}
-                aria-label={showApiKey ? 'Hide' : 'Show'}
-              >
-                {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-              </DomeButton>
+              <Input className="w-full [&_input]:pr-10 pr-10" id="embeddings-api-key" type={showApiKey ? 'text' : 'password'} value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || ''} />
+              <Button type="button"
+  variant="ghost"
+  className="absolute right-1 top-1/2 -translate-y-1/2"
+  onClick={() => setShowApiKey((v) => !v)}
+  aria-label={showApiKey ? 'Hide' : 'Show'}
+  size="icon-xs">
+                {showApiKey ? <HugeiconsIcon icon={EyeOff} className="size-3.5" /> : <HugeiconsIcon icon={Eye} className="size-3.5" />}
+              </Button>
             </div>
             {PROVIDERS[provider]?.docsUrl ? (
-              <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">
+              <p className="text-[11px] mt-1.5 text-muted-foreground">
                 {t('settings.ai.free_key_at')}{' '}
                 <a href={PROVIDERS[provider].docsUrl} target="_blank" rel="noreferrer" className="underline">
                   {PROVIDERS[provider].docsUrl}
@@ -320,23 +324,18 @@ export default function AIEmbeddingsTab() {
           </div>
         ) : (
           <div>
-            <label htmlFor="embeddings-base-url" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
+            <label htmlFor="embeddings-base-url" className="block text-sm font-medium mb-1.5 text-foreground">
               {t('settings.ai.embeddings.base_url')}
             </label>
-            <DomeInput
-              id="embeddings-base-url"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="http://localhost:11434"
-            />
-            <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">{t('settings.ai.ollama_install')}</p>
+            <Input id="embeddings-base-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://localhost:11434" />
+            <p className="text-[11px] mt-1.5 text-muted-foreground">{t('settings.ai.ollama_install')}</p>
           </div>
         )}
 
         <div>
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-[var(--dome-text)]">
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             {t('settings.ai.embeddings.model')}
-            {modelsLoading ? <Loader2 className="size-3 animate-spin opacity-60" aria-hidden /> : null}
+            {modelsLoading ? <HugeiconsIcon icon={Loader2} className="size-3 animate-spin opacity-60" aria-hidden /> : null}
           </label>
           <ModelSelector
             models={selectorModels}
@@ -348,46 +347,40 @@ export default function AIEmbeddingsTab() {
             disabled={modelsLoading}
           />
           {modelsSource === 'remote' ? (
-            <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">
+            <p className="text-[11px] mt-1.5 text-muted-foreground">
               {t('settings.ai.embeddings.models_discovered')}
             </p>
           ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <DomeButton
-            type="button"
-            variant="outline"
-            size="md"
-            disabled={testing || saving}
-            onClick={() => void handleTest()}
-            leftIcon={testing ? <Loader2 className="size-4 animate-spin" /> : undefined}
-          >
+          <Button type="button"
+  variant="outline"
+  disabled={testing || saving}
+  onClick={() => void handleTest()}>{testing ? <HugeiconsIcon icon={Loader2} className="size-4 animate-spin" /> : undefined}
             {testing ? t('settings.ai.testing') : t('settings.ai.embeddings.test')}
-          </DomeButton>
-          <DomeButton
-            type="button"
-            variant="primary"
-            size="md"
-            disabled={saving}
-            onClick={() => void handleSave()}
-            leftIcon={saving ? <Loader2 className="size-4 animate-spin" /> : <Layers className="size-4" />}
-          >
+          </Button>
+          <Button type="button"
+  disabled={saving}
+  onClick={() => void handleSave()}>{saving ? <HugeiconsIcon icon={Loader2} className="size-4 animate-spin" /> : <HugeiconsIcon icon={Layers} className="size-4" />}
             {saved ? t('settings.ai.saved_config') : t('settings.ai.embeddings.save')}
-          </DomeButton>
+          </Button>
         </div>
 
         {testResult ? (
-          <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
+          <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
+            {testResult.success ? <HugeiconsIcon icon={CheckCircle2} aria-hidden /> : <HugeiconsIcon icon={AlertCircle} aria-hidden />}
+            <AlertDescription className="text-xs">{testResult.message}</AlertDescription>
+          </Alert>
         ) : null}
-      </DomeCard>
+      </Card>
 
-      <DomeCard className="space-y-2">
-        <p className="text-sm font-medium text-[var(--dome-text)]">{t('settings.ai.embeddings.status_title')}</p>
+      <Card className="p-4 flex flex-col gap-2">
+        <p className="text-sm font-medium text-foreground">{t('settings.ai.embeddings.status_title')}</p>
         {!status?.configured ? (
-          <p className="text-sm text-[var(--dome-text-muted)]">{t('settings.ai.embeddings.status.not_configured')}</p>
+          <p className="text-sm text-muted-foreground">{t('settings.ai.embeddings.status.not_configured')}</p>
         ) : (
-          <ul className="text-sm space-y-1 text-[var(--dome-text)]">
+          <ul className="text-sm flex flex-col gap-1 text-foreground">
             {status.modelVersion ? (
               <li>
                 {t('settings.ai.embeddings.status.model_active')}:{' '}
@@ -405,7 +398,18 @@ export default function AIEmbeddingsTab() {
             </li>
           </ul>
         )}
-      </DomeCard>
+      </Card>
+      <ConfirmDialog
+        isOpen={confirmReindex}
+        title={t('settings.ai.embeddings.reindex_warning')}
+        message={t('settings.ai.embeddings.reindex_warning')}
+        onConfirm={() => {
+          setConfirmReindex(false);
+          skipConfirmRef.current = true;
+          void handleSave();
+        }}
+        onCancel={() => setConfirmReindex(false)}
+      />
     </div>
   );
 }

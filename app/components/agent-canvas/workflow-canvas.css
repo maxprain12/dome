@@ -6,10 +6,10 @@
   position: relative;
   isolation: isolate;
   cursor: grab;
-  background-color: var(--dome-bg);
+  background-color: var(--background);
   background-image: radial-gradient(
     circle at center,
-    color-mix(in srgb, var(--dome-border) 45%, transparent) 0.65px,
+    color-mix(in srgb, var(--border) 45%, transparent) 0.65px,
     transparent 0.65px
   );
   background-size: 20px 20px;
@@ -31,7 +31,7 @@
 }
 
 .wf-edge-path {
-  stroke: var(--dome-text-muted);
+  stroke: var(--muted-foreground);
   stroke-width: 1.35;
   stroke-opacity: 0.55;
   stroke-linecap: round;
@@ -70,9 +70,9 @@
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  border: 2px solid var(--dome-surface);
-  background: var(--dome-accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 35%, transparent);
+  border: 2px solid var(--card);
+  background: var(--primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted-foreground) 35%, transparent);
   z-index: 2;
   pointer-events: auto;
   cursor: crosshair;
@@ -87,9 +87,9 @@
   height: 12px;
   border-radius: 9999px;
   padding: 0;
-  border: 2px solid var(--dome-surface);
-  background: var(--wf-handle-color, var(--dome-accent));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 35%, transparent);
+  border: 2px solid var(--card);
+  background: var(--wf-handle-color, var(--primary));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted-foreground) 35%, transparent);
   z-index: 2;
   pointer-events: auto;
   cursor: crosshair;
@@ -97,15 +97,15 @@
 
 .wf-handle-out:hover,
 .wf-handle-in:hover {
-  box-shadow: 0 0 0 2px var(--dome-accent-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .workflow-canvas .workflow-node-card,
 .workflow-canvas .wf-node-card {
-  background: var(--dome-surface);
+  background: var(--card);
   box-shadow: none;
 }
 
 .workflow-canvas .workflow-node-header {
-  border-bottom: 1px solid var(--dome-border);
+  border-bottom: 1px solid var(--border);
 }

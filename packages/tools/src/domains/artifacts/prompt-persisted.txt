@@ -95,7 +95,7 @@ The iframe cannot reach local services. When the artifact needs periodic externa
 1. Fragment only — no doctype/html/head/body wrappers.
 2. Renders entirely from `window.DOME_DATA`; seed `data` provided; empty state designed.
 3. Every mutation calls `__dome_updateState`; no browser-storage persistence.
-4. Tokens only (`--bg`, `--accent`, `--primary-text`, semantic vars); no gradients; no emoji icons — inline Lucide-style SVG.
+4. Tokens only (`--background`, `--card`, `--primary`, `--foreground`, semantic vars); no gradients; no emoji icons — inline Lucide-style SVG.
 5. Self-contained vanilla JS; any CDN use degrades gracefully offline.
 6. Usable at 800px width; interactive targets ≥32px; visible focus states.
 7. UI copy in the user's conversation language.

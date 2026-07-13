@@ -112,7 +112,7 @@ const PDFPage = forwardRef<HTMLCanvasElement, PDFPageProps>(function PDFPage(
   }, [page, scale, pageNumber]);
 
   return (
-    <div className="relative mb-4" style={{ background: 'var(--bg)' }}>
+    <div className="relative mb-4 bg-background">
       <canvas
         ref={setCanvasRef}
         className="block shadow-lg"
@@ -126,7 +126,7 @@ const PDFPage = forwardRef<HTMLCanvasElement, PDFPageProps>(function PDFPage(
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: 'rgba(255, 255, 255, 0.8)' }}
         >
-          <div className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+          <div className="text-sm text-muted-foreground">
             Loading page {pageNumber}...
           </div>
         </div>
@@ -136,7 +136,7 @@ const PDFPage = forwardRef<HTMLCanvasElement, PDFPageProps>(function PDFPage(
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: 'rgba(255, 255, 255, 0.9)' }}
         >
-          <div className="text-sm text-[var(--error)]">Error: {error}</div>
+          <div className="text-sm text-destructive">Error: {error}</div>
         </div>
       )}
     </div>

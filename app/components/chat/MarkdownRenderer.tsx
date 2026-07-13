@@ -12,6 +12,8 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { typesetDocsClass } from '@/lib/typeset';
 import './markdown-renderer.css';
 
 /** UUID v4 pattern for resource IDs */
@@ -104,6 +106,8 @@ interface MarkdownRendererProps {
   onClickCitation?: (number: number) => void;
   /** Load github.com / githubusercontent.com images via main-process OAuth proxy. */
   githubImageProxy?: boolean;
+  /** Extra classes on the typeset root (layout only). */
+  className?: string;
 }
 
 /**
@@ -188,7 +192,7 @@ function processTextWithCitations(
   return parts;
 }
 
-export default function MarkdownRenderer({ content, citationMap, onClickCitation, githubImageProxy }: MarkdownRendererProps) {
+export default function MarkdownRenderer({ content, citationMap, onClickCitation, githubImageProxy, className }: MarkdownRendererProps) {
   const { t } = useTranslation();
   const hasCitations = citationMap && citationMap.size > 0;
   const navigate = useNavigate();
@@ -377,63 +381,19 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   );
 
   const components: Components = useMemo(() => {
+    const withCitations = (children: ReactNode) =>
+      hasCitations ? processCitations(children, citationMap!, onClickCitation) : children;
+
     const baseComponents: Components = {
-      // Headings - limited size for chat context
-      h1: ({ children }) => (
-        <h1
-          style={{
-            fontSize: 16,
-            fontWeight: 600,
-            color: 'var(--primary-text)',
-            margin: '16px 0 6px',
-            paddingBottom: 4,
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </h1>
-      ),
-      h2: ({ children }) => (
-        <h2
-          style={{
-            fontSize: 15,
-            fontWeight: 600,
-            color: 'var(--primary-text)',
-            margin: '16px 0 6px',
-            paddingBottom: 3,
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </h2>
-      ),
-      h3: ({ children }) => (
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-text)', margin: '16px 0 6px' }}>
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </h3>
-      ),
-
-      // Paragraphs
-      p: ({ children }) => (
-        <p style={{ margin: '6px 0', lineHeight: 1.65 }}>
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </p>
-      ),
-
-      // Bold/italic
-      strong: ({ children }) => (
-        <strong style={{ fontWeight: 600, color: 'var(--primary-text)' }}>
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </strong>
-      ),
-      em: ({ children }) => (
-        <em style={{ fontStyle: 'italic' }}>
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </em>
-      ),
-
-      // Links - dome://resource/ID/TYPE opens workspace; dome://folder/ID opens Home with folder;
-      // dome://studio/ID/TYPE opens studio output; dome://resolve/SLUG resolves wikilinks
+      h1: ({ children }) => <h1>{withCitations(children)}</h1>,
+      h2: ({ children }) => <h2>{withCitations(children)}</h2>,
+      h3: ({ children }) => <h3>{withCitations(children)}</h3>,
+      h4: ({ children }) => <h4>{withCitations(children)}</h4>,
+      h5: ({ children }) => <h5>{withCitations(children)}</h5>,
+      h6: ({ children }) => <h6>{withCitations(children)}</h6>,
+      p: ({ children }) => <p>{withCitations(children)}</p>,
+      strong: ({ children }) => <strong>{withCitations(children)}</strong>,
+      em: ({ children }) => <em>{withCitations(children)}</em>,
       a: ({ href, children }) => {
         const isDomeResource =
           typeof href === 'string' && href.startsWith('dome://resource/');
@@ -463,7 +423,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
               type="button"
               data-dome-href={href}
               onClick={handleAllClicks}
-              className="md-dome-link"
+              className="md-dome-link not-typeset"
             >
               <span className="md-dome-link-icon">↗</span>
               {children}
@@ -476,70 +436,26 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             type="button"
             data-dome-href={undefined}
             onClick={handleAllClicks}
-            className="md-external-link"
+            className="md-external-link not-typeset"
           >
             {children}
           </button>
         );
       },
 
-      // Inline code
       code: ({ children, className }) => {
-        // Check if this is a code block (has language class)
         const isBlock = className?.startsWith('language-');
         if (isBlock) {
-          return (
-            <code className="md-code-block">
-              {children}
-            </code>
-          );
+          return <code className={className}>{children}</code>;
         }
-        return (
-          <code
-            style={{
-              padding: '2px 6px',
-              backgroundColor: 'var(--bg-tertiary)',
-              border: '1px solid var(--border)',
-              borderRadius: 3,
-              fontSize: '0.88em',
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-              color: 'var(--primary-text)',
-            }}
-          >
-            {children}
-          </code>
-        );
+        return <code>{children}</code>;
       },
 
-      // Code blocks
-      pre: ({ children }) => (
-        <pre
-          style={{
-            margin: '8px 0',
-            borderRadius: 6,
-            maxWidth: '100%',
-            overflowX: 'auto',
-            overflowY: 'hidden',
-          }}
-        >
-          {children}
-        </pre>
-      ),
+      pre: ({ children }) => <pre>{children}</pre>,
 
-      // Lists
-      ul: ({ children }) => (
-        <ul style={{ margin: '4px 0', paddingLeft: 24, listStyleType: 'disc' }}>{children}</ul>
-      ),
-      ol: ({ children }) => (
-        <ol style={{ margin: '4px 0', paddingLeft: 24, listStyleType: 'decimal' }}>{children}</ol>
-      ),
-      li: ({ children }) => (
-        <li style={{ margin: '4px 0', lineHeight: 1.6 }}>
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </li>
-      ),
-
-      // Images — dome-pdf-page:resourceId:page renders PDF page PNG
+      ul: ({ children }) => <ul>{children}</ul>,
+      ol: ({ children }) => <ol>{children}</ol>,
+      li: ({ children }) => <li>{withCitations(children)}</li>,
       img: ({ src, alt }) => {
         if (typeof src === 'string' && src.startsWith('dome-pdf-page:')) {
           const rest = src.slice('dome-pdf-page:'.length).trim();
@@ -548,7 +464,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             const resourceId = rest.slice(0, colon);
             const pageNum = parseInt(rest.slice(colon + 1), 10);
             if (resourceId && Number.isFinite(pageNum) && pageNum >= 1) {
-              return <DomePdfPageInline resourceId={resourceId} pageNumber={pageNum} alt={alt || `PDF p.${pageNum}`} />;
+              return (
+                <span className="not-typeset">
+                  <DomePdfPageInline resourceId={resourceId} pageNumber={pageNum} alt={alt || `PDF p.${pageNum}`} />
+                </span>
+              );
             }
           }
           return null;
@@ -558,83 +478,26 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           typeof src === 'string' &&
           (src.startsWith('data:') || isGithubHostedImageUrl(src))
         ) {
-          return <GithubProxyImage src={src} alt={alt} />;
+          return (
+            <span className="not-typeset">
+              <GithubProxyImage src={src} alt={alt} />
+            </span>
+          );
         }
-        return (
-          <img
-            src={src}
-            alt={alt || ''}
-            style={{
-              maxWidth: '100%',
-              height: 'auto',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-            }}
-          />
-        );
+        return <img src={src} alt={alt || ''} />;
       },
 
-      // Blockquote — styled with background, not italic
-      blockquote: ({ children }) => (
-        <blockquote
-          style={{
-            margin: '8px 0',
-            padding: '10px 14px',
-            borderLeft: '3px solid var(--accent)',
-            borderRadius: '0 4px 4px 0',
-            background: 'var(--bg-secondary)',
-            color: 'var(--secondary-text)',
-            fontStyle: 'normal',
-          }}
-        >
-          {children}
-        </blockquote>
-      ),
+      blockquote: ({ children }) => <blockquote>{children}</blockquote>,
 
-      // Horizontal rule
-      hr: () => (
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
-      ),
+      hr: () => <hr />,
 
-      // Tables
       table: ({ children }) => (
-        <div style={{ overflowX: 'auto', margin: '8px 0' }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: 13,
-            }}
-          >
-            {children}
-          </table>
+        <div className="overflow-x-auto">
+          <table>{children}</table>
         </div>
       ),
-      th: ({ children }) => (
-        <th
-          style={{
-            textAlign: 'left',
-            padding: '6px 10px',
-            borderBottom: '2px solid var(--border)',
-            fontWeight: 600,
-            fontSize: 12,
-            color: 'var(--primary-text)',
-          }}
-        >
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </th>
-      ),
-      td: ({ children }) => (
-        <td
-          style={{
-            padding: '5px 10px',
-            borderBottom: '1px solid var(--border)',
-            color: 'var(--secondary-text)',
-          }}
-        >
-          {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
-        </td>
-      ),
+      th: ({ children }) => <th>{withCitations(children)}</th>,
+      td: ({ children }) => <td>{withCitations(children)}</td>,
     };
 
     return baseComponents;
@@ -678,7 +541,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   }, []);
 
   return (
-    <div onClickCapture={handleContainerClickCapture}>
+    <div className={typesetDocsClass(cn('min-w-0 w-full', className))} onClickCapture={handleContainerClickCapture}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={components}

@@ -1,20 +1,24 @@
 /** Grid card for a folder or resource inside FolderTabView. Shows thumbnail + content snippet. */
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, FileText, Folder, MoreVertical, Play, X } from 'lucide-react';
+import { CheckIcon, FileEditIcon, Folder01Icon, MoreVerticalIcon, PlayIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { typesetDocsClass } from '@/lib/typeset';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/lib/hooks/useResources';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
 import { useResourceVisualPreview, type ResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
 import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import { getFolderColor, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ColorPickerPopover from './ColorPickerPopover';
 import ResourceContextMenuItems from './ResourceContextMenuItems';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const SNIPPET_MAX = 180;
 
@@ -126,7 +130,7 @@ function pickMarkdown(item: Resource): string | null {
 /** Non-interactive rendered Markdown for the card cover (links/images inert). */
 function NoteMarkdownThumb({ markdown }: { markdown: string }) {
   return (
-    <div className="dome-fs-card__md-thumb" aria-hidden>
+    <div className={typesetDocsClass('dome-fs-card__md-thumb')} aria-hidden>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -225,7 +229,7 @@ function deriveCardPresentation(
   t: TranslateFn,
 ): CardPresentation {
   const folderColor = isFolder ? getFolderColor(item) : undefined;
-  const typeColor = isFolder ? (folderColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
+  const typeColor = isFolder ? (folderColor ?? 'var(--primary)') : 'var(--muted-foreground)';
   const typeLabel = isFolder ? t('folder.typeFolder', 'Carpeta') : (TYPE_LABELS[item.type] ?? item.type);
   const timeAgo = item.updated_at
     ? formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })
@@ -317,7 +321,7 @@ function CoverPreviewContent({
 }) {
   if (isFolderCard) {
     return (
-      <Folder
+      <HugeiconsIcon icon={Folder01Icon}
         className="dome-fs-card__cover-icon"
         style={{ color: p.typeColor }}
         strokeWidth={1.25}
@@ -353,16 +357,16 @@ function CoverPreviewContent({
   if (visual.loading) {
     return (
       <div className="dome-fs-card__cover-fallback" style={{ color: p.typeColor }} aria-hidden>
-        <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
+        <ResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
       </div>
     );
   }
   return (
     <div className="dome-fs-card__cover-fallback" style={{ color: p.typeColor }}>
       {item.type === 'note' || item.type === 'notebook' ? (
-        <FileText className="size-7" strokeWidth={1.25} />
+        <HugeiconsIcon icon={FileEditIcon} className="size-7" strokeWidth={1.25} />
       ) : (
-        <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
+        <ResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
       )}
     </div>
   );
@@ -414,12 +418,12 @@ function CardCover({
       className={`dome-fs-card__cover cursor-pointer${p.artifactTemplate ? ' dome-fs-card__cover--artifact' : ''}`}
       onClick={onActivate}
       style={isFolderCard
-        ? { background: `color-mix(in srgb, ${p.typeColor} 12%, var(--dome-surface))` }
+        ? { background: `color-mix(in srgb, ${p.typeColor} 12%, var(--card))` }
         : undefined}
     >
       {showSelectionChrome ? (
         <span className="dome-fs-card__select">
-          <input
+          <Input
             type="checkbox"
             checked={selected}
             onChange={() => {}}
@@ -440,12 +444,12 @@ function CardCover({
 
       {p.isVideoCard ? (
         <span className="dome-fs-card__play-badge" aria-hidden>
-          <Play className="size-4" fill="currentColor" strokeWidth={0} />
+          <HugeiconsIcon icon={PlayIcon} className="size-4" fill="currentColor" strokeWidth={0} />
         </span>
       ) : null}
 
       {(hovered || menuOpen) && !renaming ? (
-        <button
+        <Button
           ref={menuBtnRef}
           type="button"
           onClick={(e) => {
@@ -460,8 +464,8 @@ function CardCover({
           aria-label={t('folder.rowActions', 'Acciones')}
           title={t('folder.rowActions', 'Acciones')}
         >
-          <MoreVertical className="size-3.5" />
-        </button>
+          <HugeiconsIcon icon={MoreVerticalIcon} className="size-3.5" />
+        </Button>
       ) : null}
     </div>
   );
@@ -496,7 +500,7 @@ function CardBody({
     return (
       <div className="dome-fs-card__body">
         <div className="dome-fs-card__rename">
-          <input
+          <Input
             ref={renameRef}
             type="text"
             value={renameValue}
@@ -509,18 +513,18 @@ function CardBody({
             aria-label={t('ui.rename', 'Rename')}
             className="dome-fs-tree-row__rename-input"
           />
-          <button type="button" onClick={(e) => { e.stopPropagation(); onCommitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
-            <Check className="size-3.5" />
-          </button>
-          <button type="button" onClick={(e) => { e.stopPropagation(); onCancelRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
-            <X className="size-3.5" />
-          </button>
+          <Button type="button" onClick={(e) => { e.stopPropagation(); onCommitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
+            <HugeiconsIcon icon={CheckIcon} className="size-3.5" />
+          </Button>
+          <Button type="button" onClick={(e) => { e.stopPropagation(); onCancelRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
+            <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+          </Button>
         </div>
       </div>
     );
   }
   return (
-    <button
+    <Button
       type="button"
       className="dome-fs-card__body"
       onClick={onActivate}
@@ -540,7 +544,7 @@ function CardBody({
         <span className="dome-fs-card__type-badge" title={p.typeLabel}>{p.typeLabel}</span>
         <span className="dome-fs-card__modified">{p.timeAgo}</span>
       </div>
-    </button>
+    </Button>
   );
 }
 
@@ -584,15 +588,10 @@ function CardMenuLayers({
           for fixed-position descendants (it has `container-type` + `overflow:
           hidden` + a hover `transform`), which would otherwise clip and
           mis-position this menu. */}
-      {menuOpen && menuPos && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              role="menu"
-              tabIndex={-1}
-              className="dome-folder-view__row-menu"
-              style={{ top: menuPos.top, right: menuPos.right }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
+      {menuOpen && menuPos ? (
+            <DropdownMenu open onOpenChange={(open) => { if (!open) onDismissMenu(); }}>
+              <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, right: menuPos.right }} aria-hidden />} />
+              <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="dome-folder-view__row-menu">
               <ResourceContextMenuItems
                 resource={item}
                 options={{
@@ -612,10 +611,9 @@ function CardMenuLayers({
                 }}
                 onDismiss={onDismissMenu}
               />
-            </div>,
-            document.body,
-          )
-        : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+        ) : null}
 
       {colorPickerPos && actions.onChangeColor ? (
         <ColorPickerPopover

@@ -1,0 +1,17 @@
+[mcp_servers.cua-driver]
+command = "cua-driver"
+args = ["mcp"]
+
+[mcp_servers.dome]
+command = "node"
+args = ["/Users/maxprain/Documents/dome/electron/dome-mcp-bridge.cjs"]
+
+[mcp_servers.dome.env]
+DOME_MCP_PORT = "37214"
+
+[mcp_servers.node]
+command = "/Users/maxprain/Documents/dome/electron/dome-mcp-bridge.cjs"
+args = ["dome"]
+
+[mcp_servers.node.env]
+DOME_MCP_PORT = "37214"

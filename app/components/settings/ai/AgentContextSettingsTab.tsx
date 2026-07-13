@@ -1,16 +1,28 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CopyIcon as Copy,
+  FolderOpenIcon as FolderOpen,
+  RefreshIcon as RefreshCw,
+  Loading03Icon as Loader2,
+  Alert02Icon as AlertTriangle,
+  InformationCircleIcon as Info,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Copy, FolderOpen, RefreshCw, Loader2 } from 'lucide-react';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import { Textarea } from '@/components/ui/textarea';
+
+import SubpageHeader from '@/components/shared/SubpageHeader';
 import { showToast } from '@/lib/store/useToastStore';
 import {
   loadPersonalityContextFiles,
   type PersonalityContextFiles,
 } from '@/lib/personality/contextFiles';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { ReactNode } from 'react';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 type ContextDocId = 'SOUL' | 'USER' | 'MEMORY' | 'daily';
 type ViewMode = 'full' | 'agent';
 type EditMode = 'view' | 'edit';
@@ -44,6 +56,7 @@ export default function AgentContextSettingsTab() {
   const [agentView, setAgentView] = useState<PersonalityContextFiles | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const [selectedDailyDate, setSelectedDailyDate] = useState<string | null>(null);
+  const [pendingDoc, setPendingDoc] = useState<ContextDocId | null>(null);
 
   const isDirty = editMode === 'edit' && draftContent !== savedContent;
 
@@ -122,7 +135,10 @@ export default function AgentContextSettingsTab() {
   };
 
   const handleSelectDoc = (doc: ContextDocId) => {
-    if (isDirty && !window.confirm(t('settings.ai.context_unsaved_confirm'))) return;
+    if (isDirty) {
+      setPendingDoc(doc);
+      return;
+    }
     setEditMode('view');
     if (doc !== 'daily') setViewMode('full');
     setSelectedDoc(doc);
@@ -166,138 +182,135 @@ export default function AgentContextSettingsTab() {
   ];
 
   return (
-    <div className="space-y-4">
-      <DomeSubpageHeader>
-  <DomeSubpageHeader.Title>{t('settings.ai.tab_context')}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{t('settings.ai.context_subtitle')}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
+    <div className="flex flex-col gap-4">
+      <SubpageHeader>
+  <SubpageHeader.Title>{t('settings.ai.tab_context')}</SubpageHeader.Title>
+  <SubpageHeader.Subtitle>{t('settings.ai.context_subtitle')}</SubpageHeader.Subtitle>
+</SubpageHeader>
 
-      <div className="settings-action-row flex-wrap">
-        <DomeButton
-          variant="secondary"
-          size="sm"
-          onClick={openAgentContextFolder}
-          leftIcon={<FolderOpen size={14} />}
-        >
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="secondary"
+  onClick={openAgentContextFolder}
+  size="sm">{<HugeiconsIcon icon={FolderOpen} size={14} />}
           {t('settings.ai.context_open_folder')}
-        </DomeButton>
-        <DomeButton
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          leftIcon={loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          disabled={loading}
-        >
+        </Button>
+        <Button variant="ghost"
+  onClick={handleRefresh}
+  disabled={loading}
+  size="sm">{loading ? <HugeiconsIcon icon={Loader2} size={14} className="animate-spin" /> : <HugeiconsIcon icon={RefreshCw} size={14} />}
           {t('common.refresh')}
-        </DomeButton>
+        </Button>
       </div>
 
-      <DomeSegmentedControl
-        size="sm"
-        value={selectedDoc}
-        onChange={(v) => handleSelectDoc(v as ContextDocId)}
-        options={docOptions}
-      />
+      <Tabs value={selectedDoc} onValueChange={(v) => handleSelectDoc(v as ContextDocId)} className="min-w-0"><TabsList className="h-auto w-full max-w-full flex-wrap">{(docOptions).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
 
       {selectedDoc === 'daily' && dailyLogs.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {dailyLogs.map((log) => (
-            <DomeButton
-              key={log.date}
-              type="button"
-              size="sm"
-              variant={selectedDailyDate === log.date ? 'primary' : 'outline'}
-              onClick={() => setSelectedDailyDate(log.date)}
-            >
+            <Button key={log.date}
+  type="button"
+  variant={selectedDailyDate === log.date ? 'default' : 'outline'}
+  onClick={() => setSelectedDailyDate(log.date)}
+  size="sm">
               {log.date}
-            </DomeButton>
+            </Button>
           ))}
         </div>
       ) : null}
 
       {selectedDoc !== 'daily' ? (
-        <DomeSegmentedControl
-          size="sm"
-          value={viewMode}
-          onChange={(v) => setViewMode(v as ViewMode)}
-          options={[
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)} className="min-w-0"><TabsList className="h-auto w-full max-w-full flex-wrap">{([
             { value: 'full', label: t('settings.ai.context_view_full') },
             { value: 'agent', label: t('settings.ai.context_view_agent') },
-          ]}
-        />
+          ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         {viewMode === 'full' || selectedDoc === 'daily' ? (
           <>
-            <DomeButton
-              type="button"
-              size="sm"
-              variant={editMode === 'view' ? 'primary' : 'outline'}
-              onClick={() => setEditMode('view')}
-            >
+            <Button type="button"
+  variant={editMode === 'view' ? 'default' : 'outline'}
+  onClick={() => setEditMode('view')}
+  size="sm">
               {t('settings.ai.context_mode_view')}
-            </DomeButton>
-            <DomeButton
-              type="button"
-              size="sm"
-              variant={editMode === 'edit' ? 'primary' : 'outline'}
-              onClick={() => setEditMode('edit')}
-            >
+            </Button>
+            <Button type="button"
+  variant={editMode === 'edit' ? 'default' : 'outline'}
+  onClick={() => setEditMode('edit')}
+  size="sm">
               {t('settings.ai.context_mode_edit')}
-            </DomeButton>
+            </Button>
           </>
         ) : null}
-        <DomeButton type="button" size="sm" variant="ghost" onClick={() => void handleCopy()} leftIcon={<Copy size={14} />}>
+        <Button type="button"
+  variant="ghost"
+  onClick={() => void handleCopy()}
+  size="sm">{<HugeiconsIcon icon={Copy} size={14} />}
           {t('common.copy')}
-        </DomeButton>
+        </Button>
         {editMode === 'edit' && (viewMode === 'full' || selectedDoc === 'daily') ? (
           <>
-            <DomeButton type="button" size="sm" variant="primary" loading={saving} disabled={!isDirty} onClick={() => void handleSave()}>
+            <Button type="button"
+  loading={saving}
+  disabled={!isDirty}
+  onClick={() => void handleSave()}
+  size="sm">
               {t('common.save')}
-            </DomeButton>
-            <DomeButton
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!isDirty}
-              onClick={() => setDraftContent(savedContent)}
-            >
+            </Button>
+            <Button type="button"
+  variant="outline"
+  disabled={!isDirty}
+  onClick={() => setDraftContent(savedContent)}
+  size="sm">
               {t('settings.ai.context_discard')}
-            </DomeButton>
+            </Button>
           </>
         ) : null}
       </div>
 
       {viewMode === 'agent' && selectedDoc !== 'daily' ? (
-        <DomeCallout tone="info">{t('settings.ai.context_agent_view_hint')}</DomeCallout>
+        <Alert role="note"><HugeiconsIcon icon={Info} aria-hidden /><AlertDescription className="text-xs">{t('settings.ai.context_agent_view_hint')}</AlertDescription></Alert>
       ) : null}
 
       {overLimit ? (
-        <DomeCallout tone="warning">
+        <Alert role="note"><HugeiconsIcon icon={AlertTriangle} aria-hidden /><AlertDescription className="text-xs">
           {t('settings.ai.context_over_limit', { limit: charLimit ?? 0, count: draftContent.length })}
-        </DomeCallout>
+        </AlertDescription></Alert>
       ) : null}
 
-      <DomeCallout tone="info">{t('settings.ai.context_memory_toggle_hint')}</DomeCallout>
+      <Alert role="note"><HugeiconsIcon icon={Info} aria-hidden /><AlertDescription className="text-xs">{t('settings.ai.context_memory_toggle_hint')}</AlertDescription></Alert>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--secondary-text)]">
-          <Loader2 size={16} className="animate-spin" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <HugeiconsIcon icon={Loader2} size={16} className="animate-spin" />
           {t('ui.loading')}
         </div>
       ) : editMode === 'edit' && (viewMode === 'full' || selectedDoc === 'daily') ? (
-        <textarea
+        <Textarea
           value={draftContent}
           onChange={(e) => setDraftContent(e.target.value)}
-          className="w-full min-h-[320px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 font-mono text-xs leading-relaxed text-[var(--primary-text)]"
+          className="w-full min-h-[320px] rounded-lg border border-border bg-card p-3 font-mono text-xs leading-relaxed text-foreground"
           spellCheck={false}
         />
       ) : (
-        <pre className="max-h-[420px] overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-[var(--primary-text)]">
+        <pre className="max-h-[420px] overflow-auto rounded-lg border border-border bg-card p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground">
           {displayedContent || t('settings.ai.context_empty')}
         </pre>
       )}
+      <ConfirmDialog
+        isOpen={pendingDoc !== null}
+        title={t('settings.ai.context_unsaved_confirm')}
+        message={t('settings.ai.context_unsaved_confirm')}
+        onConfirm={() => {
+          if (pendingDoc) {
+            setEditMode('view');
+            if (pendingDoc !== 'daily') setViewMode('full');
+            setSelectedDoc(pendingDoc);
+          }
+          setPendingDoc(null);
+        }}
+        onCancel={() => setPendingDoc(null)}
+      />
     </div>
   );
 }

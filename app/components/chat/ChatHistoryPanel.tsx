@@ -1,15 +1,18 @@
 import { useState, useMemo, startTransition, type FormEvent } from 'react';
-import { Search, X, Plus, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Add01Icon, Cancel01Icon, Search01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
 import { filterOutDeletedSessions } from '@/lib/store/manySessionStorage';
 import { useTabStore } from '@/lib/store/useTabStore';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeInput } from '@/components/ui/DomeInput';
 import ChatHistorySessionList from './ChatHistorySessionList';
 import { buildChatHistorySections, filterAndSortSessions } from './chatHistoryUtils';
 
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 function deleteChatSession(sessionId: string) {
   void useManyStore.getState().deleteSession(sessionId);
 }
@@ -75,78 +78,68 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
         placement === 'inline-right' && 'chat-history-panel--inline-right',
       )}
     >
-      {renameId ? (
-        <dialog
-          open
-          className="fixed inset-0 z-[200] m-0 flex max-h-none max-w-none items-center justify-center border-0 bg-transparent p-3"
-          aria-labelledby="chat-rename-dialog-title"
-          onClose={() => setRenameId(null)}
-        >
-          <button
-            type="button"
-            className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
-            style={{ background: 'rgb(0 0 0 / 0.45)' }}
-            aria-label={t('common.close')}
-            onClick={() => setRenameId(null)}
-          />
+      <Dialog open={Boolean(renameId)} onOpenChange={(open) => !open && setRenameId(null)}>
+        <DialogContent className="max-w-sm gap-4" showCloseButton={false}>
           <form
             onSubmit={handleApplyRename}
-            className="relative z-10 w-full max-w-sm rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-lg"
             aria-labelledby="chat-rename-dialog-title"
           >
-            <p id="chat-rename-dialog-title" className="text-xs font-medium text-[var(--dome-text)] mb-2">
-              {t('chat.rename_conversation')}
-            </p>
-            <DomeInput
-              className="gap-0 mb-3"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              inputClassName="!text-sm"
-            />
-            <div className="flex justify-end gap-2">
-              <DomeButton type="button" variant="ghost" size="sm" onClick={() => setRenameId(null)}>
+            <DialogHeader className="mb-4">
+              <DialogTitle id="chat-rename-dialog-title">{t('chat.rename_conversation')}</DialogTitle>
+            </DialogHeader>
+            <Input autoFocus className="mb-4" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} />
+            <DialogFooter>
+              <Button type="button"
+  variant="ghost"
+  onClick={() => setRenameId(null)}
+  size="sm">
                 {t('common.cancel')}
-              </DomeButton>
-              <DomeButton type="submit" variant="primary" size="sm" leftIcon={<Check className="size-3.5" />}>
+              </Button>
+              <Button type="submit"
+  size="sm"><HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
                 {t('common.save')}
-              </DomeButton>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
-        </dialog>
-      ) : null}
+        </DialogContent>
+      </Dialog>
 
       <header className="chat-history-hd">
         <h3 className="chat-history-hd__title">{t('chat.chats_title')}</h3>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           className="many-icon-btn"
           onClick={handleNewChat}
           title={newChatLabel}
           aria-label={newChatLabel}
         >
-          <Plus size={15} />
-        </button>
-        <button
+          <HugeiconsIcon icon={Add01Icon} className="size-4" />
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           className="many-icon-btn"
           onClick={onClose}
           aria-label={t('chat.close_chat')}
         >
-          <X size={14} />
-        </button>
+          <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+        </Button>
       </header>
 
       <div className="chat-history-search">
-        <label className="chat-history-search-box">
-          <Search size={13} strokeWidth={2} aria-hidden />
-          <input
+        <InputGroup className="chat-history-search-box">
+          <InputGroupAddon><HugeiconsIcon icon={Search01Icon} className="size-3.5" aria-hidden /></InputGroupAddon>
+          <InputGroupInput
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('many.search_chats')}
             aria-label={t('many.search_chats')}
           />
-        </label>
+        </InputGroup>
       </div>
 
       <ChatHistorySessionList

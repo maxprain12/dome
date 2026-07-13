@@ -6,11 +6,11 @@ interface SettingsPanelProps {
   className?: string;
 }
 
-/** Root wrapper for settings sections — spacing follows `.settings-content-inner` container width. */
+/** Consistent vertical rhythm for every Settings destination. */
 export default function SettingsPanel({ children, className }: SettingsPanelProps) {
   return (
-    <div className={cn('settings-panel w-full min-w-0 animate-in fade-in duration-500', className)}>
+    <section className={cn('flex w-full min-w-0 flex-col gap-6', className)}>
       {children}
-    </div>
+    </section>
   );
 }

@@ -148,11 +148,11 @@ export const PDF_HIGHLIGHT_DEFAULT = '#ffeb3b';
  */
 export const LEGACY_PDF_HIGHLIGHT_VARS: Record<string, string> = {
   '#E6C47A': 'var(--warning)',
-  '#596037': 'var(--accent)',
-  '#A4AD7A': 'var(--accent)',
-  '#E88585': 'var(--error)',
-  '#ef4444': 'var(--error)',
-  '#0ea5e9': 'var(--accent)',
+  '#596037': 'var(--primary)',
+  '#A4AD7A': 'var(--primary)',
+  '#E88585': 'var(--destructive)',
+  '#ef4444': 'var(--destructive)',
+  '#0ea5e9': 'var(--primary)',
 };
 
 /** PPTX slides default "light" color (slide content, not app theme). */

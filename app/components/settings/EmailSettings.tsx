@@ -1,6 +1,15 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Mail01Icon as Mail,
+  Delete02Icon as Trash2,
+  Loading03Icon as Loader2,
+  CheckmarkCircle02Icon as CheckCircle2,
+  PlusSignIcon as Plus,
+} from '@hugeicons/core-free-icons';
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mail, Trash2, Loader2, CheckCircle2, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import EmailProviderGuides from '@/components/settings/EmailProviderGuides';
 import EmailProviderPicker from '@/components/settings/EmailProviderPicker';
@@ -14,6 +23,9 @@ import {
 } from '@/lib/email/providerPresets';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface EmailAccount {
   id: string;
@@ -232,45 +244,44 @@ export default function EmailSettings() {
   return (
     <SettingsPanel>
       <div className="flex items-center gap-2 mb-1">
-        <Mail className="size-5" style={{ color: 'var(--dome-accent)' }} />
-        <h1 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+        <HugeiconsIcon icon={Mail} className="size-5 text-primary" />
+        <h1 className="text-lg font-semibold text-foreground">
           {t('email.settings.title')}
         </h1>
       </div>
-      <p className="text-sm mb-6" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="text-sm mb-6 text-muted-foreground">
         {t('email.settings.description')}
       </p>
 
-      <div className="space-y-2 mb-6">
+      <div className="flex flex-col gap-2 mb-6">
         {accounts.length === 0 && (
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-sm text-muted-foreground">
             {t('email.settings.no_accounts')}
           </p>
         )}
         {accounts.map((acc) => (
           <div
             key={acc.id}
-            className="rounded-lg px-4 py-3 space-y-3"
-            style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+            className="flex flex-col gap-3 rounded-lg border bg-card px-4 py-3"
           >
-            <div className="settings-split-row">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                <div className="text-sm font-medium text-foreground">
                   {acc.display_name || acc.email}
                 </div>
-                <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <div className="text-xs text-muted-foreground">
                   {acc.email} · {acc.imap_host}
                   {acc.is_default ? ` · ${t('email.settings.default')}` : ''}
                 </div>
               </div>
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => handleRemove(acc.id)}
-                className="p-2 rounded-md hover:bg-[var(--dome-bg-hover)]"
+                className="p-2 rounded-md hover:bg-accent"
                 title={t('email.settings.remove')}
               >
-                <Trash2 className="size-4" style={{ color: 'var(--dome-error)' }} />
-              </button>
+                <HugeiconsIcon icon={Trash2} className="size-4 text-destructive" />
+              </Button>
             </div>
             <EmailPermissionsEditor
               userActions={acc.user_actions ?? DEFAULT_USER_ACTIONS}
@@ -282,19 +293,17 @@ export default function EmailSettings() {
       </div>
 
       {!showForm ? (
-        <button
+        <Button
           type="button"
           onClick={openForm}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium"
-          style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)' }}
+          className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
         >
-          <Plus className="size-4" />
+          <HugeiconsIcon icon={Plus} className="size-4" />
           {t('email.settings.add_account')}
-        </button>
+        </Button>
       ) : (
         <div
-          className="rounded-lg p-4 space-y-4 min-w-0"
-          style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+          className="flex min-w-0 flex-col gap-4 rounded-lg border bg-card p-4"
         >
           <EmailProviderPicker value={providerId} onChange={handleProviderChange} />
           <EmailProviderGuides providerId={providerId} zohoRegion={zohoRegion} />
@@ -303,26 +312,25 @@ export default function EmailSettings() {
           <Field label={t('email.settings.display_name')} value={form.display_name} onChange={(v) => update('display_name', v)} />
           {providerId === 'zoho' ? (
             <div
-              className="space-y-3 rounded-lg p-3 min-w-0"
-              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+              className="flex min-w-0 flex-col gap-3 rounded-lg border bg-background p-3"
             >
               <ZohoRegionPicker value={zohoRegion} onChange={handleZohoRegionChange} />
-              <div className="settings-field-grid settings-field-grid--2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => handleServerFieldChange('imap_host', v)} placeholder="imap.example.com" />
                 <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => handleServerFieldChange('imap_port', Number(v) || 993)} />
               </div>
-              <div className="settings-field-grid settings-field-grid--2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => handleServerFieldChange('smtp_host', v)} placeholder="smtp.example.com" />
                 <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => handleServerFieldChange('smtp_port', Number(v) || 465)} />
               </div>
             </div>
           ) : (
             <>
-              <div className="settings-field-grid settings-field-grid--2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => handleServerFieldChange('imap_host', v)} placeholder="imap.example.com" />
                 <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => handleServerFieldChange('imap_port', Number(v) || 993)} />
               </div>
-              <div className="settings-field-grid settings-field-grid--2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => handleServerFieldChange('smtp_host', v)} placeholder="smtp.example.com" />
                 <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => handleServerFieldChange('smtp_port', Number(v) || 465)} />
               </div>
@@ -330,7 +338,7 @@ export default function EmailSettings() {
           )}
           <Field label={t('email.settings.username')} value={form.username} onChange={(v) => update('username', v)} placeholder={form.email} />
           <Field label={t('email.settings.password')} value={form.password} onChange={(v) => update('password', v)} type="password" />
-          <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-xs text-muted-foreground">
             {t('email.settings.app_password_hint')}
           </p>
 
@@ -344,42 +352,39 @@ export default function EmailSettings() {
 
           <EmailErrorNotice info={error} compact />
           {error?.errorCode === 'app_password_required' && (
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs text-muted-foreground">
               {t('email.settings.app_password_hint')}
             </p>
           )}
 
-          <div className="settings-action-row pt-1">
-            <button
+          <div className="flex items-center gap-2 pt-1">
+            <Button
               type="button"
               disabled={busy}
               onClick={handleTest}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium"
-              style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)', opacity: busy ? 0.6 : 1 }}
+              className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
             >
-              {testState === 'testing' ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+              {testState === 'testing' ? <HugeiconsIcon icon={Loader2} className="size-4 animate-spin" /> : <HugeiconsIcon icon={CheckCircle2} className="size-4" />}
               {t('email.settings.test_and_save')}
-            </button>
-            <button
+            </Button>
+            <Button variant="outline"
               type="button"
               disabled={busy}
               onClick={handleAdd}
-              className="px-3 py-2 rounded-md text-sm"
-              style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+              className="rounded-md px-3 py-2 text-sm"
             >
               {t('email.settings.save_without_test')}
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost"
               type="button"
               onClick={() => {
                 setShowForm(false);
                 resetForm();
               }}
-              className="px-3 py-2 rounded-md text-sm"
-              style={{ color: 'var(--dome-text-muted)' }}
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground"
             >
               {t('common.cancel')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -408,50 +413,47 @@ function EmailPermissionsEditor({
 
   return (
     <div
-      className="rounded-lg p-3 space-y-2"
-      style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+      className="flex flex-col gap-2 rounded-lg border bg-background p-3"
     >
-      <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+      <p className="text-xs font-medium text-foreground">
         {t('email.settings.permissions_title')}
       </p>
-      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+      <p className="text-xs text-muted-foreground">
         {t('email.settings.permissions_hint')}
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr style={{ color: 'var(--dome-text-muted)' }}>
-              <th className="text-left py-1 pr-3 font-medium">{t('email.settings.permissions_action')}</th>
-              <th className="text-left py-1 px-2 font-medium">{t('email.settings.permissions_user')}</th>
-              <th className="text-left py-1 px-2 font-medium">{t('email.settings.permissions_agent')}</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('email.settings.permissions_action')}</TableHead>
+              <TableHead>{t('email.settings.permissions_user')}</TableHead>
+              <TableHead>{t('email.settings.permissions_agent')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {ACTION_KEYS.map((key) => (
-              <tr key={key}>
-                <td className="py-1 pr-3" style={{ color: 'var(--dome-text)' }}>
+              <TableRow key={key}>
+                <TableCell className="text-foreground">
                   {t(`email.settings.permissions_${key}`)}
-                </td>
-                <td className="py-1 px-2">
-                  <input
-                    type="checkbox"
+                </TableCell>
+                <TableCell>
+                  <Checkbox
                     checked={userActions[key]}
-                    onChange={(e) => toggle('user', key, e.target.checked)}
+                    onCheckedChange={(checked) => toggle('user', key, checked)}
                     aria-label={t('email.settings.permissions_user_aria', { action: t(`email.settings.permissions_${key}`) })}
                   />
-                </td>
-                <td className="py-1 px-2">
-                  <input
-                    type="checkbox"
+                </TableCell>
+                <TableCell>
+                  <Checkbox
                     checked={agentActions[key]}
-                    onChange={(e) => toggle('agent', key, e.target.checked)}
+                    onCheckedChange={(checked) => toggle('agent', key, checked)}
                     aria-label={t('email.settings.permissions_agent_aria', { action: t(`email.settings.permissions_${key}`) })}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -473,19 +475,18 @@ function ZohoRegionPicker({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 min-w-0">
-      <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+      <span className="text-xs font-medium text-muted-foreground">
         {t('email.settings.zoho_region_label')}
       </span>
       <div
-        className="inline-flex gap-1 rounded-lg p-0.5"
+        className="inline-flex gap-1 rounded-lg border bg-card p-0.5"
         role="radiogroup"
         aria-label={t('email.settings.zoho_region_aria')}
-        style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
       >
         {ZOHO_REGION_OPTIONS.map((opt) => {
           const selected = value === opt.id;
           return (
-            <button
+            <Button variant="ghost"
               key={opt.id}
               type="button"
               role="radio"
@@ -493,14 +494,14 @@ function ZohoRegionPicker({
               onClick={() => onChange(opt.id)}
               className={cn(
                 'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--dome-bg-secondary)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card)]',
                 selected
-                  ? 'bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] text-[var(--dome-text)] shadow-sm'
-                  : 'text-[var(--dome-text-muted)] hover:text-[var(--dome-text)]',
+                  ? 'bg-[color-mix(in srgb, var(--primary) 12%, transparent)] text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {t(opt.labelKey)}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -523,20 +524,15 @@ function Field({
 }) {
   return (
     <label className="block min-w-0">
-      <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
-      <input
+      <Input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full min-w-0 rounded-md px-3 py-2 text-sm"
-        style={{
-          background: 'var(--dome-bg)',
-          border: '1px solid var(--dome-border)',
-          color: 'var(--dome-text)',
-        }}
+        className="mt-1 w-full min-w-0"
       />
     </label>
   );

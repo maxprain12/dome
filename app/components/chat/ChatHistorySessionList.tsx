@@ -1,9 +1,12 @@
-import { Pin, Pencil, X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Cancel01Icon, PencilEdit02Icon, PinIcon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { ManyChatSession } from '@/lib/store/useManyStore';
 import { useManyStore } from '@/lib/store/useManyStore';
-import DomeListState from '@/components/ui/DomeListState';
+import ListState from '@/components/shared/ListState';
 import type { ChatHistorySection } from './chatHistoryUtils';
 import { displaySessionTitle, formatHistoryTime, sessionPreview } from './chatHistoryUtils';
 
@@ -33,7 +36,7 @@ export default function ChatHistorySessionList({
   if (sections.length === 0) {
     return (
       <div className={cn('chat-history-scroll flex flex-1 items-center justify-center min-h-0', className)}>
-        <DomeListState variant="empty" compact title={emptyTitle} />
+        <ListState variant="empty" compact title={emptyTitle} />
       </div>
     );
   }
@@ -58,17 +61,17 @@ export default function ChatHistorySessionList({
 
             return (
               <div key={session.id} className="chat-history-row-wrap group/row">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   className={cn('chat-history-row', isActive && 'chat-history-row--active')}
                   onClick={() => onSelectSession(session)}
                 >
                   {livePhase ? (
-                    <output
-                      className="chat-history-row-live attach-chip__spinner"
+                    <Spinner
+                      className="chat-history-row-live"
                       aria-busy="true"
                       aria-label={t('chat.history_llm_active')}
-                      title={t('chat.history_llm_active')}
                     />
                   ) : (
                     <span className="chat-history-row-live-spacer" aria-hidden />
@@ -76,13 +79,7 @@ export default function ChatHistorySessionList({
                   <div className="chat-history-row-body">
                   <div className="chat-history-row-title">
                     {session.pinned ? (
-                      <Pin
-                        className="chat-history-row-pin"
-                        size={11}
-                        strokeWidth={2}
-                        fill="currentColor"
-                        aria-hidden
-                      />
+                      <HugeiconsIcon icon={PinIcon} className="chat-history-row-pin size-3" aria-hidden />
                     ) : null}
                     <span className="min-w-0 truncate">
                       {displaySessionTitle(session, newChatLabel)}
@@ -101,10 +98,12 @@ export default function ChatHistorySessionList({
                     </div>
                   )}
                   </div>
-                </button>
+                </Button>
                 <section className="chat-history-row-actions" aria-label={t('chat.chats_title')}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
                     className="chat-history-action-btn"
                     title={pinLabel}
                     aria-label={pinLabel}
@@ -113,15 +112,13 @@ export default function ChatHistorySessionList({
                       useManyStore.getState().toggleSessionPin(session.id);
                     }}
                   >
-                    <Pin
-                      size={13}
-                      strokeWidth={2}
-                      fill={session.pinned ? 'currentColor' : 'none'}
-                    />
-                  </button>
+                    <HugeiconsIcon icon={PinIcon} className={cn('size-3.5', session.pinned && 'fill-current')} />
+                  </Button>
                   {onStartRename ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-xs"
                       className="chat-history-action-btn"
                       title={t('chat.rename_conversation')}
                       aria-label={t('chat.rename_conversation')}
@@ -130,12 +127,14 @@ export default function ChatHistorySessionList({
                         onStartRename(session);
                       }}
                     >
-                      <Pencil size={13} strokeWidth={2} />
-                    </button>
+                      <HugeiconsIcon icon={PencilEdit02Icon} className="size-3.5" />
+                    </Button>
                   ) : null}
                   {onDeleteSession ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-xs"
                       className="chat-history-action-btn chat-history-action-btn--danger"
                       title={t('chat.delete_conversation')}
                       aria-label={t('chat.delete_conversation')}
@@ -144,8 +143,8 @@ export default function ChatHistorySessionList({
                         onDeleteSession(session.id);
                       }}
                     >
-                      <X size={13} strokeWidth={2} />
-                    </button>
+                      <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+                    </Button>
                   ) : null}
                 </section>
               </div>

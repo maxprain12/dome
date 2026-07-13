@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { CalculatorArtifactV } from '@/lib/chat/artifactSchemas';
 import { evaluateSafeCalculatorFormula } from '@/lib/chat/artifactSchemas';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ReactNode } from 'react';
 const DOME_RANGE_STYLE_ID = 'dome-calculator-range-style';
 const DOME_RANGE_CSS = `
-.dome-calc-range{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer;accent-color:var(--accent)}
+.dome-calc-range{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer;accent-color:var(--primary)}
 .dome-calc-range:focus{outline:none}
-.dome-calc-range:focus-visible{box-shadow:0 0 0 3px var(--translucent);border-radius:var(--radius-full)}
-.dome-calc-range::-webkit-slider-runnable-track{height:4px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:var(--radius-full)}
-.dome-calc-range::-moz-range-track{height:4px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:var(--radius-full)}
-.dome-calc-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:var(--radius-full);background:var(--accent);border:2px solid var(--bg-secondary);margin-top:-6px;box-shadow:var(--shadow-sm);transition:transform var(--transition-fast)}
-.dome-calc-range::-moz-range-thumb{width:14px;height:14px;border-radius:var(--radius-full);background:var(--accent);border:2px solid var(--bg-secondary);box-shadow:var(--shadow-sm);transition:transform var(--transition-fast)}
+.dome-calc-range:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);border-radius:var(--radius-full)}
+.dome-calc-range::-webkit-slider-runnable-track{height:4px;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-full)}
+.dome-calc-range::-moz-range-track{height:4px;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-full)}
+.dome-calc-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:var(--radius-full);background:var(--primary);border:2px solid var(--card);margin-top:-6px;box-shadow:var(--shadow-sm);transition:transform var(--transition-fast)}
+.dome-calc-range::-moz-range-thumb{width:14px;height:14px;border-radius:var(--radius-full);background:var(--primary);border:2px solid var(--card);box-shadow:var(--shadow-sm);transition:transform var(--transition-fast)}
 .dome-calc-range:hover::-webkit-slider-thumb{transform:scale(1.08)}
 .dome-calc-range:hover::-moz-range-thumb{transform:scale(1.08)}
 `.trim();
@@ -68,7 +69,7 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
     <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
       {artifact.inputs.map((inp) => (
         <label key={inp.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-          <span style={{ color: 'var(--secondary-text)', fontWeight: 600 }}>
+          <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
             {inp.label}
             {inp.unit ? ` (${inp.unit})` : ''}
           </span>
@@ -94,7 +95,7 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
               <span
                 style={{
                   fontSize: 12,
-                  color: 'var(--tertiary-text)',
+                  color: 'var(--muted-foreground)',
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
@@ -117,20 +118,16 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
                 padding: '6px 8px',
                 borderRadius: 6,
                 border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--primary-text)',
+                background: 'var(--background)',
+                color: 'var(--foreground)',
               }}
             />
           )}
           {inp.kind === 'select' && inp.options && (
-            <DomeSelectMenu
-              value={String(values[inp.id] ?? inp.options[0]?.value ?? 0)}
-              onChange={(v) => {
+            <Select value={String(values[inp.id] ?? inp.options[0]?.value ?? 0) ?? null} onValueChange={(next) => { if (next != null) ((v) => {
                 const n = Number.parseFloat(v);
                 setValues((s) => ({ ...s, [inp.id]: Number.isFinite(n) ? n : 0 }));
-              }}
-              options={inp.options.map((o) => ({ value: String(o.value), label: o.label }))}
-            />
+              })(next); }} items={inp.options.map((o) => ({ value: String(o.value), label: o.label }))}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{(inp.options.map((o) => ({ value: String(o.value), label: o.label }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
           )}
         </label>
       ))}
@@ -149,18 +146,18 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
             style={{
               padding: '12px 14px',
               borderRadius: 'var(--radius-lg)',
-              background: 'var(--bg-tertiary)',
+              background: 'var(--muted)',
               border: '1px solid var(--border)',
             }}
           >
-            <div style={{ fontSize: 12, color: 'var(--secondary-text)', marginBottom: 4 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 4 }}>
               {o.label}
             </div>
             <div
               style={{
                 fontSize: 16,
                 fontWeight: 600,
-                color: 'var(--primary-text)',
+                color: 'var(--foreground)',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >

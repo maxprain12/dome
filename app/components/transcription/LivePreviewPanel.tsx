@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 
 interface Props {
@@ -17,7 +18,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
   const partialText = useTranscriptionStore((s) => s.partialText);
   const phase = useTranscriptionStore((s) => s.phase);
   const livePreview = useTranscriptionStore((s) => s.livePreview);
-  const containerRef = useRef<HTMLDialogElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<PanelPosition | null>(null);
 
@@ -74,22 +75,15 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
   const showPlaceholder = !partialText && livePreview && phase === 'recording';
 
   return (
-    <dialog
-      ref={containerRef}
-      open
-      aria-label={t('transcriptions.live_preview_title', 'Live transcript')}
-      className="live-preview-panel m-0 max-w-none max-h-none p-0 border-0 fixed z-[9998] flex w-[460px] max-h-80 flex-col animate-dropdown rounded-xl border border-[var(--dome-border)] bg-[var(--dome-bg)] shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
-      style={{
-        top: position.top,
-        right: position.right,
-      }}
-      onCancel={(e) => { e.preventDefault(); onClose(); }}
-    >
+    <Popover open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <PopoverTrigger render={<span className="fixed size-px" style={{ top: position.top, right: position.right }} aria-hidden />} />
+      <PopoverContent ref={containerRef} align="end" side="bottom" sideOffset={0} className="live-preview-panel flex max-h-80 w-[460px] flex-col gap-0 rounded-xl border border-border bg-background p-0 shadow-lg">
+      <PopoverTitle className="sr-only">{t('transcriptions.live_preview_title', 'Live transcript')}</PopoverTitle>
       <div
         className="flex items-center justify-between px-3 py-2"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
+        style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text)' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
           {t('transcriptions.live_preview_title', 'Live transcript')}
         </span>
       </div>
@@ -99,7 +93,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
         style={{
           fontSize: 13,
           lineHeight: 1.5,
-          color: showPlaceholder ? 'var(--dome-text-muted)' : 'var(--dome-text)',
+          color: showPlaceholder ? 'var(--muted-foreground)' : 'var(--foreground)',
           flex: 1,
         }}
       >
@@ -107,6 +101,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
           ? t('transcriptions.state_no_partial', 'Live transcript will appear here…')
           : partialText || ''}
       </div>
-    </dialog>
+      </PopoverContent>
+    </Popover>
   );
 }

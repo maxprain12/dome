@@ -14,6 +14,13 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const { name: existingName, email: existingEmail } = useUserStore();
   const [isVisible, setIsVisible] = useState(true);
 
+  const closeOnboarding = () => {
+    setIsVisible(false);
+    setTimeout(() => {
+      onComplete?.();
+    }, 300);
+  };
+
   const handleComplete = async (data: {
     name: string;
     email: string;
@@ -25,45 +32,37 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     } catch (err) {
       console.error('[Onboarding] applyOnboardingConfig failed:', err);
     }
+    closeOnboarding();
+  };
 
-    setIsVisible(false);
-    setTimeout(() => {
-      if (onComplete) {
-        onComplete();
-      }
-    }, 300);
+  const handleSkip = async () => {
+    try {
+      await useUserStore.getState().loadUserProfile();
+      await useUserStore.getState().completeOnboarding();
+    } catch (err) {
+      console.error('[Onboarding] completeOnboarding failed:', err);
+    }
+    closeOnboarding();
   };
 
   if (!isVisible) {
     return null;
   }
 
-  // Rendered via portal so it escapes any filter/transform containing block
-  // created by ancestor components (e.g. TabPaneShell's reveal animation).
   return createPortal(
     <div
-      className="fixed inset-0 flex items-center justify-center"
+      className="fixed inset-0 flex flex-col h-full w-full"
       style={{
         zIndex: 10000,
-        backgroundColor: 'rgba(0, 0, 0, 0.55)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        backgroundColor: 'var(--background)',
       }}
     >
-      <div
-        className="relative rounded-2xl shadow-2xl max-w-2xl max-h-[85vh] w-full mx-4 flex flex-col overflow-hidden animate-modal"
-        style={{
-          backgroundColor: 'var(--dome-bg)',
-          border: '1px solid var(--dome-border)',
-          minHeight: '420px',
-        }}
-      >
-        <MartinOnboarding
-          initialName={existingName}
-          initialEmail={existingEmail}
-          onComplete={handleComplete}
-        />
-      </div>
+      <MartinOnboarding
+        initialName={existingName}
+        initialEmail={existingEmail}
+        onComplete={handleComplete}
+        onSkip={handleSkip}
+      />
     </div>,
     document.body,
   );

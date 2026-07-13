@@ -57,9 +57,9 @@ export default function ProviderBrandIcon({
       className={cn(
         'shrink-0 object-contain',
         fill ? 'size-[78%] max-h-full max-w-full' : '',
+        providerLogoUsesDarkInvert(provider) && '[filter:var(--logo-filter)]',
         className,
       )}
-      style={providerLogoUsesDarkInvert(provider) ? { filter: 'var(--dome-logo-filter)' } : undefined}
     />
   );
 }

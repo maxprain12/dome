@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AlertCircleIcon, ArrowRight01Icon, CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -13,10 +15,8 @@ import AIProviderSelection from '@/components/settings/ai/AIProviderSelection';
 import AICloudProviderConfig from '@/components/settings/ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from '@/components/settings/ai/AIOllamaProviderConfig';
 import AIDomeOnboardingCallout from '@/components/settings/ai/AIDomeOnboardingCallout';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import { accentMix } from '@/lib/ui/accent';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 interface AISetupStepProps {
   onComplete: () => void;
   onValidationChange?: (isValid: boolean) => void;
@@ -149,11 +149,11 @@ export default function AISetupStep({
   return (
     <div className="space-y-4">
       {saveError ? (
-        <DomeCallout tone="error">{saveError}</DomeCallout>
+        <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertDescription className="text-xs">{saveError}</AlertDescription></Alert>
       ) : null}
 
       {syncedFromCloud && provider !== 'skip' ? (
-        <DomeCallout tone="success">{t('onboarding.ai_synced_from_cloud')}</DomeCallout>
+        <Alert role="note"><HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden /><AlertDescription className="text-xs">{t('onboarding.ai_synced_from_cloud')}</AlertDescription></Alert>
       ) : null}
 
       <AIProviderSelection
@@ -164,24 +164,20 @@ export default function AISetupStep({
         hideDomeProvider={localModeOnly}
       />
 
-      <button
+      <Button
         type="button"
+        variant={provider === 'skip' ? 'secondary' : 'ghost'}
         onClick={() => handleProviderSelect('skip')}
-        className="w-full py-2.5 text-center text-xs transition-colors rounded-lg"
-        style={{
-          color: provider === 'skip' ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-          backgroundColor: provider === 'skip' ? accentMix(8) : 'transparent',
-          border: provider === 'skip' ? `1px solid ${accentMix(40)}` : '1px solid transparent',
-        }}
+        className="w-full text-xs"
       >
-        {t('onboarding.configure_later')} <ArrowRight size={14} className="inline ml-1" />
-      </button>
+        {t('onboarding.configure_later')} <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
+      </Button>
 
       {provider !== 'skip' && isCloudAIProvider(provider) && (
         <div>
-          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
             {t('settings.ai.configuration')}
-          </DomeSectionLabel>
+          </p>
           <AICloudProviderConfig
             provider={provider}
             apiKey={apiKey}
@@ -197,9 +193,9 @@ export default function AISetupStep({
 
       {provider === 'ollama' && (
         <div>
-          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
             {t('settings.ai.configuration')}
-          </DomeSectionLabel>
+          </p>
           <AIOllamaProviderConfig
             ollamaBaseURL={ollamaBaseURL}
             onOllamaBaseURLChange={setOllamaBaseURL}

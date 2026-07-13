@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu } from '@mantine/core';
-import { Check, ChevronDown } from 'lucide-react';
-import DomeButton from '@/components/ui/DomeButton';
-import { cn } from '@/lib/utils';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckmarkCircle02Icon, Menu01Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   NAV_GROUPS,
   filterNavGroups,
@@ -18,97 +20,55 @@ interface SettingsNavDropdownProps {
   hiddenSections?: ReadonlySet<SettingsSection>;
 }
 
-export default function SettingsNavDropdown({
-  activeSection,
-  onSectionChange,
-  hiddenSections,
-}: SettingsNavDropdownProps) {
+export default function SettingsNavDropdown({ activeSection, onSectionChange, hiddenSections }: SettingsNavDropdownProps) {
   const { t } = useTranslation();
-  const navGroups = hiddenSections?.size
-    ? filterNavGroups(NAV_GROUPS, hiddenSections)
-    : NAV_GROUPS;
+  const [open, setOpen] = useState(false);
+  const groups = hiddenSections?.size ? filterNavGroups(NAV_GROUPS, hiddenSections) : NAV_GROUPS;
   const normalizedActive = normalizeNavSection(activeSection);
   const activeItem = findNavItem(activeSection);
-  const activeLabel = t(`settings.tabs.${normalizedActive}`);
 
   return (
-    <Menu
-      withinPortal
-      position="bottom-start"
-      width="target"
-      shadow="md"
-      offset={4}
-      classNames={{
-        dropdown: 'settings-nav-dropdown-menu',
-        item: 'settings-nav-dropdown-item',
-        label: 'settings-nav-dropdown-label',
-      }}
-    >
-      <Menu.Target>
-        <DomeButton
-          type="button"
-          variant="outline"
-          size="sm"
-          aria-haspopup="listbox"
-          aria-label={t('settings.nav.select_section')}
-          className="settings-nav-dropdown-trigger"
-          rightIcon={<ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />}
-          leftIcon={
-            activeItem ? (
-              <span className="settings-nav-dropdown-trigger-icon" aria-hidden>
-                {activeItem.icon}
-              </span>
-            ) : undefined
-          }
-        >
-          <span className="settings-nav-dropdown-trigger-text">{activeLabel}</span>
-        </DomeButton>
-      </Menu.Target>
-
-      <Menu.Dropdown role="listbox" aria-label={t('settings.nav.select_section')}>
-        {navGroups.map((group, groupIndex) => {
-          const runs = getGroupItems(group);
-          const groupLabel = t(group.labelKey);
-
-          return (
-            <div key={group.labelKey}>
-              {groupIndex > 0 ? <Menu.Divider /> : null}
-              <Menu.Label>{groupLabel}</Menu.Label>
-              {runs.map((run, runIndex) => (
-                <div key={`${group.labelKey}-${runIndex}`}>
-                  {runIndex > 0 ? <Menu.Divider /> : null}
-                  {run.map(({ id, icon }) => {
-                    const isActive = normalizedActive === id;
-                    const label = t(`settings.tabs.${id}`);
-
-                    return (
-                      <Menu.Item
-                        key={id}
-                        role="option"
-                        aria-selected={isActive}
-                        leftSection={
-                          <span className={cn('settings-nav-dropdown-item-icon', isActive && 'is-active')}>
-                            {icon}
-                          </span>
-                        }
-                        rightSection={
-                          isActive ? (
-                            <Check className="size-3.5 shrink-0 text-[var(--dome-accent)]" aria-hidden />
-                          ) : null
-                        }
-                        className={cn(isActive && 'is-active')}
-                        onClick={() => onSectionChange(id)}
-                      >
-                        {label}
-                      </Menu.Item>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </Menu.Dropdown>
-    </Menu>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger render={<Button type="button" variant="outline" size="sm" className="w-full justify-start" />}>
+        <HugeiconsIcon icon={Menu01Icon} data-icon="inline-start" />
+        {activeItem ? <HugeiconsIcon icon={activeItem.icon} /> : null}
+        <span className="truncate">{t(`settings.tabs.${normalizedActive}`)}</span>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-[min(88vw,22rem)] p-0" showCloseButton>
+        <SheetHeader className="border-b">
+          <SheetTitle>{t('settings.title')}</SheetTitle>
+          <SheetDescription>{t('settings.nav.select_section')}</SheetDescription>
+        </SheetHeader>
+        <ScrollArea className="min-h-0 flex-1">
+          <nav className="flex flex-col gap-5 p-3" aria-label={t('settings.nav.sidebar')}>
+            {groups.map((group) => (
+              <section key={group.labelKey} className="flex flex-col gap-1">
+                <h2 className="px-2 text-xs font-medium text-muted-foreground">{t(group.labelKey)}</h2>
+                {getGroupItems(group).flat().map(({ id, icon }) => {
+                  const active = normalizedActive === id;
+                  return (
+                    <Button
+                      key={id}
+                      type="button"
+                      variant={active ? 'secondary' : 'ghost'}
+                      className="w-full justify-start"
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => {
+                        onSectionChange(id);
+                        setOpen(false);
+                      }}
+                    >
+                      <HugeiconsIcon icon={icon} data-icon="inline-start" />
+                      <span className="min-w-0 flex-1 truncate text-left">{t(`settings.tabs.${id}`)}</span>
+                      {active ? <HugeiconsIcon icon={CheckmarkCircle02Icon} data-icon="inline-end" /> : null}
+                    </Button>
+                  );
+                })}
+              </section>
+            ))}
+          </nav>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }

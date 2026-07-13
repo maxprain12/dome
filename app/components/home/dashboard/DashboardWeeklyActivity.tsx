@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
+import { Card } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@mantine/core';
-import DomeCard from '@/components/ui/DomeCard';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
 
 const WEEKS = 18;
@@ -46,11 +46,11 @@ function levelForCount(c: number): number {
 }
 
 const LEVEL_BG: Record<number, string> = {
-  0: 'color-mix(in srgb, var(--dome-text, var(--primary-text)) 8%, var(--dome-border, var(--border)))',
-  1: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 22%, var(--dome-border, var(--border)))',
-  2: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 45%, var(--dome-border, var(--border)))',
-  3: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 68%, var(--dome-border, var(--border)))',
-  4: 'var(--dome-accent, var(--accent))',
+  0: 'color-mix(in srgb, var(--foreground) 8%, var(--border))',
+  1: 'color-mix(in srgb, var(--primary) 22%, var(--border))',
+  2: 'color-mix(in srgb, var(--primary) 45%, var(--border))',
+  3: 'color-mix(in srgb, var(--primary) 68%, var(--border))',
+  4: 'var(--primary)',
 };
 
 export function DashboardWeeklyActivity({
@@ -117,14 +117,10 @@ export function DashboardWeeklyActivity({
   return (
     <section className="mb-8">
       <DashboardSectionLabel>{t('dashboard.section_activity_grid')}</DashboardSectionLabel>
-      <DomeCard
-        padding="lg"
-        className="rounded-2xl border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))]"
-      >
+      <Card className="p-6 rounded-2xl border-[var(--border)] bg-[var(--card)]">
         {loading ? (
           <div
-            className="h-[140px] animate-pulse motion-reduce:animate-none rounded-xl"
-            style={{ background: 'var(--dome-border, var(--border))' }}
+            className="h-[140px] animate-pulse motion-reduce:animate-none rounded-xl bg-border"
           />
         ) : (
           <figure className="w-full min-w-0 pb-1" aria-label={t('dashboard.heatmap_aria')}>
@@ -134,8 +130,7 @@ export function DashboardWeeklyActivity({
                 {Array.from({ length: WEEKS }, (_, col) => (
                   <div
                     key={`mh-${col}`}
-                    className="flex min-h-4 min-w-0 flex-1 basis-0 items-end"
-                    style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
+                    className="flex min-h-4 min-w-0 flex-1 basis-0 items-end text-muted-foreground"
                   >
                     <span className="truncate text-[10px] font-medium leading-none">{monthLabelAtCol(col)}</span>
                   </div>
@@ -147,8 +142,7 @@ export function DashboardWeeklyActivity({
                   {[0, 1, 2, 3, 4, 5, 6].map((row) => (
                     <div
                       key={`wl-${row}`}
-                      className="flex min-h-0 flex-1 items-center text-[9px] font-medium leading-none tabular-nums"
-                      style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
+                      className="flex min-h-0 flex-1 items-center text-[9px] font-medium leading-none tabular-nums text-muted-foreground"
                     >
                       {weekdayLabel(row)}
                     </div>
@@ -170,32 +164,30 @@ export function DashboardWeeklyActivity({
                         count,
                       });
                       return (
-                        <Tooltip
-                          key={cell.key}
-                          label={tooltipLabel}
-                          position="top"
-                          withArrow
-                          arrowSize={6}
-                          openDelay={120}
-                          closeDelay={80}
-                          transitionProps={{ duration: 120 }}
-                          className="min-h-0 min-w-0 flex-1 basis-0"
-                          classNames={{
-                            tooltip:
-                              'border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] text-[var(--dome-text,var(--primary-text))] text-xs font-medium shadow-md',
-                          }}
-                        >
-                          <div
-                            className="h-full min-h-[5px] w-full cursor-default rounded-[3px] transition-opacity hover:opacity-[0.92] motion-reduce:transition-none"
-                            style={{
-                              background: cell.inRange ? LEVEL_BG[cell.level] : LEVEL_BG[0],
-                              opacity: cell.inRange ? 1 : 0.38,
-                              boxShadow: cell.inRange ? undefined : 'inset 0 0 0 1px color-mix(in srgb, var(--dome-border, var(--border)) 65%, transparent)',
-                            }}
-                            role="presentation"
-                            tabIndex={-1}
+                        <div key={cell.key} className="min-h-0 min-w-0 flex-1 basis-0">
+                          <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <div
+                                className="h-full min-h-[5px] w-full cursor-default rounded-[3px] transition-opacity hover:opacity-[0.92] motion-reduce:transition-none"
+                                style={{
+                                  background: cell.inRange ? LEVEL_BG[cell.level] : LEVEL_BG[0],
+                                  opacity: cell.inRange ? 1 : 0.38,
+                                  boxShadow: cell.inRange ? undefined : 'inset 0 0 0 1px color-mix(in srgb, var(--border) 65%, transparent)',
+                                }}
+                                role="presentation"
+                                tabIndex={-1}
+                              />
+                            }
                           />
+                          <TooltipContent
+                            side="top"
+                            className="border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-xs font-medium shadow-md"
+                          >
+                            {tooltipLabel}
+                          </TooltipContent>
                         </Tooltip>
+                        </div>
                       );
                     })}
                   </div>
@@ -203,8 +195,7 @@ export function DashboardWeeklyActivity({
               </div>
 
               <div
-                className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[10px] font-medium"
-                style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
+                className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[10px] font-medium text-muted-foreground"
               >
                 <span>{t('dashboard.heatmap_less')}</span>
                 <div className="flex gap-1" aria-hidden>
@@ -221,7 +212,7 @@ export function DashboardWeeklyActivity({
             </div>
           </figure>
         )}
-      </DomeCard>
+      </Card>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { captureExceptionSentry } from '@/lib/analytics/sentry';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 
 interface Props {
   children: ReactNode;
@@ -42,11 +42,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
       return (
-        <ErrorState
-          error={this.state.error.message || 'An unexpected error occurred'}
-          onRetry={() => this.setState({ hasError: false, error: null })}
-          action={this.props.action}
-        />
+        <ListState variant="error" errorMessage={this.state.error.message || 'An unexpected error occurred'} onRetry={() => this.setState({ hasError: false, error: null })} action={this.props.action} fullHeight />
       );
     }
 

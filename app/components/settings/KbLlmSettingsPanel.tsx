@@ -1,20 +1,25 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  BookMarkedIcon as BookMarked,
+  RefreshIcon as RefreshCw,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { BookMarked, RefreshCw } from 'lucide-react';
+
 import { db } from '@/lib/db/client';
 import type { Project } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeIconBox from '@/components/ui/DomeIconBox';
-import DomeListState from '@/components/ui/DomeListState';
-import DomeCheckbox from '@/components/ui/DomeCheckbox';
-import { DomeInput } from '@/components/ui/DomeInput';
-import { DomeSelect } from '@/components/ui/DomeSelect';
-import DomeButton from '@/components/ui/DomeButton';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import ListState from '@/components/shared/ListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 type KbLlmGlobal = {
   enabledGlobal: boolean;
   defaultMode: string;
@@ -30,7 +35,7 @@ function BulletList({ text }: { text: string }) {
     .map((l) => l.trim())
     .filter(Boolean);
   return (
-    <ul className="list-disc pl-5 space-y-1.5 text-[var(--dome-text-muted,var(--tertiary-text))]">
+    <ul className="list-disc pl-5 flex flex-col gap-1.5 text-[var(--muted-foreground)]">
       {lines.map((line, i) => (
         <li key={i}>{line.replace(/^[-•]\s*/, '')}</li>
       ))}
@@ -139,134 +144,126 @@ export default function KbLlmSettingsPanel() {
   };
 
   if (loading || !config) {
-    return <DomeListState variant="loading" loadingLabel={t('common.loading')} />;
+    return <ListState variant="loading" loadingLabel={t('common.loading')} />;
   }
 
   return (
     <SettingsPanel className="!gap-6">
-      <DomeSubpageHeader className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2">
-        <DomeSubpageHeader.Title>{t('settings.kb_llm.title')}</DomeSubpageHeader.Title>
-        <DomeSubpageHeader.Subtitle>{t('settings.kb_llm.subtitle')}</DomeSubpageHeader.Subtitle>
-        <DomeSubpageHeader.Trailing>
-          <DomeIconBox size="md" className="!w-10 !h-10">
-            <BookMarked className="size-5 text-[var(--accent)]" aria-hidden />
-          </DomeIconBox>
-        </DomeSubpageHeader.Trailing>
-      </DomeSubpageHeader>
+      <SubpageHeader className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 mb-2">
+        <SubpageHeader.Title>{t('settings.kb_llm.title')}</SubpageHeader.Title>
+        <SubpageHeader.Subtitle>{t('settings.kb_llm.subtitle')}</SubpageHeader.Subtitle>
+        <SubpageHeader.Trailing>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+            <HugeiconsIcon icon={BookMarked} className="size-5 text-primary" aria-hidden />
+          </div>
+        </SubpageHeader.Trailing>
+      </SubpageHeader>
 
-      <DomeCard>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+      <Card className="p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
           {t('settings.kb_llm.section_expectations')}
-        </DomeSectionLabel>
-        <div className="space-y-4 text-sm">
+        </p>
+        <div className="flex flex-col gap-4 text-sm">
           <div>
-            <p className="font-semibold mb-1.5 text-[var(--dome-text,var(--primary-text))]">
+            <p className="font-semibold mb-1.5 text-[var(--foreground)]">
               {t('settings.kb_llm.expect_good_title')}
             </p>
             <BulletList text={t('settings.kb_llm.expect_good_body')} />
           </div>
           <div>
-            <p className="font-semibold mb-1.5 text-[var(--dome-text,var(--primary-text))]">
+            <p className="font-semibold mb-1.5 text-[var(--foreground)]">
               {t('settings.kb_llm.expect_skip_title')}
             </p>
             <BulletList text={t('settings.kb_llm.expect_skip_body')} />
           </div>
           <div>
-            <p className="font-semibold mb-1.5 text-[var(--dome-text,var(--primary-text))]">
+            <p className="font-semibold mb-1.5 text-[var(--foreground)]">
               {t('settings.kb_llm.expect_limits_title')}
             </p>
             <BulletList text={t('settings.kb_llm.expect_limits_body')} />
           </div>
-          <p className="text-xs pt-1 border-t border-[var(--dome-border,var(--border))] text-[var(--dome-text-muted,var(--tertiary-text))]">
+          <p className="text-xs pt-1 border-t border-[var(--border)] text-[var(--muted-foreground)]">
             {t('settings.kb_llm.projects_hint')}
           </p>
         </div>
-      </DomeCard>
+      </Card>
 
-      <DomeCard>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+      <Card className="p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
           {t('settings.kb_llm.section_global')}
-        </DomeSectionLabel>
-        <DomeCheckbox
-          reverse
-          className="py-2"
-          label={t('settings.kb_llm.enabled_global')}
-          checked={config.enabledGlobal}
-          onChange={(e) => setConfig({ ...config, enabledGlobal: e.target.checked })}
-        />
-        <div className="settings-field-grid settings-field-grid--2 gap-4 mt-4">
-          <DomeInput
-            type="number"
-            min={15}
-            max={1440}
-            label={t('settings.kb_llm.compile_interval')}
-            value={config.compileIntervalMinutes}
-            onChange={(e) =>
-              setConfig({ ...config, compileIntervalMinutes: Math.max(15, Number(e.target.value) || 360) })
-            }
+        </p>
+        <div className="flex items-center justify-between gap-3 py-2">
+          <Label htmlFor="kb-enabled-global" className="cursor-pointer text-sm">
+            {t('settings.kb_llm.enabled_global')}
+          </Label>
+          <Checkbox
+            id="kb-enabled-global"
+            checked={config.enabledGlobal}
+            onCheckedChange={(v) => setConfig({ ...config, enabledGlobal: v === true })}
           />
-          <DomeSelect
-            label={t('settings.kb_llm.health_hour')}
-            value={String(config.healthHour)}
-            onChange={(e) => setConfig({ ...config, healthHour: Number(e.target.value) })}
-          >
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4 mt-4">
+          <Field className="gap-1.5"><FieldLabel htmlFor="fld-input-6" className="text-xs">{t('settings.kb_llm.compile_interval')}</FieldLabel><Input id="fld-input-6" type="number" min={15} max={1440} value={config.compileIntervalMinutes} onChange={(e) =>
+              setConfig({ ...config, compileIntervalMinutes: Math.max(15, Number(e.target.value) || 360) })
+            } /></Field>
+          <Field className="gap-1.5"><FieldLabel className="text-xs">{t('settings.kb_llm.health_hour')}</FieldLabel><Select value={String(config.healthHour)} onValueChange={(next) => setConfig({ ...config, healthHour: Number(next) })}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
             {Array.from({ length: 24 }, (_, h) => (
-              <option key={h} value={h}>
+              <SelectItem key={h} value={h}>
                 {String(h).padStart(2, '0')}:00
-              </option>
+              </SelectItem>
             ))}
-          </DomeSelect>
+          </SelectGroup></SelectContent></Select></Field>
         </div>
-        <DomeCheckbox
-          reverse
-          className="py-2 mt-2"
-          label={t('settings.kb_llm.auto_reindex')}
-          checked={config.autoReindexWikiOnSave}
-          onChange={(e) => setConfig({ ...config, autoReindexWikiOnSave: e.target.checked })}
-        />
-        <DomeCheckbox
-          reverse
-          className="py-2"
-          label={t('settings.kb_llm.allow_auto_write')}
-          checked={config.allowAutoWrite}
-          onChange={(e) => setConfig({ ...config, allowAutoWrite: e.target.checked })}
-        />
+        <div className="flex items-center justify-between gap-3 py-2 mt-2">
+          <Label htmlFor="kb-auto-reindex" className="cursor-pointer text-sm">
+            {t('settings.kb_llm.auto_reindex')}
+          </Label>
+          <Checkbox
+            id="kb-auto-reindex"
+            checked={config.autoReindexWikiOnSave}
+            onCheckedChange={(v) => setConfig({ ...config, autoReindexWikiOnSave: v === true })}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2">
+          <Label htmlFor="kb-allow-auto-write" className="cursor-pointer text-sm">
+            {t('settings.kb_llm.allow_auto_write')}
+          </Label>
+          <Checkbox
+            id="kb-allow-auto-write"
+            checked={config.allowAutoWrite}
+            onCheckedChange={(v) => setConfig({ ...config, allowAutoWrite: v === true })}
+          />
+        </div>
         <div className="flex flex-wrap gap-2 mt-4">
-          <DomeButton type="button" variant="primary" loading={saving} onClick={() => void handleSave()}>
+          <Button type="button"
+  loading={saving}
+  onClick={() => void handleSave()}>
             {t('settings.kb_llm.save')}
-          </DomeButton>
-          <DomeButton
-            type="button"
-            variant="outline"
-            loading={syncing}
-            leftIcon={<RefreshCw className="size-4" />}
-            onClick={() => void handleSyncAll()}
-          >
+          </Button>
+          <Button type="button"
+  variant="outline"
+  loading={syncing}
+  onClick={() => void handleSyncAll()}>{<HugeiconsIcon icon={RefreshCw} className="size-4" />}
             {t('settings.kb_llm.sync_all')}
-          </DomeButton>
+          </Button>
         </div>
-      </DomeCard>
+      </Card>
 
-      <DomeCard>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+      <Card className="p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
           {t('settings.kb_llm.section_status')}
-        </DomeSectionLabel>
-        <DomeSelect
-          className="max-w-xs"
-          label={t('settings.kb_llm.status_project')}
-          value={statusProjectId}
-          onChange={(e) => setStatusProjectId(e.target.value)}
-        >
+        </p>
+        <Field className="gap-1.5 max-w-xs"><FieldLabel className="text-xs">{t('settings.kb_llm.status_project')}</FieldLabel><Select value={statusProjectId} onValueChange={(next) => { if (next != null) setStatusProjectId(next); }}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
           {projects.map((p) => (
-            <option key={p.id} value={p.id}>
+            <SelectItem key={p.id} value={p.id}>
               {p.name}
-            </option>
+            </SelectItem>
           ))}
-        </DomeSelect>
+        </SelectGroup></SelectContent></Select></Field>
         {status && (
-          <div className="text-sm space-y-2 mt-3 text-[var(--dome-text-muted,var(--tertiary-text))]">
+          <div className="text-sm flex flex-col gap-2 mt-3 text-[var(--muted-foreground)]">
             <p>
-              <strong className="text-[var(--dome-text,var(--primary-text))]">{t('settings.kb_llm.effective')}:</strong>{' '}
+              <strong className="text-[var(--foreground)]">{t('settings.kb_llm.effective')}:</strong>{' '}
               {status.effectiveEnabled ? t('settings.kb_llm.on') : t('settings.kb_llm.off')}
             </p>
             <p>
@@ -277,7 +274,7 @@ export default function KbLlmSettingsPanel() {
             </p>
           </div>
         )}
-      </DomeCard>
+      </Card>
     </SettingsPanel>
   );
 }

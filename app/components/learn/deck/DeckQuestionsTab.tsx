@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil } from 'lucide-react';
+import { PencilIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import type { Flashcard } from '@/types';
+import { showToast } from '@/lib/store/useToastStore';
 
 interface DeckQuestionsTabProps {
   cards: Flashcard[];
@@ -58,6 +68,8 @@ export default function DeckQuestionsTab({
       }
       setEditingId(null);
       onRefresh?.();
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -65,95 +77,67 @@ export default function DeckQuestionsTab({
 
   if (items.length === 0) {
     return (
-      <p className="lr-tab-empty">
-        {quizQuestions
+      <Empty><EmptyHeader><EmptyTitle>{quizQuestions
           ? t('learn.deck_no_questions', 'No questions yet.')
-          : t('learn.deck_no_cards', 'No cards yet.')}
-      </p>
+          : t('learn.deck_no_cards', 'No cards yet.')}</EmptyTitle><EmptyDescription>{t('learn.deck_empty_description', 'Generated cards and questions will appear here.')}</EmptyDescription></EmptyHeader></Empty>
     );
   }
 
   return (
-    <div className="lr-body" style={{ paddingTop: 16 }}>
-      <div className="lr-q-list">
+    <div className="flex flex-col gap-4">
+      <ItemGroup>
         {items.map((item, index) => (
-          <div key={item.id} className="lr-q-row">
-            <span className="lr-q-num">{String(index + 1).padStart(2, '0')}</span>
-            <div className="lr-q-content">
-              <div className="lr-q-text">{item.question}</div>
+          <Item key={item.id} variant="outline">
+            <ItemMedia><Badge variant="secondary">{String(index + 1).padStart(2, '0')}</Badge></ItemMedia>
+            <ItemContent>
+              <ItemTitle>{item.question}</ItemTitle>
               {item.difficulty ? (
-                <div className="lr-q-meta">
-                  <span
-                    className={`lr-q-badge${
-                      item.difficulty === 'easy' ? ' easy' : item.difficulty === 'hard' ? ' hard' : ' med'
-                    }`}
-                  >
-                    {item.difficulty}
-                  </span>
-                </div>
+                <ItemDescription><Badge variant="outline">{item.difficulty}</Badge></ItemDescription>
               ) : null}
-            </div>
-            <div className="lr-q-actions">
-              <button
+            </ItemContent>
+            <ItemActions><Button
                 type="button"
-                className="lr-q-action"
+                variant="ghost"
+                size="icon-sm"
                 aria-label={t('ui.edit', 'Edit')}
                 onClick={() => openEdit(item)}
               >
-                <Pencil size={14} />
-              </button>
-            </div>
-          </div>
+                <HugeiconsIcon icon={PencilIcon} />
+              </Button></ItemActions>
+          </Item>
         ))}
-      </div>
+      </ItemGroup>
 
       {editingId ? (
-        <div className="lr-scrim" role="presentation">
-          <dialog open className="lr-modal m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-labelledby="deck-question-edit-title" onCancel={(e) => { e.preventDefault(); setEditingId(null); }}>
-            <div className="lr-modal-hd">
-              <div className="lr-modal-hd-text">
-                <h2 id="deck-question-edit-title">{t('learn.edit_question', 'Edit question')}</h2>
-              </div>
-            </div>
-            <div className="lr-modal-body">
-              <div className="lr-field">
-                <label className="lr-field-label">{t('flashcard.question', 'Question')}</label>
-                <textarea
-                  className="lr-textarea"
+        <Dialog open onOpenChange={(open) => { if (!open) setEditingId(null); }}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{t('learn.edit_question', 'Edit question')}</DialogTitle><DialogDescription>{t('learn.edit_question_description', 'Update the study content without changing its review history.')}</DialogDescription></DialogHeader>
+            <FieldGroup>
+              <Field><FieldLabel htmlFor="learn-question">{t('flashcard.question', 'Question')}</FieldLabel><Textarea id="learn-question"
                   value={draftQuestion}
                   onChange={(e) => setDraftQuestion(e.target.value)}
-                  aria-label={t('flashcard.question', 'Question')}
-                />
-              </div>
+                /></Field>
               {!quizQuestions ? (
-                <div className="lr-field">
-                  <label className="lr-field-label">{t('flashcard.answer', 'Answer')}</label>
-                  <textarea
-                    className="lr-textarea"
+                <Field><FieldLabel htmlFor="learn-answer">{t('flashcard.answer', 'Answer')}</FieldLabel><Textarea id="learn-answer"
                     value={draftAnswer}
                     onChange={(e) => setDraftAnswer(e.target.value)}
-                    aria-label={t('flashcard.answer', 'Answer')}
-                  />
-                </div>
+                  /></Field>
               ) : null}
-            </div>
-            <div className="lr-modal-ft">
-              <div className="lr-modal-ft-right">
-                <button type="button" className="lr-btn" onClick={() => setEditingId(null)}>
+            </FieldGroup>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingId(null)}>
                   {t('learn.cancel', 'Cancel')}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="lr-btn lr-btn-primary"
                   disabled={saving || !draftQuestion.trim()}
                   onClick={() => void handleSave()}
                 >
-                  {t('ui.save', 'Save')}
-                </button>
-              </div>
-            </div>
-          </dialog>
-        </div>
+                  {saving ? <Spinner data-icon="inline-start" /> : null}{t('ui.save', 'Save')}
+                </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );

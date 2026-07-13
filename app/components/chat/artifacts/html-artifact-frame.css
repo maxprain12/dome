@@ -4,8 +4,8 @@
   overflow: auto;
   padding: 8px;
   border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  color: var(--primary-text);
+  background: var(--card);
+  color: var(--foreground);
   border: 1px solid var(--border);
   margin: 0;
   white-space: pre-wrap;

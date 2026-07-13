@@ -935,16 +935,6 @@ function trySeedBundledSkills() {
   }
 }
 
-// Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
-function trySeedOnboardingGuide() {
-  try {
-    const { seedGuide } = require('./core/guide-bootstrap.cjs');
-    seedGuide(database.getDB());
-  } catch (e) {
-    console.warn('[Main] guide bootstrap:', e?.message || e);
-  }
-}
-
 async function initSemanticStack() {
   const lancedbSemantic = require('./services/lancedb-semantic.cjs');
   try {
@@ -1312,7 +1302,6 @@ app
 
     tryStartBackupScheduler();
     trySeedBundledSkills();
-    trySeedOnboardingGuide();
     await initSemanticStack();
     runEmbeddingsRefactorGuard();
 

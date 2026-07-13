@@ -28,8 +28,8 @@
      partially empty. Each row has its own min-height; together
      they make the header height deterministic. */
   min-height: 92px;
-  border-bottom: 1px solid var(--dome-border, var(--border));
-  background: var(--dome-surface, var(--bg-secondary));
+  border-bottom: 1px solid var(--border, var(--border));
+  background: var(--card, var(--card));
 }
 
 /* ── Row 1 — identity (title + repo selector + external link) ── */
@@ -40,7 +40,7 @@
   gap: 10px;
   padding: 8px 16px 6px;
   min-height: 40px;
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border, var(--border)) 65%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border, var(--border)) 65%, transparent);
   flex-wrap: nowrap;
   min-width: 0;
 }
@@ -66,7 +66,7 @@
 .dome-github-view__divider {
   width: 1px;
   height: 18px;
-  background: var(--dome-border, var(--border));
+  background: var(--border, var(--border));
   flex-shrink: 0;
 }
 

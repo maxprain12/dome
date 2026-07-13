@@ -1,17 +1,20 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import {
-  Bot,
-  Download,
-  GitBranch,
-  Loader2,
-  Pencil,
-  Plus,
-  Trash2,
-  Upload,
-  Workflow,
-  Zap,
-} from 'lucide-react';
+  BotIcon as BotIcon,
+  Download04Icon as DownloadIcon,
+  GitBranchIcon as GitBranchIcon,
+  Loading03Icon as Loader2Icon,
+  PencilIcon as PencilIcon,
+  PlusSignIcon as PlusIcon,
+  Delete02Icon as Trash2Icon,
+  Upload04Icon as UploadIcon,
+  WorkflowSquare01Icon as WorkflowIcon,
+  ZapIcon as ZapIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Input } from '@/components/ui/input';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -22,15 +25,15 @@ import { PENDING_AUTOMATIONS_FILTER_KEY } from '@/lib/hub/hubStorageKeys';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
 import { useWorkflowLibrary } from '@/components/agent-canvas/useWorkflowLibrary';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
-import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
-import HubSearchField from '@/components/ui/HubSearchField';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Search01Icon } from '@hugeicons/core-free-icons';
 import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
 import { useHubListLoader } from '@/lib/hub/useHubListLoader';
 import { HUB_RUNS_CHANGED } from '@/lib/hub/hubEvents';
 
+import { Skeleton } from '@/components/ui/skeleton';
 function isToday(ts: number | null | undefined): boolean {
   if (!ts) return false;
   const d = new Date(ts);
@@ -176,11 +179,10 @@ export default function WorkflowsStudioView() {
         section="workflows"
         title={t('tabs.workflows')}
         subtitle={t('automationHub.workflows_subtitle')}
-        icon={GitBranch}
         stats={stats}
         actions={
           <>
-            <input
+            <Input
               ref={importInputRef}
               type="file"
               accept=".json,application/json"
@@ -192,74 +194,62 @@ export default function WorkflowsStudioView() {
                 if (file) void handleWorkflowImportFile(file);
               }}
             />
-            <DomeButton
-              variant="outline"
-              size="sm"
-              disabled={importingBundle}
-              onClick={() => importInputRef.current?.click()}
-              leftIcon={importingBundle ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-            >
+            <Button variant="outline"
+  disabled={importingBundle}
+  onClick={() => importInputRef.current?.click()}
+  size="sm">{importingBundle ? <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" /> : <HugeiconsIcon icon={UploadIcon} className="size-3.5" />}
               {t('hubExport.import_workflow')}
-            </DomeButton>
-            <DomeButton
-              variant="primary"
-              size="sm"
-              onClick={newWorkflow}
-              className="!bg-[var(--dome-accent)]"
-              leftIcon={<Plus className="size-3.5" />}
-            >
+            </Button>
+            <Button onClick={newWorkflow}
+  className="!bg-primary"
+  size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
               {t('canvas.new_workflow')}
-            </DomeButton>
+            </Button>
           </>
         }
         toolbar={
           <div className="flex items-center gap-3 flex-wrap">
-            <HubSearchField
-              value={search}
-              onChange={setSearch}
-              placeholder={t('canvas.search_workflows_placeholder')}
-              ariaLabel={t('canvas.search_workflows_placeholder')}
-            />
-            <DomeFilterChipGroup
-              dense
-              options={folderChips.map((c) => ({ value: c.value, label: c.label }))}
-              value={folderFilter}
-              onChange={setFolderFilter}
-            />
+            <InputGroup className="h-8 max-w-xl">
+              <InputGroupAddon><HugeiconsIcon icon={Search01Icon} aria-hidden /></InputGroupAddon>
+              <InputGroupInput type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('canvas.search_workflows_placeholder')} aria-label={t('canvas.search_workflows_placeholder')} />
+            </InputGroup>
+            <ToggleGroup value={[folderFilter]} onValueChange={(values) => values[0] && setFolderFilter(values[0])}>
+              {folderChips.map((chip) => <ToggleGroupItem key={chip.value} value={chip.value} size="sm">{chip.label}</ToggleGroupItem>)}
+            </ToggleGroup>
           </div>
         }
       >
         {loading ? (
           <div className="p-6">
-            <DomeSkeletonGrid count={9} />
+            <output className="flex w-full max-w-full flex-col gap-3" aria-live="polite">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-xl" />
+              ))}
+            </output>
           </div>
         ) : workflows.length === 0 ? (
           <div className="p-6">
             <div
               className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl px-8 py-10 text-center"
-              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
               <div
                 className="flex size-14 items-center justify-center rounded-2xl"
                 style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
               >
-                <Workflow className="size-7" strokeWidth={1.5} />
+                <HugeiconsIcon icon={WorkflowIcon} className="size-7" strokeWidth={1.5} />
               </div>
-              <h2 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
+              <h2 className="text-base font-semibold text-foreground">
                 {t('canvas.no_workflows_saved_title')}
               </h2>
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-sm text-muted-foreground">
                 {t('canvas.no_workflows_saved_desc')}
               </p>
-              <DomeButton
-                variant="primary"
-                size="sm"
-                className="mt-2 !bg-[var(--dome-accent)]"
-                onClick={newWorkflow}
-                leftIcon={<Plus className="size-3.5" />}
-              >
+              <Button className="mt-2 !bg-primary"
+  onClick={newWorkflow}
+  size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
                 {t('canvas.create_first_workflow')}
-              </DomeButton>
+              </Button>
             </div>
           </div>
         ) : (
@@ -279,47 +269,47 @@ export default function WorkflowsStudioView() {
                       openWorkflow(wf);
                     }
                   }}
-                  className="group flex cursor-pointer flex-col gap-3 rounded-2xl p-4 text-left transition-all hover:-translate-y-0.5"
-                  style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+                  className="group flex cursor-pointer flex-col gap-3 rounded-2xl p-4 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className="flex size-11 shrink-0 items-center justify-center rounded-xl"
                       style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
                     >
-                      <Workflow className="size-5" strokeWidth={1.75} />
+                      <HugeiconsIcon icon={WorkflowIcon} className="size-5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
+                      <span className="block truncate text-sm font-semibold text-foreground">
                         {wf.name}
                       </span>
-                      <p className="line-clamp-2 text-xs leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+                      <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
                         {wf.description || t('orchestration.workflows.no_description')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                  <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
                     <span
                       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                      style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
+                      style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
                     >
-                      <GitBranch className="size-2.5" aria-hidden />
+                      <HugeiconsIcon icon={GitBranchIcon} className="size-2.5" aria-hidden />
                       {t('orchestration.workflows.nodes_count', { count: nodeCount })}
                     </span>
                     {agentNodes > 0 ? (
                       <span
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                        style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
+                        style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
                       >
-                        <Bot className="size-2.5" aria-hidden />
+                        <HugeiconsIcon icon={BotIcon} className="size-2.5" aria-hidden />
                         {t('orchestration.workflows.agents_count', { count: agentNodes })}
                       </span>
                     ) : null}
                   </div>
 
                   <div className="mt-auto flex items-center justify-between gap-2">
-                    <span className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+                    <span className="text-[11px] text-muted-foreground">
                       {formatDate(wf.updatedAt)}
                     </span>
                     <div
@@ -328,57 +318,45 @@ export default function WorkflowsStudioView() {
                       onKeyDown={(e) => e.stopPropagation()}
                       role="presentation"
                     >
-                      <DomeButton
-                        variant="outline"
-                        size="xs"
-                        onClick={() => openWorkflow(wf)}
-                        leftIcon={<Pencil className="size-3" />}
-                      >
+                      <Button variant="outline"
+  onClick={() => openWorkflow(wf)}
+  size="xs">{<HugeiconsIcon icon={PencilIcon} className="size-3" />}
                         {t('orchestration.workflows.open_canvas')}
-                      </DomeButton>
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('agents.automations')}
-                        aria-label={t('agents.automations')}
-                        onClick={() => openWorkflowAutomations(wf)}
-                      >
-                        <Zap className="size-3.5" style={{ color: 'var(--warning)' }} />
-                      </DomeButton>
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('hubExport.export_workflow')}
-                        aria-label={t('hubExport.export_workflow')}
-                        onClick={() => void handleExportWorkflow(wf)}
-                      >
-                        <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-                      </DomeButton>
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('common.delete')}
-                        aria-label={t('common.delete')}
-                        disabled={deletingId === wf.id}
-                        className="!text-[var(--error)] hover:!bg-[var(--error-bg)]"
-                        onClick={() => setConfirmDeleteId(wf.id)}
-                      >
+                      </Button>
+                      <Button variant="ghost"
+  title={t('agents.automations')}
+  aria-label={t('agents.automations')}
+  onClick={() => openWorkflowAutomations(wf)}
+  size="icon-xs">
+                        <HugeiconsIcon icon={ZapIcon} className="size-3.5 text-[var(--warning)]" />
+                      </Button>
+                      <Button variant="ghost"
+  title={t('hubExport.export_workflow')}
+  aria-label={t('hubExport.export_workflow')}
+  onClick={() => void handleExportWorkflow(wf)}
+  size="icon-xs">
+                        <HugeiconsIcon icon={DownloadIcon} className="size-3.5 text-muted-foreground" />
+                      </Button>
+                      <Button variant="ghost"
+  title={t('common.delete')}
+  aria-label={t('common.delete')}
+  disabled={deletingId === wf.id}
+  className="!text-destructive hover:!bg-[color-mix(in srgb, var(--destructive) 12%, transparent)]"
+  onClick={() => setConfirmDeleteId(wf.id)}
+  size="icon-xs">
                         {deletingId === wf.id ? (
-                          <Loader2 className="size-3.5 animate-spin" />
+                          <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
                         ) : (
-                          <Trash2 className="size-3.5" />
+                          <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
                         )}
-                      </DomeButton>
+                      </Button>
                     </div>
                   </div>
                 </div>
               );
             })}
             {q && visibleWorkflows.length === 0 ? (
-              <p className="col-span-full py-8 text-center text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
                 {t('canvas.no_workflow_search_results')}
               </p>
             ) : null}

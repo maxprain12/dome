@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Rewind, FastForward } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Backward01Icon, FastForwardIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { notifications } from '@mantine/notifications';
+import { notifications } from '@/lib/notifications';
 import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { useSafeMediaSource } from '@/lib/hooks/useSafeMediaSource';
-import LoadingState from '@/components/ui/LoadingState';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 import MediaControls from './shared/MediaControls';
 import SeekBar from './shared/SeekBar';
 import AnnotationInput from './shared/AnnotationInput';
 import StructuredTranscriptWorkspace from './shared/StructuredTranscriptWorkspace';
 import { useMediaPlaybackStore } from '@/lib/store/useMediaPlaybackStore';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import type { ReactNode } from 'react';
 interface AudioPlayerProps {
   resource: Resource;
 }
@@ -256,13 +258,13 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
   }, [persistPlayback]);
 
   if (error || sourceError) {
-    return <ErrorState error={error || sourceError || t('media.playback_failed_generic')} />;
+    return <ListState variant="error" errorMessage={error || sourceError || t('media.playback_failed_generic')} fullHeight />;
   }
 
   const mainLoading = isLoading || sourceLoading;
 
   return (
-    <div className="flex h-full min-h-0 flex-col" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1 overflow-hidden">
         <StructuredTranscriptWorkspace
           resource={resource}
@@ -276,10 +278,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
       </div>
 
       {!miniPlayerCollapsed && (
-        <div
-          className="shrink-0 space-y-2 border-t px-4 py-3"
-          style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-        >
+        <div className="flex shrink-0 flex-col gap-2 border-t bg-card px-4 py-3">
           {audioUrl && (
             // User-imported audio has no caption tracks; Dome offers
             // transcription as the accessible alternative.
@@ -298,7 +297,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
             />
           )}
           {mainLoading && !audioUrl ? (
-            <LoadingState message={t('media.loading_audio')} />
+            <ListState variant="loading" loadingLabel={t('media.loading_audio')} fullHeight />
           ) : (
             <>
               <SeekBar
@@ -308,30 +307,31 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                 formatTime={formatMediaTime}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <DomeSelectMenu
-                  value={String(playbackRate)}
-                  onChange={(v) => handlePlaybackRateChange(parseFloat(v))}
-                  aria-label="Playback speed"
-                  fullWidth={false}
-                  options={[
+                <Select value={String(playbackRate) ?? null} onValueChange={(next) => { if (next != null) ((v) => handlePlaybackRateChange(parseFloat(v)))(next); }} items={[
                     { value: '0.5', label: '0.5x' },
                     { value: '0.75', label: '0.75x' },
                     { value: '1', label: '1x' },
                     { value: '1.25', label: '1.25x' },
                     { value: '1.5', label: '1.5x' },
                     { value: '2', label: '2x' },
-                  ]}
-                />
+                  ]}><SelectTrigger className="w-fit" aria-label="Playback speed"><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                    { value: '0.5', label: '0.5x' },
+                    { value: '0.75', label: '0.75x' },
+                    { value: '1', label: '1x' },
+                    { value: '1.25', label: '1.25x' },
+                    { value: '1.5', label: '1.5x' },
+                    { value: '2', label: '2x' },
+                  ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
                 <div className="flex items-center justify-center gap-1">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleSkip(-10)}
-                    className="cursor-pointer rounded-full p-2 transition-colors"
-                    style={{ color: 'var(--dome-text-muted)' }}
-                    aria-label="Rewind 10 seconds"
+                    aria-label={t('media.rewind_seconds', { defaultValue: 'Rewind 10 seconds', count: 10 })}
                   >
-                    <Rewind size={20} />
-                  </button>
+                    <HugeiconsIcon icon={Backward01Icon} />
+                  </Button>
                   <MediaControls
                     isPlaying={isPlaying}
                     isMuted={isMuted}
@@ -340,15 +340,15 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                     onToggleMute={handleToggleMute}
                     onVolumeChange={handleVolumeChange}
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleSkip(10)}
-                    className="cursor-pointer rounded-full p-2 transition-colors"
-                    style={{ color: 'var(--dome-text-muted)' }}
-                    aria-label="Forward 10 seconds"
+                    aria-label={t('media.forward_seconds', { defaultValue: 'Forward 10 seconds', count: 10 })}
                   >
-                    <FastForward size={20} />
-                  </button>
+                    <HugeiconsIcon icon={FastForwardIcon} />
+                  </Button>
                 </div>
                 <AnnotationInput
                   isOpen={showAnnotationInput}
@@ -360,7 +360,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                   addNoteLabel={t('media.add_note')}
                 />
               </div>
-              <p className="text-center text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-center text-[10px] text-muted-foreground">
                 {t('media.keyboard_hints_audio')}
               </p>
             </>

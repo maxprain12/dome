@@ -51,7 +51,7 @@ function CanvasNodeItem({
       ? 'var(--success)'
       : node.data.type === 'image'
         ? 'var(--warning)'
-        : 'var(--dome-accent)';
+        : 'var(--primary)';
 
   return (
     <div

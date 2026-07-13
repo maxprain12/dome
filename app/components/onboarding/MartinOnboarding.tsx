@@ -7,6 +7,7 @@ import ProfileStep from './steps/ProfileStep';
 import RoleStep from './steps/RoleStep';
 import AISetupStep from './steps/AISetupStep';
 import ManyAvatar from '@/components/many/ManyAvatar';
+import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import type { RoleId } from '@/lib/onboarding/roles';
 
 interface MartinOnboardingProps {
@@ -18,6 +19,7 @@ interface MartinOnboardingProps {
     roleId: RoleId;
     freeText: string;
   }) => void;
+  onSkip: () => void;
 }
 
 type Step = 'account' | 'welcome' | 'profile' | 'role' | 'ai';
@@ -27,15 +29,29 @@ type AccountData = {
   email?: string;
   name?: string;
   hadRemoteData?: boolean;
+  alreadyOnboarded?: boolean;
 };
+
+const STEPS_WITH_DOME: Step[] = ['account', 'welcome', 'profile', 'role', 'ai'];
+const STEPS_WITHOUT_DOME: Step[] = ['welcome', 'profile', 'role', 'ai'];
+
+function getStepProgress(currentStep: Step, domeEnabled: boolean) {
+  const steps = domeEnabled ? STEPS_WITH_DOME : STEPS_WITHOUT_DOME;
+  const index = steps.indexOf(currentStep);
+  return { stepIndex: index >= 0 ? index : 0, totalSteps: steps.length };
+}
 
 export default function MartinOnboarding({
   initialName,
   initialEmail,
   onComplete,
+  onSkip,
 }: MartinOnboardingProps) {
   const { t } = useTranslation();
-  const [currentStep, setCurrentStep] = useState<Step>('account');
+  const [currentStep, setCurrentStep] = useState<Step>(
+    DOME_PROVIDER_ENABLED ? 'account' : 'welcome',
+  );
+  const [accountSubView, setAccountSubView] = useState<'choice' | 'login' | 'register'>('choice');
   const [accountData, setAccountData] = useState<AccountData | null>(null);
   const [profileData, setProfileData] = useState<{
     name: string;
@@ -50,7 +66,13 @@ export default function MartinOnboarding({
   const [canProceedRole, setCanProceedRole] = useState(false);
   const [canProceedAI, setCanProceedAI] = useState(false);
 
+  const { stepIndex, totalSteps } = getStepProgress(currentStep, DOME_PROVIDER_ENABLED);
+
   const handleAccountComplete = (data: AccountData) => {
+    if (data.mode === 'account' && data.alreadyOnboarded) {
+      onSkip();
+      return;
+    }
     setAccountData(data);
     setCurrentStep('welcome');
   };
@@ -85,7 +107,9 @@ export default function MartinOnboarding({
 
   const handleBack = () => {
     if (currentStep === 'welcome') {
-      setCurrentStep('account');
+      if (DOME_PROVIDER_ENABLED) {
+        setCurrentStep('account');
+      }
     } else if (currentStep === 'profile') {
       setCurrentStep('welcome');
     } else if (currentStep === 'role') {
@@ -99,15 +123,27 @@ export default function MartinOnboarding({
     }
   };
 
-  if (currentStep === 'account') {
+  const accountBack =
+    accountSubView !== 'choice'
+      ? () => window.dispatchEvent(new CustomEvent('onboarding:account-back'))
+      : undefined;
+
+  if (currentStep === 'account' && DOME_PROVIDER_ENABLED) {
     return (
       <OnboardingStep
         message={t('onboarding.account_message')}
         onNext={() => window.dispatchEvent(new CustomEvent('onboarding:account-validate'))}
+        onBack={accountBack}
         nextLabel={t('onboarding.continue')}
         canProceed={canProceedAccount}
+        stepIndex={stepIndex}
+        totalSteps={totalSteps}
       >
-        <AccountStep onComplete={handleAccountComplete} onValidationChange={setCanProceedAccount} />
+        <AccountStep
+          onComplete={handleAccountComplete}
+          onValidationChange={setCanProceedAccount}
+          onSubViewChange={setAccountSubView}
+        />
       </OnboardingStep>
     );
   }
@@ -117,9 +153,11 @@ export default function MartinOnboarding({
       <OnboardingStep
         message={t('onboarding.welcome_message')}
         onNext={handleWelcomeNext}
-        onBack={handleBack}
+        onBack={DOME_PROVIDER_ENABLED ? handleBack : undefined}
         nextLabel={t('onboarding.start')}
         canProceed={true}
+        stepIndex={stepIndex}
+        totalSteps={totalSteps}
       >
         <div className="flex items-center justify-center py-8">
           <ManyAvatar size="xl" />
@@ -138,6 +176,8 @@ export default function MartinOnboarding({
         onBack={handleBack}
         nextLabel={t('onboarding.continue')}
         canProceed={canProceedProfile}
+        stepIndex={stepIndex}
+        totalSteps={totalSteps}
       >
         <ProfileStep
           initialName={initialName || profileData?.name}
@@ -161,6 +201,8 @@ export default function MartinOnboarding({
         onBack={handleBack}
         nextLabel={t('onboarding.continue')}
         canProceed={canProceedRole}
+        stepIndex={stepIndex}
+        totalSteps={totalSteps}
       >
         <RoleStep
           initialRoleId={roleData?.roleId}
@@ -179,6 +221,8 @@ export default function MartinOnboarding({
       onBack={handleBack}
       nextLabel={t('onboarding.finalize')}
       canProceed={canProceedAI}
+      stepIndex={stepIndex}
+      totalSteps={totalSteps}
     >
       <AISetupStep
         onComplete={handleAIComplete}

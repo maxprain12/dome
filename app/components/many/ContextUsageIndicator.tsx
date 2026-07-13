@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Popover } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Cancel01Icon } from '@hugeicons/core-free-icons';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   buildContextSegments,
   contextUsagePercent,
@@ -17,7 +20,6 @@ interface Props {
   breakdown: BudgetBreakdown;
   liveUsage?: LiveTokenUsage | null;
   budgetCapApprox?: number;
-  /** Compact trigger for header; popup variant for composer row */
   variant?: 'header' | 'inline';
   className?: string;
 }
@@ -35,7 +37,7 @@ function ContextDonut({ percent, size = 14 }: { percent: number; size?: number }
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--bg-tertiary)"
+        stroke="var(--muted)"
         strokeWidth={stroke}
       />
       <circle
@@ -43,7 +45,7 @@ function ContextDonut({ percent, size = 14 }: { percent: number; size?: number }
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--primary-text)"
+        stroke="var(--foreground)"
         strokeWidth={stroke}
         strokeDasharray={`${filled} ${circumference - filled}`}
         strokeLinecap="round"
@@ -61,7 +63,7 @@ export default function ContextUsageIndicator({
   className,
 }: Props) {
   const { t } = useTranslation();
-  const [opened, { open, close, toggle }] = useDisclosure(false);
+  const [opened, setOpened] = useState(false);
   const [hoveredId, setHoveredId] = useState<ContextSegmentId | null>(null);
 
   const cap = Number.isFinite(budgetCapApprox) && budgetCapApprox > 0 ? budgetCapApprox : 200_000;
@@ -70,51 +72,43 @@ export default function ContextUsageIndicator({
   const segments = useMemo(() => buildContextSegments(breakdown, t), [breakdown, t]);
 
   return (
-    <Popover
-      opened={opened}
-      onChange={(next) => (next ? open() : close())}
-      position="bottom-end"
-      offset={8}
-      width={320}
-      shadow="md"
-      radius="md"
-      withinPortal
-    >
-      <Popover.Target>
-        <button
-          type="button"
-          className={
-            className ??
-            (variant === 'header'
-              ? 'many-context-trigger many-context-trigger--header'
-              : 'many-context-trigger many-context-trigger--inline')
-          }
-          onClick={toggle}
-          title={t('many.context_usage_hint')}
-          aria-label={t('many.context_usage_title')}
-          aria-expanded={opened}
-        >
-          <ContextDonut percent={percent} size={variant === 'header' ? 14 : 16} />
-          <span className="many-context-trigger__pct tabular-nums">{percent}%</span>
-        </button>
-      </Popover.Target>
-
-      <Popover.Dropdown className="many-context-popup p-0">
-        <div className="many-context-popup__header">
-          <span className="many-context-popup__title">{t('many.context_usage_title')}</span>
-          <button
+    <Popover open={opened} onOpenChange={setOpened}>
+      <PopoverTrigger
+        render={
+          <Button
             type="button"
-            className="many-icon-btn"
-            onClick={close}
+            variant="ghost"
+            size="sm"
+            className={className}
+            title={t('many.context_usage_hint')}
+            aria-label={t('many.context_usage_title')}
+            aria-expanded={opened}
+          />
+        }
+      >
+        <ContextDonut percent={percent} size={variant === 'header' ? 14 : 16} />
+        <Badge variant="secondary" className="tabular-nums">
+          {percent}%
+        </Badge>
+      </PopoverTrigger>
+
+      <PopoverContent side="bottom" align="end" className="w-80 p-0">
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <span className="text-sm font-medium">{t('many.context_usage_title')}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setOpened(false)}
             aria-label={t('many.context_usage_close')}
           >
-            <X size={14} />
-          </button>
+            <HugeiconsIcon icon={Cancel01Icon} />
+          </Button>
         </div>
 
-        <div className="many-context-popup__summary">
+        <div className="flex items-center justify-between px-3 py-2 text-sm">
           <span>{t('many.context_usage_full', { percent })}</span>
-          <span className="tabular-nums">
+          <span className="tabular-nums text-muted-foreground">
             {t('many.context_usage_tokens', {
               used: formatContextTokens(used),
               cap: formatContextTokens(cap),
@@ -122,40 +116,45 @@ export default function ContextUsageIndicator({
           </span>
         </div>
 
-        <div className="many-context-popup__bar" aria-hidden>
-          {segments.map((seg) => (
-            <span
-              key={seg.id}
-              className="many-context-popup__bar-seg"
-              style={{
-                width: `${Math.min(100, (seg.tokens / cap) * 100)}%`,
-                background: seg.color,
-                opacity: hoveredId && hoveredId !== seg.id ? 0.35 : 1,
-              }}
-            />
-          ))}
+        <div className="px-3 pb-2">
+          <Progress value={percent} className="h-2" />
+          <div className="mt-1 flex h-1.5 overflow-hidden rounded-full">
+            {segments.map((seg) => (
+              <span
+                key={seg.id}
+                className="h-full transition-opacity"
+                style={{
+                  width: `${Math.min(100, (seg.tokens / cap) * 100)}%`,
+                  background: seg.color,
+                  opacity: hoveredId && hoveredId !== seg.id ? 0.35 : 1,
+                }}
+              />
+            ))}
+          </div>
         </div>
 
-        <ul className="many-context-popup__list">
+        <ul className="flex flex-col gap-0.5 px-2 pb-2">
           {segments.map((seg) => (
             <li
               key={seg.id}
-              className="many-context-popup__row"
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
               data-active={hoveredId === seg.id || undefined}
               onMouseEnter={() => setHoveredId(seg.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              <span className="many-context-popup__swatch" style={{ background: seg.color }} />
-              <span className="many-context-popup__label">{seg.label}</span>
-              <span className="many-context-popup__value tabular-nums">
+              <span className="size-2 shrink-0 rounded-full" style={{ background: seg.color }} />
+              <span className="min-w-0 flex-1 truncate">{seg.label}</span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
                 {formatContextTokens(seg.tokens)}
               </span>
             </li>
           ))}
         </ul>
 
-        <p className="many-context-popup__footnote">{t('many.context_usage_footnote')}</p>
-      </Popover.Dropdown>
+        <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+          {t('many.context_usage_footnote')}
+        </p>
+      </PopoverContent>
     </Popover>
   );
 }

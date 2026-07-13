@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { HelpCircle, Sparkles } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { HelpCircleIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { getSectionGuide } from '@/lib/onboarding/sectionGuides';
 import { useSectionTourStore } from '@/lib/store/useSectionTourStore';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 interface SectionGuideProps {
   sectionKey: string;
   className?: string;
@@ -21,20 +21,9 @@ function SectionGuideSteps({ sectionKey }: { sectionKey: string }) {
       {guide.stepKeys.map((stepKey, i) => (
         <li
           key={stepKey}
-          className="flex items-start gap-2.5 text-sm"
-          style={{ color: 'var(--dome-text-secondary, var(--secondary-text))' }}
+          className="flex items-start gap-2.5 text-sm text-muted-foreground"
         >
-          <span
-            className="shrink-0 inline-flex items-center justify-center rounded-full tabular-nums"
-            style={{
-              width: 20,
-              height: 20,
-              fontSize: 12,
-              fontWeight: 600,
-              background: 'var(--dome-accent, var(--accent))',
-              color: 'var(--dome-accent-fg, white)',
-            }}
-          >
+          <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground tabular-nums">
             {i + 1}
           </span>
           <span className="leading-snug pt-0.5">{t(stepKey)}</span>
@@ -64,20 +53,11 @@ function SectionGuideModal({
   };
 
   return (
-    <DomeModal
-      open={open}
-      onClose={onClose}
-      title={t(guide.titleKey)}
-      size="sm"
-      headerIcon={<Sparkles className="size-4 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} />}
-      footer={
-        <DomeButton type="button" variant="primary" size="sm" onClick={handleGotIt}>
-          {t('sectionGuide.got_it')}
-        </DomeButton>
-      }
-    >
+    <Dialog open={open} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3">{<HugeiconsIcon icon={SparklesIcon} className="size-4 shrink-0 text-primary" />}<div className="min-w-0"><DialogTitle className="truncate">{t(guide.titleKey)}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <SectionGuideSteps sectionKey={sectionKey} />
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<Button type="button" onClick={handleGotIt} size="sm">
+          {t('sectionGuide.got_it')}
+        </Button>}</DialogFooter></DialogContent></Dialog>
   );
 }
 
@@ -96,35 +76,18 @@ export function SectionGuideHelp({ sectionKey, className }: SectionGuideProps) {
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={() => setOpen(true)}
         aria-label={t('sectionGuide.help_aria')}
         title={t('sectionGuide.help_aria')}
-        className={`inline-flex shrink-0 items-center justify-center rounded-md transition-colors ${className ?? ''}`}
-        style={{
-          width: 26,
-          height: 26,
-          color: 'var(--dome-text-muted, var(--tertiary-text))',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover, var(--bg-hover))';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text, var(--primary-text))';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted, var(--tertiary-text))';
-        }}
+        className={className}
       >
-        <HelpCircle className="size-4" />
-      </button>
+        <HugeiconsIcon icon={HelpCircleIcon} className="size-4" />
+      </Button>
       <SectionGuideModal sectionKey={sectionKey} open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
-
-/** @deprecated Use `SectionGuideHelp` */
-export const SectionHelpButton = SectionGuideHelp;

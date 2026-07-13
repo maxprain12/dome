@@ -20,6 +20,7 @@ export const tags = sqliteTable('tags', {
   name: text('name').notNull().unique(),
   color: text('color'),
   createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull().default(0),
 });
 
 export const resourceTags = sqliteTable(
@@ -27,6 +28,8 @@ export const resourceTags = sqliteTable(
   {
     resourceId: text('resource_id').notNull(),
     tagId: text('tag_id').notNull(),
+    createdAt: integer('created_at').notNull().default(0),
+    updatedAt: integer('updated_at').notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.resourceId, t.tagId] })],
 );
@@ -82,14 +85,6 @@ export const resourceInteractions = sqliteTable('resource_interactions', {
   metadata: text('metadata'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-});
-
-export const searchIndex = sqliteTable('search_index', {
-  id: text('id').primaryKey(),
-  resourceId: text('resource_id').notNull().unique(),
-  combinedText: text('combined_text'),
-  keywords: text('keywords'),
-  lastIndexed: integer('last_indexed').notNull(),
 });
 
 export const artifacts = sqliteTable('artifacts', {

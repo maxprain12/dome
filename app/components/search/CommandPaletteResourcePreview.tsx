@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Folder, Loader2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Folder01Icon } from '@hugeicons/core-free-icons';
+import { typesetDocsClass } from '@/lib/typeset';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/types';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
 import { loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { formatDistanceToNow } from '@/lib/utils';
+import { Spinner } from '@/components/ui/spinner';
 
 const CACHE_MAX = 30;
 const MARKDOWN_MAX = 2000;
@@ -175,14 +178,14 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
   if (loading && !preview) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+        <Spinner className="size-4 text-muted-foreground" />
       </div>
     );
   }
 
   if (!preview) {
     return (
-      <div className="flex h-full items-center justify-center px-4 text-center text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
         {t('command.preview_empty')}
       </div>
     );
@@ -191,19 +194,19 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
   return (
     <div className="dome-cmdk-preview flex h-full min-h-0 flex-col">
       {/* Header: title + location */}
-      <div className="shrink-0 border-b px-3.5 py-2.5" style={{ borderColor: 'var(--dome-border)' }}>
+      <div className="shrink-0 border-b px-3.5 py-2.5 border-border">
         <div className="flex items-center gap-2">
-          <span className="shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
-            <DomeResourceIcon type={preview.type} name={preview.title} size={15} strokeWidth={1.5} />
+          <span className="shrink-0 text-muted-foreground">
+            <ResourceIcon type={preview.type} name={preview.title} size={15} strokeWidth={1.5} />
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
             {preview.title}
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           {preview.folderPath ? (
             <>
-              <Folder className="size-3 shrink-0" strokeWidth={1.75} />
+              <HugeiconsIcon icon={Folder01Icon} className="size-3 shrink-0" />
               <span className="truncate">{preview.folderPath}</span>
             </>
           ) : null}
@@ -215,14 +218,7 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
 
       {/* Match context strip: the exact place the query appears. */}
       {matchContext ? (
-        <div
-          className="shrink-0 border-b px-3.5 py-2 text-[11px] leading-relaxed"
-          style={{
-            borderColor: 'var(--dome-border)',
-            background: 'color-mix(in srgb, var(--dome-accent) 5%, transparent)',
-            color: 'var(--dome-text-secondary)',
-          }}
-        >
+        <div className="shrink-0 border-b bg-primary/5 px-3.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
           <span className="line-clamp-4">{highlight(matchContext, query.trim())}</span>
         </div>
       ) : null}
@@ -230,7 +226,7 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
       {/* Body */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {preview.markdown ? (
-          <div className="dome-cmdk-md px-3.5 py-3">
+          <div className={typesetDocsClass('px-3.5 py-3')}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}
@@ -243,11 +239,11 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
         ) : preview.imageUrl ? (
           <img src={preview.imageUrl} alt="" className="block w-full object-contain" draggable={false} />
         ) : preview.text ? (
-          <p className="whitespace-pre-wrap px-3.5 py-3 text-[11px] leading-relaxed" style={{ color: 'var(--dome-text-secondary)' }}>
+          <p className="whitespace-pre-wrap px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground">
             {highlight(contextAround(preview.text, query.trim()), query.trim())}
           </p>
         ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
             {t('command.preview_empty')}
           </div>
         )}

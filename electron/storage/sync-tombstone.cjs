@@ -16,6 +16,34 @@ const DOMAIN_TABLES = {
     'pipeline_item_events',
   ],
   calendar: ['calendar_events', 'calendar_event_links'],
+  settings: ['synced_settings'],
+  library: [
+    'projects',
+    'resources',
+    'sources',
+    'tags',
+    'resource_tags',
+    'artifacts',
+    'resource_interactions',
+  ],
+  agents: [
+    'agent_folders',
+    'workflow_folders',
+    'many_agents',
+    'many_agent_versions',
+    'canvas_workflows',
+    'automation_definitions',
+  ],
+  learn: [
+    'flashcard_decks',
+    'flashcards',
+    'flashcard_sessions',
+    'study_events',
+    'studio_outputs',
+    'quiz_runs',
+  ],
+  files: ['vault_blobs'],
+  conversations: ['chat_sessions', 'chat_messages', 'many_session_index'],
 };
 
 const ALL_TABLES = new Set(Object.values(DOMAIN_TABLES).flat());
@@ -86,7 +114,18 @@ function markTombstonesSynced(db, tombstones) {
 function applyRemoteTombstone(db, tableName, rowId) {
   if (!ALL_TABLES.has(tableName)) return;
   try {
-    db.prepare(`DELETE FROM ${tableName} WHERE id = ?`).run(rowId);
+    if (tableName === 'resource_tags') {
+      // Composite key travels as '<resource_id>:<tag_id>' (uuids never contain ':').
+      const sep = rowId.indexOf(':');
+      if (sep > 0) {
+        db.prepare('DELETE FROM resource_tags WHERE resource_id = ? AND tag_id = ?').run(
+          rowId.slice(0, sep),
+          rowId.slice(sep + 1),
+        );
+      }
+    } else {
+      db.prepare(`DELETE FROM ${tableName} WHERE id = ?`).run(rowId);
+    }
   } catch {
     /* table may not exist on older installs */
   }

@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Bot, Lightbulb, Plug2, Wrench, X } from 'lucide-react';
+import {
+  BotIcon as BotIcon,
+  Idea01Icon as LightbulbIcon,
+  Plug02Icon as Plug2Icon,
+  Wrench01Icon as WrenchIcon,
+  Cancel01Icon as XIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import type { ManyAgent, MCPServerConfig } from '@/types';
 import { createManyAgent, updateManyAgent } from '@/lib/agents/api';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { showToast } from '@/lib/store/useToastStore';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeToggle from '@/components/ui/DomeToggle';
-import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
-import { cn } from '@/lib/utils';
 
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 const ICON_COUNT = 18;
 
 interface AgentEditorProps {
@@ -31,13 +40,13 @@ function SectionCard({
   return (
     <section
       className="rounded-2xl p-4"
-      style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+      style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
     >
-      <h2 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+      <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </h2>
       {hint ? (
-        <p className="mt-0.5 text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
           {hint}
         </p>
       ) : null}
@@ -119,46 +128,38 @@ export default function AgentEditor({
   }, [name, description, systemInstructions, mcpServerIds, iconIndex, isEditMode, initialAgent, projectId, onComplete, t]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex h-full min-h-0 flex-col bg-background">
       {/* Header */}
       <header
         className="flex shrink-0 items-center justify-between gap-3 px-6 py-4"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
+        style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex min-w-0 items-center gap-3">
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-xl"
-            style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
+            style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)', color: 'var(--primary)' }}
           >
-            <Bot className="size-5" strokeWidth={1.75} />
+            <HugeiconsIcon icon={BotIcon} className="size-5" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
+            <h1 className="truncate text-base font-semibold text-foreground">
               {isEditMode ? t('agents.edit_agent') : t('agents.new_agent')}
             </h1>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs text-muted-foreground">
               {t('orchestration.agent_editor.subtitle')}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <DomeButton type="button" variant="outline" size="sm" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel} size="sm">
             {t('common.cancel')}
-          </DomeButton>
-          <DomeButton
-            type="button"
-            variant="primary"
-            size="sm"
-            className="!bg-[var(--dome-accent)]"
-            onClick={() => void handleSave()}
-            disabled={!canSave}
-            loading={saving}
-          >
+          </Button>
+          <Button type="button" className="!bg-primary" onClick={() => void handleSave()} disabled={!canSave} loading={saving} size="sm">
             {saving ? t('common.saving') : isEditMode ? t('common.save') : t('agents.new_agent')}
-          </DomeButton>
-          <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('common.close')}>
-            <X className="size-4" />
-          </DomeButton>
+          </Button>
+          <Button type="button" variant="ghost" onClick={onCancel} aria-label={t('common.close')} size="icon-sm">
+            <HugeiconsIcon icon={XIcon} className="size-4" />
+          </Button>
         </div>
       </header>
 
@@ -169,53 +170,31 @@ export default function AgentEditor({
           <div className="flex min-w-0 flex-col gap-4">
             <SectionCard title={t('orchestration.agent_editor.section_identity')}>
               <div className="flex flex-col gap-4">
-                <DomeInput
-                  id="agent-editor-name"
-                  label={`${t('onboarding.agent_name_label')} *`}
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t('onboarding.agent_name_placeholder')}
-                  maxLength={80}
-                  hint={name.trim().length === 0 ? t('onboarding.agent_name_required') : undefined}
-                />
-                <DomeTextarea
-                  id="agent-editor-description"
-                  label={t('onboarding.agent_description_label')}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t('onboarding.agent_description_placeholder')}
-                  rows={2}
-                />
+                <Field className="gap-1.5"><FieldLabel htmlFor="agent-editor-name" className="text-xs">{`${t('onboarding.agent_name_label')} *`}</FieldLabel><Input id="agent-editor-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('onboarding.agent_name_placeholder')} maxLength={80} /><FieldDescription className="text-xs">{name.trim().length === 0 ? t('onboarding.agent_name_required') : undefined}</FieldDescription></Field>
+                <Field className="gap-1.5"><FieldLabel htmlFor="agent-editor-description" className="text-xs">{t('onboarding.agent_description_label')}</FieldLabel><Textarea id="agent-editor-description" className="min-h-24 resize-y" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('onboarding.agent_description_placeholder')} rows={2} /></Field>
                 <div>
-                  <p className="mb-2 text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+                  <p className="mb-2 text-xs font-medium text-foreground">
                     {t('orchestration.agent_editor.icon_label')}
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <ToggleGroup
+                    value={[String(iconIndex)]}
+                    onValueChange={(values) => values[0] && setIconIndex(Number(values[0]))}
+                    className="flex-wrap justify-start"
+                  >
                     {Array.from({ length: ICON_COUNT }, (_, i) => {
                       const idx = i + 1;
-                      const isSelected = iconIndex === idx;
                       return (
-                        <button
+                        <ToggleGroupItem
                           key={idx}
-                          type="button"
-                          onClick={() => setIconIndex(idx)}
-                          aria-pressed={isSelected}
+                          value={String(idx)}
                           aria-label={t('orchestration.agent_editor.icon_option', { index: idx })}
-                          className={cn(
-                            'flex size-10 items-center justify-center rounded-xl border transition-all',
-                            isSelected && 'ring-2 ring-[var(--dome-accent)]',
-                          )}
-                          style={{
-                            borderColor: isSelected ? 'var(--dome-accent)' : 'var(--dome-border)',
-                            background: isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg)',
-                          }}
+                          className="size-10 p-1"
                         >
                           <img src={`/agents/sprite_${idx}.png`} alt="" className="size-7 object-contain" />
-                        </button>
+                        </ToggleGroupItem>
                       );
                     })}
-                  </div>
+                  </ToggleGroup>
                 </div>
               </div>
             </SectionCard>
@@ -224,15 +203,8 @@ export default function AgentEditor({
               title={t('orchestration.agent_editor.section_instructions')}
               hint={t('onboarding.instructions_tools_hint')}
             >
-              <DomeTextarea
-                id="agent-editor-instructions"
-                value={systemInstructions}
-                onChange={(e) => setSystemInstructions(e.target.value)}
-                placeholder={t('onboarding.instructions_placeholder')}
-                rows={10}
-                textareaClassName="font-mono text-xs leading-relaxed"
-              />
-              <p className="mt-1 text-right text-[10px] tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
+              <Textarea className="min-h-24 resize-y font-mono text-xs leading-relaxed" id="agent-editor-instructions" value={systemInstructions} onChange={(e) => setSystemInstructions(e.target.value)} placeholder={t('onboarding.instructions_placeholder')} rows={10} />
+              <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
                 {t('orchestration.agent_editor.chars_count', { count: systemInstructions.length })}
               </p>
             </SectionCard>
@@ -242,11 +214,11 @@ export default function AgentEditor({
               hint={t('orchestration.agent_editor.mcp_hint')}
             >
               {mcpServers === null ? (
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs text-muted-foreground">
                   {t('common.loading')}
                 </p>
               ) : mcpServers.length === 0 ? (
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs text-muted-foreground">
                   {t('orchestration.agent_editor.mcp_empty')}
                 </p>
               ) : (
@@ -262,35 +234,30 @@ export default function AgentEditor({
                         key={s.name}
                         className="flex items-center gap-3 rounded-xl px-3 py-2.5"
                         style={{
-                          background: 'var(--dome-bg)',
-                          border: `1px solid ${attached ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
+                          background: 'var(--background)',
+                          border: `1px solid ${attached ? 'var(--primary)' : 'var(--border)'}`,
                         }}
                       >
-                        <Plug2
+                        <HugeiconsIcon icon={Plug2Icon}
                           className="size-4 shrink-0"
-                          style={{ color: attached ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
+                          style={{ color: attached ? 'var(--primary)' : 'var(--muted-foreground)' }}
                           aria-hidden
                         />
                         <div className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                          <span className="block truncate text-sm font-medium text-foreground">
                             {s.name}
                           </span>
-                          <span className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+                          <span className="text-[11px] text-muted-foreground">
                             {total > 0
                               ? t('orchestration.agent_editor.mcp_tools_summary', { active, total })
                               : t('orchestration.agent_editor.mcp_no_tools')}
                           </span>
                         </div>
-                        <DomeToggle
-                          checked={attached}
-                          onChange={() => toggleMcp(s.name)}
-                          size="sm"
-                          aria-label={s.name}
-                        />
+                        <Switch checked={attached} onCheckedChange={() => toggleMcp(s.name)} size="sm" aria-label={s.name} />
                       </div>
                     );
                   })}
-                  <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                  <p className="text-[10px] text-muted-foreground">
                     {t('orchestration.agent_editor.mcp_settings_hint')}
                   </p>
                 </div>
@@ -301,40 +268,39 @@ export default function AgentEditor({
           {/* Preview column */}
           <aside className="flex min-w-0 flex-col gap-4 md:sticky md:top-0 md:self-start">
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('orchestration.agent_editor.preview_title')}
               </p>
               <div
                 className="flex flex-col gap-3 rounded-2xl p-4"
-                style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
               >
                 <div className="flex items-start gap-3">
                   <div
-                    className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl"
-                    style={{ background: 'var(--dome-accent-bg)' }}
+                    className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10"
                   >
                     <img src={`/agents/sprite_${iconIndex}.png`} alt="" className="size-full object-contain" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
+                    <span className="block truncate text-sm font-semibold text-foreground">
                       {name.trim() || t('orchestration.agent_editor.preview_empty_name')}
                     </span>
-                    <p className="line-clamp-3 text-xs leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+                    <p className="line-clamp-3 text-xs leading-snug text-muted-foreground">
                       {description.trim() || t('onboarding.agent_description_placeholder')}
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
+                    style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
                   >
-                    <Wrench className="size-2.5" aria-hidden />
+                    <HugeiconsIcon icon={WrenchIcon} className="size-2.5" aria-hidden />
                     {t('agents.all_tools_available')}
                   </span>
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
+                    style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
                   >
                     {t('agents.row_mcp_capabilities', { mcp: mcpServerIds.length })}
                   </span>
@@ -344,15 +310,15 @@ export default function AgentEditor({
 
             <div
               className="flex flex-col gap-2 rounded-2xl p-4"
-              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center gap-1.5">
-                <Lightbulb className="size-3.5" style={{ color: 'var(--warning)' }} aria-hidden />
-                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+                <HugeiconsIcon icon={LightbulbIcon} className="size-3.5 text-[var(--warning)]" aria-hidden />
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {t('orchestration.agent_editor.tips_title')}
                 </span>
               </div>
-              <ul className="flex list-disc flex-col gap-1.5 pl-4 text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+              <ul className="flex list-disc flex-col gap-1.5 pl-4 text-[11px] leading-snug text-muted-foreground">
                 <li>{t('orchestration.agent_editor.tip_role')}</li>
                 <li>{t('orchestration.agent_editor.tip_tools')}</li>
                 <li>{t('orchestration.agent_editor.tip_skills')}</li>

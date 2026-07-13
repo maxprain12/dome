@@ -1,12 +1,23 @@
-import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Copy, ExternalLink, CheckCircle2, Info, Loader2, ChevronLeft, ChevronRight,
-  KeyRound, Check,
-} from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+  CopyIcon as Copy,
+  ExternalLinkIcon as ExternalLink,
+  CheckmarkCircle02Icon as CheckCircle2,
+  InformationCircleIcon as Info,
+  Loading03Icon as Loader2,
+  ChevronLeftIcon as ChevronLeft,
+  ChevronRightIcon as ChevronRight,
+  Key01Icon as KeyRound,
+  CheckIcon as Check,
+} from '@hugeicons/core-free-icons';
+import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 type SocialProvider = 'linkedin' | 'instagram' | 'x';
 
 interface ProviderStatus {
@@ -151,59 +162,33 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
   const done = connectedNow || (showConnect && activeAccount !== null);
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={t('social.wizard.title', { provider: PROVIDER_LABELS[provider] })}
-      subtitle={t(`social.wizard.${provider}.intro`)}
-      size="lg"
-      footer={
-        <div className="flex items-center justify-between w-full gap-2">
-          <DomeButton variant="ghost" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
-            <ChevronLeft className="size-3.5" />
-            {t('social.wizard.back')}
-          </DomeButton>
-          {isLast ? (
-            <DomeButton variant="primary" size="sm" onClick={onClose}>
-              {done ? t('social.wizard.finish') : t('social.wizard.close')}
-            </DomeButton>
-          ) : (
-            <DomeButton variant="primary" size="sm" onClick={() => setStep((s) => Math.min(STEP_IDS.length - 1, s + 1))}>
-              {t('social.wizard.next')}
-              <ChevronRight className="size-3.5" />
-            </DomeButton>
-          )}
-        </div>
-      }
-    >
-      <div className="space-y-4 text-sm" style={{ color: 'var(--dome-text)' }}>
+    <Dialog open onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('social.wizard.title', { provider: PROVIDER_LABELS[provider] })}</DialogTitle>{t(`social.wizard.${provider}.intro`) ? <DialogDescription className="truncate">{t(`social.wizard.${provider}.intro`)}</DialogDescription> : null}</div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex flex-col gap-4 text-sm text-foreground">
         {/* Step indicator */}
         <ol className="flex items-center gap-1.5 flex-wrap">
           {STEP_IDS.map((id, i) => (
             <li key={id} className="flex items-center gap-1.5">
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => setStep(i)}
-                className="flex items-center gap-1.5 rounded-full pl-1 pr-2.5 py-1 text-xs font-medium"
-                style={{
-                  background: i === step ? 'var(--dome-bg-secondary)' : 'transparent',
-                  border: `1px solid ${i === step ? 'var(--dome-border)' : 'transparent'}`,
-                  color: i <= step ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 text-xs font-medium',
+                  i === step && 'border bg-card',
+                  i <= step ? 'text-foreground' : 'text-muted-foreground',
+                )}
               >
                 <span
-                  className="flex items-center justify-center size-5 rounded-full text-[10px] font-semibold"
-                  style={{
-                    background: i < step ? 'var(--success)' : i === step ? 'var(--dome-accent)' : 'var(--dome-bg-tertiary, var(--dome-bg-secondary))',
-                    color: i <= step ? 'white' : 'var(--dome-text-muted)',
-                  }}
+                  className={cn(
+                    'flex size-5 items-center justify-center rounded-full text-[10px] font-semibold',
+                    i < step ? 'bg-[var(--success)] text-white' : i === step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                  )}
                 >
-                  {i < step ? <Check className="size-3" /> : i + 1}
+                  {i < step ? <HugeiconsIcon icon={Check} className="size-3" /> : i + 1}
                 </span>
                 <span className="hidden sm:inline">{t(`social.wizard.step_${id}`)}</span>
-              </button>
+              </Button>
               {i < STEP_IDS.length - 1 && (
-                <span className="w-3 h-px" style={{ background: 'var(--dome-border)' }} />
+                <span className="w-3 h-px bg-border" />
               )}
             </li>
           ))}
@@ -211,19 +196,19 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
 
         {/* Step body */}
         <div>
-          <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>
+          <h3 className="text-sm font-semibold mb-1 text-foreground">
             {t(`social.wizard.${provider}.${stepId}.title`)}
           </h3>
-          <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-xs leading-relaxed mb-3 text-muted-foreground">
             {t(`social.wizard.${provider}.${stepId}.body`)}
           </p>
 
           {bullets.length > 0 && (
-            <ul className="space-y-1.5 mb-3">
+            <ul className="flex flex-col gap-1.5 mb-3">
               {bullets.map((b) => (
                 <li key={b} className="flex items-start gap-2 text-xs">
-                  <CheckCircle2 className="size-3.5 mt-0.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-                  <span style={{ color: 'var(--dome-text)' }}>{b}</span>
+                  <HugeiconsIcon icon={CheckCircle2} className="size-3.5 mt-0.5 shrink-0 text-primary" />
+                  <span className="text-foreground">{b}</span>
                 </li>
               ))}
             </ul>
@@ -235,91 +220,88 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
               href={stepId === 'create_app' ? PORTAL_LINKS[provider].create : PORTAL_LINKS[provider].dashboard}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium mb-3"
-              style={{ background: 'var(--dome-accent)', color: 'white' }}
+              className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
             >
-              <ExternalLink className="size-3.5" />
+              <HugeiconsIcon icon={ExternalLink} className="size-3.5" />
               {t(stepId === 'create_app' ? 'social.wizard.open_create' : 'social.wizard.open_dashboard')}
             </a>
           )}
 
           {showRedirect && provider === 'linkedin' && (
-            <label aria-label={t('social.settings.linkedin_org_enabled')} className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3 cursor-pointer" style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}>
-              <input
-                type="checkbox"
+            <div className="mb-3 flex items-start gap-2 rounded-lg border bg-card px-3 py-2.5">
+              <Checkbox
+                aria-label={t('social.settings.linkedin_org_enabled')}
                 checked={orgEnabled}
-                onChange={(e) => {
-                  const next = e.target.checked;
+                onCheckedChange={(next) => {
                   setOrgEnabled(next);
                   void window.electron.invoke('social:providers:set-config', { provider, orgEnabled: next });
                 }}
                 className="mt-0.5"
               />
               <span className="min-w-0 text-xs">
-                <span className="font-medium block" style={{ color: 'var(--dome-text)' }}>{t('social.settings.linkedin_org_enabled')}</span>
-                <span className="block mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{t('social.settings.linkedin_org_hint')}</span>
+                <span className="font-medium block text-foreground">{t('social.settings.linkedin_org_enabled')}</span>
+                <span className="block mt-0.5 text-muted-foreground">{t('social.settings.linkedin_org_hint')}</span>
               </span>
-            </label>
+            </div>
           )}
 
           {/* Redirect URI copy box */}
           {showRedirect && (
             <div
-              className="rounded-lg px-3 py-2.5 mb-3"
-              style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+              className="mb-3 rounded-lg border bg-card px-3 py-2.5"
             >
-              <div className="text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+              <div className="text-xs font-medium mb-1 text-muted-foreground">
                 {t('social.settings.redirect_uri')}
               </div>
               <div className="flex items-center gap-2 min-w-0">
                 <code className="text-xs truncate flex-1">{status.redirectUri}</code>
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={copyRedirect}
-                  className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)] shrink-0"
+                  className="p-1.5 rounded-md hover:bg-accent shrink-0"
                   title={t('social.settings.copy')}
                 >
-                  <Copy className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-                </button>
+                  <HugeiconsIcon icon={Copy} className="size-3.5 text-muted-foreground" />
+                </Button>
               </div>
             </div>
           )}
 
           {/* Inline credentials */}
           {showCredentialInputs && (
-            <div className="space-y-2.5 mb-3">
-              <input
+            <div className="flex flex-col gap-2.5 mb-3">
+              <Input
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder={t('social.settings.client_id')}
-                className="w-full rounded-md px-3 py-2 text-sm"
-                style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                className="w-full bg-card"
               />
-              <input
+              <Input
                 type="password"
                 value={clientSecret}
                 onChange={(e) => setClientSecret(e.target.value)}
                 placeholder={status.hasClientSecret ? t('social.settings.secret_saved') : t('social.settings.client_secret')}
-                className="w-full rounded-md px-3 py-2 text-sm"
-                style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                className="w-full bg-card"
               />
-              <DomeButton variant="secondary" size="sm" onClick={() => void saveCredentials()} disabled={saving}>
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : saved ? <Check className="size-3.5" /> : null}
+              <Button variant="secondary"
+  onClick={() => void saveCredentials()}
+  disabled={saving}
+  size="sm">
+                {saving ? <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin" /> : saved ? <HugeiconsIcon icon={Check} className="size-3.5" /> : null}
                 {saved ? t('social.settings.saved') : t('social.settings.save')}
-              </DomeButton>
+              </Button>
             </div>
           )}
 
           {/* Connect actions */}
           {showConnect && (
-            <div className="space-y-3 mb-3">
+            <div className="flex flex-col gap-3 mb-3">
               {done ? (
                 <div
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
-                  style={{ background: 'var(--success-bg, var(--dome-bg-secondary))', border: '1px solid var(--dome-border)' }}
+                  className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm"
                 >
-                  <CheckCircle2 className="size-4 shrink-0" style={{ color: 'var(--success)' }} />
-                  <span style={{ color: 'var(--dome-text)' }}>
+                  <HugeiconsIcon icon={CheckCircle2} className="size-4 shrink-0 text-[var(--success)]" />
+                  <span className="text-foreground">
                     {t('social.wizard.connected', {
                       account: activeAccount?.handle || activeAccount?.displayName || PROVIDER_LABELS[provider],
                     })}
@@ -327,24 +309,27 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
                 </div>
               ) : (
                 <>
-                  <DomeButton variant="primary" onClick={() => void connectOAuth()} disabled={connecting || !credentialsReady}>
-                    {connecting ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                  <Button onClick={() => void connectOAuth()}
+  disabled={connecting || !credentialsReady}>
+                    {connecting ? <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin" /> : null}
                     {connecting ? t('social.settings.connecting') : t('social.settings.connect_oauth')}
-                  </DomeButton>
+                  </Button>
                   {status.supportsManualToken && (
                     <div className="flex items-center gap-2">
-                      <KeyRound className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-                      <input
+                      <HugeiconsIcon icon={KeyRound} className="size-4 shrink-0 text-muted-foreground" />
+                      <Input
                         type="password"
                         value={manualToken}
                         onChange={(e) => setManualToken(e.target.value)}
                         placeholder={t('social.settings.token_placeholder')}
-                        className="flex-1 min-w-0 rounded-md px-3 py-2 text-sm"
-                        style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                        className="min-w-0 flex-1 bg-card"
                       />
-                      <DomeButton variant="secondary" size="sm" onClick={() => void connectToken()} disabled={connecting || !manualToken.trim()}>
+                      <Button variant="secondary"
+  onClick={() => void connectToken()}
+  disabled={connecting || !manualToken.trim()}
+  size="sm">
                         {t('social.settings.connect')}
-                      </DomeButton>
+                      </Button>
                     </div>
                   )}
                 </>
@@ -353,18 +338,17 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
           )}
 
           {error && (
-            <p className="text-xs mb-3" style={{ color: 'var(--dome-error)' }}>{error}</p>
+            <p className="text-xs mb-3 text-destructive">{error}</p>
           )}
 
           {/* Step notes */}
           {notes.length > 0 && (
             <div
-              className="rounded-lg px-3 py-2.5 space-y-1.5"
-              style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+              className="flex flex-col gap-1.5 rounded-lg border bg-card px-3 py-2.5"
             >
               {notes.map((note) => (
-                <div key={note} className="flex items-start gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                  <Info className="size-3.5 mt-0.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+                <div key={note} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <HugeiconsIcon icon={Info} className="size-3.5 mt-0.5 shrink-0 text-primary" />
                   <span>{note}</span>
                 </div>
               ))}
@@ -372,6 +356,26 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
           )}
         </div>
       </div>
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<div className="flex items-center justify-between w-full gap-2">
+          <Button variant="ghost"
+  onClick={() => setStep((s) => Math.max(0, s - 1))}
+  disabled={step === 0}
+  size="sm">
+            <HugeiconsIcon icon={ChevronLeft} className="size-3.5" />
+            {t('social.wizard.back')}
+          </Button>
+          {isLast ? (
+            <Button onClick={onClose}
+  size="sm">
+              {done ? t('social.wizard.finish') : t('social.wizard.close')}
+            </Button>
+          ) : (
+            <Button onClick={() => setStep((s) => Math.min(STEP_IDS.length - 1, s + 1))}
+  size="sm">
+              {t('social.wizard.next')}
+              <HugeiconsIcon icon={ChevronRight} className="size-3.5" />
+            </Button>
+          )}
+        </div>}</DialogFooter></DialogContent></Dialog>
   );
 }

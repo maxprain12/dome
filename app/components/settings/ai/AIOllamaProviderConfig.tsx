@@ -1,14 +1,27 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckmarkCircle02Icon as CheckCircle2,
+  EyeIcon as Eye,
+  EyeOffIcon as EyeOff,
+  Loading03Icon as Loader2,
+  RefreshIcon as RefreshCw,
+  CancelCircleIcon as XCircle,
+  Alert02Icon as AlertTriangle,
+  InformationCircleIcon as Info,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Eye, EyeOff, Loader2, RefreshCw, XCircle } from 'lucide-react';
+
 import { saveAIConfig } from '@/lib/settings';
 import { resolveOllamaMode } from '@/lib/ai/providerAuth';
 import ModelSelector from '../ModelSelector';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeCard from '@/components/ui/DomeCard';
-import { DomeInput } from '@/components/ui/DomeInput';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Badge } from '@/components/ui/badge';
 interface OllamaModel {
   name: string;
   size: number;
@@ -89,76 +102,59 @@ export default function AIOllamaProviderConfig({
   const content = (
     <>
       <div
-        className="flex items-center justify-between p-3 rounded-lg"
-        style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
+        className="flex items-center justify-between rounded-lg border bg-accent p-3"
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('settings.ai.status')}
           </span>
           {checkingOllama ? (
-            <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              <Loader2 className="size-3 animate-spin" /> {t('settings.ai.status_checking')}
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <HugeiconsIcon icon={Loader2} className="size-3 animate-spin" /> {t('settings.ai.status_checking')}
             </span>
           ) : ollamaAvailable === true ? (
-            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-accent)' }}>
-              <CheckCircle2 className="size-3.5" /> {t('settings.ai.status_connected')}
+            <span className="flex items-center gap-1 text-xs font-medium text-primary">
+              <HugeiconsIcon icon={CheckCircle2} className="size-3.5" /> {t('settings.ai.status_connected')}
             </span>
           ) : ollamaAvailable === false ? (
-            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error)' }}>
-              <XCircle className="size-3.5" /> {t('settings.ai.status_disconnected')}
+            <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+              <HugeiconsIcon icon={XCircle} className="size-3.5" /> {t('settings.ai.status_disconnected')}
             </span>
           ) : (
-            <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+            <span className="text-xs text-muted-foreground">
               {t('settings.ai.status_unverified')}
             </span>
           )}
         </div>
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={() => void checkOllamaConnection()}
-          disabled={checkingOllama}
-          leftIcon={<RefreshCw className={`size-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
-        >
+        <Button type="button"
+  onClick={() => void checkOllamaConnection()}
+  disabled={checkingOllama}
+  size="sm">{<HugeiconsIcon icon={RefreshCw} className={`size-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
           {t('settings.ai.test_btn')}
-        </DomeButton>
+        </Button>
       </div>
 
       {ollamaAvailable === false ? (
-        <DomeCallout tone="warning">
+        <Alert role="note"><HugeiconsIcon icon={AlertTriangle} aria-hidden /><AlertDescription className="text-xs">
           {t('settings.ai.ollama_install')}{' '}
           <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">
             ollama.ai
           </a>
-        </DomeCallout>
+        </AlertDescription></Alert>
       ) : null}
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <DomeInput
-            id="ai-ollama-url"
-            label={t('settings.ai.base_url')}
-            type="url"
-            value={ollamaBaseURL}
-            onChange={(e) => onOllamaBaseURLChange(e.target.value)}
-            placeholder="http://localhost:11434"
-            className="flex-1"
-          />
-          <span
-            className="ml-3 mt-5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-            style={{
-              backgroundColor: apiKeyIsRequired ? 'var(--dome-bg-hover)' : 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
-              color: apiKeyIsRequired ? 'var(--dome-text-muted)' : 'var(--dome-accent)',
-              border: `1px solid ${apiKeyIsRequired ? 'var(--dome-border)' : 'color-mix(in srgb, var(--dome-accent) 30%, transparent)'}`,
-            }}
+          <Field className="gap-1.5 flex-1"><FieldLabel htmlFor="ai-ollama-url" className="text-xs">{t('settings.ai.base_url')}</FieldLabel><Input id="ai-ollama-url" type="url" value={ollamaBaseURL} onChange={(e) => onOllamaBaseURLChange(e.target.value)} placeholder="http://localhost:11434" /></Field>
+          <Badge
+            variant={apiKeyIsRequired ? 'outline' : 'secondary'}
+            className={apiKeyIsRequired ? 'ml-3 mt-5 shrink-0 text-muted-foreground' : 'ml-3 mt-5 shrink-0 text-primary'}
           >
             {apiKeyIsRequired ? t('settings.ai.ollama_mode_cloud') : t('settings.ai.ollama_mode_local')}
-          </span>
+          </Badge>
         </div>
         {showApiKeyField ? (
-          <p className="text-[11px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-[11px] mt-1 text-muted-foreground">
             {apiKeyIsRequired ? (
               <>
                 {t('settings.ai.ollama_cloud_hint')}{' '}
@@ -173,58 +169,43 @@ export default function AIOllamaProviderConfig({
 
       {showApiKeyField && onOllamaApiKeyChange ? (
         <div>
-          <label htmlFor="ai-ollama-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
+          <label htmlFor="ai-ollama-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-muted-foreground">
             API Key{' '}
             <span className="normal-case font-normal opacity-60">
               ({apiKeyIsRequired ? t('settings.ai.api_key_required_label') : t('settings.ai.api_key_optional_label')})
             </span>
           </label>
           <div className="relative w-full">
-            <DomeInput
-              id="ai-ollama-api-key"
-              type={showOllamaApiKey ? 'text' : 'password'}
-              value={ollamaApiKey}
-              onChange={(e) => onOllamaApiKeyChange(e.target.value)}
-              placeholder="ollama_..."
-              autoComplete="off"
-              inputClassName="pr-10"
-              className="w-full [&_input]:pr-10"
-            />
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="xs"
-              iconOnly
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => setShowOllamaApiKey((v) => !v)}
-              aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
-            >
-              {showOllamaApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-            </DomeButton>
+            <Input className="w-full [&_input]:pr-10 pr-10" id="ai-ollama-api-key" type={showOllamaApiKey ? 'text' : 'password'} value={ollamaApiKey} onChange={(e) => onOllamaApiKeyChange(e.target.value)} placeholder="ollama_..." autoComplete="off" />
+            <Button type="button"
+  variant="ghost"
+  className="absolute right-1 top-1/2 -translate-y-1/2"
+  onClick={() => setShowOllamaApiKey((v) => !v)}
+  aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
+  size="icon-xs">
+              {showOllamaApiKey ? <HugeiconsIcon icon={EyeOff} className="size-3.5" /> : <HugeiconsIcon icon={Eye} className="size-3.5" />}
+            </Button>
           </div>
         </div>
       ) : null}
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('settings.ai.chat_model')}
           </span>
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => void loadOllamaModels()}
-            disabled={loadingModels}
-            leftIcon={<RefreshCw className={`size-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
-          >
+          <Button type="button"
+  variant="ghost"
+  onClick={() => void loadOllamaModels()}
+  disabled={loadingModels}
+  size="xs">{<HugeiconsIcon icon={RefreshCw} className={`size-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
             {t('settings.ai.refresh')}
-          </DomeButton>
+          </Button>
         </div>
         {loadingModels ? (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-            <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-            <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent">
+            <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
               {t('settings.ai.loading_models')}
             </span>
           </div>
@@ -251,22 +232,22 @@ export default function AIOllamaProviderConfig({
             providerId="ollama"
           />
         ) : (
-          <DomeInput value={ollamaModel} onChange={(e) => onOllamaModelChange(e.target.value)} placeholder="llama3.2" />
+          <Input value={ollamaModel} onChange={(e) => onOllamaModelChange(e.target.value)} placeholder="llama3.2" />
         )}
       </div>
 
       {showOcrHint ? (
-        <DomeCallout tone="info" title={`${t('settings.ai.ocr_notice')}`}>
+        <Alert role="note"><HugeiconsIcon icon={Info} aria-hidden /><AlertTitle className="text-xs">{`${t('settings.ai.ocr_notice')}`}</AlertTitle><AlertDescription className="text-xs">
           <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>,{' '}
           <code className="font-mono">glm4v</code>.
-        </DomeCallout>
+        </AlertDescription></Alert>
       ) : null}
     </>
   );
 
   if (!wrapInCard) {
-    return <div className="space-y-4">{content}</div>;
+    return <div className="flex flex-col gap-4">{content}</div>;
   }
 
-  return <DomeCard className="space-y-4">{content}</DomeCard>;
+  return <Card className="p-4 flex flex-col gap-4">{content}</Card>;
 }

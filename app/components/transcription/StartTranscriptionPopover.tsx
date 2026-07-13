@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mic, Monitor, X, RefreshCw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Cancel01Icon, ComputerIcon, Mic01Icon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { useTranscriptionStore, type TranscriptionSource } from '@/lib/transcription/useTranscriptionStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Spinner } from '@/components/ui/spinner';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Props {
   anchorRef: React.RefObject<HTMLElement>;
@@ -34,7 +43,6 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const containerRef = useRef<HTMLDialogElement | null>(null);
   const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
 
   // Position relative to anchor (right-aligned, just below the topbar)
@@ -47,27 +55,6 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       right: Math.round(window.innerWidth - rect.right),
     });
   }, [anchorRef]);
-
-  // Click-outside / Esc to close
-  useEffect(() => {
-    const onDocMouseDown = (e: MouseEvent) => {
-      const root = containerRef.current;
-      const anchor = anchorRef.current;
-      if (!root) return;
-      if (root.contains(e.target as Node)) return;
-      if (anchor && anchor.contains(e.target as Node)) return;
-      onClose();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', onDocMouseDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocMouseDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [anchorRef, onClose]);
 
   const wantsSystem = sources.includes('system');
 
@@ -121,113 +108,84 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
   if (!position) return null;
 
   return (
-    <dialog
-      ref={containerRef}
-      open
-      aria-label={t('transcriptions.start_title', 'New transcription')}
-      className="transcription-start-popover m-0 max-w-none max-h-none fixed z-[9999] w-[360px] animate-dropdown rounded-xl border border-[var(--dome-border)] bg-[var(--dome-bg)] p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
-      style={{
-        top: position.top,
-        right: position.right,
-        // The <dialog> UA stylesheet sets `inset: 0`; with an explicit width
-        // that over-constrains the box and `right` gets ignored, pinning the
-        // popover to the window's left edge. Neutralize left/bottom.
-        left: 'auto',
-        bottom: 'auto',
-      }}
-      onCancel={(e) => { e.preventDefault(); onClose(); }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dome-text)' }}>
-          {t('transcriptions.start_title', 'New transcription')}
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t('common.close', 'Close')}
-          className="p-1 rounded hover:bg-[var(--dome-bg-hover)]"
-          style={{ color: 'var(--dome-text-muted)' }}
-        >
-          <X size={14} />
-        </button>
-      </div>
+    <Popover open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <PopoverTrigger render={<span className="fixed size-px" style={{ top: position.top, right: position.right }} aria-hidden />} />
+      <PopoverContent align="end" side="bottom" sideOffset={0} className="transcription-start-popover w-[360px]">
+      <PopoverHeader className="flex-row items-center justify-between">
+        <PopoverTitle>{t('transcriptions.start_title', 'New transcription')}</PopoverTitle>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('common.close', 'Close')}>
+          <HugeiconsIcon icon={Cancel01Icon} />
+        </Button>
+      </PopoverHeader>
 
       {/* Sources */}
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-        {t('transcriptions.start_sources_label', 'Capture')}
-      </div>
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <SourceChip
-          icon={<Mic size={14} />}
-          label={t('transcriptions.start_source_mic', 'Microphone')}
-          active={sources.includes('mic')}
-          onClick={() => toggleSource('mic')}
-        />
-        <SourceChip
-          icon={<Monitor size={14} />}
-          label={t('transcriptions.start_source_system', 'System audio')}
-          active={sources.includes('system')}
-          onClick={() => toggleSource('system')}
-        />
-      </div>
+      <Field>
+        <FieldLabel>{t('transcriptions.start_sources_label', 'Capture')}</FieldLabel>
+        <ToggleGroup variant="outline" className="grid w-full grid-cols-2">
+          <ToggleGroupItem pressed={sources.includes('mic')} onPressedChange={() => toggleSource('mic')} aria-label={t('transcriptions.start_source_mic', 'Microphone')}>
+            <HugeiconsIcon icon={Mic01Icon} data-icon="inline-start" />
+            {t('transcriptions.start_source_mic', 'Microphone')}
+          </ToggleGroupItem>
+          <ToggleGroupItem pressed={sources.includes('system')} onPressedChange={() => toggleSource('system')} aria-label={t('transcriptions.start_source_system', 'System audio')}>
+            <HugeiconsIcon icon={ComputerIcon} data-icon="inline-start" />
+            {t('transcriptions.start_source_system', 'System audio')}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </Field>
 
       {/* System source picker */}
       {wantsSystem && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <span style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
+        <Field>
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel>
               {t('transcriptions.start_pick_screen', 'Pick a window or screen')}
-            </span>
-            <button
+            </FieldLabel>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => void loadSources()}
               disabled={loadingSources}
               aria-label={t('transcriptions.refresh_sources', 'Refresh')}
-              className="p-1 rounded hover:bg-[var(--dome-bg-hover)]"
-              style={{ color: 'var(--dome-text-muted)' }}
             >
-              <RefreshCw size={12} className={loadingSources ? 'animate-spin' : ''} />
-            </button>
+              {loadingSources ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} />}
+            </Button>
           </div>
-          <div
-            className="grid grid-cols-2 gap-1.5 overflow-y-auto"
-            style={{ maxHeight: 170 }}
-          >
+          <ScrollArea className="h-[170px]">
+          <div className="grid grid-cols-2 gap-2 pr-2">
             {captureSources.map((src) => (
-              <button
+              <Button
                 key={src.id}
                 type="button"
+                variant={systemSourceId === src.id ? 'secondary' : 'outline'}
                 onClick={() => setSystemSourceId(src.id)}
-                className="flex flex-col items-stretch text-left rounded-md overflow-hidden border transition-all"
-                style={{
-                  borderColor: systemSourceId === src.id ? 'var(--dome-accent)' : 'var(--dome-border)',
-                  background: systemSourceId === src.id ? 'color-mix(in srgb, var(--dome-accent) 8%, transparent)' : 'var(--dome-bg-secondary)',
-                }}
+                aria-pressed={systemSourceId === src.id}
+                className="h-auto min-w-0 flex-col items-stretch overflow-hidden p-0 text-left"
               >
                 {src.thumbnailDataUrl ? (
-                  <img src={src.thumbnailDataUrl} alt="" style={{ width: '100%', height: 60, objectFit: 'cover', display: 'block' }} />
+                  <img src={src.thumbnailDataUrl} alt="" className="h-16 w-full object-cover" />
                 ) : (
-                  <div style={{ width: '100%', height: 60, background: 'var(--dome-bg-tertiary)' }} />
+                  <span className="h-16 w-full bg-muted" aria-hidden />
                 )}
-                <div style={{ padding: '4px 6px', fontSize: 12, color: 'var(--dome-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <span className="w-full truncate px-2 py-1.5 text-xs">
                   {src.name}
-                </div>
-              </button>
+                </span>
+              </Button>
             ))}
             {!loadingSources && captureSources.length === 0 && (
-              <div className="col-span-2" style={{ fontSize: 12, color: 'var(--dome-text-muted)', padding: 8 }}>
+              <p className="col-span-2 p-2 text-xs text-muted-foreground">
                 {t('transcriptions.no_capture_sources', 'No sources detected')}
-              </div>
+              </p>
             )}
           </div>
-        </div>
+          </ScrollArea>
+        </Field>
       )}
 
       {/* Options */}
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-        {t('transcriptions.start_options_label', 'Options')}
-      </div>
-      <div className="flex flex-col gap-1.5 mb-3">
+      <Field>
+        <FieldLabel>{t('transcriptions.start_options_label', 'Options')}</FieldLabel>
+        <div className="flex flex-col gap-2">
         <ToggleRow
           label={t('transcriptions.start_live_preview', 'Live preview')}
           checked={livePreview}
@@ -238,57 +196,24 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
           checked={saveAudio}
           onChange={setSaveAudio}
         />
-      </div>
+        </div>
+      </Field>
 
       {error && (
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--dome-danger)',
-            background: 'color-mix(in srgb, var(--dome-danger) 8%, transparent)',
-            padding: '6px 8px',
-            borderRadius: 6,
-            marginBottom: 8,
-          }}
-        >
-          {error}
-        </div>
+        <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
       )}
 
-      <button
+      <Button
         type="button"
         onClick={handleStart}
         disabled={!canStart}
-        className="transcription-start-btn w-full rounded-lg border-0 px-3 py-2 text-[13px] font-semibold text-white transition-[filter] duration-150 ease-in-out enabled:cursor-pointer enabled:bg-[var(--dome-accent)] disabled:cursor-not-allowed disabled:bg-[var(--dome-bg-tertiary)]"
+        className="transcription-start-btn w-full"
       >
+        {submitting ? <Spinner data-icon="inline-start" /> : null}
         {submitting ? t('transcriptions.starting', 'Starting…') : t('transcriptions.start_button', 'Start')}
-      </button>
-    </dialog>
-  );
-}
-
-function SourceChip({
-  icon, label, active, onClick,
-}: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="flex items-center gap-2 px-3 py-2 rounded-md transition-all"
-      style={{
-        background: active
-          ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
-          : 'var(--dome-bg-secondary)',
-        border: `1px solid ${active ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-        color: active ? 'var(--dome-accent)' : 'var(--dome-text)',
-        fontSize: 12,
-        fontWeight: 500,
-      }}
-    >
-      {icon}
-      {label}
-    </button>
+      </Button>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -296,20 +221,13 @@ function ToggleRow({
   label, checked, onChange,
 }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label
-      className="flex items-center justify-between cursor-pointer rounded-md px-2 py-1.5"
-      style={{
-        background: 'var(--dome-bg-secondary)',
-        border: '1px solid var(--dome-border)',
-      }}
-    >
-      <span style={{ fontSize: 12, color: 'var(--dome-text)' }}>{label}</span>
-      <input
-        type="checkbox"
+    <Field orientation="horizontal" className="rounded-xl border p-3">
+      <FieldLabel className="flex-1">{label}</FieldLabel>
+      <Switch
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ accentColor: 'var(--dome-accent)' }}
+        onCheckedChange={onChange}
+        aria-label={label}
       />
-    </label>
+    </Field>
   );
 }

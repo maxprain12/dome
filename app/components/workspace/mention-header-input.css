@@ -3,37 +3,37 @@
   z-index: 10000;
   max-height: 240px;
   overflow-y: auto;
-  background: var(--dome-surface);
-  border-color: var(--dome-border);
+  background: var(--card);
+  border-color: var(--border);
 }
 
 .mention-header-menu-item {
   background: transparent;
-  color: var(--dome-text);
+  color: var(--foreground);
 }
 
 .mention-header-menu-item.is-selected {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .mention-header-menu-item:hover {
-  background: var(--dome-bg-hover);
+  background: var(--accent);
 }
 
 .mention-header-input {
-  background: var(--dome-surface);
-  border: 1px solid var(--dome-border);
-  color: var(--dome-text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
 }
 
 .mention-header-search-icon {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .mention-header-item-type {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }
 
 .mention-header-loading {
-  color: var(--dome-text-muted);
+  color: var(--muted-foreground);
 }

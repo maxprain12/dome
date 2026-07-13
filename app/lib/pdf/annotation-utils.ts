@@ -136,7 +136,7 @@ export function parseAnnotationFromDB(
           height: positionData['height'] as number | undefined,
         },
         style: {
-          color: (metadata['color'] as string | undefined) ?? 'var(--accent)',
+          color: (metadata['color'] as string | undefined) ?? 'var(--primary)',
           opacity: (metadata['opacity'] as number | undefined) ?? 0.3,
           strokeWidth: (metadata['strokeWidth'] as number | undefined) ?? 2,
         },
@@ -249,7 +249,7 @@ function renderNote(
   ctx.strokeRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   if (content) {
-    const resolvedTextColor = resolveCssColor('var(--primary-text)', PDF_CANVAS_FALLBACKS.text);
+    const resolvedTextColor = resolveCssColor('var(--foreground)', PDF_CANVAS_FALLBACKS.text);
     ctx.fillStyle = resolvedTextColor ?? PDF_CANVAS_FALLBACKS.text;
     ctx.font = '12px sans-serif';
     const lines = content.split('\n');

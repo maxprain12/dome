@@ -1,4 +1,6 @@
 {
+  "export_failed": "Impossible d’exporter le notebook",
+  "import_failed": "Impossible d’importer le notebook",
   "run_cell": "Exécuter la cellule",
   "run_cell_short": "Exécuter",
   "run_above": "Exécuter au-dessus",

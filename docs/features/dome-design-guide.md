@@ -202,6 +202,8 @@ Material de marketing para redes (LinkedIn, Instagram, etc.) vive en el repo **`
 | Recurso | Ruta |
 |---------|------|
 | Tokens CSS (fuente de verdad) | `app/globals.css` |
+| Componentes UI (shadcn) | `app/components/ui/` |
+| Setup shadcn / monorepo pnpm | `.claude/sops/shadcn-ui.md` |
 | Paleta histórica / notas (puede estar desactualizada respecto al código) | `.claude/rules/new-color-palette.md` |
 | Guía UI genérica (valores antiguos de marca) | `.claude/rules/ui-style-guidelines.md` |
 

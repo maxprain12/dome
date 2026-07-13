@@ -1,14 +1,17 @@
 /** Unified filesystem list row for folders and files in FolderTabView. */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Folder, MoreVertical, X } from 'lucide-react';
+import { CheckIcon, Folder01Icon, MoreVerticalIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import type { Resource } from '@/lib/hooks/useResources';
 import ColorPickerPopover from './ColorPickerPopover';
 import { getFolderColor, ResourceTypeIcon, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ResourceContextMenuItems from './ResourceContextMenuItems';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 function highlightName(text: string, query: string): ReactNode {
   const q = query.trim();
@@ -93,7 +96,7 @@ export default function FolderListRow({
   };
 
   const folderColor = isFolder ? getFolderColor(item) : undefined;
-  const typeColor = isFolder ? (folderColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
+  const typeColor = isFolder ? (folderColor ?? 'var(--primary)') : 'var(--muted-foreground)';
   const typeLabel = isFolder ? t('folder.typeFolder', 'Carpeta') : (TYPE_LABELS[item.type] ?? item.type);
   const timeAgo = item.updated_at
     ? formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })
@@ -142,7 +145,7 @@ export default function FolderListRow({
     >
       <div className="dome-fs-tree-row__name-cell">
         {showSelectionChrome ? (
-          <input
+          <Input
             type="checkbox"
             checked={selected}
             onChange={() => {}}
@@ -154,7 +157,7 @@ export default function FolderListRow({
 
         <span className="dome-fs-tree-row__icon" style={{ color: typeColor }}>
           {isFolder ? (
-            <Folder className="size-4" strokeWidth={1.75} style={{ fill: 'color-mix(in srgb, currentColor 16%, transparent)' }} />
+            <HugeiconsIcon icon={Folder01Icon} className="size-4" strokeWidth={1.75} style={{ fill: 'color-mix(in srgb, currentColor 16%, transparent)' }} />
           ) : (
             <ResourceTypeIcon type={item.type} name={item.title} />
           )}
@@ -162,7 +165,7 @@ export default function FolderListRow({
 
         {renaming ? (
           <div className="flex items-center gap-1 flex-1 min-w-0">
-            <input
+            <Input
               ref={renameRef}
               type="text"
               value={renameValue}
@@ -174,16 +177,16 @@ export default function FolderListRow({
               aria-label={t('ui.rename', 'Rename')}
               className="dome-fs-tree-row__rename-input"
             />
-            <button type="button" onClick={commitRename} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
-              <Check className="size-3.5" />
-            </button>
-            <button type="button" onClick={() => setRenaming(false)} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
-              <X className="size-3.5" />
-            </button>
+            <Button type="button" onClick={commitRename} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
+              <HugeiconsIcon icon={CheckIcon} className="size-3.5" />
+            </Button>
+            <Button type="button" onClick={() => setRenaming(false)} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
+              <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+            </Button>
           </div>
         ) : (
           <div className="dome-fs-tree-row__title-wrap">
-            <button
+            <Button
               type="button"
               onClick={(e) => {
                 if (e.metaKey || e.ctrlKey) {
@@ -196,7 +199,7 @@ export default function FolderListRow({
               className={`dome-fs-tree-name truncate${isFolder ? ' dome-fs-tree-name--folder' : ''}`}
             >
               {searchQuery ? highlightName(displayTitle, searchQuery) : displayTitle}
-            </button>
+            </Button>
             <span className="dome-folder-view__type-badge" title={typeLabel}>
               {typeLabel}
             </span>
@@ -210,7 +213,7 @@ export default function FolderListRow({
 
       <div className="dome-fs-tree-row__actions">
         {(hovered || menuOpen) && !renaming ? (
-          <button
+          <Button
             ref={menuBtnRef}
             type="button"
             onClick={(e) => {
@@ -224,22 +227,17 @@ export default function FolderListRow({
             className="dome-fs-tree-row__menu-btn"
             aria-label={t('folder.rowActions', 'Acciones')}
           >
-            <MoreVertical className="size-3.5" />
-          </button>
+            <HugeiconsIcon icon={MoreVerticalIcon} className="size-3.5" />
+          </Button>
         ) : (
           <span className="size-[26px]" aria-hidden />
         )}
       </div>
 
-      {menuOpen && menuPos && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              role="menu"
-              tabIndex={-1}
-              className="dome-folder-view__row-menu"
-              style={{ top: menuPos.top, right: menuPos.right }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
+      {menuOpen && menuPos ? (
+            <DropdownMenu open onOpenChange={(open) => { if (!open) setMenuOpen(false); }}>
+              <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, right: menuPos.right }} aria-hidden />} />
+              <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="dome-folder-view__row-menu">
               <ResourceContextMenuItems
                 resource={item}
                 options={{
@@ -259,10 +257,9 @@ export default function FolderListRow({
                 }}
                 onDismiss={() => setMenuOpen(false)}
               />
-            </div>,
-            document.body,
-          )
-        : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+        ) : null}
 
       {colorPickerPos && onChangeColor ? (
         <ColorPickerPopover

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { createRequire } from 'module';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -16,6 +17,7 @@ const sentryRelease = `dome@${appVersion}`;
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     // Must be last so it sees the final bundle + maps.
     ...(sentryAuthToken
       ? [
@@ -70,7 +72,6 @@ export default defineConfig({
           if (pkg === 'react' || pkg === 'react-dom' || pkg === 'scheduler' || pkg === 'react-router' || pkg === 'react-router-dom') {
             return 'vendor-react';
           }
-          if (pkg.startsWith('@mantine')) return 'vendor-mantine';
           if (pkg.startsWith('@tiptap')) return 'vendor-tiptap';
           return undefined;
         },
@@ -91,6 +92,6 @@ export default defineConfig({
   // Optimize dependencies
   optimizeDeps: {
     exclude: ['pyodide'],
-    include: ['lucide-react', 'exceljs'],
+    include: ['@hugeicons/react', '@hugeicons/core-free-icons', 'exceljs'],
   },
 });

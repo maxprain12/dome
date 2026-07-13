@@ -1,0 +1,79 @@
+import type { CSSProperties } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  inferResourceVisualKind,
+  RESOURCE_ICON_MAP,
+  resourceVisualCssSuffix,
+  type ResourceVisualKind,
+} from '@/lib/resources/resourceVisual';
+import { cn } from '@/lib/utils';
+
+export interface ResourceIconProps {
+  /** Dome resource type, e.g. `pdf`, `note`, `url`. */
+  type?: string | null;
+  /** File name or title — used to infer kind from extension when type is generic. */
+  name?: string | null;
+  /** Override inferred kind. */
+  kind?: ResourceVisualKind;
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
+  style?: CSSProperties;
+}
+
+export default function ResourceIcon({
+  type,
+  name,
+  kind: kindOverride,
+  size = 16,
+  strokeWidth = 1.75,
+  className,
+  style,
+}: ResourceIconProps) {
+  const kind = kindOverride ?? inferResourceVisualKind(type, name);
+  // Defensive fallback: an out-of-map `kind` override must degrade to the
+  // generic file icon, never render `undefined` (React error 130).
+  const icon = RESOURCE_ICON_MAP[kind] ?? RESOURCE_ICON_MAP.file;
+  return (
+    <HugeiconsIcon
+      icon={icon}
+      size={size}
+      strokeWidth={strokeWidth}
+      className={cn('shrink-0', className)}
+      style={style}
+      aria-hidden
+    />
+  );
+}
+
+export interface ResourceIconBoxProps {
+  type?: string | null;
+  name?: string | null;
+  kind?: ResourceVisualKind;
+  size?: number;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+/** 20×20 icon tile for composer attach chips (prototype attach-icon). */
+export function ResourceIconBox({
+  type,
+  name,
+  kind: kindOverride,
+  size = 20,
+  className,
+  children,
+}: ResourceIconBoxProps) {
+  const kind = kindOverride ?? inferResourceVisualKind(type, name);
+  return (
+    <span
+      className={cn('attach-icon', className)}
+      data-resource-tone={resourceVisualCssSuffix(kind)}
+      style={{ width: size, height: size }}
+    >
+      {children ?? (
+        <ResourceIcon kind={kind} type={type} name={name} size={12} strokeWidth={2} />
+      )}
+    </span>
+  );
+}

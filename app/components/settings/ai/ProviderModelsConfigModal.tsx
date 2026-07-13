@@ -1,9 +1,15 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Loading03Icon as Loader2,
+  MinusSignIcon as Minus,
+  PlusSignIcon as Plus,
+  RotateLeft01Icon as RotateCcw,
+  Search01Icon as Search,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Minus, Plus, RotateCcw, Search } from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeInput } from '@/components/ui/DomeInput';
+
 import { db } from '@/lib/db/client';
 import { fetchProviderModels, getCustomModelsByProvider } from '@/lib/ai/client';
 import {
@@ -17,6 +23,8 @@ import { PROVIDERS, type AIProviderType, type ModelDefinition } from '@/lib/ai/m
 import type { ModelInputType } from '@/lib/ai/types';
 import { cn } from '@/lib/utils';
 
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 const CATALOG_FETCH_PROVIDERS: AIProviderType[] = [
   'openai',
   'anthropic',
@@ -254,54 +262,20 @@ export default function ProviderModelsConfigModal({
   const providerLabel = provider ? (PROVIDERS[provider]?.name ?? provider) : '';
 
   return (
-    <DomeModal
-      open={open}
-      onClose={onClose}
-      title={t('settings.ai.visible_models.title')}
-      subtitle={t('settings.ai.visible_models.subtitle', { provider: providerLabel })}
-      size="xl"
-      footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          <DomeButton type="button" variant="ghost" size="sm" onClick={resetDefaults} leftIcon={<RotateCcw className="size-3.5" aria-hidden />}>
-            {t('settings.ai.visible_models.reset')}
-          </DomeButton>
-          <div className="flex items-center gap-2">
-            <DomeButton type="button" variant="ghost" size="sm" onClick={onClose}>
-              {t('common.cancel')}
-            </DomeButton>
-            <DomeButton
-              type="button"
-              variant="primary"
-              size="sm"
-              disabled={saving || visibleIds.length === 0}
-              onClick={() => void handleSave()}
-            >
-              {saving ? t('common.saving') : t('settings.ai.visible_models.save')}
-            </DomeButton>
-          </div>
-        </div>
-      }
-    >
-      <div className="space-y-4">
+    <Dialog open={open} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('settings.ai.visible_models.title')}</DialogTitle>{t('settings.ai.visible_models.subtitle', { provider: providerLabel }) ? <DialogDescription className="truncate">{t('settings.ai.visible_models.subtitle', { provider: providerLabel })}</DialogDescription> : null}</div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex flex-col gap-4">
         <div className="relative">
-          <Search
+          <HugeiconsIcon icon={Search}
             size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--tertiary-text)]"
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground"
             aria-hidden
           />
-          <DomeInput
-            className="gap-0"
-            inputClassName="pl-9"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('settings.ai.visible_models.search')}
-          />
+          <Input className="gap-0 pl-9" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('settings.ai.visible_models.search')} />
         </div>
 
         {loading ? (
-          <p className="flex items-center gap-2 text-sm text-[var(--secondary-text)]">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <HugeiconsIcon icon={Loader2} className="size-4 animate-spin" aria-hidden />
             {t('settings.ai.models_loading')}
           </p>
         ) : null}
@@ -311,18 +285,18 @@ export default function ProviderModelsConfigModal({
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <section className="min-h-[240px] rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
-            <header className="border-b border-[var(--border)] px-3 py-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--secondary-text)]">
+          <section className="min-h-[240px] rounded-xl border border-border bg-card">
+            <header className="border-b border-border px-3 py-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('settings.ai.visible_models.catalog')}
               </h3>
-              <p className="text-[10px] text-[var(--tertiary-text)]">
+              <p className="text-[10px] text-muted-foreground">
                 {t('settings.ai.visible_models.catalog_hint')}
               </p>
             </header>
-            <ul className="max-h-64 overflow-y-auto p-2 space-y-1">
+            <ul className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
               {catalogModels.length === 0 ? (
-                <li className="px-2 py-6 text-center text-xs text-[var(--tertiary-text)]">
+                <li className="px-2 py-6 text-center text-xs text-muted-foreground">
                   {t('settings.ai.visible_models.empty_catalog')}
                 </li>
               ) : (
@@ -331,63 +305,57 @@ export default function ProviderModelsConfigModal({
                     key={m.id}
                     className={cn(
                       'flex items-center gap-2 rounded-lg px-2 py-1.5',
-                      'hover:bg-[var(--bg-hover)] transition-colors',
+                      'hover:bg-accent transition-colors',
                     )}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-[var(--primary-text)]">{m.name}</p>
-                      <p className="truncate font-mono text-[10px] text-[var(--tertiary-text)]">{m.id}</p>
+                      <p className="truncate text-xs font-medium text-foreground">{m.name}</p>
+                      <p className="truncate font-mono text-[10px] text-muted-foreground">{m.id}</p>
                     </div>
-                    <DomeButton
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      iconOnly
-                      aria-label={t('settings.ai.visible_models.add')}
-                      onClick={() => addModel(m.id)}
-                    >
-                      <Plus className="size-3.5" aria-hidden />
-                    </DomeButton>
+                    <Button type="button"
+  variant="ghost"
+  aria-label={t('settings.ai.visible_models.add')}
+  onClick={() => addModel(m.id)}
+  size="icon-xs">
+                      <HugeiconsIcon icon={Plus} className="size-3.5" aria-hidden />
+                    </Button>
                   </li>
                 ))
               )}
             </ul>
           </section>
 
-          <section className="min-h-[240px] rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
-            <header className="border-b border-[var(--border)] px-3 py-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--secondary-text)]">
+          <section className="min-h-[240px] rounded-xl border border-border bg-card">
+            <header className="border-b border-border px-3 py-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('settings.ai.visible_models.in_selector')}
               </h3>
-              <p className="text-[10px] text-[var(--tertiary-text)]">
+              <p className="text-[10px] text-muted-foreground">
                 {t('settings.ai.visible_models.in_selector_hint', { count: visibleIds.length })}
               </p>
             </header>
-            <ul className="max-h-64 overflow-y-auto p-2 space-y-1">
+            <ul className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
               {visibleModels.length === 0 ? (
-                <li className="px-2 py-6 text-center text-xs text-[var(--tertiary-text)]">
+                <li className="px-2 py-6 text-center text-xs text-muted-foreground">
                   {t('settings.ai.visible_models.empty_visible')}
                 </li>
               ) : (
                 visibleModels.map((m) => (
                   <li
                     key={m.id}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)]"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-background border border-border"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-[var(--primary-text)]">{m.name}</p>
-                      <p className="truncate font-mono text-[10px] text-[var(--tertiary-text)]">{m.id}</p>
+                      <p className="truncate text-xs font-medium text-foreground">{m.name}</p>
+                      <p className="truncate font-mono text-[10px] text-muted-foreground">{m.id}</p>
                     </div>
-                    <DomeButton
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      iconOnly
-                      aria-label={t('settings.ai.visible_models.remove')}
-                      onClick={() => removeModel(m.id)}
-                    >
-                      <Minus className="size-3.5" aria-hidden />
-                    </DomeButton>
+                    <Button type="button"
+  variant="ghost"
+  aria-label={t('settings.ai.visible_models.remove')}
+  onClick={() => removeModel(m.id)}
+  size="icon-xs">
+                      <HugeiconsIcon icon={Minus} className="size-3.5" aria-hidden />
+                    </Button>
                   </li>
                 ))
               )}
@@ -395,39 +363,51 @@ export default function ProviderModelsConfigModal({
           </section>
         </div>
 
-        <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-secondary)] p-3">
-          <p className="mb-2 text-xs font-semibold text-[var(--secondary-text)]">
+        <div className="rounded-xl border border-dashed border-border bg-card p-3">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">
             {t('settings.ai.visible_models.add_by_id')}
           </p>
-          <p className="mb-2 text-[10px] leading-snug text-[var(--tertiary-text)]">
+          <p className="mb-2 text-[10px] leading-snug text-muted-foreground">
             {t('settings.ai.visible_models.add_by_id_hint')}
           </p>
           <div className="flex gap-2">
-            <DomeInput
-              className="flex-1 gap-0"
-              value={customIdDraft}
-              onChange={(e) => setCustomIdDraft(e.target.value)}
-              onKeyDown={(e) => {
+            <Input className="flex-1 gap-0" value={customIdDraft} onChange={(e) => setCustomIdDraft(e.target.value)} onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   void addCustomById();
                 }
-              }}
-              placeholder={t('settings.ai.visible_models.add_by_id_placeholder')}
-              autoComplete="off"
-            />
-            <DomeButton
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!customIdDraft.trim()}
-              onClick={() => void addCustomById()}
-            >
+              }} placeholder={t('settings.ai.visible_models.add_by_id_placeholder')} autoComplete="off" />
+            <Button type="button"
+  variant="outline"
+  disabled={!customIdDraft.trim()}
+  onClick={() => void addCustomById()}
+  size="sm">
               {t('common.add')}
-            </DomeButton>
+            </Button>
           </div>
         </div>
       </div>
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<div className="flex w-full items-center justify-between gap-3">
+          <Button type="button"
+  variant="ghost"
+  onClick={resetDefaults}
+  size="sm">{<HugeiconsIcon icon={RotateCcw} className="size-3.5" aria-hidden />}
+            {t('settings.ai.visible_models.reset')}
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button"
+  variant="ghost"
+  onClick={onClose}
+  size="sm">
+              {t('common.cancel')}
+            </Button>
+            <Button type="button"
+  disabled={saving || visibleIds.length === 0}
+  onClick={() => void handleSave()}
+  size="sm">
+              {saving ? t('common.saving') : t('settings.ai.visible_models.save')}
+            </Button>
+          </div>
+        </div>}</DialogFooter></DialogContent></Dialog>
   );
 }

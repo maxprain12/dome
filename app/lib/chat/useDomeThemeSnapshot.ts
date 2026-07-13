@@ -7,32 +7,36 @@ import { useEffect, useMemo, useState } from 'react';
  * re-inject them into the artifact surface.
  */
 export const DOME_TOKEN_NAMES = [
-  // Surfaces
-  '--bg',
-  '--bg-secondary',
-  '--bg-tertiary',
-  '--bg-hover',
-  '--bg-translucent',
-  // Text
-  '--primary-text',
-  '--secondary-text',
-  '--tertiary-text',
-  // Borders
-  '--border',
-  '--border-hover',
-  // Brand / accent
+  // shadcn surfaces
+  '--background',
+  '--card',
+  '--popover',
+  '--muted',
   '--accent',
-  '--accent-hover',
-  '--translucent',
-  '--base',
-  '--base-text',
-  // Semantic
+  '--sidebar',
+  // shadcn text
+  '--foreground',
+  '--card-foreground',
+  '--popover-foreground',
+  '--muted-foreground',
+  '--accent-foreground',
+  // shadcn interactive
+  '--primary',
+  '--primary-foreground',
+  '--secondary',
+  '--secondary-foreground',
+  '--destructive',
+  '--destructive-foreground',
+  // shadcn borders / focus
+  '--border',
+  '--input',
+  '--ring',
+  // Extensión Dome (estado)
   '--success',
   '--success-bg',
   '--warning',
   '--warning-bg',
-  '--error',
-  '--error-bg',
+  '--warning-text',
   '--info',
   '--info-bg',
   // Radii
@@ -147,25 +151,25 @@ export function buildDomeResetCss(): string {
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0}
 html{color-scheme:light dark}
-html,body{background:var(--bg) !important;color:var(--primary-text) !important;font-family:var(--font-sans);font-size:14px;line-height:1.5}
-a{color:var(--accent);text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px}
-a:hover{color:var(--accent-hover);text-decoration-color:var(--accent)}
-code,kbd,samp{font-family:var(--font-mono);font-size:12px;background:var(--bg-tertiary);color:var(--primary-text);border:1px solid var(--border);border-radius:var(--radius-md);padding:1px 6px}
-pre{font-family:var(--font-mono);font-size:12px;background:var(--bg-secondary);color:var(--primary-text);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;overflow:auto}
+html,body{background:var(--background) !important;color:var(--foreground) !important;font-family:var(--font-sans);font-size:14px;line-height:1.5}
+a{color:var(--primary);text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px}
+a:hover{color:color-mix(in oklch, var(--primary) 85%, var(--background));text-decoration-color:var(--primary)}
+code,kbd,samp{font-family:var(--font-mono);font-size:12px;background:var(--muted);color:var(--foreground);border:1px solid var(--border);border-radius:var(--radius-md);padding:1px 6px}
+pre{font-family:var(--font-mono);font-size:12px;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;overflow:auto}
 pre code{background:transparent;border:0;padding:0}
 hr{border:0;border-top:1px solid var(--border);margin:16px 0}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border:1px solid var(--border);padding:8px 10px;text-align:left}
-thead th{background:var(--bg-tertiary);color:var(--primary-text);font-weight:600}
+thead th{background:var(--muted);color:var(--foreground);font-weight:600}
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:var(--bg-secondary);color:var(--primary-text);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 10px;cursor:pointer;transition:background-color var(--transition-fast),border-color var(--transition-fast)}
-button:hover{background:var(--bg-hover);border-color:var(--border-hover)}
-input,select,textarea{background:var(--bg);color:var(--primary-text);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 8px}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--translucent)}
-h1,h2,h3,h4,h5,h6{color:var(--primary-text);font-family:var(--font-sans);font-weight:600;margin:12px 0 6px}
+button{background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 10px;cursor:pointer;transition:background-color var(--transition-fast),border-color var(--transition-fast)}
+button:hover{background:var(--accent);border-color:var(--ring)}
+input,select,textarea{background:var(--background);color:var(--foreground);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 8px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent)}
+h1,h2,h3,h4,h5,h6{color:var(--foreground);font-family:var(--font-sans);font-weight:600;margin:12px 0 6px}
 h1{font-size:20px;letter-spacing:-0.01em}h2{font-size:16px}h3{font-size:15px}h4,h5,h6{font-size:14px}
-p{margin:0 0 8px;color:var(--primary-text)}
-small{color:var(--tertiary-text)}
+p{margin:0 0 8px;color:var(--foreground)}
+small{color:var(--muted-foreground)}
 `.trim();
 }
 
@@ -177,8 +181,31 @@ small{color:var(--tertiary-text)}
  * `!important` on `html, body` background/color so hardcoded dark themes
  * from the model don't leak through).
  */
+/**
+ * Alias legacy SOLO para artifacts antiguos ya persistidos en la DB que
+ * referencian los nombres pre-shadcn. La app ya no define estas variables;
+ * viven únicamente dentro del iframe del artifact.
+ */
+const LEGACY_ARTIFACT_ALIASES = [
+  '--bg: var(--background)',
+  '--bg-secondary: var(--card)',
+  '--bg-tertiary: var(--muted)',
+  '--bg-hover: var(--accent)',
+  '--primary-text: var(--foreground)',
+  '--secondary-text: var(--muted-foreground)',
+  '--tertiary-text: var(--muted-foreground)',
+  '--border-hover: var(--ring)',
+  '--accent-hover: color-mix(in oklch, var(--primary) 85%, var(--background))',
+  '--translucent: color-mix(in srgb, var(--primary) 12%, transparent)',
+  '--base: var(--primary)',
+  '--base-text: var(--primary-foreground)',
+  '--dome-accent: var(--primary)',
+  '--error: var(--destructive)',
+  '--error-bg: color-mix(in srgb, var(--destructive) 12%, transparent)',
+].join(';');
+
 export function buildDomeThemeStyleContent(vars: DomeTokenVars): string {
   const varsCss = toCssVars(vars);
   const reset = buildDomeResetCss();
-  return `:root{${varsCss}}\n${reset}`;
+  return `:root{${varsCss}${LEGACY_ARTIFACT_ALIASES};}\n${reset}`;
 }

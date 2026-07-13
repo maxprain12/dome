@@ -12,7 +12,7 @@ export default function HomeLayout({ children, folderPane, hidePet }: HomeLayout
   return (
     <div
       className="flex min-h-0 overflow-hidden"
-      style={{ height: '100%', background: 'var(--dome-bg)' }}
+      style={{ height: '100%', background: 'var(--background)' }}
     >
       {folderPane}
       <main className="flex-1 min-w-0 overflow-y-auto overscroll-contain relative">

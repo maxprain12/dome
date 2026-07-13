@@ -16,7 +16,7 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
   const [isRendering, setIsRendering] = useState(true);
 
   useEffect(() => {
-    const isMounted = true;
+    let isMounted = true;
 
     async function render() {
       if (!canvasRef.current || !page) return;
@@ -46,17 +46,18 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
       }
     }
 
-    render();
+    void render();
+    return () => { isMounted = false; };
   }, [page]);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1 p-1 rounded border transition-colors cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
+      className="flex flex-col items-center gap-1 p-1 rounded border transition-colors cursor-pointer hover:bg-card focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
       style={{
-        borderColor: isActive ? 'var(--accent)' : 'var(--border)',
-        background: isActive ? 'var(--dome-accent-bg, rgba(var(--accent-rgb), 0.1))' : 'transparent',
+        borderColor: isActive ? 'var(--primary)' : 'var(--border)',
+        background: isActive ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent',
       }}
       title={`Page ${pageNumber}`}
       aria-label={`Go to page ${pageNumber}`}
@@ -65,7 +66,7 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
         className="relative overflow-hidden rounded shadow-sm"
         style={{
           maxWidth: THUMBNAIL_MAX_WIDTH,
-          background: 'var(--bg)',
+          background: 'var(--background)',
         }}
       >
         <canvas ref={canvasRef} className="block" />
@@ -78,7 +79,7 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
           </div>
         )}
       </div>
-      <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
+      <span className="text-xs font-medium text-muted-foreground">
         {pageNumber}
       </span>
     </button>
@@ -94,7 +95,7 @@ interface PDFThumbnailsProps {
 export default function PDFThumbnails({ pages, currentPage, onPageChange }: PDFThumbnailsProps) {
   if (pages.length === 0) {
     return (
-      <p className="text-sm px-2 py-4" style={{ color: 'var(--tertiary-text)' }}>
+      <p className="text-sm px-2 py-4 text-muted-foreground">
         No pages loaded
       </p>
     );

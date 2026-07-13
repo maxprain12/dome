@@ -21,6 +21,10 @@
     "social": "Social"
   },
   "groups": {
+    "account": "Account",
+    "appearance_language": "Appearance and language",
+    "automation_extensions": "Automation and extensions",
+    "data_privacy": "Data and privacy",
     "preferences": "Preferences",
     "ai": "AI",
     "ai_voice": "AI & Voice",
@@ -306,7 +310,15 @@
       "add_by_id_hint": "For models not listed in the catalog. The ID is added to the selector immediately.",
       "add_by_id_placeholder": "Model id (e.g. gpt-4.1)",
       "custom_model_badge": "Custom model"
-    }
+    },
+    "dome_login_email": "Email",
+    "dome_login_password": "Password",
+    "dome_login_submit": "Sign in",
+    "dome_login_via_dashboard": "Or connect via dashboard",
+    "dome_login_ok": "Dome session connected.",
+    "dome_login_failed": "Sign-in failed.",
+    "dome_login_invalid_credentials": "Incorrect email or password.",
+    "dome_login_network_error": "Could not reach the Dome server. Try again."
   },
   "transcription": {
     "title": "Voice transcription",
@@ -394,14 +406,32 @@
     "perm_os_managed": "Permissions are managed by the operating system."
   },
   "domain_sync": {
-    "title": "Domain sync (Social, Pipelines, Calendar)",
-    "description": "Keeps social posts, pipelines and calendar in sync with Dome Cloud. Requires an active Dome subscription.",
+    "title": "Domain sync",
+    "description": "Keeps your whole Dome in sync with Dome Cloud — library, files, conversations, agents, learn, social, pipelines and calendar. Requires an active Dome subscription.",
+    "subtitle": "Sync your content across devices with your Dome subscription.",
+    "connected_to_dome": "Connected to Dome",
+    "disconnected_from_dome": "Disconnected from Dome",
+    "connect_error": "Could not connect",
+    "not_connected": "Not connected",
+    "oauth_pkce": "Authorize with OAuth PKCE",
+    "connection": "Connection",
+    "active": "Active",
+    "last_sync": "Last sync",
     "social": "Social hub",
     "pipelines": "Pipelines board",
-    "calendar": "Calendar (push only)",
-    "sync_now": "Sync domains now",
-    "sync_ok": "Domains synced",
-    "sync_error": "Domain sync failed"
+    "calendar": "Calendar",
+    "sync_now": "Sync now",
+    "sync_ok": "Synced",
+    "sync_error": "Sync failed",
+    "library": "Library (projects, notes, artifacts)",
+    "files": "Files (vault)",
+    "conversations": "Conversations (chats + Many)",
+    "agents": "Agents & workflows",
+    "learn": "Learn (flashcards & study)",
+    "settings_domain": "Preferences",
+    "first_sync": "Restoring your Dome… ({{domain}})",
+    "first_sync_files": "Downloading files…",
+    "first_sync_done": "Restore complete"
   },
   "indexing": {
     "title": "Indexing",
@@ -639,6 +669,7 @@
     "subtitle": "Connect Google Drive to explore and import files directly in Dome.",
     "loading_accounts": "Loading accounts...",
     "section_connected": "Connected accounts",
+    "connected": "Connected",
     "section_add": "Add another account",
     "section_connect": "Connect cloud account",
     "disconnect": "Disconnect",

@@ -73,19 +73,6 @@ export const automationArtifactBindings = sqliteTable('automation_artifact_bindi
   updatedAt: integer('updated_at').notNull(),
 });
 
-export const domeCloudSync = sqliteTable('dome_cloud_sync', {
-  id: text('id').primaryKey(),
-  resourceId: text('resource_id').notNull(),
-  remotePath: text('remote_path'),
-  remoteHash: text('remote_hash'),
-  localHash: text('local_hash'),
-  syncStatus: text('sync_status').notNull(),
-  lastSyncedAt: integer('last_synced_at'),
-  metadataJson: text('metadata_json'),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
 export const feeders = sqliteTable('feeders', {
   id: text('id').primaryKey(),
   projectId: text('project_id').notNull().default('default'),

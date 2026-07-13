@@ -1,137 +1,70 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  RefreshIcon as RefreshCw,
+  Loading03Icon as Loader2,
+  CloudCogIcon as CloudCog,
+} from '@hugeicons/core-free-icons';
+import { useState, useEffect, useCallback } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, CloudDownload, Loader2, CloudCog } from 'lucide-react';
+
 import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
+import { useDomeSession } from '@/lib/hooks/useDomeSession';
 import { showToast } from '@/lib/store/useToastStore';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import SubpageHeader from '@/components/shared/SubpageHeader';
 import SettingsPanel from '@/components/settings/SettingsPanel';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeListState from '@/components/ui/DomeListState';
+import ListState from '@/components/shared/ListState';
 
-const DOME_GREEN = 'var(--dome-accent)';
-const DOME_ORANGE = 'var(--warning)';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
-const INTERVAL_OPTIONS = [5, 15, 30, 60] as const;
+type DomainState = { enabled: boolean; lastPushAt: number };
 
-type SyncStatus = {
-  connected: boolean;
-  localRevision: number;
-  currentRevision: number;
-  syncSchemaVersion: number;
-  error?: string;
-};
+/** Domains shown in settings, in restore order. Feature gates which appear. */
+const DOMAIN_ROWS: Array<{ domain: string; labelKey: string; feature: 'cloud_sync' | 'social_cloud' | 'pipelines_cloud' }> = [
+  { domain: 'library', labelKey: 'settings.domain_sync.library', feature: 'cloud_sync' },
+  { domain: 'files', labelKey: 'settings.domain_sync.files', feature: 'cloud_sync' },
+  { domain: 'conversations', labelKey: 'settings.domain_sync.conversations', feature: 'cloud_sync' },
+  { domain: 'agents', labelKey: 'settings.domain_sync.agents', feature: 'cloud_sync' },
+  { domain: 'learn', labelKey: 'settings.domain_sync.learn', feature: 'cloud_sync' },
+  { domain: 'settings', labelKey: 'settings.domain_sync.settings_domain', feature: 'cloud_sync' },
+  { domain: 'social', labelKey: 'settings.domain_sync.social', feature: 'social_cloud' },
+  { domain: 'pipelines', labelKey: 'settings.domain_sync.pipelines', feature: 'pipelines_cloud' },
+  { domain: 'calendar', labelKey: 'settings.domain_sync.calendar', feature: 'cloud_sync' },
+];
 
-type SyncSettings = {
-  auto_enabled: boolean;
-  interval_minutes: number;
-};
-
-type DomainSyncState = {
-  social: { enabled: boolean; lastPushAt: number };
-  pipelines: { enabled: boolean; lastPushAt: number };
-  calendar: { enabled: boolean; lastPushAt: number };
-};
+type SyncProgress = { phase: string; domain?: string; index?: number; total?: number } | null;
 
 export default function DomeSyncSettings() {
   const { t } = useTranslation();
   const cloudEntitlements = useCloudEntitlements();
+  const session = useDomeSession();
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<SyncStatus | null>(null);
-  const [settings, setSettings] = useState<SyncSettings>({ auto_enabled: false, interval_minutes: 15 });
-  const [syncing, setSyncing] = useState(false);
-  const [pulling, setPulling] = useState(false);
   const [connectingOAuth, setConnectingOAuth] = useState(false);
   const [domainSyncing, setDomainSyncing] = useState(false);
-  const [domainState, setDomainState] = useState<DomainSyncState | null>(null);
-
-  const autoSyncTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const loadStatus = useCallback(async () => {
-    if (!window.electron?.cloudSync) return;
-    const result = await window.electron.cloudSync.getStatus();
-    if (result.success) {
-      setStatus({
-        connected: result.connected ?? false,
-        localRevision: result.localRevision ?? 0,
-        currentRevision: result.currentRevision ?? 0,
-        syncSchemaVersion: result.syncSchemaVersion ?? 1,
-      });
-    } else {
-      setStatus({ connected: false, localRevision: 0, currentRevision: 0, syncSchemaVersion: 1, error: result.error });
-    }
-  }, []);
-
-  const loadSettings = useCallback(async () => {
-    if (!window.electron?.cloudSync) return;
-    const result = await window.electron.cloudSync.getSettings();
-    if (result.success && result.settings) {
-      setSettings(result.settings);
-    }
-  }, []);
+  const [domainState, setDomainState] = useState<Record<string, DomainState>>({});
+  const [progress, setProgress] = useState<SyncProgress>(null);
 
   const loadDomainStatus = useCallback(async () => {
     if (!window.electron?.domainSync?.getStatus) return;
     const result = await window.electron.domainSync.getStatus();
     if (result.success && result.domains) {
-      const d = result.domains as Record<string, { enabled: boolean; lastPushAt: number }>;
-      setDomainState({
-        social: { enabled: d.social?.enabled !== false, lastPushAt: d.social?.lastPushAt ?? 0 },
-        pipelines: { enabled: d.pipelines?.enabled !== false, lastPushAt: d.pipelines?.lastPushAt ?? 0 },
-        calendar: { enabled: d.calendar?.enabled !== false, lastPushAt: d.calendar?.lastPushAt ?? 0 },
-      });
+      setDomainState(result.domains as Record<string, DomainState>);
     }
   }, []);
 
   useEffect(() => {
-    Promise.all([loadStatus(), loadSettings(), loadDomainStatus()]).finally(() => setLoading(false));
-  }, [loadStatus, loadSettings, loadDomainStatus]);
+    void loadDomainStatus().finally(() => setLoading(false));
+  }, [loadDomainStatus]);
 
-  // SSE revision watcher
   useEffect(() => {
-    if (!window.electron?.cloudSync) return;
-    void window.electron.cloudSync.startRevisionWatcher();
-
-    const unsubRevision = window.electron.cloudSync.onRevision(({ revision }) => {
-      setStatus((prev) => prev ? { ...prev, currentRevision: revision } : prev);
+    const unsub = window.electron?.domainSync?.onProgress?.((data: SyncProgress) => {
+      setProgress(data?.phase === 'done' ? null : data);
+      if (data?.phase === 'done') void loadDomainStatus();
     });
-
-    const unsubPull = window.electron.cloudSync.onPullDone(({ revision }) => {
-      setStatus((prev) => prev ? { ...prev, localRevision: revision, currentRevision: revision } : prev);
-    });
-
-    return () => {
-      void window.electron.cloudSync.stopRevisionWatcher();
-      unsubRevision();
-      unsubPull();
-    };
-  }, []);
-
-  // Auto-sync timer (renderer-side interval, settings stored in SQLite)
-  useEffect(() => {
-    if (autoSyncTimer.current) clearInterval(autoSyncTimer.current);
-    if (!settings.auto_enabled || !status?.connected) return;
-
-    autoSyncTimer.current = setInterval(async () => {
-      if (!window.electron?.cloudSync) return;
-      await window.electron.cloudSync.push();
-      await window.electron.cloudSync.pull();
-      void loadStatus();
-    }, settings.interval_minutes * 60 * 1000);
-
-    return () => {
-      if (autoSyncTimer.current) clearInterval(autoSyncTimer.current);
-    };
-  }, [settings.auto_enabled, settings.interval_minutes, status?.connected, loadStatus]);
-
-  const saveSettings = async (patch: Partial<SyncSettings>) => {
-    if (!window.electron?.cloudSync) return;
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    await window.electron.cloudSync.setSettings(patch);
-  };
+    return () => unsub?.();
+  }, [loadDomainStatus]);
 
   const handleConnect = async () => {
     if (!window.electron?.domeAuth) return;
@@ -139,55 +72,26 @@ export default function DomeSyncSettings() {
     try {
       const result = await window.electron.domeAuth.startOAuthFlow();
       if (result.success) {
-        showToast('success', 'Conectado a Dome Pro');
-        void loadStatus();
+        showToast('success', t('settings.domain_sync.connected_to_dome'));
+        void session.refresh();
+        void loadDomainStatus();
       } else {
-        showToast('error', result.error ?? 'Error al conectar');
+        showToast('error', result.error ?? t('settings.domain_sync.connect_error'));
       }
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error desconocido');
+      showToast('error', err instanceof Error ? err.message : t('common.unknown_error'));
     } finally {
       setConnectingOAuth(false);
     }
   };
 
-  const handleSyncNow = async () => {
-    if (!window.electron?.cloudSync) return;
-    setSyncing(true);
-    try {
-      const pushResult = await window.electron.cloudSync.push();
-      if (!pushResult.success) throw new Error(pushResult.error ?? 'Push fallido');
-      const pullResult = await window.electron.cloudSync.pull();
-      if (!pullResult.success) throw new Error(pullResult.error ?? 'Pull fallido');
-      showToast('success', `Sincronizado — revisión ${pullResult.revision ?? pushResult.newRevision}`);
-      void loadStatus();
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error de sincronización');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleForcePull = async () => {
-    if (!window.electron?.cloudSync) return;
-    setPulling(true);
-    try {
-      const result = await window.electron.cloudSync.pull();
-      if (!result.success) throw new Error(result.error ?? 'Pull fallido');
-      showToast('success', `Datos descargados — revisión ${result.revision}`);
-      void loadStatus();
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error al descargar');
-    } finally {
-      setPulling(false);
-    }
-  };
-
-  if (!cloudEntitlements.loading && !cloudEntitlements.showCloudUi) {
+  if (!cloudEntitlements.loading && !cloudEntitlements.showCloudUi && !session.connected) {
     return null;
   }
 
-  const toggleDomain = async (domain: 'social' | 'pipelines' | 'calendar', enabled: boolean) => {
+  const featureAvailable = (feature: string) => cloudEntitlements.features.includes(feature);
+
+  const toggleDomain = async (domain: string, enabled: boolean) => {
     if (!window.electron?.domainSync?.setDomainEnabled) return;
     const res = await window.electron.domainSync.setDomainEnabled({ domain, enabled });
     if (res?.success) await loadDomainStatus();
@@ -209,254 +113,121 @@ export default function DomeSyncSettings() {
     }
   };
 
-  const hasPendingPull = status ? status.currentRevision > status.localRevision : false;
+  const lastSyncAt = Math.max(0, ...Object.values(domainState).map((d) => d?.lastPushAt ?? 0));
+  const visibleRows = DOMAIN_ROWS.filter((row) => featureAvailable(row.feature));
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
-  <DomeSubpageHeader.Title>{"Dome Sync"}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{"Sincroniza tu biblioteca entre dispositivos con tu suscripción Dome Pro."}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
+      <SubpageHeader className={"!border-0 p-0 bg-transparent"}>
+        <SubpageHeader.Title>{"Dome Sync"}</SubpageHeader.Title>
+        <SubpageHeader.Subtitle>{t('settings.domain_sync.subtitle')}</SubpageHeader.Subtitle>
+      </SubpageHeader>
 
-      {loading ? (
-        <DomeListState variant="loading" loadingLabel="Comprobando estado de sincronización…" compact />
-      ) : !status?.connected ? (
+      {loading || session.loading ? (
+        <ListState variant="loading" loadingLabel="Comprobando estado de sincronización…" compact />
+      ) : !session.connected ? (
         /* ── No conectado ── */
-        <div className="space-y-4">
-          {status?.error === 'cloud_sync_not_in_plan' ? (
-            <DomeCard className="flex items-start gap-3 !bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] border-[color-mix(in_srgb,var(--warning)_30%,transparent)]">
-              <span className="mt-0.5 shrink-0">⚠</span>
-              <div>
-                <p className="text-sm font-medium text-[var(--dome-text)]">Requiere Dome Pro</p>
-                <p className="text-xs text-[var(--dome-text-muted)] mt-0.5">
-                  La sincronización en la nube está disponible con una suscripción activa Dome Pro.{' '}
-                  <button
-                    type="button"
-                    className="underline text-[var(--dome-accent)]"
-                    onClick={() => void window.electron?.domeAuth?.openDashboard?.()}
-                  >
-                    Ver planes
-                  </button>
-                </p>
-              </div>
-            </DomeCard>
-          ) : (
-            <DomeCard className="flex items-start gap-3">
-              <CloudCog className="size-4 mt-0.5 shrink-0 text-[var(--dome-text-muted)]" />
-              <div>
-                <p className="text-sm font-medium text-[var(--dome-text)]">No conectado</p>
-                <p className="text-xs text-[var(--dome-text-muted)] mt-0.5">
-                  Inicia sesión con tu cuenta Dome Pro para activar la sincronización.
-                </p>
-              </div>
-            </DomeCard>
-          )}
-
-          <DomeButton
-            type="button"
-            variant="outline"
-            size="md"
-            onClick={() => void handleConnect()}
-            disabled={connectingOAuth}
-            className="w-full !justify-start !h-auto py-3 px-4"
-            leftIcon={
-              connectingOAuth
-                ? <Loader2 className="size-4 animate-spin" style={{ color: DOME_GREEN }} />
-                : <CloudCog className="size-4" style={{ color: DOME_GREEN }} />
-            }
-          >
-            <div className="min-w-0 text-left">
-              <p className="text-sm font-medium text-[var(--dome-text)]">
-                {connectingOAuth ? 'Conectando…' : 'Iniciar sesión en Dome Pro'}
+        <div className="flex flex-col gap-4">
+          <Card className="p-4 flex items-start gap-3">
+            <HugeiconsIcon icon={CloudCog} className="size-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium text-foreground">{t('settings.domain_sync.not_connected')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Inicia sesión con tu cuenta Dome para activar la sincronización.
               </p>
-              <p className="text-xs text-[var(--dome-text-muted)]">Autoriza vía OAuth PKCE</p>
             </div>
-          </DomeButton>
+          </Card>
+
+          <Button type="button"
+  variant="outline"
+  onClick={() => void handleConnect()}
+  disabled={connectingOAuth}
+  className="w-full !justify-start !h-auto py-3 px-4">{
+              connectingOAuth
+                ? <HugeiconsIcon icon={Loader2} className="animate-spin text-primary" />
+                : <HugeiconsIcon icon={CloudCog} className="text-primary" />
+            }
+            <div className="min-w-0 text-left">
+              <p className="text-sm font-medium text-foreground">
+                {connectingOAuth ? 'Conectando…' : 'Iniciar sesión en Dome'}
+              </p>
+              <p className="text-xs text-muted-foreground">{t('settings.domain_sync.oauth_pkce')}</p>
+            </div>
+          </Button>
         </div>
       ) : (
         /* ── Conectado ── */
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
+          {/* Primera sincronización en curso */}
+          {progress && (
+            <Card className="p-4 flex items-center gap-3">
+              <HugeiconsIcon icon={Loader2} className="shrink-0 animate-spin text-primary" />
+              <p className="text-sm text-foreground">
+                {progress.phase === 'files'
+                  ? t('settings.domain_sync.first_sync_files')
+                  : t('settings.domain_sync.first_sync', { domain: progress.domain ?? '…' })}
+              </p>
+            </Card>
+          )}
+
           {/* Estado */}
           <div>
-            <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
               Estado
-            </DomeSectionLabel>
-            <DomeCard>
+            </p>
+            <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-[var(--dome-text)]">Conexión</span>
-                <DomeBadge label="Activa" dot color={DOME_GREEN} size="xs" />
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-[var(--dome-text-muted)]">Revisión local</span>
-                <span className="text-xs font-mono text-[var(--dome-text)]">{status.localRevision}</span>
+                <span className="text-sm font-medium text-foreground">{t('settings.domain_sync.connection')}</span>
+                <Badge variant="secondary" className="max-w-full text-primary"><span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden /><span className="truncate">{t('settings.domain_sync.active')}</span></Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--dome-text-muted)]">Revisión servidor</span>
-                <span className="text-xs font-mono text-[var(--dome-text)]">{status.currentRevision}</span>
+                <span className="text-xs text-muted-foreground">{t('settings.domain_sync.last_sync')}</span>
+                <span className="text-xs font-mono text-foreground">
+                  {lastSyncAt > 0 ? new Date(lastSyncAt).toLocaleString() : '—'}
+                </span>
               </div>
-              {hasPendingPull && (
-                <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-center gap-2">
-                  <DomeBadge
-                    label={`${status.currentRevision - status.localRevision} cambios pendientes`}
-                    color={DOME_ORANGE}
-                    dot
-                    size="xs"
+            </Card>
+          </div>
+
+          {/* Dominios */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('settings.domain_sync.title')}</p>
+            <Card className="p-4 flex flex-col gap-3">
+              <p className="text-xs text-muted-foreground">{t('settings.domain_sync.description')}</p>
+              {visibleRows.map(({ domain, labelKey }) => (
+                <label key={domain} className="flex items-center justify-between gap-3 text-sm">
+                  <span>{t(labelKey)}</span>
+                  <Checkbox
+                    checked={domainState[domain]?.enabled !== false}
+                    onCheckedChange={(checked) => void toggleDomain(domain, checked)}
                   />
-                </div>
-              )}
-            </DomeCard>
+                </label>
+              ))}
+              <Button type="button"
+  variant="outline"
+  disabled={domainSyncing}
+  onClick={() => void syncDomainsNow()}
+  size="sm">{domainSyncing ? <HugeiconsIcon icon={Loader2} className="size-4 animate-spin" /> : <HugeiconsIcon icon={RefreshCw} className="size-4" />}
+                {t('settings.domain_sync.sync_now')}
+              </Button>
+            </Card>
           </div>
-
-          {/* Acciones manuales */}
-          <div>
-            <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-              Acciones
-            </DomeSectionLabel>
-            <div className="flex gap-2">
-              <DomeButton
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => void handleSyncNow()}
-                disabled={syncing || pulling}
-                leftIcon={syncing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-              >
-                {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
-              </DomeButton>
-              <DomeButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleForcePull()}
-                disabled={syncing || pulling}
-                leftIcon={pulling ? <Loader2 className="size-3.5 animate-spin" /> : <CloudDownload className="size-3.5" />}
-              >
-                {pulling ? 'Descargando…' : 'Forzar descarga'}
-              </DomeButton>
-            </div>
-          </div>
-
-          {/* Auto-sync */}
-          <div>
-            <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-              Sincronización automática
-            </DomeSectionLabel>
-            <DomeCard>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[var(--dome-text)]">Activar auto-sync</p>
-                  <p className="text-xs text-[var(--dome-text-muted)] mt-0.5">
-                    Sincroniza en segundo plano mientras Dome está abierto.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-label="Activar auto-sync"
-                  aria-checked={settings.auto_enabled}
-                  onClick={() => void saveSettings({ auto_enabled: !settings.auto_enabled })}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${
-                    settings.auto_enabled ? 'bg-[var(--dome-accent)]' : 'bg-[var(--dome-text-muted)]'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                      settings.auto_enabled ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {settings.auto_enabled && (
-                <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--dome-text-muted)] mb-2">Intervalo</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {INTERVAL_OPTIONS.map((min) => (
-                      <button
-                        key={min}
-                        type="button"
-                        onClick={() => void saveSettings({ interval_minutes: min })}
-                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                          settings.interval_minutes === min
-                            ? 'bg-[var(--dome-accent)] text-white'
-                            : 'bg-[var(--dome-bg-hover)] text-[var(--dome-text-muted)] hover:text-[var(--dome-text)]'
-                        }`}
-                      >
-                        {min} min
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </DomeCard>
-          </div>
-
-          {(cloudEntitlements.hasSocialCloud || cloudEntitlements.hasPipelinesCloud || cloudEntitlements.hasCloudSync) && domainState && (
-            <div className="space-y-3">
-              <DomeSectionLabel>{t('settings.domain_sync.title')}</DomeSectionLabel>
-              <DomeCard className="space-y-3">
-                <p className="text-xs text-[var(--dome-text-muted)]">{t('settings.domain_sync.description')}</p>
-                {cloudEntitlements.hasSocialCloud && (
-                  <label className="flex items-center justify-between gap-3 text-sm">
-                    <span>{t('settings.domain_sync.social')}</span>
-                    <input
-                      type="checkbox"
-                      checked={domainState.social.enabled}
-                      onChange={(e) => void toggleDomain('social', e.target.checked)}
-                    />
-                  </label>
-                )}
-                {cloudEntitlements.hasPipelinesCloud && (
-                  <label className="flex items-center justify-between gap-3 text-sm">
-                    <span>{t('settings.domain_sync.pipelines')}</span>
-                    <input
-                      type="checkbox"
-                      checked={domainState.pipelines.enabled}
-                      onChange={(e) => void toggleDomain('pipelines', e.target.checked)}
-                    />
-                  </label>
-                )}
-                {cloudEntitlements.hasCloudSync && (
-                  <label className="flex items-center justify-between gap-3 text-sm">
-                    <span>{t('settings.domain_sync.calendar')}</span>
-                    <input
-                      type="checkbox"
-                      checked={domainState.calendar.enabled}
-                      onChange={(e) => void toggleDomain('calendar', e.target.checked)}
-                    />
-                  </label>
-                )}
-                <DomeButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={domainSyncing}
-                  onClick={() => void syncDomainsNow()}
-                  leftIcon={domainSyncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                >
-                  {t('settings.domain_sync.sync_now')}
-                </DomeButton>
-              </DomeCard>
-            </div>
-          )}
 
           {/* Desconectar */}
           <div>
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-[var(--dome-text-muted)] hover:text-[var(--destructive)]"
-              onClick={async () => {
+            <Button type="button"
+  variant="ghost"
+  className="text-muted-foreground hover:text-destructive"
+  onClick={async () => {
                 const result = await window.electron?.domeAuth?.disconnect?.();
                 if (result?.success) {
-                  showToast('success', 'Desconectado de Dome Pro');
-                  void loadStatus();
+                  showToast('success', t('settings.domain_sync.disconnected_from_dome'));
+                  void session.refresh();
                 }
               }}
-            >
+  size="sm">
               Desconectar cuenta
-            </DomeButton>
+            </Button>
           </div>
         </div>
       )}

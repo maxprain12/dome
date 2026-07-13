@@ -5,7 +5,7 @@
  * Secrets (API keys) are never mirrored — they stay in settings-secrets / provider-keys.
  */
 
-const { getOrCreateDeviceId } = require('./cloud-sync-service.cjs');
+const { getOrCreateDeviceId } = require('./device-id.cjs');
 
 /** @type {ReadonlySet<string>} */
 const SYNCABLE_SETTING_KEYS = new Set([
@@ -61,6 +61,31 @@ function mirrorSettingChange(db, key, value) {
 }
 
 /**
+ * Reconcile the synced_settings mirror from the live settings table.
+ * mirrorSettingChange only covers a handful of renderer IPC paths; settings
+ * written before the mirror existed (or directly in the main process via
+ * queries.setSetting) would otherwise never reach the cloud. Called before
+ * every settings-domain push so any divergence is picked up within a cycle.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {number} rows mirrored
+ */
+function reconcileSyncedSettingsFromLocal(db) {
+  const getLocal = db.prepare('SELECT value FROM settings WHERE key = ?');
+  const getMirror = db.prepare('SELECT value, deleted_at FROM synced_settings WHERE id = ?');
+  let changed = 0;
+  for (const key of SYNCABLE_SETTING_KEYS) {
+    const local = getLocal.get(key);
+    if (!local || local.value == null) continue;
+    const value = String(local.value);
+    const mirror = getMirror.get(key);
+    if (mirror && mirror.deleted_at == null && mirror.value === value) continue;
+    mirrorSettingChange(db, key, value);
+    changed += 1;
+  }
+  return changed;
+}
+
+/**
  * Copy synced_settings mirror rows into the live settings table.
  * @param {import('better-sqlite3').Database} db
  * @param {object} [windowManager]
@@ -101,6 +126,7 @@ module.exports = {
   SYNCABLE_SETTING_KEYS,
   isSyncableSettingKey,
   mirrorSettingChange,
+  reconcileSyncedSettingsFromLocal,
   applySyncedSettingsToLocal,
   countSyncedSettings,
 };

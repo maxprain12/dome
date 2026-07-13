@@ -40,5 +40,8 @@
   "import_ics_short": "Import",
   "new_event_short": "New event",
   "day_events_count_one": "{{count}} event",
-  "day_events_count_other": "{{count}} events"
+  "day_events_count_other": "{{count}} events",
+  "more_events": "+{{count}} more",
+  "events_count_one": "{{count}} event",
+  "events_count_other": "{{count}} events"
 }

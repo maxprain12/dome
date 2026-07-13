@@ -1,15 +1,25 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Loading03Icon as Loader2,
+  CheckmarkCircle02Icon as CheckCircle2,
+  RefreshIcon as RefreshCw,
+  SparklesIcon as Sparkles,
+  Layers01Icon as Layers,
+  AlertCircleIcon as AlertCircle,
+  Alert02Icon as AlertTriangle,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Loader2, CheckCircle2, RefreshCw, Sparkles, Layers } from 'lucide-react';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeProgressBar from '@/components/ui/DomeProgressBar';
-import DomeCallout from '@/components/ui/DomeCallout';
+import { cn } from '@/lib/utils';
+
+import SubpageHeader from '@/components/shared/SubpageHeader';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 
-const DOME_GREEN = 'var(--dome-accent)';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+const DOME_GREEN = 'var(--primary)';
 
 interface SemanticIndexingStatusPayload {
   modelVersion: string | null;
@@ -198,24 +208,24 @@ function FullSyncSection({
   const fullSyncPercent = computeFullSyncPercent(fullSyncProgress);
   return (
     <div>
-      <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
         {t('settings.indexing.full_sync_section')}
-      </DomeSectionLabel>
-      <DomeCard className="p-4 space-y-3">
+      </p>
+      <Card className="p-4 p-4 flex flex-col gap-3">
         <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <p className="text-sm font-semibold text-foreground">
             {t('settings.indexing.full_sync_title')}
           </p>
-          <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-xs mt-1 leading-relaxed text-muted-foreground">
             {t('settings.indexing.full_sync_hint')}
           </p>
         </div>
         {fullSyncProgress &&
         fullSyncProgress.phase !== 'finished' &&
         fullSyncProgress.resourcesTotal > 0 ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="truncate" style={{ color: 'var(--dome-text-muted)' }}>
+              <span className="truncate text-muted-foreground">
                 {fullSyncProgress.phase === 'embeddings'
                   ? t('settings.indexing.full_sync_phase_embeddings')
                   : '…'}
@@ -227,41 +237,36 @@ function FullSyncSection({
                     })}`
                   : null}
               </span>
-              <span className="shrink-0 font-medium" style={{ color: DOME_GREEN }}>
+              <span className="shrink-0 font-medium text-primary">
                 {fullSyncPercent}%
               </span>
             </div>
-            <DomeProgressBar value={fullSyncPercent} max={100} size="sm" variant="success" />
+            <Progress value={fullSyncPercent} className="h-1.5" />
           </div>
         ) : null}
         {fullSyncResult && !fullSyncBusy ? (
-          <DomeCallout
-            tone={fullSyncResult.embeddingFailed > 0 ? 'warning' : 'success'}
-            icon={CheckCircle2}
-          >
-            {t('settings.indexing.full_sync_done')}
-            {fullSyncResult.totalResources > 0 && fullSyncResult.embeddingFailed > 0
-              ? ` ${t('settings.indexing.full_sync_summary_errors', { emb: fullSyncResult.embeddingFailed })}`
-              : null}
-          </DomeCallout>
+          <Alert role="note">
+            <HugeiconsIcon icon={CheckCircle2} aria-hidden />
+            <AlertDescription className="text-xs">
+              {t('settings.indexing.full_sync_done')}
+              {fullSyncResult.totalResources > 0 && fullSyncResult.embeddingFailed > 0
+                ? ` ${t('settings.indexing.full_sync_summary_errors', { emb: fullSyncResult.embeddingFailed })}`
+                : null}
+            </AlertDescription>
+          </Alert>
         ) : null}
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="md"
-          disabled={libraryBusy}
-          onClick={() => void onFullSync()}
-          leftIcon={
+        <Button type="button"
+  disabled={libraryBusy}
+  onClick={() => void onFullSync()}>{
             fullSyncBusy ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <HugeiconsIcon icon={Loader2} className="size-4 animate-spin" aria-hidden />
             ) : (
-              <Layers className="size-4" aria-hidden />
+              <HugeiconsIcon icon={Layers} className="size-4" aria-hidden />
             )
           }
-        >
           {fullSyncBusy ? t('settings.indexing.full_sync_running') : t('settings.indexing.full_sync_btn')}
-        </DomeButton>
-      </DomeCard>
+        </Button>
+      </Card>
     </div>
   );
 }
@@ -278,13 +283,13 @@ function EmbeddingsStatusBlock({
   t: TranslateFn;
 }) {
   return (
-    <div className="mt-4 space-y-3">
+    <div className="mt-4 flex flex-col gap-3">
       {embedStatus.modelVersion ? (
-        <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-          <span className="font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
+        <p className="text-[11px] text-muted-foreground">
+          <span className="font-medium text-muted-foreground">
             {t('settings.ai.embeddings.status.model_active')}:
           </span>{' '}
-          <code className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--dome-surface)' }}>
+          <code className="text-[10px] px-1 py-0.5 rounded bg-card">
             {embedStatus.modelVersion}
           </code>
           {embedStatus.dimensions != null ? (
@@ -296,12 +301,12 @@ function EmbeddingsStatusBlock({
       ) : null}
 
       {embedStatus.indexableTotal === 0 ? (
-        <DomeCallout tone="info" icon={Sparkles}>
+        <Alert role="note"><HugeiconsIcon icon={Sparkles} aria-hidden /><AlertDescription className="text-xs">
           {t('settings.embeddings.empty_library')}
-        </DomeCallout>
+        </AlertDescription></Alert>
       ) : (
         <>
-          <div className="settings-stat-grid settings-stat-grid--4">
+          <div className="grid grid-cols-2 xl:grid-cols-4">
             {[
               { label: t('settings.embeddings.total'), value: embedStatus.indexableTotal, color: DOME_GREEN },
               {
@@ -316,39 +321,34 @@ function EmbeddingsStatusBlock({
               },
               { label: t('settings.embeddings.chunks'), value: embedStatus.chunksTotal, color: DOME_GREEN },
             ].map(({ label, value, color }) => (
-              <DomeCard key={label} className="p-4">
-                <p className="text-2xl font-bold" style={{ color }}>
+              <Card className="p-4 p-4" key={label}>
+                <p className={cn('text-2xl font-bold', color === 'var(--warning)' ? 'text-[var(--warning)]' : 'text-primary')}>
                   {value}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs mt-0.5 text-muted-foreground">
                   {label}
                 </p>
-              </DomeCard>
+              </Card>
             ))}
           </div>
 
           {embedStatus.allIndexed ? (
             <div
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs w-fit"
-              style={{
-                backgroundColor: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-                color: 'var(--dome-text-muted)',
-              }}
+              className="flex w-fit items-center gap-2 rounded-lg border bg-card px-4 py-2 text-xs text-muted-foreground"
             >
-              <CheckCircle2 className="size-3.5 shrink-0" style={{ color: DOME_GREEN }} />
+              <HugeiconsIcon icon={CheckCircle2} className="size-3.5 shrink-0 text-primary" />
               {t('settings.embeddings.all_indexed')}
             </div>
           ) : (
-            <DomeCallout tone="warning" icon={Sparkles}>
+            <Alert role="note"><HugeiconsIcon icon={Sparkles} aria-hidden /><AlertDescription className="text-xs">
               {t('settings.embeddings.pending_label', { count: embedStatus.pendingCount })}
-            </DomeCallout>
+            </AlertDescription></Alert>
           )}
         </>
       )}
 
       {embedProgress && embedProgress.total > 0 && embedReindexBusy ? (
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-xs text-muted-foreground">
           {t('settings.embeddings.progress', {
             done: embedProgress.done,
             total: embedProgress.total,
@@ -381,26 +381,26 @@ function EmbeddingsSection({
   t: TranslateFn;
 }) {
   return (
-    <div className="pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent mt-2"}>
-        <DomeSubpageHeader.Title>{t('settings.embeddings.section_title')}</DomeSubpageHeader.Title>
-        <DomeSubpageHeader.Subtitle>{t('settings.embeddings.section_hint')}</DomeSubpageHeader.Subtitle>
-      </DomeSubpageHeader>
+    <div className="pt-2 border-t border-border">
+      <SubpageHeader className={"!border-0 p-0 bg-transparent mt-2"}>
+        <SubpageHeader.Title>{t('settings.embeddings.section_title')}</SubpageHeader.Title>
+        <SubpageHeader.Subtitle>{t('settings.embeddings.section_hint')}</SubpageHeader.Subtitle>
+      </SubpageHeader>
 
       {embedStatus && embedStatus.configured === false && !embedLoading ? (
-        <DomeCallout tone="warning" className="mt-3">
+        <Alert className="mt-3" role="note"><HugeiconsIcon icon={AlertTriangle} aria-hidden /><AlertDescription className="text-xs">
           {t('settings.ai.embeddings.status.not_configured')}
-        </DomeCallout>
+        </AlertDescription></Alert>
       ) : null}
 
       {embedLoading ? (
-        <p className="text-xs mt-3 flex items-center gap-2" style={{ color: 'var(--dome-text-muted)' }}>
-          <Loader2 className="size-3.5 animate-spin shrink-0" aria-hidden />
+        <p className="text-xs mt-3 flex items-center gap-2 text-muted-foreground">
+          <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin shrink-0" aria-hidden />
           {t('settings.embeddings.loading')}
         </p>
       ) : null}
 
-      {embedError ? <DomeCallout tone="error" className="mt-3">{embedError}</DomeCallout> : null}
+      {embedError ? <Alert variant="destructive" className="mt-3" role="note"><HugeiconsIcon icon={AlertCircle} aria-hidden /><AlertDescription className="text-xs">{embedError}</AlertDescription></Alert> : null}
 
       {embedStatus && !embedLoading ? (
         <EmbeddingsStatusBlock
@@ -413,32 +413,25 @@ function EmbeddingsSection({
 
       {!embedLoading ? (
         <div className="flex flex-wrap gap-2 mt-4">
-          <DomeButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            disabled={libraryBusy}
-            leftIcon={<RefreshCw className="size-3.5" aria-hidden />}
-          >
+          <Button type="button"
+  variant="outline"
+  onClick={onRefresh}
+  disabled={libraryBusy}
+  size="sm">{<HugeiconsIcon icon={RefreshCw} className="size-3.5" aria-hidden />}
             {t('settings.embeddings.refresh')}
-          </DomeButton>
-          <DomeButton
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => void onReindexAll()}
-            disabled={libraryBusy}
-            leftIcon={
+          </Button>
+          <Button type="button"
+  onClick={() => void onReindexAll()}
+  disabled={libraryBusy}
+  size="sm">{
               embedReindexBusy ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin" aria-hidden />
               ) : (
-                <Sparkles className="size-3.5" aria-hidden />
+                <HugeiconsIcon icon={Sparkles} className="size-3.5" aria-hidden />
               )
             }
-          >
             {embedReindexBusy ? t('settings.embeddings.reindexing') : t('settings.embeddings.reindex')}
-          </DomeButton>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -487,10 +480,10 @@ export default function IndexingSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
-        <DomeSubpageHeader.Title>{t('settings.indexing.title')}</DomeSubpageHeader.Title>
-        <DomeSubpageHeader.Subtitle>{t('settings.indexing.subtitle')}</DomeSubpageHeader.Subtitle>
-      </DomeSubpageHeader>
+      <SubpageHeader className={"!border-0 p-0 bg-transparent"}>
+        <SubpageHeader.Title>{t('settings.indexing.title')}</SubpageHeader.Title>
+        <SubpageHeader.Subtitle>{t('settings.indexing.subtitle')}</SubpageHeader.Subtitle>
+      </SubpageHeader>
 
       {/* Full library index (cloud vision transcription + Nomic embeddings) */}
       <FullSyncSection
@@ -502,9 +495,9 @@ export default function IndexingSettings() {
         t={t}
       />
 
-      <DomeSectionLabel className="font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+      <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
         {t('settings.indexing.section_separate')}
-      </DomeSectionLabel>
+      </p>
 
       <EmbeddingsSection
         embedStatus={embedStatus}
@@ -518,7 +511,7 @@ export default function IndexingSettings() {
         t={t}
       />
 
-      {lastError ? <DomeCallout tone="error">{lastError}</DomeCallout> : null}
+      {lastError ? <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircle} aria-hidden /><AlertDescription className="text-xs">{lastError}</AlertDescription></Alert> : null}
     </SettingsPanel>
   );
 }

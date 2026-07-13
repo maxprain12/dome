@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Mic, Search } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Mic01Icon, Search01Icon } from '@hugeicons/core-free-icons';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import type { Resource } from '@/types';
-import DomeButton from '@/components/ui/DomeButton';
+import ViewerShell from '@/components/viewers/shared/ViewerShell';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Badge } from '@/components/ui/badge';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 function parseMeta(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'string') return {};
@@ -86,41 +94,42 @@ export default function TranscriptionsListPage() {
   }, [resources, query]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-      <div className="shrink-0 border-b px-4 py-3" style={{ borderColor: 'var(--dome-border)' }}>
-        <h1 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
-          {t('transcriptions.list_title')}
-        </h1>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div
-            className="flex min-w-[200px] flex-1 items-center gap-2 rounded-lg border px-2 py-1.5"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-          >
-            <Search className="size-4 shrink-0 opacity-50" aria-hidden />
-            <input
+    <ViewerShell
+      title={t('transcriptions.list_title')}
+      contextLabel={t('navigation.library', { defaultValue: 'Library' })}
+      toolbar={(
+        <InputGroup className="w-[min(22rem,50vw)]">
+          <InputGroupAddon>
+            <HugeiconsIcon icon={Search01Icon} />
+          </InputGroupAddon>
+          <InputGroupInput
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('transcriptions.search_placeholder')}
               aria-label={t('transcriptions.search_placeholder')}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              style={{ color: 'var(--dome-text)' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          />
+        </InputGroup>
+      )}
+      contentClassName="overflow-hidden"
+    >
+      <ScrollArea className="h-full">
+        <div className="p-4">
         {loading ? (
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('common.loading')}
-          </p>
+          <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Spinner />
+            <span>{t('common.loading')}</span>
+          </div>
         ) : items.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('transcriptions.list_empty')}
-          </p>
+          <Empty className="min-h-72 border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><HugeiconsIcon icon={Mic01Icon} /></EmptyMedia>
+              <EmptyTitle>{t('transcriptions.list_title')}</EmptyTitle>
+              <EmptyDescription>{t('transcriptions.list_empty')}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ItemGroup>
             {items.map(({ r, meta }) => {
               const sources = Array.isArray(meta.sources) ? (meta.sources as string[]) : [];
               const sourceLabel = sources.length
@@ -129,39 +138,28 @@ export default function TranscriptionsListPage() {
                 ? t('transcriptions.source_audio', 'Audio')
                 : t('transcriptions.source_note', 'Note');
               return (
-                <li
+                <Item
                   key={r.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2"
-                  style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
+                  variant="outline"
+                  size="sm"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Mic className="size-4 shrink-0 opacity-60" aria-hidden />
-                      <span className="truncate text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                        {r.title || r.id}
-                      </span>
-                      <span
-                        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
-                        style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
-                      >
-                        {sourceLabel}
-                      </span>
-                    </div>
-                  </div>
-                  <DomeButton
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openTranscriptionDetailTab(r.id, r.title || '', r.project_id)}
-                  >
-                    {t('common.view')}
-                  </DomeButton>
-                </li>
+                  <ItemMedia variant="icon"><HugeiconsIcon icon={Mic01Icon} /></ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{r.title || r.id}</ItemTitle>
+                    <ItemDescription><Badge variant="secondary">{sourceLabel}</Badge></ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button type="button" variant="outline" onClick={() => openTranscriptionDetailTab(r.id, r.title || '', r.project_id)} size="sm">
+                      {t('common.view')}
+                    </Button>
+                  </ItemActions>
+                </Item>
               );
             })}
-          </ul>
+          </ItemGroup>
         )}
-      </div>
-    </div>
+        </div>
+      </ScrollArea>
+    </ViewerShell>
   );
 }

@@ -1,14 +1,25 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CopyIcon as Copy,
+  CheckmarkCircle02Icon as CheckCircle2,
+  Wifi01Icon as Wifi,
+  WifiOff01Icon as WifiOff,
+  RefreshIcon as RefreshCw,
+  ServerStack01Icon as Server,
+  AlertCircleIcon as AlertCircle,
+  InformationCircleIcon as Info,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useTranslation } from 'react-i18next';
-import { Copy, CheckCircle2, Wifi, WifiOff, RefreshCw, Server } from 'lucide-react';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeToggle from '@/components/ui/DomeToggle';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
+
+import SubpageHeader from '@/components/shared/SubpageHeader';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
 interface McpStatus {
   running: boolean;
   port: number | null;
@@ -23,19 +34,21 @@ function CopyBlock({ label, value }: { label: string; value: string }) {
     setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>{label}</p>
+    <div className="flex flex-col gap-1.5">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <div
-        className="rounded-md p-3 text-xs font-mono overflow-x-auto"
-        style={{ backgroundColor: 'var(--dome-bg-tertiary)', color: 'var(--dome-text)' }}
+        className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs text-foreground"
       >
         <pre className="whitespace-pre-wrap break-all">{value}</pre>
       </div>
-      <DomeButton variant="secondary" size="sm" onClick={copy} className="w-full">
+      <Button variant="secondary"
+  onClick={copy}
+  className="w-full"
+  size="sm">
         {copied
-          ? <><CheckCircle2 className="size-3.5 mr-1.5 text-[var(--success)]" />Copiado</>
-          : <><Copy className="size-3.5 mr-1.5" />{`Copiar config (${label})`}</>}
-      </DomeButton>
+          ? <><HugeiconsIcon icon={CheckCircle2} className="size-3.5 mr-1.5 text-[var(--success)]" />Copiado</>
+          : <><HugeiconsIcon icon={Copy} className="size-3.5 mr-1.5" />{`Copiar config (${label})`}</>}
+      </Button>
     </div>
   );
 }
@@ -107,23 +120,23 @@ export default function DomeMcpServerSettings() {
 
   return (
     <SettingsPanel className="!gap-6">
-      <DomeSubpageHeader>
-  <DomeSubpageHeader.Title>{t('dome_mcp.title')}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{t('dome_mcp.subtitle')}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
+      <SubpageHeader>
+  <SubpageHeader.Title>{t('dome_mcp.title')}</SubpageHeader.Title>
+  <SubpageHeader.Subtitle>{t('dome_mcp.subtitle')}</SubpageHeader.Subtitle>
+</SubpageHeader>
 
       {/* Toggle + status */}
-      <DomeCard>
-        <div className="settings-split-row">
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             {status.running
-              ? <Wifi className="size-4 shrink-0 text-[var(--success)]" />
-              : <WifiOff className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />}
+              ? <HugeiconsIcon icon={Wifi} className="size-4 shrink-0 text-[var(--success)]" />
+              : <HugeiconsIcon icon={WifiOff} className="size-4 shrink-0 text-muted-foreground" />}
             <div>
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+              <p className="text-sm font-medium text-foreground">
                 {t('dome_mcp.enable_label')}
               </p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs mt-0.5 text-muted-foreground">
                 {status.running
                   ? t('dome_mcp.status_running', { port: status.port })
                   : t('dome_mcp.status_stopped')}
@@ -131,29 +144,28 @@ export default function DomeMcpServerSettings() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={refreshStatus}
-              className="p-1.5 rounded hover:bg-[var(--dome-bg-hover)]"
+              className="p-1.5 rounded hover:bg-accent text-muted-foreground"
               title={t('dome_mcp.refresh')}
-              style={{ color: 'var(--dome-text-muted)' }}
             >
-              <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <DomeToggle checked={status.running} onChange={handleToggle} disabled={loading} size="sm" />
+              <HugeiconsIcon icon={RefreshCw} className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Switch checked={status.running} onCheckedChange={handleToggle} disabled={loading} size="sm" />
           </div>
         </div>
-      </DomeCard>
+      </Card>
 
       {/* Port */}
-      <DomeCard>
+      <Card className="p-4">
         <label className="block">
-          <p className="text-sm font-medium mb-1.5" style={{ color: 'var(--dome-text)' }}>
+          <p className="text-sm font-medium mb-1.5 text-foreground">
             {t('dome_mcp.port_label')}
           </p>
-          <input
+          <Input
             type="number"
-            className="input w-32"
+            className="w-32"
             value={portInput}
             min={1024}
             max={65535}
@@ -161,64 +173,62 @@ export default function DomeMcpServerSettings() {
             onChange={(e) => setPortInput(e.target.value)}
           />
         </label>
-      </DomeCard>
+      </Card>
 
-      {error && <DomeCallout tone="error">{error}</DomeCallout>}
+      {error && <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircle} aria-hidden /><AlertDescription className="text-xs">{error}</AlertDescription></Alert>}
 
       {/* Connected clients */}
-      <div className="space-y-2">
-        <DomeSectionLabel>{t('dome_mcp.sessions_label')}</DomeSectionLabel>
-        <DomeCard>
+      <div className="flex flex-col gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('dome_mcp.sessions_label')}</p>
+        <Card className="p-4">
           {status.sessions.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-sm text-muted-foreground">
               {status.running ? t('dome_mcp.no_sessions') : t('dome_mcp.server_stopped_hint')}
             </p>
           ) : (
-            <div className="space-y-1">
+            <div className="flex flex-col gap-1">
               {status.sessions.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Server className="size-3.5 shrink-0 text-[var(--success)]" />
-                  <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                  <HugeiconsIcon icon={Server} className="size-3.5 shrink-0 text-[var(--success)]" />
+                  <span className="text-sm font-medium text-foreground">
                     {s.clientName}
                   </span>
                 </div>
               ))}
             </div>
           )}
-        </DomeCard>
+        </Card>
       </div>
 
       {/* Config blocks — always visible so user can copy before starting */}
-      <div className="space-y-2">
-        <DomeSectionLabel>{t('dome_mcp.config_label')}</DomeSectionLabel>
-        <DomeCard className="space-y-4">
+      <div className="flex flex-col gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('dome_mcp.config_label')}</p>
+        <Card className="p-4 flex flex-col gap-4">
           <CopyBlock label="Cursor / Claude Desktop ≥ v0.10 (HTTP)" value={cursorConfig} />
           {claudeStdioConfig && (
             <div
-              className="border-t pt-4"
-              style={{ borderColor: 'var(--dome-border)' }}
+              className="border-t pt-4 border-border"
             >
               <CopyBlock label="Claude Desktop (stdio bridge)" value={claudeStdioConfig} />
-              <p className="text-xs mt-2" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs mt-2 text-muted-foreground">
                 {t('dome_mcp.claude_desktop_note')}
               </p>
             </div>
           )}
           {!claudeStdioConfig && (
             <div
-              className="border-t pt-4"
-              style={{ borderColor: 'var(--dome-border)' }}
+              className="border-t pt-4 border-border"
             >
               <CopyBlock label="Claude Desktop ≥ v0.10 (HTTP)" value={claudeHttpConfig} />
-              <p className="text-xs mt-2" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs mt-2 text-muted-foreground">
                 {t('dome_mcp.claude_desktop_note')}
               </p>
             </div>
           )}
-        </DomeCard>
+        </Card>
       </div>
 
-      <DomeCallout tone="info">{t('dome_mcp.info_hint')}</DomeCallout>
+      <Alert role="note"><HugeiconsIcon icon={Info} aria-hidden /><AlertDescription className="text-xs">{t('dome_mcp.info_hint')}</AlertDescription></Alert>
     </SettingsPanel>
   );
 }

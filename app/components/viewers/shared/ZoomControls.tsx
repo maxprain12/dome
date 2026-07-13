@@ -1,7 +1,8 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Maximize02Icon, ZoomInAreaIcon, ZoomOutAreaIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import DomeButton from '@/components/ui/DomeButton';
 
 interface ZoomControlsProps {
   zoom: number;
@@ -26,57 +27,48 @@ function ZoomControlsComponent({
   const isMinZoom = zoom <= minZoom;
   const isMaxZoom = zoom >= maxZoom;
 
-  const iconBtn =
-    'min-w-[44px] min-h-[44px] !text-[var(--secondary-text)] hover:bg-[var(--bg-tertiary)]';
-
   return (
     <div className="flex items-center gap-1">
-      <DomeButton
+      <Button
         type="button"
         variant="ghost"
-        size="md"
-        iconOnly
         onClick={onZoomOut}
         disabled={isMinZoom}
         title={t('viewer.zoom_out')}
         aria-label={t('viewer.zoom_out')}
-        className={iconBtn}
+        size="icon"
       >
-        <ZoomOut size={18} />
-      </DomeButton>
+        <HugeiconsIcon icon={ZoomOutAreaIcon} />
+      </Button>
 
       {showPercentage && (
-        <span className="text-xs font-medium min-w-[3rem] text-center text-[var(--secondary-text)]">
+        <span className="text-xs font-medium min-w-[3rem] text-center text-muted-foreground">
           {Math.round(zoom * 100)}%
         </span>
       )}
 
-      <DomeButton
+      <Button
         type="button"
         variant="ghost"
-        size="md"
-        iconOnly
         onClick={onZoomIn}
         disabled={isMaxZoom}
         title={t('viewer.zoom_in')}
         aria-label={t('viewer.zoom_in')}
-        className={iconBtn}
+        size="icon"
       >
-        <ZoomIn size={18} />
-      </DomeButton>
+        <HugeiconsIcon icon={ZoomInAreaIcon} />
+      </Button>
 
-      <DomeButton
+      <Button
         type="button"
         variant="ghost"
-        size="md"
-        iconOnly
         onClick={onReset}
         title={t('viewer.reset_zoom')}
         aria-label={t('viewer.reset_zoom')}
-        className={iconBtn}
+        size="icon"
       >
-        <Maximize2 size={18} />
-      </DomeButton>
+        <HugeiconsIcon icon={Maximize02Icon} />
+      </Button>
     </div>
   );
 }

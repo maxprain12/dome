@@ -1,174 +1,29 @@
-
-import { useState, useEffect } from 'react';
+import { AlertCircleIcon, CheckmarkCircle02Icon, Delete02Icon, FolderOpenIcon, MoreHorizontalIcon, PuzzleIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FolderOpen, Trash2, Puzzle } from 'lucide-react';
 import type { DomePluginInfo } from '@/types/plugin';
 import PluginRuntimeModal from './PluginRuntimeModal';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeToggle from '@/components/ui/DomeToggle';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeListState from '@/components/ui/DomeListState';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import ListState from '@/components/shared/ListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
-import DomeBadge from '@/components/ui/DomeBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function PluginsSettings() {
-  const { t } = useTranslation();
-  const [plugins, setPlugins] = useState<DomePluginInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [runtimePlugin, setRuntimePlugin] = useState<DomePluginInfo | null>(null);
-
-  const loadPlugins = async () => {
-    setLoading(true);
-    try {
-      const r = await window.electron?.plugins?.list?.();
-      if (r?.success && r.data) setPlugins(r.data);
-    } catch {
-      setPlugins([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadPlugins();
-  }, []);
-
-  const showMessage = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  const handleInstall = async () => {
-    const r = await window.electron?.plugins?.installFromFolder?.();
-    if (r?.cancelled) return;
-    if (r?.success) {
-      showMessage('success', t('settings.plugins.installed_ok'));
-      loadPlugins();
-    } else {
-      showMessage('error', r?.error || t('settings.plugins.install_error'));
-    }
-  };
-
-  const handleUninstall = async (id: string) => {
-    if (!confirm(t('settings.plugins.uninstall_confirm'))) return;
-    const r = await window.electron?.plugins?.uninstall?.(id);
-    if (r?.success) {
-      showMessage('success', t('settings.plugins.uninstalled_ok'));
-      loadPlugins();
-    } else {
-      showMessage('error', r?.error || t('settings.plugins.uninstall_error'));
-    }
-  };
-
-  const handleToggleEnabled = async (id: string, enabled: boolean) => {
-    const r = await window.electron?.plugins?.setEnabled?.(id, enabled);
-    if (r?.success) loadPlugins();
-  };
-
-  return (
-    <SettingsPanel>
-      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
-  <DomeSubpageHeader.Title>{t('settings.plugins.subtitle')}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{t('settings.plugins.subtitle')}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
-
-      {message ? (
-        <DomeCallout tone={message.type === 'success' ? 'success' : 'error'}>{message.text}</DomeCallout>
-      ) : null}
-
-      {/* Installed plugins */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.plugins.section_installed')}</DomeSectionLabel>
-        {loading ? (
-          <DomeListState variant="loading" loadingLabel={t('settings.plugins.loading')} />
-        ) : plugins.length === 0 ? (
-          <DomeCard className="py-6">
-            <DomeListState
-              variant="empty"
-              title={t('settings.plugins.empty_title')}
-              description={t('settings.plugins.empty_desc')}
-              icon={<Puzzle className="size-8 text-[var(--dome-text-muted)] opacity-50" aria-hidden />}
-            />
-          </DomeCard>
-        ) : (
-          <div className="space-y-2">
-            {plugins.map((p) => (
-              <DomeCard key={p.id} className="px-4 py-3">
-                <div className="settings-split-row gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{p.name}</span>
-                      <DomeBadge
-                        label={p.enabled ? t('settings.plugins.status_active') : t('settings.plugins.status_inactive')}
-                        size="xs"
-                        color={p.enabled ? 'var(--dome-accent)' : 'var(--dome-text-muted)'}
-                      />
-                      {p.type ? (
-                        <DomeBadge label={p.type} size="xs" color="var(--dome-text-muted)" variant="soft" />
-                      ) : null}
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                      {p.description} · v{p.version} · {p.author}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {p.type === 'view' && p.enabled ? (
-                      <DomeButton type="button" variant="primary" size="xs" onClick={() => setRuntimePlugin(p)}>
-                        {t('settings.plugins.open')}
-                      </DomeButton>
-                    ) : null}
-                    <DomeToggle
-                      checked={p.enabled}
-                      onChange={(v) => void handleToggleEnabled(p.id, v)}
-                      size="sm"
-                    />
-                    <DomeButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      iconOnly
-                      onClick={() => void handleUninstall(p.id)}
-                      className="text-[var(--dome-text-muted)]"
-                      title="Desinstalar"
-                      aria-label="Desinstalar"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </DomeButton>
-                  </div>
-                </div>
-              </DomeCard>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Install from folder */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.plugins.section_install')}</DomeSectionLabel>
-        <DomeButton
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void handleInstall()}
-          leftIcon={<FolderOpen className="size-3.5" aria-hidden />}
-        >
-          {t('settings.plugins.install_from_folder')}
-        </DomeButton>
-        <p className="text-[11px] mt-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
-          {t('settings.plugins.install_hint')}
-        </p>
-      </div>
-
-      {runtimePlugin && (
-        <PluginRuntimeModal
-          plugin={runtimePlugin}
-          onClose={() => setRuntimePlugin(null)}
-        />
-      )}
-    </SettingsPanel>
-  );
+  const { t } = useTranslation(); const [plugins, setPlugins] = useState<DomePluginInfo[]>([]); const [loading, setLoading] = useState(true); const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null); const [runtimePlugin, setRuntimePlugin] = useState<DomePluginInfo | null>(null); const [selectedPlugin, setSelectedPlugin] = useState<DomePluginInfo | null>(null); const [pendingUninstallId, setPendingUninstallId] = useState<string | null>(null);
+  const loadPlugins = async () => { setLoading(true); try { const result = await window.electron?.plugins?.list?.(); setPlugins(result?.success && result.data ? result.data : []); } catch { setPlugins([]); } finally { setLoading(false); } };
+  useEffect(() => { void loadPlugins(); }, []);
+  const showMessage = (type: 'success' | 'error', text: string) => { setMessage({ type, text }); window.setTimeout(() => setMessage(null), 3000); };
+  const handleInstall = async () => { const result = await window.electron?.plugins?.installFromFolder?.(); if (result?.cancelled) return; if (result?.success) { showMessage('success', t('settings.plugins.installed_ok')); void loadPlugins(); } else showMessage('error', result?.error || t('settings.plugins.install_error')); };
+  const handleUninstall = async (id: string) => { const result = await window.electron?.plugins?.uninstall?.(id); if (result?.success) { showMessage('success', t('settings.plugins.uninstalled_ok')); void loadPlugins(); } else showMessage('error', result?.error || t('settings.plugins.uninstall_error')); };
+  const handleToggleEnabled = async (id: string, enabled: boolean) => { const result = await window.electron?.plugins?.setEnabled?.(id, enabled); if (result?.success) void loadPlugins(); };
+  return <SettingsPanel><SubpageHeader className="border-0 bg-transparent p-0"><SubpageHeader.Title>{t('settings.plugins.title', 'Plugins')}</SubpageHeader.Title><SubpageHeader.Subtitle>{t('settings.plugins.subtitle')}</SubpageHeader.Subtitle></SubpageHeader>{message ? <Alert variant={message.type === 'success' ? 'default' : 'destructive'}><HugeiconsIcon icon={message.type === 'success' ? CheckmarkCircle02Icon : AlertCircleIcon} /><AlertDescription>{message.text}</AlertDescription></Alert> : null}{loading ? <ListState variant="loading" loadingLabel={t('settings.plugins.loading')} /> : plugins.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon icon={PuzzleIcon} /></EmptyMedia><EmptyTitle>{t('settings.plugins.empty_title')}</EmptyTitle><EmptyDescription>{t('settings.plugins.empty_desc')}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => void handleInstall()}><HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />{t('settings.plugins.install_from_folder')}</Button></EmptyContent></Empty> : <div className="overflow-hidden rounded-xl border"><Table><TableHeader><TableRow><TableHead>{t('settings.plugins.plugin', 'Plugin')}</TableHead><TableHead>{t('settings.plugins.version', 'Version')}</TableHead><TableHead>{t('settings.plugins.permissions', 'Permissions')}</TableHead><TableHead>{t('settings.plugins.status', 'Status')}</TableHead><TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead></TableRow></TableHeader><TableBody>{plugins.map((plugin) => <TableRow key={plugin.id}><TableCell><Button type="button" variant="link" className="h-auto p-0" onClick={() => setSelectedPlugin(plugin)}>{plugin.name}</Button><p className="max-w-64 truncate text-xs text-muted-foreground">{plugin.author} · {plugin.type ?? 'extension'}</p></TableCell><TableCell>v{plugin.version}</TableCell><TableCell><div className="flex max-w-64 flex-wrap gap-1">{plugin.permissions?.length ? plugin.permissions.map((permission) => <Badge key={permission} variant="outline">{permission}</Badge>) : <Badge variant="secondary">{t('settings.plugins.no_permissions', 'None')}</Badge>}</div></TableCell><TableCell><div className="flex items-center gap-2"><Switch checked={plugin.enabled} onCheckedChange={(enabled) => void handleToggleEnabled(plugin.id, enabled)} size="sm" aria-label={plugin.name} /><Badge variant={plugin.enabled ? 'default' : 'secondary'}>{plugin.enabled ? t('settings.plugins.status_active') : t('settings.plugins.status_inactive')}</Badge></div></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={t('common.actions', 'Actions')} />}><HugeiconsIcon icon={MoreHorizontalIcon} /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onClick={() => setSelectedPlugin(plugin)}>{t('common.details', 'Details')}</DropdownMenuItem>{plugin.type === 'view' && plugin.enabled ? <DropdownMenuItem onClick={() => setRuntimePlugin(plugin)}>{t('settings.plugins.open')}</DropdownMenuItem> : null}<DropdownMenuItem variant="destructive" onClick={() => setPendingUninstallId(plugin.id)}><HugeiconsIcon icon={Delete02Icon} />{t('settings.plugins.uninstall', 'Uninstall')}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></Table></div>}<div><Button type="button" variant="outline" onClick={() => void handleInstall()}><HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />{t('settings.plugins.install_from_folder')}</Button><p className="mt-2 text-xs text-muted-foreground">{t('settings.plugins.install_hint')}</p></div>{runtimePlugin ? <PluginRuntimeModal plugin={runtimePlugin} onClose={() => setRuntimePlugin(null)} /> : null}<Sheet open={Boolean(selectedPlugin)} onOpenChange={(open) => { if (!open) setSelectedPlugin(null); }}><SheetContent><SheetHeader><SheetTitle>{selectedPlugin?.name}</SheetTitle><SheetDescription>{selectedPlugin?.description}</SheetDescription></SheetHeader><div className="flex flex-col gap-4 overflow-y-auto px-6"><div className="flex flex-wrap gap-2"><Badge variant="secondary">v{selectedPlugin?.version}</Badge><Badge variant="outline">{selectedPlugin?.author}</Badge><Badge variant="outline">{selectedPlugin?.type ?? 'extension'}</Badge></div><section className="flex flex-col gap-2"><h3 className="text-xs font-medium text-muted-foreground">{t('settings.plugins.permissions', 'Permissions')}</h3><div className="flex flex-wrap gap-2">{selectedPlugin?.permissions?.length ? selectedPlugin.permissions.map((permission) => <Badge key={permission} variant="outline">{permission}</Badge>) : <Badge variant="secondary">{t('settings.plugins.no_permissions', 'None')}</Badge>}</div></section>{selectedPlugin?.repo ? <p className="break-all text-xs text-muted-foreground">{selectedPlugin.repo}</p> : null}</div><SheetFooter>{selectedPlugin?.type === 'view' && selectedPlugin.enabled ? <Button type="button" onClick={() => { setRuntimePlugin(selectedPlugin); setSelectedPlugin(null); }}>{t('settings.plugins.open')}</Button> : null}</SheetFooter></SheetContent></Sheet><AlertDialog open={pendingUninstallId !== null} onOpenChange={(open) => { if (!open) setPendingUninstallId(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t('settings.plugins.uninstall', 'Uninstall plugin')}</AlertDialogTitle><AlertDialogDescription>{t('settings.plugins.uninstall_confirm')}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => { if (pendingUninstallId) void handleUninstall(pendingUninstallId); setPendingUninstallId(null); }}>{t('settings.plugins.uninstall', 'Uninstall')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></SettingsPanel>;
 }

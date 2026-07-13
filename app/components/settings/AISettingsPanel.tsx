@@ -1,8 +1,19 @@
-
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import {
+  CloudIcon as Cloud,
+  Search01Icon as Search,
+  Comment01Icon as MessageSquare,
+  Mic01Icon as Mic,
+  Layers01Icon as Layers,
+  BrainIcon as Brain,
+  CheckmarkCircle02Icon as CheckCircle2,
+  AlertCircleIcon as AlertCircle,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Menu } from '@mantine/core';
-import { Check, ChevronDown, Cloud, Search, MessageSquare, Mic, Layers, Brain, type LucideIcon } from 'lucide-react';
+
 import AIEmbeddingsTab from './ai/AIEmbeddingsTab';
 import AIWebSearchTab from './ai/AIWebSearchTab';
 import AgentContextSettingsTab from './ai/AgentContextSettingsTab';
@@ -16,9 +27,9 @@ import {
 import { resolveVisibleModelAfterSave, isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
 import { saveChatModelForProvider } from '@/lib/ai/client';
 import type { OpenAIProviderSettingsDetail } from '@/lib/ai/open-provider-settings';
+import { showToast } from '@/lib/store/useToastStore';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { useProviderModels } from '@/lib/ai/useProviderModels';
-import { accentMix } from '@/lib/ui/accent';
 import AIProviderSelection from './ai/AIProviderSelection';
 import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 import { isOllamaCloudMissingApiKey } from '@/lib/ai/providerAuth';
@@ -29,20 +40,18 @@ import ModelSelector from './ModelSelector';
 import TranscriptionSettingsSections, {
   type TranscriptionSettingsSectionsHandle,
 } from './TranscriptionSettingsSections';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeIconBox from '@/components/ui/DomeIconBox';
-import DomeProgressBar from '@/components/ui/DomeProgressBar';
-import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 import SettingsPanel from '@/components/settings/SettingsPanel';
-import { cn } from '@/lib/utils';
-import '@/styles/ai-settings.css';
-
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
+import { PageHeader } from '@/components/shared/PageHeader';
 type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools' | 'context';
 
-const TAB_ICON_CLASS = 'size-3.5';
-const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: LucideIcon }> = [
+const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: IconSvgElement }> = [
   { value: 'chat', labelKey: 'settings.ai.tab_chat', icon: MessageSquare },
   { value: 'embeddings', labelKey: 'settings.ai.tab_embeddings', icon: Layers },
   { value: 'transcription', labelKey: 'settings.ai.tab_transcription', icon: Mic },
@@ -73,6 +82,9 @@ export default function AISettingsPanel() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [domeConnected, setDomeConnected] = useState(false);
   const [domeConnecting, setDomeConnecting] = useState(false);
+  const [domeEmail, setDomeEmail] = useState('');
+  const [domePassword, setDomePassword] = useState('');
+  const [domeLoggingIn, setDomeLoggingIn] = useState(false);
   const [domeQuota, setDomeQuota] = useState<{
     planId?: string; limit?: number; used?: number; remaining?: number;
     periodEnd?: number; subscriptionStatus?: string;
@@ -107,7 +119,9 @@ export default function AISettingsPanel() {
         const defaultModel = getDefaultModelId(loadedProvider as AIProviderType);
         setModel(config.model || defaultModel);
         const providerModels = PROVIDERS[loadedProvider as AIProviderType]?.models || [];
-        if (config.model && !providerModels.find(m => m.id === config.model)) setCustomModel(true);
+        // Dome: los modelos del plan llegan del provider (no están en el
+        // catálogo estático) — no son "modelos custom".
+        if (loadedProvider !== 'dome' && config.model && !providerModels.find(m => m.id === config.model)) setCustomModel(true);
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setOllamaModel(config.ollama_model || 'llama3.2');
         setOllamaApiKey(config.ollama_api_key || '');
@@ -139,25 +153,23 @@ export default function AISettingsPanel() {
   }, []);
 
   const refreshCloudSyncStatus = useCallback(async () => {
-    if (!window.electron?.cloudSync || !domeConnected) {
+    if (!window.electron?.domainSync?.getStatus || !domeConnected) {
       setCloudSyncMsg(null);
       return;
     }
     try {
-      const s = await window.electron.cloudSync.getStatus();
-      if (s.success && s.connected && s.localRevision != null && s.currentRevision != null) {
-        setCloudSyncMsg(
-          t('settings.ai.cloud_sync_status', { local: String(s.localRevision), remote: String(s.currentRevision) }),
-        );
-      } else if (s.error) {
-        setCloudSyncMsg(s.error);
+      const s = await window.electron.domainSync.getStatus();
+      if (s.success && s.domains) {
+        const domains = s.domains as Record<string, { lastPushAt?: number }>;
+        const last = Math.max(0, ...Object.values(domains).map((d) => d?.lastPushAt ?? 0));
+        setCloudSyncMsg(last > 0 ? new Date(last).toLocaleString() : null);
       } else {
         setCloudSyncMsg(null);
       }
     } catch {
       setCloudSyncMsg(null);
     }
-  }, [domeConnected, t]);
+  }, [domeConnected]);
 
   const refreshCopilotStatus = useCallback(async () => {
     if (!window.electron?.copilotAuth) return;
@@ -292,7 +304,7 @@ export default function AISettingsPanel() {
       case 'openai': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'anthropic': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'google': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
-      case 'dome': config.model = 'dome/auto'; config.base_url = ''; break;
+      case 'dome': config.model = model || 'dome/auto'; config.base_url = ''; break;
       case 'minimax': config.api_key = apiKey; config.model = model; break;
       case 'openrouter': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'deepseek': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
@@ -312,6 +324,7 @@ export default function AISettingsPanel() {
       window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
     } catch (error) {
       console.error('[AISettings] Error saving config:', error);
+      showToast('error', error instanceof Error ? error.message : t('common.error'));
     }
   };
 
@@ -339,6 +352,38 @@ export default function AISettingsPanel() {
     } finally { setTesting(false); }
   };
 
+  const handleDomePasswordLogin = async () => {
+    if (!window.electron?.domeAuth?.nativeLogin) {
+      setTestResult({ success: false, message: 'Login nativo no disponible en esta versión.' });
+      return;
+    }
+    const email = domeEmail.trim();
+    if (!email || !domePassword) return;
+    setDomeLoggingIn(true);
+    setTestResult(null);
+    try {
+      const result = await window.electron.domeAuth.nativeLogin(email, domePassword, false);
+      if (!result.success) {
+        const messages: Record<string, string> = {
+          invalid_credentials: t('settings.ai.dome_login_invalid_credentials'),
+          network_error: t('settings.ai.dome_login_network_error'),
+        };
+        setTestResult({
+          success: false,
+          message: (result.errorCode && messages[result.errorCode]) || result.error || t('settings.ai.dome_login_failed'),
+        });
+        return;
+      }
+      setDomePassword('');
+      await refreshDomeSession();
+      setTestResult({ success: true, message: t('settings.ai.dome_login_ok') });
+    } catch (error) {
+      setTestResult({ success: false, message: error instanceof Error ? error.message : t('settings.ai.dome_login_failed') });
+    } finally {
+      setDomeLoggingIn(false);
+    }
+  };
+
   const handleConnectDome = async () => {
     if (!window.electron?.domeAuth) { setTestResult({ success: false, message: 'Dome OAuth no disponible en esta versión.' }); return; }
     setDomeConnecting(true);
@@ -364,30 +409,13 @@ export default function AISettingsPanel() {
     }
   };
 
-  const handleCloudSyncPull = async () => {
-    if (!window.electron?.cloudSync) return;
+  const handleCloudSyncNow = async () => {
+    if (!window.electron?.domainSync?.syncNow) return;
     setCloudSyncBusy(true);
     try {
-      const r = await window.electron.cloudSync.pull();
-      if (!r.success) {
-        setCloudSyncMsg(r.error || t('settings.ai.cloud_sync_error'));
-        return;
-      }
-      await refreshCloudSyncStatus();
-    } catch (e) {
-      setCloudSyncMsg(e instanceof Error ? e.message : t('settings.ai.cloud_sync_error'));
-    } finally {
-      setCloudSyncBusy(false);
-    }
-  };
-
-  const handleCloudSyncPush = async () => {
-    if (!window.electron?.cloudSync) return;
-    setCloudSyncBusy(true);
-    try {
-      const r = await window.electron.cloudSync.push();
-      if (!r.success) {
-        setCloudSyncMsg(r.error || t('settings.ai.cloud_sync_error'));
+      const r = await window.electron.domainSync.syncNow({});
+      if (!r?.success && !r?.skipped) {
+        setCloudSyncMsg(r?.error || t('settings.ai.cloud_sync_error'));
         return;
       }
       await refreshCloudSyncStatus();
@@ -400,84 +428,17 @@ export default function AISettingsPanel() {
 
   return (
     <SettingsPanel>
-      <div className="ai-settings">
-      <div className="ai-settings__header">
-        <h1 className="ai-settings__title">{t('settings.ai.title')}</h1>
-        <p className="ai-settings__subtitle">{t('settings.ai.subtitle')}</p>
-      </div>
+      <div className="flex flex-col gap-6">
+      <PageHeader title={t('settings.ai.title')} description={t('settings.ai.subtitle')} />
 
-      <div className="ai-settings__tabs">
-        <div className="ai-settings__tabs-segmented">
-          <DomeSegmentedControl
-            className="w-full !flex"
-            size="sm"
-            aria-label={t('settings.ai.title')}
-            value={activeTab}
-            onChange={(v) => setActiveTab(v as AISettingsTab)}
-            options={TAB_DEFINITIONS.map(({ value, labelKey, icon: Icon }) => ({
-              value,
-              label: t(labelKey),
-              icon: <Icon className={TAB_ICON_CLASS} />,
-            }))}
-          />
-        </div>
-        <div className="ai-settings__tabs-dropdown">
-          {(() => {
-            const activeDef = TAB_DEFINITIONS.find((d) => d.value === activeTab) ?? TAB_DEFINITIONS[0];
-            const ActiveIcon = activeDef.icon;
-            return (
-              <Menu
-                withinPortal
-                position="bottom-start"
-                width="target"
-                shadow="md"
-                offset={4}
-                classNames={{
-                  dropdown: 'ai-settings__tabs-dropdown-menu',
-                  item: 'ai-settings__tabs-dropdown-item',
-                }}
-              >
-                <Menu.Target>
-                  <DomeButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-haspopup="listbox"
-                    aria-label={t('settings.ai.title')}
-                    className="ai-settings__tabs-dropdown-trigger"
-                    rightIcon={<ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />}
-                    leftIcon={<ActiveIcon className={cn(TAB_ICON_CLASS, 'shrink-0 text-[var(--dome-accent)]')} aria-hidden />}
-                  >
-                    <span className="ai-settings__tabs-dropdown-text">{t(activeDef.labelKey)}</span>
-                  </DomeButton>
-                </Menu.Target>
-                <Menu.Dropdown role="listbox" aria-label={t('settings.ai.title')}>
-                  {TAB_DEFINITIONS.map(({ value, labelKey, icon: Icon }) => {
-                    const isActive = activeTab === value;
-                    return (
-                      <Menu.Item
-                        key={value}
-                        role="option"
-                        aria-selected={isActive}
-                        leftSection={<Icon className={TAB_ICON_CLASS} aria-hidden />}
-                        rightSection={
-                          isActive ? (
-                            <Check className="size-3.5 shrink-0 text-[var(--dome-accent)]" aria-hidden />
-                          ) : null
-                        }
-                        className={cn(isActive && 'is-active')}
-                        onClick={() => setActiveTab(value)}
-                      >
-                        {t(labelKey)}
-                      </Menu.Item>
-                    );
-                  })}
-                </Menu.Dropdown>
-              </Menu>
-            );
-          })()}
-        </div>
-      </div>
+      <ToggleGroup value={[activeTab]} onValueChange={(values) => values[0] && setActiveTab(values[0] as AISettingsTab)} aria-label={t('settings.ai.title')} className="w-full justify-start overflow-x-auto">
+          {TAB_DEFINITIONS.map(({ value, labelKey, icon }) => (
+            <ToggleGroupItem key={value} value={value} variant="outline" className="flex-none">
+              <HugeiconsIcon icon={icon} data-icon="inline-start" />
+              {t(labelKey)}
+            </ToggleGroupItem>
+          ))}
+      </ToggleGroup>
 
       {activeTab === 'chat' ? (
       <>
@@ -504,8 +465,8 @@ export default function AISettingsPanel() {
         }}
       />
 
-      <div>
-        <p className="ai-settings__section-label mb-2">{t('settings.ai.configuration')}</p>
+      <section className="flex flex-col gap-3" aria-labelledby="ai-configuration-title">
+        <h2 id="ai-configuration-title" className="text-sm font-medium">{t('settings.ai.configuration')}</h2>
 
         {isCloudAIProvider(provider) && (
           <AICloudProviderConfig
@@ -530,167 +491,107 @@ export default function AISettingsPanel() {
           />
         )}
 
-        {provider === 'dome' && (
-          <DomeCard className="space-y-3">
-            <div className="rounded-lg p-3" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
-              <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                {t('settings.ai.dome_connect_title')}
-              </p>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.ai.dome_connect_desc')}
-              </p>
-            </div>
+        {provider === 'dome' ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.ai.dome_connect_title')}</CardTitle>
+              <CardDescription>{t('settings.ai.dome_connect_desc')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              {!domeConnected ? (
+                <form onSubmit={(event) => { event.preventDefault(); void handleDomePasswordLogin(); }}>
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="dome-email">{t('settings.ai.dome_login_email')}</FieldLabel>
+                      <Input id="dome-email" type="email" autoComplete="email" value={domeEmail} onChange={(event) => setDomeEmail(event.target.value)} />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="dome-password">{t('settings.ai.dome_login_password')}</FieldLabel>
+                      <Input id="dome-password" type="password" autoComplete="current-password" value={domePassword} onChange={(event) => setDomePassword(event.target.value)} />
+                    </Field>
+                    <Button type="submit" disabled={domeLoggingIn || !domeEmail.trim() || !domePassword}>
+                      {domeLoggingIn ? <Spinner data-icon="inline-start" /> : null}
+                      {domeLoggingIn ? t('settings.ai.connecting') : t('settings.ai.dome_login_submit')}
+                    </Button>
+                  </FieldGroup>
+                </form>
+              ) : null}
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <DomeButton type="button" variant="primary" size="md" onClick={() => void handleConnectDome()} disabled={domeConnecting}>
-                {domeConnecting ? t('settings.ai.connecting') : domeConnected ? t('settings.ai.reconnect') : t('settings.ai.connect_dome')}
-              </DomeButton>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={domeConnected ? 'secondary' : 'outline'}>
+                  {domeConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
+                </Badge>
+                <Button type="button" variant="outline" onClick={() => void handleConnectDome()} disabled={domeConnecting}>
+                  {domeConnecting ? <Spinner data-icon="inline-start" /> : null}
+                  {domeConnecting ? t('settings.ai.connecting') : domeConnected ? t('settings.ai.reconnect') : t('settings.ai.dome_login_via_dashboard')}
+                </Button>
+                {domeConnected ? <Button type="button" variant="ghost" onClick={() => void handleDisconnectDome()}>{t('settings.ai.disconnect')}</Button> : null}
+              </div>
+
               {domeConnected ? (
-                <DomeButton type="button" variant="outline" size="md" onClick={() => void handleDisconnectDome()}>
-                  {t('settings.ai.disconnect')}
-                </DomeButton>
+                <Field>
+                  <FieldLabel>{t('settings.ai.model')}</FieldLabel>
+                  <ModelSelector models={currentProviderModels} selectedModelId={model} onChange={setModel} showBadges searchable={currentProviderModels.length > 5} placeholder={t('settings.ai.model')} providerType="cloud" providerId="dome" configuredHint />
+                  {providerModelsLoading ? <p className="text-xs text-muted-foreground">{t('settings.ai.loading_models')}</p> : null}
+                </Field>
               ) : null}
-            </div>
 
-            <div className="flex items-center gap-2">
-              <div className="size-1.5 rounded-full" style={{ backgroundColor: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }} />
-              <span className="text-xs" style={{ color: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-                {domeConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
-              </span>
-            </div>
-
-            {domeConnected && domeQuota && domeQuota.planId !== 'unsubscribed' && (
-              <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{t('settings.ai.usage_period')}</span>
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    {domeQuota.used != null && domeQuota.limit != null
-                      ? `${formatTokens(domeQuota.used)} / ${formatTokens(domeQuota.limit)}`
-                      : '—'}
-                  </span>
-                </div>
-                <DomeProgressBar
-                  value={domeQuota.limit && domeQuota.limit > 0 ? Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100) : 0}
-                  max={100}
-                  size="sm"
-                />
-                {domeQuota.periodEnd && (
-                  <p className="text-[10px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                    {t('settings.ai.renewal')}: {new Date(domeQuota.periodEnd).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {domeConnected && (
-              <div
-                className="rounded-lg p-3 space-y-3"
-                style={{ border: '1px solid var(--dome-border)', backgroundColor: 'var(--dome-bg-hover)' }}
-              >
-                <div className="flex items-start gap-2">
-                  <DomeIconBox size="sm" background="var(--dome-accent-bg)">
-                    <Cloud className="size-4" style={{ color: 'var(--dome-accent)' }} />
-                  </DomeIconBox>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>
-                      {t('settings.ai.cloud_sync_title')}
-                    </p>
-                    <p className="text-[10px] leading-relaxed mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                      {t('settings.ai.cloud_sync_desc')}
-                    </p>
-                    {cloudSyncMsg ? (
-                      <p className="text-[10px] mt-2 font-mono break-all" style={{ color: 'var(--dome-text-muted)' }}>
-                        {cloudSyncMsg}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <DomeButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={cloudSyncBusy}
-                    onClick={() => void handleCloudSyncPull()}
-                  >
-                    {cloudSyncBusy ? t('settings.ai.cloud_sync_busy') : t('settings.ai.cloud_sync_pull')}
-                  </DomeButton>
-                  <DomeButton
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    disabled={cloudSyncBusy}
-                    onClick={() => void handleCloudSyncPush()}
-                  >
-                    {cloudSyncBusy ? t('settings.ai.cloud_sync_busy') : t('settings.ai.cloud_sync_push')}
-                  </DomeButton>
-                </div>
-              </div>
-            )}
-          </DomeCard>
-        )}
-
-        {provider === 'copilot' && (
-          <DomeCard className="space-y-3">
-            <div className="rounded-lg p-3" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
-              <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                {t('settings.ai.copilot_connect_title')}
-              </p>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.ai.copilot_connect_desc')}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <DomeButton type="button" variant="primary" size="md" onClick={() => void handleConnectCopilot()} disabled={copilotConnecting}>
-                {copilotConnecting ? t('settings.ai.connecting') : copilotConnected ? t('settings.ai.reconnect') : t('settings.ai.copilot_connect')}
-              </DomeButton>
-              {copilotConnected ? (
-                <DomeButton type="button" variant="outline" size="md" onClick={() => void handleDisconnectCopilot()}>
-                  {t('settings.ai.disconnect')}
-                </DomeButton>
+              {domeConnected && domeQuota && domeQuota.planId !== 'unsubscribed' ? (
+                <Card size="sm">
+                  <CardHeader>
+                    <CardTitle>{t('settings.ai.usage_period')}</CardTitle>
+                    <CardDescription>{domeQuota.used != null && domeQuota.limit != null ? `${formatTokens(domeQuota.used)} / ${formatTokens(domeQuota.limit)}` : '—'}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    <Progress value={domeQuota.limit && domeQuota.limit > 0 ? Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100) : 0} />
+                    {domeQuota.periodEnd ? <p className="text-xs text-muted-foreground">{t('settings.ai.renewal')}: {new Date(domeQuota.periodEnd).toLocaleDateString()}</p> : null}
+                  </CardContent>
+                </Card>
               ) : null}
-            </div>
 
-            {copilotConnecting && copilotUserCode ? (
-              <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
-                <p className="text-xs mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('settings.ai.copilot_enter_code')}
-                </p>
-                <p className="text-lg font-mono font-bold tracking-widest" style={{ color: 'var(--dome-text)' }}>
-                  {copilotUserCode}
-                </p>
+              {domeConnected ? (
+                <Alert>
+                  <HugeiconsIcon icon={Cloud} />
+                  <AlertDescription className="flex flex-col gap-3">
+                    <span>{t('settings.ai.cloud_sync_desc')}</span>
+                    {cloudSyncMsg ? <code className="break-all text-xs">{cloudSyncMsg}</code> : null}
+                    <Button type="button" size="sm" className="self-start" disabled={cloudSyncBusy} onClick={() => void handleCloudSyncNow()}>
+                      {cloudSyncBusy ? <Spinner data-icon="inline-start" /> : null}
+                      {cloudSyncBusy ? t('settings.ai.cloud_sync_busy') : t('settings.domain_sync.sync_now')}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {provider === 'copilot' ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.ai.copilot_connect_title')}</CardTitle>
+              <CardDescription>{t('settings.ai.copilot_connect_desc')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={copilotConnected ? 'secondary' : 'outline'}>{copilotConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}</Badge>
+                <Button type="button" onClick={() => void handleConnectCopilot()} disabled={copilotConnecting}>
+                  {copilotConnecting ? <Spinner data-icon="inline-start" /> : null}
+                  {copilotConnecting ? t('settings.ai.connecting') : copilotConnected ? t('settings.ai.reconnect') : t('settings.ai.copilot_connect')}
+                </Button>
+                {copilotConnected ? <Button type="button" variant="ghost" onClick={() => void handleDisconnectCopilot()}>{t('settings.ai.disconnect')}</Button> : null}
               </div>
-            ) : null}
-
-            <div className="flex items-center gap-2">
-              <div className="size-1.5 rounded-full" style={{ backgroundColor: copilotConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }} />
-              <span className="text-xs" style={{ color: copilotConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-                {copilotConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
-              </span>
-            </div>
-
-            {copilotConnected && copilotVisibleModels.length > 0 ? (
-              <div>
-                <span className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
-                  {t('settings.ai.model')}
-                </span>
-                <ModelSelector
-                  models={copilotVisibleModels}
-                  selectedModelId={model}
-                  onChange={setModel}
-                  showBadges
-                  searchable={copilotVisibleModels.length > 5}
-                  placeholder={t('settings.ai.model')}
-                  providerType="cloud"
-                  providerId="copilot"
-                  configuredHint
-                />
-              </div>
-            ) : null}
-          </DomeCard>
-        )}
-      </div>
+              {copilotConnecting && copilotUserCode ? <Alert><AlertDescription><span>{t('settings.ai.copilot_enter_code')}</span><code className="ml-2 font-mono text-base font-semibold tracking-widest">{copilotUserCode}</code></AlertDescription></Alert> : null}
+              {copilotConnected && copilotVisibleModels.length > 0 ? (
+                <Field>
+                  <FieldLabel>{t('settings.ai.model')}</FieldLabel>
+                  <ModelSelector models={copilotVisibleModels} selectedModelId={model} onChange={setModel} showBadges searchable={copilotVisibleModels.length > 5} placeholder={t('settings.ai.model')} providerType="cloud" providerId="copilot" configuredHint />
+                </Field>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+      </section>
       </>
       ) : null}
 
@@ -712,23 +613,25 @@ export default function AISettingsPanel() {
       {(activeTab === 'chat' || activeTab === 'transcription') ? (
         <>
           <div className="flex items-center gap-3 pt-2 flex-wrap">
-            <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()}>
+            <Button type="button"
+  onClick={() => void handleSave()}>
               {saved ? t('settings.ai.saved_config') : t('settings.ai.save_all')}
-            </DomeButton>
+            </Button>
             {activeTab === 'chat' ? (
-              <DomeButton
-                type="button"
-                variant="outline"
-                size="md"
-                onClick={() => void handleTestConnection()}
-                loading={testing}
-              >
+              <Button type="button"
+  variant="outline"
+  onClick={() => void handleTestConnection()}
+  disabled={testing}>
+                {testing ? <Spinner data-icon="inline-start" /> : null}
                 {t('settings.ai.test_connection')}
-              </DomeButton>
+              </Button>
             ) : null}
           </div>
           {testResult && activeTab === 'chat' ? (
-            <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
+            <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
+              {testResult.success ? <HugeiconsIcon icon={CheckCircle2} aria-hidden /> : <HugeiconsIcon icon={AlertCircle} aria-hidden />}
+              <AlertDescription className="text-xs">{testResult.message}</AlertDescription>
+            </Alert>
           ) : null}
         </>
       ) : null}
