@@ -323,10 +323,6 @@
   white-space: nowrap;
 }
 
-.dome-folder-view__list-header-labels {
-  display: contents;
-}
-
 .dome-folder-view__col-modified {
   text-align: right;
 }
@@ -510,16 +506,6 @@
   background: var(--accent);
 }
 
-.dome-folder-view__row-menu-item--danger {
-  color: var(--destructive);
-}
-
-.dome-folder-view__row-menu-divider {
-  height: 1px;
-  margin: 4px 0;
-  background: var(--border);
-}
-
 .dome-folder-view__inline-create {
   padding: 8px 16px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
@@ -689,10 +675,6 @@
 }
 
 /* ── Grid view ── */
-
-.dome-folder-view__list--grid {
-  overflow: auto;
-}
 
 .dome-folder-view__grid-header {
   position: sticky;
