@@ -3,6 +3,7 @@ import {
 	type ImageContent,
 	type Model,
 	streamSimple,
+	type TextContent,
 	type UserMessage,
 } from "@dome/ai";
 import { runAgentLoop, runAgentLoopContinue } from "../agent-loop.js";
@@ -37,6 +38,7 @@ import type {
 	PendingSessionWrite,
 	PromptTemplate,
 	Session,
+	SessionTreeEntry,
 	Skill,
 } from "./types.js";
 import { AgentHarnessError, BranchSummaryError, CompactionError, SessionError, toError } from "./types.js";
@@ -885,79 +887,108 @@ export class AgentHarness<
 			const signal = new AbortController().signal;
 			const hookResult = await this.emitHook({ type: "session_before_tree", preparation, signal });
 			if (hookResult?.cancel) return { cancelled: true };
-			let summaryEntry: NavigateTreeResult["summaryEntry"];
-			let summaryText: string | undefined = hookResult?.summary?.summary;
-			let summaryDetails: unknown = hookResult?.summary?.details;
-			if (!summaryText && options?.summarize && entries.length > 0) {
-				const model = this.model;
-				if (!model) throw new AgentHarnessError("invalid_state", "No model set for branch summary");
-				const auth = await this.getApiKeyAndHeaders?.(model);
-				if (!auth) throw new AgentHarnessError("auth", "No auth available for branch summary");
-				const branchSummary = await generateBranchSummary(entries, {
-					model,
-					apiKey: auth.apiKey,
-					headers: auth.headers,
-					signal: new AbortController().signal,
-					customInstructions: hookResult?.customInstructions ?? options?.customInstructions,
-					replaceInstructions: hookResult?.replaceInstructions ?? options?.replaceInstructions,
-				});
-				if (!branchSummary.ok) {
-					if (branchSummary.error.code === "aborted") return { cancelled: true };
-					throw new AgentHarnessError("branch_summary", branchSummary.error.message, branchSummary.error);
-				}
-				summaryText = branchSummary.value.summary;
-				summaryDetails = {
-					readFiles: branchSummary.value.readFiles,
-					modifiedFiles: branchSummary.value.modifiedFiles,
-				};
-			}
-			let editorText: string | undefined;
-			let newLeafId: string | null;
-			if (targetEntry.type === "message" && targetEntry.message.role === "user") {
-				newLeafId = targetEntry.parentId;
-				const content = targetEntry.message.content;
-				editorText =
-					typeof content === "string"
-						? content
-						: content
-								.filter((c): c is { readonly type: "text"; readonly text: string } => c.type === "text")
-								.map((c) => c.text)
-								.join("");
-			} else if (targetEntry.type === "custom_message") {
-				newLeafId = targetEntry.parentId;
-				editorText =
-					typeof targetEntry.content === "string"
-						? targetEntry.content
-						: targetEntry.content
-								.filter((c): c is { readonly type: "text"; readonly text: string } => c.type === "text")
-								.map((c) => c.text)
-								.join("");
-			} else {
-				newLeafId = targetId;
-			}
-			const summaryId = await this.session.moveTo(
+			const summary = await this.buildNavigationSummary(entries, options, hookResult);
+			if (summary.cancelled) return { cancelled: true };
+			const { editorText, newLeafId } = this.resolveNavigationEditor(targetEntry, targetId);
+			return await this.applyNavigationMove({
 				newLeafId,
-				summaryText
-					? { summary: summaryText, details: summaryDetails, fromHook: hookResult?.summary !== undefined }
-					: undefined,
-			);
-			if (summaryId) {
-				const entry = await this.session.getEntry(summaryId);
-				if (entry?.type === "branch_summary") summaryEntry = entry;
-			}
-			await this.emitOwn({
-				type: "session_tree",
-				newLeafId: await this.session.getLeafId(),
-				oldLeafId,
-				summaryEntry,
+				summaryText: summary.summaryText,
+				summaryDetails: summary.summaryDetails,
 				fromHook: hookResult?.summary !== undefined,
+				oldLeafId,
+				editorText,
 			});
-			return { cancelled: false, editorText, summaryEntry };
 		} catch (error) {
 			throw normalizeHarnessError(error, "branch_summary");
 		} finally {
 			this.phase = "idle";
 		}
+	}
+
+	private async buildNavigationSummary(
+		entries: SessionTreeEntry[],
+		options: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean } | undefined,
+		hookResult: { summary?: { summary?: string; details?: unknown }; customInstructions?: string; replaceInstructions?: boolean } | undefined,
+	): Promise<{ cancelled: true } | { cancelled: false; summaryText?: string; summaryDetails?: unknown }> {
+		let summaryText: string | undefined = hookResult?.summary?.summary;
+		let summaryDetails: unknown = hookResult?.summary?.details;
+		if (summaryText || !options?.summarize || entries.length === 0) {
+			return { cancelled: false, summaryText, summaryDetails };
+		}
+		const model = this.model;
+		if (!model) throw new AgentHarnessError("invalid_state", "No model set for branch summary");
+		const auth = await this.getApiKeyAndHeaders?.(model);
+		if (!auth) throw new AgentHarnessError("auth", "No auth available for branch summary");
+		const branchSummary = await generateBranchSummary(entries, {
+			model,
+			apiKey: auth.apiKey,
+			headers: auth.headers,
+			signal: new AbortController().signal,
+			customInstructions: hookResult?.customInstructions ?? options?.customInstructions,
+			replaceInstructions: hookResult?.replaceInstructions ?? options?.replaceInstructions,
+		});
+		if (!branchSummary.ok) {
+			if (branchSummary.error.code === "aborted") return { cancelled: true };
+			throw new AgentHarnessError("branch_summary", branchSummary.error.message, branchSummary.error);
+		}
+		return {
+			cancelled: false,
+			summaryText: branchSummary.value.summary,
+			summaryDetails: {
+				readFiles: branchSummary.value.readFiles,
+				modifiedFiles: branchSummary.value.modifiedFiles,
+			},
+		};
+	}
+
+	private resolveNavigationEditor(
+		targetEntry: SessionTreeEntry,
+		targetId: string,
+	): { editorText?: string; newLeafId: string | null } {
+		if (targetEntry.type === "message" && targetEntry.message.role === "user") {
+			return { newLeafId: targetEntry.parentId, editorText: this.extractEditorText(targetEntry.message.content) };
+		}
+		if (targetEntry.type === "custom_message") {
+			return { newLeafId: targetEntry.parentId, editorText: this.extractEditorText(targetEntry.content) };
+		}
+		return { newLeafId: targetId };
+	}
+
+	private extractEditorText(content: string | readonly (TextContent | ImageContent)[]): string {
+		if (typeof content === "string") return content;
+		return content
+			.filter((c): c is TextContent => c.type === "text")
+			.map((c) => c.text)
+			.join("");
+	}
+
+	private async applyNavigationMove(args: {
+		newLeafId: string | null;
+		summaryText?: string;
+		summaryDetails?: unknown;
+		fromHook: boolean;
+		oldLeafId: string | null;
+		editorText?: string;
+	}): Promise<NavigateTreeResult> {
+		const summaryId = await this.session.moveTo(
+			args.newLeafId,
+			args.summaryText
+				? { summary: args.summaryText, details: args.summaryDetails, fromHook: args.fromHook }
+				: undefined,
+		);
+		let summaryEntry: NavigateTreeResult["summaryEntry"];
+		if (summaryId) {
+			const entry = await this.session.getEntry(summaryId);
+			if (entry?.type === "branch_summary") summaryEntry = entry;
+		}
+		await this.emitOwn({
+			type: "session_tree",
+			newLeafId: await this.session.getLeafId(),
+			oldLeafId: args.oldLeafId,
+			summaryEntry,
+			fromHook: args.fromHook,
+		});
+		return { cancelled: false, editorText: args.editorText, summaryEntry };
 	}
 
 	getModel(): Model<any> {
