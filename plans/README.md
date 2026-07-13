@@ -60,7 +60,7 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 023 | Reduced-motion: global + component-level | P2 | M | 001,007 | DONE |
 | 024 | Baseline de caracterización UI | P0 | L | — | DONE |
 | 025 | Foundations shadcn + sistema de motion | P0 | XL | 024 | DONE |
-| 026 | Contrato Hugeicons nativo | P0 | XL | 024 | IN PROGRESS |
+| 026 | Contrato Hugeicons nativo | P0 | XL | 024 | DONE |
 | 027 | Shell seguro y navegación | P0 | XL | 024–026 | DONE |
 | 028 | Workspace + inspector contextual único | P0 | XL | 024–027 | DONE |
 | 029 | Settings: nueva arquitectura de información | P0 | XL | 024–027 | DONE |
@@ -70,9 +70,9 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 033 | Learn | P1 | L | 024–026 | DONE |
 | 034 | Viewers, editores y transcripciones | P1 | XL | 024–028 | DONE |
 | 035 | Calendar y Email | P1 | XL | 024–027 | DONE |
-| 036 | Social, GitHub y Pipelines | P1 | XL | 024–027 | IN PROGRESS |
-| 037 | Marketplace, Cloud y Plugins | P1 | L | 024–027,029 | IN PROGRESS |
-| 038 | Retirar UI legacy y enforcement | P0 final | L | 025–037 | IN PROGRESS |
+| 036 | Social, GitHub y Pipelines | P1 | XL | 024–027 | DONE |
+| 037 | Marketplace, Cloud y Plugins | P1 | L | 024–027,029 | DONE |
+| 038 | Retirar UI legacy y enforcement | P0 final | L | 025–037 | DONE |
 
 ## Dependency notes
 
