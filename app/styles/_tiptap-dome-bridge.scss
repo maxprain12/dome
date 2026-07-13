@@ -3,7 +3,7 @@
    ------------------------------------------------------------
    The tiptap-ui* component pack ships with its own design tokens
    under the --tt-* namespace. This bridge re-points those tokens
-   to Dome's --bg / --border / --accent / --primary-text scale so
+   to Dome's --background / --border / --primary / --foreground scale so
    toolbar, dropdowns, popovers, tooltips and inputs blend with
    the Dome shell (warm-stone olive instead of brand purple).
 
@@ -49,27 +49,27 @@
   --tt-gray-light-a-900: color-mix(in srgb, #1A1A1A 96%, transparent);
 
   /* Brand scale → Dome warm-stone accent */
-  --tt-brand-color-50:  color-mix(in srgb, var(--dome-accent) 8%,  var(--bg-secondary));
-  --tt-brand-color-100: color-mix(in srgb, var(--dome-accent) 14%, var(--bg-secondary));
-  --tt-brand-color-200: color-mix(in srgb, var(--dome-accent) 24%, var(--bg-secondary));
-  --tt-brand-color-300: color-mix(in srgb, var(--dome-accent) 40%, var(--bg-secondary));
-  --tt-brand-color-400: color-mix(in srgb, var(--dome-accent) 70%, var(--bg-secondary));
-  --tt-brand-color-500: var(--dome-accent);
-  --tt-brand-color-600: var(--accent-hover);
+  --tt-brand-color-50:  color-mix(in srgb, var(--primary) 8%,  var(--card));
+  --tt-brand-color-100: color-mix(in srgb, var(--primary) 14%, var(--card));
+  --tt-brand-color-200: color-mix(in srgb, var(--primary) 24%, var(--card));
+  --tt-brand-color-300: color-mix(in srgb, var(--primary) 40%, var(--card));
+  --tt-brand-color-400: color-mix(in srgb, var(--primary) 70%, var(--card));
+  --tt-brand-color-500: var(--primary);
+  --tt-brand-color-600: color-mix(in srgb, var(--primary) 85%, black);
   --tt-brand-color-700: #3B4025;
   --tt-brand-color-800: #2D3019;
   --tt-brand-color-900: #1F210F;
   --tt-brand-color-950: #14150A;
 
   /* Global panel/border tokens */
-  --tt-bg-color: var(--bg-secondary);
+  --tt-bg-color: var(--card);
   --tt-border-color: var(--border);
   --tt-border-color-tint: color-mix(in srgb, var(--border) 60%, transparent);
-  --tt-sidebar-bg-color: var(--bg);
-  --tt-scrollbar-color: color-mix(in srgb, var(--primary-text) 12%, transparent);
-  --tt-cursor-color: var(--dome-accent);
-  --tt-selection-color: color-mix(in srgb, var(--dome-accent) 22%, transparent);
-  --tt-card-bg-color: var(--bg-secondary);
+  --tt-sidebar-bg-color: var(--background);
+  --tt-scrollbar-color: color-mix(in srgb, var(--foreground) 12%, transparent);
+  --tt-cursor-color: var(--primary);
+  --tt-selection-color: color-mix(in srgb, var(--primary) 22%, transparent);
+  --tt-card-bg-color: var(--card);
   --tt-card-border-color: var(--border);
 }
 
@@ -100,27 +100,27 @@
   --tt-gray-dark-a-900: color-mix(in srgb, #FFFFFF 96%, transparent);
 
   /* Brand scale (dark) — accent muted but recognizable */
-  --tt-brand-color-50:  color-mix(in srgb, var(--dome-accent) 10%, var(--bg-secondary));
-  --tt-brand-color-100: color-mix(in srgb, var(--dome-accent) 18%, var(--bg-secondary));
-  --tt-brand-color-200: color-mix(in srgb, var(--dome-accent) 28%, var(--bg-secondary));
-  --tt-brand-color-300: color-mix(in srgb, var(--dome-accent) 42%, var(--bg-secondary));
-  --tt-brand-color-400: color-mix(in srgb, var(--dome-accent) 78%, #FFFFFF);
-  --tt-brand-color-500: var(--dome-accent);
-  --tt-brand-color-600: var(--accent-hover);
+  --tt-brand-color-50:  color-mix(in srgb, var(--primary) 10%, var(--card));
+  --tt-brand-color-100: color-mix(in srgb, var(--primary) 18%, var(--card));
+  --tt-brand-color-200: color-mix(in srgb, var(--primary) 28%, var(--card));
+  --tt-brand-color-300: color-mix(in srgb, var(--primary) 42%, var(--card));
+  --tt-brand-color-400: color-mix(in srgb, var(--primary) 78%, #FFFFFF);
+  --tt-brand-color-500: var(--primary);
+  --tt-brand-color-600: color-mix(in srgb, var(--primary) 85%, black);
   --tt-brand-color-700: #4F5731;
   --tt-brand-color-800: #3F4628;
   --tt-brand-color-900: #2C311C;
   --tt-brand-color-950: #1A1D11;
 
   /* Global panel/border tokens (dark) */
-  --tt-bg-color: var(--bg-secondary);
+  --tt-bg-color: var(--card);
   --tt-border-color: var(--border);
   --tt-border-color-tint: color-mix(in srgb, var(--border) 50%, transparent);
-  --tt-sidebar-bg-color: var(--bg);
+  --tt-sidebar-bg-color: var(--background);
   --tt-scrollbar-color: color-mix(in srgb, #FFFFFF 14%, transparent);
-  --tt-cursor-color: var(--dome-accent);
-  --tt-selection-color: color-mix(in srgb, var(--dome-accent) 30%, transparent);
-  --tt-card-bg-color: var(--bg-secondary);
+  --tt-cursor-color: var(--primary);
+  --tt-selection-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  --tt-card-bg-color: var(--card);
   --tt-card-border-color: var(--border);
 
   /* Soften shadow tokens for dark surfaces */
