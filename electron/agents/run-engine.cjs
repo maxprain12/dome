@@ -291,209 +291,226 @@ function transitionUiPhaseFromChunk(runId, context, chunkType, detail) {
   emitRunUiPhase(runId, context, phase, detail);
 }
 
+function handleThinkingChunk(data, runId, context, heartbeat) {
+  if (!data.text) return;
+  transitionUiPhaseFromChunk(runId, context, 'thinking');
+  context.fullThinking += data.text;
+  emit(RUN_CHUNK_CHANNEL, { runId, type: 'thinking', text: data.text });
+  patchRun(runId, { lastHeartbeatAt: heartbeat });
+}
+
+function handleTextChunk(data, runId, context, heartbeat) {
+  if (!data.text) return;
+  transitionUiPhaseFromChunk(runId, context, 'text');
+  context.fullResponse += data.text;
+  emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: data.text });
+  // Feed chunk to streaming TTS if this run requested autoSpeak
+  if (context.autoSpeak) {
+    streamingTts.feedChunk(runId, data.text);
+  }
+  patchRun(runId, {
+    status: 'running',
+    outputText: context.fullResponse,
+    lastHeartbeatAt: heartbeat,
+  });
+}
+
+function handleToolCallChunk(data, runId, context, heartbeat) {
+  if (!data.toolCall) return;
+  transitionUiPhaseFromChunk(runId, context, 'tool_call', data.toolCall.name);
+  const args = parseToolArguments(data.toolCall.arguments);
+  context.toolCalls.push({
+    id: data.toolCall.id,
+    name: data.toolCall.name,
+    arguments: args,
+    status: 'running',
+    ...(data.agentName ? { agentName: data.agentName } : {}),
+  });
+  const step = appendRunStep({
+    runId,
+    stepType: 'tool_call',
+    title: data.toolCall.name,
+    status: 'running',
+    metadata: {
+      toolCallId: data.toolCall.id,
+      arguments: args,
+      ...(data.agentName ? { agentName: data.agentName } : {}),
+    },
+  });
+  if (!step) return;
+  context.toolStepIds.set(data.toolCall.id, step.id);
+  context.toolSteps.set(data.toolCall.id, step);
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'tool_call',
+    toolCall: data.toolCall,
+    ...(data.agentName ? { agentName: data.agentName } : {}),
+  });
+  patchRun(runId, { lastHeartbeatAt: heartbeat });
+}
+
+function handleToolResultChunk(data, runId, context, heartbeat) {
+  if (data.toolCallId == null) return;
+  const stepPatch = getToolStepPatch(data.toolCallId, data.result, {}, { isError: data.isError === true });
+  const entry = context.toolCalls.find((item) => item.id === data.toolCallId);
+  if (entry) {
+    entry.status = stepPatch.status === 'failed' ? 'error' : 'success';
+    // Bound the result we KEEP in context.toolCalls — it is persisted verbatim
+    // into automation_runs.metadata (and chat_messages.tool_calls) at run end.
+    // An unbounded multi-MB MCP result here is what made JSON.stringify(metadata)
+    // OOM the main process (ELECTRON-7) and bloated the DB with free pages.
+    entry.result = capResultText(data.result);
+  }
+  const stepId = context.toolStepIds.get(data.toolCallId);
+  if (stepId) {
+    const existingStep = context.toolSteps.get(data.toolCallId) ?? null;
+    const nextStep = updateRunStep(stepId, stepPatch, existingStep);
+    if (nextStep) context.toolSteps.set(data.toolCallId, nextStep);
+  }
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'tool_result',
+    toolCallId: data.toolCallId,
+    result: data.result,
+    ...(data.isError ? { isError: true } : {}),
+    ...(data.agentName ? { agentName: data.agentName } : {}),
+  });
+  patchRun(runId, { lastHeartbeatAt: heartbeat });
+}
+
+function handleToolProgressChunk(data, runId, context, heartbeat) {
+  if (data.toolCallId == null) return;
+  transitionUiPhaseFromChunk(runId, context, 'tool_progress', data.toolName);
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'tool_progress',
+    toolCallId: data.toolCallId,
+    toolName: data.toolName,
+    partialResult: data.partialResult,
+  });
+  patchRun(runId, { lastHeartbeatAt: heartbeat });
+}
+
+function handleHarnessChunk(data, runId, context, heartbeat) {
+  if (!data.event) return;
+  if (data.event === 'turn_start') {
+    emitRunUiPhase(runId, context, 'thinking');
+  }
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'harness',
+    event: data.event,
+    payload: data.payload ?? null,
+  });
+  patchRun(runId, { lastHeartbeatAt: heartbeat });
+}
+
+function handleBudgetChunk(data, runId, context) {
+  if (!data.breakdown) return;
+  transitionUiPhaseFromChunk(runId, context, 'budget');
+  emit(RUN_CHUNK_CHANNEL, { runId, type: 'budget', breakdown: data.breakdown });
+}
+
+function handleCompactionChunk(data, runId, context) {
+  transitionUiPhaseFromChunk(runId, context, 'compaction');
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'compaction',
+    tokensBefore: data.tokensBefore ?? 0,
+    tokensAfter: data.tokensAfter ?? null,
+    summaryPreview: data.summaryPreview ?? '',
+    automatic: data.automatic !== false,
+  });
+}
+
+function handleErrorChunk(data, runId, context, heartbeat) {
+  if (!data.error) return;
+  transitionUiPhaseFromChunk(runId, context, 'error');
+  emit(RUN_CHUNK_CHANNEL, { runId, type: 'error', error: data.error });
+  patchRun(runId, {
+    status: 'failed',
+    error: data.error,
+    lastHeartbeatAt: heartbeat,
+  });
+}
+
+function handleDoneChunk(data, runId, context) {
+  transitionUiPhaseFromChunk(runId, context, 'done');
+  emit(RUN_CHUNK_CHANNEL, { runId, type: 'done' });
+}
+
+function handleUsageChunk(data, runId, context) {
+  if (!data.usage) return;
+  if (data.cumulative) {
+    // Canonical full-thread snapshot: REPLACE (never sum) to avoid double
+    // counting against the per-chunk incremental partials.
+    context.llmUsage = data.usage;
+    context.llmUsageLive = data.usage;
+  } else {
+    // Incremental per-model-call delta: accumulate a live running total.
+    context.llmUsageLive = mergeLlmUsage(context.llmUsageLive, data.usage);
+  }
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'usage',
+    usage: context.llmUsageLive ?? data.usage,
+    partial: data.partial === true,
+  });
+}
+
+function handleInterruptChunk(data, runId, context, heartbeat) {
+  if (!Array.isArray(data.actionRequests) || data.actionRequests.length === 0) return;
+  transitionUiPhaseFromChunk(runId, context, 'interrupt');
+  context.threadId = data.threadId || context.threadId;
+  const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
+  patchRun(runId, {
+    status: 'waiting_approval',
+    threadId: context.threadId,
+    metadata: {
+      pendingApproval: {
+        actionRequests: data.actionRequests,
+        reviewConfigs,
+        pendingToolCall: data.pendingToolCall ?? null,
+      },
+      resumeOpts: context.agentResumeOpts ?? null,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+    lastHeartbeatAt: heartbeat,
+  });
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'interrupt',
+    actionRequests: data.actionRequests,
+    reviewConfigs,
+    threadId: data.threadId,
+  });
+}
+
+// Dispatch table keyed by `data.type`. Each entry receives the chunk, runId,
+// context, and the heartbeat timestamp captured at emitter entry. Keeping the
+// logic in per-type helpers keeps cognitive complexity per function low and
+// preserves the original short-circuit guards (e.g. `data.text`, `data.event`).
+const CHUNK_HANDLERS = {
+  thinking: handleThinkingChunk,
+  text: handleTextChunk,
+  tool_call: handleToolCallChunk,
+  tool_result: handleToolResultChunk,
+  tool_progress: handleToolProgressChunk,
+  harness: handleHarnessChunk,
+  budget: handleBudgetChunk,
+  compaction: handleCompactionChunk,
+  error: handleErrorChunk,
+  done: handleDoneChunk,
+  usage: handleUsageChunk,
+  interrupt: handleInterruptChunk,
+};
+
 function createRunChunkEmitter(runId, context) {
   return (data) => {
     const heartbeat = now();
     context.lastHeartbeatAt = heartbeat;
-    if (data.type === 'thinking' && data.text) {
-      transitionUiPhaseFromChunk(runId, context, 'thinking');
-      context.fullThinking += data.text;
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'thinking', text: data.text });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
-      return;
-    }
-    if (data.type === 'text' && data.text) {
-      transitionUiPhaseFromChunk(runId, context, 'text');
-      context.fullResponse += data.text;
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: data.text });
-      // Feed chunk to streaming TTS if this run requested autoSpeak
-      if (context.autoSpeak) {
-        streamingTts.feedChunk(runId, data.text);
-      }
-      patchRun(runId, {
-        status: 'running',
-        outputText: context.fullResponse,
-        lastHeartbeatAt: heartbeat,
-      });
-      return;
-    }
-    if (data.type === 'tool_call' && data.toolCall) {
-      transitionUiPhaseFromChunk(runId, context, 'tool_call', data.toolCall.name);
-      let args = {};
-      try {
-        args = typeof data.toolCall.arguments === 'string'
-          ? JSON.parse(data.toolCall.arguments)
-          : (data.toolCall.arguments || {});
-      } catch {
-        args = {};
-      }
-      context.toolCalls.push({
-        id: data.toolCall.id,
-        name: data.toolCall.name,
-        arguments: args,
-        status: 'running',
-        ...(data.agentName ? { agentName: data.agentName } : {}),
-      });
-      const step = appendRunStep({
-        runId,
-        stepType: 'tool_call',
-        title: data.toolCall.name,
-        status: 'running',
-        metadata: {
-          toolCallId: data.toolCall.id,
-          arguments: args,
-          ...(data.agentName ? { agentName: data.agentName } : {}),
-        },
-      });
-      if (!step) return;
-      context.toolStepIds.set(data.toolCall.id, step.id);
-      context.toolSteps.set(data.toolCall.id, step);
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'tool_call',
-        toolCall: data.toolCall,
-        ...(data.agentName ? { agentName: data.agentName } : {}),
-      });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
-      return;
-    }
-    if (data.type === 'tool_result' && data.toolCallId != null) {
-      const stepPatch = getToolStepPatch(data.toolCallId, data.result, {}, { isError: data.isError === true });
-      const entry = context.toolCalls.find((item) => item.id === data.toolCallId);
-      if (entry) {
-        entry.status = stepPatch.status === 'failed' ? 'error' : 'success';
-        // Bound the result we KEEP in context.toolCalls — it is persisted verbatim
-        // into automation_runs.metadata (and chat_messages.tool_calls) at run end.
-        // An unbounded multi-MB MCP result here is what made JSON.stringify(metadata)
-        // OOM the main process (ELECTRON-7) and bloated the DB with free pages.
-        entry.result = capResultText(data.result);
-      }
-      const stepId = context.toolStepIds.get(data.toolCallId);
-      if (stepId) {
-        const existingStep = context.toolSteps.get(data.toolCallId) ?? null;
-        const nextStep = updateRunStep(
-          stepId,
-          stepPatch,
-          existingStep,
-        );
-        if (nextStep) context.toolSteps.set(data.toolCallId, nextStep);
-      }
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'tool_result',
-        toolCallId: data.toolCallId,
-        result: data.result,
-        ...(data.isError ? { isError: true } : {}),
-        ...(data.agentName ? { agentName: data.agentName } : {}),
-      });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
-      return;
-    }
-    if (data.type === 'tool_progress' && data.toolCallId != null) {
-      transitionUiPhaseFromChunk(runId, context, 'tool_progress', data.toolName);
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'tool_progress',
-        toolCallId: data.toolCallId,
-        toolName: data.toolName,
-        partialResult: data.partialResult,
-      });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
-      return;
-    }
-    if (data.type === 'harness' && data.event) {
-      if (data.event === 'turn_start') {
-        emitRunUiPhase(runId, context, 'thinking');
-      }
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'harness',
-        event: data.event,
-        payload: data.payload ?? null,
-      });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
-      return;
-    }
-    if (data.type === 'budget' && data.breakdown) {
-      transitionUiPhaseFromChunk(runId, context, 'budget');
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'budget', breakdown: data.breakdown });
-      return;
-    }
-    if (data.type === 'compaction') {
-      transitionUiPhaseFromChunk(runId, context, 'compaction');
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'compaction',
-        tokensBefore: data.tokensBefore ?? 0,
-        tokensAfter: data.tokensAfter ?? null,
-        summaryPreview: data.summaryPreview ?? '',
-        automatic: data.automatic !== false,
-      });
-      return;
-    }
-    if (data.type === 'error' && data.error) {
-      transitionUiPhaseFromChunk(runId, context, 'error');
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'error', error: data.error });
-      patchRun(runId, {
-        status: 'failed',
-        error: data.error,
-        lastHeartbeatAt: heartbeat,
-      });
-      return;
-    }
-    if (data.type === 'done') {
-      transitionUiPhaseFromChunk(runId, context, 'done');
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'done' });
-      return;
-    }
-    if (data.type === 'usage' && data.usage) {
-      if (data.cumulative) {
-        // Canonical full-thread snapshot: REPLACE (never sum) to avoid double
-        // counting against the per-chunk incremental partials.
-        context.llmUsage = data.usage;
-        context.llmUsageLive = data.usage;
-      } else {
-        // Incremental per-model-call delta: accumulate a live running total.
-        context.llmUsageLive = mergeLlmUsage(context.llmUsageLive, data.usage);
-      }
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'usage',
-        usage: context.llmUsageLive ?? data.usage,
-        partial: data.partial === true,
-      });
-      return;
-    }
-    if (
-      data.type === 'interrupt' &&
-      Array.isArray(data.actionRequests) &&
-      data.actionRequests.length > 0
-    ) {
-      transitionUiPhaseFromChunk(runId, context, 'interrupt');
-      context.threadId = data.threadId || context.threadId;
-      const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
-      patchRun(runId, {
-        status: 'waiting_approval',
-        threadId: context.threadId,
-        metadata: {
-          pendingApproval: {
-            actionRequests: data.actionRequests,
-            reviewConfigs,
-            pendingToolCall: data.pendingToolCall ?? null,
-          },
-          resumeOpts: context.agentResumeOpts ?? null,
-          ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-        },
-        lastHeartbeatAt: heartbeat,
-      });
-      emit(RUN_CHUNK_CHANNEL, {
-        runId,
-        type: 'interrupt',
-        actionRequests: data.actionRequests,
-        reviewConfigs,
-        threadId: data.threadId,
-      });
-    }
+    const handler = CHUNK_HANDLERS[data.type];
+    if (handler) handler(data, runId, context, heartbeat);
   };
 }
 
