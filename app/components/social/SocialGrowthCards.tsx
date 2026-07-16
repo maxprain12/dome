@@ -88,16 +88,23 @@ export default function SocialGrowthCards({
               <span className="truncate text-xs font-medium text-foreground">{label}</span>
             </span>
             {acc.latest?.followers != null ? (
-              <span className="flex items-baseline gap-1.5">
-                <span className="text-base font-semibold tabular-nums text-foreground">
-                  {Intl.NumberFormat().format(acc.latest.followers)}
+              <span className="flex flex-col gap-0.5">
+                <span className="flex items-baseline gap-1.5">
+                  <span className="text-base font-semibold tabular-nums text-foreground">
+                    {Intl.NumberFormat().format(acc.latest.followers)}
+                  </span>
+                  <span className={cn('inline-flex items-center gap-0.5 text-[11px] tabular-nums', deltaColor)}>
+                    <HugeiconsIcon icon={deltaIcon} className="size-2.5" />
+                    {delta == null
+                      ? '—'
+                      : `${delta > 0 ? '+' : ''}${Intl.NumberFormat().format(delta)}`}
+                  </span>
                 </span>
-                <span className={cn('inline-flex items-center gap-0.5 text-[11px] tabular-nums', deltaColor)}>
-                  <HugeiconsIcon icon={deltaIcon} className="size-2.5" />
-                  {delta == null
-                    ? '—'
-                    : `${delta > 0 ? '+' : ''}${Intl.NumberFormat().format(delta)}`}
-                </span>
+                {acc.latest.postsCount != null ? (
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {t('social.hub.growth_posts')}: {Intl.NumberFormat().format(acc.latest.postsCount)}
+                  </span>
+                ) : null}
               </span>
             ) : (
               <span className="text-xs text-muted-foreground">

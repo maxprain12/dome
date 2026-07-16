@@ -633,6 +633,7 @@ const ALLOWED_CHANNELS = {
     'social:posts:update',
     'social:posts:delete',
     'social:posts:publish',
+    'social:posts:sync',
     'social:metrics:post',
     'social:metrics:refresh',
     'social:summary',

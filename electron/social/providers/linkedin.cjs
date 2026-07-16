@@ -248,6 +248,58 @@ async function fetchPostMetrics(store, post) {
  * have, but organization pages expose follower counts via networkSizes with
  * the Community Management API scopes.
  */
+/**
+ * List recent org posts (Community Management / Posts API).
+ * Personal member timelines are not available on the standard API tier.
+ */
+async function listRecentPosts(store, account, { limit = 25 } = {}) {
+  const kind = account.account_kind || account.accountKind || 'member';
+  if (kind !== 'organization') {
+    return { posts: [], skipped: 'linkedin_member' };
+  }
+  const accessToken = await ensureAccessToken(store, account.id);
+  const orgId = account.external_id || account.externalId;
+  if (!orgId) throw new Error('LinkedIn org account missing external id');
+  const author = encodeURIComponent(`urn:li:organization:${orgId}`);
+  const capped = Math.min(Math.max(Number(limit) || 25, 1), 50);
+  let data;
+  try {
+    data = await linkedinFetch(
+      accessToken,
+      `https://api.linkedin.com/rest/posts?author=${author}&q=author&count=${capped}&sortBy=LAST_MODIFIED`,
+      { headers: { 'LinkedIn-Version': '202506' } },
+    );
+  } catch (err) {
+    console.warn('[Social][LI] listRecentPosts failed:', err.message);
+    return { posts: [], error: err.message };
+  }
+  const elements = data?.elements || data?.posts || [];
+  const posts = elements.map((el) => {
+    const id = el.id || el.$URN || null;
+    const commentary =
+      el.commentary ||
+      el.specificContent?.['com.linkedin.ugc.ShareContent']?.shareCommentary?.text ||
+      '';
+    const created =
+      el.createdAt ||
+      el.publishedAt ||
+      el.lastModifiedAt ||
+      el.created?.time ||
+      null;
+    const publishedAt = created != null ? Number(created) : null;
+    return {
+      externalPostId: id ? String(id) : null,
+      body: typeof commentary === 'string' ? commentary : String(commentary || ''),
+      externalUrl: id
+        ? `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}/`
+        : null,
+      publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
+      metrics: null,
+    };
+  }).filter((p) => p.externalPostId);
+  return { posts };
+}
+
 async function fetchAccountMetrics(store, account) {
   if ((account.accountKind || 'member') !== 'organization') return null;
   const accessToken = await ensureAccessToken(store, account.id);
@@ -377,6 +429,7 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listRecentPosts,
   listComments,
   sendDm,
   syncOrganizations,

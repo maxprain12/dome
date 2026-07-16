@@ -266,6 +266,39 @@ async function fetchAccountMetrics(store, account) {
 }
 
 /**
+ * List recent media already published on Instagram (not created in Dome).
+ * @returns {{ posts: Array<{ externalPostId, body, externalUrl, publishedAt, metrics }> }}
+ */
+async function listRecentPosts(store, account, { limit = 25 } = {}) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const igUserId = account.external_id || account.externalId;
+  if (!igUserId) throw new Error('Instagram account missing external id');
+  const capped = Math.min(Math.max(Number(limit) || 25, 1), 50);
+  const data = await igFetch(`/${igUserId}/media`, {
+    accessToken,
+    params: {
+      fields: 'id,caption,timestamp,permalink,like_count,comments_count,media_type',
+      limit: capped,
+    },
+  });
+  const posts = (data?.data || []).map((m) => {
+    const publishedAt = m.timestamp ? Date.parse(m.timestamp) : null;
+    return {
+      externalPostId: String(m.id),
+      body: m.caption || '',
+      externalUrl: m.permalink || null,
+      publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
+      metrics: {
+        likes: m.like_count ?? null,
+        comments: m.comments_count ?? null,
+        raw: { media_type: m.media_type },
+      },
+    };
+  });
+  return { posts };
+}
+
+/**
  * List comments on an Instagram media object.
  * @returns {{ comments: object[], nextCursor?: string }}
  */
@@ -326,6 +359,7 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listRecentPosts,
   listComments,
   sendDm,
   supportsManualToken: true,

@@ -7,7 +7,8 @@ Superficie de trabajo (planes 024–025): briefing + colas + compose/detalle inl
 | Pieza | Rol |
 | ----- | --- |
 | `SocialHubView` | Carga `social:workspace`, auto-refresh métricas si stale, master–detail estable (ancho viewport, no named CQ) |
-| `SocialDashboard` | Presencia global + foco por cuenta; KPIs growth siempre visibles; segmentos densos; informes en collapsible al final |
+| `SocialDashboard` | Presencia global + foco por cuenta; KPIs growth; segmentos densos; insight IA en panel derecho |
+| Sync feed | `social:posts:sync` importa posts ya publicados en IG / X / LinkedIn org (`created_by=import`) |
 | `SocialComposePanel` / `SocialDetailPanel` / `SocialCampaignDetail` | `InlineDetailCard` (sin Dialog) |
 | Heurísticas | [`app/lib/social/socialQueues.ts`](../../app/lib/social/socialQueues.ts) |
 

@@ -529,6 +529,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `social:posts:get` | `electron/ipc/integrations/social.cjs:157` |
 | `social:posts:list` | `electron/ipc/integrations/social.cjs:154` |
 | `social:posts:publish` | `electron/ipc/integrations/social.cjs:201` |
+| `social:posts:sync` | `electron/ipc/integrations/social.cjs` |
 | `social:posts:update` | `electron/ipc/integrations/social.cjs:178` |
 | `social:providers:set-config` | `electron/ipc/integrations/social.cjs:122` |
 | `social:providers:status` | `electron/ipc/integrations/social.cjs:112` |

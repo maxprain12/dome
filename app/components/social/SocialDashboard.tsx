@@ -1,10 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +9,6 @@ import {
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   Building2Icon,
-  ChevronDownIcon,
   InstagramIcon,
   Linkedin01Icon,
   SparklesIcon,
@@ -27,9 +21,10 @@ import type {
   SocialGrowthAccount,
   SocialPost,
   SocialProvider,
+  SocialReport,
 } from '@/components/social/socialTypes';
 import SocialGrowthCards from '@/components/social/SocialGrowthCards';
-import SocialReportsSection from '@/components/social/SocialReportsSection';
+import { SocialInsightsStrip } from '@/components/social/SocialInsightsStrip';
 import {
   buildSocialQueues,
   computeSocialStats,
@@ -80,6 +75,7 @@ export function SocialDashboard({
   onAskManyDraft,
   onPollComments,
   onConnectAccounts,
+  onOpenReport,
   compact,
 }: {
   posts: SocialPost[];
@@ -104,10 +100,10 @@ export function SocialDashboard({
   onAskManyDraft: () => void;
   onPollComments: () => void;
   onConnectAccounts: () => void;
+  onOpenReport: (report: SocialReport) => void;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const [reportsOpen, setReportsOpen] = useState(false);
 
   const scopedPosts = useMemo(
     () => filterPostsByAccount(posts, focusAccountId),
@@ -412,23 +408,7 @@ export function SocialDashboard({
           />
         ) : null}
 
-        {!compact ? (
-          <Collapsible open={reportsOpen} onOpenChange={setReportsOpen} className="border-t pt-2">
-            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-              <span>{t('social.agent_reports_section')}</span>
-              <HugeiconsIcon
-                icon={ChevronDownIcon}
-                className={cn('size-3.5 transition-transform', reportsOpen && 'rotate-180')}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2">
-              <p className="mb-2 px-1 text-xs text-muted-foreground">
-                {t('social.agent_reports_hint')}
-              </p>
-              <SocialReportsSection />
-            </CollapsibleContent>
-          </Collapsible>
-        ) : null}
+        {!compact ? <SocialInsightsStrip onOpenReport={onOpenReport} /> : null}
       </div>
     </div>
   );

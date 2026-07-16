@@ -400,6 +400,78 @@ function createSocialStore(database) {
     return serializePost(q().getSocialPostById.get(id));
   }
 
+  /**
+   * Upsert a post that already exists on the platform (feed sync).
+   * Idempotent on externalPostId. Does not overwrite drafts Dome still owns.
+   */
+  function upsertImportedPost({
+    accountId,
+    provider,
+    body = '',
+    externalPostId,
+    externalUrl = null,
+    publishedAt = null,
+    metrics = null,
+  }) {
+    if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
+    const ext = String(externalPostId || '').trim();
+    if (!ext) throw new Error('externalPostId is required');
+    const now = Date.now();
+    const pubAt = publishedAt != null && Number.isFinite(publishedAt) ? publishedAt : now;
+    const existing = q().getSocialPostByExternalId.get(ext);
+    if (existing) {
+      const ownedByDome = existing.created_by !== 'import' && existing.status !== 'published';
+      if (ownedByDome) {
+        return { post: serializePost(existing), created: false, skipped: true };
+      }
+      q().updateImportedSocialPost.run(
+        String(body || existing.body || ''),
+        externalUrl || existing.external_url,
+        pubAt,
+        now,
+        existing.id,
+      );
+      if (metrics && typeof metrics === 'object') {
+        insertMetric(existing.id, metrics);
+      }
+      return {
+        post: serializePost(q().getSocialPostById.get(existing.id)),
+        created: false,
+        skipped: false,
+      };
+    }
+    const id = `sp-${crypto.randomBytes(8).toString('hex')}`;
+    q().createSocialPost.run(
+      id,
+      accountId,
+      provider,
+      'published',
+      String(body || ''),
+      '[]',
+      null,
+      '[]',
+      null,
+      null,
+      null,
+      pubAt,
+      ext,
+      externalUrl,
+      null,
+      'import',
+      null,
+      now,
+      now,
+    );
+    if (metrics && typeof metrics === 'object') {
+      insertMetric(id, metrics);
+    }
+    return {
+      post: serializePost(q().getSocialPostById.get(id)),
+      created: true,
+      skipped: false,
+    };
+  }
+
   function getPost(postId) {
     return serializePost(q().getSocialPostById.get(postId));
   }
@@ -833,6 +905,7 @@ function createSocialStore(database) {
     archiveCampaign,
     resolveCampaignRef,
     createPost,
+    upsertImportedPost,
     getPost,
     getPostRow,
     updatePost,

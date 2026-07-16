@@ -84,6 +84,10 @@ const PostListSchema = z.object({
   status: z.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']).optional().nullable(),
   limit: z.number().int().positive().max(500).optional(),
 });
+const FeedSyncSchema = z.object({
+  accountId: z.string().min(1).optional().nullable(),
+  limit: z.number().int().positive().max(50).optional(),
+});
 const GrowthQuerySchema = z.object({
   days: z.number().int().min(7).max(365).optional(),
 });
@@ -214,6 +218,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     return { deleted: true };
   }));
   ipcMain.handle('social:posts:publish', wrap(PostIdSchema, ({ postId }) => service.publishPost(postId)));
+  ipcMain.handle('social:posts:sync', wrap(FeedSyncSchema, ({ accountId, limit }) =>
+    service.syncPlatformFeed({ accountId: accountId || null, limit: limit || 25 }),
+  ));
 
   // Media pickers — local files (native dialog) and vault image/video resources
   ipcMain.handle('social:media:pick', wrap(null, async () => {

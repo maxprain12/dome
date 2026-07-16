@@ -192,6 +192,42 @@ async function fetchAccountMetrics(store, account) {
 }
 
 /**
+ * List recent tweets already on X for this account.
+ */
+async function listRecentPosts(store, account, { limit = 25 } = {}) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const userId = account.external_id || account.externalId;
+  if (!userId) throw new Error('X account missing external id');
+  const capped = Math.min(Math.max(Number(limit) || 25, 5), 50);
+  const handle = String(account.handle || '').replace(/^@/, '');
+  const data = await xFetch(
+    accessToken,
+    `/users/${encodeURIComponent(userId)}/tweets` +
+      `?max_results=${capped}&exclude=retweets,replies` +
+      `&tweet.fields=created_at,public_metrics,text`,
+  );
+  const posts = (data?.data || []).map((t) => {
+    const m = t.public_metrics || {};
+    const publishedAt = t.created_at ? Date.parse(t.created_at) : null;
+    return {
+      externalPostId: String(t.id),
+      body: t.text || '',
+      externalUrl: handle ? `https://x.com/${handle}/status/${t.id}` : null,
+      publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
+      metrics: {
+        impressions: m.impression_count ?? null,
+        likes: m.like_count ?? null,
+        comments: m.reply_count ?? null,
+        shares: (m.retweet_count ?? 0) + (m.quote_count ?? 0),
+        saves: m.bookmark_count ?? null,
+        raw: m,
+      },
+    };
+  });
+  return { posts };
+}
+
+/**
  * Replies in the conversation of a root tweet (best-effort via recent search).
  */
 async function listComments(store, { accountId, externalPostId, cursor } = {}) {
@@ -260,6 +296,7 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listRecentPosts,
   listComments,
   sendDm,
   supportsManualToken: false,

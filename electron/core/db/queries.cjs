@@ -1331,6 +1331,9 @@ function buildQueries(db) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialPostById: db.prepare('SELECT * FROM social_posts WHERE id = ?'),
+    getSocialPostByExternalId: db.prepare(
+      'SELECT * FROM social_posts WHERE external_post_id = ? LIMIT 1',
+    ),
     updateSocialPostContent: db.prepare(`
       UPDATE social_posts
       SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?, campaign_id = ?,
@@ -1340,6 +1343,11 @@ function buildQueries(db) {
     updateSocialPostPublishResult: db.prepare(`
       UPDATE social_posts
       SET status = ?, published_at = ?, external_post_id = ?, external_url = ?, error = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    updateImportedSocialPost: db.prepare(`
+      UPDATE social_posts
+      SET body = ?, external_url = ?, published_at = COALESCE(?, published_at), updated_at = ?
       WHERE id = ?
     `),
     listSocialPosts: db.prepare(`

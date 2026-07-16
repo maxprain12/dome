@@ -14,18 +14,21 @@ import type {
   SocialCampaign,
   SocialGrowthAccount,
   SocialPost,
+  SocialReport,
 } from '@/components/social/socialTypes';
 import { SocialDashboard } from '@/components/social/SocialDashboard';
 import SocialComposePanel from '@/components/social/SocialComposePanel';
 import { SocialDetailPanel } from '@/components/social/SocialDetailPanel';
 import { SocialCampaignDetail } from '@/components/social/SocialCampaignDetail';
+import { SocialReportDetail } from '@/components/social/SocialReportDetail';
 import type { SocialFilter, SocialReplyDraft } from '@/lib/social/socialQueues';
 
 type DetailMode =
   | { kind: 'none' }
   | { kind: 'compose'; editingPost: SocialPost | null; campaignId?: string | null; campaignName?: string | null }
   | { kind: 'post'; post: SocialPost }
-  | { kind: 'campaign'; campaign: SocialCampaign };
+  | { kind: 'campaign'; campaign: SocialCampaign }
+  | { kind: 'report'; report: SocialReport };
 
 export default function SocialHubView() {
   const { t } = useTranslation();
@@ -105,6 +108,19 @@ export default function SocialHubView() {
     setRefreshing(true);
     setError(null);
     const res = await window.electron.invoke('social:metrics:refresh');
+    setRefreshing(false);
+    if (!res?.success) setError(res?.error || 'Error');
+    await load();
+  };
+
+  /** Pull posts that already exist on IG / X / LinkedIn org into the hub. */
+  const syncPlatformFeed = async () => {
+    setRefreshing(true);
+    setError(null);
+    const res = await window.electron.invoke('social:posts:sync', {
+      accountId: focusAccountId,
+      limit: 25,
+    });
     setRefreshing(false);
     if (!res?.success) setError(res?.error || 'Error');
     await load();
@@ -228,15 +244,16 @@ export default function SocialHubView() {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => void refreshMetrics()}
+                onClick={() => void syncPlatformFeed()}
                 disabled={refreshing}
+                title={t('social.hub.sync_feed')}
               >
                 {refreshing ? (
                   <Spinner data-icon="inline-start" />
                 ) : (
                   <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
                 )}
-                <span className="@[40rem]/social:inline hidden">{t('social.hub.refresh_metrics')}</span>
+                <span className="@[40rem]/social:inline hidden">{t('social.hub.sync_feed')}</span>
               </Button>
               <Button
                 type="button"
@@ -309,6 +326,7 @@ export default function SocialHubView() {
               void window.electron.invoke('social:drafts:poll-now').then(() => load());
             }}
             onConnectAccounts={goToSettings}
+            onOpenReport={(report) => setDetail({ kind: 'report', report })}
             compact={detailOpen}
           />
         </div>
@@ -367,6 +385,19 @@ export default function SocialHubView() {
                 onOpenPost={(post) => setDetail({ kind: 'post', post })}
                 onAskMany={() =>
                   askMany(null, t('social.agent_prompt_campaign_about', { name: detail.campaign.name }), detail.campaign)
+                }
+              />
+            ) : detail.kind === 'report' ? (
+              <SocialReportDetail
+                report={detail.report}
+                onClose={() => setDetail({ kind: 'none' })}
+                onAskMany={() =>
+                  askMany(
+                    null,
+                    t('social.agent_prompt_report', {
+                      title: detail.report.title || t('social.reports.untitled'),
+                    }),
+                  )
                 }
               />
             ) : null}
