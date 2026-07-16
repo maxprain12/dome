@@ -322,6 +322,18 @@ async function updateEvent(eventId, updates) {
     const now = Date.now();
     const cal = q.getCalendarCalendarById.get(existing.calendar_id);
 
+    // Merge metadata so callers can patch resourceIds without wiping
+    // provenance fields (source, entityId, pipelineId, …).
+    let metadataStr = existing.metadata;
+    if (updates.metadata !== undefined) {
+      const prev = safeJsonField(existing.metadata, {}) || {};
+      const incoming =
+        typeof updates.metadata === 'string'
+          ? (safeJsonField(updates.metadata, {}) || {})
+          : (updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {});
+      metadataStr = JSON.stringify({ ...prev, ...incoming });
+    }
+
     q.updateCalendarEvent.run(
       p.title ?? existing.title,
       p.description ?? existing.description,
@@ -332,9 +344,7 @@ async function updateEvent(eventId, updates) {
       p.all_day ?? existing.all_day,
       updates.status ?? existing.status,
       p.reminders ?? existing.reminders,
-      updates.metadata !== undefined
-        ? (typeof updates.metadata === 'string' ? updates.metadata : JSON.stringify(updates.metadata))
-        : existing.metadata,
+      metadataStr,
       existing.source,
       now,
       eventId

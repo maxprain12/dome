@@ -43,5 +43,10 @@
   "day_events_count_other": "{{count}} événements",
   "more_events": "+{{count}} de plus",
   "events_count_one": "{{count}} événement",
-  "events_count_other": "{{count}} événements"
+  "events_count_other": "{{count}} événements",
+  "linked_resources": "Ressources liées",
+  "linked_resources_empty": "Aucune ressource liée pour le moment.",
+  "link_resource": "Lier une ressource",
+  "open_in_github": "Ouvrir dans GitHub",
+  "open_in_social": "Ouvrir dans Social"
 }

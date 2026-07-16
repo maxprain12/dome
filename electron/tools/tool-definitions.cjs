@@ -556,6 +556,11 @@ function getAllToolDefinitions() {
             start_at: { type: 'string', description: 'Start time as ISO 8601 string, e.g. "2026-03-15T14:00:00" (required)' },
             end_at: { type: 'string', description: 'End time as ISO 8601 string (required)' },
             all_day: { type: 'boolean', description: 'True for all-day events' },
+            resource_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional Dome resource ids to link (stored as metadata.resourceIds).',
+            },
             reminders: {
               type: 'array',
               items: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] },
@@ -581,6 +586,11 @@ function getAllToolDefinitions() {
             start_at: { type: 'string', description: 'New start time as ISO 8601 string' },
             end_at: { type: 'string', description: 'New end time as ISO 8601 string' },
             all_day: { type: 'boolean' },
+            resource_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Replace linked Dome resource ids (metadata.resourceIds).',
+            },
             reminders: {
               type: 'array',
               items: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] },

@@ -3013,9 +3013,20 @@ async function calendarGetUpcoming({ window_minutes, limit } = {}) {
  * Create a new calendar event.
  * @param {Object} data - Event fields: title, description, location, start_at, end_at, all_day, reminders
  */
+function attachResourceIdsMetadata(payload = {}) {
+  const { resource_ids: resourceIds, ...rest } = payload;
+  if (!Array.isArray(resourceIds)) return rest;
+  const ids = resourceIds.filter((id) => typeof id === 'string' && id.length > 0);
+  const prevMeta =
+    rest.metadata && typeof rest.metadata === 'object' && !Array.isArray(rest.metadata)
+      ? rest.metadata
+      : {};
+  return { ...rest, metadata: { ...prevMeta, resourceIds: ids } };
+}
+
 async function calendarCreateEvent(data = {}) {
   try {
-    const result = await calendarService.createEvent(data);
+    const result = await calendarService.createEvent(attachResourceIdsMetadata(data));
     if (result.success && result.event && windowManagerRef) {
       windowManagerRef.broadcast('calendar:eventCreated', result.event);
     }
@@ -3032,7 +3043,7 @@ async function calendarCreateEvent(data = {}) {
 async function calendarUpdateEvent({ event_id, ...updates } = {}) {
   try {
     if (!event_id) return { success: false, error: 'event_id is required' };
-    const result = await calendarService.updateEvent(event_id, updates);
+    const result = await calendarService.updateEvent(event_id, attachResourceIdsMetadata(updates));
     if (result.success && result.event && windowManagerRef) {
       windowManagerRef.broadcast('calendar:eventUpdated', result.event);
     }

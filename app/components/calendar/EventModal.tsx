@@ -1,20 +1,36 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ExternalLinkIcon, Tag01Icon, GitBranchIcon, CircleDotIcon, CheckmarkCircle02Icon,
-  RocketIcon, Flag02Icon, GithubIcon, PencilEdit02Icon, MapPinIcon, Clock01Icon, WorkflowSquare01Icon,
+  Add01Icon,
+  Cancel01Icon,
+  ExternalLinkIcon,
+  Tag01Icon,
+  GitBranchIcon,
+  CircleDotIcon,
+  CheckmarkCircle02Icon,
+  RocketIcon,
+  Flag02Icon,
+  GithubIcon,
+  PencilEdit02Icon,
+  MapPinIcon,
+  Clock01Icon,
+  WorkflowSquare01Icon,
+  Share08Icon,
 } from '@hugeicons/core-free-icons';
 import { DatePicker } from '@/components/shared/DatePicker';
 import { DateTimePicker } from '@/components/shared/DateTimePicker';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
+import ResourcePickerModal from '@/components/editor/ResourcePickerModal';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { pipelinesClient } from '@/lib/pipelines/client';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import type { PipelineItem } from '@/lib/pipelines/types';
+import type { Resource } from '@/types';
 import { cn } from '@/lib/utils';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -34,6 +50,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+
+function resourceIdsFromMeta(meta: Record<string, unknown> | undefined): string[] {
+  const raw = meta?.resourceIds;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+function isSocialEvent(event: CalendarEvent | null | undefined): boolean {
+  return event?.metadata?.source === 'social';
+}
 
 const GITHUB_CALENDAR_ID = 'github-dome';
 
@@ -163,17 +189,78 @@ function DeleteEventAction({
   );
 }
 
+function LinkedResourcesSection({
+  resourceIds,
+  titles,
+  editable,
+  onOpen,
+  onRemove,
+  onAdd,
+}: {
+  resourceIds: string[];
+  titles: Record<string, string>;
+  editable?: boolean;
+  onOpen: (id: string) => void;
+  onRemove?: (id: string) => void;
+  onAdd?: () => void;
+}) {
+  const { t } = useTranslation();
+  if (resourceIds.length === 0 && !editable) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {t('calendarPage.linked_resources')}
+      </span>
+      {resourceIds.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t('calendarPage.linked_resources_empty')}</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {resourceIds.map((id) => (
+            <Badge key={id} variant="secondary" className="gap-1 pr-1 font-normal">
+              <button type="button" className="truncate max-w-40 text-left" onClick={() => onOpen(id)}>
+                {titles[id] ?? id.slice(0, 8)}
+              </button>
+              {onRemove ? (
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:bg-muted"
+                  aria-label={t('common.remove')}
+                  onClick={() => onRemove(id)}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                </button>
+              ) : null}
+            </Badge>
+          ))}
+        </div>
+      )}
+      {onAdd ? (
+        <Button type="button" variant="outline" size="sm" className="self-start" onClick={onAdd}>
+          <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+          {t('calendarPage.link_resource')}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 /** Read-only detail view for a local (or pipeline-sourced) calendar event. */
 function LocalEventDetail({
   event,
   locale,
   pipeline,
+  linkedTitles,
   onOpenPipeline,
+  onOpenSocial,
+  onOpenResource,
 }: {
   event: CalendarEvent;
   locale: string;
   pipeline: PipelineDetail | null;
+  linkedTitles: Record<string, string>;
   onOpenPipeline: () => void;
+  onOpenSocial: () => void;
+  onOpenResource: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const todos = Array.isArray(pipeline?.item.data?.todos)
@@ -182,6 +269,8 @@ function LocalEventDetail({
   const todoDone = todos.filter((td) => td?.done).length;
   const dataText =
     pipeline && typeof pipeline.item.data?.text === 'string' ? pipeline.item.data.text.trim() : '';
+  const linkedIds = resourceIdsFromMeta(event.metadata);
+  const social = isSocialEvent(event);
 
   return (
     <div className="flex flex-col gap-4">
@@ -191,6 +280,12 @@ function LocalEventDetail({
           {pipeline.pipelineName ?? t('tabs.pipelines')}
         </Badge>
       )}
+      {social ? (
+        <Badge className="self-start" variant="secondary">
+          <HugeiconsIcon icon={Share08Icon} className="size-3" />
+          {t('tabs.social')}
+        </Badge>
+      ) : null}
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0">
         <MetaRow label={t('calendarPage.when', { defaultValue: 'When' })}>
@@ -255,12 +350,26 @@ function LocalEventDetail({
         </div>
       ) : null}
 
-      {pipeline ? (
-        <Button variant="link" size="sm" className="self-start gap-1.5 px-0" onClick={onOpenPipeline}>
-          <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
-          {t('pipelines.open_in_pipelines', { defaultValue: 'Open in Pipelines' })}
-        </Button>
-      ) : null}
+      <LinkedResourcesSection
+        resourceIds={linkedIds}
+        titles={linkedTitles}
+        onOpen={onOpenResource}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        {pipeline ? (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={onOpenPipeline}>
+            <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
+            {t('pipelines.open_in_pipelines', { defaultValue: 'Open in Pipelines' })}
+          </Button>
+        ) : null}
+        {social ? (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={onOpenSocial}>
+            <HugeiconsIcon icon={Share08Icon} className="size-3.5" />
+            {t('calendarPage.open_in_social')}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -472,6 +581,7 @@ interface EventModalProps {
     start_at: string;
     end_at: string;
     all_day: boolean;
+    metadata?: Record<string, unknown>;
   }) => Promise<void>;
   onDelete?: (eventId: string) => Promise<void>;
 }
@@ -488,10 +598,18 @@ export default function EventModal({
   const githubUrl = event ? githubEventUrl(event) : null;
   const pipelineItemId = pipelineItemIdOf(event);
   const openPipelinesTab = useTabStore((s) => s.openPipelinesTab);
+  const openGitHubTab = useTabStore((s) => s.openGitHubTab);
+  const openSocialTab = useTabStore((s) => s.openSocialTab);
+  const openResourceTab = useTabStore((s) => s.openResourceTab);
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   // Existing events open in a read-only detail view; new events go straight to
   // the edit form.
   const [editing, setEditing] = useState(!event);
   const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
+  const [resourceIds, setResourceIds] = useState(() => resourceIdsFromMeta(event?.metadata));
+  const [linkedTitles, setLinkedTitles] = useState<Record<string, string>>({});
+  const [linkedTypes, setLinkedTypes] = useState<Record<string, string>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
   const prevPipelineItemIdRef = useRef(pipelineItemId);
   if (pipelineItemId !== prevPipelineItemIdRef.current) {
     prevPipelineItemIdRef.current = pipelineItemId;
@@ -515,6 +633,52 @@ export default function EventModal({
       cancelled = true;
     };
   }, [pipelineItemId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTitles = async () => {
+      if (resourceIds.length === 0) {
+        setLinkedTitles({});
+        setLinkedTypes({});
+        return;
+      }
+      const api = window.electron?.db?.resources;
+      if (!api?.getById) return;
+      const nextTitles: Record<string, string> = {};
+      const nextTypes: Record<string, string> = {};
+      await Promise.all(
+        resourceIds.map(async (id) => {
+          try {
+            const res = await api.getById(id);
+            if (res?.success && res.data) {
+              if (res.data.title) nextTitles[id] = String(res.data.title);
+              if (res.data.type) nextTypes[id] = String(res.data.type);
+            }
+          } catch {
+            /* ignore */
+          }
+        }),
+      );
+      if (!cancelled) {
+        setLinkedTitles(nextTitles);
+        setLinkedTypes(nextTypes);
+      }
+    };
+    void loadTitles();
+    return () => {
+      cancelled = true;
+    };
+  }, [resourceIds]);
+
+  const openLinkedResource = useCallback(
+    (id: string) => {
+      const title = linkedTitles[id] ?? t('workspace.untitled');
+      const type = linkedTypes[id] ?? 'file';
+      openResourceTab(id, type, title, projectId);
+      onClose();
+    },
+    [linkedTitles, linkedTypes, onClose, openResourceTab, projectId, t],
+  );
 
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
@@ -549,6 +713,7 @@ export default function EventModal({
         start_at: new Date(startAt).toISOString(),
         end_at: new Date(endAt).toISOString(),
         all_day: allDay,
+        metadata: { resourceIds },
       });
       onClose();
     } finally {
@@ -569,28 +734,54 @@ export default function EventModal({
 
   if (githubEvent && event) {
     return (
-      <Dialog open onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3 pr-12"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{event.title}</DialogTitle></div></div><div className="flex shrink-0 items-center gap-2">{githubUrl ? (
-            <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} className="text-muted-foreground">
-              <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" />
-            </a>
-          ) : null}</div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <GithubEventBody event={event} githubUrl={githubUrl} />
-      </div><DialogFooter className="border-t px-4 py-3">{<div className="flex items-center justify-end w-full">
-            {githubUrl ? (
-              <a
-                href={githubUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm inline-flex items-center gap-1.5 mr-auto text-primary"
+      <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+        <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3 pr-12">
+            <DialogTitle className="truncate">{event.title}</DialogTitle>
+            <div className="flex shrink-0 items-center gap-2">
+              {githubUrl ? (
+                <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} className="text-muted-foreground">
+                  <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" />
+                </a>
+              ) : null}
+            </div>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <GithubEventBody event={event} githubUrl={githubUrl} />
+          </div>
+          <DialogFooter className="border-t px-4 py-3">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mr-auto"
+                onClick={() => {
+                  openGitHubTab();
+                  onClose();
+                }}
               >
-                <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
-                {t('github.calendar_view_on_github')}
-              </a>
-            ) : null}
-            <Button type="button" size="sm" onClick={onClose}>
-              {t('common.close', { defaultValue: 'Cerrar' })}
-            </Button>
-          </div>}</DialogFooter></DialogContent></Dialog>
+                <HugeiconsIcon icon={GithubIcon} className="size-3.5" />
+                {t('calendarPage.open_in_github')}
+              </Button>
+              {githubUrl ? (
+                <a
+                  href={githubUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary"
+                >
+                  <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
+                  {t('github.calendar_view_on_github')}
+                </a>
+              ) : null}
+              <Button type="button" size="sm" onClick={onClose}>
+                {t('common.close', { defaultValue: 'Cerrar' })}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
   }
 
@@ -598,17 +789,29 @@ export default function EventModal({
   // the form; pipeline-sourced events show extended, relevant info.
   if (event && !editing) {
     return (
-      <Dialog open onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{event.title}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <LocalEventDetail
-          event={event}
-          locale={i18n.language}
-          pipeline={pipelineInfo}
-          onOpenPipeline={() => {
-            openPipelinesTab();
-            onClose();
-          }}
-        />
-      </div><DialogFooter className="border-t px-4 py-3">
+      <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+        <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3">
+            <DialogTitle className="truncate">{event.title}</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <LocalEventDetail
+              event={event}
+              locale={i18n.language}
+              pipeline={pipelineInfo}
+              linkedTitles={linkedTitles}
+              onOpenPipeline={() => {
+                openPipelinesTab();
+                onClose();
+              }}
+              onOpenSocial={() => {
+                openSocialTab();
+                onClose();
+              }}
+              onOpenResource={openLinkedResource}
+            />
+          </div>
+          <DialogFooter className="border-t px-4 py-3">
             {onDelete ? (
               <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
             ) : null}
@@ -619,7 +822,9 @@ export default function EventModal({
             <Button onClick={onClose} size="sm">
               {t('common.close', { defaultValue: 'Close' })}
             </Button>
-          </DialogFooter></DialogContent></Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
   }
 
@@ -709,8 +914,18 @@ export default function EventModal({
             />
           </Field>
 
+          <LinkedResourcesSection
+            resourceIds={resourceIds}
+            titles={linkedTitles}
+            editable
+            onOpen={openLinkedResource}
+            onRemove={(id) => setResourceIds((prev) => prev.filter((x) => x !== id))}
+            onAdd={() => setPickerOpen(true)}
+          />
+
       </form>
-    </div><DialogFooter className="border-t px-4 py-3">
+    </div>
+    <DialogFooter className="border-t px-4 py-3">
           {event && onDelete ? (
             <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
           ) : null}
@@ -726,6 +941,20 @@ export default function EventModal({
           >
             {t('common.save')}
           </Button>
-        </DialogFooter></DialogContent></Dialog>
+        </DialogFooter>
+        <ResourcePickerModal
+          opened={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          projectId={projectId}
+          title={t('calendarPage.link_resource')}
+          onSelect={(resource: Resource) => {
+            setResourceIds((prev) => (prev.includes(resource.id) ? prev : [...prev, resource.id]));
+            setLinkedTitles((prev) => ({ ...prev, [resource.id]: resource.title }));
+            setLinkedTypes((prev) => ({ ...prev, [resource.id]: resource.type }));
+            setPickerOpen(false);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -324,6 +324,7 @@ const loadCalendars = useCallback(async () => {
     start_at: string;
     end_at: string;
     all_day: boolean;
+    metadata?: Record<string, unknown>;
   }) => {
     if (!window.electron?.calendar) return;
     if (selectedEvent) {
@@ -331,7 +332,8 @@ const loadCalendars = useCallback(async () => {
     } else {
       await window.electron.calendar.createEvent({ ...data, projectId });
     }
-    loadEvents();
+    void loadEvents();
+    void loadUpcoming();
   };
 
   const handleDelete = async (eventId: string) => {
@@ -350,68 +352,67 @@ const loadCalendars = useCallback(async () => {
         : t('calendarPage.sync_never');
 
   return (
-    <div className="home-shell">
-      <div className="home-scroll">
-        <div className="home-canvas">
-          <CalendarHero
-            syncHint={syncHint}
-            syncing={syncing}
-            upcomingCount={upcomingEvents.length}
-            onOpenSettings={openCalendarSettings}
-            onImport={() => void openImport()}
-            onSync={() => void handleSyncNow()}
-            onNewEvent={openNewEvent}
-          />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <CalendarHero
+        syncHint={syncHint}
+        syncing={syncing}
+        upcomingCount={upcomingEvents.length}
+        onOpenSettings={openCalendarSettings}
+        onImport={() => void openImport()}
+        onSync={() => void handleSyncNow()}
+        onNewEvent={openNewEvent}
+      />
 
-          {calendars.length > 0 ? (
-            <div className="mb-4 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                {t('calendarPage.filter_calendars')}
-              </span>
-              {calendars.map((c) => {
-                const on = visibleCalendarIds.includes(c.id);
-                return (
-                  <Toggle
-                    key={c.id}
-                    variant="outline"
-                    size="sm"
-                    pressed={on}
-                    onPressedChange={() => toggleCalendarFilter(c.id)}
-                    className={cn('h-6 rounded-full px-2.5 text-[11px]', !on && 'opacity-50')}
-                    style={{ borderColor: c.color || undefined }}
-                  >
-                    {c.title}
-                  </Toggle>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <div className="c-calendar-body">
-            <div className="c-calendar-main">
-              {loading ? (
-                <div className="flex min-h-[320px] flex-1 items-center justify-center text-muted-foreground">
-                  <Spinner className="size-7" aria-hidden />
-                </div>
-              ) : (
-                <div className="c-calendar-grid-panel">
-                  <CalendarGrid
-                    currentDate={currentDate}
-                    viewMode={viewMode}
-                    events={events}
-                    onCurrentDateChange={setCurrentDate}
-                    onViewModeChange={setViewMode}
-                    onDayClick={handleDayClick}
-                    onEventClick={handleEventClick}
-                    onEventDateChange={handleEventDateChange}
-                  />
-                </div>
-              )}
-            </div>
-
-            <CalendarUpcoming events={upcomingEvents} onEventClick={handleEventClick} />
-          </div>
+      {calendars.length > 0 ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-4 py-2 md:px-5">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t('calendarPage.filter_calendars')}
+          </span>
+          {calendars.map((c) => {
+            const on = visibleCalendarIds.includes(c.id);
+            return (
+              <Toggle
+                key={c.id}
+                variant="outline"
+                size="sm"
+                pressed={on}
+                onPressedChange={() => toggleCalendarFilter(c.id)}
+                className={cn('h-6 rounded-full px-2.5 text-[11px]', !on && 'opacity-50')}
+                style={{ borderColor: c.color || undefined }}
+              >
+                {c.title}
+              </Toggle>
+            );
+          })}
         </div>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 md:flex-row md:p-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
+              <Spinner className="size-7" aria-hidden />
+            </div>
+          ) : (
+            <CalendarGrid
+              currentDate={currentDate}
+              viewMode={viewMode}
+              events={events}
+              onCurrentDateChange={setCurrentDate}
+              onViewModeChange={setViewMode}
+              onDayClick={handleDayClick}
+              onEventClick={(ev) => void handleEventClick(ev)}
+              onEventDateChange={(p) => void handleEventDateChange(p)}
+            />
+          )}
+        </div>
+
+        <aside className="h-64 shrink-0 md:h-auto md:w-72 lg:w-80">
+          <CalendarUpcoming
+            events={upcomingEvents}
+            onEventClick={(ev) => void handleEventClick(ev)}
+          />
+        </aside>
       </div>
 
       {showImport && importPreview ? (
@@ -501,3 +502,4 @@ const loadCalendars = useCallback(async () => {
     </div>
   );
 }
+
