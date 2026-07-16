@@ -33,6 +33,7 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 021 | Seguimiento dashboard único (no técnico) | P1 | L | 020 | DONE |
 | 022 | ⌘K buscador unificado (no técnico) | P1 | L | 006, 021 | DONE |
 | 023 | Correo superficie agentica (no cliente clásico) | P1 | L | 010, 004, 021 | DONE |
+| 024 | Social superficie agentica (crecer / contenido / campañas) | P1 | L | 012, 016, 023 | DONE |
 
 ## Dependency graph
 

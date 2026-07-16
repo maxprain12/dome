@@ -21,12 +21,12 @@ import {
   type SocialProvider,
 } from '@/components/social/socialTypes';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { DateTimePicker } from '@/components/shared/DateTimePicker';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 import { cn } from '@/lib/utils';
 
 const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = { linkedin: Linkedin01Icon, instagram: InstagramIcon, x: TwitterIcon };
@@ -44,6 +44,8 @@ const AI_TONES: AiTone[] = ['professional', 'casual', 'selling', 'informative'];
 interface Props {
   accounts: SocialAccount[];
   editingPost: SocialPost | null;
+  /** Prefill campaign when creating a new draft from a campaign queue. */
+  initialCampaign?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -63,7 +65,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function SocialComposerModal({ accounts, editingPost, onClose, onSaved }: Props) {
+export default function SocialComposePanel({
+  accounts,
+  editingPost,
+  initialCampaign = null,
+  onClose,
+  onSaved,
+}: Props) {
   const { t } = useTranslation();
   const [selectedProviders, setSelectedProviders] = useState<SocialProvider[]>(
     editingPost ? [editingPost.provider] : ['linkedin'],
@@ -73,7 +81,7 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
   const [mediaUrl, setMediaUrl] = useState('');
   const [media, setMedia] = useState<SocialMediaItem[]>(editingPost?.media ?? []);
   const [topics, setTopics] = useState((editingPost?.topics ?? []).join(', '));
-  const [campaign, setCampaign] = useState(editingPost?.campaign ?? '');
+  const [campaign, setCampaign] = useState(editingPost?.campaign ?? initialCampaign ?? '');
   const [scheduleAt, setScheduleAt] = useState(toLocalInputValue(editingPost?.scheduledAt ?? null));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -388,9 +396,24 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
   ];
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{isEditing ? t('social.composer.edit_title') : t('social.composer.title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="flex flex-col gap-5 min-w-0">
+    <InlineDetailCard
+      onClose={onClose}
+      containerName="social-compose"
+      title={isEditing ? t('social.composer.edit_title') : t('social.composer.title')}
+      footer={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            {t('social.composer.cancel')}
+          </Button>
+          <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
+            {saving ? <Spinner data-icon="inline-start" /> : null}
+            {scheduleAt ? t('social.composer.save_scheduled') : t('social.composer.save_draft')}
+          </Button>
+        </div>
+      }
+    >
+      <div className="grid gap-5 @[40rem]/social-compose:grid-cols-[minmax(0,1fr)_220px]">
+      <div className="flex min-w-0 flex-col gap-5">
           {/* Provider selector */}
           <div className="flex items-center gap-2 flex-wrap">
             {ALL_PROVIDERS.map((p) => {
@@ -799,15 +822,6 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
         )}
       </aside>
       </div>
-    </div><DialogFooter className="border-t px-4 py-3">{<div className="flex items-center justify-end gap-2">
-          <Button variant="secondary"
-  onClick={onClose}>
-            {t('social.composer.cancel')}
-          </Button>
-          <Button onClick={() => void save()} disabled={saving}>
-            {saving ? <Spinner data-icon="inline-start" /> : null}
-            {scheduleAt ? t('social.composer.save_scheduled') : t('social.composer.save_draft')}
-          </Button>
-        </div>}</DialogFooter></DialogContent></Dialog>
+    </InlineDetailCard>
   );
 }
