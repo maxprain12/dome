@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +14,7 @@ import {
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   Building2Icon,
+  ChevronDownIcon,
   InstagramIcon,
   Linkedin01Icon,
   SparklesIcon,
@@ -27,6 +33,7 @@ import SocialReportsSection from '@/components/social/SocialReportsSection';
 import {
   buildSocialQueues,
   computeSocialStats,
+  filterPostsByAccount,
   filterPostsByQuery,
   type SocialFilter,
   type SocialReplyDraft,
@@ -59,6 +66,8 @@ export function SocialDashboard({
   query,
   filter,
   onFilter,
+  focusAccountId,
+  onFocusAccount,
   selectedId,
   selectedCampaignId,
   onOpenPost,
@@ -81,6 +90,8 @@ export function SocialDashboard({
   query: string;
   filter: SocialFilter;
   onFilter: (f: SocialFilter) => void;
+  focusAccountId: string | null;
+  onFocusAccount: (accountId: string | null) => void;
   selectedId?: string | null;
   selectedCampaignId?: string | null;
   onOpenPost: (post: SocialPost) => void;
@@ -96,29 +107,42 @@ export function SocialDashboard({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const filtered = filterPostsByQuery(posts, query);
+  const [reportsOpen, setReportsOpen] = useState(false);
+
+  const scopedPosts = useMemo(
+    () => filterPostsByAccount(posts, focusAccountId),
+    [posts, focusAccountId],
+  );
+  const filtered = filterPostsByQuery(scopedPosts, query);
   const queues = buildSocialQueues(filtered, replyDrafts);
   const activeAccounts = accounts.filter((a) => a.status === 'active').length;
   const activeCampaigns = campaigns.filter((c) => c.status === 'active');
-  const stats = computeSocialStats(posts, replyDrafts, activeAccounts, growth);
+  const scopedGrowth = focusAccountId
+    ? growth.filter((g) => g.accountId === focusAccountId)
+    : growth;
+  const stats = computeSocialStats(filtered, replyDrafts, activeAccounts, scopedGrowth);
 
   const campaignPosts =
     selectedCampaignId != null
       ? filtered.filter((p) => p.campaignId === selectedCampaignId)
       : [];
 
+  const focusAccount = focusAccountId
+    ? accounts.find((a) => a.id === focusAccountId) ?? null
+    : null;
+
   const briefingHint =
     activeAccounts === 0
       ? t('social.agent_brief_no_accounts')
-      : posts.length === 0
-        ? t('social.agent_brief_no_posts')
-        : stats.attention > 0
-          ? t('social.agent_brief_attention', { count: stats.attention })
-          : t('social.agent_brief_ok');
+      : focusAccount
+        ? t('social.agent_brief_focus', { name: accountLabel(focusAccount) })
+        : posts.length === 0
+          ? t('social.agent_brief_no_posts')
+          : stats.attention > 0
+            ? t('social.agent_brief_attention', { count: stats.attention })
+            : t('social.agent_brief_ok');
 
   const attentionCount = queues.needsAttention.length + queues.pendingReplyDrafts.length;
-  // On "all", hide empty queues; on a specific segment, always show (short empty state).
   const showAttentionBlock =
     filter === 'attention' || (filter === 'all' && attentionCount > 0);
   const showScheduledBlock =
@@ -149,29 +173,50 @@ export function SocialDashboard({
                   {t('social.hub.manage_accounts')}
                 </Button>
               ) : (
-                accounts.map((acc) => {
-                  const icon =
-                    acc.provider === 'linkedin' && acc.accountKind === 'organization'
-                      ? Building2Icon
-                      : PROVIDER_ICONS[acc.provider];
-                  return (
-                    <span
-                      key={acc.id}
-                      className={cn(
-                        'inline-flex max-w-[14rem] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs',
-                        acc.status === 'active'
-                          ? 'border-border bg-card text-foreground'
-                          : 'border-destructive/40 text-destructive',
-                      )}
-                      title={`${acc.provider} · ${accountLabel(acc)}`}
-                    >
-                      <HugeiconsIcon icon={icon} className="size-3 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{accountLabel(acc)}</span>
-                    </span>
-                  );
-                })
+                <>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={focusAccountId == null ? 'secondary' : 'ghost'}
+                    onClick={() => onFocusAccount(null)}
+                  >
+                    {t('social.agent_presence_all')}
+                  </Button>
+                  {accounts.map((acc) => {
+                    const icon =
+                      acc.provider === 'linkedin' && acc.accountKind === 'organization'
+                        ? Building2Icon
+                        : PROVIDER_ICONS[acc.provider];
+                    const active = focusAccountId === acc.id;
+                    return (
+                      <Button
+                        key={acc.id}
+                        type="button"
+                        size="xs"
+                        variant={active ? 'secondary' : 'outline'}
+                        className={cn(
+                          'max-w-[12rem]',
+                          acc.status !== 'active' && 'border-destructive/40 text-destructive',
+                        )}
+                        title={`${acc.provider} · ${accountLabel(acc)}`}
+                        onClick={() => onFocusAccount(active ? null : acc.id)}
+                      >
+                        <HugeiconsIcon icon={icon} data-icon="inline-start" />
+                        <span className="truncate">{accountLabel(acc)}</span>
+                      </Button>
+                    );
+                  })}
+                </>
               )}
             </div>
+
+            {accounts.length > 0 ? (
+              <SocialGrowthCards
+                accounts={scopedGrowth.length > 0 ? scopedGrowth : growth}
+                focusAccountId={focusAccountId}
+                onFocusAccount={onFocusAccount}
+              />
+            ) : null}
 
             <p className="text-sm text-muted-foreground">{briefingHint}</p>
 
@@ -183,17 +228,12 @@ export function SocialDashboard({
                 campaigns={activeCampaigns.length}
                 recent={queues.recentPublished.length}
                 activeFilter={filter === 'analytics' ? 'all' : filter}
-                onFilter={(f) => {
-                  onFilter(f);
-                  if (f === 'analytics') setAnalyticsOpen(true);
-                }}
+                onFilter={onFilter}
               />
               <div className="flex flex-wrap items-center gap-1">
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    render={
-                      <Button type="button" size="xs" variant="secondary" />
-                    }
+                    render={<Button type="button" size="xs" variant="secondary" />}
                   >
                     <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
                     {t('social.agent_ask_many')}
@@ -213,29 +253,45 @@ export function SocialDashboard({
                 <Button type="button" size="xs" variant="ghost" onClick={onPollComments}>
                   {t('social.hub.poll_comments')}
                 </Button>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => setAnalyticsOpen((v) => !v)}
-                >
-                  {analyticsOpen
-                    ? t('social.agent_analytics_hide')
-                    : t('social.agent_action_analytics')}
-                </Button>
               </div>
             </div>
           </>
         ) : (
-          <SocialStats
-            drafts={stats.drafts}
-            scheduled={stats.scheduled}
-            attention={stats.attention}
-            campaigns={activeCampaigns.length}
-            recent={queues.recentPublished.length}
-            activeFilter={filter === 'analytics' ? 'all' : filter}
-            onFilter={onFilter}
-          />
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                type="button"
+                size="xs"
+                variant={focusAccountId == null ? 'secondary' : 'ghost'}
+                onClick={() => onFocusAccount(null)}
+              >
+                {t('social.agent_presence_all')}
+              </Button>
+              {accounts.map((acc) => (
+                <Button
+                  key={acc.id}
+                  type="button"
+                  size="xs"
+                  variant={focusAccountId === acc.id ? 'secondary' : 'ghost'}
+                  className="max-w-[8rem]"
+                  onClick={() =>
+                    onFocusAccount(focusAccountId === acc.id ? null : acc.id)
+                  }
+                >
+                  <span className="truncate">{accountLabel(acc)}</span>
+                </Button>
+              ))}
+            </div>
+            <SocialStats
+              drafts={stats.drafts}
+              scheduled={stats.scheduled}
+              attention={stats.attention}
+              campaigns={activeCampaigns.length}
+              recent={queues.recentPublished.length}
+              activeFilter={filter === 'analytics' ? 'all' : filter}
+              onFilter={onFilter}
+            />
+          </div>
         )}
 
         {query.trim() ? (
@@ -356,14 +412,22 @@ export function SocialDashboard({
           />
         ) : null}
 
-        {(analyticsOpen || filter === 'analytics') && !compact ? (
-          <div className="isolate mt-1 flex max-h-[min(70vh,40rem)] flex-col gap-3 overflow-y-auto overflow-x-hidden border-t pt-4">
-            <h3 className="shrink-0 text-sm font-medium text-foreground">
-              {t('social.agent_action_analytics')}
-            </h3>
-            <SocialGrowthCards accounts={growth} />
-            <SocialReportsSection />
-          </div>
+        {!compact ? (
+          <Collapsible open={reportsOpen} onOpenChange={setReportsOpen} className="border-t pt-2">
+            <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <span>{t('social.agent_reports_section')}</span>
+              <HugeiconsIcon
+                icon={ChevronDownIcon}
+                className={cn('size-3.5 transition-transform', reportsOpen && 'rotate-180')}
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <p className="mb-2 px-1 text-xs text-muted-foreground">
+                {t('social.agent_reports_hint')}
+              </p>
+              <SocialReportsSection />
+            </CollapsibleContent>
+          </Collapsible>
         ) : null}
       </div>
     </div>

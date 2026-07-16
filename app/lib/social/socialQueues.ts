@@ -74,6 +74,15 @@ export function filterPostsByQuery(posts: SocialPost[], query: string): SocialPo
   });
 }
 
+/** Global presence = null; otherwise posts for one connected account. */
+export function filterPostsByAccount(
+  posts: SocialPost[],
+  accountId: string | null | undefined,
+): SocialPost[] {
+  if (!accountId) return posts;
+  return posts.filter((p) => p.accountId === accountId);
+}
+
 export function buildCampaignGroups(posts: SocialPost[]): SocialCampaignGroup[] {
   const map = new Map<string, SocialPost[]>();
   for (const p of posts) {

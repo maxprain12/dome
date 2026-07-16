@@ -1,106 +1,110 @@
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
-import { Building2Icon, InstagramIcon, Linkedin01Icon, MinusSignIcon, TradeDownIcon, TradeUpIcon, TwitterIcon } from '@hugeicons/core-free-icons';
+import {
+  Building2Icon,
+  InstagramIcon,
+  Linkedin01Icon,
+  MinusSignIcon,
+  TradeDownIcon,
+  TradeUpIcon,
+  TwitterIcon,
+} from '@hugeicons/core-free-icons';
 import type { SocialGrowthAccount, SocialProvider } from '@/components/social/socialTypes';
+import { cn } from '@/lib/utils';
 
-const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = { linkedin: Linkedin01Icon, instagram: InstagramIcon, x: TwitterIcon };
+const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
+  linkedin: Linkedin01Icon,
+  instagram: InstagramIcon,
+  x: TwitterIcon,
+};
 
-function Sparkline({ points }: { points: { t: number; followers: number | null }[] }) {
-  const values = points.map((p) => p.followers).filter((v): v is number => v != null);
-  if (values.length < 2) return null;
-  const w = 160;
-  const h = 36;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const coords = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * (w - 2) + 1;
-    const y = h - 3 - ((v - min) / span) * (h - 6);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  return (
-    <svg width={w} height={h} className="block" aria-hidden>
-      <polyline
-        points={coords.join(' ')}
-        fill="none"
-        stroke="var(--primary)"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-export default function SocialGrowthCards({ accounts }: { accounts: SocialGrowthAccount[] }) {
+/** Always-visible presence KPIs (compact strip). Click focuses that account. */
+export default function SocialGrowthCards({
+  accounts,
+  focusAccountId,
+  onFocusAccount,
+}: {
+  accounts: SocialGrowthAccount[];
+  focusAccountId?: string | null;
+  onFocusAccount?: (accountId: string | null) => void;
+}) {
   const { t } = useTranslation();
 
   if (accounts.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground">
-        {t('social.hub.growth_empty')}
-      </p>
+      <p className="text-xs text-muted-foreground">{t('social.hub.growth_empty')}</p>
     );
   }
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+    <div className="flex gap-2 overflow-x-auto pb-0.5">
       {accounts.map((acc) => {
-        const icon = acc.provider === 'linkedin' && acc.accountKind === 'organization'
-          ? Building2Icon
-          : PROVIDER_ICONS[acc.provider];
+        const icon =
+          acc.provider === 'linkedin' && acc.accountKind === 'organization'
+            ? Building2Icon
+            : PROVIDER_ICONS[acc.provider];
         const delta = acc.delta;
-        const deltaIcon = delta == null || delta === 0 ? MinusSignIcon : delta > 0 ? TradeUpIcon : TradeDownIcon;
-        const deltaColor = delta == null || delta === 0
-          ? 'var(--muted-foreground)'
-          : delta > 0 ? 'var(--success)' : 'var(--destructive)';
+        const deltaIcon =
+          delta == null || delta === 0
+            ? MinusSignIcon
+            : delta > 0
+              ? TradeUpIcon
+              : TradeDownIcon;
+        const deltaColor =
+          delta == null || delta === 0
+            ? 'text-muted-foreground'
+            : delta > 0
+              ? 'text-success'
+              : 'text-destructive';
+        const unavailable =
+          acc.followersUnavailable === 'linkedin_member' ||
+          (acc.provider === 'linkedin' &&
+            (acc.accountKind || 'member') === 'member' &&
+            acc.latest?.followers == null);
+        const active = focusAccountId === acc.accountId;
+        const label = acc.handle || acc.displayName || acc.provider;
+
         return (
-          <div
+          <button
             key={acc.accountId}
-            className="rounded-lg px-4 py-3"
-            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-          >
-            <div className="flex items-center gap-2 mb-1.5">
-              <HugeiconsIcon icon={icon} className="size-4 shrink-0 text-primary" />
-              <span className="text-sm font-medium truncate text-foreground">
-                {acc.handle || acc.displayName || acc.provider}
-              </span>
-            </div>
-            {acc.latest?.followers != null ? (
-              <>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-semibold text-foreground">
-                    {Intl.NumberFormat().format(acc.latest.followers)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('social.hub.growth_followers')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 mt-0.5 text-xs" style={{ color: deltaColor }}>
-                  <HugeiconsIcon icon={deltaIcon} className="size-3" />
-                  {delta == null ? '—' : `${delta > 0 ? '+' : ''}${Intl.NumberFormat().format(delta)}`}
-                </div>
-                <div className="mt-2">
-                  <Sparkline points={acc.points} />
-                </div>
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                  {acc.latest.following != null && (
-                    <span>{t('social.hub.growth_following')}: {Intl.NumberFormat().format(acc.latest.following)}</span>
-                  )}
-                  {acc.latest.postsCount != null && (
-                    <span>{t('social.hub.growth_posts')}: {Intl.NumberFormat().format(acc.latest.postsCount)}</span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="line-clamp-3 text-xs text-muted-foreground">
-                {acc.followersUnavailable === 'linkedin_member' ||
-                (acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'member')
-                  ? t('social.hub.growth_unavailable_linkedin_member')
-                  : t('social.hub.growth_pending')}
-              </p>
+            type="button"
+            onClick={() =>
+              onFocusAccount?.(active ? null : acc.accountId)
+            }
+            title={
+              unavailable
+                ? t('social.hub.growth_unavailable_linkedin_member')
+                : `${acc.provider} · ${label}`
+            }
+            className={cn(
+              'flex min-w-[8.5rem] max-w-[11rem] shrink-0 flex-col gap-0.5 rounded-md border px-2.5 py-2 text-left transition-colors',
+              active
+                ? 'border-primary/50 bg-accent'
+                : 'border-border bg-card hover:bg-accent/60',
             )}
-          </div>
+          >
+            <span className="flex min-w-0 items-center gap-1.5">
+              <HugeiconsIcon icon={icon} className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate text-xs font-medium text-foreground">{label}</span>
+            </span>
+            {acc.latest?.followers != null ? (
+              <span className="flex items-baseline gap-1.5">
+                <span className="text-base font-semibold tabular-nums text-foreground">
+                  {Intl.NumberFormat().format(acc.latest.followers)}
+                </span>
+                <span className={cn('inline-flex items-center gap-0.5 text-[11px] tabular-nums', deltaColor)}>
+                  <HugeiconsIcon icon={deltaIcon} className="size-2.5" />
+                  {delta == null
+                    ? '—'
+                    : `${delta > 0 ? '+' : ''}${Intl.NumberFormat().format(delta)}`}
+                </span>
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                {unavailable ? t('social.agent_presence_na') : t('social.hub.growth_pending')}
+              </span>
+            )}
+          </button>
         );
       })}
     </div>

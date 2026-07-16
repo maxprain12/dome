@@ -4,6 +4,7 @@ import {
   buildCampaignGroups,
   buildSocialQueues,
   computeSocialStats,
+  filterPostsByAccount,
   filterPostsByQuery,
   postSnippet,
 } from './socialQueues';
@@ -80,6 +81,16 @@ describe('socialQueues', () => {
     expect(groups[0]?.published).toBe(1);
     expect(filterPostsByQuery(posts, 'hiring').map((p) => p.id)).toEqual(['3']);
     expect(postSnippet(post({ id: 'x', body: 'a'.repeat(100) })).endsWith('…')).toBe(true);
+  });
+
+  it('filters by account for presence focus', () => {
+    const posts = [
+      post({ id: '1', accountId: 'a' }),
+      post({ id: '2', accountId: 'b' }),
+      post({ id: '3', accountId: 'a' }),
+    ];
+    expect(filterPostsByAccount(posts, null).map((p) => p.id)).toEqual(['1', '2', '3']);
+    expect(filterPostsByAccount(posts, 'a').map((p) => p.id)).toEqual(['1', '3']);
   });
 
   it('computes agent stats', () => {

@@ -40,6 +40,7 @@ export default function SocialHubView() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<SocialFilter>('all');
+  const [focusAccountId, setFocusAccountId] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailMode>({ kind: 'none' });
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
@@ -281,6 +282,8 @@ export default function SocialHubView() {
               setFilter(f);
               if (f !== 'campaigns') setSelectedCampaignId(null);
             }}
+            focusAccountId={focusAccountId}
+            onFocusAccount={setFocusAccountId}
             selectedId={selectedPostId}
             selectedCampaignId={selectedCampaignId}
             onOpenPost={(post) => setDetail({ kind: 'post', post })}
