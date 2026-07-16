@@ -70,6 +70,12 @@ export type VolatileSourceOptions = {
     title: string;
     identities?: Array<{ source: string; externalId: string; displayLabel?: string | null }>;
   }>;
+  pinnedSources?: Array<{
+    kind: 'issue' | 'email' | 'social_post';
+    id: string;
+    title: string;
+    meta?: Record<string, unknown> | null;
+  }>;
   activeResource?: { id: string; title: string; type?: string } | null;
   dateLine?: string;
   taskLine?: string;
@@ -169,6 +175,25 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
       .join('\n');
     blocks.push(
       `**mentioned-people** — ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.\n${lines}`,
+    );
+  }
+
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources
+      .map((src) => {
+        const repo =
+          src.kind === 'issue' && typeof src.meta?.fullName === 'string'
+            ? ` repo=${src.meta.fullName}`
+            : '';
+        const folder =
+          src.kind === 'email' && typeof src.meta?.folder === 'string'
+            ? ` folder=${src.meta.folder}`
+            : '';
+        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}`;
+      })
+      .join('\n');
+    blocks.push(
+      `**mentioned-sources** — ${opts.pinnedSources.length} item(s). Prefer domain tools (GitHub issues / email / social) with these ids; do not invent ids.\n${lines}`,
     );
   }
 

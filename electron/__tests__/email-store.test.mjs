@@ -107,6 +107,24 @@ describe('email-store', () => {
     assert.equal(msg.body_html, '<p>hi</p>');
   });
 
+  it('resolveMessageRef maps emsg-… row ids to IMAP uid + folder', () => {
+    const folder = emailStore.upsertFolder('acc-1', 'INBOX');
+    const dbId = emailStore.upsertEnvelope('acc-1', folder.id, {
+      id: '99',
+      subject: 'Pinned',
+      from: { name: 'Ada', addr: 'ada@example.com' },
+      date: '2026-01-02T00:00:00Z',
+    });
+    assert.ok(String(dbId).startsWith('emsg-'));
+    const resolved = emailStore.resolveMessageRef(dbId, { accountId: 'acc-1' });
+    assert.equal(resolved.uid, '99');
+    assert.equal(resolved.folder, 'INBOX');
+    assert.equal(resolved.accountId, 'acc-1');
+    const byUid = emailStore.resolveMessageRef('99', { accountId: 'acc-1', folder: 'INBOX' });
+    assert.equal(byUid.uid, '99');
+    assert.equal(emailStore.resolveMessageRef('emsg-deadbeef'), null);
+  });
+
   it('extractAddressesFromEnvelope pulls from/to/cc', () => {
     const addrs = emailStore.extractAddressesFromEnvelope({
       from: { addr: 'a@x.com', name: 'A' },
@@ -115,5 +133,33 @@ describe('email-store', () => {
     });
     assert.equal(addrs.length, 3);
     assert.ok(addrs.some((a) => a.email === 'a@x.com'));
+  });
+
+  it('normalizes Himalaya from[{name,email}] and does not wipe on sparse upsert', () => {
+    const folder = emailStore.upsertFolder('acc-2', 'INBOX');
+    emailStore.upsertEnvelope('acc-2', folder.id, {
+      id: '7',
+      subject: 'Promo pizza',
+      from: [{ name: 'Popolare', email: 'hello@popolare.fr' }],
+      flags: [{ iana: 'seen', raw: '\\Seen' }],
+      'message-id': '<abc@x>',
+      'has-attachment': false,
+      date: '2026-07-01T12:00:00Z',
+    });
+    // Sparse upsert (old read-path bug) must keep subject/from.
+    emailStore.upsertEnvelope('acc-2', folder.id, { id: '7' });
+    const list = emailStore.listCachedEnvelopes('acc-2', 'INBOX');
+    assert.equal(list.length, 1);
+    assert.equal(list[0].subject, 'Promo pizza');
+    assert.equal(list[0].from?.addr, 'hello@popolare.fr');
+    assert.equal(list[0].from?.name, 'Popolare');
+    assert.ok(list[0].flags.includes('seen'));
+
+    const live = emailStore.normalizeEnvelope({
+      id: '9',
+      subject: 'Live',
+      from: [{ name: 'Ada', email: 'ada@x.com' }],
+    });
+    assert.equal(live.from.addr, 'ada@x.com');
   });
 });

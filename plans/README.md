@@ -29,6 +29,10 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 017 | Escritura de memoria por acción + relevancia | P0 | L | 015, 016 | DONE |
 | 018 | Providers: comments + DM | P0 | XL | 014, 012 | IN PROGRESS |
 | 019 | Calendar event inline side panel (no overlay) | P1 | M | — | DONE |
+| 020 | Seguimiento full surface inline detail (Minimal + Developer) | P1 | L | 019 | DONE |
+| 021 | Seguimiento dashboard único (no técnico) | P1 | L | 020 | DONE |
+| 022 | ⌘K buscador unificado (no técnico) | P1 | L | 006, 021 | DONE |
+| 023 | Correo superficie agentica (no cliente clásico) | P1 | L | 010, 004, 021 | DONE |
 
 ## Dependency graph
 

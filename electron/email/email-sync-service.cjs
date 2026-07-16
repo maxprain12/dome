@@ -34,7 +34,7 @@ function broadcast(channel, payload) {
  * Sync INBOX (and Sent if present) for one account.
  * Bodies are NOT fetched here — lazy on read.
  */
-async function syncAccount(accountId, { projectId = null, maxPages = 2, pageSize = 50 } = {}) {
+async function syncAccount(accountId, { projectId = null, maxPages = 5, pageSize = 100 } = {}) {
   if (!accountId) throw new Error('accountId required');
 
   const foldersRes = await himalaya.listFolders(accountId, projectId);
@@ -55,7 +55,11 @@ async function syncAccount(accountId, { projectId = null, maxPages = 2, pageSize
 
   let upserted = 0;
   const peopleStore = require('../people/people-store.cjs');
-  const accountRow = himalaya.listAccounts?.(projectId)?.find?.((a) => a.id === accountId);
+  const listedAccounts = himalaya.listAccounts?.(projectId);
+  const accountsList = Array.isArray(listedAccounts)
+    ? listedAccounts
+    : listedAccounts?.accounts || [];
+  const accountRow = accountsList.find((a) => a.id === accountId);
   const peopleProjectId = accountRow?.project_id || projectId || 'default';
 
   for (const folder of targets) {
@@ -64,11 +68,14 @@ async function syncAccount(accountId, { projectId = null, maxPages = 2, pageSize
 
     try {
       for (let page = 1; page <= maxPages; page += 1) {
+        // Always fetch live during sync — source=auto would return the local
+        // cache and never refresh Himalaya (stuck on 1 wiped envelope).
         const res = await himalaya.listEnvelopes(accountId, {
           folder: folder.name,
           page,
           pageSize,
           projectId,
+          source: 'live',
         });
         if (!res.success) throw new Error(res.error || 'listEnvelopes failed');
         const envelopes = res.envelopes || [];
@@ -122,7 +129,9 @@ async function syncNow({ accountId = null, projectId = null } = {}) {
   broadcast('email:sync:status', getStatus());
 
   try {
-    const accounts = himalaya.listAccounts(projectId) || [];
+    // listAccounts() returns `{ success, accounts }` — not a bare array.
+    const listed = himalaya.listAccounts(projectId);
+    const accounts = Array.isArray(listed) ? listed : listed?.accounts || [];
     const targets = accountId
       ? accounts.filter((a) => a.id === accountId)
       : accounts.filter((a) => a.status !== 'error');

@@ -323,12 +323,22 @@ function register({ ipcMain, windowManager }) {
   });
 
   // --- mutations (bidirectional) -----------------------------------------
+  const touchIssueSearchIndex = (issueId) => {
+    try {
+      const sourceIndex = require('../../search/source-index.cjs');
+      sourceIndex.indexGithubIssueById(issueId);
+    } catch (err) {
+      console.warn('[github IPC] source index upsert failed:', err?.message || err);
+    }
+  };
+
   ipcMain.handle('github:issues:update', async (event, id, patch) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
       const { issue, changed } = store.updateLocalIssue(id, patch);
       if (changed) {
+        touchIssueSearchIndex(id);
         notifyLocalChange();
         scheduleSync(projectIdForIssue(id));
       }
@@ -348,6 +358,7 @@ function register({ ipcMain, windowManager }) {
       if (milestoneNumber !== undefined) patch.milestoneNumber = milestoneNumber;
       const { issue, changed } = store.updateLocalIssue(id, patch);
       if (changed) {
+        touchIssueSearchIndex(id);
         notifyLocalChange();
         scheduleSync(projectIdForIssue(id));
       }
@@ -364,6 +375,7 @@ function register({ ipcMain, windowManager }) {
       const check = assertRepoInProject(repoId, data?.projectId);
       if (!check.ok) return fail(check.error);
       const issue = await syncService.createIssue(repoId, data);
+      if (issue?.id) touchIssueSearchIndex(issue.id);
       return ok({ issue });
     } catch (err) {
       return fail(err);

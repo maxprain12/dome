@@ -4,6 +4,7 @@ import {
   mergeMentionResults,
   personToMentionItem,
   resourceToMentionItem,
+  sourceHitToMentionItem,
   type MentionItem,
 } from '@/lib/chat/mentionItems';
 
@@ -69,8 +70,39 @@ async function loadPeopleMentions(
   }
 }
 
+async function loadSourceMentions(
+  projectId: string,
+  query: string,
+): Promise<MentionItem[]> {
+  const searchApi = typeof window !== 'undefined' ? window.electron?.db?.search : null;
+  if (!searchApi) return [];
+
+  try {
+    const trimmed = query.trim().replace(/^@/, '');
+    if (trimmed.length === 0) {
+      if (!searchApi.recentSources) return [];
+      const recent = await searchApi.recentSources(projectId, 5);
+      const hits = recent?.success ? recent.data : null;
+      if (!Array.isArray(hits)) return [];
+      return hits
+        .filter((hit) => hit.kind !== 'person') // people come from people:list
+        .map((hit) => sourceHitToMentionItem(hit));
+    }
+
+    if (!searchApi.unified) return [];
+    const result = await searchApi.unified(trimmed, projectId);
+    const hits = result?.success ? result.data?.sources : null;
+    if (!Array.isArray(hits)) return [];
+    return hits
+      .filter((hit) => hit.kind !== 'person')
+      .map((hit) => sourceHitToMentionItem(hit));
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Unified @-mention picker: people first, then workspace resources.
+ * Unified @-mention picker: people, tasks/mail/posts, then workspace resources.
  */
 export function useResourceMention({
   input,
@@ -92,36 +124,40 @@ export function useResourceMention({
     async (query: string) => {
       const electron = typeof window !== 'undefined' ? window.electron : null;
       const dbResources = electron?.db?.resources;
-      if (!dbResources?.listLight || !dbResources?.searchForMention) return;
-
       const scopedProjectId = projectId || 'default';
       const trimmed = query.trim();
 
       try {
         const peoplePromise = loadPeopleMentions(scopedProjectId, trimmed);
+        const sourcesPromise = loadSourceMentions(scopedProjectId, trimmed);
         let resources: MentionItem[] = [];
 
-        if (trimmed.length === 0) {
-          const listResult = await dbResources.listLight(25, scopedProjectId);
-          if (listResult?.success && Array.isArray(listResult.data)) {
-            resources = mapDbResources(listResult.data);
-          }
-        } else {
-          const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
-          if (searchResult?.success && Array.isArray(searchResult.data)) {
-            resources = mapDbResources(searchResult.data);
-          }
-
-          if (resources.length === 0) {
-            const listResult = await dbResources.listLight(50, scopedProjectId);
+        if (dbResources?.listLight && dbResources?.searchForMention) {
+          if (trimmed.length === 0) {
+            const listResult = await dbResources.listLight(25, scopedProjectId);
             if (listResult?.success && Array.isArray(listResult.data)) {
-              resources = filterResourcesByQuery(mapDbResources(listResult.data), trimmed);
+              resources = mapDbResources(listResult.data);
+            }
+          } else {
+            const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
+            if (searchResult?.success && Array.isArray(searchResult.data)) {
+              resources = mapDbResources(searchResult.data);
+            }
+
+            if (resources.length === 0) {
+              const listResult = await dbResources.listLight(50, scopedProjectId);
+              if (listResult?.success && Array.isArray(listResult.data)) {
+                resources = filterResourcesByQuery(mapDbResources(listResult.data), trimmed);
+              }
             }
           }
         }
 
-        const people = await peoplePromise;
-        setMentionResources(mergeMentionResults(people, resources, 25));
+        const [people, sources] = await Promise.all([peoplePromise, sourcesPromise]);
+        const issues = sources.filter((s) => s.kind === 'issue');
+        const emails = sources.filter((s) => s.kind === 'email');
+        const posts = sources.filter((s) => s.kind === 'social_post');
+        setMentionResources(mergeMentionResults([people, issues, emails, posts, resources], 30));
         setMentionSelectedIdx(0);
       } catch {
         setMentionResources([]);
@@ -167,8 +203,6 @@ export function useResourceMention({
         const charBefore = atIdx === 0 ? ' ' : textUpToCursor[atIdx - 1];
         const validTrigger = atIdx === 0 || /\s/.test(charBefore ?? '');
         const afterAt = textUpToCursor.slice(atIdx + 1);
-        // Allow markdown person tokens while typing: [@name](person:id) closes the picker
-        // once a space appears after a plain query.
         if (validTrigger && !afterAt.includes(' ') && !afterAt.includes('\n')) {
           setMentionQuery(afterAt);
           setMentionActive(true);

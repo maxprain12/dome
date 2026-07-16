@@ -3629,8 +3629,9 @@ async function emailReadMessage({ message_id, folder } = {}, toolContext) {
     const bodyPayload = agentEmailBodyPayload(res.message);
     return {
       status: 'success',
-      message_id: String(message_id),
-      folder: folder || 'INBOX',
+      // Prefer resolved IMAP uid (pins/search may pass Dome emsg-… ids).
+      message_id: res.messageId != null ? String(res.messageId) : String(message_id),
+      folder: res.folder || folder || 'INBOX',
       ...bodyPayload,
     };
   } catch (err) {

@@ -128,6 +128,17 @@ ${opts.userMemory.trim()}`);
 ${lines}`
     );
   }
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources.map((src) => {
+      const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
+      const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
+      return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Prefer domain tools (GitHub issues / email / social) with these ids; do not invent ids.
+${lines}`
+    );
+  }
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {
     const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
     blocks.push(

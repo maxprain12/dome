@@ -9,7 +9,7 @@
 const database = require('../core/database.cjs');
 
 const KINDS = new Set(['issue', 'email', 'person', 'social_post']);
-const DOMAIN_CAP = 5;
+const DOMAIN_CAP = 12;
 
 const db = () => database.getDB();
 const now = () => Date.now();
@@ -88,18 +88,30 @@ function removeByKindPrefix(kind, projectId = null) {
   db().prepare('DELETE FROM source_documents WHERE kind = ?').run(kind);
 }
 
-/**
- * @param {string} sanitizedFtsQuery — already quoted FTS terms
- * @param {{ projectId?: string, limitPerKind?: number }} [opts]
- */
-function searchDocuments(sanitizedFtsQuery, opts = {}) {
-  if (!sanitizedFtsQuery) return [];
-  const limit = Math.min(Math.max(Number(opts.limitPerKind) || DOMAIN_CAP, 1), 20);
-  const projectId = opts.projectId;
+function mapDocRow(row, limit, counts, out) {
+  const n = counts[row.kind] || 0;
+  if (n >= limit) return;
+  counts[row.kind] = n + 1;
+  let meta = null;
+  try {
+    meta = row.meta_json ? JSON.parse(row.meta_json) : null;
+  } catch {
+    meta = null;
+  }
+  out.push({
+    kind: row.kind,
+    id: row.source_id,
+    docId: row.id,
+    projectId: row.project_id,
+    title: row.title,
+    snippet: row.body_snippet || row.title_snippet || (row.body || '').slice(0, 120),
+    meta,
+  });
+}
 
-  let rows;
+function searchDocumentsFts(sanitizedFtsQuery, limit, projectId) {
   if (projectId) {
-    rows = db()
+    return db()
       .prepare(
         `SELECT d.id, d.kind, d.source_id, d.project_id, d.title, d.body, d.meta_json,
                 snippet(source_documents_fts, 1, '', '', '…', 12) AS title_snippet,
@@ -112,45 +124,121 @@ function searchDocuments(sanitizedFtsQuery, opts = {}) {
          LIMIT ?`,
       )
       .all(sanitizedFtsQuery, projectId, limit * KINDS.size);
-  } else {
-    rows = db()
-      .prepare(
-        `SELECT d.id, d.kind, d.source_id, d.project_id, d.title, d.body, d.meta_json,
-                snippet(source_documents_fts, 1, '', '', '…', 12) AS title_snippet,
-                snippet(source_documents_fts, 2, '', '', '…', 24) AS body_snippet
-         FROM source_documents_fts fts
-         JOIN source_documents d ON d.id = fts.doc_id
-         WHERE source_documents_fts MATCH ?
-         ORDER BY rank
-         LIMIT ?`,
-      )
-      .all(sanitizedFtsQuery, limit * KINDS.size);
+  }
+  return db()
+    .prepare(
+      `SELECT d.id, d.kind, d.source_id, d.project_id, d.title, d.body, d.meta_json,
+              snippet(source_documents_fts, 1, '', '', '…', 12) AS title_snippet,
+              snippet(source_documents_fts, 2, '', '', '…', 24) AS body_snippet
+       FROM source_documents_fts fts
+       JOIN source_documents d ON d.id = fts.doc_id
+       WHERE source_documents_fts MATCH ?
+       ORDER BY rank
+       LIMIT ?`,
+    )
+    .all(sanitizedFtsQuery, limit * KINDS.size);
+}
+
+/** Substring fallback when FTS returns nothing (empty index, odd tokenization). */
+function searchDocumentsLike(rawTerms, limit, projectId) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) return [];
+  const termClauses = rawTerms.map(() => '(LOWER(d.title) LIKE ? OR LOWER(d.body) LIKE ?)').join(' AND ');
+  const params = rawTerms.flatMap((t) => {
+    const pat = `%${String(t).toLowerCase().replace(/[%_]/g, '')}%`;
+    return [pat, pat];
+  });
+  let sql = `SELECT d.id, d.kind, d.source_id, d.project_id, d.title, d.body, d.meta_json,
+                    NULL AS title_snippet, SUBSTR(d.body, 1, 120) AS body_snippet
+             FROM source_documents d
+             WHERE ${termClauses}`;
+  if (projectId) {
+    sql += ' AND d.project_id = ?';
+    params.push(projectId);
+  }
+  sql += ' ORDER BY d.updated_at DESC LIMIT ?';
+  params.push(limit * KINDS.size);
+  return db().prepare(sql).all(...params);
+}
+
+/**
+ * @param {string} sanitizedFtsQuery — already quoted FTS terms
+ * @param {{ projectId?: string, limitPerKind?: number, rawTerms?: string[] }} [opts]
+ */
+function searchDocuments(sanitizedFtsQuery, opts = {}) {
+  if (!sanitizedFtsQuery && !(opts.rawTerms && opts.rawTerms.length)) return [];
+  const limit = Math.min(Math.max(Number(opts.limitPerKind) || DOMAIN_CAP, 1), 20);
+  const projectId = opts.projectId;
+
+  let rows = sanitizedFtsQuery ? searchDocumentsFts(sanitizedFtsQuery, limit, projectId) : [];
+  if (rows.length === 0 && Array.isArray(opts.rawTerms) && opts.rawTerms.length > 0) {
+    rows = searchDocumentsLike(opts.rawTerms, limit, projectId);
   }
 
-  // Cap per kind
   const counts = Object.create(null);
   const out = [];
   for (const row of rows) {
-    const n = counts[row.kind] || 0;
-    if (n >= limit) continue;
-    counts[row.kind] = n + 1;
-    let meta = null;
-    try {
-      meta = row.meta_json ? JSON.parse(row.meta_json) : null;
-    } catch {
-      meta = null;
-    }
-    out.push({
-      kind: row.kind,
-      id: row.source_id,
-      docId: row.id,
-      projectId: row.project_id,
-      title: row.title,
-      snippet: row.body_snippet || row.title_snippet || (row.body || '').slice(0, 120),
-      meta,
-    });
+    mapDocRow(row, limit, counts, out);
   }
   return out;
+}
+
+function countDocuments(kind, projectId = null) {
+  if (projectId) {
+    return (
+      db()
+        .prepare('SELECT COUNT(*) AS n FROM source_documents WHERE kind = ? AND project_id = ?')
+        .get(kind, projectId)?.n || 0
+    );
+  }
+  return db().prepare('SELECT COUNT(*) AS n FROM source_documents WHERE kind = ?').get(kind)?.n || 0;
+}
+
+function selectedRepos(projectId = null) {
+  const store = require('../github/github-store.cjs');
+  if (projectId) {
+    return store.listRepos(projectId).filter((r) => Number(r.selected) === 1);
+  }
+  return store.listSelectedRepos();
+}
+
+function countGithubIssuesForProject(projectId = null) {
+  const store = require('../github/github-store.cjs');
+  let n = 0;
+  for (const repo of selectedRepos(projectId)) {
+    n += store.countIssues(repo.id);
+  }
+  return n;
+}
+
+/**
+ * Index a single github_issues row into source_documents (Cmd+K).
+ * Safe to call after create/update/sync.
+ */
+function indexGithubIssue(issue, repo) {
+  if (!issue || !repo || Number(issue.is_pull_request) === 1) return null;
+  const pid = repo.project_id || 'default';
+  return upsertDocument({
+    kind: 'issue',
+    sourceId: issue.id,
+    projectId: pid,
+    title: `#${issue.number} ${issue.title || ''}`.trim(),
+    body: String(issue.body || '').slice(0, 20_000),
+    meta: {
+      number: issue.number,
+      state: issue.state,
+      repoId: repo.id,
+      fullName: repo.full_name,
+    },
+  });
+}
+
+function indexGithubIssueById(issueId) {
+  const store = require('../github/github-store.cjs');
+  const issue = store.getIssue(issueId);
+  if (!issue) return null;
+  const repo = store.getRepo(issue.repo_id);
+  if (!repo) return null;
+  return indexGithubIssue(issue, repo);
 }
 
 function indexGithubIssues(projectId = null) {
@@ -158,27 +246,86 @@ function indexGithubIssues(projectId = null) {
   const repos = projectId ? store.listRepos(projectId) : store.listSelectedRepos();
   let n = 0;
   for (const repo of repos) {
-    if (!repo.selected && projectId) continue;
-    const pid = repo.project_id || projectId || 'default';
+    if (projectId && Number(repo.selected) !== 1) continue;
     const issues = store.listIssues(repo.id);
     for (const issue of issues) {
-      upsertDocument({
-        kind: 'issue',
-        sourceId: issue.id,
-        projectId: pid,
-        title: `#${issue.number} ${issue.title || ''}`.trim(),
-        body: String(issue.body || '').slice(0, 20_000),
-        meta: {
-          number: issue.number,
-          state: issue.state,
-          repoId: repo.id,
-          fullName: repo.full_name,
-        },
-      });
+      indexGithubIssue(issue, repo);
       n += 1;
     }
   }
   return n;
+}
+
+/**
+ * Lazy warm the issue FTS index when github_issues has rows but source_documents
+ * is empty/behind (common when Seguimiento shows tasks but ⌘K never synced index).
+ */
+function ensureGithubIssuesIndexed(projectId = null) {
+  try {
+    const available = countGithubIssuesForProject(projectId);
+    if (available === 0) return 0;
+    const indexed = countDocuments('issue', projectId);
+    if (indexed === 0 || available > indexed) {
+      return indexGithubIssues(projectId);
+    }
+  } catch (err) {
+    console.warn('[source-index] ensureGithubIssuesIndexed:', err?.message || err);
+  }
+  return 0;
+}
+
+/**
+ * Direct SQL over github_issues when the FTS layer still misses (empty index race).
+ * @param {string[]} rawTerms
+ * @param {string|null} projectId
+ * @param {number} [limit]
+ */
+function searchGithubIssuesDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) return [];
+  const cap = Math.min(Math.max(Number(limit) || DOMAIN_CAP, 1), 20);
+  const termClauses = rawTerms
+    .map(() => '(LOWER(i.title) LIKE ? OR LOWER(COALESCE(i.body, \'\')) LIKE ? OR CAST(i.number AS TEXT) = ?)')
+    .join(' AND ');
+  const params = rawTerms.flatMap((t) => {
+    const raw = String(t).toLowerCase().replace(/[%_]/g, '');
+    const pat = `%${raw}%`;
+    return [pat, pat, raw.replace(/^#/, '')];
+  });
+
+  let sql = `SELECT i.id AS source_id, i.number, i.title, i.body, i.state, i.repo_id,
+                    r.full_name, r.project_id
+             FROM github_issues i
+             JOIN github_repos r ON r.id = i.repo_id
+             WHERE i.is_pull_request = 0
+               AND r.selected = 1
+               AND ${termClauses}`;
+  if (projectId) {
+    sql += ' AND r.project_id = ?';
+    params.push(projectId);
+  }
+  sql += ' ORDER BY i.number DESC LIMIT ?';
+  params.push(cap);
+
+  try {
+    const rows = db().prepare(sql).all(...params);
+    return rows.map((row) => ({
+      kind: 'issue',
+      id: row.source_id,
+      docId: docId('issue', row.source_id),
+      projectId: row.project_id || 'default',
+      title: `#${row.number} ${row.title || ''}`.trim(),
+      snippet: String(row.body || '').slice(0, 120),
+      meta: {
+        number: row.number,
+        state: row.state,
+        repoId: row.repo_id,
+        fullName: row.full_name,
+      },
+    }));
+  } catch (err) {
+    console.warn('[source-index] searchGithubIssuesDirect:', err?.message || err);
+    return [];
+  }
 }
 
 function indexPeople(projectId = null) {
@@ -284,11 +431,11 @@ function indexEmailMessages(accountId = null) {
 function indexSocialPosts() {
   let rows = [];
   try {
+    // social_posts / social_accounts have no project_id — vault-global.
     rows = db()
       .prepare(
-        `SELECT p.*, a.project_id AS account_project_id
+        `SELECT p.*
          FROM social_posts p
-         LEFT JOIN social_accounts a ON a.id = p.account_id
          ORDER BY p.updated_at DESC
          LIMIT 2000`,
       )
@@ -301,7 +448,7 @@ function indexSocialPosts() {
     upsertDocument({
       kind: 'social_post',
       sourceId: row.id,
-      projectId: row.account_project_id || row.project_id || 'default',
+      projectId: 'default',
       title: String(row.body || '').slice(0, 80) || `Post ${row.id}`,
       body: [row.body, row.topics, row.link_url].filter(Boolean).join('\n'),
       meta: {
@@ -313,6 +460,279 @@ function indexSocialPosts() {
     n += 1;
   }
   return n;
+}
+
+function countPeopleForProject(projectId = null) {
+  if (projectId) {
+    return (
+      db().prepare('SELECT COUNT(*) AS n FROM people WHERE project_id = ?').get(projectId)?.n || 0
+    );
+  }
+  return db().prepare('SELECT COUNT(*) AS n FROM people').get()?.n || 0;
+}
+
+function countEmailsForProject(projectId = null) {
+  try {
+    if (projectId) {
+      return (
+        db()
+          .prepare(
+            `SELECT COUNT(*) AS n FROM email_messages m
+             JOIN email_accounts a ON a.id = m.account_id
+             WHERE a.project_id = ?`,
+          )
+          .get(projectId)?.n || 0
+      );
+    }
+    return db().prepare('SELECT COUNT(*) AS n FROM email_messages').get()?.n || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function countSocialForProject(_projectId = null) {
+  // Social is vault-global (no project_id on posts/accounts).
+  try {
+    return db().prepare('SELECT COUNT(*) AS n FROM social_posts').get()?.n || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function ensurePeopleIndexed(projectId = null) {
+  try {
+    const available = countPeopleForProject(projectId);
+    if (available === 0) return 0;
+    const indexed = countDocuments('person', projectId);
+    if (indexed === 0 || available > indexed) return indexPeople(projectId);
+  } catch (err) {
+    console.warn('[source-index] ensurePeopleIndexed:', err?.message || err);
+  }
+  return 0;
+}
+
+function ensureEmailIndexed(projectId = null) {
+  try {
+    const available = countEmailsForProject(projectId);
+    if (available === 0) return 0;
+    const indexed = countDocuments('email', projectId);
+    if (indexed === 0 || available > indexed) {
+      // indexEmailMessages() covers all accounts; project scoping is in the rows' project_id.
+      return indexEmailMessages();
+    }
+  } catch (err) {
+    console.warn('[source-index] ensureEmailIndexed:', err?.message || err);
+  }
+  return 0;
+}
+
+function ensureSocialIndexed(_projectId = null) {
+  try {
+    const available = countSocialForProject();
+    if (available === 0) return 0;
+    // Indexed under project_id 'default' (social has no vault scope).
+    const indexed = countDocuments('social_post', 'default');
+    if (indexed === 0 || available > indexed) return indexSocialPosts();
+  } catch (err) {
+    console.warn('[source-index] ensureSocialIndexed:', err?.message || err);
+  }
+  return 0;
+}
+
+/** Warm every integration FTS bucket used by ⌘K / @ mentions. */
+function ensureAllSourcesIndexed(projectId = null) {
+  return {
+    issue: ensureGithubIssuesIndexed(projectId),
+    person: ensurePeopleIndexed(projectId),
+    email: ensureEmailIndexed(projectId),
+    social_post: ensureSocialIndexed(projectId),
+  };
+}
+
+function searchPeopleDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) return [];
+  const peopleStore = require('../people/people-store.cjs');
+  const q = rawTerms.join(' ').trim();
+  if (!q) return [];
+  try {
+    const people = peopleStore.searchPeople(projectId || 'default', q, { limit });
+    return people.map((person) => ({
+      kind: 'person',
+      id: person.id,
+      docId: docId('person', person.id),
+      projectId: person.projectId || projectId || 'default',
+      title: person.displayName,
+      snippet: person.primaryEmail || '',
+      meta: {
+        identities: (person.identities || []).map((i) => ({
+          source: i.source,
+          externalId: i.externalId,
+        })),
+      },
+    }));
+  } catch (err) {
+    console.warn('[source-index] searchPeopleDirect:', err?.message || err);
+    return [];
+  }
+}
+
+function searchEmailDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) return [];
+  const cap = Math.min(Math.max(Number(limit) || DOMAIN_CAP, 1), 20);
+  const termClauses = rawTerms
+    .map(
+      () =>
+        `(LOWER(COALESCE(m.subject, '')) LIKE ? OR LOWER(COALESCE(m.snippet, '')) LIKE ? OR LOWER(COALESCE(m.from_json, '')) LIKE ?)`,
+    )
+    .join(' AND ');
+  const params = rawTerms.flatMap((t) => {
+    const pat = `%${String(t).toLowerCase().replace(/[%_]/g, '')}%`;
+    return [pat, pat, pat];
+  });
+  let sql = `SELECT m.id AS source_id, m.subject, m.snippet, m.from_json, m.uid, m.account_id,
+                    f.remote_name AS folder, a.project_id AS project_id
+             FROM email_messages m
+             JOIN email_folders f ON f.id = m.folder_id
+             JOIN email_accounts a ON a.id = m.account_id
+             WHERE ${termClauses}`;
+  if (projectId) {
+    sql += ' AND a.project_id = ?';
+    params.push(projectId);
+  }
+  sql += ' ORDER BY m.date_ms DESC LIMIT ?';
+  params.push(cap);
+  try {
+    return db()
+      .prepare(sql)
+      .all(...params)
+      .map((row) => ({
+        kind: 'email',
+        id: row.source_id,
+        docId: docId('email', row.source_id),
+        projectId: row.project_id || 'default',
+        title: row.subject || '(no subject)',
+        snippet: String(row.snippet || row.from_json || '').slice(0, 120),
+        meta: {
+          accountId: row.account_id,
+          folder: row.folder,
+          uid: row.uid,
+        },
+      }));
+  } catch (err) {
+    console.warn('[source-index] searchEmailDirect:', err?.message || err);
+    return [];
+  }
+}
+
+function searchSocialDirect(rawTerms, _projectId = null, limit = DOMAIN_CAP) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) return [];
+  const cap = Math.min(Math.max(Number(limit) || DOMAIN_CAP, 1), 20);
+  const termClauses = rawTerms
+    .map(
+      () =>
+        `(LOWER(COALESCE(p.body, '')) LIKE ? OR LOWER(COALESCE(p.topics, '')) LIKE ? OR LOWER(COALESCE(p.link_url, '')) LIKE ?)`,
+    )
+    .join(' AND ');
+  const params = rawTerms.flatMap((t) => {
+    const pat = `%${String(t).toLowerCase().replace(/[%_]/g, '')}%`;
+    return [pat, pat, pat];
+  });
+  // No project filter — social_posts/accounts have no project_id.
+  const sql = `SELECT p.id AS source_id, p.body, p.topics, p.provider, p.status, p.account_id
+             FROM social_posts p
+             WHERE ${termClauses}
+             ORDER BY p.updated_at DESC LIMIT ?`;
+  params.push(cap);
+  try {
+    return db()
+      .prepare(sql)
+      .all(...params)
+      .map((row) => ({
+        kind: 'social_post',
+        id: row.source_id,
+        docId: docId('social_post', row.source_id),
+        projectId: 'default',
+        title: String(row.body || '').slice(0, 80) || `Post ${row.source_id}`,
+        snippet: String(row.topics || '').slice(0, 120),
+        meta: {
+          provider: row.provider,
+          status: row.status,
+          accountId: row.account_id,
+        },
+      }));
+  } catch (err) {
+    console.warn('[source-index] searchSocialDirect:', err?.message || err);
+    return [];
+  }
+}
+
+/**
+ * Fill missing kinds after FTS/LIKE by querying domain tables directly.
+ * @param {Array<{kind: string}>} sources
+ * @param {string[]} rawTerms
+ * @param {string|null} projectId
+ */
+function enrichSourcesWithDirectFallback(sources, rawTerms, projectId = null) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) return sources || [];
+  const out = Array.isArray(sources) ? sources.slice() : [];
+  const has = (kind) => out.some((s) => s.kind === kind);
+  if (!has('issue')) out.push(...searchGithubIssuesDirect(rawTerms, projectId));
+  if (!has('person')) out.push(...searchPeopleDirect(rawTerms, projectId));
+  if (!has('email')) out.push(...searchEmailDirect(rawTerms, projectId));
+  if (!has('social_post')) out.push(...searchSocialDirect(rawTerms, projectId));
+  return out;
+}
+
+function listRecentSources(projectId = null, limitPerKind = 5) {
+  ensureAllSourcesIndexed(projectId);
+  const limit = Math.min(Math.max(Number(limitPerKind) || 5, 1), 12);
+  const out = [];
+  for (const kind of ['person', 'issue', 'email', 'social_post']) {
+    let rows;
+    try {
+      if (projectId) {
+        rows = db()
+          .prepare(
+            `SELECT id, kind, source_id, project_id, title, body, meta_json
+             FROM source_documents
+             WHERE kind = ? AND project_id = ?
+             ORDER BY updated_at DESC
+             LIMIT ?`,
+          )
+          .all(kind, projectId, limit);
+      } else {
+        rows = db()
+          .prepare(
+            `SELECT id, kind, source_id, project_id, title, body, meta_json
+             FROM source_documents
+             WHERE kind = ?
+             ORDER BY updated_at DESC
+             LIMIT ?`,
+          )
+          .all(kind, limit);
+      }
+    } catch {
+      rows = [];
+    }
+    for (const row of rows) {
+      let meta = null;
+      try {
+        meta = row.meta_json ? JSON.parse(row.meta_json) : null;
+      } catch {
+        meta = null;
+      }
+      out.push({
+        kind: row.kind,
+        id: row.source_id,
+        docId: row.id,
+        projectId: row.project_id,
+        title: row.title,
+        snippet: String(row.body || '').slice(0, 120),
+        meta,
+      });
+    }
+  }
+  return out;
 }
 
 /** Full rebuild in plan order: github → people → email → social. */
@@ -338,6 +758,19 @@ module.exports = {
   removeByKindPrefix,
   searchDocuments,
   indexGithubIssues,
+  indexGithubIssue,
+  indexGithubIssueById,
+  ensureGithubIssuesIndexed,
+  ensurePeopleIndexed,
+  ensureEmailIndexed,
+  ensureSocialIndexed,
+  ensureAllSourcesIndexed,
+  searchGithubIssuesDirect,
+  searchPeopleDirect,
+  searchEmailDirect,
+  searchSocialDirect,
+  enrichSourcesWithDirectFallback,
+  listRecentSources,
   indexPeople,
   indexEmailMessages,
   indexSocialPosts,

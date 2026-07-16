@@ -232,6 +232,7 @@ const ALLOWED_CHANNELS = {
     // Database - Search
     'db:search:unified',
     'db:search:reindexSources',
+    'db:search:recentSources',
     // Database - Settings
     'db:settings:get',
     'db:settings:set',
@@ -1376,6 +1377,8 @@ const electronHandler = {
     search: {
       unified: (query, projectId) => ipcRenderer.invoke('db:search:unified', query, projectId),
       reindexSources: (projectId) => ipcRenderer.invoke('db:search:reindexSources', projectId),
+      recentSources: (projectId, limitPerKind) =>
+        ipcRenderer.invoke('db:search:recentSources', projectId, limitPerKind),
     },
 
     // Flashcards

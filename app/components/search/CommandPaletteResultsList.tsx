@@ -5,12 +5,14 @@ import { ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import ResourceIcon from '@/components/shared/ResourceIcon';
 import { CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import type { PaletteRow, SearchResourceRow, SourceHitRow } from './commandPaletteTypes';
+import type { PaletteFilter, PaletteRow, SearchResourceRow, SourceHitRow } from './commandPaletteTypes';
+import { rowPassesFilter } from './commandPaletteTypes';
 
 export function CommandPaletteResultsList({
   showEmptyQuery,
   showNoResults,
   trimmedQuery,
+  filter,
   quickActions,
   navigationDestinations,
   filteredNav,
@@ -28,6 +30,7 @@ export function CommandPaletteResultsList({
   showEmptyQuery: boolean;
   showNoResults: boolean;
   trimmedQuery: string;
+  filter: PaletteFilter;
   quickActions: PaletteRow[];
   navigationDestinations: PaletteRow[];
   filteredNav: PaletteRow[];
@@ -67,12 +70,12 @@ export function CommandPaletteResultsList({
         ) : (
           <HugeiconsIcon icon={row.icon} className={row.kind === 'nav' ? 'text-primary' : 'text-muted-foreground'} />
         )}
-        <span className="min-w-0 flex-1 truncate text-sm">{row.label}</span>
-        {row.sublabel ? (
-          <span className="max-w-[40%] shrink-0 truncate text-xs tabular-nums text-muted-foreground">
-            {row.sublabel}
-          </span>
-        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm text-foreground">{row.label}</span>
+          {row.sublabel ? (
+            <span className="truncate text-xs text-muted-foreground">{row.sublabel}</span>
+          ) : null}
+        </div>
         {row.kind === 'nav' ? (
           <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5 shrink-0 opacity-40" />
         ) : null}
@@ -80,8 +83,10 @@ export function CommandPaletteResultsList({
     );
   };
 
-  const renderSourceGroup = (heading: string, hits: SourceHitRow[], prefix: string) => {
-    if (hits.length === 0) return null;
+  const showKind = (kind: PaletteRow['kind']) => rowPassesFilter(kind, filter);
+
+  const renderSourceGroup = (heading: string, hits: SourceHitRow[], prefix: string, kind: SourceHitRow['kind']) => {
+    if (!showKind(kind) || hits.length === 0) return null;
     return (
       <CommandGroup heading={heading}>
         {hits.map((hit) => {
@@ -111,7 +116,7 @@ export function CommandPaletteResultsList({
         </CommandGroup>
       ) : null}
 
-      {!showEmptyQuery && resources.length > 0 ? (
+      {!showEmptyQuery && showKind('resource') && resources.length > 0 ? (
         <CommandGroup heading={t('command.resources')}>
           {resources.map((r) => {
             const row = flatRows.find((x) => x.id === `resource:${r.id}`);
@@ -120,7 +125,7 @@ export function CommandPaletteResultsList({
         </CommandGroup>
       ) : null}
 
-      {!showEmptyQuery && interactions.length > 0 ? (
+      {!showEmptyQuery && showKind('interaction') && interactions.length > 0 ? (
         <CommandGroup heading={t('command.notes_annotations')}>
           {interactions.map((r, index) => {
             const row = flatRows.find((x) => x.id === `interaction:${r.id}:${index}`);
@@ -129,10 +134,10 @@ export function CommandPaletteResultsList({
         </CommandGroup>
       ) : null}
 
-      {!showEmptyQuery ? renderSourceGroup(t('command.people'), peopleHits, 'person') : null}
-      {!showEmptyQuery ? renderSourceGroup(t('command.issues'), issueHits, 'issue') : null}
-      {!showEmptyQuery ? renderSourceGroup(t('command.emails'), emailHits, 'email') : null}
-      {!showEmptyQuery ? renderSourceGroup(t('command.social_posts'), socialHits, 'social') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.people'), peopleHits, 'person', 'person') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.issues'), issueHits, 'issue', 'issue') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.emails'), emailHits, 'email', 'email') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.social_posts'), socialHits, 'social', 'social_post') : null}
 
       {showNoResults ? (
         <CommandEmpty className="px-4 py-10">

@@ -11,7 +11,9 @@ import { DatePicker } from '@/components/shared/DatePicker';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
+import { IssueLabelPills } from './IssueLabelPills';
+
 type MilestoneFull = GitHubMilestoneRow & { description?: string | null };
 
 function dueOnToInput(dueOn: number | null | undefined): string {
@@ -163,7 +165,7 @@ export default function MilestoneDetailModal({
       <Button disabled={saving}
   onClick={() => void save()}
   size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
-        {t('github.save_sync')}
+        {t('github.dash_save')}
       </Button>
     </div>
   ) : (
@@ -174,45 +176,44 @@ export default function MilestoneDetailModal({
   disabled={saving}
   onClick={() => void setMilestoneState('closed')}
   size="sm">
-            {t('github.milestone_detail_close')}
+            {t('github.dash_mark_done')}
           </Button>
         ) : (
           <Button variant="outline"
   disabled={saving}
   onClick={() => void setMilestoneState('open')}
   size="sm">
-            {t('github.milestone_detail_reopen')}
+            {t('github.dash_reopen')}
           </Button>
         )}
       </div>
       <Button variant="secondary"
   onClick={() => setEditing(true)}
   size="sm">{<HugeiconsIcon icon={PencilIcon} size={13} />}
-        {t('github.milestone_detail_edit')}
+        {t('github.dash_edit')}
       </Button>
     </div>
   );
 
   return (
-    <Sheet open onOpenChange={(next) => { if (!next) (onClose)(); }}><SheetContent className="flex h-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><SheetHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3 pr-12"><div className="flex min-w-0 items-center gap-3">{<span
-          className="inline-flex items-center justify-center rounded-md"
-          style={{
-            width: 28,
-            height: 28,
-            background: 'color-mix(in srgb, var(--primary) 12%, var(--background))',
-            color: 'var(--primary)',
-          }}
-        >
-          <HugeiconsIcon icon={Target02Icon} size={14} />
-        </span>}<div className="min-w-0"><SheetTitle className="truncate">{milestone?.title ?? t('github.milestone')}</SheetTitle>{milestone ? (
-          <SheetDescription className="truncate">
-            {t('github.milestone_detail_subtitle', {
+    <InlineDetailCard
+      onClose={onClose}
+      containerName="milestone-card"
+      title={milestone?.title ?? t('github.dash_objective')}
+      description={
+        milestone
+          ? t('github.dash_objective_subtitle', {
               open: milestone.open_issues,
               closed: milestone.closed_issues,
               pct: progressPct,
-            })}
-          </SheetDescription>
-        ) : null}</div></div><div className="flex shrink-0 items-center gap-2">{headerActions}</div></SheetHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            })
+          : undefined
+      }
+      icon={<HugeiconsIcon icon={Target02Icon} />}
+      badges={<div className="flex flex-wrap items-center gap-1.5">{headerActions}</div>}
+      footer={milestone ? footer : undefined}
+      className="h-full rounded-none border-0 ring-0 md:rounded-lg md:ring-1"
+    >
       {loading && !milestone ? (
         <p className="text-sm text-muted-foreground">
           {t('github.loading')}
@@ -316,74 +317,62 @@ export default function MilestoneDetailModal({
           <div>
             <div className="flex items-center justify-between gap-2 mb-2">
               <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {t('github.milestone_detail_issues')}
+                {t('github.dash_tasks')}
               </h3>
               <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground">
                 <Checkbox checked={showClosedIssues} onCheckedChange={setShowClosedIssues} />
-                {t('github.milestone_detail_show_closed')}
+                {t('github.dash_show_done')}
               </label>
             </div>
             <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto rounded-lg p-1" style={{ border: '1px solid var(--border)' }}>
               {issues.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
-                  {t('github.minimal_no_open_tasks')}
+                  {t('github.dash_section_empty')}
                 </div>
               ) : (
                 issues.map((issue) => {
-                  const labels = parseLabels(issue.labels).slice(0, 2);
+                  const labels = parseLabels(issue.labels);
                   return (
                     <div
                       key={issue.id}
-                      className="group flex items-start gap-2 w-full px-2 py-1.5 rounded-md text-foreground"
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLDivElement).style.background = 'var(--accent)';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-                      }}
+                      className="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-foreground hover:bg-accent"
                     >
                       <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           void toggleIssue(issue);
                         }}
-                        className="shrink-0 mt-0.5 border-0 bg-transparent p-0"
-                        style={{ color: issue.state === 'closed' ? 'var(--dome-success)' : 'var(--muted-foreground)' }}
-                        aria-label={issue.state === 'open' ? t('github.close_issue') : t('github.reopen_issue')}
+                        className={
+                          issue.state === 'closed'
+                            ? 'mt-0.5 size-[18px] shrink-0 text-(--success)'
+                            : 'mt-0.5 size-[18px] shrink-0 text-muted-foreground'
+                        }
+                        aria-label={issue.state === 'open' ? t('github.dash_mark_done') : t('github.dash_reopen')}
                       >
-                        {issue.state === 'closed' ? <HugeiconsIcon icon={CheckmarkCircle02Icon} size={15} /> : <HugeiconsIcon icon={CircleIcon} size={15} />}
+                        {issue.state === 'closed' ? (
+                          <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" />
+                        ) : (
+                          <HugeiconsIcon icon={CircleIcon} className="size-3.5" />
+                        )}
                       </Button>
-                      <Button
-                        type="button"
-                        onClick={() => onOpenIssue(issue.id)}
-                        className="flex-1 min-w-0 text-left border-0 bg-transparent p-0 cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[11px] font-mono shrink-0 inline-flex items-center gap-0.5 text-muted-foreground">
-                            <HugeiconsIcon icon={HashIcon} size={11} />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onOpenIssue(issue.id)}
+                          className="flex min-w-0 items-center gap-2 text-left"
+                        >
+                          <span className="inline-flex shrink-0 items-center gap-0.5 font-mono text-[11px] text-muted-foreground">
+                            <HugeiconsIcon icon={HashIcon} className="size-2.5" />
                             {issue.number}
                           </span>
-                          <span className="text-sm truncate">{issue.title}</span>
-                        </div>
-                        {labels.length > 0 ? (
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            {labels.map((label) => (
-                              <span
-                                key={label}
-                                className="text-[10px] px-1.5 py-0.5 rounded"
-                                style={{
-                                  background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                                  color: 'var(--primary)',
-                                }}
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </Button>
+                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{issue.title}</span>
+                        </button>
+                        <IssueLabelPills labels={labels} max={2} />
+                      </div>
                     </div>
                   );
                 })
@@ -392,6 +381,6 @@ export default function MilestoneDetailModal({
           </div>
         </div>
       ) : null}
-    </div><SheetFooter className="border-t px-4 py-3">{milestone ? footer : undefined}</SheetFooter></SheetContent></Sheet>
+    </InlineDetailCard>
   );
 }

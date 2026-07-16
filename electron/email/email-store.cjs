@@ -82,8 +82,33 @@ function parseAddrList(value) {
   return [];
 }
 
+/** Himalaya JSON uses `{ name, email }[]`; Dome UI expects `{ name, addr }`. */
+function normalizeAddrField(value) {
+  const list = parseAddrList(value)
+    .map((a) => {
+      if (typeof a === 'string') return { name: null, addr: a };
+      if (!a || typeof a !== 'object') return null;
+      const addr = a.addr || a.email || null;
+      if (!addr && !a.name) return null;
+      return { name: a.name || null, addr: addr || null };
+    })
+    .filter(Boolean);
+  if (list.length === 0) return null;
+  return list.length === 1 ? list[0] : list;
+}
+
+function normalizeFlags(flags) {
+  if (flags == null) return null;
+  if (!Array.isArray(flags)) return flags;
+  return flags.map((f) => {
+    if (typeof f === 'string') return f;
+    if (f && typeof f === 'object') return f.iana || f.raw || '';
+    return '';
+  }).filter(Boolean);
+}
+
 function envelopeToFields(env) {
-  const uid = String(env?.id ?? env?.uid ?? env?.message_id ?? '');
+  const uid = String(env?.id ?? env?.uid ?? env?.message_id ?? env?.['message-id'] ?? '');
   const dateRaw = env?.date || env?.internal_date || null;
   let dateMs = null;
   if (dateRaw != null) {
@@ -91,17 +116,22 @@ function envelopeToFields(env) {
     dateMs = Number.isFinite(t) ? t : null;
     if (dateMs == null && typeof dateRaw === 'number') dateMs = dateRaw;
   }
+  const from = normalizeAddrField(env?.from);
+  const to = normalizeAddrField(env?.to);
+  const cc = normalizeAddrField(env?.cc);
+  const flags = normalizeFlags(env?.flags ?? env?.flag);
   return {
     uid,
-    messageId: env?.message_id || env?.messageId || null,
+    messageId: env?.message_id || env?.messageId || env?.['message-id'] || null,
     subject: env?.subject ?? null,
-    fromJson: JSON.stringify(env?.from ?? null),
-    toJson: JSON.stringify(env?.to ?? null),
-    ccJson: JSON.stringify(env?.cc ?? null),
+    fromJson: JSON.stringify(from),
+    toJson: JSON.stringify(to),
+    ccJson: JSON.stringify(cc),
     dateMs,
     snippet: env?.preview || env?.snippet || env?.subject || null,
-    hasAttachments: env?.has_attachment || env?.has_attachments ? 1 : 0,
-    flagsJson: JSON.stringify(env?.flags ?? env?.flag ?? null),
+    hasAttachments:
+      env?.has_attachment || env?.has_attachments || env?.['has-attachment'] ? 1 : 0,
+    flagsJson: JSON.stringify(flags),
   };
 }
 
@@ -124,14 +154,26 @@ function upsertEnvelope(accountId, folderId, env) {
        )
        ON CONFLICT(account_id, folder_id, uid) DO UPDATE SET
          message_id = COALESCE(excluded.message_id, email_messages.message_id),
-         subject = excluded.subject,
-         from_json = excluded.from_json,
-         to_json = excluded.to_json,
-         cc_json = excluded.cc_json,
-         date_ms = excluded.date_ms,
-         snippet = excluded.snippet,
+         subject = COALESCE(excluded.subject, email_messages.subject),
+         from_json = CASE
+           WHEN excluded.from_json IS NULL OR excluded.from_json = 'null' THEN email_messages.from_json
+           ELSE excluded.from_json
+         END,
+         to_json = CASE
+           WHEN excluded.to_json IS NULL OR excluded.to_json = 'null' THEN email_messages.to_json
+           ELSE excluded.to_json
+         END,
+         cc_json = CASE
+           WHEN excluded.cc_json IS NULL OR excluded.cc_json = 'null' THEN email_messages.cc_json
+           ELSE excluded.cc_json
+         END,
+         date_ms = COALESCE(excluded.date_ms, email_messages.date_ms),
+         snippet = COALESCE(excluded.snippet, email_messages.snippet),
          has_attachments = excluded.has_attachments,
-         flags_json = excluded.flags_json,
+         flags_json = CASE
+           WHEN excluded.flags_json IS NULL OR excluded.flags_json = 'null' THEN email_messages.flags_json
+           ELSE excluded.flags_json
+         END,
          synced_at = excluded.synced_at,
          updated_at = excluded.updated_at`,
     )
@@ -182,6 +224,11 @@ function mapMessageRow(row) {
   } catch {
     flags = null;
   }
+  // Re-normalize legacy rows that stored Himalaya `{ email }` / arrays as-is.
+  from = normalizeAddrField(from);
+  to = normalizeAddrField(to);
+  cc = normalizeAddrField(cc);
+  flags = normalizeFlags(flags);
   return {
     id: row.uid,
     dbId: row.id,
@@ -190,7 +237,7 @@ function mapMessageRow(row) {
     to,
     cc,
     date: row.date_ms != null ? new Date(row.date_ms).toISOString() : null,
-    flags,
+    flags: Array.isArray(flags) ? flags : flags,
     snippet: row.snippet,
     has_attachments: Boolean(row.has_attachments),
     message_id: row.message_id,
@@ -202,10 +249,53 @@ function mapMessageRow(row) {
   };
 }
 
-function listCachedEnvelopes(accountId, folderRemoteName, { limit = 50, offset = 0 } = {}) {
+/** Normalize a live Himalaya envelope for the renderer (same shape as cache). */
+function normalizeEnvelope(env) {
+  if (!env || typeof env !== 'object') return null;
+  const fields = envelopeToFields(env);
+  if (!fields.uid) return null;
+  let flags = null;
+  try {
+    flags = fields.flagsJson ? JSON.parse(fields.flagsJson) : null;
+  } catch {
+    flags = null;
+  }
+  let from = null;
+  let to = null;
+  let cc = null;
+  try {
+    from = JSON.parse(fields.fromJson);
+  } catch {
+    from = null;
+  }
+  try {
+    to = JSON.parse(fields.toJson);
+  } catch {
+    to = null;
+  }
+  try {
+    cc = JSON.parse(fields.ccJson);
+  } catch {
+    cc = null;
+  }
+  return {
+    id: fields.uid,
+    subject: fields.subject,
+    from,
+    to,
+    cc,
+    date: fields.dateMs != null ? new Date(fields.dateMs).toISOString() : env.date || null,
+    flags,
+    snippet: fields.snippet,
+    has_attachments: Boolean(fields.hasAttachments),
+    message_id: fields.messageId,
+  };
+}
+
+function listCachedEnvelopes(accountId, folderRemoteName, { limit = 200, offset = 0 } = {}) {
   const folder = getFolderByRemote(accountId, folderRemoteName);
   if (!folder) return [];
-  const cap = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const cap = Math.min(Math.max(Number(limit) || 200, 1), 500);
   const off = Math.max(Number(offset) || 0, 0);
   const rows = db()
     .prepare(
@@ -227,6 +317,64 @@ function getCachedMessage(accountId, uid, folderRemoteName) {
     )
     .get(accountId, folder.id, String(uid));
   return mapMessageRow(row);
+}
+
+/**
+ * Resolve a UI/agent message ref to an IMAP uid + folder.
+ * Accepts Himalaya uids and Dome cache row ids (`emsg-<hash>`).
+ * @returns {{ accountId: string|null, uid: string, folder: string, row: object|null } | null}
+ */
+function resolveMessageRef(messageId, { accountId = null, folder = 'INBOX' } = {}) {
+  const raw = String(messageId || '').trim();
+  if (!raw) return null;
+
+  if (raw.startsWith('emsg-')) {
+    const row = db()
+      .prepare(
+        `SELECT m.*, f.remote_name
+         FROM email_messages m
+         JOIN email_folders f ON f.id = m.folder_id
+         WHERE m.id = ?`,
+      )
+      .get(raw);
+    if (!row) return null;
+    if (accountId && row.account_id !== accountId) return null;
+    return {
+      accountId: row.account_id,
+      uid: String(row.uid),
+      folder: row.remote_name || folder || 'INBOX',
+      row: mapMessageRow(row),
+    };
+  }
+
+  if (accountId) {
+    const folderRow = getFolderByRemote(accountId, folder);
+    if (folderRow) {
+      const row = db()
+        .prepare(
+          `SELECT m.*, f.remote_name
+           FROM email_messages m
+           JOIN email_folders f ON f.id = m.folder_id
+           WHERE m.account_id = ? AND m.folder_id = ? AND m.uid = ?`,
+        )
+        .get(accountId, folderRow.id, raw);
+      if (row) {
+        return {
+          accountId: row.account_id,
+          uid: String(row.uid),
+          folder: row.remote_name || folder || 'INBOX',
+          row: mapMessageRow(row),
+        };
+      }
+    }
+  }
+
+  return {
+    accountId: accountId || null,
+    uid: raw,
+    folder: folder || 'INBOX',
+    row: null,
+  };
 }
 
 function cacheMessageBody(accountId, uid, folderRemoteName, { text, html } = {}) {
@@ -335,7 +483,9 @@ module.exports = {
   upsertEnvelope,
   listCachedEnvelopes,
   getCachedMessage,
+  resolveMessageRef,
   cacheMessageBody,
+  normalizeEnvelope,
   setSyncState,
   getSyncStatus,
   extractAddressesFromEnvelope,

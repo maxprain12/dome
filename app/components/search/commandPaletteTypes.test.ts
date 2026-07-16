@@ -3,6 +3,7 @@ import {
   initialPaletteSearchState,
   matchesQuery,
   paletteSearchReducer,
+  rowPassesFilter,
 } from './commandPaletteTypes';
 
 describe('command palette model', () => {
@@ -24,5 +25,15 @@ describe('command palette model', () => {
     expect(populated.resources).toHaveLength(1);
     expect(populated.sources).toHaveLength(1);
     expect(paletteSearchReducer(populated, { type: 'RESET' })).toEqual(initialPaletteSearchState);
+  });
+
+  it('filters kinds for find chips', () => {
+    expect(rowPassesFilter('issue', 'tasks')).toBe(true);
+    expect(rowPassesFilter('email', 'tasks')).toBe(false);
+    expect(rowPassesFilter('resource', 'resources')).toBe(true);
+    expect(rowPassesFilter('email', 'mail')).toBe(true);
+    expect(rowPassesFilter('person', 'people')).toBe(true);
+    expect(rowPassesFilter('social_post', 'social')).toBe(true);
+    expect(rowPassesFilter('issue', 'all')).toBe(true);
   });
 });

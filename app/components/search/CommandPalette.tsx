@@ -8,8 +8,19 @@ import { useFeaturesStore } from '@/lib/store/useFeaturesStore';
 import { isFeatureVisible } from '@/lib/features/featureKeys';
 import { recordSearchResultSelected } from '@/lib/search/search-signals';
 import { formatDistanceToNow } from '@/lib/utils';
+import { focusEmail, focusGithubIssue, focusSocialPost } from '@/lib/store/useOpenIntentStore';
 import { buildNavigationDestinations, buildQuickActions } from './commandPaletteNav';
-import { matchesQuery, modKeyLabel, sourcesByKind, type PaletteRow } from './commandPaletteTypes';
+import {
+  matchesQuery,
+  metaString,
+  modKeyLabel,
+  rowPassesFilter,
+  sourcesByKind,
+  type PaletteFilter,
+  type PalettePreviewTarget,
+  type PaletteRow,
+  type SourceHitRow,
+} from './commandPaletteTypes';
 import { useCommandPaletteSearch } from './useCommandPaletteSearch';
 import { CommandPaletteResultsList } from './CommandPaletteResultsList';
 import CommandPaletteResourcePreview from './CommandPaletteResourcePreview';
@@ -26,12 +37,26 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
-  GithubIcon,
   Mail01Icon,
   Share08Icon,
+  Task01Icon,
   UserIcon,
 } from '@hugeicons/core-free-icons';
+
+function issueSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string, string>) => string): string {
+  const repo = metaString(hit.meta, 'fullName') || t('command.find_task_fallback');
+  const state = metaString(hit.meta, 'state');
+  if (state === 'closed') return t('command.find_task_done', { repo });
+  return t('command.find_task_open', { repo });
+}
+
+function emailSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string, string>) => string): string {
+  const folder = metaString(hit.meta, 'folder');
+  if (folder) return t('command.find_email_folder', { folder });
+  return hit.snippet || t('command.find_email_fallback');
+}
 
 export default function CommandPalette() {
   const { t } = useTranslation();
@@ -81,6 +106,7 @@ export default function CommandPalette() {
   const [addUrlOpen, setAddUrlOpen] = useState(false);
   const [urlValue, setUrlValue] = useState('');
   const [urlSubmitting, setUrlSubmitting] = useState(false);
+  const [filter, setFilter] = useState<PaletteFilter>('all');
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -100,11 +126,13 @@ export default function CommandPalette() {
 
   const close = useCallback(() => {
     setIsOpen(false);
+    setFilter('all');
     resetSearch();
   }, [resetSearch]);
 
   const open = useCallback(() => {
     setIsOpen(true);
+    setFilter('all');
     resetSearch();
     window.setTimeout(() => inputRef.current?.focus(), 40);
   }, [resetSearch]);
@@ -115,9 +143,11 @@ export default function CommandPalette() {
         e.preventDefault();
         setIsOpen((prev) => {
           if (prev) {
+            setFilter('all');
             resetSearch();
             return false;
           }
+          setFilter('all');
           resetSearch();
           window.setTimeout(() => inputRef.current?.focus(), 40);
           return true;
@@ -201,9 +231,9 @@ export default function CommandPalette() {
         openWorkflowsTab,
         openAutomationsTab,
         openRunsTab,
-      openLearnTab,
-      openMarketplaceTab,
-      openSettingsTab,
+        openLearnTab,
+        openMarketplaceTab,
+        openSettingsTab,
       }),
     [
       close,
@@ -254,95 +284,131 @@ export default function CommandPalette() {
       return rows;
     }
 
-    rows.push(...filteredNav);
+    for (const row of filteredNav) {
+      if (rowPassesFilter(row.kind, filter)) rows.push(row);
+    }
 
-    resources.forEach((r, index) => {
-      rows.push({
-        id: `resource:${r.id}`,
-        kind: 'resource',
-        label: r.title,
-        type: r.type,
-        resourceId: r.id,
-        sublabel: r.updated_at ? formatDistanceToNow(r.updated_at * 1000) : undefined,
-        run: () => openResource(r, filteredNav.length + index + 1, 'resource'),
+    if (rowPassesFilter('resource', filter)) {
+      resources.forEach((r, index) => {
+        rows.push({
+          id: `resource:${r.id}`,
+          kind: 'resource',
+          label: r.title,
+          type: r.type,
+          resourceId: r.id,
+          sublabel: r.updated_at ? formatDistanceToNow(r.updated_at * 1000) : undefined,
+          run: () => openResource(r, filteredNav.length + index + 1, 'resource'),
+        });
       });
-    });
+    }
 
-    interactions.forEach((r, index) => {
-      rows.push({
-        id: `interaction:${r.id}:${index}`,
-        kind: 'interaction',
-        label: r.title,
-        type: r.type,
-        resourceId: r.id,
-        sublabel: t('command.notes_annotations'),
-        run: () => openResource(r, filteredNav.length + resources.length + index + 1, 'interaction'),
+    if (rowPassesFilter('interaction', filter)) {
+      interactions.forEach((r, index) => {
+        rows.push({
+          id: `interaction:${r.id}:${index}`,
+          kind: 'interaction',
+          label: r.title,
+          type: r.type,
+          resourceId: r.id,
+          sublabel: t('command.notes_annotations'),
+          run: () => openResource(r, filteredNav.length + resources.length + index + 1, 'interaction'),
+        });
       });
-    });
+    }
 
-    peopleHits.forEach((hit) => {
-      rows.push({
-        id: `person:${hit.id}`,
-        kind: 'person',
-        icon: UserIcon,
-        label: hit.title,
-        sublabel: hit.snippet || t('command.people'),
-        run: () => {
-          const identities = (hit.meta?.identities as Array<{ source?: string }> | undefined) || [];
-          if (identities.some((i) => i.source === 'github')) openGitHubTab();
-          else if (identities.some((i) => i.source === 'email')) openEmailTab();
-          else openSocialTab();
-          close();
-        },
+    if (rowPassesFilter('person', filter)) {
+      peopleHits.forEach((hit) => {
+        rows.push({
+          id: `person:${hit.id}`,
+          kind: 'person',
+          icon: UserIcon,
+          label: hit.title,
+          sublabel: hit.snippet || t('command.people'),
+          sourceId: hit.id,
+          meta: hit.meta,
+          snippet: hit.snippet,
+          run: () => {
+            const identities = (hit.meta?.identities as Array<{ source?: string }> | undefined) || [];
+            if (identities.some((i) => i.source === 'github')) openGitHubTab();
+            else if (identities.some((i) => i.source === 'email')) openEmailTab();
+            else openSocialTab();
+            close();
+          },
+        });
       });
-    });
+    }
 
-    issueHits.forEach((hit) => {
-      rows.push({
-        id: `issue:${hit.id}`,
-        kind: 'issue',
-        icon: GithubIcon,
-        label: hit.title,
-        sublabel: hit.snippet || t('command.issues'),
-        run: () => {
-          openGitHubTab();
-          close();
-        },
+    if (rowPassesFilter('issue', filter)) {
+      issueHits.forEach((hit) => {
+        rows.push({
+          id: `issue:${hit.id}`,
+          kind: 'issue',
+          icon: Task01Icon,
+          label: hit.title,
+          sublabel: issueSublabel(hit, t),
+          sourceId: hit.id,
+          meta: hit.meta,
+          snippet: hit.snippet,
+          run: () => {
+            const repoId = metaString(hit.meta, 'repoId');
+            openGitHubTab();
+            focusGithubIssue({ issueId: hit.id, ...(repoId ? { repoId } : {}) });
+            close();
+          },
+        });
       });
-    });
+    }
 
-    emailHits.forEach((hit) => {
-      rows.push({
-        id: `email:${hit.id}`,
-        kind: 'email',
-        icon: Mail01Icon,
-        label: hit.title,
-        sublabel: hit.snippet || t('command.emails'),
-        run: () => {
-          openEmailTab();
-          close();
-        },
+    if (rowPassesFilter('email', filter)) {
+      emailHits.forEach((hit) => {
+        rows.push({
+          id: `email:${hit.id}`,
+          kind: 'email',
+          icon: Mail01Icon,
+          label: hit.title,
+          sublabel: emailSublabel(hit, t),
+          sourceId: hit.id,
+          meta: hit.meta,
+          snippet: hit.snippet,
+          run: () => {
+            openEmailTab();
+            focusEmail({
+              sourceId: hit.id,
+              accountId: metaString(hit.meta, 'accountId'),
+              folder: metaString(hit.meta, 'folder'),
+              uid: hit.meta?.uid as string | number | undefined,
+            });
+            close();
+          },
+        });
       });
-    });
+    }
 
-    socialHits.forEach((hit) => {
-      rows.push({
-        id: `social:${hit.id}`,
-        kind: 'social_post',
-        icon: Share08Icon,
-        label: hit.title,
-        sublabel: hit.snippet || t('command.social_posts'),
-        run: () => {
-          openSocialTab();
-          close();
-        },
+    if (rowPassesFilter('social_post', filter)) {
+      socialHits.forEach((hit) => {
+        rows.push({
+          id: `social:${hit.id}`,
+          kind: 'social_post',
+          icon: Share08Icon,
+          label: hit.title,
+          sublabel: hit.snippet || t('command.social_posts'),
+          sourceId: hit.id,
+          meta: hit.meta,
+          snippet: hit.snippet,
+          run: () => {
+            openSocialTab();
+            focusSocialPost({ postId: hit.id });
+            close();
+          },
+        });
       });
-    });
+    }
 
     return rows;
   }, [
     close,
     emailHits,
+    filter,
     filteredNav,
     interactions,
     issueHits,
@@ -377,24 +443,87 @@ export default function CommandPalette() {
   const hasResults = flatRows.length > 0;
   const showNoResults = Boolean(trimmedQuery) && !isSearching && !hasResults;
 
-  // Preview pane: stable while arrowing (falls back to the first result when
-  // a nav row is selected) so the dialog width doesn't flicker.
   const selectedRow = selectedIndex !== undefined ? flatRows[selectedIndex] : undefined;
-  const hasResourceResults = Boolean(trimmedQuery) && (resources.length > 0 || interactions.length > 0);
-  const previewResourceId = hasResourceResults
-    ? (selectedRow && 'resourceId' in selectedRow ? selectedRow.resourceId : resources[0]?.id ?? interactions[0]?.id ?? null)
-    : null;
+
+  const previewTarget = useMemo((): PalettePreviewTarget | null => {
+    if (!trimmedQuery) return null;
+
+    const fromRow = (row: PaletteRow | undefined): PalettePreviewTarget | null => {
+      if (!row) return null;
+      if (row.kind === 'resource' || row.kind === 'interaction') {
+        return { kind: 'resource', resourceId: row.resourceId };
+      }
+      if (
+        row.kind === 'issue' ||
+        row.kind === 'email' ||
+        row.kind === 'person' ||
+        row.kind === 'social_post'
+      ) {
+        return {
+          kind: 'source',
+          hit: {
+            kind: row.kind,
+            id: row.sourceId ?? row.id,
+            title: row.label,
+            snippet: row.snippet,
+            meta: row.meta ?? null,
+          },
+        };
+      }
+      return null;
+    };
+
+    const selected = fromRow(selectedRow);
+    if (selected) return selected;
+
+    if (rowPassesFilter('resource', filter) && resources[0]) {
+      return { kind: 'resource', resourceId: resources[0].id };
+    }
+    if (rowPassesFilter('interaction', filter) && interactions[0]) {
+      return { kind: 'resource', resourceId: interactions[0].id };
+    }
+    if (rowPassesFilter('issue', filter) && issueHits[0]) {
+      return { kind: 'source', hit: issueHits[0] };
+    }
+    if (rowPassesFilter('email', filter) && emailHits[0]) {
+      return { kind: 'source', hit: emailHits[0] };
+    }
+    if (rowPassesFilter('person', filter) && peopleHits[0]) {
+      return { kind: 'source', hit: peopleHits[0] };
+    }
+    if (rowPassesFilter('social_post', filter) && socialHits[0]) {
+      return { kind: 'source', hit: socialHits[0] };
+    }
+    return null;
+  }, [
+    emailHits,
+    filter,
+    interactions,
+    issueHits,
+    peopleHits,
+    resources,
+    selectedRow,
+    socialHits,
+    trimmedQuery,
+  ]);
+
+  const filterOptions: Array<{ value: PaletteFilter; label: string }> = [
+    { value: 'all', label: t('command.find_filter_all') },
+    { value: 'resources', label: t('command.find_filter_resources') },
+    { value: 'tasks', label: t('command.find_filter_tasks') },
+    { value: 'mail', label: t('command.find_filter_mail') },
+    { value: 'people', label: t('command.find_filter_people') },
+    { value: 'social', label: t('command.find_filter_social') },
+  ];
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(next) => { if (!next) close(); }}>
         <DialogContent
-          className={`top-[12vh] bottom-auto w-full gap-0 overflow-hidden rounded-2xl border-border p-0 shadow-2xl animate-none data-open:animate-none data-closed:animate-none ${previewResourceId ? 'sm:max-w-3xl' : 'sm:max-w-xl'}`}
+          className={`top-[12vh] bottom-auto w-full gap-0 overflow-hidden rounded-2xl border-border p-0 shadow-2xl animate-none data-open:animate-none data-closed:animate-none ${previewTarget ? 'sm:max-w-3xl' : 'sm:max-w-xl'}`}
           showCloseButton={false}
           aria-label={t('command.palette_title')}
         >
-          {/* display:contents wrapper — carries panelRef for keyboard nav without
-              adding a layout box or receiving an unsupported ref on DialogContent. */}
           <div ref={panelRef} className="contents">
           <DialogTitle className="sr-only">{t('command.palette_title')}</DialogTitle>
           <Command shouldFilter={false} className="rounded-none p-0">
@@ -408,37 +537,57 @@ export default function CommandPalette() {
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            // Stop password managers / OS autofill from injecting an icon into
-            // this search field (1Password, LastPass, iCloud Keychain, etc.).
             name="dome-command-search"
             data-1p-ignore
             data-lpignore="true"
             data-form-type="other"
           />
+            {trimmedQuery ? (
+              <div className="border-t px-3 py-2">
+                <ToggleGroup
+                  value={[filter]}
+                  onValueChange={(values) => {
+                    const next = values[0] as PaletteFilter | undefined;
+                    if (next) setFilter(next);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-wrap justify-start gap-1"
+                  aria-label={t('command.find_filters')}
+                >
+                  {filterOptions.map((opt) => (
+                    <ToggleGroupItem key={opt.value} value={opt.value} className="px-2.5 text-xs">
+                      {opt.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            ) : null}
             <div className="flex min-h-0 border-t">
               <div className="min-w-0 flex-1">
                 <CommandPaletteResultsList
                   showEmptyQuery={showEmptyQuery}
                   showNoResults={showNoResults}
                   trimmedQuery={trimmedQuery}
+                  filter={filter}
                   quickActions={quickActions}
                   navigationDestinations={navigationDestinations}
-                  filteredNav={filteredNav}
-                  resources={resources}
-                  interactions={interactions}
-                  peopleHits={peopleHits}
-                  issueHits={issueHits}
-                  emailHits={emailHits}
-                  socialHits={socialHits}
+                  filteredNav={filteredNav.filter((row) => rowPassesFilter(row.kind, filter))}
+                  resources={rowPassesFilter('resource', filter) ? resources : []}
+                  interactions={rowPassesFilter('interaction', filter) ? interactions : []}
+                  peopleHits={rowPassesFilter('person', filter) ? peopleHits : []}
+                  issueHits={rowPassesFilter('issue', filter) ? issueHits : []}
+                  emailHits={rowPassesFilter('email', filter) ? emailHits : []}
+                  socialHits={rowPassesFilter('social_post', filter) ? socialHits : []}
                   flatRows={flatRows}
                   selectedIndex={selectedIndex}
                   setSelectedIndex={setSelectedIndex}
                   listRef={listRef}
                 />
               </div>
-              {previewResourceId ? (
+              {previewTarget ? (
                 <div className="hidden w-[290px] shrink-0 overflow-hidden border-l bg-muted/30 sm:block">
-                  <CommandPaletteResourcePreview resourceId={previewResourceId} query={trimmedQuery} />
+                  <CommandPaletteResourcePreview target={previewTarget} query={trimmedQuery} />
                 </div>
               ) : null}
             </div>

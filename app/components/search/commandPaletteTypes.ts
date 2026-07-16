@@ -10,6 +10,9 @@ export type PaletteKind =
   | 'email'
   | 'social_post';
 
+/** Client-side result filter chips (unified query; filter after fetch). */
+export type PaletteFilter = 'all' | 'resources' | 'tasks' | 'mail' | 'people' | 'social';
+
 interface PaletteRowBase {
   id: string;
   label: string;
@@ -41,6 +44,10 @@ export type PaletteRow =
   | (PaletteRowBase & {
       kind: 'person' | 'issue' | 'email' | 'social_post';
       icon: IconSvgElement;
+      /** Source document id for preview / deep-link. */
+      sourceId?: string;
+      meta?: Record<string, unknown> | null;
+      snippet?: string;
     });
 
 export interface SearchResourceRow {
@@ -57,6 +64,40 @@ export interface SourceHitRow {
   snippet?: string;
   projectId?: string;
   meta?: Record<string, unknown> | null;
+}
+
+export type PalettePreviewTarget =
+  | { kind: 'resource'; resourceId: string }
+  | { kind: 'source'; hit: SourceHitRow };
+
+export function rowPassesFilter(kind: PaletteKind, filter: PaletteFilter): boolean {
+  if (filter === 'all') return true;
+  switch (filter) {
+    case 'resources':
+      return kind === 'resource' || kind === 'interaction' || kind === 'nav' || kind === 'action';
+    case 'tasks':
+      return kind === 'issue' || kind === 'nav' || kind === 'action';
+    case 'mail':
+      return kind === 'email' || kind === 'nav' || kind === 'action';
+    case 'people':
+      return kind === 'person' || kind === 'nav' || kind === 'action';
+    case 'social':
+      return kind === 'social_post' || kind === 'nav' || kind === 'action';
+    default: {
+      const _exhaustive: never = filter;
+      return _exhaustive;
+    }
+  }
+}
+
+export function metaString(meta: Record<string, unknown> | null | undefined, key: string): string | undefined {
+  const v = meta?.[key];
+  return typeof v === 'string' && v.trim() ? v : undefined;
+}
+
+export function metaNumber(meta: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const v = meta?.[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
 export interface PaletteSearchState {

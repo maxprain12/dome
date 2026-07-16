@@ -365,8 +365,14 @@ export function useManySend(options: UseManySendOptions) {
             ? activeShellTab.type
             : activeShellTab?.splitResource?.resourceType;
 
-        const pinnedDocs = pinnedResources.filter((r) => r.kind !== 'person');
         const pinnedPeople = pinnedResources.filter((r) => r.kind === 'person');
+        const pinnedSources = pinnedResources.filter(
+          (r): r is typeof r & { kind: 'issue' | 'email' | 'social_post' } =>
+            r.kind === 'issue' || r.kind === 'email' || r.kind === 'social_post',
+        );
+        const pinnedDocs = pinnedResources.filter(
+          (r) => r.kind !== 'person' && r.kind !== 'issue' && r.kind !== 'email' && r.kind !== 'social_post',
+        );
 
         const toolIdsForMemory = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
         let memoryForPrompt = memoryEnabled && userMemory ? userMemory : undefined;
@@ -402,6 +408,15 @@ export function useManySend(options: UseManySendOptions) {
                   id: person.id,
                   title: person.title,
                   identities: person.identities,
+                }))
+              : undefined,
+          pinnedSources:
+            pinnedSources.length > 0
+              ? pinnedSources.map((src) => ({
+                  kind: src.kind,
+                  id: src.id,
+                  title: src.title,
+                  meta: src.meta ?? null,
                 }))
               : undefined,
           pinnedResources:

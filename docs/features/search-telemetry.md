@@ -2,6 +2,10 @@
 
 Contrato mínimo para futuros rerankers (p. ej. LTR estilo SearchMO) y recomendaciones en la app.
 
+## ⌘K (plan 022)
+
+La palette es un buscador unificado no técnico: filtros por tipo (recursos / tareas / correo / personas / publicaciones), preview multi-kind, y deep-links (`dome:focus-github-issue`, `dome:focus-email`) hacia la ficha concreta. El fan-in de datos sigue siendo `db:search:unified` + `source_documents` (cap ~12 por kind).
+
 ## Eventos
 
 | Señal | Cuándo | Campos |

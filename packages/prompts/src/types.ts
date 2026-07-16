@@ -116,6 +116,13 @@ export type VolatileSourceOptions = {
     title: string;
     identities?: Array<{ source: string; externalId: string; displayLabel?: string | null }>;
   }>;
+  /** Integration entities mentioned via @: tasks, mail, social posts. */
+  pinnedSources?: Array<{
+    kind: 'issue' | 'email' | 'social_post';
+    id: string;
+    title: string;
+    meta?: Record<string, unknown> | null;
+  }>;
   activeResource?: { id: string; title: string; type?: string } | null;
   dateLine?: string;
   taskLine?: string;

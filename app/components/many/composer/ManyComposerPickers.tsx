@@ -1,7 +1,12 @@
 import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { UserIcon } from '@hugeicons/core-free-icons';
+import {
+  Mail01Icon,
+  Share08Icon,
+  Task01Icon,
+  UserIcon,
+} from '@hugeicons/core-free-icons';
 import ResourceIcon from '@/components/shared/ResourceIcon';
 import { ComposerFloatingPicker } from '@/components/chat/ComposerFloatingPicker';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -121,6 +126,40 @@ export function ManySkillPicker({
   );
 }
 
+function MentionRow({
+  item,
+  idx,
+  selectedIdx,
+  onHover,
+  onSelect,
+  icon,
+}: {
+  item: MentionResource;
+  idx: number;
+  selectedIdx: number;
+  onHover: (idx: number) => void;
+  onSelect: (resource: MentionResource) => void;
+  icon: ReactNode;
+}) {
+  return (
+    <CommandItem
+      key={`${item.kind}-${item.id}`}
+      value={`${item.kind}-${item.id}`}
+      onSelect={() => onSelect(item)}
+      onMouseEnter={() => onHover(idx)}
+      className={cn('gap-2', idx === selectedIdx && 'bg-muted')}
+    >
+      {icon}
+      <span className="min-w-0 flex-1 truncate">{item.title}</span>
+      {item.subtitle ? (
+        <span className="max-w-[40%] shrink-0 truncate text-xs text-muted-foreground">
+          {item.subtitle}
+        </span>
+      ) : null}
+    </CommandItem>
+  );
+}
+
 export function ManyMentionPicker({
   open,
   anchorRect,
@@ -140,60 +179,60 @@ export function ManyMentionPicker({
 }) {
   const { t } = useTranslation();
   const people = resources.filter((item) => item.kind === 'person');
-  const docs = resources.filter((item) => item.kind !== 'person');
+  const tasks = resources.filter((item) => item.kind === 'issue');
+  const emails = resources.filter((item) => item.kind === 'email');
+  const posts = resources.filter((item) => item.kind === 'social_post');
+  const docs = resources.filter((item) => item.kind === 'resource' || item.kind == null);
+
+  const renderGroup = (
+    heading: string,
+    items: MentionResource[],
+    iconFor: (item: MentionResource) => ReactNode,
+  ) => {
+    if (items.length === 0) return null;
+    return (
+      <CommandGroup heading={heading}>
+        {items.map((item) => {
+          const idx = resources.indexOf(item);
+          return (
+            <MentionRow
+              key={`${item.kind}-${item.id}`}
+              item={item}
+              idx={idx}
+              selectedIdx={selectedIdx}
+              onHover={onHover}
+              onSelect={onSelect}
+              icon={iconFor(item)}
+            />
+          );
+        })}
+      </CommandGroup>
+    );
+  };
 
   return (
-    <PickerShell open={open} anchorRect={anchorRect} panelRef={panelRef} width={300} maxHeight={280}>
-      <CommandList className="max-h-72">
-        {people.length > 0 ? (
-          <CommandGroup heading={t('command.people')}>
-            {people.map((person) => {
-              const idx = resources.indexOf(person);
-              return (
-                <CommandItem
-                  key={`person-${person.id}`}
-                  value={`person-${person.id}`}
-                  onSelect={() => onSelect(person)}
-                  onMouseEnter={() => onHover(idx)}
-                  className={cn('gap-2', idx === selectedIdx && 'bg-muted')}
-                >
-                  <HugeiconsIcon
-                    icon={UserIcon}
-                    size={12}
-                    className="shrink-0 text-muted-foreground"
-                  />
-                  <span className="min-w-0 flex-1 truncate">{person.title}</span>
-                  <span className="max-w-[40%] shrink-0 truncate text-xs text-muted-foreground">
-                    {person.subtitle || t('command.people')}
-                  </span>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        ) : null}
-        <CommandGroup heading={t('many.add_to_context')}>
-          {docs.map((resource) => {
-            const idx = resources.indexOf(resource);
-            return (
-              <CommandItem
-                key={`resource-${resource.id}`}
-                value={`resource-${resource.id}`}
-                onSelect={() => onSelect(resource)}
-                onMouseEnter={() => onHover(idx)}
-                className={cn('gap-2', idx === selectedIdx && 'bg-muted')}
-              >
-                <ResourceIcon
-                  type={resource.type}
-                  name={resource.title}
-                  size={12}
-                  className="shrink-0 text-muted-foreground"
-                />
-                <span className="min-w-0 flex-1 truncate">{resource.title}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{resource.type}</span>
-              </CommandItem>
-            );
-          })}
-        </CommandGroup>
+    <PickerShell open={open} anchorRect={anchorRect} panelRef={panelRef} width={320} maxHeight={320}>
+      <CommandList className="max-h-80">
+        {renderGroup(t('command.people'), people, () => (
+          <HugeiconsIcon icon={UserIcon} size={12} className="shrink-0 text-muted-foreground" />
+        ))}
+        {renderGroup(t('command.issues'), tasks, () => (
+          <HugeiconsIcon icon={Task01Icon} size={12} className="shrink-0 text-muted-foreground" />
+        ))}
+        {renderGroup(t('command.emails'), emails, () => (
+          <HugeiconsIcon icon={Mail01Icon} size={12} className="shrink-0 text-muted-foreground" />
+        ))}
+        {renderGroup(t('command.social_posts'), posts, () => (
+          <HugeiconsIcon icon={Share08Icon} size={12} className="shrink-0 text-muted-foreground" />
+        ))}
+        {renderGroup(t('many.add_to_context'), docs, (resource) => (
+          <ResourceIcon
+            type={resource.type}
+            name={resource.title}
+            size={12}
+            className="shrink-0 text-muted-foreground"
+          />
+        ))}
         <CommandEmpty>{t('common.no_results')}</CommandEmpty>
       </CommandList>
     </PickerShell>

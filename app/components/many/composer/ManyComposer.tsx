@@ -336,16 +336,17 @@ const ManyComposer = memo(function ManyComposer({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
+      const previous = input;
       setInput(val);
       const cursor = e.target.selectionStart ?? val.length;
       mention.updateFromText(val, cursor);
       slash.updateFromText(val, cursor);
       hash.updateFromText(val, cursor);
-      const pinnedMentions = new Set(
-        pinnedResources.filter((pin) => val.includes(`@${pin.title}`)).map((pin) => pin.id),
-      );
+      // Only drop pins when the user removes an @mention that was already in the text.
+      // Chip-only pins (e.g. email "Ask Many") must survive typing complementary text.
       for (const pin of pinnedResources) {
-        if (!pinnedMentions.has(pin.id)) {
+        const token = `@${pin.title}`;
+        if (previous.includes(token) && !val.includes(token)) {
           removePinnedResource(pin.id);
         }
       }
@@ -363,6 +364,7 @@ const ManyComposer = memo(function ManyComposer({
       }
     },
     [
+      input,
       setInput,
       mention,
       slash,
@@ -486,7 +488,7 @@ const ManyComposer = memo(function ManyComposer({
         <InputGroup
           data-disabled={isLoading ? true : undefined}
           className={cn(
-            'h-auto w-full flex-col items-stretch gap-0 rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow]',
+            'h-auto w-full min-w-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow]',
             'has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/30',
             isDragging && 'border-primary/50 bg-primary/5',
             isWelcome && 'rounded-3xl shadow-md',
@@ -494,7 +496,7 @@ const ManyComposer = memo(function ManyComposer({
         >
           {onAttachmentsChange &&
           (attachments.length > 0 || pinnedResources.length > 0) ? (
-            <InputGroupAddon align="block-start" className="px-0 pt-0">
+            <InputGroupAddon align="block-start" className="min-w-0 overflow-hidden px-0 pt-0">
               <ManyComposerChips
                 attachments={attachments}
                 pinnedResources={pinnedResources}

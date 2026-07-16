@@ -105,6 +105,15 @@ interface ResourceInteraction {
   updated_at: number;
 }
 
+interface UnifiedSourceHit {
+  kind: 'person' | 'issue' | 'email' | 'social_post';
+  id: string;
+  title: string;
+  snippet?: string;
+  projectId?: string;
+  meta?: Record<string, unknown> | null;
+}
+
 interface UnifiedSearchResult {
   resources: Resource[];
   interactions: (ResourceInteraction & { resource_title: string })[];
@@ -114,6 +123,7 @@ interface UnifiedSearchResult {
     content?: string;
     updated_at?: number;
   }>;
+  sources?: UnifiedSourceHit[];
 }
 
 /** Chunk-level semantic hit (Nomic embeddings, `resource_chunks`) */
@@ -1036,6 +1046,11 @@ declare global {
         };
         search: {
           unified: (query: string, projectId?: string) => Promise<DBResponse<UnifiedSearchResult>>;
+          reindexSources: (projectId?: string) => Promise<DBResponse<Record<string, number>>>;
+          recentSources: (
+            projectId?: string,
+            limitPerKind?: number,
+          ) => Promise<DBResponse<UnifiedSourceHit[]>>;
         };
         flashcards: {
           createDeck: (deck: any) => Promise<DBResponse<any>>;

@@ -1,133 +1,55 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useTranslation } from 'react-i18next';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
-import {
-  AlertDiamondIcon, ArchiveIcon, ArrowTurnBackwardIcon, ArrowTurnForwardIcon,
-  CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
-  Delete02Icon, File02Icon, Folder01Icon, InboxIcon, Mail01Icon,
-  MailReplyAll02Icon, MoreHorizontalIcon,   NoteEditIcon, RefreshIcon,
-  SentIcon, StarIcon,
-} from '@hugeicons/core-free-icons';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Spinner } from '@/components/ui/spinner';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { ItemGroup } from '@/components/ui/item';
 import { Badge } from '@/components/ui/badge';
-import { EntityListItem } from '@/components/shared/EntityListItem';
+import { Spinner } from '@/components/ui/spinner';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  AlertDiamondIcon,
+  ArchiveIcon,
+  ChevronDownIcon,
+  Delete02Icon,
+  File02Icon,
+  Folder01Icon,
+  InboxIcon,
+  Mail01Icon,
+  NoteEditIcon,
+  RefreshIcon,
+  SentIcon,
+  StarIcon,
+} from '@hugeicons/core-free-icons';
 import { HubHeader } from '@/components/hub/HubHeader';
 import { HubSearch } from '@/components/hub/HubSearch';
-import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
 import { HubSurface } from '@/components/hub/HubBlocks';
+import ListState from '@/components/shared/ListState';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
-import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
-import EmailBody from '@/components/email/EmailBody';
-import ListState from '@/components/shared/ListState';
+import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
+import { useManyStore } from '@/lib/store/useManyStore';
 import { emailFolderLabel, type EmailFolderRow } from '@/lib/email/folder-label';
+import {
+  collectNetworkEmails,
+  filterEnvelopesByQuery,
+  type MailEnvelope,
+  type MailFilter,
+} from '@/lib/email/mailQueues';
 import { invokeWithTimeout } from '@/lib/utils/ipcTimeout';
-import '@/styles/email-view.css';
+import type { EmailErrorInfo } from '@/components/email/EmailErrorNotice';
+import { MailDashboard } from '@/components/email/MailDashboard';
+import { MailDetailPanel } from '@/components/email/MailDetailPanel';
+import { MailComposePanel } from '@/components/email/MailComposePanel';
 
-interface Envelope {
-  id: string;
-  subject?: string;
-  from?: { name?: string; addr?: string } | string;
-  date?: string;
-  flags?: string[];
-}
-
-function fromLabel(from: Envelope['from']): string {
-  if (!from) return '';
-  if (typeof from === 'string') return from;
-  return from.name || from.addr || '';
-}
-
-function fromEmail(from: Envelope['from']): string {
-  if (!from) return '';
-  if (typeof from === 'string') return from;
-  return from.addr || from.name || '';
-}
-
-function fromName(from: Envelope['from']): string {
-  if (!from) return '';
-  if (typeof from === 'string') return from;
-  return from.name || from.addr || '';
-}
-
-function monogram(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return '?';
-  const first = trimmed[0]?.toUpperCase() ?? '?';
-  return first;
-}
-
-const MONTHS_SHORT_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const MONTHS_SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MONTHS_SHORT_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const MONTHS_SHORT_FR = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
-const WEEKDAYS_ES = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const WEEKDAYS_PT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-const WEEKDAYS_FR = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
-
-function localeStrings(lang: string): { months: string[]; weekdays: string[]; today: string; yesterday: string } {
-  const lower = lang.toLowerCase();
-  if (lower.startsWith('es')) return { months: MONTHS_SHORT_ES, weekdays: WEEKDAYS_ES, today: 'Hoy', yesterday: 'Ayer' };
-  if (lower.startsWith('pt')) return { months: MONTHS_SHORT_PT, weekdays: WEEKDAYS_PT, today: 'Hoje', yesterday: 'Ontem' };
-  if (lower.startsWith('fr')) return { months: MONTHS_SHORT_FR, weekdays: WEEKDAYS_FR, today: "Aujourd'hui", yesterday: 'Hier' };
-  return { months: MONTHS_SHORT_EN, weekdays: WEEKDAYS_EN, today: 'Today', yesterday: 'Yesterday' };
-}
-
-function parseEmailDate(raw: string | undefined): Date | null {
-  if (!raw) return null;
-  const numeric = Number(raw);
-  if (Number.isFinite(numeric) && numeric > 0) {
-    const d = new Date(numeric);
-    if (!Number.isNaN(d.getTime())) return d;
-  }
-  const d = new Date(raw);
-  if (!Number.isNaN(d.getTime())) return d;
-  return null;
-}
-
-function formatEmailDate(raw: string | undefined, lang: string): string {
-  const date = parseEmailDate(raw);
-  if (!date) return raw || '';
-  const { months, weekdays, today, yesterday } = localeStrings(lang);
-  const now = new Date();
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const yesterdayDate = new Date(now);
-  yesterdayDate.setDate(now.getDate() - 1);
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (sameDay(date, now)) return `${today}, ${time}`;
-  if (sameDay(date, yesterdayDate)) return `${yesterday}, ${time}`;
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays >= 0 && diffDays < 7) {
-    const wd = weekdays[date.getDay()] ?? '';
-    return `${wd}, ${time}`;
-  }
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${date.getDate()} ${months[date.getMonth()] ?? ''}, ${time}`;
-  }
-  return `${date.getDate()} ${months[date.getMonth()] ?? ''} ${date.getFullYear()}, ${time}`;
-}
-
-function flagChips(flags: string[] | undefined, t: (key: string) => string): { label: string; key: string }[] {
-  if (!flags || flags.length === 0) return [];
-  const out: { label: string; key: string }[] = [];
-  const has = (kw: string) => flags.some((f) => f.toLowerCase().includes(kw.toLowerCase()));
-  if (has('flagged')) out.push({ key: 'flagged', label: t('email.reader.flags.flagged') });
-  if (has('answered')) out.push({ key: 'answered', label: t('email.reader.flags.answered') });
-  if (has('draft')) out.push({ key: 'draft', label: t('email.reader.flags.draft') });
-  if (has('deleted')) out.push({ key: 'deleted', label: t('email.reader.flags.deleted') });
-  return out;
-}
+/** Match IPC/store max so the dashboard is not stuck at Himalaya's old page of 30. */
+const LIST_PAGE_SIZE = 500;
 
 function parseFolders(raw: unknown): EmailFolderRow[] {
   if (!Array.isArray(raw)) return [];
@@ -155,39 +77,88 @@ function folderIcon(name: string) {
   return Folder01Icon;
 }
 
+function findSentFolder(folders: EmailFolderRow[]): string | null {
+  for (const f of folders) {
+    const base = f.name.replace(/^\[[^\]]+\]\//, '').toLowerCase();
+    if (base.includes('sent') || base === 'outbox' || base === 'enviados') return f.name;
+  }
+  return null;
+}
+
 export default function EmailView() {
   const { t } = useTranslation();
   const openSettingsTab = useTabStore((s) => s.openSettingsTab);
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const [hasAccount, setHasAccount] = useState<boolean | null>(null);
-  const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
+  const [inbox, setInbox] = useState<MailEnvelope[]>([]);
+  const [sent, setSent] = useState<MailEnvelope[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Envelope | null>(null);
+  const [selected, setSelected] = useState<MailEnvelope | null>(null);
   const [message, setMessage] = useState<unknown>(null);
   const [readingId, setReadingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [folder, setFolder] = useState('INBOX');
   const [folders, setFolders] = useState<EmailFolderRow[]>([]);
-  const [composing, setComposing] = useState<null | { mode: 'new' | 'reply'; replyTo?: Envelope }>(null);
+  const [composing, setComposing] = useState<null | { mode: 'new' | 'reply'; replyTo?: MailEnvelope }>(
+    null,
+  );
   const [error, setError] = useState<EmailErrorInfo | null>(null);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [filter, setFilter] = useState<MailFilter>('all');
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [networkEmails, setNetworkEmails] = useState<Set<string>>(() => new Set());
+  const [selfEmails, setSelfEmails] = useState<Set<string>>(() => new Set());
 
-  const refresh = useCallback(async (targetFolder?: string) => {
-    const f = targetFolder ?? folder;
+  const loadPeople = useCallback(async () => {
+    try {
+      const res = await window.electron.people.list(projectId);
+      if (res.success && res.data?.people) {
+        setNetworkEmails(collectNetworkEmails(res.data.people));
+      }
+    } catch {
+      setNetworkEmails(new Set());
+    }
+  }, [projectId]);
+
+  const refreshInbox = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await window.electron.email.listEnvelopes({ folder: f, projectId });
-      if (res.success) setEnvelopes((res.envelopes as Envelope[]) || []);
+      const res = await window.electron.email.listEnvelopes({
+        folder,
+        projectId,
+        pageSize: LIST_PAGE_SIZE,
+      });
+      if (res.success) setInbox((res.envelopes as MailEnvelope[]) || []);
       else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
     } finally {
       setLoading(false);
     }
   }, [folder, projectId]);
+
+  const refreshSent = useCallback(
+    async (folderList: EmailFolderRow[]) => {
+      const sentName = findSentFolder(folderList);
+      if (!sentName) {
+        setSent([]);
+        return;
+      }
+      try {
+        const res = await window.electron.email.listEnvelopes({
+          folder: sentName,
+          projectId,
+          pageSize: LIST_PAGE_SIZE,
+        });
+        if (res.success) setSent((res.envelopes as MailEnvelope[]) || []);
+      } catch {
+        setSent([]);
+      }
+    },
+    [projectId],
+  );
 
   const syncNow = useCallback(async () => {
     if (syncing) return;
@@ -198,13 +169,29 @@ export default function EmailView() {
       if (res && res.success === false) {
         setSyncError(res.error || t('email.sync_failed'));
       }
-      await refresh();
+      // Always land on INBOX after sync (not "Todos" / All Mail).
+      const inboxName =
+        folders.find((x) => x.name.toUpperCase() === 'INBOX')?.name || 'INBOX';
+      setFolder(inboxName);
+      setQuery('');
+      setFilter('all');
+      setSelected(null);
+      setMessage(null);
+      setComposing(null);
+      const inboxRes = await window.electron.email.listEnvelopes({
+        folder: inboxName,
+        projectId,
+        pageSize: LIST_PAGE_SIZE,
+      });
+      if (inboxRes.success) setInbox((inboxRes.envelopes as MailEnvelope[]) || []);
+      else setError({ error: inboxRes.error, errorCode: inboxRes.errorCode, helpUrl: inboxRes.helpUrl });
+      await refreshSent(folders);
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : t('email.sync_failed'));
     } finally {
       setSyncing(false);
     }
-  }, [projectId, refresh, syncing, t]);
+  }, [folders, projectId, refreshSent, syncing, t]);
 
   useEffect(() => {
     const unsubStatus = window.electron.email.onSyncStatus?.((data) => {
@@ -214,11 +201,13 @@ export default function EmailView() {
       else if (data?.status === 'idle' || data?.status === 'ok') setSyncError(null);
     });
     const unsubData = window.electron.email.onDataUpdated?.(() => {
-      void refresh();
+      void refreshInbox();
+      void refreshSent(folders);
     });
     void window.electron.email.syncStatus?.({ projectId }).then((res) => {
       if (!res?.success) return;
-      const status = (res as { data?: { syncing?: boolean; lastSync?: number | null; error?: string | null } }).data;
+      const status = (res as { data?: { syncing?: boolean; lastSync?: number | null; error?: string | null } })
+        .data;
       if (!status) return;
       setSyncing(Boolean(status.syncing));
       if (typeof status.lastSync === 'number') setLastSyncAt(status.lastSync);
@@ -228,37 +217,69 @@ export default function EmailView() {
       unsubStatus?.();
       unsubData?.();
     };
-  }, [projectId, refresh]);
+  }, [folders, projectId, refreshInbox, refreshSent]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const res = await invokeWithTimeout(
           () => window.electron.email.listAccounts({ projectId }),
           30_000,
         );
-        const ok = res.success && (res.accounts?.length ?? 0) > 0;
+        if (cancelled) return;
+        const accounts = (res.accounts as Array<{ email?: string }> | undefined) || [];
+        const ok = res.success && accounts.length > 0;
         setHasAccount(ok);
         if (!ok) return;
-        refresh('INBOX');
+        setSelfEmails(
+          new Set(
+            accounts
+              .map((a) => (a.email || '').trim().toLowerCase())
+              .filter(Boolean),
+          ),
+        );
         const f = await invokeWithTimeout(
           () => window.electron.email.listFolders({ projectId }),
           30_000,
         );
-        if (f.success) {
-          const parsed = parseFolders(f.folders);
-          setFolders(parsed.length > 0 ? parsed : [{ name: 'INBOX' }]);
-        } else {
-          setFolders([{ name: 'INBOX' }]);
+        if (cancelled) return;
+        const parsed = f.success ? parseFolders(f.folders) : [];
+        const folderList = parsed.length > 0 ? parsed : [{ name: 'INBOX' }];
+        setFolders(folderList);
+        const inboxName =
+          folderList.find((x) => x.name.toUpperCase() === 'INBOX')?.name || 'INBOX';
+        setFolder(inboxName);
+        void loadPeople();
+        // Load inbox immediately — do not only rely on the folder/hasAccount effect
+        // (that path can be skipped if AppShell remounts mid-flight).
+        const inboxRes = await window.electron.email.listEnvelopes({
+          folder: inboxName,
+          projectId,
+          pageSize: LIST_PAGE_SIZE,
+        });
+        if (cancelled) return;
+        if (inboxRes.success) setInbox((inboxRes.envelopes as MailEnvelope[]) || []);
+        else {
+          setError({
+            error: inboxRes.error,
+            errorCode: inboxRes.errorCode,
+            helpUrl: inboxRes.helpUrl,
+          });
         }
+        void refreshSent(folderList);
       } catch (err) {
+        if (cancelled) return;
         setHasAccount(false);
         setError({
           error: err instanceof Error ? err.message : String(err),
         });
       }
     })();
-  }, [refresh, projectId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPeople, projectId, refreshSent]);
 
   const folderOptions = useMemo(() => {
     const names = folders.map((f) => f.name);
@@ -274,41 +295,195 @@ export default function EmailView() {
     setQuery('');
     setSelected(null);
     setMessage(null);
+    setComposing(null);
     setFolderMenuOpen(false);
-    refresh(next);
+    setFilter('all');
   };
 
-  const runSearch = async () => {
-    if (!query.trim()) return refresh();
+  useEffect(() => {
+    if (hasAccount !== true) return;
+    void refreshInbox();
+  }, [folder, hasAccount, refreshInbox]);
+
+  useEffect(() => {
+    if (hasAccount !== true) return;
+    void refreshSent(folders);
+  }, [folders, hasAccount, refreshSent]);
+
+  const runSearch = useCallback(async (raw: string) => {
+    const q = raw.trim();
+    if (!q) {
+      await refreshInbox();
+      return;
+    }
+    // Strip local operators for the remote IMAP query (from:/subject: stay local).
+    const remoteQ = q
+      .replace(/(?:^|\s)from:\S+/gi, ' ')
+      .replace(/(?:^|\s)subject:("[^"]+"|\S+)/gi, ' ')
+      .trim();
+    if (!remoteQ) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await window.electron.email.search({ query: query.trim(), folder, projectId });
-      if (res.success) setEnvelopes((res.envelopes as Envelope[]) || []);
-      else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
+      const res = await window.electron.email.search({
+        query: remoteQ,
+        folder,
+        projectId,
+        pageSize: LIST_PAGE_SIZE,
+      });
+      if (res.success) {
+        const remote = (res.envelopes as MailEnvelope[]) || [];
+        // Merge into local cache so from:/subject: filters still apply on the full set.
+        setInbox((prev) => {
+          const byId = new Map(prev.map((e) => [e.id, e]));
+          for (const env of remote) byId.set(env.id, env);
+          return Array.from(byId.values());
+        });
+      } else {
+        setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [folder, projectId, refreshInbox]);
 
-  const openMessage = async (env: Envelope) => {
-    setSelected(env);
-    setReadingId(env.id);
-    setMessage(null);
-    try {
-      const res = await window.electron.email.read({ messageId: env.id, folder, projectId });
-      if (res.success) setMessage(res.message);
-      else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
-    } finally {
-      setReadingId(null);
+  // Local filter is instant; remote search deepens results after a short pause.
+  useEffect(() => {
+    if (hasAccount !== true) return;
+    const q = query.trim();
+    if (q.length < 2) return;
+    const id = window.setTimeout(() => {
+      void runSearch(q);
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [hasAccount, query, runSearch]);
+
+  const openMessage = useCallback(
+    async (env: MailEnvelope, folderName?: string) => {
+      const f = folderName ?? folder;
+      setComposing(null);
+      setSelected(env);
+      setReadingId(env.id);
+      setMessage(null);
+      try {
+        const res = await window.electron.email.read({ messageId: env.id, folder: f, projectId });
+        if (res.success) setMessage(res.message);
+        else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
+      } finally {
+        setReadingId(null);
+      }
+    },
+    [folder, projectId],
+  );
+
+  const askManyAbout = useCallback(
+    (env: MailEnvelope | null, prompt: string) => {
+      const many = useManyStore.getState();
+      if (env) {
+        // Pin the IMAP uid (what email_read / Himalaya expect), not the SQLite row id (emsg-…).
+        many.addPinnedResource({
+          id: String(env.id),
+          title: env.subject || t('email.no_subject'),
+          type: 'email',
+          kind: 'email',
+          meta: {
+            folder,
+            uid: String(env.id),
+            dbId: env.dbId || undefined,
+            accountId: env.accountId,
+          },
+        });
+      }
+      many.setPendingOneShotSkill('dome-email-triage');
+      many.setPendingManyHandoff(prompt);
+      many.setOpen(true);
+    },
+    [folder, t],
+  );
+
+  const applyEmailFocus = useCallback(
+    async (intent: { sourceId: string; folder?: string; uid?: string | number }) => {
+      if (hasAccount !== true) return;
+      const targetFolder = intent.folder?.trim() || folder;
+      setComposing(null);
+      setQuery('');
+      setError(null);
+
+      const loadFolder = async (f: string): Promise<MailEnvelope[]> => {
+        setLoading(true);
+        try {
+          const res = await window.electron.email.listEnvelopes({
+            folder: f,
+            projectId,
+            pageSize: LIST_PAGE_SIZE,
+          });
+          if (res.success) {
+            const list = (res.envelopes as MailEnvelope[]) || [];
+            if (f.toUpperCase() === 'INBOX' || f === folder) setInbox(list);
+            return list;
+          }
+          setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
+          return [];
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      if (targetFolder !== folder) {
+        setFolder(targetFolder);
+        setSelected(null);
+        setMessage(null);
+      }
+
+      const list = await loadFolder(targetFolder);
+      const uidStr = intent.uid != null ? String(intent.uid) : null;
+      const match =
+        list.find((env) => env.dbId === intent.sourceId) ||
+        (uidStr ? list.find((env) => String(env.id) === uidStr) : undefined) ||
+        list.find((env) => env.id === intent.sourceId);
+
+      if (match) await openMessage(match, targetFolder);
+    },
+    [folder, hasAccount, openMessage, projectId],
+  );
+
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const detail = (
+        e as CustomEvent<{ sourceId?: string; folder?: string; uid?: string | number }>
+      ).detail;
+      if (!detail?.sourceId) return;
+      useOpenIntentStore.getState().consume('email');
+      void applyEmailFocus({
+        sourceId: detail.sourceId,
+        ...(detail.folder ? { folder: detail.folder } : {}),
+        ...(detail.uid != null ? { uid: detail.uid } : {}),
+      });
+    };
+    window.addEventListener('dome:focus-email', onFocus);
+    return () => window.removeEventListener('dome:focus-email', onFocus);
+  }, [applyEmailFocus]);
+
+  useEffect(() => {
+    if (hasAccount !== true) return;
+    const pending = useOpenIntentStore.getState().consume('email');
+    if (pending) {
+      void applyEmailFocus({
+        sourceId: pending.sourceId,
+        ...(pending.folder ? { folder: pending.folder } : {}),
+        ...(pending.uid != null ? { uid: pending.uid } : {}),
+      });
     }
-  };
+  }, [hasAccount, applyEmailFocus]);
+
+  const matchedCount = useMemo(
+    () => (query.trim() ? filterEnvelopesByQuery(inbox, query).length : null),
+    [inbox, query],
+  );
 
   if (hasAccount === null) {
     return (
-      <div
-        className="flex flex-1 items-center justify-center h-full min-h-[120px] bg-background"
-      >
+      <div className="flex h-full min-h-[120px] flex-1 items-center justify-center bg-background">
         <ListState variant="loading" loadingLabel={t('common.loading')} compact />
       </div>
     );
@@ -336,7 +511,7 @@ export default function EmailView() {
     : syncing
       ? t('email.syncing')
       : lastSyncAt
-        ? t('email.last_sync', {
+        ? t('email.agent_subtitle_synced', {
             time: new Date(lastSyncAt).toLocaleString([], {
               hour: '2-digit',
               minute: '2-digit',
@@ -344,672 +519,181 @@ export default function EmailView() {
               month: 'short',
             }),
           })
-        : t('email.sync_idle');
+        : t('email.agent_subtitle');
+
+  const detailOpen = composing != null || selected != null;
 
   return (
-    <>
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 border-b px-4 py-3">
+    <div className="@container/email flex h-full min-h-0 flex-col text-foreground">
+      <div
+        className={
+          detailOpen
+            ? 'flex shrink-0 flex-col gap-2 border-b bg-card px-3 py-2'
+            : 'flex shrink-0 flex-col gap-3 border-b bg-card px-4 py-3'
+        }
+      >
         <HubHeader
           title={t('email.tab_title')}
-          description={syncDescription}
+          description={detailOpen ? undefined : syncDescription}
+          className="w-full"
           actions={
             <>
               {syncError ? (
                 <Badge variant="destructive">{t('email.sync_badge_error')}</Badge>
-              ) : syncing ? (
+              ) : syncing || loading ? (
                 <Badge variant="secondary">{t('email.sync_badge_syncing')}</Badge>
               ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={syncing}
-                onClick={() => void syncNow()}
-              >
-                {syncing ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />}
-                {t('email.sync_now')}
+              <Button type="button" variant="outline" size="sm" disabled={syncing} onClick={() => void syncNow()}>
+                {syncing ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+                )}
+                <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
               </Button>
               <Button
                 type="button"
                 size="sm"
-                onClick={() => setComposing({ mode: 'new' })}
+                onClick={() => {
+                  setSelected(null);
+                  setMessage(null);
+                  setComposing({ mode: 'new' });
+                }}
               >
                 <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
-                {t('email.compose')}
+                <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
               </Button>
             </>
           }
         />
-      </div>
-    <ResizablePanelGroup orientation="horizontal" className={`dome-email-view${selected ? ' dome-email-view--reader-active' : ''}`}>
-      {/* Folder sidebar — visible only on wide layouts (>= 960px container width). */}
-      <ResizablePanel id="email-folders" defaultSize={220} minSize={180} maxSize={300} groupResizeBehavior="preserve-pixel-size">
-      <aside
-        className="dome-email-view__sidebar"
-        aria-label={t('email.folders.title')}
-      >
-        <div className="dome-email-view__sidebar-header">
-          <HubSectionLabel>{t('email.folders.title')}</HubSectionLabel>
-        </div>
-        <ul id="dome-email-folder-list" className="dome-email-view__folder-list list-none m-0 p-0">
-          {folderOptions.map((f) => {
-            const active = f.name === folder;
-                const icon = folderIcon(f.name);
-            return (
-              <li key={f.name}>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Popover open={folderMenuOpen} onOpenChange={setFolderMenuOpen}>
+            <PopoverTrigger
+              render={
                 <Button
                   type="button"
-                  variant={active ? 'secondary' : 'ghost'}
-                  onClick={() => changeFolder(f.name)}
-                  className={`dome-email-view__folder-btn${active ? ' dome-email-view__folder-btn--active' : ''}`}
-                  title={f.name}
-                  aria-current={active ? 'true' : undefined}
-                >
-                  <HugeiconsIcon icon={icon} className="dome-email-view__folder-btn-icon" aria-hidden="true" />
-                  <span className="dome-email-view__folder-btn-label">
-                    {emailFolderLabel(f.name, t)}
-                  </span>
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
-      </ResizablePanel>
-      <ResizableHandle aria-label={t('email.folders.title')} />
-
-      {/* Right column holds the top header (on narrow widths) and the list/reader panes. */}
-      <ResizablePanel id="email-workspace" minSize={560}>
-      <div className="dome-email-view__main">
-        {/* Top header — on wide layouts acts as the list-pane toolbar; on narrow
-            layouts also carries the folder selector dropdown. */}
-        <div className="dome-email-view__topbar">
-          <FolderMenuButton
-            currentFolder={currentFolder}
-            CurrentFolderIcon={CurrentFolderIcon}
-            folderOptions={folderOptions}
-            folderIconFor={folderIcon}
-            open={folderMenuOpen}
-            onToggle={() => setFolderMenuOpen((v) => !v)}
-            onSelect={changeFolder}
-            onClose={() => setFolderMenuOpen(false)}
-          />
+                  variant="outline"
+                  size="sm"
+                  className="min-w-0 max-w-[10rem] justify-between gap-1.5 @[48rem]/email:max-w-xs"
+                  aria-label={t('email.folders.openMenu')}
+                />
+              }
+            >
+              <HugeiconsIcon icon={CurrentFolderIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">
+                {currentFolder ? emailFolderLabel(currentFolder.name, t) : t('email.folders.title')}
+              </span>
+              <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-56 gap-0 overflow-hidden p-0">
+              <Command>
+                <CommandInput placeholder={t('email.folders.title')} />
+                <CommandList>
+                  <CommandEmpty>{t('email.no_messages')}</CommandEmpty>
+                  <CommandGroup>
+                    {folderOptions.map((f) => {
+                      const icon = folderIcon(f.name);
+                      return (
+                        <CommandItem
+                          key={f.name}
+                          value={`${f.name} ${emailFolderLabel(f.name, t)}`}
+                          onSelect={() => changeFolder(f.name)}
+                        >
+                          <HugeiconsIcon icon={icon} className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{emailFolderLabel(f.name, t)}</span>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
           <HubSearch
-            className="dome-email-view__search"
+            className="min-w-0 flex-1 basis-[12rem]"
             value={query}
             onChange={setQuery}
-            onSubmit={() => void runSearch()}
-            placeholder={t('email.search_placeholder')}
-            aria-label={t('email.search_placeholder')}
+            onSubmit={() => void runSearch(query)}
+            placeholder={t('email.agent_search')}
+            aria-label={t('email.agent_search')}
             clearLabel={t('common.cancel')}
           />
-
-          <div className="dome-email-view__list-actions">
-            <Button variant="ghost"
-  aria-label={t('email.refresh')}
-  title={t('email.refresh')}
-  onClick={() => refresh()}
-  size="icon-sm">
-              <HugeiconsIcon icon={RefreshIcon} className={`size-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} />
-            </Button>
-            <Button variant="ghost"
-  aria-label={t('email.compose')}
-  title={t('email.compose')}
-  onClick={() => setComposing({ mode: 'new' })}
-  size="icon-sm">
-              <HugeiconsIcon icon={NoteEditIcon} className="size-4 text-primary" />
-            </Button>
-          </div>
         </div>
+      </div>
 
-        <ResizablePanelGroup orientation="horizontal" className="dome-email-view__panes">
-          {/* List pane */}
-          <ResizablePanel id="email-message-list" defaultSize={360} minSize={280} maxSize={520} groupResizeBehavior="preserve-pixel-size">
-          <div className="dome-email-view__list" aria-label={t('email.tab_title')}>
-            <div className="dome-email-view__list-body">
-              {envelopes.length === 0 && !loading && (
-                <div className="dome-email-view__empty flex flex-col items-center gap-2 py-10 text-center">
-                  <HugeiconsIcon icon={InboxIcon} className="size-6 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{t('email.no_messages')}</span>
-                  <Button type="button" variant="outline" size="sm" disabled={syncing} onClick={() => void syncNow()}>
-                    {t('email.sync_now')}
-                  </Button>
-                </div>
-              )}
-              <ItemGroup className="gap-1.5">
-                {envelopes.map((env) => {
-                  const active = selected?.id === env.id;
-                  const senderName = fromLabel(env.from) || t('email.unknown_sender');
-                  const initials = monogram(senderName);
-                  return (
-                    <EntityListItem
-                      key={env.id}
-                      active={active}
-                      onClick={() => openMessage(env)}
-                      media={
-                        <span
-                          aria-hidden="true"
-                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-                        >
-                          {initials}
-                        </span>
-                      }
-                      title={senderName}
-                      description={env.subject || t('email.no_subject')}
-                      actions={<span className="text-xs whitespace-nowrap text-muted-foreground">{env.date || ''}</span>}
-                    />
-                  );
-                })}
-              </ItemGroup>
-            </div>
-          </div>
-          </ResizablePanel>
-          <ResizableHandle aria-label={t('email.select_message')} />
-
-          {/* Reader pane */}
-          <ResizablePanel id="email-reader" minSize={360}>
-          <ReaderPane
-            selected={selected}
-            reading={!!readingId}
-            error={error}
-            folder={folder}
-            message={message}
-            onReply={(env) => setComposing({ mode: 'reply', replyTo: env })}
-            onBack={() => setSelected(null)}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {/* On narrow containers with detail open, hide the list so compose/read gets full width. */}
+        <div
+          className={
+            detailOpen
+              ? 'hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden @[56rem]/email:flex'
+              : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+          }
+        >
+          <MailDashboard
+            inbox={inbox}
+            sent={sent}
+            networkEmails={networkEmails}
+            selfEmails={selfEmails}
+            query={query}
+            filter={filter}
+            onFilter={setFilter}
+            selectedId={selected?.id}
+            onOpen={(env) => void openMessage(env)}
+            onCompose={() => {
+              setSelected(null);
+              setMessage(null);
+              setComposing({ mode: 'new' });
+            }}
+            onAskManyTriage={() => askManyAbout(null, t('email.agent_prompt_triage'))}
+            onAskManySummarize={() => askManyAbout(null, t('email.agent_prompt_summarize'))}
+            compact={detailOpen}
+            resultCount={matchedCount}
           />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
-      </ResizablePanel>
-
-    </ResizablePanelGroup>
-    </div>
-
-      {composing && (
-        <Composer
-          mode={composing.mode}
-          replyTo={composing.replyTo}
-          folder={folder}
-          projectId={projectId}
-          onClose={() => setComposing(null)}
-          onSent={() => {
-            setComposing(null);
-            refresh();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-interface FolderMenuButtonProps {
-  currentFolder: EmailFolderRow | undefined;
-  CurrentFolderIcon: IconSvgElement;
-  folderOptions: EmailFolderRow[];
-  folderIconFor: (name: string) => IconSvgElement;
-  open: boolean;
-  onToggle: () => void;
-  onSelect: (name: string) => void;
-  onClose: () => void;
-}
-
-function FolderMenuButton({
-  currentFolder,
-  CurrentFolderIcon,
-  folderOptions,
-  folderIconFor,
-  open,
-  onToggle,
-  onSelect,
-  onClose,
-}: FolderMenuButtonProps) {
-  const { t } = useTranslation();
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const prevOpenRef = useRef(open);
-  if (open !== prevOpenRef.current) {
-    prevOpenRef.current = open;
-    if (!open) {
-      setMenuPos(null);
-    } else {
-      const el = triggerRef.current;
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setMenuPos({ top: r.bottom + 6, left: r.left, width: r.width });
-      }
-    }
-  }
-
-  // Reposition on scroll/resize while open (listeners stay mounted; openRef avoids prop-sync effect).
-  const openRef = useRef(open);
-  openRef.current = open;
-
-  useEffect(() => {
-    const update = () => {
-      if (!openRef.current) return;
-      const el = triggerRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setMenuPos({ top: r.bottom + 6, left: r.left, width: r.width });
-    };
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
-    return () => {
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
-    };
-  }, []);
-
-  // Close on outside click and on Escape.
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: MouseEvent) => {
-      const t0 = e.target as Node | null;
-      if (!t0) return;
-      if (menuRef.current?.contains(t0)) return;
-      if (triggerRef.current?.contains(t0)) return;
-      onClose();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-        triggerRef.current?.focus();
-      }
-    };
-    document.addEventListener('mousedown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
-
-  // Focus first item when opening.
-  useEffect(() => {
-    if (!open) return;
-    const id = window.setTimeout(() => {
-      const first = menuRef.current?.querySelector<HTMLButtonElement>('[data-folder-menu-item]');
-      first?.focus();
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [open]);
-
-  const label = currentFolder ? emailFolderLabel(currentFolder.name, t) : t('email.folders.title');
-
-  return (
-    <>
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="ghost"
-        size="sm"
-        className={`dome-email-view__folder-trigger${open ? ' dome-email-view__folder-trigger--open' : ''}`}
-        onClick={onToggle}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={t('email.folders.openMenu', { defaultValue: t('email.folders.title') })}
-        title={label}
-      >
-        <HugeiconsIcon icon={CurrentFolderIcon} className="size-4 shrink-0" aria-hidden="true" />
-        <span className="dome-email-view__folder-trigger-label">{label}</span>
-        <HugeiconsIcon
-          icon={ChevronDownIcon}
-          className={`size-3.5 shrink-0 dome-email-view__folder-trigger-caret${open ? ' dome-email-view__folder-trigger-caret--open' : ''}`}
-          aria-hidden="true"
-        />
-      </Button>
-      {open && menuPos ? (
-            <DropdownMenu open onOpenChange={(next) => { if (!next) onToggle(); }}>
-              <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, left: menuPos.left }} aria-hidden />} />
-              <DropdownMenuContent
-              ref={menuRef}
-              className="dome-email-view__folder-menu"
-              aria-label={t('email.folders.title')}
-              align="start"
-              side="bottom"
-              sideOffset={0}
-              style={{ minWidth: menuPos.width }}
-            >
-              <DropdownMenuGroup>
-              {folderOptions.map((f) => {
-                const active = f.name === currentFolder?.name;
-                const icon = folderIconFor(f.name);
-                return (
-                  <DropdownMenuItem
-                    key={f.name}
-                    data-folder-menu-item
-                    onClick={() => onSelect(f.name)}
-                    className={`dome-email-view__folder-menu-item${active ? ' dome-email-view__folder-menu-item--active' : ''}`}
-                  >
-                    <HugeiconsIcon icon={icon} className="size-4 shrink-0" aria-hidden="true" />
-                    <span className="dome-email-view__folder-menu-item-label">
-                      {emailFolderLabel(f.name, t)}
-                    </span>
-                    {active && (
-                      <HugeiconsIcon
-                        icon={CheckIcon}
-                        className="size-3.5 shrink-0 dome-email-view__folder-menu-item-check"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </DropdownMenuItem>
-                );
-              })}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-    </>
-  );
-}
-
-interface ReaderPaneProps {
-  selected: Envelope | null;
-  reading: boolean;
-  error: EmailErrorInfo | null;
-  folder: string;
-  message: unknown;
-  onReply: (env: Envelope) => void;
-  onBack: () => void;
-}
-
-function ReaderPane({ selected, reading, error, folder, message, onReply, onBack }: ReaderPaneProps) {
-  const { t, i18n } = useTranslation();
-  const [recipientsOpen, setRecipientsOpen] = useState(false);
-
-  if (!selected) {
-    return (
-      <div className="dome-email-view__reader" aria-label={t('email.select_message')}>
-        <output className="dome-email-view__reader-empty-state">
-          <HugeiconsIcon icon={InboxIcon} className="dome-email-view__reader-empty-icon" aria-hidden="true" />
-          <h3 className="dome-email-view__reader-empty-title">
-            {t('email.reader.empty.title')}
-          </h3>
-          <p className="dome-email-view__reader-empty-subtitle">
-            {t('email.reader.empty.subtitle')}
-          </p>
-        </output>
-      </div>
-    );
-  }
-
-  const senderName = fromName(selected.from);
-  const senderEmail = fromEmail(selected.from);
-  const displayName = senderName || senderEmail || t('email.unknown_sender');
-  const dateStr = formatEmailDate(selected.date, i18n.language);
-  const chips = flagChips(selected.flags, t);
-
-  const soonTitle = t('email.reader.soon');
-
-  return (
-    <div className="dome-email-view__reader" aria-label={t('email.select_message')}>
-      {error && (
-        <div className="dome-email-view__reader-error">
-          <EmailErrorNotice info={error} compact />
-        </div>
-      )}
-
-      <div className="dome-email-view__reader-body">
-        <header className="dome-email-view__reader-header">
-          {/* Row 1 — subject + actions */}
-          <div className="dome-email-view__reader-row dome-email-view__reader-row--top">
-            <h2 className="dome-email-view__reader-subject">
-              {selected.subject || t('email.no_subject')}
-            </h2>
-            <div className="dome-email-view__reader-actions" role="toolbar" aria-label={t('email.reader.actions.reply')}>
-              <Button variant="ghost"
-  aria-label={t('email.reader.actions.reply')}
-  title={t('email.reader.actions.reply')}
-  onClick={() => onReply(selected)}
-  size="icon-sm">
-                <HugeiconsIcon icon={ArrowTurnBackwardIcon} className="size-4" />
-              </Button>
-              <Button variant="ghost"
-  aria-label={t('email.reader.actions.replyAll')}
-  title={soonTitle}
-  disabled
-  size="icon-sm">
-                <HugeiconsIcon icon={MailReplyAll02Icon} className="size-4" />
-              </Button>
-              <Button variant="ghost"
-  aria-label={t('email.reader.actions.forward')}
-  title={soonTitle}
-  disabled
-  size="icon-sm">
-                <HugeiconsIcon icon={ArrowTurnForwardIcon} className="size-4" />
-              </Button>
-              <Button variant="ghost"
-  aria-label={t('email.reader.actions.archive')}
-  title={soonTitle}
-  disabled
-  size="icon-sm">
-                <HugeiconsIcon icon={ArchiveIcon} className="size-4" />
-              </Button>
-              <Button variant="ghost"
-  aria-label={t('email.reader.actions.delete')}
-  title={soonTitle}
-  disabled
-  size="icon-sm">
-                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-              </Button>
-              <Button variant="ghost"
-  aria-label={t('email.reader.actions.more')}
-  title={soonTitle}
-  disabled
-  size="icon-sm">
-                <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Row 2 — sender avatar + name + meta + date + chips */}
-          <div className="dome-email-view__reader-row dome-email-view__reader-row--sender">
-            <div className="dome-email-view__reader-avatar" aria-hidden="true">
-              {monogram(displayName)}
-            </div>
-            <div className="dome-email-view__reader-sender">
-              <span className="dome-email-view__reader-sender-name">{displayName}</span>
-              {senderEmail && senderEmail !== displayName && (
-                <span className="dome-email-view__reader-sender-email">&lt;{senderEmail}&gt;</span>
-              )}
-              {chips.length > 0 && (
-                <div className="dome-email-view__reader-chips" aria-label={t('email.reader.meta.flags')}>
-                  {chips.map((c) => (
-                    <span key={c.key} className="dome-email-view__reader-chip">
-                      {c.label}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <time
-              className="dome-email-view__reader-date"
-              dateTime={selected.date || undefined}
-              title={selected.date || undefined}
-            >
-              {dateStr}
-            </time>
-          </div>
-
-          {/* Row 3 — recipients collapse */}
-          {senderEmail && (
-            <div className="dome-email-view__reader-recipients">
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                className="dome-email-view__reader-recipients-toggle"
-                onClick={() => setRecipientsOpen((v) => !v)}
-                aria-expanded={recipientsOpen}
-                aria-controls="dome-email-reader-recipients-detail"
-              >
-                {recipientsOpen ? (
-                  <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0" aria-hidden="true" />
-                ) : (
-                  <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5 shrink-0" aria-hidden="true" />
-                )}
-                <span className="dome-email-view__reader-recipients-label">
-                  {t('email.reader.meta.to')}:
-                </span>
-                <span className="dome-email-view__reader-recipients-address">
-                  {senderEmail}
-                </span>
-              </Button>
-              {recipientsOpen && (
-                <dl
-                  id="dome-email-reader-recipients-detail"
-                  className="dome-email-view__reader-recipients-detail"
-                >
-                  <div className="dome-email-view__reader-recipients-detail-row">
-                    <dt>{t('email.reader.meta.messageId')}</dt>
-                    <dd>{selected.id}</dd>
-                  </div>
-                  <div className="dome-email-view__reader-recipients-detail-row">
-                    <dt>{t('email.reader.meta.folder')}</dt>
-                    <dd>{folder}</dd>
-                  </div>
-                  {selected.date && (
-                    <div className="dome-email-view__reader-recipients-detail-row">
-                      <dt>ISO</dt>
-                      <dd>{selected.date}</dd>
-                    </div>
-                  )}
-                  {selected.flags && selected.flags.length > 0 && (
-                    <div className="dome-email-view__reader-recipients-detail-row">
-                      <dt>{t('email.reader.meta.flags')}</dt>
-                      <dd>{selected.flags.join(', ')}</dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-            </div>
-          )}
-        </header>
-
-        {/* Back button — only visible on narrow layouts via container query */}
-        <div className="dome-email-view__reader-back-row">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="dome-email-view__reader-back"
-            onClick={() => onBack()}
-            aria-label={t('common.back')}
-            title={t('common.back')}
-          >
-            <HugeiconsIcon icon={ChevronLeftIcon} className="size-4" aria-hidden="true" />
-            <span>{t('common.back')}</span>
-          </Button>
         </div>
 
-      {/* Body */}
-        <div className="dome-email-view__reader-body-scroll">
-          {reading ? (
-            <output className="dome-email-view__reader-loading">
-              <Spinner
-                className="size-4 text-muted-foreground"
-                aria-hidden="true"
+        {detailOpen ? (
+          <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col border-l bg-background @[56rem]/email:w-96 @[56rem]/email:max-w-[32rem] @[56rem]/email:shrink-0 @[56rem]/email:grow-0">
+            {composing ? (
+              <MailComposePanel
+                mode={composing.mode}
+                replyTo={composing.replyTo}
+                folder={folder}
+                projectId={projectId}
+                onClose={() => setComposing(null)}
+                onSent={() => {
+                  setComposing(null);
+                  void refreshInbox();
+                  void refreshSent(folders);
+                }}
               />
-              <span>{t('email.reader.loading')}</span>
-            </output>
-          ) : (
-            <div className="dome-email-view__reader-body-content">
-              <EmailBody message={message} />
-            </div>
-          )}
-        </div>
+            ) : selected ? (
+              <MailDetailPanel
+                selected={selected}
+                reading={readingId === selected.id}
+                error={error}
+                folder={folder}
+                message={message}
+                onClose={() => {
+                  setSelected(null);
+                  setMessage(null);
+                }}
+                onReply={() => setComposing({ mode: 'reply', replyTo: selected })}
+                onAskMany={() =>
+                  askManyAbout(
+                    selected,
+                    t('email.agent_prompt_about', {
+                      subject: selected.subject || t('email.no_subject'),
+                    }),
+                  )
+                }
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
-  );
-}
-
-function Composer({
-  mode,
-  replyTo,
-  folder,
-  projectId,
-  onClose,
-  onSent,
-}: {
-  mode: 'new' | 'reply';
-  replyTo?: Envelope;
-  folder: string;
-  projectId: string;
-  onClose: () => void;
-  onSent: () => void;
-}) {
-  const { t } = useTranslation();
-  const [to, setTo] = useState(mode === 'reply' ? fromLabel(replyTo?.from) : '');
-  const [subject, setSubject] = useState(mode === 'reply' ? `Re: ${replyTo?.subject || ''}` : '');
-  const [body, setBody] = useState('');
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<EmailErrorInfo | null>(null);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
-
-  const requestClose = () => {
-    if (sending) return;
-    if (body.trim() || (mode === 'new' && (to.trim() || subject.trim()))) {
-      setConfirmDiscard(true);
-      return;
-    }
-    onClose();
-  };
-
-  const send = async () => {
-    setSending(true);
-    setError(null);
-    try {
-      const res =
-        mode === 'reply' && replyTo
-          ? await window.electron.email.reply({ messageId: replyTo.id, body, folder, projectId })
-          : await window.electron.email.send({ to, subject, body, projectId });
-      if (res.success) onSent();
-      else setError({ error: res.error || t('email.compose_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <>
-    <Dialog open onOpenChange={(open) => { if (!open) requestClose(); }}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{mode === 'reply' ? t('email.reply') : t('email.compose')}</DialogTitle></DialogHeader>
-        <FieldGroup>
-          {mode === 'new' ? (
-            <Field><FieldLabel>{t('email.to')}</FieldLabel><Input autoFocus value={to} onChange={(e) => setTo(e.target.value)} placeholder={t('email.to')} /></Field>
-          ) : null}
-          {mode === 'new' ? (
-            <Field><FieldLabel>{t('email.subject')}</FieldLabel><Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t('email.subject')} /></Field>
-          ) : null}
-          <Field><FieldLabel>{t('email.body')}</FieldLabel><Textarea autoFocus={mode === 'reply'} value={body} onChange={(e) => setBody(e.target.value)} placeholder={t('email.body')} rows={12} className="resize-none" /></Field>
-        </FieldGroup>
-        <EmailErrorNotice info={error} compact />
-        <DialogFooter>
-          <Button variant="outline" onClick={requestClose} disabled={sending}>{t('common.cancel')}</Button>
-          <Button disabled={sending || (mode === 'new' && !to)} loading={sending} onClick={send}>
-            {sending ? <Spinner className="size-4" /> : <HugeiconsIcon icon={SentIcon} className="size-4" />}
-            {t('email.send')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('email.compose')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('common.unsaved_changes', { defaultValue: 'Se perderán los cambios no guardados.' })}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onClose}>{t('common.discard', { defaultValue: 'Descartar' })}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-    </>
   );
 }

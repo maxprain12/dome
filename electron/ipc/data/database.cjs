@@ -1812,7 +1812,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     let sources = [];
     try {
       const sourceIndex = require('../../search/source-index.cjs');
-      sources = sourceIndex.searchDocuments(sanitizedQuery, { projectId: scopeProjectId });
+      // Warm FTS when hub tables have rows but source_documents is empty/behind.
+      sourceIndex.ensureAllSourcesIndexed(scopeProjectId || null);
+      sources = sourceIndex.searchDocuments(sanitizedQuery, {
+        projectId: scopeProjectId,
+        rawTerms,
+      });
+      // Direct SQL fallbacks for any missing kind (same tables the hubs read).
+      sources = sourceIndex.enrichSourcesWithDirectFallback(
+        sources,
+        rawTerms,
+        scopeProjectId || null,
+      );
     } catch (err) {
       console.warn('[DB] unified search source_documents:', err?.message || err);
     }
@@ -1930,6 +1941,20 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: counts };
     } catch (error) {
       console.error('[DB] reindexSources error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /** Recent integration sources for @ mention empty-query (people/tasks/mail/posts). */
+  ipcMain.handle('db:search:recentSources', (event, projectId, limitPerKind = 5) => {
+    try {
+      validateSender(event, windowManager);
+      const sourceIndex = require('../../search/source-index.cjs');
+      const pid = typeof projectId === 'string' && projectId ? projectId : null;
+      const data = sourceIndex.listRecentSources(pid, limitPerKind);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[DB] recentSources error:', error);
       return { success: false, error: error.message };
     }
   });

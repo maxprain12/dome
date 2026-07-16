@@ -88,4 +88,68 @@ describe('source-index', () => {
     const people = hits.filter((h) => h.kind === 'person');
     assert.ok(people.length <= 5);
   });
+
+  it('finds Spanish issue titles via LIKE fallback when FTS query misses', () => {
+    sourceIndex.upsertDocument({
+      kind: 'issue',
+      sourceId: 'iss-mejoras',
+      projectId: 'p1',
+      title: '#450 Mejoras de dome- Arreglar el panel de estudiar.',
+      body: '',
+      meta: { number: 450, state: 'open', repoId: 'repo-1', fullName: 'acme/dome' },
+    });
+    // Force LIKE path: empty FTS query string + rawTerms
+    const hits = sourceIndex.searchDocuments('', {
+      projectId: 'p1',
+      rawTerms: ['mejoras'],
+    });
+    assert.ok(hits.some((h) => h.kind === 'issue' && h.id === 'iss-mejoras'));
+  });
+
+  it('searchSocialDirect does not reference nonexistent project_id columns', () => {
+    memDb.exec(`
+      CREATE TABLE IF NOT EXISTS social_accounts (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        handle TEXT,
+        display_name TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS social_posts (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        body TEXT,
+        topics TEXT,
+        link_url TEXT,
+        status TEXT NOT NULL DEFAULT 'draft',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+    const now = Date.now();
+    memDb
+      .prepare(
+        `INSERT INTO social_accounts (id, provider, handle, status, created_at, updated_at)
+         VALUES ('acc-1', 'x', 'dome', 'active', ?, ?)`,
+      )
+      .run(now, now);
+    memDb
+      .prepare(
+        `INSERT INTO social_posts (id, account_id, provider, body, topics, status, created_at, updated_at)
+         VALUES ('post-1', 'acc-1', 'x', 'Launch announcement for Dome', 'product launch', 'published', ?, ?)`,
+      )
+      .run(now, now);
+
+    const hits = sourceIndex.searchSocialDirect(['launch'], 'any-project');
+    assert.ok(hits.some((h) => h.kind === 'social_post' && h.id === 'post-1'));
+    assert.equal(hits[0]?.projectId, 'default');
+
+    const n = sourceIndex.indexSocialPosts();
+    assert.ok(n >= 1);
+    const fts = sourceIndex.searchDocuments('"Launch"', { projectId: 'default' });
+    assert.ok(fts.some((h) => h.kind === 'social_post' && h.id === 'post-1'));
+  });
 });

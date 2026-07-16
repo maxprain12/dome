@@ -27,12 +27,13 @@ export interface PinnedResource {
   title: string;
   type: string;
   /** Defaults to resource when omitted (legacy pins). */
-  kind?: 'person' | 'resource';
+  kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post';
   identities?: Array<{
     source: string;
     externalId: string;
     displayLabel?: string | null;
   }>;
+  meta?: Record<string, unknown> | null;
 }
 
 /** Pending PDF region crop for cloud-vision Q&A in Many (memory only; not persisted). */

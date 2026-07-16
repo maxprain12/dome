@@ -26,7 +26,10 @@ const EmailSearchSchema = Type.Object({
 });
 
 const EmailReadSchema = Type.Object({
-  message_id: Type.String({ description: 'ID of the message to read (from email_list / email_search results).' }),
+  message_id: Type.String({
+    description:
+      'IMAP uid from email_list/email_search (`id`), or a pinned email id. Dome cache ids (`emsg-…`) are accepted.',
+  }),
   folder: Type.Optional(Type.String({ description: 'Folder the message is in. Defaults to INBOX.' })),
 });
 

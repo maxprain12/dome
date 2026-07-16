@@ -288,19 +288,45 @@ export default function AppShell() {
   // Keep the panel group structure stable (always 2 panels on desktop) and
   // collapse/expand Many imperatively. Remounting the group via `key` was
   // remounting ContentRouter → home/dashboard "reload" flash.
+  // Defer + try/catch: react-resizable-panels can throw
+  // "Panel constraints not found for Panel many-sidebar" on the first paint
+  // before the panel registers its constraints (also crashes EmailView).
   useEffect(() => {
     if (narrowShell) return;
-    const panel = manyPanelRef.current;
-    if (!panel) return;
-    if (showManyInDesktopSidebar) {
-      if (panel.isCollapsed()) {
-        panel.expand();
-        // Cold start with defaultSize=0 has no "recent" size for expand().
-        if (panel.getSize().inPixels < MANY_MIN) panel.resize(manyWidth);
+    let cancelled = false;
+    let retryId = 0;
+
+    const applyManyLayout = (attempt = 0) => {
+      if (cancelled) return;
+      const panel = manyPanelRef.current;
+      if (!panel) {
+        if (attempt < 8) {
+          retryId = window.requestAnimationFrame(() => applyManyLayout(attempt + 1));
+        }
+        return;
       }
-    } else if (!panel.isCollapsed()) {
-      panel.collapse();
-    }
+      try {
+        if (showManyInDesktopSidebar) {
+          if (panel.isCollapsed()) {
+            panel.expand();
+            // Cold start with defaultSize=0 has no "recent" size for expand().
+            if (panel.getSize().inPixels < MANY_MIN) panel.resize(manyWidth);
+          }
+        } else if (!panel.isCollapsed()) {
+          panel.collapse();
+        }
+      } catch {
+        if (attempt < 8) {
+          retryId = window.requestAnimationFrame(() => applyManyLayout(attempt + 1));
+        }
+      }
+    };
+
+    retryId = window.requestAnimationFrame(() => applyManyLayout(0));
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(retryId);
+    };
     // manyWidth only applied when expanding from collapsed; omit from deps
     // so drag-resize does not re-enter this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
@@ -357,9 +383,13 @@ export default function AppShell() {
                 maxSize={MANY_MAX}
                 groupResizeBehavior="preserve-pixel-size"
                 onResize={(size) => {
-                  const px = Math.round(size.inPixels);
-                  if (px < MANY_MIN / 2) return;
-                  handleManyResize(px);
+                  try {
+                    const px = Math.round(size.inPixels);
+                    if (px < MANY_MIN / 2) return;
+                    handleManyResize(px);
+                  } catch {
+                    /* panel constraints not ready yet */
+                  }
                 }}
               >
                 <aside

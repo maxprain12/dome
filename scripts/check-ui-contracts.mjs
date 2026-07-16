@@ -106,7 +106,6 @@ for (const relativePath of redesignedSurfaceFiles) {
 const IMPORTANT_ALLOWED_FILES = new Set([
   'app/globals.css', // driver.js tour override, reduced-motion kill-switch, responsive shell panels
   'app/styles/folder-view.css', // FolderCard drag-preview is portaled outside the normal cascade
-  'app/styles/github-view.css', // overrides DomeSegmentedControl's default flex-wrap
   'app/components/viewers/PptViewer.tsx', // styles the pptx-preview-rendered slide iframe content
   'app/components/viewers/SpreadsheetViewer.tsx', // sticky row-number column vs. table striping
   'app/pages/PptCapturePage.tsx', // pptx-preview capture window, same vendor-override reason
@@ -130,9 +129,7 @@ for (const file of walk(path.join(root, 'app'))) {
 const BEM_ALLOWED_FILES = new Set([
   'app/globals.css', // dome-tour-popover (driver.js), dome-ui-cursor-* (pointer overlay), dome-cmdk-preview
   'app/styles/folder-view.css',
-  'app/styles/github-view.css',
   'app/styles/mention-textarea.css',
-  'app/styles/email-view.css',
   'app/styles/learn.css', // .lr-* — Quiz/MindMap state-driven styling, see file header
 ]);
 

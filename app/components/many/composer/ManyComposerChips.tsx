@@ -1,6 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Cancel01Icon, UserIcon } from '@hugeicons/core-free-icons';
+import {
+  Cancel01Icon,
+  Mail01Icon,
+  Share08Icon,
+  Task01Icon,
+  UserIcon,
+} from '@hugeicons/core-free-icons';
 import {
   Attachment,
   AttachmentAction,
@@ -65,14 +71,32 @@ export default function ManyComposerChips({
   if (attachments.length === 0 && pinnedResources.length === 0) return null;
 
   return (
-    <div className="px-2.5 pt-2">
-      <AttachmentGroup>
+    <div className="min-w-0 w-full px-2.5 pt-2">
+      <AttachmentGroup className="w-full max-w-full flex-wrap overflow-x-hidden *:data-[slot=attachment]:max-w-full">
         {pinnedResources.map((resource) => (
-          <Attachment key={`pin-${resource.id}`} size="sm" state="done">
+          <Attachment
+            key={`pin-${resource.id}`}
+            size="sm"
+            state="done"
+            className="max-w-full"
+            title={resource.title}
+          >
             <AttachmentMedia>
               {resource.kind === 'person' ? (
                 <span className="flex size-full items-center justify-center text-muted-foreground">
                   <HugeiconsIcon icon={UserIcon} size={14} />
+                </span>
+              ) : resource.kind === 'issue' ? (
+                <span className="flex size-full items-center justify-center text-muted-foreground">
+                  <HugeiconsIcon icon={Task01Icon} size={14} />
+                </span>
+              ) : resource.kind === 'email' ? (
+                <span className="flex size-full items-center justify-center text-muted-foreground">
+                  <HugeiconsIcon icon={Mail01Icon} size={14} />
+                </span>
+              ) : resource.kind === 'social_post' ? (
+                <span className="flex size-full items-center justify-center text-muted-foreground">
+                  <HugeiconsIcon icon={Share08Icon} size={14} />
                 </span>
               ) : (
                 <ResourceIconBox
@@ -81,10 +105,14 @@ export default function ManyComposerChips({
                 />
               )}
             </AttachmentMedia>
-            <AttachmentContent>
+            <AttachmentContent className="min-w-0 overflow-hidden">
               <AttachmentTitle>{resource.title}</AttachmentTitle>
               <AttachmentDescription>
-                {resource.kind === 'person' ? t('command.people') : t('chat.group_pinned')}
+                {resource.kind === 'person'
+                  ? t('command.people')
+                  : resource.kind === 'email'
+                    ? t('email.tab_title')
+                    : t('chat.group_pinned')}
               </AttachmentDescription>
             </AttachmentContent>
             <AttachmentActions>
@@ -99,7 +127,13 @@ export default function ManyComposerChips({
           </Attachment>
         ))}
         {attachments.map((attachment) => (
-          <Attachment key={attachment.id} size="sm" state={attachmentState(attachment)}>
+          <Attachment
+            key={attachment.id}
+            size="sm"
+            state={attachmentState(attachment)}
+            className="max-w-full"
+            title={attachment.name}
+          >
             <AttachmentMedia variant={attachment.kind === 'image' ? 'image' : 'icon'}>
               {attachment.kind === 'image' ? (
                 <img src={attachment.dataUrl} alt="" />
@@ -107,7 +141,7 @@ export default function ManyComposerChips({
                 <ResourceIconBox kind={attachmentKind(attachment)} name={attachment.name} />
               )}
             </AttachmentMedia>
-            <AttachmentContent>
+            <AttachmentContent className="min-w-0 overflow-hidden">
               <AttachmentTitle>{attachment.name}</AttachmentTitle>
               {(() => {
                 const description = attachmentDescription(

@@ -11,7 +11,7 @@ import MentionTextarea, { type Mentionable } from '@/components/github/MentionTe
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import type { ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -300,7 +300,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   if (!initial) return null;
 
   const labels = parseLabels(initial.labels);
-  const stateLabel = initial.state === 'open' ? t('github.state_open') : t('github.state_closed');
+  const stateLabel = initial.state === 'open' ? t('github.dash_filter_open') : t('github.dash_filter_done');
   const milestone = initial.milestone_number != null
     ? milestones.find((m) => m.number === initial.milestone_number)
     : null;
@@ -361,7 +361,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       <Button variant="outline"
   onClick={toggleState}
   size="sm">{initial.state === 'open' ? <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} /> : <HugeiconsIcon icon={CircleDotIcon} size={13} />}
-        {initial.state === 'open' ? t('github.close') : t('github.reopen')}
+        {initial.state === 'open' ? t('github.dash_mark_done') : t('github.dash_reopen')}
       </Button>
       {!editing && (
         <Button onClick={() => setEditing(true)}
@@ -382,7 +382,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       <Button disabled={saving}
   onClick={() => void save()}
   size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
-        {t('github.save_sync')}
+        {t('github.dash_save')}
       </Button>
     </div>
   ) : (
@@ -396,7 +396,15 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   );
 
   return (
-    <Sheet open onOpenChange={(next) => { if (!next) (onClose)(); }}><SheetContent className="flex h-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><SheetHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3 pr-12"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><SheetTitle className="truncate">{t('github.issue_title', { number: initial.number })}</SheetTitle></div></div><div className="flex shrink-0 items-center gap-2">{headerActions}</div></SheetHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    <InlineDetailCard
+      onClose={onClose}
+      containerName="issue-card"
+      title={t('github.dash_task_title', { number: initial.number })}
+      icon={<HugeiconsIcon icon={CircleDotIcon} />}
+      badges={<div className="flex flex-wrap items-center gap-1.5">{headerActions}</div>}
+      footer={footer}
+      className="h-full rounded-none border-0 ring-0 md:rounded-lg md:ring-1"
+    >
       {editing ? (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
@@ -422,10 +430,10 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                 className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1 text-muted-foreground"
               >
                 <HugeiconsIcon icon={Flag02Icon} size={11} />
-                {t('github.milestone')}
+                {t('github.dash_objective')}
               </label>
               <Select value={milestoneChoice ?? null} onValueChange={(next) => { if (next != null) (setMilestoneChoice)(next); }} items={[
-                  { value: 'none', label: t('github.no_milestone_label') },
+                  { value: 'none', label: t('github.dash_no_objective') },
                   ...(() => {
                     const opts: { value: string; label: string }[] = [];
                     for (const m of milestones) {
@@ -434,8 +442,8 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     }
                     return opts;
                   })(),
-                ]}><SelectTrigger className="w-full" aria-label={t('github.milestone')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
-                  { value: 'none', label: t('github.no_milestone_label') },
+                ]}><SelectTrigger className="w-full" aria-label={t('github.dash_objective')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+                  { value: 'none', label: t('github.dash_no_objective') },
                   ...(() => {
                     const opts: { value: string; label: string }[] = [];
                     for (const m of milestones) {
@@ -614,10 +622,10 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               <HugeiconsIcon icon={Target02Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {t('github.milestone')}
+                  {t('github.dash_objective')}
                 </span>
                 <span className="text-sm truncate" style={{ color: milestone ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
-                  {milestone ? milestone.title : t('github.no_milestone_label')}
+                  {milestone ? milestone.title : t('github.dash_no_objective')}
                 </span>
               </div>
             </div>
@@ -763,6 +771,6 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
           </Tabs>
         </div>
       )}
-    </div><SheetFooter className="border-t px-4 py-3">{footer}</SheetFooter></SheetContent></Sheet>
+    </InlineDetailCard>
   );
 }

@@ -70,7 +70,7 @@ const ListEnvelopesSchema = z.object({
   projectId: z.string().min(1).optional(),
   folder: z.string().optional(),
   page: z.number().int().positive().optional(),
-  pageSize: z.number().int().positive().max(200).optional(),
+  pageSize: z.number().int().positive().max(500).optional(),
   source: z.enum(['auto', 'cache', 'live']).optional(),
 });
 
@@ -86,7 +86,7 @@ const SearchSchema = z.object({
   projectId: z.string().min(1).optional(),
   query: z.string().optional(),
   folder: z.string().optional(),
-  pageSize: z.number().int().positive().max(200).optional(),
+  pageSize: z.number().int().positive().max(500).optional(),
 });
 
 const SendSchema = z.object({
