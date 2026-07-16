@@ -93,8 +93,9 @@ export default function SocialGrowthCards({ accounts }: { accounts: SocialGrowth
                 </div>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                {acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'member'
+              <p className="line-clamp-3 text-xs text-muted-foreground">
+                {acc.followersUnavailable === 'linkedin_member' ||
+                (acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'member')
                   ? t('social.hub.growth_unavailable_linkedin_member')
                   : t('social.hub.growth_pending')}
               </p>

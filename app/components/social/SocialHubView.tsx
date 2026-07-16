@@ -268,13 +268,7 @@ export default function SocialHubView() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <div
-          className={
-            detailOpen
-              ? 'hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden @[56rem]/social:flex'
-              : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
-          }
-        >
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <SocialDashboard
             posts={posts}
             campaigns={campaigns}
@@ -317,7 +311,7 @@ export default function SocialHubView() {
         </div>
 
         {detailOpen ? (
-          <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col border-l bg-background @[56rem]/social:w-[28rem] @[56rem]/social:max-w-[36rem] @[56rem]/social:shrink-0 @[56rem]/social:grow-0">
+          <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">
             {detail.kind === 'compose' ? (
               <SocialComposePanel
                 accounts={accounts}

@@ -1,11 +1,26 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import {
+  Building2Icon,
+  InstagramIcon,
+  Linkedin01Icon,
+  SparklesIcon,
+  TwitterIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import type {
   SocialAccount,
   SocialCampaign,
   SocialGrowthAccount,
   SocialPost,
+  SocialProvider,
 } from '@/components/social/socialTypes';
 import SocialGrowthCards from '@/components/social/SocialGrowthCards';
 import SocialReportsSection from '@/components/social/SocialReportsSection';
@@ -19,6 +34,21 @@ import {
 import { SocialStats } from './SocialStats';
 import { SocialCampaignSection, SocialQueueSection } from './SocialQueueSection';
 import { cn } from '@/lib/utils';
+
+const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
+  linkedin: Linkedin01Icon,
+  instagram: InstagramIcon,
+  x: TwitterIcon,
+};
+
+function accountLabel(acc: SocialAccount): string {
+  const handle = (acc.handle || '').trim();
+  const name = (acc.displayName || '').trim();
+  if (handle && name && handle.toLowerCase() !== name.toLowerCase()) {
+    return `${name} (${handle})`;
+  }
+  return handle || name || acc.provider;
+}
 
 export function SocialDashboard({
   posts,
@@ -70,13 +100,8 @@ export function SocialDashboard({
   const filtered = filterPostsByQuery(posts, query);
   const queues = buildSocialQueues(filtered, replyDrafts);
   const activeAccounts = accounts.filter((a) => a.status === 'active').length;
+  const activeCampaigns = campaigns.filter((c) => c.status === 'active');
   const stats = computeSocialStats(posts, replyDrafts, activeAccounts, growth);
-
-  const showAttention = filter === 'all' || filter === 'attention';
-  const showScheduled = filter === 'all' || filter === 'scheduled';
-  const showDrafts = filter === 'all' || filter === 'drafts';
-  const showCampaigns = filter === 'all' || filter === 'campaigns';
-  const showRecent = filter === 'all';
 
   const campaignPosts =
     selectedCampaignId != null
@@ -92,95 +117,125 @@ export function SocialDashboard({
           ? t('social.agent_brief_attention', { count: stats.attention })
           : t('social.agent_brief_ok');
 
+  const attentionCount = queues.needsAttention.length + queues.pendingReplyDrafts.length;
+  // On "all", hide empty queues; on a specific segment, always show (short empty state).
+  const showAttentionBlock =
+    filter === 'attention' || (filter === 'all' && attentionCount > 0);
+  const showScheduledBlock =
+    filter === 'scheduled' || (filter === 'all' && queues.scheduledSoon.length > 0);
+  const showDraftsBlock =
+    filter === 'drafts' || (filter === 'all' && queues.drafts.length > 0);
+  const showCampaignsBlock =
+    filter === 'campaigns' || (filter === 'all' && activeCampaigns.length > 0);
+  const showRecentBlock =
+    filter === 'recent' || (filter === 'all' && queues.recentPublished.length > 0);
+
+  const allEmptyOnAll =
+    filter === 'all' &&
+    attentionCount === 0 &&
+    queues.scheduledSoon.length === 0 &&
+    queues.drafts.length === 0 &&
+    activeCampaigns.length === 0 &&
+    queues.recentPublished.length === 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className={compact ? 'shrink-0 space-y-2 p-2 pb-0' : 'shrink-0 space-y-4 p-4 pb-0'}>
+      <div className={compact ? 'shrink-0 space-y-2 p-2 pb-0' : 'shrink-0 space-y-3 p-4 pb-0'}>
         {!compact ? (
           <>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {accounts.length === 0 ? (
-                <Button type="button" size="sm" variant="outline" onClick={onConnectAccounts}>
+                <Button type="button" size="xs" variant="outline" onClick={onConnectAccounts}>
                   {t('social.hub.manage_accounts')}
                 </Button>
               ) : (
-                accounts.map((acc) => (
-                  <span
-                    key={acc.id}
-                    className={cn(
-                      'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs',
-                      acc.status === 'active'
-                        ? 'border-border bg-card text-foreground'
-                        : 'border-destructive/40 text-destructive',
-                    )}
-                  >
-                    {acc.displayName || acc.handle || acc.provider}
-                    {acc.status !== 'active' ? ` · ${acc.status}` : ''}
-                  </span>
-                ))
+                accounts.map((acc) => {
+                  const icon =
+                    acc.provider === 'linkedin' && acc.accountKind === 'organization'
+                      ? Building2Icon
+                      : PROVIDER_ICONS[acc.provider];
+                  return (
+                    <span
+                      key={acc.id}
+                      className={cn(
+                        'inline-flex max-w-[14rem] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs',
+                        acc.status === 'active'
+                          ? 'border-border bg-card text-foreground'
+                          : 'border-destructive/40 text-destructive',
+                      )}
+                      title={`${acc.provider} · ${accountLabel(acc)}`}
+                    >
+                      <HugeiconsIcon icon={icon} className="size-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{accountLabel(acc)}</span>
+                    </span>
+                  );
+                })
               )}
             </div>
 
-            <SocialStats
-              drafts={stats.drafts}
-              scheduled={stats.scheduled}
-              attention={stats.attention}
-              campaigns={campaigns.filter((c) => c.status === 'active').length}
-              activeFilter={filter}
-              onFilter={onFilter}
-            />
-
             <p className="text-sm text-muted-foreground">{briefingHint}</p>
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="secondary" onClick={onAskManyGrowth}>
-                {t('social.agent_action_growth')}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onAskManyCampaign}>
-                {t('social.agent_action_campaign')}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onAskManyDraft}>
-                {t('social.agent_action_draft')}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onCompose}>
-                {t('social.hub.new_post')}
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={onPollComments}>
-                {t('social.hub.poll_comments')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setAnalyticsOpen((v) => !v)}
-              >
-                {analyticsOpen
-                  ? t('social.agent_analytics_hide')
-                  : t('social.agent_action_analytics')}
-              </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <SocialStats
+                drafts={stats.drafts}
+                scheduled={stats.scheduled}
+                attention={stats.attention}
+                campaigns={activeCampaigns.length}
+                recent={queues.recentPublished.length}
+                activeFilter={filter === 'analytics' ? 'all' : filter}
+                onFilter={(f) => {
+                  onFilter(f);
+                  if (f === 'analytics') setAnalyticsOpen(true);
+                }}
+              />
+              <div className="flex flex-wrap items-center gap-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button type="button" size="xs" variant="secondary" />
+                    }
+                  >
+                    <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+                    {t('social.agent_ask_many')}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={onAskManyGrowth}>
+                      {t('social.agent_action_growth')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onAskManyCampaign}>
+                      {t('social.agent_action_campaign')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onAskManyDraft}>
+                      {t('social.agent_action_draft')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button type="button" size="xs" variant="ghost" onClick={onPollComments}>
+                  {t('social.hub.poll_comments')}
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setAnalyticsOpen((v) => !v)}
+                >
+                  {analyticsOpen
+                    ? t('social.agent_analytics_hide')
+                    : t('social.agent_action_analytics')}
+                </Button>
+              </div>
             </div>
           </>
         ) : (
-          <div className="flex flex-wrap items-center gap-1.5 px-1">
-            {(
-              [
-                ['all', t('social.agent_filter_all')],
-                ['drafts', t('social.agent_stat_drafts')],
-                ['scheduled', t('social.agent_stat_scheduled')],
-                ['attention', t('social.agent_stat_attention')],
-                ['campaigns', t('social.agent_stat_campaigns')],
-              ] as const
-            ).map(([key, label]) => (
-              <Button
-                key={key}
-                type="button"
-                size="xs"
-                variant={filter === key ? 'secondary' : 'ghost'}
-                onClick={() => onFilter(key)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
+          <SocialStats
+            drafts={stats.drafts}
+            scheduled={stats.scheduled}
+            attention={stats.attention}
+            campaigns={activeCampaigns.length}
+            recent={queues.recentPublished.length}
+            activeFilter={filter === 'analytics' ? 'all' : filter}
+            onFilter={onFilter}
+          />
         )}
 
         {query.trim() ? (
@@ -193,38 +248,46 @@ export function SocialDashboard({
       <div
         className={
           compact
-            ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-2'
-            : 'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4'
+            ? 'isolate flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-2'
+            : 'isolate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain overflow-x-hidden p-4'
         }
       >
-        {showAttention ? (
-          <>
-            <div className="shrink-0 rounded-lg border bg-card px-3 py-2 shadow-none">
-              <p className="text-sm font-medium text-foreground">
-                {t('social.agent_queue_monitor')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {queues.pendingReplyDrafts.length > 0
-                  ? t('social.agent_monitor_pending', { count: queues.pendingReplyDrafts.length })
-                  : t('social.agent_queue_attention_empty')}
-              </p>
-              <Button type="button" size="xs" variant="outline" className="mt-2" onClick={onPollComments}>
-                {t('social.hub.poll_comments')}
-              </Button>
-            </div>
-            <SocialQueueSection
-              queueId="needs_attention"
-              title={t('social.agent_queue_attention')}
-              posts={queues.needsAttention}
-              selectedId={selectedId}
-              onOpen={onOpenPost}
-              emptyText={t('social.agent_queue_attention_empty')}
-              compact={compact}
-            />
-          </>
+        {allEmptyOnAll ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {t('social.agent_all_clear')}{' '}
+            <Button type="button" variant="link" size="xs" className="h-auto px-0" onClick={onCompose}>
+              {t('social.hub.new_post')}
+            </Button>
+          </p>
         ) : null}
 
-        {showScheduled ? (
+        {showAttentionBlock ? (
+          <SocialQueueSection
+            queueId="needs_attention"
+            title={t('social.agent_queue_attention')}
+            posts={queues.needsAttention}
+            selectedId={selectedId}
+            onOpen={onOpenPost}
+            emptyText={
+              queues.pendingReplyDrafts.length > 0
+                ? t('social.agent_monitor_pending', { count: queues.pendingReplyDrafts.length })
+                : t('social.agent_queue_attention_empty')
+            }
+            emptyActionLabel={t('social.hub.poll_comments')}
+            onEmptyAction={onPollComments}
+            footerHint={
+              queues.pendingReplyDrafts.length > 0
+                ? t('social.agent_monitor_pending', { count: queues.pendingReplyDrafts.length })
+                : undefined
+            }
+            onFooterAction={onPollComments}
+            footerActionLabel={t('social.hub.poll_comments')}
+            compact={compact}
+            forceShow
+          />
+        ) : null}
+
+        {showScheduledBlock ? (
           <SocialQueueSection
             queueId="scheduled_soon"
             title={t('social.agent_queue_scheduled')}
@@ -235,10 +298,11 @@ export function SocialDashboard({
             emptyActionLabel={t('social.hub.new_post')}
             onEmptyAction={onCompose}
             compact={compact}
+            forceShow={filter === 'scheduled'}
           />
         ) : null}
 
-        {showDrafts ? (
+        {showDraftsBlock ? (
           <SocialQueueSection
             queueId="drafts"
             title={t('social.agent_queue_drafts')}
@@ -249,17 +313,19 @@ export function SocialDashboard({
             emptyActionLabel={t('social.hub.new_post')}
             onEmptyAction={onCompose}
             compact={compact}
+            forceShow={filter === 'drafts'}
           />
         ) : null}
 
-        {showCampaigns ? (
+        {showCampaignsBlock ? (
           <SocialCampaignSection
-            campaigns={campaigns.filter((c) => c.status === 'active')}
+            campaigns={activeCampaigns}
             selectedCampaignId={selectedCampaignId}
             onOpenCampaign={onOpenCampaign}
             onComposeCampaign={onComposeCampaign}
             onCreateCampaign={onCreateCampaign}
             compact={compact}
+            forceShow={filter === 'campaigns'}
           />
         ) : null}
 
@@ -273,10 +339,11 @@ export function SocialDashboard({
             selectedId={selectedId}
             onOpen={onOpenPost}
             compact={compact}
+            forceShow
           />
         ) : null}
 
-        {showRecent ? (
+        {showRecentBlock ? (
           <SocialQueueSection
             queueId="recent_published"
             title={t('social.agent_queue_recent')}
@@ -285,12 +352,13 @@ export function SocialDashboard({
             onOpen={onOpenPost}
             emptyText={t('social.agent_queue_recent_empty')}
             compact={compact}
+            forceShow={filter === 'recent'}
           />
         ) : null}
 
         {(analyticsOpen || filter === 'analytics') && !compact ? (
-          <div className="flex flex-col gap-4 border-t pt-4">
-            <h3 className="text-sm font-medium text-foreground">
+          <div className="isolate mt-1 flex max-h-[min(70vh,40rem)] flex-col gap-3 overflow-y-auto overflow-x-hidden border-t pt-4">
+            <h3 className="shrink-0 text-sm font-medium text-foreground">
               {t('social.agent_action_analytics')}
             </h3>
             <SocialGrowthCards accounts={growth} />

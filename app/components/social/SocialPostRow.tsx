@@ -49,12 +49,15 @@ export function SocialPostRow({
           ) : null}
         </span>
         {!compact ? (
-          <span className="flex flex-wrap items-center gap-1">
-            <Badge variant="secondary" className="h-auto overflow-visible py-0.5 leading-none">
+          <span className="flex min-w-0 flex-wrap items-center gap-1 overflow-hidden">
+            <Badge variant="secondary" className="h-auto shrink-0 py-0.5 leading-none">
               {t(`social.hub.status_${post.status}`)}
             </Badge>
             {post.campaign ? (
-              <Badge variant="outline" className="h-auto max-w-[10rem] truncate overflow-visible py-0.5 leading-none">
+              <Badge
+                variant="outline"
+                className="h-auto max-w-[10rem] shrink truncate py-0.5 leading-none"
+              >
                 {post.campaign}
               </Badge>
             ) : null}

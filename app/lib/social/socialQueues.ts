@@ -15,6 +15,7 @@ export type SocialFilter =
   | 'scheduled'
   | 'attention'
   | 'campaigns'
+  | 'recent'
   | 'analytics';
 
 export interface SocialReplyDraft {

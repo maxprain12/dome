@@ -35,6 +35,7 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 023 | Correo superficie agentica (no cliente clásico) | P1 | L | 010, 004, 021 | DONE |
 | 024 | Social superficie agentica (crecer / contenido / campañas) | P1 | L | 012, 016, 023 | DONE |
 | 025 | Social real (campañas SQLite + workspace + métricas honestas) | P0 | L | 024, 012 | DONE |
+| 026 | Social UI clara + master–detail Correo/Social (Many oculto) | P0 | M | 025 | DONE |
 
 ## Dependency graph
 

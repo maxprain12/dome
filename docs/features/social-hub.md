@@ -6,8 +6,8 @@ Superficie de trabajo (planes 024–025): briefing + colas + compose/detalle inl
 
 | Pieza | Rol |
 | ----- | --- |
-| `SocialHubView` | Carga `social:workspace`, auto-refresh métricas si stale, master–detail |
-| `SocialDashboard` | Briefing, KPIs, acciones Many, colas **siempre visibles**, analítica colapsable debajo |
+| `SocialHubView` | Carga `social:workspace`, auto-refresh métricas si stale, master–detail estable (ancho viewport, no named CQ) |
+| `SocialDashboard` | Briefing compacto, segmentos densos, colas no vacías en Todo, menú Many, analítica colapsable contenida |
 | `SocialComposePanel` / `SocialDetailPanel` / `SocialCampaignDetail` | `InlineDetailCard` (sin Dialog) |
 | Heurísticas | [`app/lib/social/socialQueues.ts`](../../app/lib/social/socialQueues.ts) |
 

@@ -18,7 +18,11 @@ export function SocialQueueSection({
   emptyText,
   emptyActionLabel,
   onEmptyAction,
+  footerHint,
+  footerActionLabel,
+  onFooterAction,
   compact,
+  forceShow,
 }: {
   queueId: SocialQueueId;
   title: string;
@@ -28,7 +32,12 @@ export function SocialQueueSection({
   emptyText?: string;
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
+  footerHint?: string;
+  footerActionLabel?: string;
+  onFooterAction?: () => void;
   compact?: boolean;
+  /** When false/undefined and empty, hide the section (inbox density). */
+  forceShow?: boolean;
 }) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
@@ -36,6 +45,8 @@ export function SocialQueueSection({
   useEffect(() => {
     setVisible(INITIAL_VISIBLE);
   }, [posts.length, queueId, title]);
+
+  if (posts.length === 0 && !forceShow) return null;
 
   const slice = posts.slice(0, visible);
   const remaining = posts.length - slice.length;
@@ -46,7 +57,7 @@ export function SocialQueueSection({
         className={
           compact
             ? 'flex-row items-center gap-2 space-y-0 px-3 py-2'
-            : 'flex-row items-start gap-3 space-y-0 px-4 py-3'
+            : 'flex-row items-start gap-3 space-y-0 px-3 py-2.5'
         }
       >
         <div className="min-w-0 flex-1">
@@ -58,16 +69,32 @@ export function SocialQueueSection({
       </CardHeader>
       <CardContent className={compact ? 'flex flex-col gap-0.5 px-1 pb-2' : 'flex flex-col gap-0.5 px-2 pb-2'}>
         {posts.length === 0 ? (
-          <div className="flex flex-col gap-2 px-2 py-3">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-2 py-2">
             <p className="text-xs text-muted-foreground">{emptyText || t('social.agent_queue_empty')}</p>
             {emptyActionLabel && onEmptyAction ? (
-              <Button type="button" size="xs" variant="outline" onClick={onEmptyAction}>
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="h-auto px-0"
+                onClick={onEmptyAction}
+              >
                 {emptyActionLabel}
               </Button>
             ) : null}
           </div>
         ) : (
           <>
+            {footerHint ? (
+              <div className="flex flex-wrap items-center gap-2 px-2 pb-1">
+                <p className="text-xs text-muted-foreground">{footerHint}</p>
+                {footerActionLabel && onFooterAction ? (
+                  <Button type="button" size="xs" variant="ghost" onClick={onFooterAction}>
+                    {footerActionLabel}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             {slice.map((post) => (
               <SocialPostRow
                 key={post.id}
@@ -107,6 +134,7 @@ export function SocialCampaignSection({
   onComposeCampaign,
   onCreateCampaign,
   compact,
+  forceShow,
 }: {
   campaigns: SocialCampaign[];
   selectedCampaignId?: string | null;
@@ -114,12 +142,15 @@ export function SocialCampaignSection({
   onComposeCampaign: (campaign: SocialCampaign) => void;
   onCreateCampaign: () => void;
   compact?: boolean;
+  forceShow?: boolean;
 }) {
   const { t } = useTranslation();
 
+  if (campaigns.length === 0 && !forceShow) return null;
+
   return (
     <Card className="shrink-0 gap-0 overflow-hidden py-0 shadow-none">
-      <CardHeader className={compact ? 'px-3 py-2' : 'px-4 py-3'}>
+      <CardHeader className={compact ? 'px-3 py-2' : 'px-3 py-2.5'}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <CardTitle className="text-sm">{t('social.agent_queue_campaigns')}</CardTitle>
@@ -127,14 +158,25 @@ export function SocialCampaignSection({
               {t('social.agent_queue_count', { count: campaigns.length })}
             </p>
           </div>
-          <Button type="button" size="xs" variant="outline" onClick={onCreateCampaign}>
+          <Button type="button" size="xs" variant="ghost" onClick={onCreateCampaign}>
             {t('social.agent_campaign_new')}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-1 px-2 pb-3">
         {campaigns.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-muted-foreground">{t('social.agent_campaigns_empty')}</p>
+          <div className="flex flex-wrap items-baseline gap-x-2 px-2 py-2">
+            <p className="text-xs text-muted-foreground">{t('social.agent_campaigns_empty')}</p>
+            <Button
+              type="button"
+              variant="link"
+              size="xs"
+              className="h-auto px-0"
+              onClick={onCreateCampaign}
+            >
+              {t('social.agent_campaign_new')}
+            </Button>
+          </div>
         ) : (
           campaigns.map((c) => {
             const active = selectedCampaignId === c.id;
@@ -161,7 +203,7 @@ export function SocialCampaignSection({
                     })}
                   </span>
                 </button>
-                <Button type="button" size="xs" variant="outline" onClick={() => onComposeCampaign(c)}>
+                <Button type="button" size="xs" variant="ghost" onClick={() => onComposeCampaign(c)}>
                   {t('social.agent_campaign_add_post')}
                 </Button>
               </div>

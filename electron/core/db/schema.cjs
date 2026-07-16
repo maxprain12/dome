@@ -1,13 +1,13 @@
 /* eslint-disable no-console */
 /**
- * Base SQLite schema DDL — squashed baseline at schema v68 (source_documents FTS).
+ * Base SQLite schema DDL — squashed baseline at schema v69 (social_campaigns).
  *
  * `createBaseSchema(db)` runs the PRAGMAs and creates every base table,
  * index, FTS virtual table and trigger with `IF NOT EXISTS` (idempotent).
- * It reflects the FULL schema at v68: the old 64-step migration chain was
- * squashed — a fresh install gets this schema and schema_version=69 directly;
- * existing installs at v50–v67 are upgraded by db/migrations.cjs (kept chain
- * 50→64 + v65–v68). Installs below v50 are not supported (clear error).
+ * It reflects the FULL schema at HEAD: the old 64-step migration chain was
+ * squashed — a fresh install gets this schema and schema_version=HEAD directly;
+ * existing installs at v50–HEAD-1 are upgraded by db/migrations.cjs (kept chain
+ * 50→64 + v65–v69). Installs below v50 are not supported (clear error).
  *
  * Removed dead tables (v65): martin_memory, agent_store, auth_profiles,
  * resource_links_legacy, search_index, note_embeddings, resource_images,
@@ -18,9 +18,12 @@
  * New in v66: people + person_identities.
  * New in v67: email_folders, email_messages, email_sync_state.
  * New in v68: source_documents + source_documents_fts (integration search).
+ * New in v69: social_campaigns + social_posts.campaign_id.
  *
  * When you change a table here, also add a migration in db/migrations.cjs so
  * existing installs converge — this file only helps brand-new databases.
+ * Indexes on columns added by migrations must be guarded (IF NOT EXISTS alone
+ * is not enough when CREATE TABLE IF NOT EXISTS skips an older table shape).
  */
 
 function applyJournalMode(db) {
@@ -1808,9 +1811,21 @@ function createBaseSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_social_posts_group ON social_posts(group_id)
   `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_social_posts_campaign ON social_posts(campaign_id)
-  `);
+  // Existing DBs still on v68 lack social_posts.campaign_id until migration 69;
+  // CREATE TABLE IF NOT EXISTS does not add columns, so guard the index.
+  try {
+    const socialPostCols = db
+      .prepare(`PRAGMA table_info(social_posts)`)
+      .all()
+      .map((c) => c.name);
+    if (socialPostCols.includes('campaign_id')) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_social_posts_campaign ON social_posts(campaign_id)
+      `);
+    }
+  } catch (err) {
+    console.warn('[DB] Could not ensure idx_social_posts_campaign:', err?.message || err);
+  }
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_campaigns_status ON social_campaigns(status, updated_at)

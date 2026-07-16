@@ -624,14 +624,7 @@ export default function EmailView() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        {/* On narrow containers with detail open, hide the list so compose/read gets full width. */}
-        <div
-          className={
-            detailOpen
-              ? 'hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden @[56rem]/email:flex'
-              : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
-          }
-        >
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <MailDashboard
             inbox={inbox}
             sent={sent}
@@ -655,7 +648,7 @@ export default function EmailView() {
         </div>
 
         {detailOpen ? (
-          <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col border-l bg-background @[56rem]/email:w-96 @[56rem]/email:max-w-[32rem] @[56rem]/email:shrink-0 @[56rem]/email:grow-0">
+          <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">
             {composing ? (
               <MailComposePanel
                 mode={composing.mode}
