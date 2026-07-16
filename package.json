@@ -182,7 +182,7 @@
     "jotai": "^2.19.1",
     "jszip": "^3.10.1",
     "langfuse-langchain": "^3.38.20",
-    "linkedom": "^0.18.12",
+    "linkedom": "^0.18.13",
     "llm-chunk": "^0.0.1",
     "lowlight": "^3.1.0",
     "lucide-react": "^0.460.0",
