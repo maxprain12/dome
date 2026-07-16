@@ -18,7 +18,7 @@ El **Calendar** vive como pestaña singleton del shell (`openCalendarTab` → `C
 | `CalendarHero` / `CalendarUpcoming` | Chrome shadcn (toolbar + feed 7d) |
 | `CalendarGrid` | Navegación + tabs día/semana/mes/año |
 | `CalendarMonthView` / `CalendarTimeViews` / `CalendarYearView` | Vistas del scheduler (grid custom; no DayPicker) |
-| `EventModal` | Create/edit, detalle GitHub/Pipeline/Social, recursos vinculados |
+| `EventModal` + `EventDetailChrome` | Ficha shadcn Card que sustituye «Próximos» al abrir: create/edit y detalle; pills de color (`calendar_color`); sin franja/gradiente; recursos vinculados |
 | `shared/DatePicker` + `DateTimePicker` | Pickers (shadcn `ui/calendar`) |
 
 Vista por defecto: **month**. Alturas con flex del shell (`min-h-0`), sin `100vh` hardcode.

@@ -21,11 +21,18 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+function snapMinuteString(mm: string): string {
+  const n = Number(mm);
+  if (!Number.isFinite(n)) return '00';
+  return String(Math.min(55, Math.floor(n / 5) * 5)).padStart(2, '0');
+}
+
 function splitDateTime(value: string): { date: string; time: string } {
   if (!value.trim()) return { date: '', time: '09:00' };
   const date = value.slice(0, 10);
-  const time = value.length >= 16 ? value.slice(11, 16) : '09:00';
-  return { date, time };
+  const raw = value.length >= 16 ? value.slice(11, 16) : '09:00';
+  const [h = '09', m = '00'] = raw.split(':');
+  return { date, time: `${pad2(Number(h) || 0)}:${snapMinuteString(m)}` };
 }
 
 /**
@@ -62,51 +69,54 @@ export function DateTimePicker({
   };
 
   return (
-    <Field className={cn('min-w-0', className)}>
+    <Field className={cn('min-w-0 gap-1.5', className)}>
       {label ? (
         <FieldLabel>{label}</FieldLabel>
       ) : null}
-      <DatePicker
-        id={id ? `${id}-date` : undefined}
-        value={date}
-        onChange={(d) => emit(d, time)}
-        disabled={disabled}
-        clearable={false}
-        placeholder={t('common.date_picker_placeholder')}
-      />
-      <div className="flex items-center gap-2">
-        <HugeiconsIcon icon={Clock01Icon} className="text-muted-foreground" aria-hidden />
-        <Select
-          value={hour ?? '09'}
-          onValueChange={(h) => { if (h != null) emit(date, `${h}:${minute ?? '00'}`); }}
-          items={hourOptions}
+      <div className="@container/dt flex min-w-0 flex-col gap-2 @[200px]/dt:flex-row @[200px]/dt:items-center">
+        <DatePicker
+          id={id ? `${id}-date` : undefined}
+          value={date}
+          onChange={(d) => emit(d, time)}
           disabled={disabled}
-        >
-          <SelectTrigger className="flex-1 min-w-0" aria-label={t('calendarPage.event_start')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {hourOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-muted-foreground">:</span>
-        <Select
-          value={minute ?? '00'}
-          onValueChange={(m) => { if (m != null) emit(date, `${hour ?? '09'}:${m}`); }}
-          items={minuteOptions}
-          disabled={disabled}
-        >
-          <SelectTrigger className="flex-1 min-w-0" aria-label={t('calendarPage.event_end')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {minuteOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          clearable={false}
+          className="min-w-0 flex-1"
+          placeholder={t('common.date_picker_placeholder')}
+        />
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+          <HugeiconsIcon icon={Clock01Icon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <Select
+            value={hour ?? '09'}
+            onValueChange={(h) => { if (h != null) emit(date, `${h}:${minute ?? '00'}`); }}
+            items={hourOptions}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-[4.25rem] min-w-0" aria-label={t('calendarPage.event_start')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {hourOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-muted-foreground">:</span>
+          <Select
+            value={minute ?? '00'}
+            onValueChange={(m) => { if (m != null) emit(date, `${hour ?? '09'}:${m}`); }}
+            items={minuteOptions}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-[4.25rem] min-w-0" aria-label={t('calendarPage.event_end')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {minuteOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </Field>
   );

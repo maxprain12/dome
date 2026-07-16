@@ -326,11 +326,14 @@ const loadCalendars = useCallback(async () => {
     all_day: boolean;
     metadata?: Record<string, unknown>;
   }) => {
-    if (!window.electron?.calendar) return;
-    if (selectedEvent) {
-      await window.electron.calendar.updateEvent(selectedEvent.id, data);
-    } else {
-      await window.electron.calendar.createEvent({ ...data, projectId });
+    if (!window.electron?.calendar) {
+      throw new Error(t('calendarPage.import_error'));
+    }
+    const result = selectedEvent
+      ? await window.electron.calendar.updateEvent(selectedEvent.id, data)
+      : await window.electron.calendar.createEvent({ ...data, projectId });
+    if (!result.success) {
+      throw new Error(result.error || t('calendarPage.import_error'));
     }
     void loadEvents();
     void loadUpcoming();
@@ -407,12 +410,28 @@ const loadCalendars = useCallback(async () => {
           )}
         </div>
 
-        <aside className="h-64 shrink-0 md:h-auto md:w-72 lg:w-80">
-          <CalendarUpcoming
-            events={upcomingEvents}
-            onEventClick={(ev) => void handleEventClick(ev)}
-          />
-        </aside>
+        {showModal ? (
+          <div className="flex h-[min(70vh,32rem)] min-h-0 w-full shrink-0 flex-col md:h-auto md:w-72 lg:w-80">
+            <EventModal
+              key={selectedEvent?.id ?? `new-${initialModalDate?.getTime() ?? 'blank'}`}
+              event={selectedEvent}
+              initialDate={initialModalDate}
+              onClose={() => {
+                setShowModal(false);
+                setSelectedEvent(null);
+              }}
+              onSave={handleSave}
+              onDelete={selectedEvent ? handleDelete : undefined}
+            />
+          </div>
+        ) : (
+          <aside className="h-64 shrink-0 md:h-auto md:w-72 lg:w-80">
+            <CalendarUpcoming
+              events={upcomingEvents}
+              onEventClick={(ev) => void handleEventClick(ev)}
+            />
+          </aside>
+        )}
       </div>
 
       {showImport && importPreview ? (
@@ -487,18 +506,6 @@ const loadCalendars = useCallback(async () => {
         />
       ) : null}
 
-      {showModal ? (
-        <EventModal
-          event={selectedEvent}
-          initialDate={initialModalDate}
-          onClose={() => {
-            setShowModal(false);
-            setSelectedEvent(null);
-          }}
-          onSave={handleSave}
-          onDelete={selectedEvent ? handleDelete : undefined}
-        />
-      ) : null}
     </div>
   );
 }

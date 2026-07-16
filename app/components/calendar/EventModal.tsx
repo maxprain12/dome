@@ -19,21 +19,23 @@ import {
   Clock01Icon,
   WorkflowSquare01Icon,
   Share08Icon,
+  Calendar03Icon,
 } from '@hugeicons/core-free-icons';
 import { DatePicker } from '@/components/shared/DatePicker';
 import { DateTimePicker } from '@/components/shared/DateTimePicker';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import ResourcePickerModal from '@/components/editor/ResourcePickerModal';
+import { EventColorPill, EventDetailChrome } from '@/components/calendar/EventDetailChrome';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { pipelinesClient } from '@/lib/pipelines/client';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { showToast } from '@/lib/store/useToastStore';
 import type { PipelineItem } from '@/lib/pipelines/types';
 import type { Resource } from '@/types';
 import { cn } from '@/lib/utils';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,13 +65,53 @@ function isSocialEvent(event: CalendarEvent | null | undefined): boolean {
 
 const GITHUB_CALENDAR_ID = 'github-dome';
 
+/** Round minutes down to a 5-minute step (matches DateTimePicker options). */
+function snapMinutes(d: Date): Date {
+  const next = new Date(d);
+  next.setMinutes(Math.floor(next.getMinutes() / 5) * 5, 0, 0);
+  return next;
+}
+
 function toLocalISO(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
+  const snapped = snapMinutes(d);
+  const y = snapped.getFullYear();
+  const m = String(snapped.getMonth() + 1).padStart(2, '0');
+  const day = String(snapped.getDate()).padStart(2, '0');
+  const h = String(snapped.getHours()).padStart(2, '0');
+  const min = String(snapped.getMinutes()).padStart(2, '0');
   return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+/** Parse `yyyy-MM-ddTHH:mm` as local wall time → ISO UTC (avoids Invalid Date / TZ quirks). */
+function localDateTimeToIso(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) {
+    const fallback = new Date(value);
+    if (Number.isNaN(fallback.getTime())) {
+      throw new Error(`Invalid datetime: ${value}`);
+    }
+    return fallback.toISOString();
+  }
+  const y = Number(match[1]);
+  const mo = Number(match[2]);
+  const d = Number(match[3]);
+  const h = Number(match[4]);
+  const mi = Number(match[5]);
+  return new Date(y, mo - 1, d, h, mi, 0, 0).toISOString();
+}
+
+function localDateTimeMs(value: string): number {
+  return new Date(localDateTimeToIso(value)).getTime();
+}
+
+/** Default timed slot when opening “new event” from a calendar day (midnight). */
+function defaultTimedRangeFromDay(day: Date): { start: string; end: string } {
+  const start = new Date(day);
+  if (start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0) {
+    start.setHours(9, 0, 0, 0);
+  }
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  return { start: toLocalISO(start), end: toLocalISO(end) };
 }
 
 function isGithubCalendarEvent(event: CalendarEvent | null | undefined): boolean {
@@ -130,25 +172,6 @@ function formatEventWhen(event: CalendarEvent, locale: string): string {
     return start.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   }
   return start.toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' });
-}
-
-interface MetaRowProps {
-  label: string;
-  children: React.ReactNode;
-}
-function MetaRow({ label, children }: MetaRowProps) {
-  return (
-    <>
-      <dt
-        className="text-[11px] font-medium uppercase tracking-wide pt-1.5 text-muted-foreground"
-      >
-        {label}
-      </dt>
-      <dd className="text-sm pt-1.5 min-w-0 text-foreground">
-        {children}
-      </dd>
-    </>
-  );
 }
 
 interface PipelineDetail {
@@ -274,50 +297,35 @@ function LocalEventDetail({
 
   return (
     <div className="flex flex-col gap-4">
-      {pipeline && (
-        <Badge className="self-start">
-          <HugeiconsIcon icon={WorkflowSquare01Icon} className="size-3" />
-          {pipeline.pipelineName ?? t('tabs.pipelines')}
-        </Badge>
-      )}
-      {social ? (
-        <Badge className="self-start" variant="secondary">
-          <HugeiconsIcon icon={Share08Icon} className="size-3" />
-          {t('tabs.social')}
-        </Badge>
-      ) : null}
-
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0">
-        <MetaRow label={t('calendarPage.when', { defaultValue: 'When' })}>
-          <span className="inline-flex items-center gap-1.5">
-            <HugeiconsIcon icon={Clock01Icon} className="size-3.5 text-muted-foreground" />
-            {formatEventWhen(event, locale)}
-          </span>
-        </MetaRow>
-        {event.location ? (
-          <MetaRow label={t('calendarPage.location', { defaultValue: 'Location' })}>
-            <span className="inline-flex items-center gap-1.5">
-              <HugeiconsIcon icon={MapPinIcon} className="size-3.5 text-muted-foreground" />
-              {event.location}
-            </span>
-          </MetaRow>
+      <div className="flex flex-wrap gap-1.5">
+        {event.all_day ? (
+          <Badge variant="outline" className="font-normal">{t('calendarPage.all_day')}</Badge>
         ) : null}
         {pipeline?.stageTitle ? (
-          <MetaRow label={t('pipelines.stage_agent', { defaultValue: 'Stage' })}>
-            {pipeline.stageTitle}
-          </MetaRow>
+          <Badge variant="secondary" className="font-normal">{pipeline.stageTitle}</Badge>
         ) : null}
         {pipeline ? (
-          <MetaRow label={t('calendarPage.status', { defaultValue: 'Status' })}>
+          <Badge variant="outline" className="font-normal">
             {t(`pipelines.status_${pipeline.item.execStatus}`, { defaultValue: pipeline.item.execStatus })}
-          </MetaRow>
+          </Badge>
         ) : null}
         {pipeline && todos.length > 0 ? (
-          <MetaRow label={t('pipelines.field_todos')}>
+          <Badge variant="outline" className="font-normal">
             {t('pipelines.todos_progress', { done: todoDone, total: todos.length })}
-          </MetaRow>
+          </Badge>
         ) : null}
-      </dl>
+        {event.location ? (
+          <Badge variant="secondary" className="max-w-full gap-1 font-normal">
+            <HugeiconsIcon icon={MapPinIcon} className="size-3" />
+            <span className="truncate">{event.location}</span>
+          </Badge>
+        ) : null}
+      </div>
+
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <HugeiconsIcon icon={Clock01Icon} className="size-3.5 shrink-0" />
+        {formatEventWhen(event, locale)}
+      </p>
 
       {dataText ? (
         <div className="flex flex-col gap-1">
@@ -388,12 +396,12 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
   const typeBadge = (() => {
     if (!entityType) return null;
     if (entityType === 'release') {
-      return { icon: <HugeiconsIcon icon={RocketIcon} className="size-3" />, label: t('github.calendar_type_release'), tone: 'accent' as const };
+      return { icon: <HugeiconsIcon icon={RocketIcon} />, label: t('github.calendar_type_release'), tone: 'accent' as const };
     }
     if (entityType === 'milestone') {
-      return { icon: <HugeiconsIcon icon={Flag02Icon} className="size-3" />, label: t('github.calendar_type_milestone'), tone: 'neutral' as const };
+      return { icon: <HugeiconsIcon icon={Flag02Icon} />, label: t('github.calendar_type_milestone'), tone: 'neutral' as const };
     }
-    return { icon: <HugeiconsIcon icon={CircleDotIcon} className="size-3" />, label: t('github.calendar_type_issue'), tone: 'neutral' as const };
+    return { icon: <HugeiconsIcon icon={CircleDotIcon} />, label: t('github.calendar_type_issue'), tone: 'neutral' as const };
   })();
 
   const dateLabel = formatEventWhen(event, i18n.language);
@@ -424,132 +432,96 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
   const releaseMinimalRow =
     entityType === 'release' && !markdownBody && (meta.tagName || meta.publishedAt != null);
 
+  const githubAccent = event.calendar_color ?? 'var(--primary)';
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Header strip: type badge + repo + date */}
-      <div className="flex flex-col gap-2 rounded-lg border bg-background px-3 py-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          {typeBadge && (
-            <Badge
-              variant="outline"
-              className={
-                typeBadge.tone === 'accent'
-                  ? 'border-primary/30 bg-primary/10 text-primary'
-                  : 'text-muted-foreground'
-              }
-            >
-              {typeBadge.icon}
-              {typeBadge.label}
-            </Badge>
-          )}
-          <span
-            className="inline-flex items-center gap-1 text-[12px] text-foreground"
-            title={meta.repoFullName || repoFallback || undefined}
+      <div className="flex flex-wrap gap-1.5">
+        {typeBadge ? (
+          <EventColorPill color={typeBadge.tone === 'accent' ? githubAccent : undefined}>
+            {typeBadge.icon}
+            <span className="truncate">{typeBadge.label}</span>
+          </EventColorPill>
+        ) : null}
+        {(meta.repoFullName || repoFallback) ? (
+          <Badge variant="secondary" className="h-auto max-w-full gap-1 overflow-visible py-0.5 font-normal leading-none [&_svg]:size-2.5">
+            <HugeiconsIcon icon={GithubIcon} />
+            <span className="truncate">{meta.repoFullName || repoFallback}</span>
+          </Badge>
+        ) : null}
+        {event.all_day ? (
+          <Badge variant="outline" className="h-auto overflow-visible py-0.5 font-normal leading-none">
+            {t('calendarPage.all_day')}
+          </Badge>
+        ) : null}
+        {meta.tagName ? (
+          <Badge variant="outline" className="h-auto max-w-full gap-1 overflow-visible py-0.5 font-mono font-normal leading-none [&_svg]:size-2.5">
+            <HugeiconsIcon icon={Tag01Icon} />
+            <span className="truncate">{meta.tagName}</span>
+          </Badge>
+        ) : null}
+        {meta.issueNumber != null ? (
+          <Badge variant="outline" className="h-auto overflow-visible py-0.5 font-mono font-normal leading-none">
+            #{meta.issueNumber}
+          </Badge>
+        ) : null}
+        {meta.issueState ? (
+          <Badge
+            variant={meta.issueState === 'closed' ? 'secondary' : 'outline'}
+            className={cn(
+              'h-auto gap-1 overflow-visible py-0.5 font-normal leading-none [&_svg]:size-2.5',
+              meta.issueState !== 'closed' && 'text-(--success)',
+            )}
           >
-            <HugeiconsIcon icon={GithubIcon} className="size-3 text-muted-foreground" />
-            <span className="font-medium">{meta.repoFullName || repoFallback}</span>
-          </span>
-        </div>
-        <span className="text-xs inline-flex items-center gap-1.5 text-muted-foreground">
-          {dateLabel}
-          {event.all_day ? <span>· {t('calendarPage.all_day')}</span> : null}
-        </span>
+            {meta.issueState === 'closed' ? (
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} />
+            ) : (
+              <HugeiconsIcon icon={CircleDotIcon} />
+            )}
+            {meta.issueState === 'closed'
+              ? t('github.calendar_issue_state_closed')
+              : t('github.calendar_issue_state_open')}
+          </Badge>
+        ) : null}
+        {meta.milestoneState ? (
+          <Badge
+            variant={meta.milestoneState === 'closed' ? 'secondary' : 'outline'}
+            className={cn(
+              'h-auto gap-1 overflow-visible py-0.5 font-normal leading-none [&_svg]:size-2.5',
+              meta.milestoneState === 'closed' && 'text-(--success)',
+            )}
+          >
+            {meta.milestoneState === 'closed' ? (
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} />
+            ) : (
+              <HugeiconsIcon icon={CircleDotIcon} />
+            )}
+            {meta.milestoneState === 'closed'
+              ? t('github.calendar_completed')
+              : t('github.calendar_pending')}
+          </Badge>
+        ) : null}
       </div>
 
-      {/* Entity-specific fields */}
-      {entityType === 'milestone' ? (
-        <dl
-          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg border bg-background px-3 py-1"
-        >
-          {meta.milestoneTitle ? (
-            <MetaRow label={t('github.calendar_milestone')}>{meta.milestoneTitle}</MetaRow>
-          ) : null}
-          <MetaRow label={t('github.calendar_state')}>
-            <span
-              className={cn(
-                'inline-flex items-center gap-1',
-                meta.milestoneState === 'closed' && 'text-(--success)',
-              )}
-            >
-              {meta.milestoneState === 'closed' ? <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" /> : <HugeiconsIcon icon={CircleDotIcon} className="size-3.5" />}
-              {meta.milestoneState === 'closed' ? t('github.calendar_completed') : t('github.calendar_pending')}
-            </span>
-          </MetaRow>
-        </dl>
+      <p className="text-xs text-muted-foreground">{dateLabel}</p>
+
+      {entityType === 'milestone' && meta.milestoneTitle ? (
+        <p className="text-sm font-medium">{meta.milestoneTitle}</p>
       ) : null}
 
-      {entityType === 'release' ? (
-        <dl
-          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg border bg-background px-3 py-1"
-        >
-          {meta.tagName ? (
-            <MetaRow label={t('github.calendar_release_tag')}>
-              <span className="inline-flex items-center gap-1 font-mono text-[13px] text-primary">
-                <HugeiconsIcon icon={Tag01Icon} className="size-3" /> {meta.tagName}
-              </span>
-            </MetaRow>
-          ) : null}
-          {meta.releaseName && meta.releaseName !== meta.tagName ? (
-            <MetaRow label={t('github.calendar_release_name')}>{meta.releaseName}</MetaRow>
-          ) : null}
-        </dl>
+      {entityType === 'release' && meta.releaseName && meta.releaseName !== meta.tagName ? (
+        <p className="text-sm">{meta.releaseName}</p>
       ) : null}
 
-      {entityType === 'issue' ? (
-        <dl
-          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg border bg-background px-3 py-1"
-        >
-          {meta.issueNumber != null ? (
-            <MetaRow label={t('github.calendar_issue_number')}>
-              <span className="font-mono text-[13px]">#{meta.issueNumber}</span>
-            </MetaRow>
-          ) : null}
-          {meta.issueTitle ? (
-            <MetaRow label={t('github.calendar_issue_title')}>{meta.issueTitle}</MetaRow>
-          ) : null}
-          {meta.issueState ? (
-            <MetaRow label={t('github.calendar_state')}>
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1',
-                  meta.issueState === 'closed' ? 'text-muted-foreground' : 'text-(--success)',
-                )}
-              >
-                {meta.issueState === 'closed' ? <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" /> : <HugeiconsIcon icon={CircleDotIcon} className="size-3.5" />}
-                {meta.issueState === 'closed' ? t('github.calendar_issue_state_closed') : t('github.calendar_issue_state_open')}
-              </span>
-            </MetaRow>
-          ) : null}
-        </dl>
+      {entityType === 'issue' && meta.issueTitle ? (
+        <p className="text-sm font-medium">{meta.issueTitle}</p>
       ) : null}
 
-      {/* Minimal info row for releases without a body (legacy sync).
-          Surfaces tag + published date as plain text so the modal is useful
-          even before the next sync overwrites the event with a full body. */}
-      {releaseMinimalRow ? (
-        <div
-          className="flex flex-col gap-1 rounded-lg border bg-background px-3 py-2 text-xs text-muted-foreground"
-        >
-          {meta.tagName ? (
-            <span className="inline-flex items-center gap-1">
-              <HugeiconsIcon icon={Tag01Icon} className="size-3" />
-              <span className="font-mono text-primary">{meta.tagName}</span>
-            </span>
-          ) : null}
-          {meta.publishedAt != null ? (
-            <span>
-              {t('github.calendar_release_published', {
-                defaultValue: 'Published',
-              })}
-              : {new Date(meta.publishedAt).toLocaleString(i18n.language)}
-            </span>
-          ) : null}
-          {githubUrl ? (
-            <a href={githubUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">
-              <HugeiconsIcon icon={ExternalLinkIcon} className="size-3" /> {githubUrl}
-            </a>
-          ) : null}
-        </div>
+      {releaseMinimalRow && meta.publishedAt != null ? (
+        <p className="text-xs text-muted-foreground">
+          {t('github.calendar_release_published', { defaultValue: 'Published' })}
+          : {new Date(meta.publishedAt).toLocaleString(i18n.language)}
+        </p>
       ) : null}
 
       {/* Source URL (legacy / non-classified events) */}
@@ -564,7 +536,10 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
 
       {/* Description body */}
       {markdownBody ? (
-        <GithubMarkdownBody content={markdownBody} className="text-sm max-h-[min(50vh,420px)] overflow-y-auto" />
+        <GithubMarkdownBody
+          content={markdownBody}
+          className="min-w-0 max-h-[min(40vh,360px)] overflow-x-hidden overflow-y-auto break-words text-sm [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_img]:max-w-full"
+        />
       ) : null}
     </div>
   );
@@ -683,39 +658,67 @@ export default function EventModal({
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
   const [location, setLocation] = useState(event?.location ?? '');
-  const [startAt, setStartAt] = useState(
-    event ? toLocalISO(new Date(event.start_at)) : initialDate ? toLocalISO(initialDate) : toLocalISO(new Date())
-  );
-  const [endAt, setEndAt] = useState(
-    event
-      ? toLocalISO(new Date(event.end_at))
-      : initialDate
-        ? toLocalISO(new Date(initialDate.getTime() + 60 * 60 * 1000))
-        : (() => {
-            const d = new Date();
-            d.setHours(d.getHours() + 1);
-            return toLocalISO(d);
-          })()
-  );
+  const [startAt, setStartAt] = useState(() => {
+    if (event) return toLocalISO(new Date(event.start_at));
+    if (initialDate) return defaultTimedRangeFromDay(initialDate).start;
+    return toLocalISO(new Date());
+  });
+  const [endAt, setEndAt] = useState(() => {
+    if (event) return toLocalISO(new Date(event.end_at));
+    if (initialDate) return defaultTimedRangeFromDay(initialDate).end;
+    return toLocalISO(new Date(Date.now() + 60 * 60 * 1000));
+  });
   const [allDay, setAllDay] = useState(event?.all_day ?? false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const updateStartAt = (next: string) => {
+    setStartAt(next);
+    try {
+      const startMs = localDateTimeMs(next);
+      const endMs = localDateTimeMs(endAt);
+      if (endMs <= startMs) {
+        setEndAt(toLocalISO(new Date(startMs + 60 * 60 * 1000)));
+      }
+    } catch {
+      /* ignore parse while typing */
+    }
+  };
+
+  const updateEndAt = (next: string) => {
+    setEndAt(next);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
     try {
+      let startIso: string;
+      let endIso: string;
+      if (allDay) {
+        startIso = localDateTimeToIso(`${startAt.slice(0, 10)}T00:00`);
+        endIso = localDateTimeToIso(`${endAt.slice(0, 10)}T23:59`);
+      } else {
+        startIso = localDateTimeToIso(startAt);
+        endIso = localDateTimeToIso(endAt);
+        if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+          endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
+        }
+      }
       await onSave({
         title: title.trim(),
         description: description.trim() || undefined,
         location: location.trim() || undefined,
-        start_at: new Date(startAt).toISOString(),
-        end_at: new Date(endAt).toISOString(),
+        start_at: startIso,
+        end_at: endIso,
         all_day: allDay,
         metadata: { resourceIds },
       });
       onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast('error', message);
     } finally {
       setSaving(false);
     }
@@ -732,38 +735,32 @@ export default function EventModal({
     }
   };
 
+  const accent = event?.calendar_color ?? 'var(--primary)';
+
   if (githubEvent && event) {
     return (
-      <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
-        <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-          <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3 pr-12">
-            <DialogTitle className="truncate">{event.title}</DialogTitle>
-            <div className="flex shrink-0 items-center gap-2">
-              {githubUrl ? (
-                <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} className="text-muted-foreground">
-                  <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" />
-                </a>
-              ) : null}
-            </div>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-            <GithubEventBody event={event} githubUrl={githubUrl} />
-          </div>
-          <DialogFooter className="border-t px-4 py-3">
-            <div className="flex w-full flex-wrap items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mr-auto"
-                onClick={() => {
-                  openGitHubTab();
-                  onClose();
-                }}
-              >
-                <HugeiconsIcon icon={GithubIcon} className="size-3.5" />
-                {t('calendarPage.open_in_github')}
-              </Button>
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={event.calendar_title ?? 'GitHub'}
+        title={event.title}
+        description={formatEventWhen(event, i18n.language)}
+        icon={<HugeiconsIcon icon={GithubIcon} />}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                openGitHubTab();
+                onClose();
+              }}
+            >
+              <HugeiconsIcon icon={GithubIcon} className="size-3.5" />
+              {t('calendarPage.open_in_github')}
+            </Button>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
               {githubUrl ? (
                 <a
                   href={githubUrl}
@@ -779,59 +776,121 @@ export default function EventModal({
                 {t('common.close', { defaultValue: 'Cerrar' })}
               </Button>
             </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <GithubEventBody event={event} githubUrl={githubUrl} />
+      </EventDetailChrome>
     );
   }
 
   // Read-only detail view for existing (non-GitHub) events. "Edit" switches to
   // the form; pipeline-sourced events show extended, relevant info.
   if (event && !editing) {
+    const accentLabel =
+      event.calendar_title
+      ?? (pipelineInfo
+        ? (pipelineInfo.pipelineName ?? t('tabs.pipelines'))
+        : isSocialEvent(event)
+          ? t('tabs.social')
+          : 'Local');
+    const headerIcon = pipelineInfo
+      ? <HugeiconsIcon icon={WorkflowSquare01Icon} />
+      : isSocialEvent(event)
+        ? <HugeiconsIcon icon={Share08Icon} />
+        : <HugeiconsIcon icon={Calendar03Icon} />;
+
     return (
-      <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
-        <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
-          <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3">
-            <DialogTitle className="truncate">{event.title}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-            <LocalEventDetail
-              event={event}
-              locale={i18n.language}
-              pipeline={pipelineInfo}
-              linkedTitles={linkedTitles}
-              onOpenPipeline={() => {
-                openPipelinesTab();
-                onClose();
-              }}
-              onOpenSocial={() => {
-                openSocialTab();
-                onClose();
-              }}
-              onOpenResource={openLinkedResource}
-            />
-          </div>
-          <DialogFooter className="border-t px-4 py-3">
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={accentLabel}
+        title={event.title}
+        description={formatEventWhen(event, i18n.language)}
+        icon={headerIcon}
+        footer={
+          <>
             {onDelete ? (
               <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
-            ) : null}
-            <Button variant="outline" onClick={() => setEditing(true)} size="sm">
-              <HugeiconsIcon icon={PencilEdit02Icon} className="size-4" />
-              {t('common.edit', { defaultValue: 'Edit' })}
-            </Button>
-            <Button onClick={onClose} size="sm">
-              {t('common.close', { defaultValue: 'Close' })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditing(true)} size="sm">
+                <HugeiconsIcon icon={PencilEdit02Icon} className="size-4" />
+                {t('common.edit', { defaultValue: 'Edit' })}
+              </Button>
+              <Button onClick={onClose} size="sm">
+                {t('common.close', { defaultValue: 'Close' })}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <LocalEventDetail
+          event={event}
+          locale={i18n.language}
+          pipeline={pipelineInfo}
+          linkedTitles={linkedTitles}
+          onOpenPipeline={() => {
+            openPipelinesTab();
+            onClose();
+          }}
+          onOpenSocial={() => {
+            openSocialTab();
+            onClose();
+          }}
+          onOpenResource={openLinkedResource}
+        />
+      </EventDetailChrome>
     );
   }
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <form id="event-modal-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field className="gap-1.5">
+    <>
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={
+          event?.calendar_title
+          ?? (event ? 'Local' : t('calendarPage.new_event_short'))
+        }
+        title={event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
+        description={event ? formatEventWhen(event, i18n.language) : undefined}
+        icon={<HugeiconsIcon icon={Calendar03Icon} />}
+        badges={
+          allDay ? (
+            <Badge variant="outline" className="font-normal">
+              {t('calendarPage.all_day')}
+            </Badge>
+          ) : undefined
+        }
+        footer={
+          <>
+            {event && onDelete ? (
+              <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                form="event-modal-form"
+                size="sm"
+                disabled={saving || !title.trim()}
+                loading={saving}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <form id="event-modal-form" onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-4">
+          <Field className="min-w-0 gap-1.5">
             <FieldLabel htmlFor="event-modal-title-input" className="text-xs">
               {t('common.name')}
             </FieldLabel>
@@ -842,10 +901,11 @@ export default function EventModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t('calendarPage.event_title_placeholder')}
               required
+              className="min-w-0"
             />
           </Field>
 
-          <Field className="gap-1.5">
+          <Field className="min-w-0 gap-1.5">
             <FieldLabel htmlFor="event-modal-location" className="text-xs">
               {t('common.location')}
             </FieldLabel>
@@ -855,6 +915,7 @@ export default function EventModal({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder={t('calendarPage.event_location_placeholder')}
+              className="min-w-0"
             />
           </Field>
 
@@ -872,13 +933,13 @@ export default function EventModal({
                 id="event-modal-start-dt"
                 label={t('calendarPage.event_start')}
                 value={startAt}
-                onChange={setStartAt}
+                onChange={updateStartAt}
               />
               <DateTimePicker
                 id="event-modal-end-dt"
                 label={t('calendarPage.event_end')}
                 value={endAt}
-                onChange={setEndAt}
+                onChange={updateEndAt}
               />
             </>
           ) : (
@@ -922,39 +983,20 @@ export default function EventModal({
             onRemove={(id) => setResourceIds((prev) => prev.filter((x) => x !== id))}
             onAdd={() => setPickerOpen(true)}
           />
-
-      </form>
-    </div>
-    <DialogFooter className="border-t px-4 py-3">
-          {event && onDelete ? (
-            <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
-          ) : null}
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            type="submit"
-            form="event-modal-form"
-            size="sm"
-            disabled={saving || !title.trim()}
-            loading={saving}
-          >
-            {t('common.save')}
-          </Button>
-        </DialogFooter>
-        <ResourcePickerModal
-          opened={pickerOpen}
-          onClose={() => setPickerOpen(false)}
-          projectId={projectId}
-          title={t('calendarPage.link_resource')}
-          onSelect={(resource: Resource) => {
-            setResourceIds((prev) => (prev.includes(resource.id) ? prev : [...prev, resource.id]));
-            setLinkedTitles((prev) => ({ ...prev, [resource.id]: resource.title }));
-            setLinkedTypes((prev) => ({ ...prev, [resource.id]: resource.type }));
-            setPickerOpen(false);
-          }}
-        />
-      </DialogContent>
-    </Dialog>
+        </form>
+      </EventDetailChrome>
+      <ResourcePickerModal
+        opened={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        projectId={projectId}
+        title={t('calendarPage.link_resource')}
+        onSelect={(resource: Resource) => {
+          setResourceIds((prev) => (prev.includes(resource.id) ? prev : [...prev, resource.id]));
+          setLinkedTitles((prev) => ({ ...prev, [resource.id]: resource.title }));
+          setLinkedTypes((prev) => ({ ...prev, [resource.id]: resource.type }));
+          setPickerOpen(false);
+        }}
+      />
+    </>
   );
 }

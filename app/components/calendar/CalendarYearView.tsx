@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, eachDayOfInterval, format, isSameDay, isSameMonth,
@@ -44,7 +43,7 @@ export function YearView({
   }, [events]);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-3 gap-3 overflow-auto p-4 md:grid-cols-4">
+    <div className="grid h-full min-h-0 grid-cols-2 gap-3 overflow-auto p-4 sm:grid-cols-3 lg:grid-cols-4">
       {months.map((month) => {
         const mStart = startOfMonth(month);
         const mEnd = endOfMonth(month);
@@ -55,29 +54,34 @@ export function YearView({
         const isCurrentMonth = isSameMonth(month, new Date());
 
         return (
-          <Button
+          <button
             key={month.toISOString()}
             type="button"
-            variant="outline"
             aria-label={format(month, 'MMMM yyyy', { locale: dfLocale })}
             className={cn(
-              'h-auto w-full cursor-pointer rounded-xl bg-card p-3 text-left transition-[box-shadow,border-color] hover:shadow-md',
+              'flex w-full flex-col items-stretch rounded-xl border bg-card p-3 text-left transition-[box-shadow,border-color] hover:shadow-md',
+              'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none',
               isCurrentMonth && 'border-primary',
             )}
             onClick={() => onMonthClick(month)}
           >
             <div
               className={cn(
-                'mb-2 text-[12px] font-semibold capitalize',
+                'mb-2 text-xs font-semibold capitalize',
                 isCurrentMonth && 'text-primary',
               )}
             >
               {format(month, 'MMMM', { locale: dfLocale })}
             </div>
 
-            <div className="mb-1 grid grid-cols-7 gap-px">
+            <div className="mb-1 grid w-full grid-cols-7 gap-px">
               {weekdayNarrowLabels.map((d, i) => (
-                <div key={`${d}-${i}`} className="text-center text-[12px] leading-none text-muted-foreground">{d}</div>
+                <div
+                  key={`${d}-${i}`}
+                  className="text-center text-[10px] leading-none text-muted-foreground"
+                >
+                  {d}
+                </div>
               ))}
               {days.map((day) => {
                 const inMonth = isSameMonth(day, month);
@@ -86,31 +90,32 @@ export function YearView({
                 return (
                   <div
                     key={day.toISOString()}
-                    className="relative flex h-4 items-center justify-center"
+                    className="relative flex aspect-square items-center justify-center"
                   >
                     <span
                       className={cn(
-                        'flex size-4 items-center justify-center rounded-full text-[12px] leading-none',
+                        'flex size-5 items-center justify-center rounded-full text-[10px] leading-none tabular-nums',
                         !inMonth && 'text-transparent',
+                        inMonth && !today && 'text-foreground',
                         inMonth && today && 'bg-primary font-bold text-primary-foreground',
                       )}
                     >
-                      {inMonth ? format(day, 'd') : '·'}
+                      {inMonth ? format(day, 'd') : ''}
                     </span>
-                    {hasEvs && inMonth && !today && (
-                      <div className="absolute bottom-0 left-1/2 size-[3px] -translate-x-1/2 rounded-full bg-primary" />
-                    )}
+                    {hasEvs && inMonth && !today ? (
+                      <div className="absolute bottom-0.5 left-1/2 size-[3px] -translate-x-1/2 rounded-full bg-primary" />
+                    ) : null}
                   </div>
                 );
               })}
             </div>
 
-            {monthEvs.length > 0 && (
-              <div className="mt-1 text-[12px] text-muted-foreground">
+            {monthEvs.length > 0 ? (
+              <div className="mt-1 text-[10px] text-muted-foreground">
                 {t('calendarPage.events_count', { count: monthEvs.length })}
               </div>
-            )}
-          </Button>
+            ) : null}
+          </button>
         );
       })}
     </div>

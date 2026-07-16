@@ -28,6 +28,7 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 016 | Packs de memoria de dominio (social + email) | P0 | M | 015 | DONE |
 | 017 | Escritura de memoria por acción + relevancia | P0 | L | 015, 016 | DONE |
 | 018 | Providers: comments + DM | P0 | XL | 014, 012 | IN PROGRESS |
+| 019 | Calendar event inline side panel (no overlay) | P1 | M | — | DONE |
 
 ## Dependency graph
 
@@ -79,6 +80,7 @@ flowchart TD
 | **Datos / búsqueda** | 003, 004 → 005 → 006 → 007 | GitHub indexable ya; email necesita 004 |
 | **Memoria / harness** | 015 → 016 → 017 | Independiente de UI hasta 008/014 |
 | **Many + automations** | 008, 014, **018** | 014 STOP; DMs reales en 018 (comments → DM por provider) |
+| **Calendar craft** | **019** | Event detail: Dialog → DetailSheet + motion tokens |
 
 ## Decisiones de producto globales
 
