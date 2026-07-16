@@ -120,6 +120,9 @@ const TOOL_HANDLER_MAP = {
   social_post_publish: 'socialPostPublish',
   social_posts_list: 'socialPostsList',
   social_metrics_summary: 'socialMetricsSummary',
+  social_campaigns_list: 'socialCampaignsList',
+  social_campaign_create: 'socialCampaignCreate',
+  social_growth: 'socialGrowth',
 
   // Entity creation
   agent_create: 'agentCreate',
@@ -855,6 +858,43 @@ function getAllToolDefinitions() {
         name: 'social_metrics_summary',
         description: 'Social analytics summary: totals, per-network breakdown and top posts. Source: Social hub.',
         parameters: { type: 'object', properties: { refresh: { type: 'boolean' } } },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_campaigns_list',
+        description: 'List soft social campaigns with post counts. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: { status: { type: 'string', enum: ['active', 'archived'] } },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_campaign_create',
+        description: 'Create a soft social campaign (name + optional goal). Does not publish. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            goal: { type: 'string' },
+          },
+          required: ['name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_growth',
+        description: 'Follower growth series per account. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: { days: { type: 'number' }, refresh: { type: 'boolean' } },
+        },
       },
     },
     {

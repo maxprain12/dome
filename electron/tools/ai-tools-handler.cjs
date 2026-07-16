@@ -3295,6 +3295,44 @@ async function socialMetricsSummary({ refresh = false } = {}) {
   }
 }
 
+async function socialCampaignsList({ status } = {}) {
+  try {
+    const campaigns = socialService().store.listCampaigns({
+      status: status === 'active' || status === 'archived' ? status : null,
+    });
+    return { success: true, source: 'social', campaigns };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialCampaignCreate({ name, goal } = {}) {
+  try {
+    if (!name || !String(name).trim()) return { success: false, error: 'name is required' };
+    const campaign = socialService().store.createCampaign({
+      name: String(name).trim(),
+      goal: goal != null ? String(goal) : null,
+    });
+    return { success: true, source: 'social', campaign };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialGrowth({ days = 90, refresh = false } = {}) {
+  try {
+    const service = socialService();
+    if (refresh) await service.refreshAllMetrics();
+    return {
+      success: true,
+      source: 'social',
+      ...service.getGrowth({ days: Math.min(Math.max(Number(days) || 90, 7), 365) }),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // =============================================================================
 // GitHub project sync (Seguimiento) — every result is tagged source: 'github'
 // =============================================================================
@@ -5075,6 +5113,9 @@ module.exports = {
   socialPostPublish,
   socialPostsList,
   socialMetricsSummary,
+  socialCampaignsList,
+  socialCampaignCreate,
+  socialGrowth,
 
   // Entity creation
   agentCreate,

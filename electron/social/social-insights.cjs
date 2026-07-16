@@ -58,6 +58,12 @@ function buildGrowth(store, { days = 90 } = {}) {
     const latest = store.getLatestAccountMetric(account.id);
     const first = points[0] || null;
     const last = points[points.length - 1] || null;
+    const followersUnavailable =
+      account.provider === 'linkedin' &&
+      (account.accountKind || 'member') !== 'organization' &&
+      (latest?.followers == null)
+        ? 'linkedin_member'
+        : null;
     return {
       accountId: account.id,
       provider: account.provider,
@@ -68,6 +74,7 @@ function buildGrowth(store, { days = 90 } = {}) {
       latest,
       points,
       delta: first && last ? (last.followers ?? 0) - (first.followers ?? 0) : null,
+      followersUnavailable,
     };
   });
 }

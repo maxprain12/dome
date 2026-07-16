@@ -127,7 +127,10 @@ export function buildSocialQueues(
     .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0));
 
   const pendingReplyDrafts = replyDrafts
-    .filter((d) => d.status === 'pending' || d.status === 'draft' || !d.status)
+    .filter((d) => {
+      const s = String(d.status || '');
+      return s === 'pending' || s === 'draft' || s === 'draft_only' || s === '';
+    })
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   return {

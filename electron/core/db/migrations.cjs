@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 68;
+const SCHEMA_HEAD = 69;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1119,6 +1119,62 @@ function migration68(db, version) {
   }
 }
 
+function migration69(db, version) {
+  if (version >= 69) return;
+  console.log('[DB] Running migration 69 - social_campaigns');
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS social_campaigns (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        goal TEXT,
+        status TEXT NOT NULL DEFAULT 'active'
+          CHECK(status IN ('active', 'archived')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_social_campaigns_status ON social_campaigns(status, updated_at)`);
+
+    const cols = db.prepare(`PRAGMA table_info(social_posts)`).all().map((c) => c.name);
+    if (!cols.includes('campaign_id')) {
+      db.exec(`ALTER TABLE social_posts ADD COLUMN campaign_id TEXT REFERENCES social_campaigns(id)`);
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_social_posts_campaign ON social_posts(campaign_id)`);
+
+    // Backfill: distinct non-empty campaign strings → campaign rows + campaign_id.
+    const names = db
+      .prepare(
+        `SELECT DISTINCT TRIM(campaign) AS name FROM social_posts
+         WHERE campaign IS NOT NULL AND TRIM(campaign) != ''`,
+      )
+      .all()
+      .map((r) => r.name)
+      .filter(Boolean);
+    const now = Date.now();
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO social_campaigns (id, name, goal, status, created_at, updated_at)
+       VALUES (?, ?, NULL, 'active', ?, ?)`,
+    );
+    const findByName = db.prepare(`SELECT id FROM social_campaigns WHERE name = ?`);
+    const link = db.prepare(
+      `UPDATE social_posts SET campaign_id = ? WHERE TRIM(campaign) = ? AND (campaign_id IS NULL OR campaign_id = '')`,
+    );
+    for (const name of names) {
+      const id = `scamp-${require('crypto').randomBytes(8).toString('hex')}`;
+      insert.run(id, name, now, now);
+      const row = findByName.get(name);
+      if (row?.id) link.run(row.id, name);
+    }
+
+    setSchemaVersion(db, 69);
+    console.log('[DB] Migration 69 complete - social_campaigns');
+  } catch (error) {
+    console.error('[DB] Migration 69 failed:', error);
+    throw error;
+  }
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1174,6 +1230,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration66(db, version);
   migration67(db, version);
   migration68(db, version);
+  migration69(db, version);
+  // Rebuild prepared statements after ALTER TABLE / new tables.
+  invalidateQueries();
 }
 
 module.exports = { applyMigrations, SCHEMA_HEAD, MIN_SUPPORTED_VERSION };

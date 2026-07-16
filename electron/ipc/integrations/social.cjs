@@ -49,6 +49,7 @@ const PostCreateSchema = z.object({
   linkUrl: z.string().url().optional().nullable(),
   topics: z.array(z.string().max(80)).max(20).default([]),
   campaign: z.string().max(200).optional().nullable(),
+  campaignId: z.string().min(1).optional().nullable(),
   scheduledAt: z.number().int().positive().optional().nullable(),
   groupId: z.string().optional().nullable(),
 });
@@ -61,10 +62,24 @@ const PostUpdateSchema = z.object({
     linkUrl: z.string().url().nullable().optional(),
     topics: z.array(z.string().max(80)).max(20).optional(),
     campaign: z.string().max(200).nullable().optional(),
+    campaignId: z.string().min(1).nullable().optional(),
     scheduledAt: z.number().int().positive().nullable().optional(),
     status: z.enum(['draft', 'scheduled']).optional(),
   }),
 });
+const CampaignCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  goal: z.string().max(2000).optional().nullable(),
+});
+const CampaignUpdateSchema = z.object({
+  campaignId: z.string().min(1),
+  patch: z.object({
+    name: z.string().min(1).max(200).optional(),
+    goal: z.string().max(2000).nullable().optional(),
+    status: z.enum(['active', 'archived']).optional(),
+  }),
+});
+const CampaignIdSchema = z.object({ campaignId: z.string().min(1) });
 const PostListSchema = z.object({
   status: z.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']).optional().nullable(),
   limit: z.number().int().positive().max(500).optional(),
@@ -284,10 +299,29 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     return { dataUrl: `data:${mime};base64,${fs.readFileSync(resolved).toString('base64')}` };
   }));
 
+  // Campaigns (plan 025)
+  ipcMain.handle('social:campaigns:list', wrap(null, () => service.store.listCampaigns()));
+  ipcMain.handle('social:campaigns:create', wrap(CampaignCreateSchema, ({ name, goal }) => {
+    const campaign = service.store.createCampaign({ name, goal: goal || null });
+    windowManager.broadcast?.('social:posts-refresh', { reason: 'campaign' });
+    return campaign;
+  }));
+  ipcMain.handle('social:campaigns:update', wrap(CampaignUpdateSchema, ({ campaignId, patch }) => {
+    const campaign = service.store.updateCampaign(campaignId, patch);
+    windowManager.broadcast?.('social:posts-refresh', { reason: 'campaign' });
+    return campaign;
+  }));
+  ipcMain.handle('social:campaigns:archive', wrap(CampaignIdSchema, ({ campaignId }) => {
+    const campaign = service.store.archiveCampaign(campaignId);
+    windowManager.broadcast?.('social:posts-refresh', { reason: 'campaign' });
+    return campaign;
+  }));
+
   // Metrics & dashboard
   ipcMain.handle('social:metrics:post', wrap(PostIdSchema, ({ postId }) => service.store.listMetricsForPost(postId)));
   ipcMain.handle('social:metrics:refresh', wrap(null, () => service.refreshAllMetrics()));
   ipcMain.handle('social:summary', wrap(null, () => service.getSummary()));
+  ipcMain.handle('social:workspace', wrap(null, () => service.getWorkspace()));
   ipcMain.handle('social:growth', wrap(GrowthQuerySchema, ({ days }) => service.getGrowth({ days: days || 90 })));
 
   // AI growth reports

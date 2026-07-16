@@ -15,6 +15,7 @@ import SocialPostPreview, {
 import {
   PROVIDER_CHAR_LIMITS,
   type SocialAccount,
+  type SocialCampaign,
   type SocialLibraryItem,
   type SocialMediaItem,
   type SocialPost,
@@ -43,9 +44,11 @@ const AI_TONES: AiTone[] = ['professional', 'casual', 'selling', 'informative'];
 
 interface Props {
   accounts: SocialAccount[];
+  campaigns?: SocialCampaign[];
   editingPost: SocialPost | null;
   /** Prefill campaign when creating a new draft from a campaign queue. */
   initialCampaign?: string | null;
+  initialCampaignId?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -67,8 +70,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function SocialComposePanel({
   accounts,
+  campaigns = [],
   editingPost,
   initialCampaign = null,
+  initialCampaignId = null,
   onClose,
   onSaved,
 }: Props) {
@@ -81,6 +86,9 @@ export default function SocialComposePanel({
   const [mediaUrl, setMediaUrl] = useState('');
   const [media, setMedia] = useState<SocialMediaItem[]>(editingPost?.media ?? []);
   const [topics, setTopics] = useState((editingPost?.topics ?? []).join(', '));
+  const [campaignId, setCampaignId] = useState<string | null>(
+    editingPost?.campaignId ?? initialCampaignId ?? null,
+  );
   const [campaign, setCampaign] = useState(editingPost?.campaign ?? initialCampaign ?? '');
   const [scheduleAt, setScheduleAt] = useState(toLocalInputValue(editingPost?.scheduledAt ?? null));
   const [saving, setSaving] = useState(false);
@@ -355,7 +363,8 @@ export default function SocialComposePanel({
             media,
             linkUrl: linkUrl.trim() || null,
             topics: topicsArr,
-            campaign: campaign.trim() || null,
+            campaignId: campaignId || null,
+            campaign: campaignId ? null : campaign.trim() || null,
             scheduledAt,
           },
         });
@@ -373,7 +382,8 @@ export default function SocialComposePanel({
             media,
             linkUrl: linkUrl.trim() || null,
             topics: topicsArr,
-            campaign: campaign.trim() || null,
+            campaignId: campaignId || null,
+            campaign: campaignId ? null : campaign.trim() || null,
             scheduledAt,
             groupId,
           });
@@ -694,12 +704,41 @@ export default function SocialComposePanel({
                 placeholder={t('social.composer.topics_placeholder')}
                 className="min-w-0"
               />
-              <Input
-                value={campaign}
-                onChange={(e) => setCampaign(e.target.value)}
-                placeholder={t('social.composer.campaign_placeholder')}
-                className="min-w-0"
-              />
+              <Select
+                value={campaignId || '__none__'}
+                onValueChange={(v) => {
+                  if (v == null || v === '__none__') {
+                    setCampaignId(null);
+                    setCampaign('');
+                    return;
+                  }
+                  setCampaignId(v);
+                  const found = campaigns.find((c) => c.id === v);
+                  setCampaign(found?.name ?? '');
+                }}
+                items={[
+                  { value: '__none__', label: t('social.composer.campaign_none') },
+                  ...campaigns
+                    .filter((c) => c.status === 'active')
+                    .map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              >
+                <SelectTrigger className="min-w-0">
+                  <SelectValue placeholder={t('social.composer.campaign_placeholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="__none__">{t('social.composer.campaign_none')}</SelectItem>
+                    {campaigns
+                      .filter((c) => c.status === 'active')
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

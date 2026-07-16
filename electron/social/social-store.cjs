@@ -281,6 +281,7 @@ function createSocialStore(database) {
       linkUrl: row.link_url,
       topics: parseJsonArray(row.topics),
       campaign: row.campaign,
+      campaignId: row.campaign_id || null,
       scheduledAt: row.scheduled_at,
       publishedAt: row.published_at,
       externalPostId: row.external_post_id,
@@ -293,17 +294,107 @@ function createSocialStore(database) {
     };
   }
 
+  // ── Campaigns ────────────────────────────────────────────────────────────
+
+  function serializeCampaign(row, counts = null) {
+    if (!row) return null;
+    const base = {
+      id: row.id,
+      name: row.name,
+      goal: row.goal || null,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      draft: 0,
+      scheduled: 0,
+      published: 0,
+      failed: 0,
+    };
+    if (counts) {
+      for (const c of counts) {
+        if (c.status === 'draft') base.draft = c.c;
+        else if (c.status === 'scheduled' || c.status === 'publishing') base.scheduled += c.c;
+        else if (c.status === 'published') base.published = c.c;
+        else if (c.status === 'failed') base.failed = c.c;
+      }
+    }
+    return base;
+  }
+
+  function listCampaigns({ status = null } = {}) {
+    const rows = status
+      ? q().listSocialCampaignsByStatus.all(status)
+      : q().listSocialCampaigns.all();
+    return rows.map((row) =>
+      serializeCampaign(row, q().countSocialPostsByCampaignId.all(row.id)),
+    );
+  }
+
+  function getCampaign(campaignId) {
+    const row = q().getSocialCampaignById.get(campaignId);
+    if (!row) return null;
+    return serializeCampaign(row, q().countSocialPostsByCampaignId.all(row.id));
+  }
+
+  function createCampaign({ name, goal = null, status = 'active' } = {}) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) throw new Error('Campaign name is required');
+    const existing = q().getSocialCampaignByName.get(trimmed);
+    if (existing) {
+      return serializeCampaign(existing, q().countSocialPostsByCampaignId.all(existing.id));
+    }
+    const now = Date.now();
+    const id = `scamp-${crypto.randomBytes(8).toString('hex')}`;
+    q().createSocialCampaign.run(id, trimmed, goal ? String(goal) : null, status || 'active', now, now);
+    return getCampaign(id);
+  }
+
+  function updateCampaign(campaignId, patch = {}) {
+    const row = q().getSocialCampaignById.get(campaignId);
+    if (!row) throw new Error(`Campaign not found: ${campaignId}`);
+    const name = patch.name !== undefined ? String(patch.name).trim() : row.name;
+    if (!name) throw new Error('Campaign name is required');
+    const goal = patch.goal !== undefined ? (patch.goal ? String(patch.goal) : null) : row.goal;
+    const status = patch.status !== undefined ? patch.status : row.status;
+    q().updateSocialCampaign.run(name, goal, status, Date.now(), campaignId);
+    if (name !== row.name) {
+      // Keep denormalized campaign string in sync for posts.
+      const db = typeof database.getDB === 'function' ? database.getDB() : database;
+      db.prepare(`UPDATE social_posts SET campaign = ? WHERE campaign_id = ?`).run(name, campaignId);
+    }
+    return getCampaign(campaignId);
+  }
+
+  function archiveCampaign(campaignId) {
+    return updateCampaign(campaignId, { status: 'archived' });
+  }
+
+  /** Resolve campaignId and/or campaign name into { campaignId, campaign }. */
+  function resolveCampaignRef({ campaignId = null, campaign = null } = {}) {
+    if (campaignId) {
+      const row = q().getSocialCampaignById.get(campaignId);
+      if (!row) throw new Error(`Campaign not found: ${campaignId}`);
+      return { campaignId: row.id, campaign: row.name };
+    }
+    const name = campaign != null ? String(campaign).trim() : '';
+    if (!name) return { campaignId: null, campaign: null };
+    const created = createCampaign({ name });
+    return { campaignId: created.id, campaign: created.name };
+  }
+
   function createPost({
     provider, accountId = null, body = '', media = [], linkUrl = null, topics = [],
-    campaign = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
+    campaign = null, campaignId = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
   }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
     const now = Date.now();
     const id = `sp-${crypto.randomBytes(8).toString('hex')}`;
     const finalStatus = status || (scheduledAt ? 'scheduled' : 'draft');
+    const ref = resolveCampaignRef({ campaignId, campaign });
     q().createSocialPost.run(
       id, accountId, provider, finalStatus, String(body || ''),
-      JSON.stringify(media || []), linkUrl, JSON.stringify(topics || []), campaign,
+      JSON.stringify(media || []), linkUrl, JSON.stringify(topics || []),
+      ref.campaign, ref.campaignId,
       scheduledAt, null, null, null, null, createdBy, groupId, now, now
     );
     return serializePost(q().getSocialPostById.get(id));
@@ -321,13 +412,32 @@ function createSocialStore(database) {
     const row = q().getSocialPostById.get(postId);
     if (!row) throw new Error(`Social post not found: ${postId}`);
     if (row.status === 'published') throw new Error('Cannot edit a published post');
+    let campaign = row.campaign;
+    let campaignId = row.campaign_id || null;
+    if (patch.campaignId !== undefined || patch.campaign !== undefined) {
+      const clear =
+        (patch.campaignId === null || patch.campaignId === '') &&
+        (patch.campaign === null || patch.campaign === '' || patch.campaign === undefined);
+      if (clear && patch.campaignId !== undefined) {
+        campaign = null;
+        campaignId = null;
+      } else {
+        const ref = resolveCampaignRef({
+          campaignId: patch.campaignId || null,
+          campaign: patch.campaignId ? null : patch.campaign,
+        });
+        campaign = ref.campaign;
+        campaignId = ref.campaignId;
+      }
+    }
     const next = {
       accountId: patch.accountId !== undefined ? patch.accountId : row.account_id,
       body: patch.body !== undefined ? String(patch.body) : row.body,
       media: patch.media !== undefined ? JSON.stringify(patch.media || []) : row.media,
       linkUrl: patch.linkUrl !== undefined ? patch.linkUrl : row.link_url,
       topics: patch.topics !== undefined ? JSON.stringify(patch.topics || []) : row.topics,
-      campaign: patch.campaign !== undefined ? patch.campaign : row.campaign,
+      campaign,
+      campaignId,
       scheduledAt: patch.scheduledAt !== undefined ? patch.scheduledAt : row.scheduled_at,
     };
     let status = patch.status !== undefined ? patch.status : row.status;
@@ -336,7 +446,7 @@ function createSocialStore(database) {
       if (!next.scheduledAt && row.status === 'scheduled') status = 'draft';
     }
     q().updateSocialPostContent.run(
-      next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign,
+      next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign, next.campaignId,
       next.scheduledAt, status, Date.now(), postId
     );
     return getPost(postId);
@@ -716,6 +826,12 @@ function createSocialStore(database) {
     listAccounts,
     deleteAccount,
     serializeAccount,
+    listCampaigns,
+    getCampaign,
+    createCampaign,
+    updateCampaign,
+    archiveCampaign,
+    resolveCampaignRef,
     createPost,
     getPost,
     getPostRow,

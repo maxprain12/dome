@@ -12,8 +12,12 @@ per-post metrics.
    user gave an explicit date/time.
 3. `social_post_publish` — publishes to the REAL account immediately.
    Never call it unless the user explicitly asked to publish now.
-4. `social_posts_list` / `social_metrics_summary` — read the queue and the
-   analytics to answer questions and ground recommendations.
+4. `social_posts_list` / `social_metrics_summary` / `social_growth` — read the
+   queue and analytics. LinkedIn personal profiles often lack follower counts
+   (`followersUnavailable: linkedin_member`) — say so, do not invent numbers.
+5. Soft campaigns: `social_campaigns_list` / `social_campaign_create` then tag
+   drafts with `campaign` (or campaign id) via `social_post_draft`. No separate
+   publish step for campaigns.
 
 ## Memory (domains/social.md)
 

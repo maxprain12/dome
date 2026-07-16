@@ -1303,17 +1303,37 @@ function buildQueries(db) {
     `),
     deleteSocialAccount: db.prepare('DELETE FROM social_accounts WHERE id = ?'),
 
+    createSocialCampaign: db.prepare(`
+      INSERT INTO social_campaigns (id, name, goal, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `),
+    getSocialCampaignById: db.prepare('SELECT * FROM social_campaigns WHERE id = ?'),
+    getSocialCampaignByName: db.prepare('SELECT * FROM social_campaigns WHERE name = ?'),
+    updateSocialCampaign: db.prepare(`
+      UPDATE social_campaigns SET name = ?, goal = ?, status = ?, updated_at = ? WHERE id = ?
+    `),
+    listSocialCampaigns: db.prepare(`
+      SELECT * FROM social_campaigns ORDER BY
+        CASE status WHEN 'active' THEN 0 ELSE 1 END, updated_at DESC
+    `),
+    listSocialCampaignsByStatus: db.prepare(`
+      SELECT * FROM social_campaigns WHERE status = ? ORDER BY updated_at DESC
+    `),
+    countSocialPostsByCampaignId: db.prepare(`
+      SELECT status, COUNT(*) AS c FROM social_posts WHERE campaign_id = ? GROUP BY status
+    `),
+
     createSocialPost: db.prepare(`
       INSERT INTO social_posts (
-        id, account_id, provider, status, body, media, link_url, topics, campaign,
+        id, account_id, provider, status, body, media, link_url, topics, campaign, campaign_id,
         scheduled_at, published_at, external_post_id, external_url, error,
         created_by, group_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialPostById: db.prepare('SELECT * FROM social_posts WHERE id = ?'),
     updateSocialPostContent: db.prepare(`
       UPDATE social_posts
-      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?,
+      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?, campaign_id = ?,
           scheduled_at = ?, status = ?, updated_at = ?
       WHERE id = ?
     `),

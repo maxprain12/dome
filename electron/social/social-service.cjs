@@ -202,16 +202,28 @@ function createSocialService(database, windowManager) {
     const published = store.listRecentPublished({ sinceMs: Date.now() - METRICS_WINDOW_MS, limit: 200 });
 
     const totals = { impressions: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
+    const totalsKnown = {
+      impressions: false,
+      likes: false,
+      comments: false,
+      shares: false,
+      saves: false,
+    };
     const byProvider = {};
     const posts = published.map((post) => {
       const m = metricByPost.get(post.id) || null;
       if (m) {
-        for (const key of Object.keys(totals)) totals[key] += m[key] || 0;
+        for (const key of Object.keys(totals)) {
+          if (m[key] != null) {
+            totals[key] += m[key];
+            totalsKnown[key] = true;
+          }
+        }
         const agg = (byProvider[post.provider] ||= { posts: 0, impressions: 0, likes: 0, comments: 0 });
         agg.posts += 1;
-        agg.impressions += m.impressions || 0;
-        agg.likes += m.likes || 0;
-        agg.comments += m.comments || 0;
+        if (m.impressions != null) agg.impressions += m.impressions;
+        if (m.likes != null) agg.likes += m.likes;
+        if (m.comments != null) agg.comments += m.comments;
       } else {
         (byProvider[post.provider] ||= { posts: 0, impressions: 0, likes: 0, comments: 0 }).posts += 1;
       }
@@ -226,13 +238,54 @@ function createSocialService(database, windowManager) {
       })
       .slice(0, 5);
 
-    return { accounts, counts, totals, byProvider, recentPosts: posts.slice(0, 50), topPosts };
+    return {
+      accounts,
+      counts,
+      totals: {
+        impressions: totalsKnown.impressions ? totals.impressions : null,
+        likes: totalsKnown.likes ? totals.likes : null,
+        comments: totalsKnown.comments ? totals.comments : null,
+        shares: totalsKnown.shares ? totals.shares : null,
+        saves: totalsKnown.saves ? totals.saves : null,
+      },
+      byProvider,
+      recentPosts: posts.slice(0, 50),
+      topPosts,
+    };
   }
 
   // ── Growth & AI reports ──────────────────────────────────────────────────
 
   function getGrowth({ days = 90 } = {}) {
     return { accounts: insights.buildGrowth(store, { days }) };
+  }
+
+  /** Single payload for the agentic Social workspace. */
+  function getWorkspace() {
+    const summary = getSummary();
+    const growth = getGrowth({ days: 90 });
+    const campaigns = store.listCampaigns({ status: 'active' });
+    const posts = store.listPosts({ limit: 200 });
+    const replyDrafts = store.listReplyDrafts();
+    const pendingStatuses = new Set(['pending', 'draft', 'draft_only', '']);
+    const replyDraftsPending = replyDrafts.filter((d) => pendingStatuses.has(String(d.status || ''))).length;
+    let lastSyncAt = null;
+    for (const a of summary.accounts) {
+      if (a.lastSyncAt != null && (lastSyncAt == null || a.lastSyncAt > lastSyncAt)) {
+        lastSyncAt = a.lastSyncAt;
+      }
+    }
+    return {
+      ...summary,
+      posts,
+      campaigns,
+      growth: growth.accounts,
+      replyDrafts,
+      replyDraftsPending,
+      lastSyncAt,
+      metricsStale:
+        lastSyncAt == null || Date.now() - lastSyncAt > 6 * 60 * 60 * 1000,
+    };
   }
 
   async function generateReport({ periodDays, language, trigger = 'user' } = {}) {
@@ -541,6 +594,7 @@ function createSocialService(database, windowManager) {
     refreshAccountMetrics,
     getSummary,
     getGrowth,
+    getWorkspace,
     generateReport,
     startScheduler,
     stopScheduler,

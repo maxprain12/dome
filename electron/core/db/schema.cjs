@@ -5,7 +5,7 @@
  * `createBaseSchema(db)` runs the PRAGMAs and creates every base table,
  * index, FTS virtual table and trigger with `IF NOT EXISTS` (idempotent).
  * It reflects the FULL schema at v68: the old 64-step migration chain was
- * squashed — a fresh install gets this schema and schema_version=68 directly;
+ * squashed — a fresh install gets this schema and schema_version=69 directly;
  * existing installs at v50–v67 are upgraded by db/migrations.cjs (kept chain
  * 50→64 + v65–v68). Installs below v50 are not supported (clear error).
  *
@@ -1142,6 +1142,18 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS social_campaigns (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL UNIQUE,
+              goal TEXT,
+              status TEXT NOT NULL DEFAULT 'active'
+                CHECK(status IN ('active', 'archived')),
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS social_posts (
               id TEXT PRIMARY KEY,
               account_id TEXT,
@@ -1152,6 +1164,7 @@ function createBaseSchema(db) {
               link_url TEXT,
               topics TEXT NOT NULL DEFAULT '[]',
               campaign TEXT,
+              campaign_id TEXT,
               scheduled_at INTEGER,
               published_at INTEGER,
               external_post_id TEXT,
@@ -1161,7 +1174,8 @@ function createBaseSchema(db) {
               group_id TEXT,
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL, media_storage TEXT NOT NULL DEFAULT '[]',
-              FOREIGN KEY (account_id) REFERENCES social_accounts(id) ON DELETE SET NULL
+              FOREIGN KEY (account_id) REFERENCES social_accounts(id) ON DELETE SET NULL,
+              FOREIGN KEY (campaign_id) REFERENCES social_campaigns(id) ON DELETE SET NULL
             )
   `);
 
@@ -1792,6 +1806,14 @@ function createBaseSchema(db) {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_posts_group ON social_posts(group_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_social_posts_campaign ON social_posts(campaign_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_social_campaigns_status ON social_campaigns(status, updated_at)
   `);
 
   db.exec(`

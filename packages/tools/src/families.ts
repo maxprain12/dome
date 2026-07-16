@@ -72,6 +72,8 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   social_accounts_list: 'social', social_post_draft: 'social',
   social_post_publish: 'social', social_posts_list: 'social',
   social_metrics_summary: 'social',
+  social_campaigns_list: 'social', social_campaign_create: 'social',
+  social_growth: 'social',
   // artifacts
   artifact_create: 'artifacts', artifact_get: 'artifacts', artifact_merge_data: 'artifacts',
   artifact_update_state: 'artifacts', artifact_list: 'artifacts', artifact_delete: 'artifacts',

@@ -207,6 +207,77 @@ export function createSocialPostPublishTool(): AnyAgentTool {
   };
 }
 
+export function createSocialCampaignsListTool(): AnyAgentTool {
+  return {
+    label: 'List social campaigns',
+    name: 'social_campaigns_list',
+    description: 'List soft social campaigns with draft/scheduled/published counts. Source: Social hub.',
+    parameters: Type.Object({
+      status: Type.Optional(Type.Union([Type.Literal('active'), Type.Literal('archived')])),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const status = readStringParam(args as Record<string, unknown>, 'status');
+      const res = await window.electron.invoke('social:campaigns:list');
+      if (!res?.success) return ipcError(res, 'Failed to list campaigns.');
+      let campaigns = res.data ?? [];
+      if (status === 'active' || status === 'archived') {
+        campaigns = campaigns.filter((c: { status?: string }) => c.status === status);
+      }
+      return jsonResult({ success: true, source: 'social', campaigns });
+    },
+  };
+}
+
+export function createSocialCampaignCreateTool(): AnyAgentTool {
+  return {
+    label: 'Create social campaign',
+    name: 'social_campaign_create',
+    description: 'Create a soft social campaign (name + optional goal). Does not publish posts. Source: Social hub.',
+    parameters: Type.Object({
+      name: Type.String({ description: 'Unique campaign name.' }),
+      goal: Type.Optional(Type.String({ description: 'Short goal / brief.' })),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const params = args as Record<string, unknown>;
+      const name = readStringParam(params, 'name', { required: true });
+      const res = await window.electron.invoke('social:campaigns:create', {
+        name,
+        goal: readStringParam(params, 'goal') || null,
+      });
+      if (!res?.success) return ipcError(res, 'Failed to create campaign.');
+      return jsonResult({ success: true, source: 'social', campaign: res.data });
+    },
+  };
+}
+
+export function createSocialGrowthTool(): AnyAgentTool {
+  return {
+    label: 'Social growth',
+    name: 'social_growth',
+    description:
+      'Follower growth series and deltas per account. LinkedIn personal profiles may set followersUnavailable. Source: Social hub.',
+    parameters: Type.Object({
+      days: Type.Optional(Type.Number()),
+      refresh: Type.Optional(Type.Boolean()),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const params = args as Record<string, unknown>;
+      const refresh = readBooleanParam(params, 'refresh') ?? false;
+      if (refresh) await window.electron.invoke('social:metrics:refresh');
+      const days = typeof params.days === 'number' ? params.days : 90;
+      const res = await window.electron.invoke('social:growth', { days });
+      if (!res?.success) return ipcError(res, 'Failed to get growth.');
+      return jsonResult({ success: true, source: 'social', ...(res.data || {}) });
+    },
+  };
+}
+
 export function createSocialTools(): AnyAgentTool[] {
   return [
     createSocialAccountsListTool(),
@@ -214,5 +285,8 @@ export function createSocialTools(): AnyAgentTool[] {
     createSocialMetricsSummaryTool(),
     createSocialPostDraftTool(),
     createSocialPostPublishTool(),
+    createSocialCampaignsListTool(),
+    createSocialCampaignCreateTool(),
+    createSocialGrowthTool(),
   ];
 }

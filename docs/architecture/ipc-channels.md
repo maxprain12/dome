@@ -500,6 +500,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `skills:readFile` | `electron/ipc/integrations/skills.cjs:125` |
 | `skills:remove` | `electron/ipc/integrations/skills.cjs:111` |
 | `social:accounts:list` | `electron/ipc/integrations/social.cjs:139` |
+| `social:campaigns:archive` | `electron/ipc/integrations/social.cjs` |
+| `social:campaigns:create` | `electron/ipc/integrations/social.cjs` |
+| `social:campaigns:list` | `electron/ipc/integrations/social.cjs` |
+| `social:campaigns:update` | `electron/ipc/integrations/social.cjs` |
 | `social:capabilities` | `electron/ipc/integrations/social.cjs:317` |
 | `social:connect-oauth` | `electron/ipc/integrations/social.cjs:140` |
 | `social:connect-token` | `electron/ipc/integrations/social.cjs:141` |
@@ -536,6 +540,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `social:reports:list` | `electron/ipc/integrations/social.cjs:294` |
 | `social:setCloudPublishing` | `electron/ipc/sync/domain-sync.cjs:95` |
 | `social:summary` | `electron/ipc/integrations/social.cjs:290` |
+| `social:workspace` | `electron/ipc/integrations/social.cjs` |
 | `storage:cleanup` | `electron/ipc/data/storage.cjs:20` |
 | `storage:getPath` | `electron/ipc/data/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/data/storage.cjs:3` |

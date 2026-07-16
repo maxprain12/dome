@@ -1,45 +1,39 @@
-# Social Hub — LinkedIn / Instagram / X (superficie agentica)
+# Social Hub — LinkedIn / Instagram / X (workspace agentico real)
 
-Gestión de redes en Dome reinterpretada como **superficie de trabajo** (plan 024): briefing + colas + compose/detalle inline + chips a Many. Todo el estado vive en SQLite (main); el renderer usa IPC `social:*`.
+Superficie de trabajo (planes 024–025): briefing + colas + compose/detalle inline + campañas persistidas + chips Many. Estado en SQLite; renderer vía IPC `social:*`.
 
 ## Superficie UI (`app/components/social/`)
 
 | Pieza | Rol |
 | ----- | --- |
-| `SocialHubView` | Entry: HubHeader + búsqueda + master–detail |
-| `SocialDashboard` / `SocialStats` | KPIs clicables + acciones Many + colas |
-| `SocialQueueSection` / `SocialPostRow` | Colas (atención, programados, borradores, campañas, recientes) |
-| `SocialComposePanel` | Composer multi-red en `InlineDetailCard` (no Dialog) |
-| `SocialDetailPanel` | Ficha de post + publicar / Preguntar a Many |
-| `SocialGrowthCards` | Analítica secundaria (filtro Analytics) |
-| `SocialReportsSection` | Informes IA (sigue disponible vía IPC; no es el eje del tab) |
+| `SocialHubView` | Carga `social:workspace`, auto-refresh métricas si stale, master–detail |
+| `SocialDashboard` | Briefing, KPIs, acciones Many, colas **siempre visibles**, analítica colapsable debajo |
+| `SocialComposePanel` / `SocialDetailPanel` / `SocialCampaignDetail` | `InlineDetailCard` (sin Dialog) |
+| Heurísticas | [`app/lib/social/socialQueues.ts`](../../app/lib/social/socialQueues.ts) |
 
-Heurísticas puras: [`app/lib/social/socialQueues.ts`](../../app/lib/social/socialQueues.ts).
+## Campañas (migración 69)
 
-**Campañas**: string opcional `social_posts.campaign` agrupado en UI — sin tabla `campaigns`.
+Tabla `social_campaigns` (`id`, `name` UNIQUE, `goal`, `status` active|archived).  
+`social_posts.campaign_id` + string denormalizado `campaign` para agrupar/buscar.
 
-**Many**: pins `kind: 'social_post'`, skill `dome-social-growth`, prompts `social.agent_*`.
+IPC: `social:campaigns:list|create|update|archive`.
 
-## Módulos (main process, `electron/social/`)
+## Workspace IPC
 
-| Módulo | Qué hace |
-| ------ | -------- |
-| `social-store.cjs` | Persistencia (cuentas, posts, métricas, informes); credenciales cifradas |
-| `social-service.cjs` | Orquestación: publicar, scheduler, refresh de métricas |
-| `social-oauth.cjs` | OAuth loopback en `127.0.0.1:8737` |
-| `social-insights.cjs` | Agregación de crecimiento |
-| `social-calendar-bridge.cjs` | Posts scheduled → eventos calendario |
-| `providers/{linkedin,instagram,x}.cjs` | APIs por red |
-
-IPC: `electron/ipc/integrations/social.cjs` — inventario en [ipc-channels.md](../architecture/ipc-channels.md).  
-Ajustes: `app/components/settings/sections/SocialSection.tsx`.
+`social:workspace` → accounts, posts, campaigns, growth (con `followersUnavailable`), reply drafts, `metricsStale`, counts/totals (impresiones `null` si el provider no las da).
 
 ## Tools de agente
 
-`social_accounts_list`, `social_posts_list`, `social_metrics_summary`, `social_post_draft`, `social_post_publish` (HITL). Skill: `electron/skills/bundled/dome-social-growth/SKILL.md`.
+`social_accounts_list`, `social_posts_list`, `social_post_draft`, `social_post_publish` (HITL), `social_metrics_summary`, `social_growth`, `social_campaigns_list`, `social_campaign_create`.  
+Skill: `dome-social-growth`.
 
-## Esquema (migraciones 59–61)
+## Módulos main
 
-- `social_accounts`, `social_posts` (+ `campaign` string), `social_metrics`
-- `social_account_metrics`, `social_reports`
-- Sin entidad campaigns separada
+`electron/social/` — store, service, insights, oauth, providers, messaging.  
+Ajustes: `app/components/settings/sections/SocialSection.tsx`.
+
+## Notas de métricas
+
+- LinkedIn **member**: no hay followers en API estándar → `followersUnavailable: 'linkedin_member'`.
+- LinkedIn **organization**: followers vía `networkSizes`.
+- Impresiones a menudo `null` (no se muestran como 0 falso en el summary).
