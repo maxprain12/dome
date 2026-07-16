@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowDown01Icon, Add01Icon, FolderLibraryIcon } from '@hugeicons/core-free-icons';
+import {
+  Add01Icon,
+  ArrowDataTransferHorizontalIcon,
+  FolderLibraryIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 
-import ManyIcon from '@/components/many/ManyIcon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,7 +17,15 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { Project } from '@/types';
 
-export default function ShellProjectPicker({ compact = false }: { compact?: boolean }) {
+/**
+ * Workspace / project switcher. Trigger is an icon button (sidebar);
+ * the header no longer hosts a duplicate label trigger.
+ */
+export default function ShellProjectPicker({
+  className,
+}: {
+  className?: string;
+}) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [open, setOpen] = useState(false);
@@ -24,7 +35,10 @@ export default function ShellProjectPicker({ compact = false }: { compact?: bool
   const setCurrentProject = useAppStore((state) => state.setCurrentProject);
   const openProjectsTab = useTabStore((state) => state.openProjectsTab);
   const activeId = currentProject?.id ?? 'default';
-  const activeLabel = currentProject?.name ?? projects.find((project) => project.id === activeId)?.name ?? 'Dome';
+  const activeLabel =
+    currentProject?.name ??
+    projects.find((project) => project.id === activeId)?.name ??
+    'Dome';
 
   const fetchProjects = useCallback(async () => {
     if (!window.electron?.db?.projects) return;
@@ -36,13 +50,21 @@ export default function ShellProjectPicker({ compact = false }: { compact?: bool
     }
   }, []);
 
-  useEffect(() => { void fetchProjects(); }, [fetchProjects]);
+  useEffect(() => {
+    void fetchProjects();
+  }, [fetchProjects]);
+
   useEffect(() => {
     if (!window.electron) return;
-    const refresh = () => { void fetchProjects(); };
+    const refresh = () => {
+      void fetchProjects();
+    };
     const removeCreated = window.electron.on('project:created', refresh);
     const removeDeleted = window.electron.on('project:deleted', refresh);
-    return () => { removeCreated?.(); removeDeleted?.(); };
+    return () => {
+      removeCreated?.();
+      removeDeleted?.();
+    };
   }, [fetchProjects]);
 
   const createProject = useCallback(async () => {
@@ -72,16 +94,16 @@ export default function ShellProjectPicker({ compact = false }: { compact?: bool
           <Button
             type="button"
             variant="ghost"
-            size={compact ? 'icon-sm' : 'sm'}
-            className="min-w-0 justify-start [-webkit-app-region:no-drag]"
-            aria-label={activeLabel}
+            size="icon-sm"
+            className={className}
+            aria-label={t('sidebar.switch_project', { name: activeLabel })}
+            title={t('sidebar.switch_project_short')}
           />
         }
       >
-        <span className="inline-flex shrink-0 [filter:var(--logo-filter)]"><ManyIcon size={compact ? 14 : 16} /></span>
-        {!compact ? <><span className="truncate">{activeLabel}</span><HugeiconsIcon icon={ArrowDown01Icon} data-icon="inline-end" className="ml-auto" /></> : null}
+        <HugeiconsIcon icon={ArrowDataTransferHorizontalIcon} />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 gap-3 p-2">
+      <PopoverContent align="start" side="bottom" className="w-72 gap-3 p-2">
         <ScrollArea className="max-h-64">
           <div role="listbox" aria-label={t('sidebar.projects')} className="grid gap-1 pr-2">
             {projects.map((project) => (

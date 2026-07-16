@@ -58,7 +58,11 @@ function InputGroupAddon({
         if ((e.target as HTMLElement).closest("button")) {
           return
         }
-        e.currentTarget.parentElement?.querySelector("input")?.focus()
+        const group = e.currentTarget.parentElement
+        const control = group?.querySelector<HTMLElement>(
+          "input, textarea, [data-slot=input-group-control]"
+        )
+        control?.focus()
       }}
       {...props}
     />
@@ -82,18 +86,24 @@ const inputGroupButtonVariants = cva(
   }
 )
 
-function InputGroupButton({
-  className,
-  type = "button",
-  variant = "ghost",
-  size = "xs",
-  ...props
-}: Omit<React.ComponentProps<typeof Button>, "size" | "type"> &
+type InputGroupButtonProps = Omit<
+  React.ComponentProps<typeof Button>,
+  "size" | "type"
+> &
   VariantProps<typeof inputGroupButtonVariants> & {
     type?: "button" | "submit" | "reset"
-  }) {
+  }
+
+const InputGroupButton = React.forwardRef<
+  HTMLButtonElement,
+  InputGroupButtonProps
+>(function InputGroupButton(
+  { className, type = "button", variant = "ghost", size = "xs", ...props },
+  ref
+) {
   return (
     <Button
+      ref={ref}
       type={type}
       data-size={size}
       variant={variant}
@@ -101,7 +111,7 @@ function InputGroupButton({
       {...props}
     />
   )
-}
+})
 
 function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
   return (

@@ -37,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
   ContextMenuLabel,
   ContextMenuSeparator,
@@ -48,6 +49,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -137,7 +139,23 @@ function getTabIcon(tab: DomeTab): IconSvgElement {
 }
 
 function TabIcon({ tab }: { tab: DomeTab }) {
-  return <HugeiconsIcon icon={getTabIcon(tab)} className={tab.type === 'folder' ? 'text-primary' : undefined} />;
+  if (tab.type === 'folder' && tab.color) {
+    return (
+      <HugeiconsIcon
+        icon={getTabIcon(tab)}
+        className="size-3.5 shrink-0"
+        style={{ color: tab.color }}
+        strokeWidth={1.75}
+        fill={`${tab.color}33`}
+      />
+    );
+  }
+  return (
+    <HugeiconsIcon
+      icon={getTabIcon(tab)}
+      className={tab.type === 'folder' ? 'text-primary' : undefined}
+    />
+  );
 }
 
 function parseResourceMetadata(raw: unknown): Record<string, unknown> {
@@ -201,55 +219,61 @@ function TabActions({ tab }: { tab: DomeTab }) {
 
   return (
     <ContextMenuContent>
-      <ContextMenuLabel className="max-w-64 truncate">{displayTitle}</ContextMenuLabel>
-      <ContextMenuItem disabled={Boolean(tab.pinned)} onClick={() => closeTab(tab.id)}>
-        {t('workspace.tab_menu_close')}
-      </ContextMenuItem>
-      <ContextMenuItem onClick={() => closeOtherTabs(tab.id)}>
-        {t('workspace.tab_menu_close_others')}
-      </ContextMenuItem>
-      <ContextMenuItem disabled={index < 0 || index === tabs.length - 1} onClick={() => closeTabsToTheRight(tab.id)}>
-        {t('workspace.tab_menu_close_to_right')}
-      </ContextMenuItem>
+      <ContextMenuGroup>
+        <ContextMenuLabel className="max-w-64 truncate">{displayTitle}</ContextMenuLabel>
+        <ContextMenuItem disabled={Boolean(tab.pinned)} onClick={() => closeTab(tab.id)}>
+          {t('workspace.tab_menu_close')}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => closeOtherTabs(tab.id)}>
+          {t('workspace.tab_menu_close_others')}
+        </ContextMenuItem>
+        <ContextMenuItem disabled={index < 0 || index === tabs.length - 1} onClick={() => closeTabsToTheRight(tab.id)}>
+          {t('workspace.tab_menu_close_to_right')}
+        </ContextMenuItem>
+      </ContextMenuGroup>
       <ContextMenuSeparator />
-      <ContextMenuItem disabled={isHome} onClick={() => togglePinTab(tab.id)}>
-        {tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
-      </ContextMenuItem>
-      {tab.type === 'folder' && tab.resourceId ? (
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>{t('workspace.tab_menu_change_color')}</ContextMenuSubTrigger>
-          <ContextMenuSubContent className="min-w-44">
-            <div className="grid grid-cols-5 gap-2 p-2">
-              {FOLDER_COLOR_SWATCHES.map((color) => (
-                <Button
-                  key={color}
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  className="rounded-full border-2"
-                  style={{ backgroundColor: color }}
-                  onClick={() => void persistFolderTabColor(tab, color)}
-                  aria-label={color}
-                />
-              ))}
-            </div>
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-      ) : null}
-      <ContextMenuItem disabled={isHome} onClick={() => duplicateTab(tab.id)}>
-        {t('workspace.tab_menu_duplicate')}
-      </ContextMenuItem>
+      <ContextMenuGroup>
+        <ContextMenuItem disabled={isHome} onClick={() => togglePinTab(tab.id)}>
+          {tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
+        </ContextMenuItem>
+        {tab.type === 'folder' && tab.resourceId ? (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>{t('workspace.tab_menu_change_color')}</ContextMenuSubTrigger>
+            <ContextMenuSubContent className="min-w-44">
+              <div className="grid grid-cols-5 gap-2 p-2">
+                {FOLDER_COLOR_SWATCHES.map((color) => (
+                  <Button
+                    key={color}
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="rounded-full border-2"
+                    style={{ backgroundColor: color }}
+                    onClick={() => void persistFolderTabColor(tab, color)}
+                    aria-label={color}
+                  />
+                ))}
+              </div>
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        ) : null}
+        <ContextMenuItem disabled={isHome} onClick={() => duplicateTab(tab.id)}>
+          {t('workspace.tab_menu_duplicate')}
+        </ContextMenuItem>
+      </ContextMenuGroup>
       {canOpenAsReference ? (
         <>
           <ContextMenuSeparator />
-          <ContextMenuItem
-            onClick={() => {
-              if (!tab.resourceId || !activeTab) return;
-              openResourceInSplit(tab.resourceId, tab.type, tab.title || displayTitle, activeTab.id);
-            }}
-          >
-            {t('workspace.tab_menu_open_as_reference', 'Abrir como referencia en pestaña activa')}
-          </ContextMenuItem>
+          <ContextMenuGroup>
+            <ContextMenuItem
+              onClick={() => {
+                if (!tab.resourceId || !activeTab) return;
+                openResourceInSplit(tab.resourceId, tab.type, tab.title || displayTitle, activeTab.id);
+              }}
+            >
+              {t('workspace.tab_menu_open_as_reference', 'Abrir como referencia en pestaña activa')}
+            </ContextMenuItem>
+          </ContextMenuGroup>
         </>
       ) : null}
     </ContextMenuContent>
@@ -348,6 +372,7 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
   const stripTabs = useMemo(() => tabs.filter(isTabStripVisible), [tabs]);
   const stripRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const newChatBtnRef = useRef<HTMLButtonElement>(null);
   useHorizontalScroll(scrollRef);
   const [overflow, setOverflow] = useState(false);
   const [compact, setCompact] = useState(false);
@@ -429,7 +454,7 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
   }, []);
 
   return (
-    <div ref={stripRef} className="flex min-w-0 flex-1 items-stretch bg-background [-webkit-app-region:drag]">
+    <div ref={stripRef} className="flex min-w-0 flex-1 items-stretch bg-transparent [-webkit-app-region:drag]">
       <div className="relative flex min-w-0 flex-1 items-center">
         <div
           ref={scrollRef}
@@ -483,13 +508,15 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
             <TooltipContent>{t('workspace.tab_menu_all_tabs')}</TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="end" className="max-h-[min(32rem,calc(100vh-3rem))] w-72">
-            <DropdownMenuLabel>{t('workspace.tab_menu_all_tabs')}</DropdownMenuLabel>
-            {stripTabs.map((tab) => (
-              <DropdownMenuItem key={tab.id} onClick={() => activateTab(tab.id)} className={tab.id === activeTabId ? 'bg-muted' : undefined}>
-                <TabIcon tab={tab} />
-                <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t('workspace.tab_menu_all_tabs')}</DropdownMenuLabel>
+              {stripTabs.map((tab) => (
+                <DropdownMenuItem key={tab.id} onClick={() => activateTab(tab.id)} className={tab.id === activeTabId ? 'bg-muted' : undefined}>
+                  <TabIcon tab={tab} />
+                  <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={closeAllUnpinnedTabs}>
               {t('workspace.tab_menu_close_all_unpinned')}
@@ -505,10 +532,11 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
         <TooltipTrigger
           render={
             <Button
+              ref={newChatBtnRef}
               type="button"
               variant="outline"
               size="icon-sm"
-              className="m-1 shrink-0 border-dashed [-webkit-app-region:no-drag]"
+              className="m-1 shrink-0 self-center border-dashed [-webkit-app-region:no-drag]"
               onClick={onNewChat}
               aria-label={t('workspace.new_conversation')}
             />

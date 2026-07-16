@@ -1,27 +1,27 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  CheckmarkCircle02Icon as CheckCircle2,
-  EyeIcon as Eye,
-  EyeOffIcon as EyeOff,
-  Loading03Icon as Loader2,
-  RefreshIcon as RefreshCw,
-  CancelCircleIcon as XCircle,
-  Alert02Icon as AlertTriangle,
-  InformationCircleIcon as Info,
+  Alert02Icon,
+  CancelCircleIcon,
+  CheckmarkCircle02Icon,
+  EyeIcon,
+  EyeOffIcon,
+  InformationCircleIcon,
+  RefreshIcon,
 } from '@hugeicons/core-free-icons';
-import { useCallback, useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useTranslation } from 'react-i18next';
-
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Spinner } from '@/components/ui/spinner';
 import { saveAIConfig } from '@/lib/settings';
 import { resolveOllamaMode } from '@/lib/ai/providerAuth';
 import ModelSelector from '../ModelSelector';
+import { cn } from '@/lib/utils';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Badge } from '@/components/ui/badge';
 interface OllamaModel {
   name: string;
   size: number;
@@ -41,6 +41,7 @@ export interface AIOllamaProviderConfigProps {
   onAvailabilityChange?: (available: boolean | null) => void;
 }
 
+/** Ollama endpoint config: availability check, base URL (local/cloud), key and model. */
 export default function AIOllamaProviderConfig({
   ollamaBaseURL,
   onOllamaBaseURLChange,
@@ -99,26 +100,24 @@ export default function AIOllamaProviderConfig({
   const ollamaMode = resolveOllamaMode(ollamaBaseURL);
   const apiKeyIsRequired = ollamaMode === 'cloud';
 
-  const content = (
-    <>
-      <div
-        className="flex items-center justify-between rounded-lg border bg-accent p-3"
-      >
+  return (
+    <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-xl border bg-card p-4')}>
+      <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {t('settings.ai.status')}
           </span>
           {checkingOllama ? (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <HugeiconsIcon icon={Loader2} className="size-3 animate-spin" /> {t('settings.ai.status_checking')}
+              <Spinner /> {t('settings.ai.status_checking')}
             </span>
           ) : ollamaAvailable === true ? (
             <span className="flex items-center gap-1 text-xs font-medium text-primary">
-              <HugeiconsIcon icon={CheckCircle2} className="size-3.5" /> {t('settings.ai.status_connected')}
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} /> {t('settings.ai.status_connected')}
             </span>
           ) : ollamaAvailable === false ? (
             <span className="flex items-center gap-1 text-xs font-medium text-destructive">
-              <HugeiconsIcon icon={XCircle} className="size-3.5" /> {t('settings.ai.status_disconnected')}
+              <HugeiconsIcon icon={CancelCircleIcon} /> {t('settings.ai.status_disconnected')}
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
@@ -126,35 +125,60 @@ export default function AIOllamaProviderConfig({
             </span>
           )}
         </div>
-        <Button type="button"
-  onClick={() => void checkOllamaConnection()}
-  disabled={checkingOllama}
-  size="sm">{<HugeiconsIcon icon={RefreshCw} className={`size-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void checkOllamaConnection()}
+          disabled={checkingOllama}
+        >
+          {checkingOllama ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+          )}
           {t('settings.ai.test_btn')}
         </Button>
       </div>
 
       {ollamaAvailable === false ? (
-        <Alert role="note"><HugeiconsIcon icon={AlertTriangle} aria-hidden /><AlertDescription className="text-xs">
-          {t('settings.ai.ollama_install')}{' '}
-          <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">
-            ollama.ai
-          </a>
-        </AlertDescription></Alert>
+        <Alert role="note">
+          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+          <AlertDescription className="text-xs">
+            {t('settings.ai.ollama_install')}{' '}
+            <a
+              href="https://ollama.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline"
+            >
+              ollama.ai
+            </a>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <Field className="gap-1.5 flex-1"><FieldLabel htmlFor="ai-ollama-url" className="text-xs">{t('settings.ai.base_url')}</FieldLabel><Input id="ai-ollama-url" type="url" value={ollamaBaseURL} onChange={(e) => onOllamaBaseURLChange(e.target.value)} placeholder="http://localhost:11434" /></Field>
+        <div className="flex items-end gap-3">
+          <Field className="flex-1">
+            <FieldLabel htmlFor="ai-ollama-url">{t('settings.ai.base_url')}</FieldLabel>
+            <Input
+              id="ai-ollama-url"
+              type="url"
+              value={ollamaBaseURL}
+              onChange={(e) => onOllamaBaseURLChange(e.target.value)}
+              placeholder="http://localhost:11434"
+            />
+          </Field>
           <Badge
             variant={apiKeyIsRequired ? 'outline' : 'secondary'}
-            className={apiKeyIsRequired ? 'ml-3 mt-5 shrink-0 text-muted-foreground' : 'ml-3 mt-5 shrink-0 text-primary'}
+            className={cn('mb-2 shrink-0', !apiKeyIsRequired && 'text-primary')}
           >
             {apiKeyIsRequired ? t('settings.ai.ollama_mode_cloud') : t('settings.ai.ollama_mode_local')}
           </Badge>
         </div>
         {showApiKeyField ? (
-          <p className="text-[11px] mt-1 text-muted-foreground">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             {apiKeyIsRequired ? (
               <>
                 {t('settings.ai.ollama_cloud_hint')}{' '}
@@ -168,46 +192,61 @@ export default function AIOllamaProviderConfig({
       </div>
 
       {showApiKeyField && onOllamaApiKeyChange ? (
-        <div>
-          <label htmlFor="ai-ollama-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-muted-foreground">
+        <Field>
+          <FieldLabel htmlFor="ai-ollama-api-key">
             API Key{' '}
-            <span className="normal-case font-normal opacity-60">
-              ({apiKeyIsRequired ? t('settings.ai.api_key_required_label') : t('settings.ai.api_key_optional_label')})
+            <span className="font-normal normal-case opacity-60">
+              (
+              {apiKeyIsRequired
+                ? t('settings.ai.api_key_required_label')
+                : t('settings.ai.api_key_optional_label')}
+              )
             </span>
-          </label>
-          <div className="relative w-full">
-            <Input className="w-full [&_input]:pr-10 pr-10" id="ai-ollama-api-key" type={showOllamaApiKey ? 'text' : 'password'} value={ollamaApiKey} onChange={(e) => onOllamaApiKeyChange(e.target.value)} placeholder="ollama_..." autoComplete="off" />
-            <Button type="button"
-  variant="ghost"
-  className="absolute right-1 top-1/2 -translate-y-1/2"
-  onClick={() => setShowOllamaApiKey((v) => !v)}
-  aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
-  size="icon-xs">
-              {showOllamaApiKey ? <HugeiconsIcon icon={EyeOff} className="size-3.5" /> : <HugeiconsIcon icon={Eye} className="size-3.5" />}
-            </Button>
-          </div>
-        </div>
+          </FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              id="ai-ollama-api-key"
+              type={showOllamaApiKey ? 'text' : 'password'}
+              value={ollamaApiKey}
+              onChange={(e) => onOllamaApiKeyChange(e.target.value)}
+              placeholder="ollama_..."
+              autoComplete="off"
+            />
+            <InputGroupAddon align="inline-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setShowOllamaApiKey((v) => !v)}
+                aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
+              >
+                <HugeiconsIcon icon={showOllamaApiKey ? EyeOffIcon : EyeIcon} />
+              </Button>
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
       ) : null}
 
       <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {t('settings.ai.chat_model')}
           </span>
-          <Button type="button"
-  variant="ghost"
-  onClick={() => void loadOllamaModels()}
-  disabled={loadingModels}
-  size="xs">{<HugeiconsIcon icon={RefreshCw} className={`size-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => void loadOllamaModels()}
+            disabled={loadingModels}
+          >
+            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
             {t('settings.ai.refresh')}
           </Button>
         </div>
         {loadingModels ? (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent">
-            <HugeiconsIcon icon={Loader2} className="size-3.5 animate-spin text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">
-              {t('settings.ai.loading_models')}
-            </span>
+          <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+            <Spinner className="text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">{t('settings.ai.loading_models')}</span>
           </div>
         ) : ollamaModels.length > 0 ? (
           <ModelSelector
@@ -222,9 +261,9 @@ export default function AIOllamaProviderConfig({
             }))}
             selectedModelId={ollamaModel}
             onChange={onOllamaModelChange}
-            searchable={true}
+            searchable
             showBadges={false}
-            showDescription={true}
+            showDescription
             showContextWindow={false}
             placeholder={t('settings.ai.chat_model')}
             disabled={loadingModels}
@@ -232,22 +271,25 @@ export default function AIOllamaProviderConfig({
             providerId="ollama"
           />
         ) : (
-          <Input value={ollamaModel} onChange={(e) => onOllamaModelChange(e.target.value)} placeholder="llama3.2" />
+          <Input
+            value={ollamaModel}
+            onChange={(e) => onOllamaModelChange(e.target.value)}
+            placeholder="llama3.2"
+            aria-label={t('settings.ai.chat_model')}
+          />
         )}
       </div>
 
       {showOcrHint ? (
-        <Alert role="note"><HugeiconsIcon icon={Info} aria-hidden /><AlertTitle className="text-xs">{`${t('settings.ai.ocr_notice')}`}</AlertTitle><AlertDescription className="text-xs">
-          <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>,{' '}
-          <code className="font-mono">glm4v</code>.
-        </AlertDescription></Alert>
+        <Alert role="note">
+          <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
+          <AlertTitle className="text-xs">{t('settings.ai.ocr_notice')}</AlertTitle>
+          <AlertDescription className="text-xs">
+            <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>,{' '}
+            <code className="font-mono">glm4v</code>.
+          </AlertDescription>
+        </Alert>
       ) : null}
-    </>
+    </div>
   );
-
-  if (!wrapInCard) {
-    return <div className="flex flex-col gap-4">{content}</div>;
-  }
-
-  return <Card className="p-4 flex flex-col gap-4">{content}</Card>;
 }

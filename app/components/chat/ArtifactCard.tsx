@@ -6,8 +6,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   File02Icon,
@@ -66,7 +68,6 @@ import {
   buildDomeThemeStyleContent,
   useDomeThemeSnapshot,
 } from '@/lib/chat/useDomeThemeSnapshot';
-import './artifact-card.css';
 
 /** Whitelist of accepted chart dataset colors — must reference Dome tokens. */
 const DOME_CHART_COLORS = new Set([
@@ -218,26 +219,41 @@ interface ArtifactCardProps {
   className?: string;
 }
 
-/** Semantic accent colors per artifact type — using CSS variables for theme compatibility */
-const ARTIFACT_STYLES: Record<ArtifactType, { borderColor: string; iconColor: string }> = {
-  pdf_summary: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  table: { borderColor: 'var(--success)', iconColor: 'var(--success)' },
-  action_items: { borderColor: 'var(--warning)', iconColor: 'var(--warning)' },
-  chart: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  code: { borderColor: 'var(--muted-foreground)', iconColor: 'var(--muted-foreground)' },
-  list: { borderColor: 'var(--destructive)', iconColor: 'var(--destructive)' },
-  created_entity: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  docling_images: { borderColor: 'var(--muted-foreground)', iconColor: 'var(--muted-foreground)' },
-  calculator: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  diagram: { borderColor: 'var(--success)', iconColor: 'var(--success)' },
-  tabs: { borderColor: 'var(--muted-foreground)', iconColor: 'var(--muted-foreground)' },
-  playground: { borderColor: 'var(--warning)', iconColor: 'var(--warning)' },
-  dashboard: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  timeline: { borderColor: 'var(--muted-foreground)', iconColor: 'var(--muted-foreground)' },
-  html: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  calendar_event: { borderColor: 'var(--primary)', iconColor: 'var(--primary)' },
-  flashcard_deck: { borderColor: 'var(--success)', iconColor: 'var(--success)' },
+type ArtifactAccent = 'primary' | 'success' | 'warning' | 'destructive' | 'muted';
+
+/** Semantic accent per artifact type, mapped to Tailwind-friendly classes below. */
+const ARTIFACT_ACCENT: Record<ArtifactType, ArtifactAccent> = {
+  pdf_summary: 'primary',
+  table: 'success',
+  action_items: 'warning',
+  chart: 'primary',
+  code: 'muted',
+  list: 'destructive',
+  created_entity: 'primary',
+  docling_images: 'muted',
+  calculator: 'primary',
+  diagram: 'success',
+  tabs: 'muted',
+  playground: 'warning',
+  dashboard: 'primary',
+  timeline: 'muted',
+  html: 'primary',
+  calendar_event: 'primary',
+  flashcard_deck: 'success',
 };
+
+/** `success` and `warning` have no Tailwind theme token, so they fall back to arbitrary `var()` values. */
+const ACCENT_CLASSES: Record<ArtifactAccent, { border: string; icon: string; iconBg: string }> = {
+  primary: { border: 'border-l-primary', icon: 'text-primary', iconBg: 'bg-primary/15' },
+  success: { border: 'border-l-[var(--success)]', icon: 'text-[var(--success)]', iconBg: 'bg-[var(--success)]/15' },
+  warning: { border: 'border-l-[var(--warning)]', icon: 'text-[var(--warning)]', iconBg: 'bg-[var(--warning)]/15' },
+  destructive: { border: 'border-l-destructive', icon: 'text-destructive', iconBg: 'bg-destructive/15' },
+  muted: { border: 'border-l-muted-foreground', icon: 'text-muted-foreground', iconBg: 'bg-muted-foreground/15' },
+};
+
+function getAccentClasses(type: ArtifactType) {
+  return ACCENT_CLASSES[ARTIFACT_ACCENT[type] ?? 'muted'];
+}
 
 // Icon mapping
 const ARTIFACT_ICONS: Record<ArtifactType, IconSvgElement> = {
@@ -274,12 +290,7 @@ function ArtifactHeader({
   copied: boolean;
 }) {
   const { t } = useTranslation();
-  // Fallbacks: chat history can contain artifact types from other app
-  // versions; an unknown type must degrade, not crash the tab (React error 130).
-  const styles = ARTIFACT_STYLES[artifact.type] ?? {
-    borderColor: 'var(--border)',
-    iconColor: 'var(--muted-foreground)',
-  };
+  const accent = getAccentClasses(artifact.type);
   const headerIcon = ARTIFACT_ICONS[artifact.type] ?? File02Icon;
 
   const handleOpenTab = () => {
@@ -309,70 +320,78 @@ function ArtifactHeader({
   };
 
   return (
-    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
-      <Button type="button"
-  variant="ghost"
-  onClick={onToggle}
-  className="flex-1 min-w-0 justify-start gap-2 h-auto p-1 font-normal"
-  size="sm">{
-          <div className="flex shrink-0 items-center justify-center size-7 rounded-md !w-[26px] !h-[26px] !rounded-md" style={{ background: `color-mix(in srgb, ${styles.iconColor} 15%, transparent)` }}>
-            <HugeiconsIcon icon={headerIcon} className="size-3.5" style={{ color: styles.iconColor }} />
-          </div>
-        }
-        <span className="text-[13px] font-semibold text-foreground truncate text-left">
+    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onToggle}
+        className="h-auto min-w-0 flex-1 justify-start gap-2 p-1 font-normal"
+      >
+        <div className={cn('flex size-[26px] shrink-0 items-center justify-center rounded-md', accent.iconBg)}>
+          <HugeiconsIcon icon={headerIcon} className={cn('size-3.5', accent.icon)} />
+        </div>
+        <span className="truncate text-left text-[13px] font-semibold text-foreground">
           {artifact.title || getArtifactTitle(artifact)}
         </span>
-      {
-          expanded ? (
-            <HugeiconsIcon icon={ChevronUpIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          ) : (
-            <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          )
-        }</Button>
+        <HugeiconsIcon
+          icon={expanded ? ChevronUpIcon : ChevronDownIcon}
+          className="size-3.5 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+      </Button>
 
-      <div className="flex items-center gap-0.5 shrink-0">
-        <Button type="button"
-  variant="ghost"
-  onClick={handleOpenTab}
-  title={t('chat.open_in_tab')}
-  aria-label={t('chat.open_in_tab')}
-  className="gap-0 !p-1.5 size-8 min-w-0 text-muted-foreground hover:bg-accent"
-  size="icon-xs">
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={handleOpenTab}
+          title={t('chat.open_in_tab')}
+          aria-label={t('chat.open_in_tab')}
+          className="size-8 text-muted-foreground hover:bg-accent"
+        >
           <HugeiconsIcon icon={PanelRightIcon} className="size-3.5" aria-hidden />
         </Button>
-        <Button type="button"
-  variant="ghost"
-  onClick={handleExportJson}
-  title={t('chat.export_json')}
-  aria-label={t('chat.export_json')}
-  className="gap-0 !p-1.5 size-8 min-w-0 text-muted-foreground hover:bg-accent"
-  size="icon-xs">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={handleExportJson}
+          title={t('chat.export_json')}
+          aria-label={t('chat.export_json')}
+          className="size-8 text-muted-foreground hover:bg-accent"
+        >
           <HugeiconsIcon icon={Download04Icon} className="size-3.5" aria-hidden />
         </Button>
         {artifact.type === 'html' && (
-          <Button type="button"
-  variant="ghost"
-  onClick={handleExportHtml}
-  title={t('artifacts.export_html')}
-  aria-label={t('artifacts.export_html')}
-  className="gap-0 !p-1.5 size-8 min-w-0 text-muted-foreground hover:bg-accent"
-  size="icon-xs">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={handleExportHtml}
+            title={t('artifacts.export_html')}
+            aria-label={t('artifacts.export_html')}
+            className="size-8 text-muted-foreground hover:bg-accent"
+          >
             <HugeiconsIcon icon={FileDownIcon} className="size-3.5" aria-hidden />
           </Button>
         )}
-        <Button type="button"
-  variant="ghost"
-  onClick={onCopy}
-  title={t('ui.copy_content')}
-  className="shrink-0 gap-1 h-auto py-1 px-2 text-[12px] text-muted-foreground hover:bg-accent"
-  size="xs">{
-            copied ? (
-              <HugeiconsIcon icon={CheckIcon} className="size-3 text-[var(--success)]" aria-hidden />
-            ) : (
-              <HugeiconsIcon icon={CopyIcon} className="size-3" aria-hidden />
-            )
-          }
-          {copied ? <span className="text-[var(--success)]">{t('common.copied')}</span> : t('common.copy')}
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={onCopy}
+          className="h-auto gap-1 px-2 py-1 text-[12px] text-muted-foreground hover:bg-accent"
+        >
+          <HugeiconsIcon
+            icon={copied ? CheckIcon : CopyIcon}
+            className={cn('size-3', copied && 'text-[var(--success)]')}
+            aria-hidden
+          />
+          <span className={copied ? 'text-[var(--success)]' : undefined}>
+            {copied ? t('common.copied') : t('common.copy')}
+          </span>
         </Button>
       </div>
     </div>
@@ -480,73 +499,48 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
     : artifact.text.substring(0, maxPreviewLength) + '...';
 
   return (
-    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Metadata */}
+    <div className="flex flex-col gap-3 p-3">
       {artifact.metadata && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: 'var(--muted-foreground)' }}>
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           {artifact.metadata.author && (
-            <span>
-              <span style={{ fontWeight: 600 }}>{t('artifacts.author')}:</span> {artifact.metadata.author}
-            </span>
+            <span><span className="font-semibold">{t('artifacts.author')}:</span> {artifact.metadata.author}</span>
           )}
           {artifact.total_pages && (
-            <span>
-              <span style={{ fontWeight: 600 }}>{t('artifacts.pages')}:</span> {artifact.total_pages}
-            </span>
+            <span><span className="font-semibold">{t('artifacts.pages')}:</span> {artifact.total_pages}</span>
           )}
-          <span>
-            <span style={{ fontWeight: 600 }}>{t('artifacts.characters')}:</span> {artifact.chars_extracted.toLocaleString()}
-          </span>
+          <span><span className="font-semibold">{t('artifacts.characters')}:</span> {artifact.chars_extracted.toLocaleString()}</span>
         </div>
       )}
 
-      {/* Summary text */}
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--foreground)' }}>
-        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {displayText}
-        </div>
+      <div className="text-[13px] leading-relaxed text-foreground">
+        <div className="whitespace-pre-wrap break-words">{displayText}</div>
         {shouldTruncate && (
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="sm"
             onClick={() => setShowFull(!showFull)}
-            className="artifact-card-show-more"
+            className="mt-2 h-auto p-0 text-xs"
           >
             {showFull ? t('artifacts.show_less') : t('artifacts.show_more')}
-          </button>
+          </Button>
         )}
       </div>
 
-      {/* Link to open PDF at specific page */}
-      <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', gap: 12 }}>
+      <div className="flex gap-3 border-t border-border pt-2">
         <a
           href={`dome://resource/${artifact.resource_id}/pdf`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            fontSize: 12,
-            fontWeight: 500,
-            color: 'var(--primary)',
-            textDecoration: 'none',
-          }}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary no-underline"
         >
-          <HugeiconsIcon icon={ExternalLinkIcon} style={{ width: 12, height: 12 }} />
+          <HugeiconsIcon icon={ExternalLinkIcon} className="size-3" />
           {t('artifacts.open_pdf')}
         </a>
         {artifact.metadata?.page && (
           <a
             href={`dome://resource/${artifact.resource_id}/pdf?page=${artifact.metadata.page}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              fontSize: 12,
-              fontWeight: 500,
-              color: 'var(--primary)',
-              textDecoration: 'none',
-            }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary no-underline"
           >
-            <HugeiconsIcon icon={ExternalLinkIcon} style={{ width: 12, height: 12 }} />
+            <HugeiconsIcon icon={ExternalLinkIcon} className="size-3" />
             {t('artifacts.go_to_page', { page: artifact.metadata.page })}
           </a>
         )}
@@ -557,53 +551,29 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
 
 function TableContent({ artifact }: { artifact: TableArtifact }) {
   return (
-    <div style={{ padding: 12, overflowX: 'auto' }}>
-      <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
+    <div className="p-3">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
             {artifact.headers.map((header, idx) => (
-              <th
-                key={idx}
-                style={{
-                  padding: '6px 10px',
-                  textAlign: 'left',
-                  fontWeight: 600,
-                  borderBottom: '2px solid var(--border)',
-                  backgroundColor: 'var(--accent)',
-                  color: 'var(--foreground)',
-                }}
-              >
+              <TableHead key={idx} className="whitespace-normal bg-accent text-foreground">
                 {header}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {artifact.rows.map((row, rowIdx) => (
-            <tr
-              key={rowIdx}
-              style={{ transition: 'background 150ms ease' }}
-              onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; }}
-              onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              onFocus={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; }}
-              onBlur={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
+            <TableRow key={rowIdx}>
               {row.map((cell, cellIdx) => (
-                <td
-                  key={cellIdx}
-                  style={{
-                    padding: '5px 10px',
-                    borderBottom: '1px solid var(--border)',
-                    color: 'var(--muted-foreground)',
-                  }}
-                >
+                <TableCell key={cellIdx} className="whitespace-normal text-muted-foreground">
                   {cell}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -611,26 +581,23 @@ function TableContent({ artifact }: { artifact: TableArtifact }) {
 function ActionItemsContent({ artifact }: { artifact: ActionItemsArtifact }) {
   const { t } = useTranslation();
   return (
-    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="flex flex-col gap-2 p-3">
       {artifact.items.map((item, idx) => (
-        <div key={item.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
+        <div key={item.id || idx} className="flex items-start gap-2 text-[13px]">
           <div
-            className={`artifact-card-checkbox ${item.completed ? 'is-completed' : 'is-pending'}`}
+            className={cn(
+              'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[3px]',
+              item.completed ? 'bg-[var(--success)]' : 'border border-border',
+            )}
           >
-            {item.completed && <HugeiconsIcon icon={CheckIcon} style={{ width: 10, height: 10, color: 'var(--background)' }} />}
+            {item.completed && <HugeiconsIcon icon={CheckIcon} className="size-2.5 text-background" />}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span
-              style={{
-                color: 'var(--foreground)',
-                textDecoration: item.completed ? 'line-through' : 'none',
-                opacity: item.completed ? 0.6 : 1,
-              }}
-            >
+          <div className="min-w-0 flex-1">
+            <span className={cn('text-foreground', item.completed && 'line-through opacity-60')}>
               {item.text}
             </span>
             {(item.assignee || item.due_date) && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 3, fontSize: 12, color: 'var(--muted-foreground)' }}>
+              <div className="mt-0.5 flex gap-2 text-xs text-muted-foreground">
                 {item.assignee && <span>@{item.assignee}</span>}
                 {item.due_date && <span>{t('artifacts.due')} {item.due_date}</span>}
               </div>
@@ -646,33 +613,26 @@ function ChartContent({ artifact }: { artifact: ChartArtifact }) {
   const maxValue = Math.max(...artifact.data.datasets.flatMap((d) => d.data), 1);
 
   return (
-    <div style={{ padding: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--foreground)' }}>
-        {artifact.title}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="p-3">
+      <div className="mb-3 text-[13px] font-semibold text-foreground">{artifact.title}</div>
+      <div className="flex flex-col gap-2">
         {artifact.data.labels.map((label, idx) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, width: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--muted-foreground)', flexShrink: 0 }}>
-              {label}
-            </span>
-            <div style={{ flex: 1, height: 20, background: 'var(--accent)', borderRadius: 3, overflow: 'hidden' }}>
+          <div key={label} className="flex items-center gap-2">
+            <span className="w-20 shrink-0 truncate text-xs text-muted-foreground">{label}</span>
+            <div className="h-5 flex-1 overflow-hidden rounded-[3px] bg-accent">
               {artifact.data.datasets.map((dataset, dIdx) => (
                 <div
                   key={dIdx}
+                  className="h-full origin-left rounded-[3px] transition-transform duration-300 ease-out"
                   style={{
-                    height: '100%',
-                    borderRadius: 3,
                     width: '100%',
                     backgroundColor: sanitizeChartColor(dataset.color),
-                    transform: `scaleX(${(dataset.data[idx] / maxValue)})`,
-                    transformOrigin: 'left',
-                    transition: 'transform 300ms ease',
+                    transform: `scaleX(${dataset.data[idx] / maxValue})`,
                   }}
                 />
               ))}
             </div>
-            <span style={{ fontSize: 12, width: 40, textAlign: 'right', color: 'var(--muted-foreground)', flexShrink: 0 }}>
+            <span className="w-10 shrink-0 text-right text-xs text-muted-foreground">
               {artifact.data.datasets[0]?.data[idx]}
             </span>
           </div>
@@ -684,13 +644,13 @@ function ChartContent({ artifact }: { artifact: ChartArtifact }) {
 
 function CodeContent({ artifact }: { artifact: CodeArtifact }) {
   return (
-    <div style={{ padding: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>
+    <div className="p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase text-muted-foreground">
           {artifact.language}
         </span>
       </div>
-      <pre className="artifact-card-code-pre">
+      <pre className="m-0 overflow-x-auto rounded-md bg-card p-3 font-mono text-xs leading-relaxed text-foreground">
         <code>{artifact.code}</code>
       </pre>
     </div>
@@ -702,10 +662,8 @@ function ListContent({ artifact }: { artifact: ListArtifact }) {
   const items = artifact.items;
 
   return (
-    <div style={{ padding: 12 }}>
-      <ListTag
-        className={`artifact-card-list ${artifact.ordered ? 'is-ordered' : 'is-unordered'}`}
-      >
+    <div className="p-3">
+      <ListTag className={cn('m-0 flex flex-col gap-1 pl-5 text-[13px] text-foreground', artifact.ordered ? 'list-decimal' : 'list-disc')}>
         {items.map((item, idx) => (
           <li key={idx}>{item}</li>
         ))}
@@ -718,7 +676,7 @@ function ListContent({ artifact }: { artifact: ListArtifact }) {
 function LegacyDoclingImagesNotice() {
   const { t } = useTranslation();
   return (
-    <p style={{ padding: 12, fontSize: 12, color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.55 }}>
+    <p className="m-0 p-3 text-xs leading-relaxed text-muted-foreground">
       {t('artifacts.docling_legacy')}
     </p>
   );
@@ -731,7 +689,7 @@ function navigateToSection(section: string) {
 function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact }) {
   const { t } = useTranslation();
   const isAgent = artifact.entityType === 'agent';
-  const accentColor = isAgent ? 'var(--primary)' : 'var(--warning)';
+  const accent = isAgent ? ACCENT_CLASSES.primary : ACCENT_CLASSES.warning;
   const entityIcon = isAgent ? BotIcon : ZapIcon;
 
   const configEntries = artifact.config
@@ -739,35 +697,27 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
     : [];
 
   return (
-    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Entity header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div
-          className="artifact-card-entity-icon"
-          style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)` }}
-        >
-          <HugeiconsIcon icon={entityIcon} style={{ width: 18, height: 18, color: accentColor }} />
+    <div className="flex flex-col gap-3 p-3">
+      <div className="flex items-center gap-2.5">
+        <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px]', accent.iconBg)}>
+          <HugeiconsIcon icon={entityIcon} className={cn('size-[18px]', accent.icon)} />
         </div>
         <div>
-          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>{artifact.name}</p>
+          <p className="m-0 text-sm font-semibold text-foreground">{artifact.name}</p>
           {artifact.description && (
-            <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '2px 0 0', lineHeight: 1.4 }}>{artifact.description}</p>
+            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{artifact.description}</p>
           )}
         </div>
       </div>
 
-      {/* Config details */}
       {configEntries.length > 0 && (
-        <div style={{
-          background: 'var(--muted)', borderRadius: 6, padding: '8px 10px',
-          display: 'flex', flexDirection: 'column', gap: 4,
-        }}>
+        <div className="flex flex-col gap-1 rounded-md bg-muted px-2.5 py-2">
           {configEntries.map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', gap: 8, fontSize: 12 }}>
-              <span style={{ color: 'var(--muted-foreground)', fontWeight: 500, flexShrink: 0, textTransform: 'capitalize' }}>
+            <div key={k} className="flex gap-2 text-xs">
+              <span className="shrink-0 font-medium capitalize text-muted-foreground">
                 {k.replace(/_/g, ' ')}:
               </span>
-              <span style={{ color: 'var(--muted-foreground)', wordBreak: 'break-word' }}>
+              <span className="break-words text-muted-foreground">
                 {typeof v === 'object' ? JSON.stringify(v) : String(v)}
               </span>
             </div>
@@ -775,37 +725,25 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
         </div>
       )}
 
-      {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+      <div className="flex flex-wrap gap-1.5 border-t border-border pt-2.5">
         {isAgent ? (
           <>
-            <button
-              type="button"
-              onClick={() => navigateToSection(`agent:${artifact.id}`)}
-              className="artifact-card-action-btn is-primary"
-              style={{ background: accentColor }}
-            >
-              <HugeiconsIcon icon={BubbleChatIcon} style={{ width: 12, height: 12 }} /> {t('artifacts.chat')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateToSection('automations-hub')}
-              className="artifact-card-action-btn is-secondary"
-            >
-              <HugeiconsIcon icon={ArrowUpRight01Icon} style={{ width: 12, height: 12 }} /> {t('artifacts.view_in_hub')}
-            </button>
+            <Button type="button" size="sm" onClick={() => navigateToSection(`agent:${artifact.id}`)}>
+              <HugeiconsIcon icon={BubbleChatIcon} /> {t('artifacts.chat')}
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => navigateToSection('automations-hub')}>
+              <HugeiconsIcon icon={ArrowUpRight01Icon} /> {t('artifacts.view_in_hub')}
+            </Button>
           </>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => navigateToSection('automations-hub')}
-              className="artifact-card-action-btn is-primary"
-              style={{ background: accentColor }}
-            >
-              <HugeiconsIcon icon={PlayIcon} style={{ width: 12, height: 12 }} /> {t('artifacts.view_and_run')}
-            </button>
-          </>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-[var(--warning)] text-primary-foreground hover:bg-[var(--warning)]/80"
+            onClick={() => navigateToSection('automations-hub')}
+          >
+            <HugeiconsIcon icon={PlayIcon} /> {t('artifacts.view_and_run')}
+          </Button>
         )}
       </div>
     </div>
@@ -816,11 +754,11 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
 // Main Component
 // =============================================================================
 
-export default function ArtifactCard({ artifact, onOpenResource: _onOpenResource, className = '' }: ArtifactCardProps) {
+export default function ArtifactCard({ artifact, onOpenResource: _onOpenResource, className }: ArtifactCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  const styles = ARTIFACT_STYLES[artifact.type];
+  const accent = getAccentClasses(artifact.type);
 
   const handleCopy = async () => {
     let contentToCopy = '';
@@ -863,17 +801,7 @@ export default function ArtifactCard({ artifact, onOpenResource: _onOpenResource
   };
 
   return (
-    <div
-      className={className}
-      style={{
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border)',
-        borderLeft: `3px solid ${styles.borderColor}`,
-        overflow: 'hidden',
-        background: 'var(--card)',
-        boxShadow: 'var(--shadow-sm)',
-      }}
-    >
+    <div className={cn('overflow-hidden rounded-md border border-border border-l-[3px] bg-card shadow-sm', accent.border, className)}>
       <ArtifactHeader
         artifact={artifact}
         expanded={expanded}

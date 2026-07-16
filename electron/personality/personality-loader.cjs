@@ -121,6 +121,45 @@ const DEFAULT_MEMORY = `# Many's Memory
 <!-- Topics the user frequently works on -->
 `;
 
+const DOMAIN_IDS = ['social', 'email'];
+
+const DOMAIN_DEFAULTS = {
+  social: `# Social growth memory
+
+## Niche & positioning
+<!-- Who you speak to and what you stand for -->
+
+## Content pillars
+<!-- Recurring themes / series -->
+
+## SEO / discovery
+<!-- Hashtags, hooks, CTAs that work -->
+
+## Tone & influencer style
+<!-- Do / don't for voice -->
+
+## Growth targets & KPIs
+<!-- Follower, reach, engagement goals -->
+
+## Winning patterns
+<!-- High-signal facts written by remember_fact (domain=social) -->
+`,
+  email: `# Email memory
+
+## VIP contacts
+<!-- People who get priority (link people ids when known) -->
+
+## Reminder style & SLA
+<!-- How urgent follow-ups should feel -->
+
+## Open loops / follow-ups
+<!-- Commitments and threads to chase -->
+
+## Tone & signature
+<!-- Formality, sign-off preferences -->
+`,
+};
+
 /**
  * Asegura que existan los archivos de personalidad por defecto
  */
@@ -144,6 +183,17 @@ function ensureDefaultFiles() {
   const memoryDir = path.join(martinDir, 'memory');
   if (!fs.existsSync(memoryDir)) {
     fs.mkdirSync(memoryDir, { recursive: true });
+  }
+
+  const domainsDir = path.join(martinDir, 'domains');
+  if (!fs.existsSync(domainsDir)) {
+    fs.mkdirSync(domainsDir, { recursive: true });
+  }
+  for (const domainId of DOMAIN_IDS) {
+    const filePath = path.join(domainsDir, `${domainId}.md`);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, DOMAIN_DEFAULTS[domainId], 'utf8');
+    }
   }
 }
 
@@ -173,10 +223,76 @@ function readContextFile(filename) {
 function writeContextFile(filename, content) {
   try {
     const filePath = path.join(getMartinDir(), filename);
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.writeFileSync(filePath, content, 'utf8');
   } catch (error) {
     console.error(`[Personality] Error writing ${filename}:`, error.message);
   }
+}
+
+const MAX_DOMAIN_CHARS = 8_000;
+
+function normalizeDomainId(domainId) {
+  const id = String(domainId || '')
+    .trim()
+    .toLowerCase();
+  return DOMAIN_IDS.includes(id) ? id : null;
+}
+
+function readDomainMemory(domainId) {
+  const id = normalizeDomainId(domainId);
+  if (!id) return '';
+  ensureDefaultFiles();
+  const raw = readContextFile(`domains/${id}.md`) || DOMAIN_DEFAULTS[id] || '';
+  return String(raw).trim();
+}
+
+function writeDomainMemory(domainId, content) {
+  const id = normalizeDomainId(domainId);
+  if (!id) throw new Error(`Invalid domain: ${domainId}`);
+  ensureDefaultFiles();
+  writeContextFile(`domains/${id}.md`, String(content ?? ''));
+}
+
+/**
+ * Update a ### key section inside a domain file (same shape as MEMORY.md).
+ */
+function updateDomainMemory(domainId, key, value) {
+  const id = normalizeDomainId(domainId);
+  if (!id) throw new Error(`Invalid domain: ${domainId}`);
+  ensureDefaultFiles();
+  let content = readContextFile(`domains/${id}.md`) || DOMAIN_DEFAULTS[id] || '';
+  const keyRegex = new RegExp(`### ${key}\\n[\\s\\S]*?(?=###|$)`, 'g');
+  if (keyRegex.test(content)) {
+    content = content.replace(keyRegex, `### ${key}\n${value}\n\n`);
+  } else {
+    content += `\n### ${key}\n${value}\n`;
+  }
+  writeContextFile(`domains/${id}.md`, content);
+}
+
+/**
+ * @param {string[]} domainIds
+ * @returns {string}
+ */
+function formatDomainMemoryBlock(domainIds) {
+  const ids = Array.isArray(domainIds) ? domainIds : [];
+  const sections = [];
+  for (const raw of ids) {
+    const id = normalizeDomainId(raw);
+    if (!id) continue;
+    const body = readDomainMemory(id);
+    if (!body) continue;
+    const trimmed =
+      body.length > MAX_DOMAIN_CHARS
+        ? `${body.slice(0, MAX_DOMAIN_CHARS)}\n\n[domains/${id}.md truncated at ${MAX_DOMAIN_CHARS} chars]`
+        : body;
+    sections.push(`## Domain memory (${id})\n${trimmed}`);
+  }
+  return sections.join('\n\n');
 }
 
 /**
@@ -415,7 +531,13 @@ function getPersonalityDir() {
  */
 function listContextFiles() {
   const martinDir = getMartinDir();
-  const files = ['SOUL.md', 'USER.md', 'MEMORY.md'];
+  const files = [
+    'SOUL.md',
+    'USER.md',
+    'MEMORY.md',
+    'domains/social.md',
+    'domains/email.md',
+  ];
 
   return files.map((name) => ({
     name,
@@ -439,6 +561,11 @@ module.exports = {
   getRecentMemory,
   writeDailyMemory,
   updateLongTermMemory,
+  readDomainMemory,
+  writeDomainMemory,
+  updateDomainMemory,
+  formatDomainMemoryBlock,
+  DOMAIN_IDS,
 
   // Usuario
   updateUserInfo,

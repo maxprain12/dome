@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   HardDriveIcon,
@@ -7,14 +8,13 @@ import {
   SparklesIcon,
   ZapIcon,
 } from '@hugeicons/core-free-icons';
-import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
-import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
+import ProviderBrandIcon from './ProviderBrandIcon';
 
 const EMPTY_CONFIGURED_PROVIDERS: Record<string, boolean> = {};
 
@@ -41,6 +41,7 @@ interface ProviderChoiceProps {
   configureLabel?: string;
 }
 
+/** One selectable provider card: brand mark, name, status badges, gear to curate models. */
 function ProviderChoice({
   value,
   name,
@@ -60,8 +61,8 @@ function ProviderChoice({
         value={value}
         variant="outline"
         disabled={disabled}
-        className="h-auto min-h-28 w-full flex-col items-stretch justify-start gap-3 rounded-xl p-3 pr-11 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/5"
         aria-label={name}
+        className="h-auto min-h-28 w-full flex-col items-stretch justify-start gap-3 rounded-xl p-3 pr-11 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/5"
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
@@ -70,19 +71,36 @@ function ProviderChoice({
           <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
           {badge ? <Badge variant={featured ? 'default' : 'secondary'}>{badge}</Badge> : null}
         </span>
-        <span className="whitespace-normal text-xs font-normal text-muted-foreground">{description}</span>
+        <span className="whitespace-normal text-xs font-normal text-muted-foreground">
+          {description}
+        </span>
         <span className="flex flex-wrap items-center gap-1.5">
           {local ? (
-            <Badge variant="outline"><HugeiconsIcon icon={HardDriveIcon} data-icon="inline-start" />{t('onboarding.offline')}</Badge>
+            <Badge variant="outline">
+              <HugeiconsIcon icon={HardDriveIcon} data-icon="inline-start" />
+              {t('onboarding.offline')}
+            </Badge>
           ) : configured ? (
-            <Badge variant="secondary"><HugeiconsIcon icon={Key01Icon} data-icon="inline-start" />{t('settings.ai.key_saved')}</Badge>
+            <Badge variant="secondary">
+              <HugeiconsIcon icon={Key01Icon} data-icon="inline-start" />
+              {t('settings.ai.key_saved')}
+            </Badge>
           ) : featured ? (
             <>
-              <Badge variant="outline"><HugeiconsIcon icon={LockIcon} data-icon="inline-start" />{t('settings.ai.private')}</Badge>
-              <Badge variant="outline"><HugeiconsIcon icon={ZapIcon} data-icon="inline-start" />{t('settings.ai.fast')}</Badge>
+              <Badge variant="outline">
+                <HugeiconsIcon icon={LockIcon} data-icon="inline-start" />
+                {t('settings.ai.private')}
+              </Badge>
+              <Badge variant="outline">
+                <HugeiconsIcon icon={ZapIcon} data-icon="inline-start" />
+                {t('settings.ai.fast')}
+              </Badge>
             </>
           ) : (
-            <Badge variant="outline"><HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />{t('settings.ai.api_key_required')}</Badge>
+            <Badge variant="outline">
+              <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+              {t('settings.ai.api_key_required')}
+            </Badge>
           )}
         </span>
       </ToggleGroupItem>
@@ -93,6 +111,7 @@ function ProviderChoice({
           size="icon-sm"
           className="absolute right-2 top-2"
           aria-label={configureLabel}
+          title={configureLabel}
           onClick={onConfigure}
         >
           <HugeiconsIcon icon={Settings01Icon} />
@@ -112,19 +131,29 @@ export default function AIProviderSelection({
   hideDomeProvider = false,
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
-  const cloudOptions = AI_PROVIDER_OPTIONS.filter((option) => option.value !== 'dome' && option.value !== 'ollama');
+  const cloudOptions = AI_PROVIDER_OPTIONS.filter(
+    (option) => option.value !== 'dome' && option.value !== 'ollama',
+  );
   const configured = cloudOptions.filter((option) => configuredProviders[option.value]);
   const available = cloudOptions.filter((option) => !configuredProviders[option.value]);
-  const groups = configured.length > 0 && available.length > 0
-    ? [
-        { key: 'configured', label: t('settings.ai.providers_configured'), options: configured },
-        { key: 'available', label: t('settings.ai.providers_available'), options: available },
-      ]
-    : [{ key: 'all', label: null, options: cloudOptions }];
+  const groups =
+    configured.length > 0 && available.length > 0
+      ? [
+          { key: 'configured', label: t('settings.ai.providers_configured'), options: configured },
+          { key: 'available', label: t('settings.ai.providers_available'), options: available },
+        ]
+      : [{ key: 'all', label: null, options: cloudOptions }];
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="ai-provider-title">
-      {showSectionLabel ? <h2 id="ai-provider-title" className="text-sm font-medium">{t('settings.ai.provider')}</h2> : null}
+      {showSectionLabel ? (
+        <h2
+          id="ai-provider-title"
+          className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          {t('settings.ai.provider')}
+        </h2>
+      ) : null}
       <ToggleGroup
         value={highlightSelection ? [provider] : []}
         onValueChange={(values) => values[0] && onProviderChange(values[0] as AIProviderType)}
@@ -140,29 +169,42 @@ export default function AIProviderSelection({
           />
         ) : null}
 
-        {groups.map((group) => group.options.length > 0 ? (
-          <div key={group.key} className="flex flex-col gap-2">
-            {group.label ? <h3 className="text-xs font-medium text-muted-foreground">{group.label}</h3> : null}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {group.options.map((option) => {
-                const canConfigure = isVisibleModelsConfigurable(option.value) && Boolean(onConfigureModels);
-                return (
-                  <ProviderChoice
-                    key={option.value}
-                    value={option.value}
-                    name={option.label}
-                    description={configuredProviders[option.value] ? t('settings.ai.key_saved') : t('settings.ai.api_key_required')}
-                    badge={option.badge}
-                    configured={Boolean(configuredProviders[option.value])}
-                    disabled={option.disabled}
-                    onConfigure={canConfigure ? () => onConfigureModels?.(option.value) : undefined}
-                    configureLabel={t('settings.ai.visible_models.gear_label', { provider: option.label })}
-                  />
-                );
-              })}
+        {groups.map((group) =>
+          group.options.length > 0 ? (
+            <div key={group.key} className="flex flex-col gap-2">
+              {group.label ? (
+                <h3 className="text-xs font-medium text-muted-foreground">{group.label}</h3>
+              ) : null}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {group.options.map((option) => {
+                  const canConfigure =
+                    isVisibleModelsConfigurable(option.value) && Boolean(onConfigureModels);
+                  return (
+                    <ProviderChoice
+                      key={option.value}
+                      value={option.value}
+                      name={option.label}
+                      description={
+                        configuredProviders[option.value]
+                          ? t('settings.ai.key_saved')
+                          : t('settings.ai.api_key_required')
+                      }
+                      badge={option.badge}
+                      configured={Boolean(configuredProviders[option.value])}
+                      disabled={option.disabled}
+                      onConfigure={
+                        canConfigure ? () => onConfigureModels?.(option.value) : undefined
+                      }
+                      configureLabel={t('settings.ai.visible_models.gear_label', {
+                        provider: option.label,
+                      })}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ) : null)}
+          ) : null,
+        )}
 
         <ProviderChoice
           value="ollama"

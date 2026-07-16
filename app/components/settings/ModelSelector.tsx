@@ -1,25 +1,29 @@
+import { useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Film01Icon as Film,
-  ChevronDownIcon as ChevronDown,
-  Search01Icon as Search,
-  CheckIcon as Check,
-  GiftIcon as Gift,
-  Shield01Icon as Shield,
-  BrainIcon as Brain,
-  Image01Icon as ImageIcon,
+  BrainIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  Film01Icon,
+  GiftIcon,
+  Image01Icon,
+  Shield01Icon,
 } from '@hugeicons/core-free-icons';
-import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useTranslation } from 'react-i18next';
-
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ModelDefinition } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
 
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command } from '@/components/ui/command';
 interface ModelSelectorProps {
   models: ModelDefinition[];
   selectedModelId: string;
@@ -47,11 +51,13 @@ function formatContextWindow(ctx: number): string {
   return String(ctx);
 }
 
+/** Model picker: searchable command list with capability badges per model. */
 export default function ModelSelector({
   models,
   selectedModelId,
   onChange,
   showBadges = true,
+  showDescription = false,
   showContextWindow = true,
   isFreeProvider = false,
   isPrivateProvider = false,
@@ -64,11 +70,7 @@ export default function ModelSelector({
 }: ModelSelectorProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
-  const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [query, setQuery] = useState('');
 
   const selectedModel = useMemo(
     () => models.find((m) => m.id === selectedModelId),
@@ -76,8 +78,8 @@ export default function ModelSelector({
   );
 
   const filteredModels = useMemo(() => {
-    if (!searchQuery.trim()) return models;
-    const q = searchQuery.toLowerCase();
+    if (!query.trim()) return models;
+    const q = query.toLowerCase();
     return models.filter(
       (m) =>
         m.id.toLowerCase().includes(q) ||
@@ -85,257 +87,177 @@ export default function ModelSelector({
         (providerId ?? '').toLowerCase().includes(q) ||
         m.description?.toLowerCase().includes(q),
     );
-  }, [models, searchQuery, providerId]);
+  }, [models, query, providerId]);
 
-  // When opening (or the list changes), highlight the currently-selected model.
-  useEffect(() => {
-    if (!isOpen) return;
-    const idx = filteredModels.findIndex((m) => m.id === selectedModelId);
-    setHighlightedIndex(idx >= 0 ? idx : 0);
-    const raf = requestAnimationFrame(() => searchInputRef.current?.focus());
-    return () => cancelAnimationFrame(raf);
-  }, [isOpen, filteredModels, selectedModelId]);
-
-  // Keep the highlight in range and scrolled into view.
-  useEffect(() => {
-    if (!isOpen) return;
-    setHighlightedIndex((i) => Math.min(i, Math.max(0, filteredModels.length - 1)));
-  }, [filteredModels.length, isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    rowRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [highlightedIndex, isOpen]);
-
-  const commitSelection = useCallback(
-    (model: ModelDefinition | undefined) => {
-      if (!model) return;
-      onChange(model.id);
-      setIsOpen(false);
-      setSearchQuery('');
-    },
-    [onChange],
-  );
-
-  const handleListKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (filteredModels.length === 0) return;
-        setHighlightedIndex((i) => (i >= filteredModels.length - 1 ? 0 : i + 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (filteredModels.length === 0) return;
-        setHighlightedIndex((i) => (i <= 0 ? filteredModels.length - 1 : i - 1));
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        commitSelection(filteredModels[highlightedIndex]);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setIsOpen(false);
-        setSearchQuery('');
-      }
-    },
-    [filteredModels, highlightedIndex, commitSelection],
-  );
-
-  const renderBadges = (model: ModelDefinition) => {
+  const renderBadges = (model: ModelDefinition): ReactNode => {
     if (!showBadges) return null;
     const nodes: ReactNode[] = [];
     if (model.recommended) {
-      nodes.push(<Badge variant="secondary" className="max-w-full text-primary" key="rec"><span className="truncate">Recommended</span></Badge>);
+      nodes.push(
+        <Badge key="rec" variant="secondary" className="text-primary">
+          Recommended
+        </Badge>,
+      );
     }
     if (isFreeProvider) {
       nodes.push(
-        <span key="free" className="inline-flex items-center gap-0.5">
-          <HugeiconsIcon icon={Gift} size={10} className="shrink-0 text-primary" aria-hidden />
-          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Free</span></Badge>
-        </span>,
+        <Badge key="free" variant="secondary" className="text-primary">
+          <HugeiconsIcon icon={GiftIcon} data-icon="inline-start" />
+          Free
+        </Badge>,
       );
     }
     if (isPrivateProvider) {
       nodes.push(
-        <span key="priv" className="inline-flex items-center gap-0.5">
-          <HugeiconsIcon icon={Shield} size={10} className="shrink-0 text-muted-foreground" aria-hidden />
-          <Badge variant="secondary" className="max-w-full text-muted-foreground"><span className="truncate">Private</span></Badge>
-        </span>,
+        <Badge key="priv" variant="secondary" className="text-muted-foreground">
+          <HugeiconsIcon icon={Shield01Icon} data-icon="inline-start" />
+          Private
+        </Badge>,
       );
     }
     if (model.reasoning) {
       nodes.push(
-        <span key="reason" className="inline-flex items-center gap-0.5">
-          <HugeiconsIcon icon={Brain} size={10} className="shrink-0 text-primary" aria-hidden />
-          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Reasoning</span></Badge>
-        </span>,
+        <Badge key="reason" variant="secondary" className="text-primary">
+          <HugeiconsIcon icon={BrainIcon} data-icon="inline-start" />
+          Reasoning
+        </Badge>,
       );
     }
     if (model.input?.includes('image')) {
       nodes.push(
-        <span key="vision" className="inline-flex items-center gap-0.5">
-          <HugeiconsIcon icon={ImageIcon} size={10} className="shrink-0 text-primary" aria-hidden />
-          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Vision</span></Badge>
-        </span>,
+        <Badge key="vision" variant="secondary" className="text-primary">
+          <HugeiconsIcon icon={Image01Icon} data-icon="inline-start" />
+          Vision
+        </Badge>,
       );
     }
     if (model.input?.includes('video')) {
       nodes.push(
-        <span key="video" className="inline-flex items-center gap-0.5">
-          <HugeiconsIcon icon={Film} size={10} className="shrink-0 text-primary" aria-hidden />
-          <Badge variant="secondary" className="max-w-full text-primary"><span className="truncate">Video</span></Badge>
-        </span>,
+        <Badge key="video" variant="secondary" className="text-primary">
+          <HugeiconsIcon icon={Film01Icon} data-icon="inline-start" />
+          Video
+        </Badge>,
       );
     }
-    return nodes.length ? <span className="flex flex-wrap items-center gap-1.5">{nodes}</span> : null;
+    return nodes.length ? (
+      <span className="flex flex-wrap items-center gap-1.5">{nodes}</span>
+    ) : null;
   };
 
-  /** `[provider]` badge on each model row. */
-  const providerBadge = (extraClass = '') =>
-    providerId ? (
-      <span
-        className={cn('font-mono text-[11px] shrink-0 text-muted-foreground', extraClass)}
-      >
-        [{providerId}]
-      </span>
-    ) : null;
-
-  // Model whose details are shown in the footer (the keyboard-highlighted row).
-  const footerModel = isOpen ? filteredModels[highlightedIndex] : undefined;
+  const providerBadge = providerId ? (
+    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">[{providerId}]</span>
+  ) : null;
 
   return (
-    <Popover open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setSearchQuery(''); }}>
-      <PopoverTrigger render={<Button type="button"
-  variant="outline"
-  disabled={disabled}
-  onKeyDown={(e) => {
-          if (e.key === 'Escape') setIsOpen(false);
-        }}
-  aria-haspopup="listbox"
-  aria-expanded={isOpen}
-  className={cn(
-          'w-full justify-between gap-3 px-4 py-3 h-auto min-h-0 rounded-lg text-left font-normal',
-          'bg-card',
-          isOpen && 'ring-2 ring-primary border-primary',
-        )} />}>
-        <div className="flex-1 min-w-0 text-left">
+    <Popover
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) setQuery('');
+      }}
+    >
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            aria-haspopup="listbox"
+            aria-expanded={isOpen}
+            className="h-auto min-h-0 w-full justify-between gap-3 rounded-lg bg-card px-4 py-3 text-left font-normal"
+          />
+        }
+      >
+        <span className="min-w-0 flex-1 text-left">
           {selectedModel ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-medium truncate text-foreground">
-                {selectedModel.id}
-              </span>
-              {providerBadge()}
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="truncate font-mono text-sm font-medium">{selectedModel.id}</span>
+              {providerBadge}
               {renderBadges(selectedModel)}
-            </div>
+            </span>
           ) : (
             <span className="text-sm text-muted-foreground">{placeholder}</span>
           )}
-        </div>
-      {
-          <HugeiconsIcon icon={ChevronDown}
-            size={18}
-            className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')}
-            aria-hidden
-          />
-        }
+        </span>
+        <HugeiconsIcon
+          icon={ChevronDownIcon}
+          className={cn(
+            'shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none',
+            isOpen && 'rotate-180',
+          )}
+          aria-hidden
+        />
       </PopoverTrigger>
 
-      {isOpen && (
-        <PopoverContent align="start" className="w-[var(--anchor-width)] gap-0 overflow-hidden rounded-xl border border-border bg-background p-0 shadow-lg">
-          <Command shouldFilter={false} className="rounded-none bg-background p-0">
-          {configuredHint && (
-            <div className="px-3 pt-2.5 pb-1.5 text-[11px] leading-snug text-muted-foreground">
+      <PopoverContent
+        align="start"
+        className="w-(--anchor-width) gap-0 overflow-hidden rounded-xl p-0"
+      >
+        <Command shouldFilter={false} className="bg-transparent">
+          {configuredHint ? (
+            <p className="px-3 pb-1.5 pt-2.5 text-[11px] leading-snug text-muted-foreground">
               {t('settings.ai.models_configured_only')}
-            </div>
-          )}
-          {searchable && (
-            <div className="p-2 border-b border-border">
-              <div className="relative">
-                <HugeiconsIcon icon={Search}
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  ref={searchInputRef}
-                  className="pl-9 font-mono"
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleListKeyDown}
-                  placeholder={t('settings.ai.search_models')}
-                />
-              </div>
-            </div>
-          )}
-          <ul ref={listRef} role="listbox" tabIndex={-1} className="max-h-60 overflow-y-auto py-1 list-none m-0 p-0" onKeyDown={handleListKeyDown}>
-            {filteredModels.length === 0 ? (
-              <li className="list-none p-4 text-center text-sm text-muted-foreground">
-                {searchQuery ? t('settings.ai.no_models_found', { query: searchQuery }) : emptyMessage}
-              </li>
-            ) : (
-              filteredModels.map((model, idx) => {
+            </p>
+          ) : null}
+          {searchable ? (
+            <CommandInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder={t('settings.ai.search_models')}
+              className="font-mono"
+            />
+          ) : null}
+          <CommandList className="max-h-60">
+            <CommandEmpty>
+              {query ? t('settings.ai.no_models_found', { query }) : emptyMessage}
+            </CommandEmpty>
+            <CommandGroup>
+              {filteredModels.map((model) => {
                 const isCurrent = model.id === selectedModelId;
-                const isHighlighted = idx === highlightedIndex;
                 return (
-                  <li key={model.id} className="list-none">
-                  <Button variant="ghost"
-                    ref={(el) => { rowRefs.current[idx] = el; }}
-                    type="button"
-                    role="option"
-                    aria-selected={isCurrent}
-                    onMouseEnter={() => setHighlightedIndex(idx)}
-                    onClick={() => commitSelection(model)}
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
-                      isHighlighted ? 'bg-muted' : 'bg-transparent',
-                    )}
+                  <CommandItem
+                    key={model.id}
+                    value={model.id}
+                    onSelect={() => {
+                      onChange(model.id);
+                      setIsOpen(false);
+                      setQuery('');
+                    }}
+                    className="flex-col items-start gap-1"
                   >
-                    <span
-                      className={cn(
-                        'w-3 shrink-0 text-center',
-                        isHighlighted ? 'text-primary' : 'text-transparent',
-                      )}
-                      aria-hidden
-                    >
-                      →
+                    <span className="flex w-full min-w-0 items-center gap-2">
+                      <span className="truncate font-mono text-sm">{model.id}</span>
+                      {providerBadge}
+                      {showContextWindow && model.contextWindow > 0 ? (
+                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                          {formatContextWindow(model.contextWindow)} ctx
+                        </span>
+                      ) : null}
+                      {isCurrent ? (
+                        <HugeiconsIcon
+                          icon={CheckIcon}
+                          className="ml-auto shrink-0 text-primary"
+                          aria-hidden
+                        />
+                      ) : null}
                     </span>
-                    <span
-                      className={cn(
-                        'font-mono text-sm truncate',
-                        isHighlighted ? 'text-primary' : 'text-foreground',
-                      )}
-                    >
-                      {model.id}
-                    </span>
-                    {providerBadge()}
-                    {isCurrent && (
-                      <HugeiconsIcon icon={Check} size={14} className="ml-auto shrink-0 text-primary" aria-hidden />
-                    )}
-                  </Button>
-                  </li>
+                    {(showDescription && model.description) || showBadges ? (
+                      <span className="flex w-full min-w-0 flex-wrap items-center gap-1.5">
+                        {renderBadges(model)}
+                        {showDescription && model.description ? (
+                          <span className="min-w-0 truncate text-xs text-muted-foreground">
+                            {model.description}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </CommandItem>
                 );
-              })
-            )}
-          </ul>
-
-          {footerModel && (
-            <div className="border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-muted-foreground">
-                {t('settings.ai.model_name_label')}:
-              </span>
-              <span className="text-xs font-medium text-muted-foreground truncate">
-                {footerModel.name}
-              </span>
-              {showContextWindow && footerModel.contextWindow > 0 && (
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  · {formatContextWindow(footerModel.contextWindow)} ctx
-                </span>
-              )}
-              {renderBadges(footerModel)}
-            </div>
-          )}
-          </Command>
-        </PopoverContent>
-      )}
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
     </Popover>
   );
 }

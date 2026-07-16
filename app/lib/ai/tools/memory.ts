@@ -464,6 +464,15 @@ const RememberFactSchema = Type.Object({
   value: Type.String({
     description: 'The fact to remember.',
   }),
+  domain: Type.Optional(
+    Type.Union([
+      Type.Literal('general'),
+      Type.Literal('social'),
+      Type.Literal('email'),
+    ], {
+      description: 'general (MEMORY.md), social, or email domain pack',
+    }),
+  ),
 });
 
 const rememberFactDef = memoryToolDefinitions().find((d) => d.function?.name === 'remember_fact');
@@ -488,8 +497,9 @@ export function createRememberFactTool(): AnyAgentTool {
         const params = args as Record<string, unknown>;
         const key = typeof params.key === 'string' ? params.key : '';
         const value = typeof params.value === 'string' ? params.value : '';
-        await window.electron.personality.rememberFact(key, value);
-        return jsonResult({ status: 'success', message: `Remembered: ${key}` });
+        const domain = typeof params.domain === 'string' ? params.domain : 'general';
+        await window.electron.personality.rememberFact(key, value, domain);
+        return jsonResult({ status: 'success', message: `Remembered: ${key}`, domain });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return jsonResult({ status: 'error', error: message });

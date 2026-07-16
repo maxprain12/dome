@@ -28,7 +28,12 @@ const SECRET_FIELDS = new Set(['clientSecret']);
 const OAUTH_PORT_KEY = 'social_oauth_port';
 const DEFAULT_OAUTH_PORT = 8737;
 const LINKEDIN_ORG_KEY = 'social_linkedin_org_enabled';
+const REPLY_DRAFTS_KEY = 'social_reply_drafts_v1';
+const COMMENT_SEEN_KEY = 'social_comment_seen_v1';
+const LIVE_REPLY_RULES_KEY = 'social_live_reply_rules_v1';
 const ACCOUNT_KINDS = ['member', 'organization'];
+const MAX_REPLY_DRAFTS = 200;
+const MAX_SEEN_COMMENTS = 2000;
 
 function encryptionAvailable() {
   try {
@@ -550,6 +555,144 @@ function createSocialStore(database) {
     return getReportConfig();
   }
 
+  // ── Reply drafts (plan 014 draft_only — no live DM until provider caps) ──
+
+  function listReplyDrafts() {
+    try {
+      const raw = q().getSetting.get(REPLY_DRAFTS_KEY)?.value;
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveReplyDrafts(list) {
+    const trimmed = (Array.isArray(list) ? list : []).slice(0, MAX_REPLY_DRAFTS);
+    q().setSetting.run(REPLY_DRAFTS_KEY, JSON.stringify(trimmed), Date.now());
+    return trimmed;
+  }
+
+  function createReplyDraft(input = {}) {
+    const draft = {
+      id: `srd-${crypto.randomBytes(8).toString('hex')}`,
+      status: input.status || 'draft_only',
+      provider: input.provider || null,
+      accountId: input.accountId || null,
+      postId: input.postId || null,
+      externalCommentId: input.externalCommentId || null,
+      hashtag: input.hashtag || null,
+      commentText: input.commentText || null,
+      commentAuthor: input.commentAuthor || null,
+      replyBody: String(input.replyBody || ''),
+      linkUrl: input.linkUrl || null,
+      commentAuthorExternalId: input.commentAuthorExternalId || null,
+      externalMessageId: null,
+      sentAt: null,
+      error: null,
+      createdAt: Date.now(),
+    };
+    saveReplyDrafts([draft, ...listReplyDrafts()]);
+    return draft;
+  }
+
+  function dismissReplyDraft(draftId) {
+    const id = String(draftId || '');
+    if (!id) return { deleted: false };
+    saveReplyDrafts(listReplyDrafts().filter((d) => d.id !== id));
+    return { deleted: true };
+  }
+
+  function updateReplyDraft(draftId, patch = {}) {
+    const id = String(draftId || '');
+    const list = listReplyDrafts();
+    const idx = list.findIndex((d) => d.id === id);
+    if (idx < 0) return null;
+    list[idx] = { ...list[idx], ...patch, updatedAt: Date.now() };
+    saveReplyDrafts(list);
+    return list[idx];
+  }
+
+  function listSeenCommentIds() {
+    try {
+      const raw = q().getSetting.get(COMMENT_SEEN_KEY)?.value;
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function markCommentSeen(externalCommentId) {
+    const id = String(externalCommentId || '');
+    if (!id) return;
+    const next = [id, ...listSeenCommentIds().filter((x) => x !== id)].slice(0, MAX_SEEN_COMMENTS);
+    q().setSetting.run(COMMENT_SEEN_KEY, JSON.stringify(next), Date.now());
+  }
+
+  function hasSeenComment(externalCommentId) {
+    return listSeenCommentIds().includes(String(externalCommentId || ''));
+  }
+
+  /** Default live: cold DM automation for #Curso (plan 018 product decisions). */
+  function getLiveReplyRules() {
+    try {
+      const raw = q().getSetting.get(LIVE_REPLY_RULES_KEY)?.value;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch { /* fall through */ }
+    return [
+      {
+        id: 'default-curso',
+        enabled: true,
+        mode: 'live',
+        hashtag: 'Curso',
+        replyTemplate:
+          'Hola {{author}}! Gracias por tu interés en #{{hashtag}}. Aquí tienes el enlace: {{link}}',
+        linkUrl: '',
+        accountIds: null,
+        postIds: null,
+      },
+    ];
+  }
+
+  function setLiveReplyRules(rules) {
+    const list = Array.isArray(rules) ? rules : [];
+    q().setSetting.run(LIVE_REPLY_RULES_KEY, JSON.stringify(list), Date.now());
+    return getLiveReplyRules();
+  }
+
+  function messagingFlagKey(provider, kind) {
+    return `social_${provider}_messaging_${kind}`;
+  }
+
+  /** Defaults to enabled (true) when unset — matches product decision for live cold DM. */
+  function getMessagingCommentsEnabled(provider) {
+    const v = q().getSetting.get(messagingFlagKey(provider, 'comments'))?.value;
+    if (v === '0') return false;
+    return true;
+  }
+
+  function setMessagingCommentsEnabled(provider, enabled) {
+    q().setSetting.run(messagingFlagKey(provider, 'comments'), enabled ? '1' : '0', Date.now());
+    return getMessagingCommentsEnabled(provider);
+  }
+
+  function getMessagingDmEnabled(provider) {
+    const v = q().getSetting.get(messagingFlagKey(provider, 'dm'))?.value;
+    if (v === '0') return false;
+    return true;
+  }
+
+  function setMessagingDmEnabled(provider, enabled) {
+    q().setSetting.run(messagingFlagKey(provider, 'dm'), enabled ? '1' : '0', Date.now());
+    return getMessagingDmEnabled(provider);
+  }
+
   return {
     PROVIDERS,
     encryptionAvailable,
@@ -602,6 +745,18 @@ function createSocialStore(database) {
     deleteReport,
     getReportConfig,
     setReportConfig,
+    listReplyDrafts,
+    createReplyDraft,
+    dismissReplyDraft,
+    updateReplyDraft,
+    hasSeenComment,
+    markCommentSeen,
+    getLiveReplyRules,
+    setLiveReplyRules,
+    getMessagingCommentsEnabled,
+    setMessagingCommentsEnabled,
+    getMessagingDmEnabled,
+    setMessagingDmEnabled,
   };
 }
 

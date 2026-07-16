@@ -49,6 +49,7 @@ const HITL_TOOL_NAMES = new Set([
   'github_create_issue',
   'github_update_issue',
   'github_create_milestone',
+  'social_post_publish',
 ]);
 
 /** Per-conversation caps for creation/mutation tools (count over history). */
@@ -855,8 +856,24 @@ async function setupHarness(surface, opts) {
       }
       return;
     }
+    if (event.type === 'tool_execution_end') {
+      try {
+        const actionMemory = require('../personality/action-memory.cjs');
+        actionMemory.maybePersistFromToolResult(
+          event.toolName,
+          event.args,
+          event.result,
+          event.isError === true,
+        );
+      } catch (err) {
+        console.warn('[AgentRuntime] action-memory hook failed:', err?.message || err);
+      }
+      const chunk = mapAgentEventToChunk(event);
+      if (chunk && typeof onChunk === 'function') onChunk(chunk);
+      return;
+    }
     if (event.type === 'agent_end' || event.type === 'message_update' || event.type === 'tool_execution_start' ||
-        event.type === 'tool_execution_end' || event.type === 'tool_execution_update' ||
+        event.type === 'tool_execution_update' ||
         event.type === 'turn_start' || event.type === 'turn_end' || event.type === 'message_end') {
       const chunk = mapAgentEventToChunk(event);
       if (chunk && typeof onChunk === 'function') onChunk(chunk);

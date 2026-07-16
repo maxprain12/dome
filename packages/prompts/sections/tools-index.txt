@@ -15,6 +15,7 @@ Load when the task needs them:
 - flashcard_tool — before flashcard_create
 - excel_notebook_tool — before Excel → notebook pandas flow
 - excel_artifact_tool — before Excel → interactive artifact dashboard
+- social_tool — before social_post_draft / social_post_publish
 
 Skip reload if the current turn already contains a prior `dome_load_doc` result for the same id.
 
@@ -53,6 +54,7 @@ Confirmation required:
 - Destructive deletes, external messages, purchases, or irreversible writes — confirm with the user first
 - GitHub writes (`github_create_issue`, `github_update_issue`, `github_create_milestone`) require user approval in Many (HITL)
 - Email send/reply require HITL in Many plus per-account agent permission toggles in Settings → Email
+- Social publish (`social_post_publish`) requires user approval in Many (HITL) — live post to a real account
 
 Anti-patterns:
 - Never call generate_quiz when the user asked for a dashboard

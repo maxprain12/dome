@@ -1038,10 +1038,18 @@ function buildAutomationMessages(automation, title, targetLabel) {
   }
   if (automation.targetType === 'many') {
     const contextFiles = require('../personality/context-files.cjs');
-    const { soul } = contextFiles.loadContextFiles();
-    const manyPersona = soul.trim() || readCoreSection('roleMany') || '';
+    const memoryCtx = contextFiles.loadAgentMemoryContext({
+      memoryEnabled: true,
+      projectId: automation.projectId ?? null,
+      includeProject: true,
+    });
+    const manyPersona = memoryCtx.soul.trim() || readCoreSection('roleMany') || '';
+    const systemContent = buildDomeSystemPrompt({
+      staticPersona: manyPersona.trim(),
+      volatileContext: memoryCtx.volatileMemory || undefined,
+    });
     return [
-      { role: 'system', content: buildDomeSystemPrompt({ staticPersona: manyPersona.trim() }) },
+      { role: 'system', content: systemContent },
       { role: 'user', content: userContent },
     ];
   }

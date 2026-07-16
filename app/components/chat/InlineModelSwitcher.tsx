@@ -224,7 +224,7 @@ export function InlineModelSwitcher({ enabled = true, dropDirection = 'above' }:
             type="button"
             variant="outline"
             size="sm"
-            className="flex max-w-[min(180px,100%)] min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-left text-[11px] font-medium text-muted-foreground hover:bg-accent"
+            className="max-w-[min(180px,100%)] min-w-0 shrink rounded-full"
             title={t('chat.model_switcher_title')}
           >
             {provider && isProviderWithBrandLogo(provider) ? (

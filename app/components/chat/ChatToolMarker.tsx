@@ -77,7 +77,10 @@ export function ChatToolMarker({
             type="button"
             variant="ghost"
             aria-expanded={expanded}
-            className="w-full transition-colors hover:text-foreground"
+            // Auto height + top-aligned start: the marker holds a two-line
+            // label/summary, so the Button's fixed h-7 + justify-center would
+            // otherwise let the marker's border-b slice through the label text.
+            className="h-auto w-full items-start justify-start py-1.5 text-left transition-colors hover:text-foreground"
             onClick={onToggle}
           />
         }

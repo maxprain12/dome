@@ -30,3 +30,13 @@ Workflows and automations bypass these toggles (implicit approval).
 1. Check inbox → `email_list` or `email_search`.
 2. Open one message → `email_read` with `message_id`.
 3. Send/reply → confirm with user, ensure `email_tool` loaded, call tool (Many shows approval card for send/reply).
+
+## Mentioned people → `to`
+- When Source has **mentioned-people** with `email:addr`, use that address as `to` (do not invent).
+- If the person has no email identity, ask once for the address before calling `email_send`.
+
+## Memory (domains/email.md)
+
+- **Do** call `remember_fact` with `domain=email` for VIP prefs, reminder SLAs, and durable commitments (“follow up Friday”).
+- **Don't** store message bodies, passwords, or every list/search result.
+- Prefer Domain memory (email) when triaging or drafting follow-ups.

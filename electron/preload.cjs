@@ -231,6 +231,7 @@ const ALLOWED_CHANNELS = {
     'db:graph:searchNodes',
     // Database - Search
     'db:search:unified',
+    'db:search:reindexSources',
     // Database - Settings
     'db:settings:get',
     'db:settings:set',
@@ -359,6 +360,7 @@ const ALLOWED_CHANNELS = {
     // Personality Loader
     'personality:get-prompt',
     'personality:get-context-files',
+    'personality:get-agent-memory-context',
     'personality:read-file',
     'personality:write-file',
     'personality:add-memory',
@@ -553,6 +555,8 @@ const ALLOWED_CHANNELS = {
     'email:search',
     'email:send',
     'email:reply',
+    'email:sync:now',
+    'email:sync:status',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -641,6 +645,14 @@ const ALLOWED_CHANNELS = {
     'social:media:pick',
     'social:media:library',
     'social:media:preview',
+    'social:capabilities',
+    'social:drafts:list',
+    'social:drafts:create-from-match',
+    'social:drafts:send',
+    'social:drafts:dismiss',
+    'social:drafts:poll-now',
+    'social:live-reply-rules:get',
+    'social:live-reply-rules:set',
     // Artifact feeders (sandbox scripts → runtime data)
     'feeders:create',
     'feeders:get',
@@ -681,12 +693,22 @@ const ALLOWED_CHANNELS = {
     'github:releases:list',
     'github:image:resolve',
     'github:sync:now',
+    'github:sync:status',
+    'people:list',
+    'people:get',
+    'people:search',
+    'people:upsert',
+    'people:linkIdentity',
+    'people:upsertIdentity',
+    'people:syncGithub',
   ],
   // Canales para on/once (main → renderer)
   on: [
     // GitHub project sync (main → renderer broadcasts)
     'github:sync:status',
     'github:data:updated',
+    'email:sync:status',
+    'email:data:updated',
     'theme-changed',
     // System error notifications (main → toast in renderer)
     'system:error-notification',
@@ -786,6 +808,7 @@ const ALLOWED_CHANNELS = {
     'social:posts-refresh',
     'social:metrics-updated',
     'social:report-updated',
+    'social:drafts-updated',
     // Feeder events
     'feeder:created',
     'feeder:updated',
@@ -1030,6 +1053,18 @@ const electronHandler = {
     search: (params) => ipcRenderer.invoke('email:search', params),
     send: (params) => ipcRenderer.invoke('email:send', params),
     reply: (params) => ipcRenderer.invoke('email:reply', params),
+    syncNow: (params) => ipcRenderer.invoke('email:sync:now', params),
+    syncStatus: (params) => ipcRenderer.invoke('email:sync:status', params),
+    onSyncStatus: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('email:sync:status', subscription);
+      return () => ipcRenderer.removeListener('email:sync:status', subscription);
+    },
+    onDataUpdated: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('email:data:updated', subscription);
+      return () => ipcRenderer.removeListener('email:data:updated', subscription);
+    },
   },
 
   // ============================================
@@ -1165,6 +1200,19 @@ const electronHandler = {
       ipcRenderer.on('github:data:updated', subscription);
       return () => ipcRenderer.removeListener('github:data:updated', subscription);
     },
+  },
+
+  // ============================================
+  // PEOPLE / IDENTITIES API (unified contacts)
+  // ============================================
+  people: {
+    list: (projectId) => ipcRenderer.invoke('people:list', projectId),
+    get: (id) => ipcRenderer.invoke('people:get', id),
+    search: (payload) => ipcRenderer.invoke('people:search', payload),
+    upsert: (payload) => ipcRenderer.invoke('people:upsert', payload),
+    linkIdentity: (payload) => ipcRenderer.invoke('people:linkIdentity', payload),
+    upsertIdentity: (payload) => ipcRenderer.invoke('people:upsertIdentity', payload),
+    syncGithub: (projectId) => ipcRenderer.invoke('people:syncGithub', projectId),
   },
 
   // ============================================
@@ -1327,6 +1375,7 @@ const electronHandler = {
     // Unified Search
     search: {
       unified: (query, projectId) => ipcRenderer.invoke('db:search:unified', query, projectId),
+      reindexSources: (projectId) => ipcRenderer.invoke('db:search:reindexSources', projectId),
     },
 
     // Flashcards
@@ -1982,6 +2031,7 @@ const electronHandler = {
 
     /** SOUL / USER / MEMORY context files for harness assembly. */
     getContextFiles: () => ipcRenderer.invoke('personality:get-context-files'),
+    getAgentMemoryContext: (params) => ipcRenderer.invoke('personality:get-agent-memory-context', params || {}),
 
     // Read context file
     readFile: (filename) => ipcRenderer.invoke('personality:read-file', filename),
@@ -1996,7 +2046,8 @@ const electronHandler = {
     listFiles: () => ipcRenderer.invoke('personality:list-files'),
 
     // Remember a fact about the user in long-term memory
-    rememberFact: (key, value) => ipcRenderer.invoke('personality:remember-fact', { key, value }),
+    rememberFact: (key, value, domain) =>
+      ipcRenderer.invoke('personality:remember-fact', { key, value, domain }),
 
     openFolder: () => ipcRenderer.invoke('personality:open-folder'),
 

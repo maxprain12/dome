@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Calendar03Icon, ChevronDownIcon, CodeIcon, ExternalLinkIcon, GitBranchIcon, GithubIcon, LayoutGridIcon, Leaf01Icon, RefreshIcon, Search01Icon, Settings01Icon, SquareChartGanttIcon, Task01Icon } from '@hugeicons/core-free-icons';
+import { Calendar03Icon, ChevronDownIcon, CodeIcon, ExternalLinkIcon, GitBranchIcon, GithubIcon, LayoutGridIcon, Leaf01Icon, RefreshIcon, Settings01Icon, SquareChartGanttIcon, Task01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -13,13 +13,17 @@ import IssueDetailPanel from './IssueDetailPanel';
 import MilestoneDetailModal from './MilestoneDetailModal';
 import GitHubSettings from './GitHubSettings';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
+import { HubHeader } from '@/components/hub/HubHeader';
+import { HubSearch } from '@/components/hub/HubSearch';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
 import '@/styles/github-view.css';
 
-import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ReactNode } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 type ViewMode = 'minimal' | 'developer';
 const MODE_KEY = 'dome:github:mode';
 
@@ -61,15 +65,36 @@ export default function GitHubView() {
   const selectedRepoId = useGitHubStore((s) => s.selectedRepoId);
   const selectRepo = useGitHubStore((s) => s.selectRepo);
   const syncNow = useGitHubStore((s) => s.syncNow);
+  const syncStatus = useGitHubStore((s) => s.syncStatus);
+  const lastSync = useGitHubStore((s) => s.lastSync);
+  const syncError = useGitHubStore((s) => s.error);
   const branches = useGitHubStore((s) => s.branches);
   const [manualSyncing, setManualSyncing] = useState(false);
   const [repoPickerOpen, setRepoPickerOpen] = useState(false);
 
+  const isSyncing = manualSyncing || syncStatus === 'syncing';
+
   const handleSyncClick = useCallback(() => {
-    if (manualSyncing) return;
+    if (isSyncing) return;
     setManualSyncing(true);
     void syncNow(projectId).finally(() => setManualSyncing(false));
-  }, [manualSyncing, projectId, syncNow]);
+  }, [isSyncing, projectId, syncNow]);
+
+  const syncDescription = useMemo(() => {
+    if (syncError && syncStatus === 'error') return t('github.sync_error', { error: syncError });
+    if (isSyncing) return t('github.syncing');
+    if (lastSync) {
+      return t('github.last_sync', {
+        time: new Date(lastSync).toLocaleString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          day: 'numeric',
+          month: 'short',
+        }),
+      });
+    }
+    return t('github.sync_idle');
+  }, [isSyncing, lastSync, syncError, syncStatus, t]);
 
   const tabs = useMemo(
     () =>
@@ -110,6 +135,7 @@ export default function GitHubView() {
   if (checkingAuth) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+        <Spinner className="mr-2 size-4" />
         {t('github.loading')}
       </div>
     );
@@ -121,18 +147,37 @@ export default function GitHubView() {
 
   return (
     <div className="dome-github-view text-foreground">
-      <div className="dome-github-view__header">
-        {/* Row 1 — identity: app icon + title + repo selector + open-on-github */}
+      <div className="dome-github-view__header gap-3 px-4 py-3">
+        <HubHeader
+          title={t('github.tab_title')}
+          description={syncDescription}
+          className="w-full"
+          actions={
+            <>
+              {syncStatus === 'error' ? (
+                <Badge variant="destructive">{t('github.sync_badge_error')}</Badge>
+              ) : isSyncing ? (
+                <Badge variant="secondary">{t('github.sync_badge_syncing')}</Badge>
+              ) : null}
+              <SectionGuideHelp sectionKey="github" />
+              <Button type="button" variant="outline" size="sm" disabled={isSyncing} onClick={handleSyncClick}>
+                {isSyncing ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+                )}
+                {t('github.sync_now')}
+              </Button>
+            </>
+          }
+        />
+
+        {/* Row 1 — repo selector + open-on-github */}
         <div className="dome-github-view__row-identity">
           <div className="dome-github-view__identity-leading">
-            <div className="flex shrink-0 items-center justify-center size-7 rounded-md" style={{ background: 'color-mix(in srgb, var(--primary) 15%, var(--card))' }}>
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15">
               <HugeiconsIcon icon={Task01Icon} size={16} strokeWidth={2} className="text-primary" />
             </div>
-            <h1 className="dome-github-view__title text-foreground">
-              <span className="dome-github-view__title-text">{t('github.tab_title')}</span>
-              <SectionGuideHelp sectionKey="github" />
-            </h1>
-            <span className="dome-github-view__divider" aria-hidden />
             <div className="dome-github-view__repo-wrap">
               <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
                 <PopoverTrigger render={<Button type="button"
@@ -188,15 +233,14 @@ export default function GitHubView() {
         {/* Row 2 — tools: search + mode + tabs + actions */}
         <div className="dome-github-view__row-tools">
           {!settingsOpen && (mode === 'minimal' || tab !== 'branches') && (
-            <div className="dome-github-view__search-wrap">
-              <HugeiconsIcon icon={Search01Icon}
-                size={13}
-                className="shrink-0 absolute top-1/2 -translate-y-1/2 text-muted-foreground"
-                style={{ left: 10 }}
-                aria-hidden
-              />
-              <Input className="dome-github-view__search-input pl-7 py-1 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('github.search_issue_milestone')} aria-label={t('github.search_issue_milestone')} />
-            </div>
+            <HubSearch
+              className="dome-github-view__search-wrap min-w-[12rem] flex-1"
+              value={query}
+              onChange={setQuery}
+              placeholder={t('github.search_issue_milestone')}
+              aria-label={t('github.search_issue_milestone')}
+              clearLabel={t('common.cancel')}
+            />
           )}
 
           <div className="dome-github-view__tools-group">
@@ -205,12 +249,6 @@ export default function GitHubView() {
                 { value: 'developer', label: t('github.mode_developer'), icon: <HugeiconsIcon icon={CodeIcon} size={13} /> },
               ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
 
-            {/*
-             * The dev-mode segmented control is always rendered so the row
-             * width stays stable when switching modes. When not in
-             * developer mode we render an inert placeholder with the same
-             * intrinsic width (visibility: hidden keeps layout space).
-             */}
             {mode === 'developer' && !settingsOpen ? (
               <Tabs value={tab} onValueChange={(v) => setTab(v as GitHubTab)} className="min-w-0 dome-github-view__segmented"><TabsList aria-label={t('github.mode_developer_title')} className="h-auto w-full max-w-full flex-wrap">{(tabs.map(({ key, label, icon }) => ({
                   value: key,
@@ -235,14 +273,14 @@ export default function GitHubView() {
   size="icon-sm">
               <HugeiconsIcon icon={Settings01Icon} size={14} />
             </Button>
-            <Button className="dome-github-view__action-btn"
+            <Button className={cn('dome-github-view__action-btn', isSyncing && 'text-primary')}
   variant="outline"
   aria-label={t('github.sync_now')}
   onClick={handleSyncClick}
   size="icon-sm">
               <HugeiconsIcon icon={RefreshIcon}
                 size={14}
-                className={manualSyncing ? 'animate-spin text-primary' : undefined}
+                className={isSyncing ? 'animate-spin' : undefined}
               />
             </Button>
             <Button className="dome-github-view__action-btn"

@@ -88,6 +88,22 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
     blocks.push(`**user-memory**\n${opts.userMemory.trim()}`);
   }
 
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople
+      .map((person) => {
+        const identities = (person.identities || [])
+          .map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`)
+          .join(', ');
+        return identities
+          ? `- ${person.id}: ${person.title} (${identities})`
+          : `- ${person.id}: ${person.title}`;
+      })
+      .join('\n');
+    blocks.push(
+      `**mentioned-people** — ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.\n${lines}`,
+    );
+  }
+
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {
     const lines = opts.pinnedResources
       .map((r) => `- ${r.id}: ${r.title} (${r.type})`)

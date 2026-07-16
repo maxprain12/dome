@@ -1,40 +1,90 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ChevronDownIcon as ChevronDown,
-  EyeIcon as Eye,
-  EyeOffIcon as EyeOff,
-  Search01Icon as Search,
-  CheckmarkCircle02Icon as CheckCircle2,
-  AlertCircleIcon as AlertCircle,
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+  EyeIcon,
+  EyeOffIcon,
+  Search01Icon,
 } from '@hugeicons/core-free-icons';
-import { useCallback, useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useTranslation } from 'react-i18next';
-
-import { getAIConfig, saveAIConfig } from '@/lib/settings';
-import type { AISettings } from '@/types';
-import { cn } from '@/lib/utils';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { SettingsGroup } from '../blocks';
+import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import { showToast } from '@/lib/store/useToastStore';
+import type { AISettings } from '@/types';
+
 type WebSearchProvider = NonNullable<AISettings['web_search_provider']>;
 type WebFetchProvider = NonNullable<AISettings['web_fetch_provider']>;
 
 const SEARCH_PROVIDERS: WebSearchProvider[] = ['auto', 'tavily', 'brave', 'searxng', 'ddg'];
 const FETCH_PROVIDERS: WebFetchProvider[] = ['auto', 'jina', 'readability', 'tavily'];
 
+function SecretField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <InputGroup>
+        <InputGroupInput
+          id={id}
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+        <InputGroupAddon align="inline-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setShow((v) => !v)}
+            aria-label={show ? 'Hide' : 'Show'}
+          >
+            <HugeiconsIcon icon={show ? EyeOffIcon : EyeIcon} />
+          </Button>
+        </InputGroupAddon>
+      </InputGroup>
+    </Field>
+  );
+}
+
+/** Web tools: search + fetch provider choice with optional API keys. */
 export default function AIWebSearchTab() {
   const { t } = useTranslation();
   const [searchProvider, setSearchProvider] = useState<WebSearchProvider>('auto');
   const [fetchProvider, setFetchProvider] = useState<WebFetchProvider>('auto');
   const [tavilyKey, setTavilyKey] = useState('');
   const [braveKey, setBraveKey] = useState('');
-  const [showTavilyKey, setShowTavilyKey] = useState(false);
-  const [showBraveKey, setShowBraveKey] = useState(false);
   const [showOptionalKeys, setShowOptionalKeys] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,16 +104,19 @@ export default function AIWebSearchTab() {
     void loadConfig();
   }, [loadConfig]);
 
+  const persist = () =>
+    saveAIConfig({
+      web_search_provider: searchProvider,
+      web_fetch_provider: fetchProvider,
+      web_search_tavily_key: tavilyKey,
+      web_search_brave_key: braveKey,
+    });
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     try {
-      await saveAIConfig({
-        web_search_provider: searchProvider,
-        web_fetch_provider: fetchProvider,
-        web_search_tavily_key: tavilyKey,
-        web_search_brave_key: braveKey,
-      });
+      await persist();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (error) {
@@ -78,12 +131,7 @@ export default function AIWebSearchTab() {
     setTesting(true);
     setTestResult(null);
     try {
-      await saveAIConfig({
-        web_search_provider: searchProvider,
-        web_fetch_provider: fetchProvider,
-        web_search_tavily_key: tavilyKey,
-        web_search_brave_key: braveKey,
-      });
+      await persist();
       if (!window.electron?.ai?.testWebSearch) {
         setTestResult({ success: false, message: t('settings.ai.web_search.test_unavailable') });
         return;
@@ -111,105 +159,118 @@ export default function AIWebSearchTab() {
   };
 
   return (
-    <div className="min-w-0 w-full flex flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <p className="text-sm leading-relaxed text-muted-foreground">
         {t('settings.ai.web_search.zero_config_banner')}
       </p>
 
-      <Card className="p-4 flex flex-col gap-4">
-        <div className="grid sm:grid-cols-2">
-          <Field className="gap-1.5"><FieldLabel className="text-xs">{t('settings.ai.web_search.search_provider')}</FieldLabel><Select value={searchProvider} onValueChange={(next) => setSearchProvider(next as WebSearchProvider)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-            {SEARCH_PROVIDERS.map((id) => (
-              <SelectItem key={id} value={id}>
-                {t(`settings.ai.web_search.providers.${id}`)}
-              </SelectItem>
-            ))}
-          </SelectContent></Select></Field>
+      <SettingsGroup
+        actions={
+          <>
+            <Button type="button" size="sm" onClick={() => void handleSave()} disabled={saving}>
+              {saving ? <Spinner data-icon="inline-start" /> : null}
+              {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleTest()}
+              disabled={testing}
+            >
+              {testing ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <HugeiconsIcon icon={Search01Icon} data-icon="inline-start" />
+              )}
+              {testing ? t('settings.ai.testing') : t('settings.ai.test_brave')}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4 px-4 py-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel>{t('settings.ai.web_search.search_provider')}</FieldLabel>
+              <Select
+                value={searchProvider}
+                onValueChange={(next) => setSearchProvider(next as WebSearchProvider)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {SEARCH_PROVIDERS.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {t(`settings.ai.web_search.providers.${id}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
 
-          <Field className="gap-1.5"><FieldLabel className="text-xs">{t('settings.ai.web_search.fetch_provider')}</FieldLabel><Select value={fetchProvider} onValueChange={(next) => setFetchProvider(next as WebFetchProvider)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-            {FETCH_PROVIDERS.map((id) => (
-              <SelectItem key={id} value={id}>
-                {t(`settings.ai.web_search.fetch_providers.${id}`)}
-              </SelectItem>
-            ))}
-          </SelectContent></Select></Field>
-        </div>
+            <Field>
+              <FieldLabel>{t('settings.ai.web_search.fetch_provider')}</FieldLabel>
+              <Select
+                value={fetchProvider}
+                onValueChange={(next) => setFetchProvider(next as WebFetchProvider)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {FETCH_PROVIDERS.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {t(`settings.ai.web_search.fetch_providers.${id}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
 
-        <div>
-          <Button type="button"
-  variant="ghost"
-  className="!px-0 !text-muted-foreground hover:!text-foreground"
-  onClick={() => setShowOptionalKeys((v) => !v)}
-  size="sm">
-            {t('settings.ai.web_search.optional_keys')}
-          {
-              <HugeiconsIcon icon={ChevronDown}
-                className={cn('size-3.5 transition-transform', showOptionalKeys && 'rotate-180')}
+          <Collapsible open={showOptionalKeys} onOpenChange={setShowOptionalKeys}>
+            <CollapsibleTrigger className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none">
+              {t('settings.ai.web_search.optional_keys')}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 border-t pt-4">
+              <FieldGroup>
+                <SecretField
+                  id="web-tavily-key"
+                  label={t('settings.ai.web_search.tavily_key')}
+                  value={tavilyKey}
+                  onChange={setTavilyKey}
+                  placeholder="tvly-..."
+                />
+                <SecretField
+                  id="web-brave-key"
+                  label={t('settings.ai.brave_search_key_label')}
+                  value={braveKey}
+                  onChange={setBraveKey}
+                  placeholder="BSA..."
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {t('settings.ai.web_search.keys_hint')}
+                </p>
+              </FieldGroup>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {testResult ? (
+            <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
+              <HugeiconsIcon
+                icon={testResult.success ? CheckmarkCircle02Icon : AlertCircleIcon}
                 aria-hidden
               />
-            }</Button>
-
-          {showOptionalKeys ? (
-            <div className="mt-3 flex flex-col gap-4 border-t border-border pt-4">
-              <div>
-                <label htmlFor="web-tavily-key" className="block text-sm font-medium mb-1.5 text-foreground">
-                  {t('settings.ai.web_search.tavily_key')}
-                </label>
-                <div className="relative w-full">
-                  <Input className="w-full [&_input]:pr-10 pr-10" id="web-tavily-key" type={showTavilyKey ? 'text' : 'password'} value={tavilyKey} onChange={(e) => setTavilyKey(e.target.value)} placeholder="tvly-..." />
-                  <Button type="button"
-  variant="ghost"
-  className="absolute right-1 top-1/2 -translate-y-1/2"
-  onClick={() => setShowTavilyKey((v) => !v)}
-  aria-label={showTavilyKey ? 'Hide' : 'Show'}
-  size="icon-xs">
-                    {showTavilyKey ? <HugeiconsIcon icon={EyeOff} className="size-3.5" /> : <HugeiconsIcon icon={Eye} className="size-3.5" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="web-brave-key" className="block text-sm font-medium mb-1.5 text-foreground">
-                  {t('settings.ai.brave_search_key_label')}
-                </label>
-                <div className="relative w-full">
-                  <Input className="w-full [&_input]:pr-10 pr-10" id="web-brave-key" type={showBraveKey ? 'text' : 'password'} value={braveKey} onChange={(e) => setBraveKey(e.target.value)} placeholder="BSA..." />
-                  <Button type="button"
-  variant="ghost"
-  className="absolute right-1 top-1/2 -translate-y-1/2"
-  onClick={() => setShowBraveKey((v) => !v)}
-  aria-label={showBraveKey ? 'Hide' : 'Show'}
-  size="icon-xs">
-                    {showBraveKey ? <HugeiconsIcon icon={EyeOff} className="size-3.5" /> : <HugeiconsIcon icon={Eye} className="size-3.5" />}
-                  </Button>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">{t('settings.ai.web_search.keys_hint')}</p>
-            </div>
+              <AlertDescription className="text-xs">{testResult.message}</AlertDescription>
+            </Alert>
           ) : null}
         </div>
-
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button type="button"
-  onClick={() => void handleSave()}
-  loading={saving}>
-            {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
-          </Button>
-          <Button type="button"
-  variant="outline"
-  onClick={() => void handleTest()}
-  loading={testing}>{<HugeiconsIcon icon={Search} className="size-4" aria-hidden />}
-            {testing ? t('settings.ai.testing') : t('settings.ai.test_brave')}
-          </Button>
-        </div>
-
-        {testResult ? (
-          <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
-            {testResult.success ? <HugeiconsIcon icon={CheckCircle2} aria-hidden /> : <HugeiconsIcon icon={AlertCircle} aria-hidden />}
-            <AlertDescription className="text-xs">{testResult.message}</AlertDescription>
-          </Alert>
-        ) : null}
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

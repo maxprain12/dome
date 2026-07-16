@@ -99,6 +99,23 @@ Manual: `threads:compact` IPC → `session_compact` event.
 Estimates use chars÷4 (refined with `estimateContextTokens` when usage blocks exist).
 Live fill uses provider `inputTokens`.
 
+## Memory boundary (LTM vs session vs skills)
+
+Do **not** mix these stores:
+
+| Store | Path | Role |
+| ----- | ---- | ---- |
+| Session / compaction | `{userData}/agent-sessions/*.jsonl` | Ephemeral run history + autocompaction summaries |
+| User LTM | `{userData}/martin/` (`SOUL.md`, `USER.md`, `MEMORY.md`, `memory/YYYY-MM-DD.md`, `domains/*`) | Persistent user/persona memory |
+| Skills | `~/.dome/skills/` | Procedural `SKILL.md` packs |
+| Project memory | `{vaultRoot}/AGENTS.md` | Per-project instructions |
+
+Single loader: `electron/personality/context-files.cjs` → `loadAgentMemoryContext({ memoryEnabled, projectId, includeProject })`.
+
+- Many / automations (`targetType=many`) inject the same volatile LTM (+ optional `AGENTS.md`).
+- `memoryEnabled=false` clears the LTM block **and** omits `remember_fact`; SOUL persona still loads.
+- Session compaction never writes to `MEMORY.md`.
+
 ## Many session persistence
 
 Many chat history uses a **JSONL session model** — not a dual localStorage + SQLite list:

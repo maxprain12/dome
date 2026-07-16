@@ -1,17 +1,20 @@
+import { cn } from '@/lib/utils';
+
 interface ManyIconProps {
-  className?: string;
   size?: number;
+  className?: string;
 }
 
-export default function ManyIcon({ className = '', size = 24 }: ManyIconProps) {
+/** Many brand mark. Plain image, no chrome — wrap in ManyAvatar for state. */
+export default function ManyIcon({ size = 24, className }: ManyIconProps) {
   return (
     <img
       src="/many.png"
       alt="Many"
       width={size}
       height={size}
-      className={className}
-      style={{ objectFit: 'contain' }}
+      draggable={false}
+      className={cn('select-none object-contain', className)}
     />
   );
 }

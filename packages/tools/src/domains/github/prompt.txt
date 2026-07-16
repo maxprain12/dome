@@ -20,9 +20,14 @@ Load this doc (`dome_load_doc({ id: "github_tool" })`) before mutating GitHub (`
 ## Write tools (GitHub API)
 | Tool | Required fields |
 |------|-----------------|
-| `github_create_issue` | `repo_id`, `title`; optional `body`, `milestone_number`, `labels`. Add `due:YYYY-MM-DD` in body for calendar. |
+| `github_create_issue` | `repo_id`, `title`; optional `body`, `milestone_number`, `labels`, **`assignees`** (GitHub logins) |
 | `github_update_issue` | `issue_id`; patch `title`, `body`, `state`, `milestone_number` |
 | `github_create_milestone` | `repo_id`, `title`; optional `description`, `due_on` (ISO date), `state` open/closed |
+
+## Mentioned people → assignees
+- When Source has **mentioned-people** with `github:login`, pass those logins in `assignees` (no `@`).
+- Do **not** invent logins. If no github identity, ask once or note “suggested assignee” in the body.
+- If assign fails for permissions, keep the issue and mention the suggested assignee in the body.
 
 ## HITL (Many only)
 Creating/updating issues and milestones requires **user approval** in Many.
@@ -32,3 +37,4 @@ Workflows and automations run with `skipHitl` — no approval card.
 - Always `github_list_repos` before first write if you do not have `repo_id`.
 - Milestone numbers are per-repo GitHub numbers, not Dome ids.
 - Source tag in results: `"source": "github"`.
+- Light `remember_fact` (general) is OK after creating an assigned issue; do not dump issue bodies into MEMORY.

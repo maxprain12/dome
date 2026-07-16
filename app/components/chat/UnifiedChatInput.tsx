@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { ComponentProps } from 'react';
-import ManyComposer from '@/components/many/chat/ManyComposer';
+import ManyComposer from '@/components/many/composer/ManyComposer';
 import AgentChatInput from '@/components/agents/AgentChatInput';
 
 export type UnifiedChatInputProps =
@@ -8,17 +8,17 @@ export type UnifiedChatInputProps =
   | ({ mode: 'agent' } & ComponentProps<typeof AgentChatInput>);
 
 /**
- * Entrada de chat unificada: `mode="many"` reutiliza Many (capacidades, @, adjuntos);
- * `mode="agent"` reutiliza el input de agente (MCPs/tools, adjuntos). Los stores siguen en los padres.
- * Incluye / skills, @ en agente, selector de modelo y menú + anidado.
+ * Entrada de chat unificada: `mode="many"` reutiliza el composer de Many
+ * (capacidades, @, adjuntos); `mode="agent"` reutiliza el input de agente
+ * (MCPs/tools, adjuntos). Los stores siguen en los padres.
  */
 function UnifiedChatInput(props: UnifiedChatInputProps) {
   if (props.mode === 'agent') {
     const { mode: _m, ...rest } = props;
     return <AgentChatInput {...rest} />;
   }
-  const { mode: _m, children, ...rest } = props;
-  return <ManyComposer {...rest}>{children}</ManyComposer>;
+  const { mode: _m, ...rest } = props;
+  return <ManyComposer {...rest} />;
 }
 
 export default memo(UnifiedChatInput);

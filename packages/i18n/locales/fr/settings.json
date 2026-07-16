@@ -1,5 +1,8 @@
 {
   "title": "Paramètres",
+  "back_to_app": "Retour à l'application",
+  "search": "Rechercher dans les paramètres…",
+  "search_empty": "Aucun paramètre trouvé.",
   "tabs": {
     "general": "Général",
     "appearance": "Apparence",
@@ -134,6 +137,8 @@
     "context_doc_soul": "SOUL",
     "context_doc_user": "USER",
     "context_doc_memory": "MEMORY",
+    "context_doc_social": "Social",
+    "context_doc_email": "Email",
     "context_doc_daily": "Journaux récents",
     "context_view_full": "Fichier complet",
     "context_view_agent": "Vue agent",

@@ -62,6 +62,7 @@ const quizHandlers = require('./learn/quiz.cjs');
 const minimaxFilesHandlers = require('./media/minimax-files.cjs');
 const copilotHandlers = require('./integrations/copilot.cjs');
 const githubHandlers = require('./integrations/github.cjs');
+const peopleHandlers = require('./integrations/people.cjs');
 
 let _ipcRegistered = false;
 
@@ -186,7 +187,7 @@ function registerAll(deps) {
   minimaxFilesHandlers.register({ ipcMain: secureIpcMain, validateSender });
   copilotHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   githubHandlers.register({ ipcMain: secureIpcMain, windowManager });
-
+  peopleHandlers.register({ ipcMain: secureIpcMain, windowManager });
 }
 
 module.exports = { registerAll };

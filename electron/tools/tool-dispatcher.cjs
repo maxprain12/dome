@@ -432,7 +432,7 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
         break;
       }
       case 'rememberFact':
-        result = await fn(args.key || '', args.value || '');
+        result = await fn(args.key || '', args.value || '', args.domain || 'general');
         break;
       case 'getDocumentStructure': {
         const rid = args.resource_id || args.resourceId;

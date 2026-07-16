@@ -1,6 +1,14 @@
 import type { IconSvgElement } from '@hugeicons/react';
 
-export type PaletteKind = 'nav' | 'action' | 'resource' | 'interaction';
+export type PaletteKind =
+  | 'nav'
+  | 'action'
+  | 'resource'
+  | 'interaction'
+  | 'person'
+  | 'issue'
+  | 'email'
+  | 'social_post';
 
 interface PaletteRowBase {
   id: string;
@@ -29,6 +37,10 @@ export type PaletteRow =
       type: string;
       /** Backing resource id for the preview pane. */
       resourceId: string;
+    })
+  | (PaletteRowBase & {
+      kind: 'person' | 'issue' | 'email' | 'social_post';
+      icon: IconSvgElement;
     });
 
 export interface SearchResourceRow {
@@ -38,10 +50,20 @@ export interface SearchResourceRow {
   updated_at?: number;
 }
 
+export interface SourceHitRow {
+  kind: 'person' | 'issue' | 'email' | 'social_post';
+  id: string;
+  title: string;
+  snippet?: string;
+  projectId?: string;
+  meta?: Record<string, unknown> | null;
+}
+
 export interface PaletteSearchState {
   query: string;
   resources: SearchResourceRow[];
   interactions: SearchResourceRow[];
+  sources: SourceHitRow[];
   isSearching: boolean;
 }
 
@@ -49,13 +71,19 @@ export type PaletteSearchAction =
   | { type: 'RESET' }
   | { type: 'SET_QUERY'; query: string }
   | { type: 'SEARCH_START' }
-  | { type: 'SEARCH_SUCCESS'; resources: SearchResourceRow[]; interactions: SearchResourceRow[] }
+  | {
+      type: 'SEARCH_SUCCESS';
+      resources: SearchResourceRow[];
+      interactions: SearchResourceRow[];
+      sources: SourceHitRow[];
+    }
   | { type: 'SEARCH_FAIL' };
 
 export const initialPaletteSearchState: PaletteSearchState = {
   query: '',
   resources: [],
   interactions: [],
+  sources: [],
   isSearching: false,
 };
 
@@ -75,15 +103,26 @@ export function paletteSearchReducer(
         ...state,
         resources: action.resources,
         interactions: action.interactions,
+        sources: action.sources,
         isSearching: false,
       };
     case 'SEARCH_FAIL':
-      return { ...state, resources: [], interactions: [], isSearching: false };
+      return {
+        ...state,
+        resources: [],
+        interactions: [],
+        sources: [],
+        isSearching: false,
+      };
     default: {
       const _exhaustive: never = action;
       return _exhaustive;
     }
   }
+}
+
+export function sourcesByKind(sources: SourceHitRow[], kind: SourceHitRow['kind']): SourceHitRow[] {
+  return sources.filter((s) => s.kind === kind);
 }
 
 export function modKeyLabel(): string {

@@ -274,6 +274,24 @@ Los siguientes tipos de trigger están planificados pero no implementados:
 
 ---
 
+## Provider matrix — social comment → DM (plan 014)
+
+Regla objetivo: comentario con hashtag (p. ej. `#Curso`) → DM con enlace.
+
+**STOP condition aplicada (014):** se envió draft_only + matrix sin adapters.
+
+**Estado 018:** adapters `listComments` + `sendDm` implementados para Instagram, LinkedIn y X; poller cada 5 min; mode default `live` + cold DM. El envío real sigue dependiendo de productos/App Review/tier de cada red — si la API rechaza, el draft queda en `failed` (nunca se finge éxito).
+
+| Provider | Listar comentarios | Enviar DM | Contadores | Scopes / notas |
+|----------|-------------------|-----------|------------|----------------|
+| LinkedIn | Sí (`socialActions/.../comments`) | Sí (best-effort `rest/messages` + legacy) | Sí | Org CMA recomendado; messaging a menudo partner-gated |
+| Instagram | Sí (`/{media}/comments`) | Sí (`/{ig-user}/messages`) | Sí | Requiere `manage_comments` + `manage_messages` + reconnect |
+| X | Sí (search `conversation_id`) | Sí (`dm_conversations/with/.../messages`) | Sí | Requiere `dm.read`/`dm.write` + tier API adecuado |
+
+Código: `provider-capabilities.cjs`, `social-messaging.cjs`, `providers/*.cjs`, poller en `social-service.cjs`, IPC `social:drafts:*` / `social:live-reply-rules:*`, UI Monitor.
+
+---
+
 *Ver también: [runs.md](./runs.md) para la documentación del Run Engine.*
 
 ## KB LLM (wiki compilada)

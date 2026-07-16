@@ -20,6 +20,16 @@ import './markdown-renderer.css';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * Preprocess content: convert [text](person:ID) to dome://person/ID
+ */
+function preprocessPersonLinks(content: string): string {
+  return content.replace(
+    /\[([^\]]*)\]\(\s*person:([^)\s]+)\s*\)/g,
+    (_, label, id) => `[${label}](dome://person/${id})`,
+  );
+}
+
+/**
  * Preprocess content: convert [text](resource://ID) to dome://resource/ID/document
  * resource:// is wrong; dome:// is the only supported protocol
  */
@@ -256,6 +266,35 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         return;
       }
 
+      const personMatch = href.match(/^dome:\/\/person\/([^/?#]+)/);
+      if (personMatch) {
+        const personId = personMatch[1];
+        try {
+          const lookup = await electron.people?.get?.(personId);
+          const person = lookup?.success ? lookup.data?.person : null;
+          if (!person) {
+            showToast('error', t('toast.resource_not_found'));
+            return;
+          }
+          const identities = Array.isArray(person.identities) ? person.identities : [];
+          const hasEmail = identities.some((i: { source?: string }) => i.source === 'email') || !!person.primaryEmail;
+          const hasGithub = identities.some((i: { source?: string }) => i.source === 'github');
+          if (hasEmail) {
+            useTabStore.getState().openEmailTab();
+          } else if (hasGithub) {
+            useTabStore.getState().openGitHubTab();
+          }
+          showToast(
+            'success',
+            `${person.displayName}${identities.length ? ` · ${identities.map((i: { source: string; externalId: string }) => `${i.source}:${i.externalId}`).slice(0, 2).join(', ')}` : ''}`,
+          );
+        } catch (err) {
+          console.error('[MarkdownRenderer] Failed to resolve person:', err);
+          showToast('error', t('toast.internal_link_error'));
+        }
+        return;
+      }
+
       const resourceMatch = href.match(/^dome:\/\/resource\/([^/]+)(?:\/([^?#]+))?(?:\?([^#]*))?/);
       if (resourceMatch) {
         const [, resourceId, explicitResourceType, queryString] = resourceMatch;
@@ -403,8 +442,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           typeof href === 'string' && href.startsWith('dome://studio/');
         const isDomeResolve =
           typeof href === 'string' && href.startsWith('dome://resolve/');
+        const isDomePerson =
+          typeof href === 'string' && href.startsWith('dome://person/');
 
-        const isDomeLink = isDomeResource || isDomeFolder || isDomeStudio || isDomeResolve;
+        const isDomeLink =
+          isDomeResource || isDomeFolder || isDomeStudio || isDomeResolve || isDomePerson;
 
         // Use button for ALL links to avoid browser handling and ensure reliable clicks.
         // Prevents dome:// from being opened by the OS and http(s) from navigating away.
@@ -508,9 +550,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
       preprocessWikilinks(
         preprocessFolderLinksWithHttp(
           preprocessVerLinksWithHttp(
-            preprocessResourceLinks(preprocessResourceProtocol(content))
-          )
-        )
+            preprocessResourceLinks(
+              preprocessResourceProtocol(preprocessPersonLinks(content)),
+            ),
+          ),
+        ),
       ),
     [content]
   );

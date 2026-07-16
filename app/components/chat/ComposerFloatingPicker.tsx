@@ -61,6 +61,8 @@ export function ComposerFloatingPicker({
         >
           <PopoverPrimitive.Popup
             data-slot="composer-floating-picker"
+            initialFocus={false}
+            finalFocus={false}
             className={cn(
               'z-50 flex origin-(--transform-origin) flex-col overflow-hidden rounded-3xl bg-popover p-0 text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-hidden duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 dark:ring-foreground/10',
               className,

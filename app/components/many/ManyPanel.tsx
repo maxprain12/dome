@@ -1,34 +1,32 @@
-import { useState, useRef, useCallback, useMemo, startTransition } from 'react';
-import ContextUsageIndicator from './ContextUsageIndicator';
+import { useCallback, useMemo, useRef, useState, startTransition } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import ManyChatHeader from './ManyChatHeader';
-import ManyChatHistoryPanel from './ManyChatHistoryPanel';
-import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
-import ManyComposer from '@/components/many/chat/ManyComposer';
-import { ManyPanelChrome, ManyTranscript, ManyWelcomeScreen } from '@/components/many/chat/ManyPanelView';
+import ManyHeader, { type ManyPanelViewId } from './panel/ManyHeader';
+import ManyHistoryView from './panel/ManyHistoryView';
+import ManyContextView from './panel/ManyContextView';
+import ManyConversation, {
+  type ManyConversationHandle,
+} from './conversation/ManyConversation';
+import ManyWelcome from './conversation/ManyWelcome';
+import { ManyCompactionNotice, ManyLoadingMarker, ManyPdfRegionChip } from './conversation/ManyNotices';
+import ManyComposer from './composer/ManyComposer';
+import ContextUsageIndicator from './ContextUsageIndicator';
+import UICursorOverlay from './UICursorOverlay';
 import { useManyStore } from '@/lib/store/useManyStore';
-import { useManyConversationSettings } from './useManyConversationSettings';
-import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useManyConversationSettings } from '@/lib/many/useManyConversationSettings';
+import { useManySessionSync } from '@/lib/many/useManySessionSync';
+import { useManyRunLifecycle } from '@/lib/many/useManyRunLifecycle';
+import { useManySend } from '@/lib/many/useManySend';
+import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
 import { estimateClientBudgetFromChat } from '@/lib/chat/contextUsage';
 import { createManyToolsForContext } from '@/lib/ai';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { showToast } from '@/lib/store/useToastStore';
-import type { ManyMessageThreadHandle } from '@/components/many/chat/ManyMessageThread';
-import { manyContextSlotPlacement } from '@/lib/many/contextSlotPlacement';
-import { useManySessionSync } from '@/lib/many/useManySessionSync';
-import { useManyRunLifecycle } from '@/lib/many/useManyRunLifecycle';
-import { useManySend } from '@/lib/many/useManySend';
-import UICursorOverlay from './UICursorOverlay';
-import { cn } from '@/lib/utils';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import ResourceIcon from '@/components/shared/ResourceIcon';
+import { cn } from '@/lib/utils';
 
 interface ManyPanelProps {
   width: number;
@@ -61,9 +59,7 @@ export default function ManyPanel({
     addMessage,
     clearMessages,
     startNewChat,
-    switchSession: _switchSession,
-    deleteSession: _deleteSession,
-    sessions,
+    switchSession,
     currentSessionId,
     currentResourceId,
     currentResourceTitle,
@@ -78,8 +74,6 @@ export default function ManyPanel({
       clearMessages: s.clearMessages,
       startNewChat: s.startNewChat,
       switchSession: s.switchSession,
-      deleteSession: s.deleteSession,
-      sessions: s.sessions,
       currentSessionId: s.currentSessionId,
       currentResourceId: s.currentResourceId,
       currentResourceTitle: s.currentResourceTitle,
@@ -104,11 +98,12 @@ export default function ManyPanel({
 
   const [input, setInput] = useState('');
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showContext, setShowContext] = useState(false);
+  const [view, setView] = useState<ManyPanelViewId>('chat');
+  const [fullscreenHistoryOpen, setFullscreenHistoryOpen] = useState(isFullscreen);
   const [isLoading, setIsLoading] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
+  const settings = useManyConversationSettings();
   const {
     toolsEnabled,
     setToolsEnabled,
@@ -120,13 +115,11 @@ export default function ManyPanel({
     supportsTools,
     soulContent,
     userMemory,
-    providerInfo,
-    providerId,
     budgetCapApprox,
-  } = useManyConversationSettings();
+  } = settings;
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const messageThreadRef = useRef<ManyMessageThreadHandle>(null);
+  const conversationRef = useRef<ManyConversationHandle>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
   const scrollToBottomRef = useRef<(force?: boolean) => void>(() => {});
@@ -139,7 +132,7 @@ export default function ManyPanel({
 
   const { currentSession, currentSessionIdRef, refreshSessionFromThreadRef } = useManySessionSync({
     chatProjectId,
-    showHistory,
+    showHistory: view === 'history' || (isFullscreen && fullscreenHistoryOpen),
   });
 
   const activeTools = useMemo(() => {
@@ -204,11 +197,11 @@ export default function ManyPanel({
   });
 
   const scrollToBottom = useCallback((_force?: boolean) => {
-    messageThreadRef.current?.scrollToEnd('auto');
+    conversationRef.current?.scrollToEnd('auto');
   }, []);
 
   const resetScrollLock = useCallback(() => {
-    messageThreadRef.current?.resetScrollLock();
+    conversationRef.current?.resetScrollLock();
   }, []);
 
   scrollToBottomRef.current = scrollToBottom;
@@ -265,13 +258,9 @@ export default function ManyPanel({
     t,
   });
 
+  // Consume a queued handoff (PDF region → Many) into the input field.
   const prevHandoffRef = useRef<string | null>(null);
-  if (
-    pendingManyHandoff &&
-    pendingManyHandoff !== prevHandoffRef.current &&
-    isVisible &&
-    !isHeadless
-  ) {
+  if (pendingManyHandoff && pendingManyHandoff !== prevHandoffRef.current && isVisible && !isHeadless) {
     const text = pendingManyHandoff;
     prevHandoffRef.current = text;
     setInput(text);
@@ -287,9 +276,9 @@ export default function ManyPanel({
     prevHandoffRef.current = null;
   }
 
-  const handleDismissManyError = useCallback(() => setError(null), [setError]);
+  const handleDismissError = useCallback(() => setError(null), [setError]);
 
-  const handleReportManyError = useCallback(() => {
+  const handleReportError = useCallback(() => {
     if (!error) return;
     void navigator.clipboard
       .writeText(error)
@@ -297,7 +286,7 @@ export default function ManyPanel({
         showToast('info', t('many.error_copied'));
       })
       .catch(() => {
-        showToast('error', t('viewer.transcript_copy_failed'));
+        showToast('error', t('media.transcript_copy_failed'));
       });
   }, [error, t]);
 
@@ -308,88 +297,23 @@ export default function ManyPanel({
     }
   }, [clearMessages, t]);
 
-  const contextDescription = effectiveResourceTitle?.trim() ?? '';
-  const contextSlot = manyContextSlotPlacement({ isFullscreen, showContextUsage });
-
-  const composerContextUsageSlot = contextSlot.composer ? (
-    <ManyComposer.ContextUsage>
-      <ContextUsageIndicator
-        key={currentSessionId ?? 'none'}
-        breakdown={displayBudget!}
-        liveUsage={sessionLiveUsage}
-        budgetCapApprox={budgetCapApprox}
-        variant="header"
-      />
-    </ManyComposer.ContextUsage>
-  ) : null;
-
-  const composerProps = {
-    input,
-    setInput,
-    inputRef,
-    isLoading: isLoading || !!pdfRegionStreamingMessage?.isStreaming,
-    toolsEnabled,
-    resourceToolsEnabled,
-    memoryEnabled,
-    setToolsEnabled,
-    setResourceToolsEnabled,
-    setMemoryEnabled,
-    supportsTools,
-    onSend: () => void handleSend(),
-    onAbort: handleAbort,
-    inputPlaceholderOverride: pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null,
-    attachments: chatAttachments,
-    onAttachmentsChange: setChatAttachments,
-    showComposerKeyboardHint: true as const,
-    compact: !isFullscreen,
-    children: composerContextUsageSlot,
-  };
-
-  const welcomeComposer = (
-    <ManyComposer
-      {...composerProps}
-      isWelcomeScreen
-      isLoading={isLoading}
-      compact={false}
-      showComposerKeyboardHint={false}
-    />
-  );
-
-  const bottomComposer = <ManyComposer {...composerProps} />;
-
-  const showWelcomeFullscreen =
-    isFullscreen &&
-    chatMessages.length === 0 &&
-    !streamingMessage &&
-    !pdfRegionStreamingMessage &&
-    !pendingPdfRegion;
-
-  const showBottomComposer = !showWelcomeFullscreen;
-
   const handleSelectSession = useCallback(
     (id: string) => {
-      if (id === currentSessionId) {
-        setShowHistory(false);
-        return;
+      if (id !== currentSessionId) {
+        startTransition(() => {
+          switchSession(id);
+        });
       }
-      startTransition(() => {
-        _switchSession(id);
-      });
-      setShowHistory(false);
+      setView('chat');
+      if (isFullscreen) setFullscreenHistoryOpen(false);
     },
-    [_switchSession, currentSessionId],
+    [switchSession, currentSessionId, isFullscreen],
   );
 
-  const prevIsFullscreenRef = useRef(isFullscreen);
-  if (isFullscreen !== prevIsFullscreenRef.current) {
-    prevIsFullscreenRef.current = isFullscreen;
-    setShowHistory(isFullscreen);
-  }
-
-  const handleToggleHistory = useCallback(() => {
-    setShowContext(false);
-    setShowHistory((v) => !v);
-  }, []);
+  const handleStartNewChat = useCallback(() => {
+    startNewChat();
+    setView('chat');
+  }, [startNewChat]);
 
   const openChatTab = useTabStore((s) => s.openChatTab);
 
@@ -410,9 +334,7 @@ export default function ManyPanel({
     const sessionId = useManyStore.getState().currentSessionId;
     if (!sessionId) return;
     const session = useManyStore.getState().sessions.find((s) => s.id === sessionId);
-    const title = session?.title
-      ? sanitizeManySessionTitle(session.title)
-      : t('shell.new_chat');
+    const title = session?.title ? sanitizeManySessionTitle(session.title) : t('shell.new_chat');
     openChatTab(sessionId, title);
   }, [isFullscreen, currentSessionId, startNewChat, openChatTab, t]);
 
@@ -422,13 +344,12 @@ export default function ManyPanel({
     const session = sessionId
       ? useManyStore.getState().sessions.find((s) => s.id === sessionId)
       : null;
-    const title = session?.title
-      ? sanitizeManySessionTitle(session.title)
-      : t('many.many');
+    const title = session?.title ? sanitizeManySessionTitle(session.title) : t('many.many');
     let backgroundColor: string | undefined;
     if (typeof document !== 'undefined') {
       backgroundColor =
-        getComputedStyle(document.documentElement).getPropertyValue('--background').trim() || undefined;
+        getComputedStyle(document.documentElement).getPropertyValue('--background').trim() ||
+        undefined;
     }
     const route = sessionId
       ? `/standalone/many?session=${encodeURIComponent(sessionId)}`
@@ -457,14 +378,53 @@ export default function ManyPanel({
     return null;
   }
 
+  const contextDescription = effectiveResourceTitle?.trim() ?? '';
+  const isComposerBusy = isLoading || !!pdfRegionStreamingMessage?.isStreaming;
+
+  const contextUsageNode =
+    showContextUsage && displayBudget ? (
+      <ContextUsageIndicator
+        key={currentSessionId ?? 'none'}
+        breakdown={displayBudget}
+        liveUsage={sessionLiveUsage}
+        budgetCapApprox={budgetCapApprox}
+      />
+    ) : null;
+
+  const composerSharedProps = {
+    input,
+    setInput,
+    inputRef,
+    toolsEnabled,
+    resourceToolsEnabled,
+    memoryEnabled,
+    setToolsEnabled,
+    setResourceToolsEnabled,
+    setMemoryEnabled,
+    supportsTools,
+    onSend: () => void handleSend(),
+    onAbort: handleAbort,
+    placeholderOverride: pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null,
+    attachments: chatAttachments,
+    onAttachmentsChange: setChatAttachments,
+  };
+
+  const isTranscriptEmpty =
+    chatMessages.length === 0 && !streamingMessage && !pdfRegionStreamingMessage;
+
+  const showWelcomeHero =
+    isFullscreen && isTranscriptEmpty && !pendingPdfRegion;
+
+  const setPromptFromSuggestion = (text: string) => {
+    setInput(text);
+    inputRef.current?.focus();
+  };
+
   return (
     <>
       <UICursorOverlay />
       <div
-        className={cn(
-          'flex h-full shrink-0 flex-col overflow-hidden border-l',
-          isPopout && 'many-panel--popout',
-        )}
+        className={cn('flex h-full shrink-0 flex-col overflow-hidden bg-sidebar')}
         style={
           isFullscreen
             ? {
@@ -472,7 +432,6 @@ export default function ManyPanel({
                 width: '100%',
                 minWidth: 0,
                 maxWidth: 'none',
-                ...(isPopout ? {} : { background: 'var(--background)' }),
                 borderLeftWidth: 0,
                 opacity: 1,
                 pointerEvents: 'auto',
@@ -482,178 +441,145 @@ export default function ManyPanel({
                 width: isVisible ? `${width}px` : '0px',
                 minWidth: isVisible ? 320 : 0,
                 maxWidth: isVisible ? 600 : 0,
-                background: 'var(--background)',
-                borderColor: 'var(--border)',
                 borderLeftWidth: isVisible ? undefined : '0px',
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
                 pointerEvents: isVisible ? 'auto' : 'none',
-                transition: 'transform var(--duration-ui) var(--ease-out), opacity var(--duration-fast) var(--ease-out)',
+                transition:
+                  'transform var(--duration-ui) var(--ease-out), opacity var(--duration-fast) var(--ease-out)',
               }
         }
       >
-        <ManyChatHeader
+        <ManyHeader
           status={status}
-          providerInfo={providerInfo}
-          providerId={providerId}
-          contextDescription={contextDescription}
-          messagesCount={messages.length}
-          loadingHint={loadingHint}
           sessionTitle={
-            currentSession?.title
-              ? sanitizeManySessionTitle(currentSession.title)
-              : undefined
+            currentSession?.title ? sanitizeManySessionTitle(currentSession.title) : undefined
           }
-          historyOpen={showHistory}
+          contextDescription={contextDescription}
+          loadingHint={loadingHint}
+          view={view}
+          onViewChange={setView}
+          showViewSwitcher={!isFullscreen}
+          historyOpen={fullscreenHistoryOpen}
+          onToggleHistory={() => setFullscreenHistoryOpen((v) => !v)}
+          showHistoryToggle={isFullscreen}
+          onStartNewChat={handleStartNewChat}
           onClear={handleClear}
-          onStartNewChat={() => {
-            startNewChat();
-            setShowHistory(false);
-          }}
-          onToggleHistory={handleToggleHistory}
+          canClear={messages.length > 0}
           onClose={onClose}
           showClose={!isFullscreen || isPopout}
-          showHistoryToggle
           isPopout={isPopout}
           showFullscreenToggle={!isPopout}
           isFullscreenActive={isFullscreen}
           onToggleFullscreen={handleToggleFullscreen}
           showPopoutToggle={!isPopout}
           onPopout={() => void handlePopout()}
-        >
-          {contextSlot.header ? (
-            <ManyChatHeader.ContextUsage>
-              <ContextUsageIndicator
-                key={currentSessionId ?? 'none'}
-                breakdown={displayBudget!}
-                liveUsage={sessionLiveUsage}
-                budgetCapApprox={budgetCapApprox}
-                variant="header"
-              />
-            </ManyChatHeader.ContextUsage>
-          ) : null}
-        </ManyChatHeader>
+        />
 
-        {!isFullscreen ? (
-          <Tabs
-            value={showContext ? 'context' : showHistory ? 'history' : 'conversation'}
-            onValueChange={(value) => {
-              setShowContext(value === 'context');
-              setShowHistory(value === 'history');
-            }}
-            className="shrink-0 border-b px-3 py-2"
-          >
-            <TabsList className="w-full">
-              <TabsTrigger value="conversation" className="flex-1">{t('many.conversation', 'Conversación')}</TabsTrigger>
-              <TabsTrigger value="history" className="flex-1">{t('many.history', 'Historial')}</TabsTrigger>
-              <TabsTrigger value="context" className="flex-1">{t('many.context', 'Contexto')}</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        {view === 'history' && !isFullscreen ? (
+          <ManyHistoryView onSelectSession={handleSelectSession} onNewChat={handleStartNewChat} />
         ) : null}
 
-        {showHistory && !isFullscreen ? (
-          <ManyChatHistoryPanel
-            sessions={sessions}
-            currentSessionId={currentSessionId}
-            onSelectSession={handleSelectSession}
-            onNewChat={() => {
-              startNewChat();
-              setShowHistory(false);
-            }}
-            onDeleteSession={_deleteSession}
-            onClose={() => setShowHistory(false)}
+        {view === 'context' && !isFullscreen ? (
+          <ManyContextView
+            contextDescription={contextDescription}
+            settings={settings}
+            contextUsage={contextUsageNode}
           />
         ) : null}
 
-        {showContext && !isFullscreen ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-            <Card size="sm" className="shadow-sm">
-              <CardHeader>
-                <CardTitle>{t('many.context', 'Contexto')}</CardTitle>
-                <CardDescription>{contextDescription || t('many.no_context', 'Sin contexto activo')}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <Badge variant="outline">{currentResourceTitle || activeShellTab?.title || t('workspace.home')}</Badge>
-                <div className="flex flex-wrap gap-2">
-                  {pinnedResources.map((resource) => (
-                    <Badge key={resource.id} variant="secondary" className="max-w-full">
-                      <ResourceIcon type={resource.type} name={resource.title} size={12} />
-                      <span className="truncate">{resource.title}</span>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            {showContextUsage && displayBudget ? (
-              <ContextUsageIndicator
-                key={currentSessionId ?? 'none'}
-                breakdown={displayBudget}
-                liveUsage={sessionLiveUsage}
-                budgetCapApprox={budgetCapApprox}
-                variant="inline"
-              />
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className={cn('min-h-0 min-w-0 flex-1 flex-row overflow-hidden', showContext && !isFullscreen ? 'hidden' : 'flex')}>
+        <div
+          className={cn(
+            'min-h-0 min-w-0 flex-1 flex-row overflow-hidden',
+            view !== 'chat' && !isFullscreen ? 'hidden' : 'flex',
+          )}
+        >
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {showWelcomeFullscreen ? (
-              <ManyWelcomeScreen
-                variant="fullscreen"
-                isPopout={isPopout}
+            {showWelcomeHero ? (
+              <ManyWelcome
+                variant="hero"
                 supportsTools={supportsTools}
-                composer={welcomeComposer}
-                onPrompt={(text) => {
-                  setInput(text);
-                  inputRef.current?.focus();
-                }}
+                onPrompt={setPromptFromSuggestion}
+                composer={
+                  <ManyComposer
+                    {...composerSharedProps}
+                    isLoading={isLoading}
+                    variant="welcome"
+                    showKeyboardHint={false}
+                    contextUsage={contextUsageNode}
+                  />
+                }
               />
             ) : (
-              <ManyTranscript
-                threadRef={messageThreadRef}
+              <ManyConversation
+                ref={conversationRef}
                 isFullscreen={isFullscreen}
-                isPopout={isPopout}
                 isStreaming={Boolean(streamingMessage?.isStreaming || isLoading)}
-                chatMessages={chatMessages}
+                isEmpty={isTranscriptEmpty}
                 messageGroups={messageGroups}
                 lastUserGroupIndex={lastUserGroupIndex}
-                streamingMessage={streamingMessage}
-                pdfRegionStreamingMessage={pdfRegionStreamingMessage}
                 isLoading={isLoading}
-                showHitlInline={showHitlInline}
+                hasStreamingMessage={Boolean(streamingMessage)}
+                showApprovalGate={showHitlInline}
                 pendingApproval={pendingApproval}
                 onDismissApproval={() => setPendingApproval(null)}
                 onRegenerate={handleRegenerate}
                 error={error}
-                onRetryError={handleDismissManyError}
-                onReportError={handleReportManyError}
+                onRetryError={handleDismissError}
+                onReportError={handleReportError}
                 supportsTools={supportsTools}
-                onPrompt={(text) => {
-                  setInput(text);
-                  inputRef.current?.focus();
-                }}
+                onPrompt={setPromptFromSuggestion}
               />
             )}
 
-            <ManyPanelChrome
-              isVisible={isVisible}
-              pendingPdfRegion={pendingPdfRegion}
-              onDismissPdfRegion={() => clearPendingPdfRegion()}
-              compactionNotice={compactionNotice}
-              onDismissCompaction={() => setCompactionNotice(null)}
-              loadingHint={loadingHint}
-              showHitlInline={showHitlInline}
-              isLoading={isLoading}
-              showBottomComposer={showBottomComposer}
-              isFullscreen={isFullscreen}
-              isPopout={isPopout}
-              composer={bottomComposer}
-            />
+            {isVisible && pendingPdfRegion ? (
+              <ManyPdfRegionChip pending={pendingPdfRegion} onDismiss={clearPendingPdfRegion} />
+            ) : null}
+            {compactionNotice && !showHitlInline ? (
+              <ManyCompactionNotice
+                event={compactionNotice}
+                onDismiss={() => setCompactionNotice(null)}
+              />
+            ) : null}
+            {isLoading && loadingHint && !showHitlInline ? (
+              <div className="mx-4 mb-1" aria-live="polite">
+                <ManyLoadingMarker label={loadingHint} />
+              </div>
+            ) : null}
+
+            {!showWelcomeHero ? (
+              isFullscreen ? (
+                <div className="shrink-0 border-t bg-sidebar/80 backdrop-blur-sm">
+                  <div className={cn('mx-auto w-full max-w-3xl px-4 pb-1', isPopout && 'px-3')}>
+                    <ManyComposer
+                      {...composerSharedProps}
+                      isLoading={isComposerBusy}
+                      showKeyboardHint
+                      contextUsage={contextUsageNode}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="shrink-0 border-t">
+                  <ManyComposer
+                    {...composerSharedProps}
+                    isLoading={isComposerBusy}
+                    showKeyboardHint
+                    compact
+                    contextUsage={contextUsageNode}
+                  />
+                </div>
+              )
+            ) : null}
           </div>
 
-          {isFullscreen && showHistory ? (
-            <ChatHistoryPanel placement="inline-right" onClose={() => setShowHistory(false)} />
+          {isFullscreen && fullscreenHistoryOpen ? (
+            <aside className="flex w-72 shrink-0 flex-col border-l bg-card/40">
+              <ManyHistoryView
+                onSelectSession={handleSelectSession}
+                onNewChat={handleStartNewChat}
+              />
+            </aside>
           ) : null}
         </div>
       </div>

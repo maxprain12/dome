@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ManyMessageData } from '@/components/many/chat/types';
-import type { CompactionNoticeData } from '@/components/many/CompactionNotice';
-import type { BudgetBreakdown, LiveTokenUsage } from '@/components/many/ContextUsageIndicator';
+import type { CompactionNoticeData, ManyMessageData } from '@/lib/many/types';
+import type { BudgetBreakdown, LiveTokenUsage } from '@/lib/chat/contextUsage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { useManyStore, type ManyMessage, type ManyStatus } from '@/lib/store/useManyStore';
 import { estimateLiveBudget } from '@/lib/chat/estimateLiveBudget';

@@ -192,6 +192,11 @@ export function createGithubCreateIssueTool(): AnyAgentTool {
       body: Type.Optional(Type.String({ description: 'Issue body (Markdown). Add due:YYYY-MM-DD for calendar.' })),
       milestone_number: Type.Optional(Type.Number({ description: 'Milestone number to assign.' })),
       labels: Type.Optional(Type.Array(Type.String(), { description: 'Labels.' })),
+      assignees: Type.Optional(
+        Type.Array(Type.String(), {
+          description: 'GitHub logins from mentioned-people (no @ prefix).',
+        }),
+      ),
     }),
     execute: async (_id, args) => {
       const blocked = requireElectron();
@@ -199,11 +204,17 @@ export function createGithubCreateIssueTool(): AnyAgentTool {
       const params = args as Record<string, unknown>;
       const repoId = readStringParam(params, 'repo_id', { required: true });
       const title = readStringParam(params, 'title', { required: true });
+      const assignees = Array.isArray(params.assignees)
+        ? (params.assignees as unknown[])
+            .map((a) => String(a || '').replace(/^@/, '').trim())
+            .filter(Boolean)
+        : undefined;
       const res = await githubClient.issues.create(repoId!, {
         title: title!,
         body: readStringParam(params, 'body') ?? undefined,
         milestoneNumber: readNumberParam(params, 'milestone_number') ?? undefined,
         labels: Array.isArray(params.labels) ? (params.labels as string[]) : undefined,
+        assignees,
       });
       if (!res.success) return jsonResult({ success: false, error: res.error });
       return jsonResult({ success: true, source: 'github', issue: res.issue });

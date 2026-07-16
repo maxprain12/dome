@@ -1,5 +1,8 @@
 {
   "title": "Settings",
+  "back_to_app": "Back to application",
+  "search": "Search settings…",
+  "search_empty": "No settings found.",
   "tabs": {
     "general": "General",
     "appearance": "Appearance",
@@ -134,6 +137,8 @@
     "context_doc_soul": "SOUL",
     "context_doc_user": "USER",
     "context_doc_memory": "MEMORY",
+    "context_doc_social": "Social",
+    "context_doc_email": "Email",
     "context_doc_daily": "Recent logs",
     "context_view_full": "Full file",
     "context_view_agent": "As agent sees it",

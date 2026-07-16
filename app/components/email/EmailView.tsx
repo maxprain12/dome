@@ -6,20 +6,24 @@ import {
   AlertDiamondIcon, ArchiveIcon, ArrowTurnBackwardIcon, ArrowTurnForwardIcon,
   CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
   Delete02Icon, File02Icon, Folder01Icon, InboxIcon, Mail01Icon,
-  MailReplyAll02Icon, MoreHorizontalIcon, NoteEditIcon, RefreshIcon, Search01Icon,
+  MailReplyAll02Icon, MoreHorizontalIcon,   NoteEditIcon, RefreshIcon,
   SentIcon, StarIcon,
 } from '@hugeicons/core-free-icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ItemGroup } from '@/components/ui/item';
+import { Badge } from '@/components/ui/badge';
 import { EntityListItem } from '@/components/shared/EntityListItem';
+import { HubHeader } from '@/components/hub/HubHeader';
+import { HubSearch } from '@/components/hub/HubSearch';
+import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
+import { HubSurface } from '@/components/hub/HubBlocks';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
@@ -168,6 +172,9 @@ export default function EmailView() {
   const [composing, setComposing] = useState<null | { mode: 'new' | 'reply'; replyTo?: Envelope }>(null);
   const [error, setError] = useState<EmailErrorInfo | null>(null);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const refresh = useCallback(async (targetFolder?: string) => {
     const f = targetFolder ?? folder;
@@ -181,6 +188,47 @@ export default function EmailView() {
       setLoading(false);
     }
   }, [folder, projectId]);
+
+  const syncNow = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await window.electron.email.syncNow?.({ projectId });
+      if (res && res.success === false) {
+        setSyncError(res.error || t('email.sync_failed'));
+      }
+      await refresh();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : t('email.sync_failed'));
+    } finally {
+      setSyncing(false);
+    }
+  }, [projectId, refresh, syncing, t]);
+
+  useEffect(() => {
+    const unsubStatus = window.electron.email.onSyncStatus?.((data) => {
+      setSyncing(Boolean(data?.syncing) || data?.status === 'syncing');
+      if (typeof data?.lastSync === 'number') setLastSyncAt(data.lastSync);
+      if (data?.error) setSyncError(String(data.error));
+      else if (data?.status === 'idle' || data?.status === 'ok') setSyncError(null);
+    });
+    const unsubData = window.electron.email.onDataUpdated?.(() => {
+      void refresh();
+    });
+    void window.electron.email.syncStatus?.({ projectId }).then((res) => {
+      if (!res?.success) return;
+      const status = (res as { data?: { syncing?: boolean; lastSync?: number | null; error?: string | null } }).data;
+      if (!status) return;
+      setSyncing(Boolean(status.syncing));
+      if (typeof status.lastSync === 'number') setLastSyncAt(status.lastSync);
+      if (status.error) setSyncError(String(status.error));
+    });
+    return () => {
+      unsubStatus?.();
+      unsubData?.();
+    };
+  }, [projectId, refresh]);
 
   useEffect(() => {
     (async () => {
@@ -268,27 +316,72 @@ export default function EmailView() {
 
   if (hasAccount === false) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
-        <HugeiconsIcon icon={Mail01Icon} className="size-10 text-primary" />
-        <h2 className="text-lg font-semibold text-foreground">
-          {t('email.empty.title')}
-        </h2>
-        <p className="text-sm max-w-md text-muted-foreground">
-          {t('email.empty.description')}
-        </p>
-        <Button
-          type="button"
-          onClick={openSettingsTab}
-          className="mt-2"
+      <div className="flex flex-1 items-center justify-center p-8">
+        <HubSurface
+          icon={Mail01Icon}
+          title={t('email.empty.title')}
+          description={t('email.empty.description')}
+          className="max-w-md"
         >
-          {t('email.empty.connect')}
-        </Button>
+          <Button type="button" onClick={openSettingsTab}>
+            {t('email.empty.connect')}
+          </Button>
+        </HubSurface>
       </div>
     );
   }
 
+  const syncDescription = syncError
+    ? t('email.sync_error', { error: syncError })
+    : syncing
+      ? t('email.syncing')
+      : lastSyncAt
+        ? t('email.last_sync', {
+            time: new Date(lastSyncAt).toLocaleString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              day: 'numeric',
+              month: 'short',
+            }),
+          })
+        : t('email.sync_idle');
+
   return (
     <>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 border-b px-4 py-3">
+        <HubHeader
+          title={t('email.tab_title')}
+          description={syncDescription}
+          actions={
+            <>
+              {syncError ? (
+                <Badge variant="destructive">{t('email.sync_badge_error')}</Badge>
+              ) : syncing ? (
+                <Badge variant="secondary">{t('email.sync_badge_syncing')}</Badge>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={syncing}
+                onClick={() => void syncNow()}
+              >
+                {syncing ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />}
+                {t('email.sync_now')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setComposing({ mode: 'new' })}
+              >
+                <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
+                {t('email.compose')}
+              </Button>
+            </>
+          }
+        />
+      </div>
     <ResizablePanelGroup orientation="horizontal" className={`dome-email-view${selected ? ' dome-email-view--reader-active' : ''}`}>
       {/* Folder sidebar — visible only on wide layouts (>= 960px container width). */}
       <ResizablePanel id="email-folders" defaultSize={220} minSize={180} maxSize={300} groupResizeBehavior="preserve-pixel-size">
@@ -297,9 +390,7 @@ export default function EmailView() {
         aria-label={t('email.folders.title')}
       >
         <div className="dome-email-view__sidebar-header">
-          <span className="dome-email-view__sidebar-title">
-            {t('email.folders.title')}
-          </span>
+          <HubSectionLabel>{t('email.folders.title')}</HubSectionLabel>
         </div>
         <ul id="dome-email-folder-list" className="dome-email-view__folder-list list-none m-0 p-0">
           {folderOptions.map((f) => {
@@ -345,16 +436,15 @@ export default function EmailView() {
             onClose={() => setFolderMenuOpen(false)}
           />
 
-          <InputGroup className="dome-email-view__search">
-            <InputGroupAddon><HugeiconsIcon icon={Search01Icon} className="size-3.5" /></InputGroupAddon>
-            <InputGroupInput
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              placeholder={t('email.search_placeholder')}
-              aria-label={t('email.search_placeholder')}
-            />
-          </InputGroup>
+          <HubSearch
+            className="dome-email-view__search"
+            value={query}
+            onChange={setQuery}
+            onSubmit={() => void runSearch()}
+            placeholder={t('email.search_placeholder')}
+            aria-label={t('email.search_placeholder')}
+            clearLabel={t('common.cancel')}
+          />
 
           <div className="dome-email-view__list-actions">
             <Button variant="ghost"
@@ -380,9 +470,12 @@ export default function EmailView() {
           <div className="dome-email-view__list" aria-label={t('email.tab_title')}>
             <div className="dome-email-view__list-body">
               {envelopes.length === 0 && !loading && (
-                <div className="dome-email-view__empty">
-                  <HugeiconsIcon icon={InboxIcon} className="size-6" />
-                  <span>{t('email.no_messages')}</span>
+                <div className="dome-email-view__empty flex flex-col items-center gap-2 py-10 text-center">
+                  <HugeiconsIcon icon={InboxIcon} className="size-6 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('email.no_messages')}</span>
+                  <Button type="button" variant="outline" size="sm" disabled={syncing} onClick={() => void syncNow()}>
+                    {t('email.sync_now')}
+                  </Button>
                 </div>
               )}
               <ItemGroup className="gap-1.5">
@@ -432,6 +525,7 @@ export default function EmailView() {
       </ResizablePanel>
 
     </ResizablePanelGroup>
+    </div>
 
       {composing && (
         <Composer

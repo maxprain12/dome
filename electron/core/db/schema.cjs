@@ -1,22 +1,23 @@
 /* eslint-disable no-console */
 /**
- * Base SQLite schema DDL — squashed baseline at schema v65 (2026-07-10).
+ * Base SQLite schema DDL — squashed baseline at schema v68 (source_documents FTS).
  *
  * `createBaseSchema(db)` runs the PRAGMAs and creates every base table,
  * index, FTS virtual table and trigger with `IF NOT EXISTS` (idempotent).
- * It reflects the FULL schema at v65: the old 64-step migration chain was
- * squashed — a fresh install gets this schema and schema_version=65 directly;
- * existing installs at v50–v64 are upgraded by db/migrations.cjs (kept chain
- * 50→64 + the v65 bridge). Installs below v50 are not supported (clear error).
+ * It reflects the FULL schema at v68: the old 64-step migration chain was
+ * squashed — a fresh install gets this schema and schema_version=68 directly;
+ * existing installs at v50–v67 are upgraded by db/migrations.cjs (kept chain
+ * 50→64 + v65–v68). Installs below v50 are not supported (clear error).
  *
  * Removed dead tables (v65): martin_memory, agent_store, auth_profiles,
  * resource_links_legacy, search_index, note_embeddings, resource_images,
  * dome_cloud_sync, cloud_blob_state (bundle sync v3) and the *_new /
  * github_repos_v57 migration scratch tables.
  *
- * New in v65: vault_blobs (content-addressed blob manifest for the files
- * sync domain) and many_session_index (manifest of Many JSONL sessions for
- * the conversations sync domain).
+ * New in v65: vault_blobs, many_session_index.
+ * New in v66: people + person_identities.
+ * New in v67: email_folders, email_messages, email_sync_state.
+ * New in v68: source_documents + source_documents_fts (integration search).
  *
  * When you change a table here, also add a migration in db/migrations.cjs so
  * existing installs converge — this file only helps brand-new databases.
@@ -378,6 +379,63 @@ function createBaseSchema(db) {
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL
             , user_actions TEXT NOT NULL DEFAULT '{"list":true,"read":true,"search":true,"send":true,"reply":true}', agent_actions TEXT NOT NULL DEFAULT '{"list":true,"read":true,"search":true,"send":false,"reply":false}', project_id TEXT NOT NULL DEFAULT 'default')
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_folders (
+              id TEXT PRIMARY KEY,
+              account_id TEXT NOT NULL,
+              remote_name TEXT NOT NULL,
+              role TEXT,
+              uidvalidity INTEGER,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+              UNIQUE(account_id, remote_name)
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_messages (
+              id TEXT PRIMARY KEY,
+              account_id TEXT NOT NULL,
+              folder_id TEXT NOT NULL,
+              uid TEXT NOT NULL,
+              message_id TEXT,
+              subject TEXT,
+              from_json TEXT,
+              to_json TEXT,
+              cc_json TEXT,
+              date_ms INTEGER,
+              snippet TEXT,
+              has_attachments INTEGER NOT NULL DEFAULT 0,
+              flags_json TEXT,
+              body_text TEXT,
+              body_html TEXT,
+              synced_at INTEGER NOT NULL,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+              FOREIGN KEY (folder_id) REFERENCES email_folders(id) ON DELETE CASCADE,
+              UNIQUE(account_id, folder_id, uid)
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_sync_state (
+              id TEXT PRIMARY KEY,
+              account_id TEXT NOT NULL,
+              folder_id TEXT NOT NULL,
+              last_uid TEXT,
+              cursor TEXT,
+              last_synced_at INTEGER,
+              status TEXT,
+              error TEXT,
+              updated_at INTEGER NOT NULL,
+              FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+              FOREIGN KEY (folder_id) REFERENCES email_folders(id) ON DELETE CASCADE,
+              UNIQUE(account_id, folder_id)
+            )
   `);
 
   db.exec(`
@@ -796,6 +854,36 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS people (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              display_name TEXT NOT NULL,
+              primary_email TEXT,
+              avatar_url TEXT,
+              notes TEXT,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS person_identities (
+              id TEXT PRIMARY KEY,
+              person_id TEXT NOT NULL,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              source TEXT NOT NULL
+                CHECK(source IN ('github', 'email', 'social_x', 'social_linkedin', 'social_instagram', 'manual')),
+              external_id TEXT NOT NULL,
+              display_label TEXT,
+              meta_json TEXT,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+              UNIQUE(project_id, source, external_id)
+            )
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS pipeline_sources (
               id TEXT PRIMARY KEY,
               pipeline_id TEXT NOT NULL,
@@ -974,6 +1062,14 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS source_documents_fts USING fts5(
+          doc_id UNINDEXED,
+          title,
+          body
+        )
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS semantic_relations (
           id TEXT PRIMARY KEY,
           source_id TEXT NOT NULL,
@@ -1082,6 +1178,19 @@ function createBaseSchema(db) {
               data TEXT,
               created_at INTEGER NOT NULL,
               completed_at INTEGER
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS source_documents (
+              id TEXT PRIMARY KEY,
+              kind TEXT NOT NULL CHECK(kind IN ('issue', 'email', 'person', 'social_post')),
+              source_id TEXT NOT NULL,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              title TEXT,
+              body TEXT,
+              meta_json TEXT,
+              updated_at INTEGER NOT NULL
             )
   `);
 
@@ -1413,6 +1522,18 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_email_folders_account ON email_folders(account_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_email_messages_folder ON email_messages(folder_id, date_ms DESC)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_email_messages_account ON email_messages(account_id, date_ms DESC)
+  `);
+
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_feeder_runs_feeder ON feeder_runs(feeder_id, started_at DESC)
   `);
 
@@ -1578,6 +1699,22 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_people_project ON people(project_id, updated_at)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_people_display_name ON people(project_id, display_name)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_person_identities_person ON person_identities(person_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_person_identities_external ON person_identities(project_id, source, external_id)
+  `);
+
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_pipelines_project ON pipelines(project_id, updated_at)
   `);
 
@@ -1671,6 +1808,14 @@ function createBaseSchema(db) {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sources_resource ON sources(resource_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_source_documents_kind_project ON source_documents(kind, project_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_source_documents_source ON source_documents(kind, source_id)
   `);
 
   db.exec(`

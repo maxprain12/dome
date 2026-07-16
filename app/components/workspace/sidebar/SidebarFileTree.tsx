@@ -386,8 +386,11 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
   }, [openResourceTab]);
 
   const handleOpenFolder = useCallback((folderId: string, title: string, projectId?: string) => {
-    openFolderTab(folderId, title, undefined, projectId);
-  }, [openFolderTab]);
+    const resource = resources.find((r) => r.id === folderId);
+    const folderColor = resource ? getFolderColor(resource) : undefined;
+    const color = folderColor?.startsWith('#') ? folderColor : undefined;
+    openFolderTab(folderId, title, color, projectId);
+  }, [openFolderTab, resources]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, r: Resource) => {
     e.preventDefault();

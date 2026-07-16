@@ -1,4 +1,3 @@
-import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import ManyIcon from './ManyIcon';
 
@@ -11,48 +10,35 @@ interface ManyAvatarProps {
   className?: string;
 }
 
-const avatarSize: Record<string, 'sm' | 'default' | 'lg'> = {
-  sm: 'sm',
-  md: 'default',
-  lg: 'lg',
-  xl: 'lg',
+const WRAPPER_SIZE: Record<NonNullable<ManyAvatarProps['size']>, string> = {
+  sm: 'size-7',
+  md: 'size-9',
+  lg: 'size-14',
+  xl: 'size-16',
 };
 
-const iconSizes: Record<string, number> = { sm: 16, md: 20, lg: 40, xl: 40 };
-
+/**
+ * The Many mark, shown bare (no circle / halo chrome).
+ * Optional corner dot for thinking/speaking when `showStateDot` is set.
+ */
 export default function ManyAvatar({
   size = 'md',
   state = 'idle',
   showStateDot = false,
-  className = '',
+  className,
 }: ManyAvatarProps) {
-  const shadcnSize = avatarSize[size] ?? 'default';
-  const iconSize = iconSizes[size] ?? 20;
-  const isLg = size === 'lg' || size === 'xl';
-
   return (
-    <Avatar
-      size={shadcnSize}
-      className={cn(
-        'bg-primary/10 text-primary',
-        isLg ? 'rounded-[20px]' : 'rounded-full',
-        state === 'thinking' && 'ring-2 ring-primary/30',
-        state === 'speaking' && 'ring-2 ring-success/40',
-        className,
-      )}
-    >
-      <AvatarImage src="/many.png" alt="Many" />
-      <AvatarFallback className="bg-primary/10">
-        <ManyIcon size={iconSize} />
-      </AvatarFallback>
+    <span className={cn('relative inline-flex shrink-0', WRAPPER_SIZE[size], className)}>
+      <ManyIcon className="absolute inset-[8%] size-[84%]" />
       {showStateDot && state !== 'idle' ? (
-        <AvatarBadge
+        <span
+          aria-hidden
           className={cn(
-            'bg-warning',
-            state === 'speaking' && 'bg-success',
+            'absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-background',
+            state === 'thinking' ? 'bg-warning' : 'bg-success',
           )}
         />
       ) : null}
-    </Avatar>
+    </span>
   );
 }

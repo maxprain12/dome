@@ -88,6 +88,37 @@ function ensureFtsSchema(db) {
       );
     END
   `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS source_documents (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK(kind IN ('issue', 'email', 'person', 'social_post')),
+      source_id TEXT NOT NULL,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      title TEXT,
+      body TEXT,
+      meta_json TEXT,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_source_documents_kind_project
+      ON source_documents(kind, project_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_source_documents_source
+      ON source_documents(kind, source_id)
+  `);
+
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS source_documents_fts USING fts5(
+      doc_id UNINDEXED,
+      title,
+      body
+    )
+  `);
 }
 
 module.exports = { ensureFtsSchema };

@@ -26,6 +26,13 @@ export interface PinnedResource {
   id: string;
   title: string;
   type: string;
+  /** Defaults to resource when omitted (legacy pins). */
+  kind?: 'person' | 'resource';
+  identities?: Array<{
+    source: string;
+    externalId: string;
+    displayLabel?: string | null;
+  }>;
 }
 
 /** Pending PDF region crop for cloud-vision Q&A in Many (memory only; not persisted). */

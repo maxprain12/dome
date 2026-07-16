@@ -27,6 +27,33 @@ const FLOW_TIMEOUT_MS = 5 * 60 * 1000;
 const LINKEDIN_BASE_SCOPES = 'openid profile w_member_social';
 const LINKEDIN_ORG_SCOPES = 'w_organization_social r_organization_social rw_organization_admin';
 
+const IG_BASE_SCOPES =
+  'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights';
+const IG_COMMENTS_SCOPE = 'instagram_business_manage_comments';
+const IG_MESSAGES_SCOPE = 'instagram_business_manage_messages';
+
+const X_BASE_SCOPES = 'tweet.read tweet.write users.read media.write offline.access';
+const X_DM_SCOPES = 'dm.read dm.write';
+
+function instagramScopes(store) {
+  let scopes = IG_BASE_SCOPES;
+  if (store?.getMessagingCommentsEnabled?.('instagram') !== false) {
+    scopes += `,${IG_COMMENTS_SCOPE}`;
+  }
+  if (store?.getMessagingDmEnabled?.('instagram') !== false) {
+    scopes += `,${IG_MESSAGES_SCOPE}`;
+  }
+  return scopes;
+}
+
+function xScopes(store) {
+  let scopes = X_BASE_SCOPES;
+  if (store?.getMessagingDmEnabled?.('x') !== false) {
+    scopes += ` ${X_DM_SCOPES}`;
+  }
+  return scopes;
+}
+
 const AUTH_ENDPOINTS = {
   linkedin: {
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
@@ -39,13 +66,13 @@ const AUTH_ENDPOINTS = {
   instagram: {
     authUrl: 'https://www.instagram.com/oauth/authorize',
     tokenUrl: 'https://api.instagram.com/oauth/access_token',
-    scopes: 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights',
+    scopes: (store) => instagramScopes(store),
     pkce: false,
   },
   x: {
     authUrl: 'https://x.com/i/oauth2/authorize',
     tokenUrl: 'https://api.x.com/2/oauth2/token',
-    scopes: 'tweet.read tweet.write users.read media.write offline.access',
+    scopes: (store) => xScopes(store),
     pkce: true,
   },
 };

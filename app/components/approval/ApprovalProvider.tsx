@@ -3,7 +3,7 @@ import { useApprovalStore } from '@/lib/store/useApprovalStore';
 
 /**
  * Enqueues shell/tool approvals from the main process. UI is inline in ManyPanel
- * (ManyHitlInlineSection), not a modal overlay.
+ * (ManyApprovalGate), not a modal overlay.
  */
 export default function ApprovalProvider() {
   const enqueue = useApprovalStore((s) => s.enqueue);

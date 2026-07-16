@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { Cancel01Icon } from '@hugeicons/core-free-icons';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   buildContextSegments,
   contextUsagePercent,
@@ -15,8 +12,9 @@ import {
   type ContextSegmentId,
   type LiveTokenUsage,
 } from '@/lib/chat/contextUsage';
+import { cn } from '@/lib/utils';
 
-interface Props {
+interface ContextUsageIndicatorProps {
   breakdown: BudgetBreakdown;
   liveUsage?: LiveTokenUsage | null;
   budgetCapApprox?: number;
@@ -24,8 +22,9 @@ interface Props {
   className?: string;
 }
 
-function ContextDonut({ percent, size = 14 }: { percent: number; size?: number }) {
-  const stroke = 2;
+/** Tiny arc gauge — fills clockwise with usage. */
+function ContextGauge({ percent, size = 14 }: { percent: number; size?: number }) {
+  const stroke = 2.5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const filled = (Math.min(100, Math.max(0, percent)) / 100) * circumference;
@@ -37,31 +36,38 @@ function ContextDonut({ percent, size = 14 }: { percent: number; size?: number }
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--muted)"
         strokeWidth={stroke}
+        className="stroke-border"
       />
       <circle
         cx={size / 2}
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--foreground)"
         strokeWidth={stroke}
-        strokeDasharray={`${filled} ${circumference - filled}`}
         strokeLinecap="round"
+        strokeDasharray={`${filled} ${circumference - filled}`}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        className={cn(
+          'transition-[stroke-dasharray] motion-reduce:transition-none',
+          percent >= 85 ? 'stroke-destructive' : 'stroke-primary',
+        )}
       />
     </svg>
   );
 }
 
+/**
+ * Context budget gauge. Trigger = arc + percentage; popover = segmented usage
+ * bar with a legend of every prompt section (system, tools, history…).
+ */
 export default function ContextUsageIndicator({
   breakdown,
   liveUsage = null,
   budgetCapApprox = 200_000,
   variant = 'header',
   className,
-}: Props) {
+}: ContextUsageIndicatorProps) {
   const { t } = useTranslation();
   const [opened, setOpened] = useState(false);
   const [hoveredId, setHoveredId] = useState<ContextSegmentId | null>(null);
@@ -78,37 +84,24 @@ export default function ContextUsageIndicator({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
-            className={className}
+            size={variant === 'inline' ? 'sm' : 'xs'}
+            className={cn('gap-1.5 text-muted-foreground', className)}
             title={t('many.context_usage_hint')}
             aria-label={t('many.context_usage_title')}
             aria-expanded={opened}
           />
         }
       >
-        <ContextDonut percent={percent} size={variant === 'header' ? 14 : 16} />
-        <Badge variant="secondary" className="tabular-nums">
-          {percent}%
-        </Badge>
+        <ContextGauge percent={percent} size={variant === 'inline' ? 16 : 13} />
+        <span className="text-[11px] tabular-nums">{percent}%</span>
       </PopoverTrigger>
 
-      <PopoverContent side="bottom" align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between border-b px-3 py-2">
-          <span className="text-sm font-medium">{t('many.context_usage_title')}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => setOpened(false)}
-            aria-label={t('many.context_usage_close')}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} />
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between px-3 py-2 text-sm">
-          <span>{t('many.context_usage_full', { percent })}</span>
-          <span className="tabular-nums text-muted-foreground">
+      <PopoverContent side="top" align="end" className="w-80 p-0">
+        <div className="flex items-baseline justify-between px-3.5 pb-1 pt-3">
+          <span className="text-sm font-semibold tracking-tight">
+            {t('many.context_usage_title')}
+          </span>
+          <span className="text-xs tabular-nums text-muted-foreground">
             {t('many.context_usage_tokens', {
               used: formatContextTokens(used),
               cap: formatContextTokens(cap),
@@ -116,9 +109,8 @@ export default function ContextUsageIndicator({
           </span>
         </div>
 
-        <div className="px-3 pb-2">
-          <Progress value={percent} className="h-2" />
-          <div className="mt-1 flex h-1.5 overflow-hidden rounded-full">
+        <div className="px-3.5 py-2">
+          <div className="flex h-2 overflow-hidden rounded-full bg-muted">
             {segments.map((seg) => (
               <span
                 key={seg.id}
@@ -126,32 +118,34 @@ export default function ContextUsageIndicator({
                 style={{
                   width: `${Math.min(100, (seg.tokens / cap) * 100)}%`,
                   background: seg.color,
-                  opacity: hoveredId && hoveredId !== seg.id ? 0.35 : 1,
+                  opacity: hoveredId && hoveredId !== seg.id ? 0.3 : 1,
                 }}
               />
             ))}
           </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t('many.context_usage_full', { percent })}
+          </p>
         </div>
 
         <ul className="flex flex-col gap-0.5 px-2 pb-2">
           {segments.map((seg) => (
             <li
               key={seg.id}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
-              data-active={hoveredId === seg.id || undefined}
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-muted/50"
               onMouseEnter={() => setHoveredId(seg.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
               <span className="size-2 shrink-0 rounded-full" style={{ background: seg.color }} />
               <span className="min-w-0 flex-1 truncate">{seg.label}</span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
+              <Badge variant="outline" className="shrink-0 border-transparent px-0 font-normal tabular-nums text-muted-foreground">
                 {formatContextTokens(seg.tokens)}
-              </span>
+              </Badge>
             </li>
           ))}
         </ul>
 
-        <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+        <p className="border-t px-3.5 py-2 text-[11px] leading-snug text-muted-foreground">
           {t('many.context_usage_footnote')}
         </p>
       </PopoverContent>

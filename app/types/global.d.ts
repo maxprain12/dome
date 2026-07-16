@@ -551,6 +551,32 @@ declare global {
           body?: string;
           folder?: string;
         }) => Promise<EmailResult>;
+        syncNow: (params?: {
+          accountId?: string | null;
+          projectId?: string;
+        }) => Promise<EmailResult<{ synced?: boolean; status?: string }>>;
+        syncStatus: (params?: {
+          accountId?: string | null;
+          projectId?: string;
+        }) => Promise<
+          EmailResult<{
+            data?: {
+              status?: string;
+              syncing?: boolean;
+              lastSync?: number | null;
+              error?: string | null;
+            };
+          }>
+        >;
+        onSyncStatus: (
+          callback: (data: {
+            status?: string;
+            syncing?: boolean;
+            lastSync?: number | null;
+            error?: string | null;
+          }) => void,
+        ) => () => void;
+        onDataUpdated: (callback: (data?: { local?: boolean }) => void) => () => void;
       };
 
       // Calendar API
@@ -746,6 +772,66 @@ declare global {
         syncNow: (params?: { projectId?: string }) => Promise<{ success: boolean; repos?: number; error?: string }>;
         onSyncStatus: (cb: (data: { status: string; lastSync?: number; error?: string }) => void) => () => void;
         onDataUpdated: (cb: (data: { local?: boolean }) => void) => () => void;
+      };
+
+      people: {
+        list: (projectId?: string) => Promise<{
+          success: boolean;
+          data?: {
+            people: Array<{
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              avatarUrl?: string | null;
+              identities?: Array<{
+                source: string;
+                externalId: string;
+                displayLabel?: string | null;
+              }>;
+            }>;
+          };
+          error?: string;
+        }>;
+        get: (id: string) => Promise<{
+          success: boolean;
+          data?: {
+            person: {
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              identities?: Array<{
+                source: string;
+                externalId: string;
+                displayLabel?: string | null;
+              }>;
+            };
+          };
+          error?: string;
+        }>;
+        search: (payload: {
+          projectId?: string;
+          query: string;
+          limit?: number;
+        }) => Promise<{
+          success: boolean;
+          data?: {
+            people: Array<{
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              identities?: Array<{
+                source: string;
+                externalId: string;
+                displayLabel?: string | null;
+              }>;
+            }>;
+          };
+          error?: string;
+        }>;
+        upsert: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
+        linkIdentity: (payload: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+        upsertIdentity: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
+        syncGithub: (projectId?: string) => Promise<{ success: boolean; error?: string }>;
       };
 
       // Plugins API
@@ -2178,11 +2264,35 @@ declare global {
           data?: { soul: string; user: string; memory: string; recentMemory: string };
           error?: string;
         }>;
+        getAgentMemoryContext: (params?: {
+          memoryEnabled?: boolean;
+          projectId?: string | null;
+          projectPath?: string | null;
+          includeProject?: boolean;
+          includeDomains?: Array<'social' | 'email' | string>;
+        }) => Promise<{
+          success: boolean;
+          data?: {
+            soul: string;
+            user: string;
+            memory: string;
+            recentMemory: string;
+            memoryBlock: string;
+            projectMemory: string;
+            domainMemory: string;
+            volatileMemory: string;
+          };
+          error?: string;
+        }>;
         readFile: (filename: string) => Promise<{ success: boolean; data?: string; error?: string }>;
         writeFile: (filename: string, content: string) => Promise<{ success: boolean; error?: string }>;
         addMemory: (entry: string) => Promise<{ success: boolean; error?: string }>;
         listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
-        rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
+        rememberFact: (
+          key: string,
+          value: string,
+          domain?: 'general' | 'social' | 'email' | string,
+        ) => Promise<{ success: boolean; domain?: string; error?: string }>;
         openFolder: () => Promise<{ success: boolean; data?: string; error?: string }>;
         listDailyMemory: (days?: number) => Promise<{
           success: boolean;

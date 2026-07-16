@@ -1,5 +1,8 @@
 {
   "title": "Ajustes",
+  "back_to_app": "Volver a la aplicación",
+  "search": "Buscar configuración…",
+  "search_empty": "No se encontraron ajustes.",
   "tabs": {
     "general": "General",
     "appearance": "Apariencia",
@@ -134,6 +137,8 @@
     "context_doc_soul": "SOUL",
     "context_doc_user": "USER",
     "context_doc_memory": "MEMORY",
+    "context_doc_social": "Social",
+    "context_doc_email": "Email",
     "context_doc_daily": "Logs recientes",
     "context_view_full": "Archivo completo",
     "context_view_agent": "Como lo ve el agente",

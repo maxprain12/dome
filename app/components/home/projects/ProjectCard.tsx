@@ -97,11 +97,11 @@ export function ProjectCard({
                 <HugeiconsIcon icon={MoreHorizontalIcon} />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="flex items-center gap-2">
-                  <HugeiconsIcon icon={Brain01Icon} className="size-4" />
-                  {t('projects.kb_llm_helper')}
-                </DropdownMenuLabel>
                 <DropdownMenuGroup>
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <HugeiconsIcon icon={Brain01Icon} className="size-4" />
+                    {t('projects.kb_llm_helper')}
+                  </DropdownMenuLabel>
                   {(['inherit', 'enabled', 'disabled'] as const).map((value) => (
                     <DropdownMenuItem key={value} onClick={() => onKbOverrideChange(value)}>
                       {kbValueLabel(value, t)}

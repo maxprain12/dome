@@ -9,7 +9,7 @@ import { isFeatureVisible } from '@/lib/features/featureKeys';
 import { recordSearchResultSelected } from '@/lib/search/search-signals';
 import { formatDistanceToNow } from '@/lib/utils';
 import { buildNavigationDestinations, buildQuickActions } from './commandPaletteNav';
-import { matchesQuery, modKeyLabel, type PaletteRow } from './commandPaletteTypes';
+import { matchesQuery, modKeyLabel, sourcesByKind, type PaletteRow } from './commandPaletteTypes';
 import { useCommandPaletteSearch } from './useCommandPaletteSearch';
 import { CommandPaletteResultsList } from './CommandPaletteResultsList';
 import CommandPaletteResourcePreview from './CommandPaletteResourcePreview';
@@ -26,6 +26,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import {
+  GithubIcon,
+  Mail01Icon,
+  Share08Icon,
+  UserIcon,
+} from '@hugeicons/core-free-icons';
 
 export default function CommandPalette() {
   const { t } = useTranslation();
@@ -43,6 +49,7 @@ export default function CommandPalette() {
     openCalendarTab,
     openGitHubTab,
     openEmailTab,
+    openSocialTab,
     openProjectsTab,
     openLearnTab,
     openMarketplaceTab,
@@ -59,6 +66,7 @@ export default function CommandPalette() {
       openCalendarTab: s.openCalendarTab,
       openGitHubTab: s.openGitHubTab,
       openEmailTab: s.openEmailTab,
+      openSocialTab: s.openSocialTab,
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
       openMarketplaceTab: s.openMarketplaceTab,
@@ -79,7 +87,7 @@ export default function CommandPalette() {
 
   const projectId = currentProject?.id ?? 'default';
   const { searchState, trimmedQuery, setQuery, resetSearch } = useCommandPaletteSearch(isOpen, projectId, t);
-  const { query, resources, interactions, isSearching } = searchState;
+  const { query, resources, interactions, sources, isSearching } = searchState;
 
   useEffect(() => {
     if (!featuresLoaded) void loadFeatures();
@@ -233,6 +241,11 @@ export default function CommandPalette() {
     return navigationDestinations.filter((row) => matchesQuery(row.label, trimmedQuery));
   }, [navigationDestinations, trimmedQuery]);
 
+  const peopleHits = useMemo(() => sourcesByKind(sources, 'person'), [sources]);
+  const issueHits = useMemo(() => sourcesByKind(sources, 'issue'), [sources]);
+  const emailHits = useMemo(() => sourcesByKind(sources, 'email'), [sources]);
+  const socialHits = useMemo(() => sourcesByKind(sources, 'social_post'), [sources]);
+
   const flatRows = useMemo((): PaletteRow[] => {
     const rows: PaletteRow[] = [];
 
@@ -267,8 +280,84 @@ export default function CommandPalette() {
       });
     });
 
+    peopleHits.forEach((hit) => {
+      rows.push({
+        id: `person:${hit.id}`,
+        kind: 'person',
+        icon: UserIcon,
+        label: hit.title,
+        sublabel: hit.snippet || t('command.people'),
+        run: () => {
+          const identities = (hit.meta?.identities as Array<{ source?: string }> | undefined) || [];
+          if (identities.some((i) => i.source === 'github')) openGitHubTab();
+          else if (identities.some((i) => i.source === 'email')) openEmailTab();
+          else openSocialTab();
+          close();
+        },
+      });
+    });
+
+    issueHits.forEach((hit) => {
+      rows.push({
+        id: `issue:${hit.id}`,
+        kind: 'issue',
+        icon: GithubIcon,
+        label: hit.title,
+        sublabel: hit.snippet || t('command.issues'),
+        run: () => {
+          openGitHubTab();
+          close();
+        },
+      });
+    });
+
+    emailHits.forEach((hit) => {
+      rows.push({
+        id: `email:${hit.id}`,
+        kind: 'email',
+        icon: Mail01Icon,
+        label: hit.title,
+        sublabel: hit.snippet || t('command.emails'),
+        run: () => {
+          openEmailTab();
+          close();
+        },
+      });
+    });
+
+    socialHits.forEach((hit) => {
+      rows.push({
+        id: `social:${hit.id}`,
+        kind: 'social_post',
+        icon: Share08Icon,
+        label: hit.title,
+        sublabel: hit.snippet || t('command.social_posts'),
+        run: () => {
+          openSocialTab();
+          close();
+        },
+      });
+    });
+
     return rows;
-  }, [filteredNav, interactions, navigationDestinations, openResource, quickActions, resources, t, trimmedQuery]);
+  }, [
+    close,
+    emailHits,
+    filteredNav,
+    interactions,
+    issueHits,
+    navigationDestinations,
+    openEmailTab,
+    openGitHubTab,
+    openResource,
+    openSocialTab,
+    peopleHits,
+    quickActions,
+    resources,
+    socialHits,
+    t,
+    trimmedQuery,
+  ]);
 
   const { selectedIndex, setSelectedIndex } = useMenuNavigation({
     containerRef: panelRef,
@@ -300,11 +389,13 @@ export default function CommandPalette() {
     <>
       <Dialog open={isOpen} onOpenChange={(next) => { if (!next) close(); }}>
         <DialogContent
-          ref={panelRef}
-          className={`top-[12vh] w-full translate-y-0 gap-0 overflow-hidden rounded-2xl border-border p-0 shadow-2xl animate-none data-open:animate-none data-closed:animate-none ${previewResourceId ? 'sm:max-w-3xl' : 'sm:max-w-xl'}`}
+          className={`top-[12vh] bottom-auto w-full gap-0 overflow-hidden rounded-2xl border-border p-0 shadow-2xl animate-none data-open:animate-none data-closed:animate-none ${previewResourceId ? 'sm:max-w-3xl' : 'sm:max-w-xl'}`}
           showCloseButton={false}
           aria-label={t('command.palette_title')}
         >
+          {/* display:contents wrapper — carries panelRef for keyboard nav without
+              adding a layout box or receiving an unsupported ref on DialogContent. */}
+          <div ref={panelRef} className="contents">
           <DialogTitle className="sr-only">{t('command.palette_title')}</DialogTitle>
           <Command shouldFilter={false} className="rounded-none p-0">
             <CommandInput
@@ -314,7 +405,15 @@ export default function CommandPalette() {
             placeholder={t('command.palette_placeholder')}
             aria-label={t('command.palette_placeholder')}
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
             spellCheck={false}
+            // Stop password managers / OS autofill from injecting an icon into
+            // this search field (1Password, LastPass, iCloud Keychain, etc.).
+            name="dome-command-search"
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
           />
             <div className="flex min-h-0 border-t">
               <div className="min-w-0 flex-1">
@@ -327,6 +426,10 @@ export default function CommandPalette() {
                   filteredNav={filteredNav}
                   resources={resources}
                   interactions={interactions}
+                  peopleHits={peopleHits}
+                  issueHits={issueHits}
+                  emailHits={emailHits}
+                  socialHits={socialHits}
                   flatRows={flatRows}
                   selectedIndex={selectedIndex}
                   setSelectedIndex={setSelectedIndex}
@@ -347,6 +450,7 @@ export default function CommandPalette() {
               <span>{modKeyLabel()} · {t('command.palette_esc')}</span>
             </div>
           </Command>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -8,7 +8,6 @@ import { installBrowserIpcShim } from './lib/dev/browserIpcShim';
 import './globals.css';
 import './styles/notes-editor.css';
 import './styles/mention-textarea.css';
-import './styles/shell-header.css';
 import './styles/calendar-dashboard.css';
 import './styles/learn.css';
 import './lib/i18n';

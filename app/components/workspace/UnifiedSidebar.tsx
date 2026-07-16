@@ -47,27 +47,54 @@ import { NewFolderModal, UrlInputModal } from './sidebar/SidebarModals';
 import AddResourceMenu from './sidebar/AddResourceMenu';
 import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
 import { Button } from '@/components/ui/button';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from '@/components/ui/sidebar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface UnifiedSidebarProps {
   collapsed: boolean;
-  onCollapse: () => void;
 }
 
-export default function UnifiedSidebar({ collapsed: _collapsed, onCollapse: _onCollapse }: UnifiedSidebarProps) {
+/** Icon + label navigation row used throughout the sidebar (primary + secondary sections). */
+function SidebarNavButton({
+  icon,
+  label,
+  active,
+  count,
+  dataTour,
+  onClick,
+}: {
+  icon: IconSvgElement;
+  label: string;
+  active?: boolean;
+  count?: number;
+  dataTour?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-tour={dataTour}
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/80 transition-colors',
+        active
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+          : 'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+      )}
+    >
+      <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count !== undefined ? (
+        <span className="shrink-0 rounded-full bg-sidebar-accent px-1.5 text-[10px] tabular-nums text-sidebar-accent-foreground/80">
+          {count}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
   const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -625,239 +652,203 @@ export default function UnifiedSidebar({ collapsed: _collapsed, onCollapse: _onC
   };
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
-      <SidebarHeader>
-        <ShellProjectPicker />
-      </SidebarHeader>
+    <aside
+      className={cn(
+        'dome-left-sidebar flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width,opacity] duration-200 ease-out',
+        collapsed ? 'w-0 opacity-0' : 'w-62 opacity-100',
+      )}
+      aria-hidden={collapsed}
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ScrollArea className="min-h-0 flex-1">
+          {/* Navegación principal */}
+          <nav className="flex flex-col gap-0.5 px-2 pt-2.5 pb-1.5" aria-label={t('sidebar.navigation', 'Navegación')}>
+            {visiblePrimaryUnifiedNavItems.map((item) => (
+              <SidebarNavButton
+                key={item.key}
+                icon={item.icon}
+                label={item.label}
+                active={getUnifiedNavActive(item)}
+                count={item.kind === 'tab' ? item.count : undefined}
+                dataTour={item.key}
+                onClick={() => handleUnifiedNavClick(item)}
+              />
+            ))}
+          </nav>
 
-      {/* Navegación principal */}
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t('sidebar.navigation', 'Navegación')}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-          {visiblePrimaryUnifiedNavItems.map((item) => {
-            const isActive = getUnifiedNavActive(item);
-            const count = item.kind === 'tab' ? item.count : undefined;
-            return (
-              <SidebarMenuItem key={item.key}>
-                <SidebarMenuButton
-                  type="button"
-                  tooltip={item.label}
-                  isActive={isActive}
-                  data-tour={item.key}
-                  onClick={() => handleUnifiedNavClick(item)}
-                >
-                  <HugeiconsIcon icon={item.icon} />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-                {count !== undefined ? <SidebarMenuBadge>{count}</SidebarMenuBadge> : null}
-              </SidebarMenuItem>
-            );
-          })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          <Separator className="mx-3 bg-sidebar-border" />
 
-      {/* Workspace tree */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="border-b border-border">
-          {/* Header row */}
-          <div className="flex items-center gap-1 px-2 py-1.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setWorkspaceOpen(!workspaceOpen)}
-              aria-expanded={workspaceOpen}
-              aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
-            >
-              <HugeiconsIcon icon={ChevronDownIcon} className={`shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleOpenProjectRootFolder}
-              className="min-w-0 flex-1 justify-start"
-            >
-              <span className="truncate">Workspace</span>
-            </Button>
+          {/* Workspace tree */}
+          <div className="py-1.5">
+            <div className="flex items-center gap-1 px-2 py-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setWorkspaceOpen(!workspaceOpen)}
+                aria-expanded={workspaceOpen}
+                aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
+              >
+                <HugeiconsIcon icon={ChevronDownIcon} className={`shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenProjectRootFolder}
+                className="min-w-0 flex-1 justify-start text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wide"
+              >
+                <span className="truncate">{activeProjectLabel}</span>
+              </Button>
 
-            {/* New resource button */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t('sidebar.new_resource', 'Nuevo recurso')}
-              onClick={(e) => {
-                const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                setAddMenu({ x: rect.left, y: rect.bottom + 4 });
-              }}
-            >
-              <HugeiconsIcon icon={PlusSignIcon} />
-            </Button>
+              <ShellProjectPicker />
 
-            {/* New folder button */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t('sidebar.new_folder', 'Nueva carpeta')}
-              onClick={() => setNewFolderInWorkspace(true)}
-            >
-              <HugeiconsIcon icon={FolderAddIcon} />
-            </Button>
+              {/* New resource button */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('sidebar.new_resource', 'Nuevo recurso')}
+                onClick={(e) => {
+                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                  setAddMenu({ x: rect.left, y: rect.bottom + 4 });
+                }}
+              >
+                <HugeiconsIcon icon={PlusSignIcon} />
+              </Button>
 
-            {/* Open workspace folder in Finder/Explorer */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t('workspace.open_vault_folder')}
-              onClick={() => { void window.electron?.resource?.openVaultRoot(hubProjectId); }}
-            >
-              <HugeiconsIcon icon={FolderSymlinkIcon} />
-            </Button>
-          </div>
-          {workspaceOpen && (
-            <div className="pb-2">
-              {loading ? (
-                <div className="flex items-center justify-center py-6">
-                  <HugeiconsIcon icon={RefreshIcon} className="animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <FileTree
-                  resources={scopedResources}
-                  onRefresh={() => { void fetchResources({ silent: true }); }}
-                  autoExpandFolderIds={autoExpandFolderIds}
-                />
-              )}
+              {/* New folder button */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('sidebar.new_folder', 'Nueva carpeta')}
+                onClick={() => setNewFolderInWorkspace(true)}
+              >
+                <HugeiconsIcon icon={FolderAddIcon} />
+              </Button>
+
+              {/* Open workspace folder in Finder/Explorer */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('workspace.open_vault_folder')}
+                onClick={() => { void window.electron?.resource?.openVaultRoot(hubProjectId); }}
+              >
+                <HugeiconsIcon icon={FolderSymlinkIcon} />
+              </Button>
             </div>
-          )}
-        </div>
-      </div>
-      </SidebarContent>
+            {workspaceOpen && (
+              <div className="pb-2">
+                {loading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <HugeiconsIcon icon={RefreshIcon} className="animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <FileTree
+                    resources={scopedResources}
+                    onRefresh={() => { void fetchResources({ silent: true }); }}
+                    autoExpandFolderIds={autoExpandFolderIds}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
 
-      {/* Add resource dropdown */}
-      {addMenu && (
-        <AddResourceMenu
-          x={addMenu.x}
-          y={addMenu.y}
-          onClose={() => setAddMenu(null)}
-          onCreateNote={handleCreateNote}
-          onCreateNotebook={handleCreateNotebook}
-          onCreateArtifact={() => { setAddMenu(null); handleCreateArtifact(); }}
-          onAddUrl={() => setShowUrlInput(true)}
-          onImportFile={handleImportFile}
-          onImportFromCloud={() => { setAddMenu(null); setShowCloudPicker(true); }}
-        />
-      )}
-
-      {/* Cloud file picker modal */}
-      {showCloudPicker && (
-        <Suspense fallback={null}>
-          <CloudFilePicker
-            onClose={() => { setShowCloudPicker(false); void fetchResources({ silent: true }); }}
-            projectId={getDefaultProjectId()}
+        {/* Add resource dropdown */}
+        {addMenu && (
+          <AddResourceMenu
+            x={addMenu.x}
+            y={addMenu.y}
+            onClose={() => setAddMenu(null)}
+            onCreateNote={handleCreateNote}
+            onCreateNotebook={handleCreateNotebook}
+            onCreateArtifact={() => { setAddMenu(null); handleCreateArtifact(); }}
+            onAddUrl={() => setShowUrlInput(true)}
+            onImportFile={handleImportFile}
+            onImportFromCloud={() => { setAddMenu(null); setShowCloudPicker(true); }}
           />
-        </Suspense>
-      )}
+        )}
 
-      {/* URL input modal */}
-      {showUrlInput && (
-        <UrlInputModal
-          onConfirm={handleAddUrl}
-          onClose={() => setShowUrlInput(false)}
-        />
-      )}
+        {/* Cloud file picker modal */}
+        {showCloudPicker && (
+          <Suspense fallback={null}>
+            <CloudFilePicker
+              onClose={() => { setShowCloudPicker(false); void fetchResources({ silent: true }); }}
+              projectId={getDefaultProjectId()}
+            />
+          </Suspense>
+        )}
 
-      {/* New folder at root */}
-      {newFolderInWorkspace && (
-        <NewFolderModal
-          parentId={null}
-          onConfirm={(name) => handleNewFolderAtRoot(name)}
-          onClose={() => setNewFolderInWorkspace(false)}
-        />
-      )}
+        {/* URL input modal */}
+        {showUrlInput && (
+          <UrlInputModal
+            onConfirm={handleAddUrl}
+            onClose={() => setShowUrlInput(false)}
+          />
+        )}
 
-      {/* Footer: enlaces secundarios, luego Ajustes */}
-      <SidebarFooter className="border-t border-sidebar-border">
-        <SidebarGroup className="p-0">
-          <SidebarGroupLabel>{t('sidebar.more_tools')}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-            {visibleSecondaryUnifiedNavItems.map((item) => {
-              const isActive = getUnifiedNavActive(item);
-              const count = item.kind === 'tab' ? item.count : undefined;
-              return (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton
-                    type="button"
-                    tooltip={item.label}
-                    isActive={isActive}
-                    data-tour={item.key}
-                    onClick={() => handleUnifiedNavClick(item)}
-                  >
-                    <HugeiconsIcon icon={item.icon} />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                  {count !== undefined ? <SidebarMenuBadge>{count}</SidebarMenuBadge> : null}
-                </SidebarMenuItem>
-              );
-            })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        {showSignInCta ? (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton type="button" tooltip={t('sidebar.sign_in')} onClick={() => void handleSignIn()} disabled={connectingAccount}>
-                <HugeiconsIcon icon={Login01Icon} />
-                <span>
-                {connectingAccount ? t('sidebar.sign_in_connecting') : t('sidebar.sign_in')}
-                </span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        ) : null}
-        <SidebarMenu>
-          {hiddenFeatureCount > 0 ? (
-            <SidebarMenuItem>
-              <SidebarMenuButton type="button" tooltip={t('features.hidden_notice_title')} onClick={goToFeatureSettings}>
-                <HugeiconsIcon icon={Layers01Icon} />
-                <span>{t('features.hidden_notice', { n: hiddenFeatureCount })}</span>
-              </SidebarMenuButton>
-              <SidebarMenuBadge>{hiddenFeatureCount}</SidebarMenuBadge>
-            </SidebarMenuItem>
-          ) : null}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              type="button"
-              tooltip={t('tabs.settings')}
-              data-tour="settings"
-              isActive={activeTab?.type === 'settings'}
+        {/* New folder at root */}
+        {newFolderInWorkspace && (
+          <NewFolderModal
+            parentId={null}
+            onConfirm={(name) => handleNewFolderAtRoot(name)}
+            onClose={() => setNewFolderInWorkspace(false)}
+          />
+        )}
+
+        {/* Footer: enlaces secundarios, luego Ajustes */}
+        <div className="shrink-0 border-t border-sidebar-border p-2">
+          <nav className="flex flex-col gap-0.5" aria-label={t('sidebar.more_tools')}>
+            {visibleSecondaryUnifiedNavItems.map((item) => (
+              <SidebarNavButton
+                key={item.key}
+                icon={item.icon}
+                label={item.label}
+                active={getUnifiedNavActive(item)}
+                count={item.kind === 'tab' ? item.count : undefined}
+                dataTour={item.key}
+                onClick={() => handleUnifiedNavClick(item)}
+              />
+            ))}
+            {showSignInCta ? (
+              <SidebarNavButton
+                icon={Login01Icon}
+                label={connectingAccount ? t('sidebar.sign_in_connecting') : t('sidebar.sign_in')}
+                onClick={() => void handleSignIn()}
+              />
+            ) : null}
+            {hiddenFeatureCount > 0 ? (
+              <SidebarNavButton
+                icon={Layers01Icon}
+                label={t('features.hidden_notice', { n: hiddenFeatureCount })}
+                count={hiddenFeatureCount}
+                onClick={goToFeatureSettings}
+              />
+            ) : null}
+            <SidebarNavButton
+              icon={Settings01Icon}
+              label={t('tabs.settings')}
+              active={activeTab?.type === 'settings'}
+              count={updateAvailable ? 1 : undefined}
+              dataTour="settings"
               onClick={() => {
                 openSettingsTab();
                 if (updateAvailable) {
                   setTimeout(() => window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'advanced' })), 50);
                 }
               }}
-            >
-              <HugeiconsIcon icon={Settings01Icon} />
-              <span>{t('tabs.settings')}</span>
-            </SidebarMenuButton>
-            {updateAvailable ? <SidebarMenuBadge>1</SidebarMenuBadge> : null}
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton type="button" tooltip={isDark ? t('settings.appearance.light') : t('settings.appearance.dark')} onClick={() => updateTheme(isDark ? 'light' : 'dark')}>
-              <HugeiconsIcon icon={isDark ? Sun03Icon : MoonIcon} />
-              <span>{isDark ? t('settings.appearance.light') : t('settings.appearance.dark')}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-      <SidebarRail />
-    </Sidebar>
+            />
+            <SidebarNavButton
+              icon={isDark ? Sun03Icon : MoonIcon}
+              label={isDark ? t('settings.appearance.light') : t('settings.appearance.dark')}
+              onClick={() => updateTheme(isDark ? 'light' : 'dark')}
+            />
+          </nav>
+        </div>
+      </div>
+    </aside>
   );
 }

@@ -8,7 +8,7 @@ const os = require('os');
 const { app } = require('electron');
 
 const USER_SKILLS_DIR = path.join(os.homedir(), '.dome', 'skills');
-const SEEDED_FLAG = 'skills_bundled_seeded_v6';
+const SEEDED_FLAG = 'skills_bundled_seeded_v7';
 const MIGRATED_FLAG = 'skills_migrated_userdata_v1';
 
 function getLegacySkillsDir() {

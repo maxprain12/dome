@@ -16,8 +16,9 @@ import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { buildManyFloatingPrompt, getPartOfDay } from '@/lib/prompts/loader';
 import { buildDomeSystemPrompt, formatVolatileSourceContext } from '@/lib/chat/buildDomeSystemPrompt';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
+import { resolveMemoryDomains } from '@/lib/personality/domainMemory';
 import { showToast } from '@/lib/store/useToastStore';
-import type { ManyMessageData } from '@/components/many/chat/types';
+import type { CompactionNoticeData, ManyMessageData } from '@/lib/many/types';
 import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -29,7 +30,6 @@ import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentT
 import { redactBase64FromText } from '@/lib/chat/userMessageVisual';
 import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
-import type { CompactionNoticeData } from '@/components/many/CompactionNotice';
 import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
 import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import {
@@ -365,13 +365,48 @@ export function useManySend(options: UseManySendOptions) {
             ? activeShellTab.type
             : activeShellTab?.splitResource?.resourceType;
 
+        const pinnedDocs = pinnedResources.filter((r) => r.kind !== 'person');
+        const pinnedPeople = pinnedResources.filter((r) => r.kind === 'person');
+
+        const toolIdsForMemory = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
+        let memoryForPrompt = memoryEnabled && userMemory ? userMemory : undefined;
+        if (memoryEnabled) {
+          const domains = resolveMemoryDomains({
+            shellTabType: activeShellTabType,
+            toolNames: toolIdsForMemory,
+          });
+          if (domains.length > 0) {
+            try {
+              const domainRes = await window.electron?.personality?.getAgentMemoryContext?.({
+                memoryEnabled: true,
+                includeProject: false,
+                includeDomains: domains,
+              });
+              const domainBlock = domainRes?.success ? domainRes.data?.domainMemory : '';
+              if (domainBlock?.trim()) {
+                memoryForPrompt = [memoryForPrompt, domainBlock.trim()].filter(Boolean).join('\n\n');
+              }
+            } catch {
+              /* domain pack optional */
+            }
+          }
+        }
+
         const volatileContext = formatVolatileSourceContext({
           dateLine,
           uiContext: uiContextBlock,
-          userMemory: userMemory || undefined,
+          userMemory: memoryForPrompt,
+          pinnedPeople:
+            pinnedPeople.length > 0
+              ? pinnedPeople.map((person) => ({
+                  id: person.id,
+                  title: person.title,
+                  identities: person.identities,
+                }))
+              : undefined,
           pinnedResources:
-            pinnedResources.length > 0
-              ? pinnedResources.map((r) => ({
+            pinnedDocs.length > 0
+              ? pinnedDocs.map((r) => ({
                   id: r.id,
                   title: r.title,
                   type: r.type,
@@ -503,8 +538,11 @@ export function useManySend(options: UseManySendOptions) {
           projectId: chatProjectId,
           autoSpeak: sendOptions?.autoSpeak ? true : undefined,
           voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : undefined,
-          pinnedResourceIds: pinnedResources.length > 0 ? pinnedResources.map((r) => r.id) : undefined,
-          userMemory: userMemory || undefined,
+          pinnedResourceIds:
+            pinnedResources.filter((r) => r.kind !== 'person').length > 0
+              ? pinnedResources.filter((r) => r.kind !== 'person').map((r) => r.id)
+              : undefined,
+          userMemory: memoryEnabled && userMemory ? userMemory : undefined,
         });
         delegatedToRunEngine = true;
         if (sendOptions?.autoSpeak) {
@@ -554,6 +592,7 @@ export function useManySend(options: UseManySendOptions) {
       activeShellTabType,
       currentFolderId,
       userMemory,
+      memoryEnabled,
       pinnedResources,
       toolsEnabled,
       mcpEnabled,

@@ -15,7 +15,7 @@
  * with a clear error instead of guessing.
  *
  * Add a new migration by defining a `migrationN` function that bumps
- * `schema_version` and appending it to MIGRATION_STEPS.
+ * `schema_version` and calling it from applyMigrations (after migration65).
  */
 
 const crypto = require('crypto');
@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 65;
+const SCHEMA_HEAD = 68;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -961,6 +961,164 @@ function migration65(db, version) {
   console.log('[DB] Migration 65 complete - squash bridge');
 }
 
+function migration66(db, version) {
+  if (version >= 66) return;
+  console.log('[DB] Running migration 66 - people / person_identities');
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS people (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        display_name TEXT NOT NULL,
+        primary_email TEXT,
+        avatar_url TEXT,
+        notes TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS person_identities (
+        id TEXT PRIMARY KEY,
+        person_id TEXT NOT NULL,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        source TEXT NOT NULL
+          CHECK(source IN ('github', 'email', 'social_x', 'social_linkedin', 'social_instagram', 'manual')),
+        external_id TEXT NOT NULL,
+        display_label TEXT,
+        meta_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+        UNIQUE(project_id, source, external_id)
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_people_project ON people(project_id, updated_at)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_people_display_name ON people(project_id, display_name)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_person_identities_person ON person_identities(person_id)`);
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_person_identities_external ON person_identities(project_id, source, external_id)`,
+    );
+    setSchemaVersion(db, 66);
+    console.log('[DB] Migration 66 complete - people');
+  } catch (error) {
+    console.error('[DB] Migration 66 failed:', error);
+    throw error;
+  }
+}
+
+function migration67(db, version) {
+  if (version >= 67) return;
+  console.log('[DB] Running migration 67 - email folders / messages / sync_state');
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS email_folders (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        remote_name TEXT NOT NULL,
+        role TEXT,
+        uidvalidity INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+        UNIQUE(account_id, remote_name)
+      )
+    `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS email_messages (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        folder_id TEXT NOT NULL,
+        uid TEXT NOT NULL,
+        message_id TEXT,
+        subject TEXT,
+        from_json TEXT,
+        to_json TEXT,
+        cc_json TEXT,
+        date_ms INTEGER,
+        snippet TEXT,
+        has_attachments INTEGER NOT NULL DEFAULT 0,
+        flags_json TEXT,
+        body_text TEXT,
+        body_html TEXT,
+        synced_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+        FOREIGN KEY (folder_id) REFERENCES email_folders(id) ON DELETE CASCADE,
+        UNIQUE(account_id, folder_id, uid)
+      )
+    `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS email_sync_state (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        folder_id TEXT NOT NULL,
+        last_uid TEXT,
+        cursor TEXT,
+        last_synced_at INTEGER,
+        status TEXT,
+        error TEXT,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+        FOREIGN KEY (folder_id) REFERENCES email_folders(id) ON DELETE CASCADE,
+        UNIQUE(account_id, folder_id)
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_email_folders_account ON email_folders(account_id)`);
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_email_messages_folder ON email_messages(folder_id, date_ms DESC)`,
+    );
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_email_messages_account ON email_messages(account_id, date_ms DESC)`,
+    );
+    setSchemaVersion(db, 67);
+    console.log('[DB] Migration 67 complete - email persist');
+  } catch (error) {
+    console.error('[DB] Migration 67 failed:', error);
+    throw error;
+  }
+}
+
+function migration68(db, version) {
+  if (version >= 68) return;
+  console.log('[DB] Running migration 68 - source_documents FTS (integrations search)');
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS source_documents (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL CHECK(kind IN ('issue', 'email', 'person', 'social_post')),
+        source_id TEXT NOT NULL,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        title TEXT,
+        body TEXT,
+        meta_json TEXT,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_source_documents_kind_project
+        ON source_documents(kind, project_id)
+    `);
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_source_documents_source
+        ON source_documents(kind, source_id)
+    `);
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS source_documents_fts USING fts5(
+        doc_id UNINDEXED,
+        title,
+        body
+      )
+    `);
+    setSchemaVersion(db, 68);
+    console.log('[DB] Migration 68 complete - source_documents');
+  } catch (error) {
+    console.error('[DB] Migration 68 failed:', error);
+    throw error;
+  }
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -983,7 +1141,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   if (version >= SCHEMA_HEAD) return;
 
   if (version === 0) {
-    // Fresh database: createBaseSchema already produced the full v65 schema.
+    // Fresh database: createBaseSchema already produced the full head schema.
     // Guard against an ancient pre-versioning DB (it would carry user data).
     let projectCount = 0;
     try {
@@ -1013,6 +1171,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
     step(db, version, invalidateQueries);
   }
   migration65(db, version);
+  migration66(db, version);
+  migration67(db, version);
+  migration68(db, version);
 }
 
 module.exports = { applyMigrations, SCHEMA_HEAD, MIN_SUPPORTED_VERSION };

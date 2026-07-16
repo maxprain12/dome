@@ -2689,12 +2689,17 @@ async function getToolDefinition(toolName) {
 // Memory / Personality Tools
 // =============================================================================
 
-async function rememberFact(key, value) {
+async function rememberFact(key, value, domain = 'general') {
   const personalityLoader = require('../personality/personality-loader.cjs');
-  personalityLoader.updateLongTermMemory(key, value);
-  personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
+  const normalizedDomain = String(domain || 'general').toLowerCase();
+  if (normalizedDomain === 'social' || normalizedDomain === 'email') {
+    personalityLoader.updateDomainMemory(normalizedDomain, key, value);
+  } else {
+    personalityLoader.updateLongTermMemory(key, value);
+  }
+  personalityLoader.addMemoryEntry(`**${key}** (${normalizedDomain}): ${value}`);
 
-  return { success: true, message: `Remembered: ${key}` };
+  return { success: true, message: `Remembered: ${key}`, domain: normalizedDomain };
 }
 
 // =============================================================================
@@ -3394,10 +3399,18 @@ async function githubListIssues({ repo_id, state = 'all' } = {}) {
   }
 }
 
-async function githubCreateIssue({ repo_id, title, body, milestone_number, labels } = {}) {
+async function githubCreateIssue({ repo_id, title, body, milestone_number, labels, assignees } = {}) {
   try {
     if (!repo_id || !title) return { success: false, error: 'repo_id and title are required' };
-    const issue = await githubSyncService().createIssue(repo_id, { title, body, milestoneNumber: milestone_number, labels });
+    const issue = await githubSyncService().createIssue(repo_id, {
+      title,
+      body,
+      milestoneNumber: milestone_number,
+      labels,
+      assignees: Array.isArray(assignees)
+        ? assignees.map((a) => String(a || '').replace(/^@/, '').trim()).filter(Boolean)
+        : undefined,
+    });
     return { success: true, source: 'github', issue };
   } catch (err) {
     return { success: false, error: err.message };

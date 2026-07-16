@@ -1725,6 +1725,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       resources: (data.resources || []).filter((r) => r.project_id === projectId),
       interactions: (data.interactions || []).filter((i) => i.project_id === projectId),
       studioOutputs: (data.studioOutputs || []).filter((s) => s.project_id === projectId),
+      sources: (data.sources || []).filter((s) => s.projectId === projectId),
     };
   };
 
@@ -1802,13 +1803,25 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     return resourceResults;
   };
 
-  // First-pass search: Lance + FTS + interactions + studio outputs.
+  // First-pass search: Lance + FTS + interactions + studio outputs + integration sources.
   const performUnifiedSearch = async (queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery) => {
     const resourceResults = await searchResourcesUnified(queries, lanceQuery, sanitizedQuery, scopeProjectId);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
     const studioResults = searchStudioOutputs(rawTerms);
-    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults };
+    let sources = [];
+    try {
+      const sourceIndex = require('../../search/source-index.cjs');
+      sources = sourceIndex.searchDocuments(sanitizedQuery, { projectId: scopeProjectId });
+    } catch (err) {
+      console.warn('[DB] unified search source_documents:', err?.message || err);
+    }
+    return {
+      resources: resourceResults,
+      interactions: interactionResults,
+      studioOutputs: studioResults,
+      sources,
+    };
   };
 
   // Retry path after a corruption repair: skip Lance (it may be why we failed),
@@ -1819,7 +1832,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
     const studioResults = searchStudioOutputs(rawTerms);
-    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults };
+    let sources = [];
+    try {
+      const sourceIndex = require('../../search/source-index.cjs');
+      sources = sourceIndex.searchDocuments(sanitizedQuery);
+    } catch {
+      sources = [];
+    }
+    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults, sources };
   };
 
   // Last-ditch retry after a second repair cycle. Mirrors the original: studio
@@ -1829,7 +1849,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     const resourceResults = queries.searchResources.all(sanitizedQuery);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
-    return { resources: resourceResults, interactions: interactionResults };
+    return { resources: resourceResults, interactions: interactionResults, sources: [] };
   };
 
   // After a corruption repair fails, run a more aggressive repair cycle.
@@ -1884,7 +1904,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     if (!sanitizedQuery) {
       return {
         success: true,
-        data: { resources: [], interactions: [], studioOutputs: [] },
+        data: { resources: [], interactions: [], studioOutputs: [], sources: [] },
       };
     }
 
@@ -1897,6 +1917,20 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (error) {
       return handleUnifiedSearchError(error, sanitizedQuery, rawTerms, scopeProjectId);
+    }
+  });
+
+  ipcMain.handle('db:search:reindexSources', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const sourceIndex = require('../../search/source-index.cjs');
+      const counts = sourceIndex.rebuildAll(
+        typeof projectId === 'string' && projectId ? projectId : null,
+      );
+      return { success: true, data: counts };
+    } catch (error) {
+      console.error('[DB] reindexSources error:', error);
+      return { success: false, error: error.message };
     }
   });
 

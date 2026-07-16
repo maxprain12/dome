@@ -49,9 +49,10 @@ const DOME_LOAD_DOC_IDS = [
   "excel_notebook_tool",
   "excel_artifact_tool",
   "email_tool",
-  "github_tool"
+  "github_tool",
+  "social_tool"
 ];
-const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard), email_tool (before email_list/email_search/email_send/email_reply), github_tool (before github_create_issue/github_create_milestone/github_update_issue).";
+const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard), email_tool (before email_list/email_search/email_send/email_reply), github_tool (before github_create_issue/github_create_milestone/github_update_issue), social_tool (before social_post_draft/social_post_publish).";
 const VOICE_LANGUAGE_NAMES = {
   es: "Spanish",
   en: "English",
@@ -116,6 +117,16 @@ ${opts.uiContext.trim()}`);
   if (opts.userMemory?.trim()) {
     blocks.push(`**user-memory**
 ${opts.userMemory.trim()}`);
+  }
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople.map((person) => {
+      const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+      return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
   }
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {
     const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");

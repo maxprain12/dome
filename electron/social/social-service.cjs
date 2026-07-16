@@ -12,6 +12,15 @@ const { createSocialStore, PROVIDERS } = require('./social-store.cjs');
 const { createSocialOAuth } = require('./social-oauth.cjs');
 const calendarBridge = require('./social-calendar-bridge.cjs');
 const insights = require('./social-insights.cjs');
+const {
+  SOCIAL_PROVIDER_CAPABILITIES,
+  anyProviderSupportsLiveCommentDm,
+} = require('./provider-capabilities.cjs');
+const {
+  commentMatchesHashtag,
+  renderReplyTemplate,
+} = require('./social-comment-match.cjs');
+const { accountSupports } = require('./social-messaging.cjs');
 
 const PROVIDER_MODULES = {
   linkedin: require('./providers/linkedin.cjs'),
@@ -21,6 +30,7 @@ const PROVIDER_MODULES = {
 
 const SCHEDULER_TICK_MS = 60 * 1000;
 const METRICS_POLL_MS = 6 * 60 * 60 * 1000;
+const COMMENT_POLL_MS = 5 * 60 * 1000;
 const METRICS_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const ACCOUNT_SNAPSHOT_MIN_GAP_MS = 30 * 60 * 1000;
 const REPORT_CHECK_MS = 60 * 60 * 1000;
@@ -33,8 +43,10 @@ function createSocialService(database, windowManager) {
   let schedulerTimer = null;
   let metricsTimer = null;
   let reportTimer = null;
+  let commentTimer = null;
   let tickRunning = false;
   let reportRunning = false;
+  let commentPollRunning = false;
 
   function broadcast(channel, payload) {
     try {
@@ -276,25 +288,237 @@ function createSocialService(database, windowManager) {
     }
   }
 
+  function stopScheduler() {
+    if (schedulerTimer) clearInterval(schedulerTimer);
+    if (metricsTimer) clearInterval(metricsTimer);
+    if (reportTimer) clearInterval(reportTimer);
+    if (commentTimer) clearInterval(commentTimer);
+    schedulerTimer = null;
+    metricsTimer = null;
+    reportTimer = null;
+    commentTimer = null;
+  }
+
+  /**
+   * Match hashtag → create draft; if mode=live and accountSupports(sendDm), send cold DM.
+   */
+  async function createDraftFromMatchedComment({
+    hashtag,
+    commentText,
+    replyTemplate,
+    provider,
+    accountId,
+    postId,
+    externalCommentId,
+    commentAuthor,
+    commentAuthorExternalId,
+    linkUrl,
+    mode = 'live',
+  } = {}) {
+    if (!commentMatchesHashtag(commentText, hashtag)) {
+      return { matched: false, draft: null, liveDmAvailable: anyProviderSupportsLiveCommentDm() };
+    }
+    if (externalCommentId && store.hasSeenComment(externalCommentId)) {
+      return { matched: true, draft: null, skipped: 'already_seen' };
+    }
+    const replyBody = renderReplyTemplate(replyTemplate || '', {
+      hashtag,
+      comment: commentText,
+      author: commentAuthor,
+      link: linkUrl,
+    });
+    const draft = store.createReplyDraft({
+      provider,
+      accountId,
+      postId,
+      externalCommentId,
+      hashtag,
+      commentText,
+      commentAuthor,
+      commentAuthorExternalId,
+      replyBody,
+      linkUrl,
+      status: 'draft_only',
+    });
+    if (externalCommentId) store.markCommentSeen(externalCommentId);
+    broadcast('social:drafts-updated', { id: draft.id });
+
+    const account = accountId ? store.serializeAccount(store.getAccount(accountId)) : null;
+    const canLive = mode === 'live' && account && accountSupports(account, 'sendDm');
+    if (canLive) {
+      try {
+        const sent = await sendReplyDraft(draft.id);
+        return {
+          matched: true,
+          draft: sent.draft,
+          liveDmAvailable: true,
+          mode: 'live',
+          sent: true,
+        };
+      } catch (err) {
+        store.updateReplyDraft(draft.id, {
+          status: 'failed',
+          error: err.message,
+        });
+        broadcast('social:drafts-updated', { id: draft.id, failed: true });
+        return {
+          matched: true,
+          draft: store.listReplyDrafts().find((d) => d.id === draft.id),
+          liveDmAvailable: true,
+          mode: 'live',
+          sent: false,
+          error: err.message,
+        };
+      }
+    }
+
+    return {
+      matched: true,
+      draft,
+      liveDmAvailable: Boolean(account && accountSupports(account, 'sendDm')),
+      mode: canLive ? 'live' : 'draft_only',
+      sent: false,
+    };
+  }
+
+  async function sendReplyDraft(draftId) {
+    const draft = store.listReplyDrafts().find((d) => d.id === draftId);
+    if (!draft) throw new Error('Reply draft not found');
+    if (draft.status === 'sent' && draft.externalMessageId) {
+      return { draft, alreadySent: true };
+    }
+    const account = store.serializeAccount(store.getAccount(draft.accountId));
+    if (!account) throw new Error('Draft has no account');
+    if (!accountSupports(account, 'sendDm')) {
+      throw new Error(`Account ${account.provider} does not support sendDm with current scopes — reconnect in Settings.`);
+    }
+    const mod = PROVIDER_MODULES[account.provider];
+    if (typeof mod.sendDm !== 'function') {
+      throw new Error(`Provider ${account.provider} has no sendDm adapter`);
+    }
+    const recipientExternalId = draft.commentAuthorExternalId;
+    if (!recipientExternalId) {
+      throw new Error('Cannot send cold DM: comment author external id missing');
+    }
+    store.updateReplyDraft(draft.id, { status: 'sending', error: null });
+    const { externalMessageId } = await mod.sendDm(store, {
+      accountId: account.id,
+      recipientExternalId,
+      text: draft.replyBody,
+    });
+    const updated = store.updateReplyDraft(draft.id, {
+      status: 'sent',
+      externalMessageId,
+      sentAt: Date.now(),
+      error: null,
+    });
+    broadcast('social:drafts-updated', { id: draft.id, sent: true });
+    return { draft: updated, alreadySent: false };
+  }
+
+  /**
+   * Poll published posts for new comments and apply live reply rules (cold DM).
+   */
+  async function pollCommentsAndAutoReply() {
+    if (commentPollRunning) return { processed: 0 };
+    commentPollRunning = true;
+    let processed = 0;
+    try {
+      const rules = store.getLiveReplyRules().filter((r) => r.enabled !== false);
+      if (rules.length === 0) return { processed: 0 };
+
+      const posts = store.listRecentPublished({
+        sinceMs: Date.now() - METRICS_WINDOW_MS,
+        limit: 40,
+      });
+      for (const post of posts) {
+        if (!post.accountId || !post.externalPostId) continue;
+        const account = store.serializeAccount(store.getAccount(post.accountId));
+        if (!account || account.status !== 'active') continue;
+        if (!accountSupports(account, 'listComments')) continue;
+        const mod = PROVIDER_MODULES[account.provider];
+        if (typeof mod.listComments !== 'function') continue;
+
+        let comments = [];
+        try {
+          const page = await mod.listComments(store, {
+            accountId: account.id,
+            externalPostId: post.externalPostId,
+          });
+          comments = page.comments || [];
+        } catch (err) {
+          console.warn(`[Social] listComments ${account.provider}/${post.id}:`, err.message);
+          continue;
+        }
+
+        for (const comment of comments) {
+          if (!comment.id || store.hasSeenComment(comment.id)) continue;
+          for (const rule of rules) {
+            if (Array.isArray(rule.accountIds) && rule.accountIds.length && !rule.accountIds.includes(account.id)) {
+              continue;
+            }
+            if (Array.isArray(rule.postIds) && rule.postIds.length && !rule.postIds.includes(post.id)) {
+              continue;
+            }
+            const result = await createDraftFromMatchedComment({
+              hashtag: rule.hashtag,
+              commentText: comment.text,
+              replyTemplate: rule.replyTemplate,
+              provider: account.provider,
+              accountId: account.id,
+              postId: post.id,
+              externalCommentId: comment.id,
+              commentAuthor: comment.authorName,
+              commentAuthorExternalId: comment.authorExternalId,
+              linkUrl: rule.linkUrl || post.externalUrl || '',
+              mode: rule.mode || 'live',
+            });
+            if (result.matched && !result.skipped) processed += 1;
+            if (result.matched) break;
+          }
+          // Unmatched comments still mark seen so we don't re-scan forever
+          if (!store.hasSeenComment(comment.id)) store.markCommentSeen(comment.id);
+        }
+      }
+    } finally {
+      commentPollRunning = false;
+    }
+    if (processed > 0) console.log(`[Social] comment poll processed ${processed} match(es)`);
+    return { processed };
+  }
+
+  function getIntegrationCapabilities() {
+    return {
+      liveCommentDm: anyProviderSupportsLiveCommentDm(),
+      defaultMode: 'live',
+      coldDm: true,
+      providers: Object.fromEntries(
+        PROVIDERS.map((p) => [
+          p,
+          {
+            supportsManualToken: PROVIDER_MODULES[p].supportsManualToken,
+            requiresMedia: PROVIDER_MODULES[p].requiresMedia,
+            ...(SOCIAL_PROVIDER_CAPABILITIES[p] || {}),
+            commentsEnabled: store.getMessagingCommentsEnabled(p),
+            dmEnabled: store.getMessagingDmEnabled(p),
+          },
+        ]),
+      ),
+      liveReplyRules: store.getLiveReplyRules(),
+    };
+  }
+
   function startScheduler() {
     if (schedulerTimer) return;
     schedulerTimer = setInterval(() => void tick(), SCHEDULER_TICK_MS);
     metricsTimer = setInterval(() => void refreshAllMetrics().catch(() => {}), METRICS_POLL_MS);
     reportTimer = setInterval(() => void maybeGenerateAutoReport().catch(() => {}), REPORT_CHECK_MS);
-    // Catch up on due posts shortly after boot; defer metrics/reports to not slow startup.
+    commentTimer = setInterval(() => void pollCommentsAndAutoReply().catch(() => {}), COMMENT_POLL_MS);
     setTimeout(() => void tick(), 15 * 1000);
     setTimeout(() => void refreshAllMetrics().catch(() => {}), 90 * 1000);
     setTimeout(() => void maybeGenerateAutoReport().catch(() => {}), 3 * 60 * 1000);
-    console.log('[Social] scheduler started');
-  }
-
-  function stopScheduler() {
-    if (schedulerTimer) clearInterval(schedulerTimer);
-    if (metricsTimer) clearInterval(metricsTimer);
-    if (reportTimer) clearInterval(reportTimer);
-    schedulerTimer = null;
-    metricsTimer = null;
-    reportTimer = null;
+    setTimeout(() => void pollCommentsAndAutoReply().catch(() => {}), 2 * 60 * 1000);
+    console.log('[Social] scheduler started (incl. comment/DM poller)');
   }
 
   return {
@@ -320,6 +544,10 @@ function createSocialService(database, windowManager) {
     generateReport,
     startScheduler,
     stopScheduler,
+    createDraftFromMatchedComment,
+    sendReplyDraft,
+    pollCommentsAndAutoReply,
+    getIntegrationCapabilities,
   };
 }
 

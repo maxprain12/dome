@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -39,27 +40,36 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  loading = false,
-  children,
-  disabled,
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { loading?: boolean }) {
+const Button = React.forwardRef<
+  HTMLButtonElement,
+  ButtonPrimitive.Props &
+    VariantProps<typeof buttonVariants> & { loading?: boolean; inert?: boolean }
+>(function Button(
+  { className, variant = "default", size = "default", loading = false, children, disabled, inert, ...props },
+  ref
+) {
+  // React 18's DOM types don't serialize a boolean `inert` attribute (added in
+  // React 19); some upstream components (e.g. message-scroller) pass it as a
+  // boolean via the `render` prop, so it's normalized to a string here before
+  // reaching the native <button> (@base-ui/react's Props type has no `inert`
+  // field either, hence the cast).
+  const inertProps =
+    inert === undefined ? {} : { inert: inert ? "" : undefined }
+
   return (
     <ButtonPrimitive
+      ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
+      {...(inertProps as Record<string, unknown>)}
     >
       {loading ? <Spinner className="size-3.5" aria-hidden /> : null}
       {children}
     </ButtonPrimitive>
   )
-}
+})
 
 export { Button, buttonVariants }

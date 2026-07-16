@@ -95,11 +95,6 @@ function ToolDisplayBlockView({ block, surfaceVariant }: { block: ToolDisplayBlo
 /** Shared with ChatMessageGroup; `many` enables Many panel minimal skin */
 export type ChatSurfaceVariant = 'default' | 'many';
 
-export type ManyMessageBodyProps = Pick<
-  ChatMessageProps,
-  'message' | 'onRegenerate' | 'onSaveAsNote' | 'onClickCitation' | 'isFirstInGroup' | 'isLastInGroup'
->;
-
 interface ChatMessageProps {
   message: ChatMessageData;
   showAvatar?: boolean;

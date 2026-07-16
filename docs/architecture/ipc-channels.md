@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-13T14:18:50.345Z
+> Última generación: 2026-07-15T19:26:08.029Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -194,25 +194,26 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:projects:getVaultRoot` | `electron/ipc/data/database.cjs:338` |
 | `db:projects:setVaultRoot` | `electron/ipc/data/database.cjs:319` |
 | `db:projects:update` | `electron/ipc/data/database.cjs:295` |
-| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:2113` |
+| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:2147` |
 | `db:resources:create` | `electron/ipc/data/database.cjs:374` |
-| `db:resources:delete` | `electron/ipc/data/database.cjs:1936` |
+| `db:resources:delete` | `electron/ipc/data/database.cjs:1970` |
 | `db:resources:ensureUrl` | `electron/ipc/data/database.cjs:449` |
-| `db:resources:getAll` | `electron/ipc/data/database.cjs:1904` |
+| `db:resources:getAll` | `electron/ipc/data/database.cjs:1938` |
 | `db:resources:getBacklinks` | `electron/ipc/data/database.cjs:787` |
-| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1953` |
+| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1987` |
 | `db:resources:getById` | `electron/ipc/data/database.cjs:434` |
 | `db:resources:getByProject` | `electron/ipc/data/database.cjs:422` |
-| `db:resources:getRoot` | `electron/ipc/data/database.cjs:1966` |
-| `db:resources:listLight` | `electron/ipc/data/database.cjs:1917` |
-| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:2049` |
-| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1982` |
-| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:2089` |
+| `db:resources:getRoot` | `electron/ipc/data/database.cjs:2000` |
+| `db:resources:listLight` | `electron/ipc/data/database.cjs:1951` |
+| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:2083` |
+| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:2016` |
+| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:2123` |
 | `db:resources:search` | `electron/ipc/data/database.cjs:710` |
 | `db:resources:searchForMention` | `electron/ipc/data/database.cjs:762` |
 | `db:resources:update` | `electron/ipc/data/database.cjs:531` |
 | `db:resources:uploadFile` | `electron/ipc/data/database.cjs:800` |
-| `db:search:unified` | `electron/ipc/data/database.cjs:1870` |
+| `db:search:reindexSources` | `electron/ipc/data/database.cjs:1923` |
+| `db:search:unified` | `electron/ipc/data/database.cjs:1890` |
 | `db:semantic:confirm` | `electron/ipc/ai/semantic.cjs:108` |
 | `db:semantic:createManual` | `electron/ipc/ai/semantic.cjs:147` |
 | `db:semantic:delete` | `electron/ipc/ai/semantic.cjs:121` |
@@ -267,17 +268,19 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `domeauth:nativeLogin` | `electron/ipc/integrations/dome-auth.cjs:60` |
 | `domeauth:openDashboard` | `electron/ipc/integrations/dome-auth.cjs:34` |
 | `domeauth:startOAuthFlow` | `electron/ipc/integrations/dome-auth.cjs:7` |
-| `email:addAccount` | `electron/ipc/integrations/email.cjs:131` |
-| `email:listAccounts` | `electron/ipc/integrations/email.cjs:120` |
-| `email:listEnvelopes` | `electron/ipc/integrations/email.cjs:194` |
-| `email:listFolders` | `electron/ipc/integrations/email.cjs:180` |
-| `email:read` | `electron/ipc/integrations/email.cjs:207` |
-| `email:removeAccount` | `electron/ipc/integrations/email.cjs:143` |
-| `email:reply` | `electron/ipc/integrations/email.cjs:246` |
-| `email:search` | `electron/ipc/integrations/email.cjs:220` |
-| `email:send` | `electron/ipc/integrations/email.cjs:233` |
-| `email:testConnection` | `electron/ipc/integrations/email.cjs:168` |
-| `email:updateAccountPermissions` | `electron/ipc/integrations/email.cjs:155` |
+| `email:addAccount` | `electron/ipc/integrations/email.cjs:132` |
+| `email:listAccounts` | `electron/ipc/integrations/email.cjs:121` |
+| `email:listEnvelopes` | `electron/ipc/integrations/email.cjs:195` |
+| `email:listFolders` | `electron/ipc/integrations/email.cjs:181` |
+| `email:read` | `electron/ipc/integrations/email.cjs:246` |
+| `email:removeAccount` | `electron/ipc/integrations/email.cjs:144` |
+| `email:reply` | `electron/ipc/integrations/email.cjs:285` |
+| `email:search` | `electron/ipc/integrations/email.cjs:259` |
+| `email:send` | `electron/ipc/integrations/email.cjs:272` |
+| `email:sync:now` | `electron/ipc/integrations/email.cjs:214` |
+| `email:sync:status` | `electron/ipc/integrations/email.cjs:228` |
+| `email:testConnection` | `electron/ipc/integrations/email.cjs:169` |
+| `email:updateAccountPermissions` | `electron/ipc/integrations/email.cjs:156` |
 | `embeddings:apply` | `electron/ipc/ai/embeddings.cjs:133` |
 | `embeddings:getStatus` | `electron/ipc/ai/embeddings.cjs:38` |
 | `embeddings:listModels` | `electron/ipc/ai/embeddings.cjs:107` |
@@ -399,16 +402,24 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `open-external-url` | `electron/ipc/core/system.cjs:173` |
 | `open-path` | `electron/ipc/core/system.cjs:147` |
 | `pdf:render-page` | `electron/ipc/media/pdf-render.cjs:15` |
-| `personality:add-memory` | `electron/ipc/integrations/personality.cjs:57` |
-| `personality:get-context-files` | `electron/ipc/integrations/personality.cjs:5` |
-| `personality:get-prompt` | `electron/ipc/integrations/personality.cjs:17` |
-| `personality:list-daily-memory` | `electron/ipc/integrations/personality.cjs:110` |
-| `personality:list-files` | `electron/ipc/integrations/personality.cjs:70` |
-| `personality:open-folder` | `electron/ipc/integrations/personality.cjs:97` |
-| `personality:read-file` | `electron/ipc/integrations/personality.cjs:30` |
-| `personality:remember-fact` | `electron/ipc/integrations/personality.cjs:83` |
-| `personality:write-daily-memory` | `electron/ipc/integrations/personality.cjs:122` |
-| `personality:write-file` | `electron/ipc/integrations/personality.cjs:44` |
+| `people:get` | `electron/ipc/integrations/people.cjs:26` |
+| `people:linkIdentity` | `electron/ipc/integrations/people.cjs:62` |
+| `people:list` | `electron/ipc/integrations/people.cjs:17` |
+| `people:search` | `electron/ipc/integrations/people.cjs:38` |
+| `people:syncGithub` | `electron/ipc/integrations/people.cjs:83` |
+| `people:upsert` | `electron/ipc/integrations/people.cjs:51` |
+| `people:upsertIdentity` | `electron/ipc/integrations/people.cjs:72` |
+| `personality:add-memory` | `electron/ipc/integrations/personality.cjs:92` |
+| `personality:get-agent-memory-context` | `electron/ipc/integrations/personality.cjs:31` |
+| `personality:get-context-files` | `electron/ipc/integrations/personality.cjs:19` |
+| `personality:get-prompt` | `electron/ipc/integrations/personality.cjs:50` |
+| `personality:list-daily-memory` | `electron/ipc/integrations/personality.cjs:150` |
+| `personality:list-files` | `electron/ipc/integrations/personality.cjs:105` |
+| `personality:open-folder` | `electron/ipc/integrations/personality.cjs:137` |
+| `personality:read-file` | `electron/ipc/integrations/personality.cjs:63` |
+| `personality:remember-fact` | `electron/ipc/integrations/personality.cjs:118` |
+| `personality:write-daily-memory` | `electron/ipc/integrations/personality.cjs:162` |
+| `personality:write-file` | `electron/ipc/integrations/personality.cjs:78` |
 | `pipelines:create` | `electron/ipc/agents/pipelines.cjs:189` |
 | `pipelines:delete` | `electron/ipc/agents/pipelines.cjs:243` |
 | `pipelines:export` | `electron/ipc/agents/pipelines.cjs:264` |
@@ -489,11 +500,19 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `skills:readFile` | `electron/ipc/integrations/skills.cjs:125` |
 | `skills:remove` | `electron/ipc/integrations/skills.cjs:111` |
 | `social:accounts:list` | `electron/ipc/integrations/social.cjs:139` |
+| `social:capabilities` | `electron/ipc/integrations/social.cjs:317` |
 | `social:connect-oauth` | `electron/ipc/integrations/social.cjs:140` |
 | `social:connect-token` | `electron/ipc/integrations/social.cjs:141` |
 | `social:disconnect` | `electron/ipc/integrations/social.cjs:148` |
+| `social:drafts:create-from-match` | `electron/ipc/integrations/social.cjs:319` |
+| `social:drafts:dismiss` | `electron/ipc/integrations/social.cjs:345` |
+| `social:drafts:list` | `electron/ipc/integrations/social.cjs:318` |
+| `social:drafts:poll-now` | `electron/ipc/integrations/social.cjs:353` |
+| `social:drafts:send` | `electron/ipc/integrations/social.cjs:341` |
 | `social:growth` | `electron/ipc/integrations/social.cjs:291` |
 | `social:linkedin:sync-orgs` | `electron/ipc/integrations/social.cjs:145` |
+| `social:live-reply-rules:get` | `electron/ipc/integrations/social.cjs:354` |
+| `social:live-reply-rules:set` | `electron/ipc/integrations/social.cjs:358` |
 | `social:media:library` | `electron/ipc/integrations/social.cjs:229` |
 | `social:media:pick` | `electron/ipc/integrations/social.cjs:204` |
 | `social:media:preview` | `electron/ipc/integrations/social.cjs:266` |

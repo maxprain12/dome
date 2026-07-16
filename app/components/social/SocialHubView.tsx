@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
-import { Building2Icon, CalendarClockIcon, ChartColumnIcon, CloudIcon, DashboardSquare01Icon, Delete02Icon, ExternalLinkIcon, File02Icon, InstagramIcon, Linkedin01Icon, PencilIcon, PlusSignIcon, RefreshIcon, SentIcon, Settings01Icon, Share08Icon, SparklesIcon, TwitterIcon } from '@hugeicons/core-free-icons';
+import { Building2Icon, CalendarClockIcon, ChartColumnIcon, CloudIcon, Comment01Icon, DashboardSquare01Icon, Delete02Icon, ExternalLinkIcon, File02Icon, InstagramIcon, Linkedin01Icon, PencilIcon, PlusSignIcon, RefreshIcon, SentIcon, Settings01Icon, SparklesIcon, TwitterIcon } from '@hugeicons/core-free-icons';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,13 +20,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { HubHeader } from '@/components/hub/HubHeader';
+import { HubSurface } from '@/components/hub/HubBlocks';
 import { cn } from '@/lib/utils';
 import SocialComposerModal from '@/components/social/SocialComposerModal';
 import SocialGrowthCards from '@/components/social/SocialGrowthCards';
 import SocialReportsSection from '@/components/social/SocialReportsSection';
 import type { SocialAccount, SocialGrowthAccount, SocialPost, SocialProvider, SocialSummary } from '@/components/social/socialTypes';
 
-type HubSection = 'dashboard' | 'posts' | 'analytics' | 'reports';
+type HubSection = 'dashboard' | 'posts' | 'analytics' | 'reports' | 'monitor';
 
 const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = { linkedin: Linkedin01Icon, instagram: InstagramIcon, x: TwitterIcon };
 const PROVIDER_LABELS = { linkedin: 'LinkedIn', instagram: 'Instagram', x: 'X' } as const;
@@ -53,18 +55,37 @@ export default function SocialHubView() {
   const [refreshing, setRefreshing] = useState(false);
   const [busyPostId, setBusyPostId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<
+    Array<{
+      id: string;
+      status: string;
+      hashtag: string | null;
+      commentText: string | null;
+      commentAuthor: string | null;
+      replyBody: string;
+      createdAt: number;
+    }>
+  >([]);
+  const [providerCaps, setProviderCaps] = useState<Record<
+    string,
+    { listComments?: boolean; sendDm?: boolean }
+  > | null>(null);
 
   const load = useCallback(async () => {
-    const [summaryRes, postsRes, accountsRes, growthRes] = await Promise.all([
+    const [summaryRes, postsRes, accountsRes, growthRes, draftsRes, capsRes] = await Promise.all([
       window.electron.invoke('social:summary'),
       window.electron.invoke('social:posts:list', { limit: 200 }),
       window.electron.invoke('social:accounts:list'),
       window.electron.invoke('social:growth', { days: 90 }),
+      window.electron.invoke('social:drafts:list'),
+      window.electron.invoke('social:capabilities'),
     ]);
     if (summaryRes?.success) setSummary(summaryRes.data);
     if (postsRes?.success) setPosts(postsRes.data);
     if (accountsRes?.success) setAccounts(accountsRes.data);
     if (growthRes?.success) setGrowth(growthRes.data.accounts);
+    if (draftsRes?.success) setReplyDrafts(draftsRes.data?.drafts ?? []);
+    if (capsRes?.success) setProviderCaps(capsRes.data?.providers ?? null);
   }, []);
 
   useEffect(() => {
@@ -74,6 +95,7 @@ export default function SocialHubView() {
       window.electron?.on?.('social:posts-refresh', () => void load()),
       window.electron?.on?.('social:account-updated', () => void load()),
       window.electron?.on?.('social:metrics-updated', () => void load()),
+      window.electron?.on?.('social:drafts-updated', () => void load()),
     ];
     return () => unsubs.forEach((u) => u?.());
   }, [load]);
@@ -140,68 +162,92 @@ export default function SocialHubView() {
   const counts = summary?.counts ?? { draft: 0, scheduled: 0, publishing: 0, published: 0, failed: 0 };
   const totals = summary?.totals ?? { impressions: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
 
+  const lastSyncAt = useMemo(() => {
+    let max: number | null = null;
+    for (const a of accounts) {
+      if (a.lastSyncAt != null && (max == null || a.lastSyncAt > max)) max = a.lastSyncAt;
+    }
+    return max;
+  }, [accounts]);
+
+  const syncDescription = error
+    ? t('social.hub.sync_error', { error })
+    : refreshing
+      ? t('social.hub.syncing')
+      : lastSyncAt
+        ? t('social.hub.last_sync', {
+            time: new Date(lastSyncAt).toLocaleString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              day: 'numeric',
+              month: 'short',
+            }),
+          })
+        : t('social.hub.sync_idle');
+
   return (
-    <div className="flex flex-col h-full min-w-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-5 py-3">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <HugeiconsIcon icon={Share08Icon} className="size-5 shrink-0 text-primary" />
-          <h1 className="text-base font-semibold truncate text-foreground">
-            {t('social.hub.title')}
-          </h1>
-          <Tabs value={section} onValueChange={(v) => setSection(v as HubSection)} className="ml-4">
-            <TabsList className="h-8">
-              {(
-                [
-                  ['dashboard', DashboardSquare01Icon],
-                  ['posts', File02Icon],
-                  ['analytics', ChartColumnIcon],
-                  ['reports', SparklesIcon],
-                ] as const
-              ).map(([id, icon]) => (
-                <TabsTrigger key={id} value={id} className="gap-1.5 px-2.5 text-xs">
-                  <HugeiconsIcon icon={icon} className="size-3.5" />
-                  {t(`social.hub.section_${id}`)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="text-xs text-muted-foreground"
-            onClick={() => void refreshMetrics()}
-            disabled={refreshing}
-            title={t('social.hub.refresh_metrics')}
-          >
-            <HugeiconsIcon icon={RefreshIcon} className={cn('size-3.5', refreshing && 'animate-spin')} />
-            {t('social.hub.refresh_metrics')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="text-xs"
-            onClick={() => {
-              setEditingPost(null);
-              setComposerOpen(true);
-            }}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
-            {t('social.hub.new_post')}
-          </Button>
-        </div>
+    <div className="flex h-full min-w-0 flex-col overflow-hidden">
+      <div className="shrink-0 space-y-3 border-b px-4 py-3">
+        <HubHeader
+          title={t('social.hub.title')}
+          description={syncDescription}
+          actions={
+            <>
+              {error ? (
+                <Badge variant="destructive">{t('social.hub.sync_badge_error')}</Badge>
+              ) : refreshing ? (
+                <Badge variant="secondary">{t('social.hub.sync_badge_syncing')}</Badge>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void refreshMetrics()}
+                disabled={refreshing}
+                title={t('social.hub.refresh_metrics')}
+              >
+                {refreshing ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+                )}
+                {t('social.hub.refresh_metrics')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setEditingPost(null);
+                  setComposerOpen(true);
+                }}
+              >
+                <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+                {t('social.hub.new_post')}
+              </Button>
+            </>
+          }
+        />
+        <Tabs value={section} onValueChange={(v) => setSection(v as HubSection)}>
+          <TabsList className="h-auto w-full max-w-full flex-wrap">
+            {(
+              [
+                ['dashboard', DashboardSquare01Icon],
+                ['posts', File02Icon],
+                ['analytics', ChartColumnIcon],
+                ['reports', SparklesIcon],
+                ['monitor', Comment01Icon],
+              ] as const
+            ).map(([id, icon]) => (
+              <TabsTrigger key={id} value={id} className="gap-1.5 px-2.5 text-xs">
+                <HugeiconsIcon icon={icon} className="size-3.5" />
+                {t(`social.hub.section_${id}`)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
-      {error && (
-        <div className="px-5 py-2 text-xs shrink-0 text-destructive">
-          {error}
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto px-5 py-4 min-w-0">
+      <div className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
         {section === 'dashboard' && (
           <div className="flex flex-col gap-5 max-w-5xl">
             {/* Connected accounts strip */}
@@ -382,6 +428,139 @@ export default function SocialHubView() {
         )}
 
         {section === 'reports' && <SocialReportsSection />}
+
+        {section === 'monitor' && (
+          <div className="flex max-w-2xl flex-col gap-5">
+            <HubSurface
+              icon={Comment01Icon}
+              title={t('social.hub.monitor_title')}
+              description={t('social.hub.monitor_description')}
+            >
+              <p className="text-sm text-muted-foreground">{t('social.hub.monitor_empty')}</p>
+            </HubSurface>
+
+            {providerCaps ? (
+              <section className="flex flex-col gap-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('social.hub.monitor_capabilities')}
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {(['linkedin', 'instagram', 'x'] as const).map((p) => {
+                    const caps = providerCaps[p];
+                    return (
+                      <div
+                        key={p}
+                        className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs"
+                      >
+                        <HugeiconsIcon icon={PROVIDER_ICONS[p]} className="size-3.5 text-primary" />
+                        <span className="font-medium">{PROVIDER_LABELS[p]}</span>
+                        <Badge variant="outline">
+                          {caps?.listComments
+                            ? t('social.hub.cap_comments_yes')
+                            : t('social.hub.cap_comments_no')}
+                        </Badge>
+                        <Badge variant="outline">
+                          {caps?.sendDm ? t('social.hub.cap_dm_yes') : t('social.hub.cap_dm_no')}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('social.hub.monitor_drafts')}
+                </h2>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    void window.electron.invoke('social:drafts:poll-now').then(() => load());
+                  }}
+                >
+                  {t('social.hub.poll_comments')}
+                </Button>
+              </div>
+              {replyDrafts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('social.hub.monitor_drafts_empty')}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {replyDrafts.map((draft) => (
+                    <div
+                      key={draft.id}
+                      className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <Badge
+                            variant={
+                              draft.status === 'sent'
+                                ? 'default'
+                                : draft.status === 'failed'
+                                  ? 'destructive'
+                                  : 'secondary'
+                            }
+                            className="mb-1"
+                          >
+                            {draft.status === 'sent'
+                              ? t('social.hub.draft_sent_badge')
+                              : draft.status === 'failed'
+                                ? t('social.hub.draft_failed_badge')
+                                : t('social.hub.draft_only_badge')}
+                          </Badge>
+                          {draft.hashtag ? (
+                            <p className="text-xs text-muted-foreground">#{draft.hashtag}</p>
+                          ) : null}
+                          {draft.commentText ? (
+                            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                              {draft.commentAuthor ? `${draft.commentAuthor}: ` : ''}
+                              {draft.commentText}
+                            </p>
+                          ) : null}
+                          <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">
+                            {draft.replyBody}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-1">
+                          {draft.status !== 'sent' ? (
+                            <Button
+                              type="button"
+                              size="xs"
+                              onClick={() => {
+                                void window.electron
+                                  .invoke('social:drafts:send', { draftId: draft.id })
+                                  .then(() => load())
+                                  .catch(() => load());
+                              }}
+                            >
+                              {t('social.hub.send_dm')}
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => {
+                              void window.electron
+                                .invoke('social:drafts:dismiss', { draftId: draft.id })
+                                .then(() => load());
+                            }}
+                          >
+                            {t('social.hub.dismiss_draft')}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
       </div>
 
       {composerOpen && (

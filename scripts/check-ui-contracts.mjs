@@ -133,7 +133,6 @@ const BEM_ALLOWED_FILES = new Set([
   'app/styles/github-view.css',
   'app/styles/mention-textarea.css',
   'app/styles/email-view.css',
-  'app/styles/shell-header.css',
   'app/styles/learn.css', // .lr-* — Quiz/MindMap state-driven styling, see file header
 ]);
 

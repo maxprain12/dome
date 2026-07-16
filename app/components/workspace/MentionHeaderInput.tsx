@@ -13,11 +13,14 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
+import { showToast } from '@/lib/store/useToastStore';
 import './mention-header-input.css';
 
 type MenuItem =
   | { kind: 'tag'; id: string; label: string }
-  | { kind: 'mention'; id: string; label: string; type: string };
+  | { kind: 'mention'; id: string; label: string; type: string }
+  | { kind: 'person'; id: string; label: string; subtitle: string };
 
 function parseActiveToken(
   value: string,
@@ -127,9 +130,32 @@ export default function MentionHeaderInput({
       setLoading(true);
       try {
         const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
-        const res = await window.electron.db.resources.searchForMention(token.query, activeProjectId);
+        const [peopleRes, res] = await Promise.all([
+          window.electron.people?.search?.({
+            projectId: activeProjectId,
+            query: token.query,
+            limit: 8,
+          }),
+          window.electron.db.resources.searchForMention(token.query, activeProjectId),
+        ]);
+        const peopleRows =
+          peopleRes?.success && Array.isArray(peopleRes.data?.people) ? peopleRes.data.people : [];
         const rows = (res.success && Array.isArray(res.data) ? res.data : []) as Resource[];
         const filtered: MenuItem[] = [];
+        for (const person of peopleRows) {
+          const identities = Array.isArray(person.identities) ? person.identities : [];
+          const subtitle =
+            identities
+              .slice(0, 2)
+              .map((i) => `${i.source}:${i.displayLabel || i.externalId}`)
+              .join(' · ') || t('command.people');
+          filtered.push({
+            kind: 'person',
+            id: person.id,
+            label: person.displayName || person.primaryEmail || 'Person',
+            subtitle,
+          });
+        }
         for (const r of rows) {
           if (r.id === resourceId) continue;
           filtered.push({
@@ -150,7 +176,7 @@ export default function MentionHeaderInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [token, resourceId, updateMenuPosition]);
+  }, [token, resourceId, updateMenuPosition, t]);
 
   useEffect(() => {
     updateMenuPosition();
@@ -211,11 +237,45 @@ export default function MentionHeaderInput({
     }
   };
 
+  const commitPerson = async (personId: string, label: string) => {
+    setCommitting(true);
+    try {
+      try {
+        const lookup = await window.electron.people?.get?.(personId);
+        const person = lookup?.success ? lookup.data?.person : null;
+        const identities = person?.identities || [];
+        const hasEmail =
+          identities.some((i) => i.source === 'email') || !!person?.primaryEmail;
+        if (hasEmail) {
+          useTabStore.getState().openEmailTab();
+        } else if (identities.some((i) => i.source === 'github')) {
+          useTabStore.getState().openGitHubTab();
+        }
+      } catch {
+        /* ignore navigation errors */
+      }
+      setValue('');
+      showToast('success', label);
+    } finally {
+      setCommitting(false);
+    }
+  };
+
   const handlePick = async (item: MenuItem) => {
-    if (item.kind === 'tag') {
-      await commitTag(item.label, item.id);
-    } else {
-      await commitMention(item.id);
+    switch (item.kind) {
+      case 'tag':
+        await commitTag(item.label, item.id);
+        break;
+      case 'mention':
+        await commitMention(item.id);
+        break;
+      case 'person':
+        await commitPerson(item.id, item.label);
+        break;
+      default: {
+        const _exhaustive: never = item;
+        void _exhaustive;
+      }
     }
   };
 
@@ -284,6 +344,11 @@ export default function MentionHeaderInput({
                 {item.kind === 'mention' ? (
                   <span className="mention-header-item-type text-[11px] capitalize">
                     {item.type}
+                  </span>
+                ) : null}
+                {item.kind === 'person' ? (
+                  <span className="mention-header-item-type text-[11px]">
+                    {item.subtitle}
                   </span>
                 ) : null}
               </button>

@@ -21,14 +21,24 @@ const VIDEO_POLL_MAX = 150; // video processing can take minutes
 const database = require('../../core/database.cjs');
 const fileStorage = require('../../storage/file-storage.cjs');
 const { resolveMediaItems } = require('../social-media.cjs');
+const { normalizeComment } = require('../social-messaging.cjs');
 
-async function igFetch(path, { method = 'GET', params = {}, accessToken } = {}) {
+async function igFetch(path, { method = 'GET', params = {}, accessToken, body } = {}) {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH}${path}`);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   }
-  if (accessToken) url.searchParams.set('access_token', accessToken);
-  const res = await fetch(url, { method });
+  if (accessToken && method === 'GET') url.searchParams.set('access_token', accessToken);
+  const headers = {};
+  let fetchBody;
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    fetchBody = JSON.stringify(body);
+  }
+  if (accessToken && method !== 'GET') {
+    url.searchParams.set('access_token', accessToken);
+  }
+  const res = await fetch(url, { method, headers, body: fetchBody });
   const text = await res.text();
   let data;
   try {
@@ -255,6 +265,60 @@ async function fetchAccountMetrics(store, account) {
   };
 }
 
+/**
+ * List comments on an Instagram media object.
+ * @returns {{ comments: object[], nextCursor?: string }}
+ */
+async function listComments(store, { accountId, externalPostId, cursor } = {}) {
+  if (!externalPostId) return { comments: [] };
+  const accessToken = await ensureAccessToken(store, accountId);
+  const params = {
+    fields: 'id,text,username,timestamp,from',
+    limit: 50,
+  };
+  if (cursor) params.after = cursor;
+  const data = await igFetch(`/${externalPostId}/comments`, { accessToken, params });
+  const comments = (data?.data || []).map((c) =>
+    normalizeComment({
+      id: c.id,
+      text: c.text,
+      authorName: c.username || c.from?.username || null,
+      authorExternalId: c.from?.id || null,
+      createdAt: c.timestamp,
+    }),
+  );
+  return {
+    comments,
+    nextCursor: data?.paging?.cursors?.after || undefined,
+  };
+}
+
+/**
+ * Cold DM to an Instagram user (IGSID) who commented / messaged.
+ * Requires instagram_business_manage_messages on the token.
+ */
+async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
+  if (!recipientExternalId) throw new Error('Instagram DM requires recipientExternalId (commenter IGSID).');
+  if (!String(text || '').trim()) throw new Error('Instagram DM text is empty.');
+  const account = store.getAccount(accountId);
+  if (!account) throw new Error('Instagram account not found');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const igUserId = account.external_id;
+  const result = await igFetch(`/${igUserId}/messages`, {
+    method: 'POST',
+    accessToken,
+    body: {
+      recipient: { id: String(recipientExternalId) },
+      message: { text: String(text).slice(0, 1000) },
+    },
+  });
+  const externalMessageId = result?.message_id || result?.id || null;
+  if (!externalMessageId) {
+    throw new Error('Instagram DM response missing message id — check Messaging product / App Review.');
+  }
+  return { externalMessageId: String(externalMessageId) };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken,
@@ -262,6 +326,8 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listComments,
+  sendDm,
   supportsManualToken: true,
   requiresMedia: true,
 };

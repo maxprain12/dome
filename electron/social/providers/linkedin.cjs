@@ -18,6 +18,7 @@ const API = 'https://api.linkedin.com/v2';
 const database = require('../../core/database.cjs');
 const fileStorage = require('../../storage/file-storage.cjs');
 const { resolveMediaItems, uploadLinkedInImage } = require('../social-media.cjs');
+const { normalizeComment } = require('../social-messaging.cjs');
 
 async function linkedinFetch(accessToken, path, options = {}) {
   const res = await fetch(path.startsWith('http') ? path : `${API}${path}`, {
@@ -273,6 +274,102 @@ async function fetchAccountMetrics(store, account) {
   return { followers, raw: data };
 }
 
+/**
+ * Comments on a share/ugcPost via socialActions (works best with org CMA scopes).
+ */
+async function listComments(store, { accountId, externalPostId, cursor } = {}) {
+  if (!externalPostId) return { comments: [] };
+  const accessToken = await ensureAccessToken(store, accountId);
+  const urn = encodeURIComponent(externalPostId);
+  let path = `/socialActions/${urn}/comments?count=50`;
+  if (cursor) path += `&start=${encodeURIComponent(cursor)}`;
+  let data;
+  try {
+    data = await linkedinFetch(accessToken, path);
+  } catch (err) {
+    console.warn('[Social][LI] listComments failed:', err.message);
+    return { comments: [] };
+  }
+  const comments = (data?.elements || []).map((el) => {
+    const actor = el?.actor || el?.commenter || null;
+    const text =
+      el?.message?.text ||
+      el?.commentary?.text ||
+      el?.message ||
+      '';
+    return normalizeComment({
+      id: el?.id || el?.$URN || `${externalPostId}:${el?.created?.time || Math.random()}`,
+      text: typeof text === 'string' ? text : String(text || ''),
+      authorName: null,
+      authorExternalId: typeof actor === 'string' ? actor : actor?.id || null,
+      createdAt: el?.created?.time || el?.lastModified?.time || null,
+    });
+  });
+  const nextStart = data?.paging?.start != null && data?.paging?.count != null
+    ? data.paging.start + data.paging.count
+    : undefined;
+  return { comments, nextCursor: nextStart != null ? String(nextStart) : undefined };
+}
+
+/**
+ * Best-effort cold DM via LinkedIn messages API (often partner-gated).
+ * recipientExternalId should be a person URN or member id.
+ */
+async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
+  if (!recipientExternalId) throw new Error('LinkedIn DM requires recipientExternalId.');
+  if (!String(text || '').trim()) throw new Error('LinkedIn DM text is empty.');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const account = store.getAccount(accountId);
+  const recipientUrn = String(recipientExternalId).startsWith('urn:')
+    ? String(recipientExternalId)
+    : `urn:li:person:${recipientExternalId}`;
+  const senderUrn =
+    (account?.account_kind || account?.accountKind) === 'organization'
+      ? `urn:li:organization:${account.external_id}`
+      : `urn:li:person:${account.external_id}`;
+
+  // Prefer versioned Messages API; fall back to legacy mailbox.
+  try {
+    const result = await linkedinFetch(accessToken, 'https://api.linkedin.com/rest/messages', {
+      method: 'POST',
+      headers: {
+        'LinkedIn-Version': '202506',
+        'Content-Type': 'application/json',
+      },
+      body: {
+        recipients: [recipientUrn],
+        subject: '',
+        body: String(text).slice(0, 8000),
+        // Some tenants require sender; ignored when unsupported.
+        sender: senderUrn,
+      },
+    });
+    const externalMessageId =
+      result?.id || result?._headers?.['x-restli-id'] || `li-msg-${Date.now()}`;
+    return { externalMessageId: String(externalMessageId) };
+  } catch (err) {
+    console.warn('[Social][LI] rest/messages failed, trying legacy mailbox:', err.message);
+  }
+
+  const result = await linkedinFetch(accessToken, '/messages', {
+    method: 'POST',
+    body: {
+      recipients: { person: [recipientUrn] },
+      subject: 'Dome',
+      body: String(text).slice(0, 8000),
+      messageType: 'MEMBER_TO_MEMBER',
+    },
+  });
+  const externalMessageId =
+    result?.id || result?._headers?.['x-restli-id'] || null;
+  if (!externalMessageId) {
+    throw new Error(
+      'LinkedIn DM failed — messaging usually needs partner/Community access. Draft kept; reconnect with org scopes or use Monitor.',
+    );
+  }
+  return { externalMessageId: String(externalMessageId) };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken,
@@ -280,6 +377,8 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listComments,
+  sendDm,
   syncOrganizations,
   supportsManualToken: true,
   requiresMedia: false,

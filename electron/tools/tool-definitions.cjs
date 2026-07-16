@@ -907,6 +907,11 @@ function getAllToolDefinitions() {
             body: { type: 'string', description: 'Issue body (Markdown). Add a "due:YYYY-MM-DD" line to project it onto the calendar.' },
             milestone_number: { type: 'number', description: 'Optional milestone number to assign' },
             labels: { type: 'array', items: { type: 'string' }, description: 'Optional labels' },
+            assignees: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'GitHub logins to assign (from mentioned-people github identities; no @ prefix)',
+            },
           },
           required: ['repo_id', 'title'],
         },
@@ -1060,12 +1065,18 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'remember_fact',
-        description: 'Save a user fact to long-term memory (key/value).',
+        description:
+          'Save a durable user fact to long-term memory. Use domain=social|email for specialized packs; omit for general MEMORY.md.',
         parameters: {
           type: 'object',
           properties: {
             key: { type: 'string', description: 'Memory label, e.g. preferred_language' },
             value: { type: 'string', description: 'Fact to remember' },
+            domain: {
+              type: 'string',
+              description: 'general (default), social, or email',
+              enum: ['general', 'social', 'email'],
+            },
           },
           required: ['key', 'value'],
         },

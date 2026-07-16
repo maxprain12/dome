@@ -5,7 +5,7 @@ import { ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import ResourceIcon from '@/components/shared/ResourceIcon';
 import { CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import type { PaletteRow, SearchResourceRow } from './commandPaletteTypes';
+import type { PaletteRow, SearchResourceRow, SourceHitRow } from './commandPaletteTypes';
 
 export function CommandPaletteResultsList({
   showEmptyQuery,
@@ -16,6 +16,10 @@ export function CommandPaletteResultsList({
   filteredNav,
   resources,
   interactions,
+  peopleHits,
+  issueHits,
+  emailHits,
+  socialHits,
   flatRows,
   selectedIndex,
   setSelectedIndex,
@@ -29,6 +33,10 @@ export function CommandPaletteResultsList({
   filteredNav: PaletteRow[];
   resources: SearchResourceRow[];
   interactions: SearchResourceRow[];
+  peopleHits: SourceHitRow[];
+  issueHits: SourceHitRow[];
+  emailHits: SourceHitRow[];
+  socialHits: SourceHitRow[];
   flatRows: PaletteRow[];
   selectedIndex: number | undefined;
   setSelectedIndex: (index: number) => void;
@@ -61,7 +69,7 @@ export function CommandPaletteResultsList({
         )}
         <span className="min-w-0 flex-1 truncate text-sm">{row.label}</span>
         {row.sublabel ? (
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          <span className="max-w-[40%] shrink-0 truncate text-xs tabular-nums text-muted-foreground">
             {row.sublabel}
           </span>
         ) : null}
@@ -69,6 +77,18 @@ export function CommandPaletteResultsList({
           <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5 shrink-0 opacity-40" />
         ) : null}
       </CommandItem>
+    );
+  };
+
+  const renderSourceGroup = (heading: string, hits: SourceHitRow[], prefix: string) => {
+    if (hits.length === 0) return null;
+    return (
+      <CommandGroup heading={heading}>
+        {hits.map((hit) => {
+          const row = flatRows.find((x) => x.id === `${prefix}:${hit.id}`);
+          return row ? renderRow(row) : null;
+        })}
+      </CommandGroup>
     );
   };
 
@@ -86,34 +106,33 @@ export function CommandPaletteResultsList({
       ) : null}
 
       {!showEmptyQuery && filteredNav.length > 0 ? (
-        <>
-          <CommandGroup heading={t('command.navigate')}>
-            {filteredNav.map((row) => renderRow(row))}
-          </CommandGroup>
-        </>
+        <CommandGroup heading={t('command.navigate')}>
+          {filteredNav.map((row) => renderRow(row))}
+        </CommandGroup>
       ) : null}
 
       {!showEmptyQuery && resources.length > 0 ? (
-        <>
-          <CommandGroup heading={t('command.resources')}>
-            {resources.map((r) => {
-              const row = flatRows.find((x) => x.id === `resource:${r.id}`);
-              return row ? renderRow(row) : null;
-            })}
-          </CommandGroup>
-        </>
+        <CommandGroup heading={t('command.resources')}>
+          {resources.map((r) => {
+            const row = flatRows.find((x) => x.id === `resource:${r.id}`);
+            return row ? renderRow(row) : null;
+          })}
+        </CommandGroup>
       ) : null}
 
       {!showEmptyQuery && interactions.length > 0 ? (
-        <>
-          <CommandGroup heading={t('command.notes_annotations')}>
-            {interactions.map((r, index) => {
-              const row = flatRows.find((x) => x.id === `interaction:${r.id}:${index}`);
-              return row ? renderRow(row) : null;
-            })}
-          </CommandGroup>
-        </>
+        <CommandGroup heading={t('command.notes_annotations')}>
+          {interactions.map((r, index) => {
+            const row = flatRows.find((x) => x.id === `interaction:${r.id}:${index}`);
+            return row ? renderRow(row) : null;
+          })}
+        </CommandGroup>
       ) : null}
+
+      {!showEmptyQuery ? renderSourceGroup(t('command.people'), peopleHits, 'person') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.issues'), issueHits, 'issue') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.emails'), emailHits, 'email') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.social_posts'), socialHits, 'social') : null}
 
       {showNoResults ? (
         <CommandEmpty className="px-4 py-10">

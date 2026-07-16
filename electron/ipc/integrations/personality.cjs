@@ -2,6 +2,20 @@
 const { shell } = require('electron');
 
 function register({ ipcMain, windowManager, personalityLoader }) {
+  const ALLOWED_CONTEXT_FILES = new Set([
+    'SOUL.md',
+    'USER.md',
+    'MEMORY.md',
+    'domains/social.md',
+    'domains/email.md',
+  ]);
+
+  function assertAllowedFilename(filename) {
+    if (typeof filename !== 'string' || !ALLOWED_CONTEXT_FILES.has(filename)) {
+      throw new Error('Invalid context filename');
+    }
+  }
+
   ipcMain.handle('personality:get-context-files', (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
@@ -9,6 +23,25 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     try {
       const contextFiles = require('../../personality/context-files.cjs');
       return { success: true, data: contextFiles.loadContextFiles() };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('personality:get-agent-memory-context', (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const contextFiles = require('../../personality/context-files.cjs');
+      const data = contextFiles.loadAgentMemoryContext({
+        memoryEnabled: params?.memoryEnabled !== false,
+        projectId: params?.projectId ?? null,
+        projectPath: params?.projectPath ?? null,
+        includeProject: params?.includeProject !== false,
+        includeDomains: Array.isArray(params?.includeDomains) ? params.includeDomains : [],
+      });
+      return { success: true, data };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -33,6 +66,7 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     }
 
     try {
+      assertAllowedFilename(filename);
       const content = personalityLoader.readContextFile(filename);
       return { success: true, data: content };
     } catch (error) {
@@ -47,6 +81,7 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     }
 
     try {
+      assertAllowedFilename(filename);
       personalityLoader.writeContextFile(filename, content);
       return { success: true };
     } catch (error) {
@@ -80,15 +115,20 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     }
   });
 
-  ipcMain.handle('personality:remember-fact', (event, { key, value }) => {
+  ipcMain.handle('personality:remember-fact', (event, { key, value, domain }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
-      personalityLoader.updateLongTermMemory(key, value);
-      personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
-      return { success: true };
+      const normalizedDomain = String(domain || 'general').toLowerCase();
+      if (normalizedDomain === 'social' || normalizedDomain === 'email') {
+        personalityLoader.updateDomainMemory(normalizedDomain, key, value);
+      } else {
+        personalityLoader.updateLongTermMemory(key, value);
+      }
+      personalityLoader.addMemoryEntry(`**${key}** (${normalizedDomain}): ${value}`);
+      return { success: true, domain: normalizedDomain };
     } catch (error) {
       return { success: false, error: error.message };
     }

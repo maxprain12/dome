@@ -313,6 +313,69 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('social:reports:config:get', wrap(null, () => service.store.getReportConfig()));
   ipcMain.handle('social:reports:config:set', wrap(ReportConfigSchema, (input) => service.store.setReportConfig(input)));
 
+  // Plan 014/018 — drafts + cold DM + capability matrix
+  ipcMain.handle('social:capabilities', wrap(null, () => service.getIntegrationCapabilities()));
+  ipcMain.handle('social:drafts:list', wrap(null, () => ({ drafts: service.store.listReplyDrafts() })));
+  ipcMain.handle(
+    'social:drafts:create-from-match',
+    wrap(
+      z.object({
+        hashtag: z.string().min(1),
+        commentText: z.string().min(1),
+        replyTemplate: z.string().optional(),
+        provider: ProviderSchema.optional(),
+        accountId: z.string().optional(),
+        postId: z.string().optional(),
+        externalCommentId: z.string().optional(),
+        commentAuthor: z.string().optional(),
+        commentAuthorExternalId: z.string().optional(),
+        linkUrl: z.string().url().optional().nullable(),
+        mode: z.enum(['live', 'draft_only']).optional(),
+      }),
+      (input) => service.createDraftFromMatchedComment({
+        ...input,
+        mode: input.mode || 'live',
+      }),
+    ),
+  );
+  ipcMain.handle(
+    'social:drafts:send',
+    wrap(z.object({ draftId: z.string().min(1) }), ({ draftId }) => service.sendReplyDraft(draftId)),
+  );
+  ipcMain.handle(
+    'social:drafts:dismiss',
+    wrap(z.object({ draftId: z.string().min(1) }), ({ draftId }) => {
+      const result = service.store.dismissReplyDraft(draftId);
+      windowManager.broadcast?.('social:drafts-updated', { id: draftId, deleted: true });
+      return result;
+    }),
+  );
+  ipcMain.handle('social:drafts:poll-now', wrap(null, () => service.pollCommentsAndAutoReply()));
+  ipcMain.handle(
+    'social:live-reply-rules:get',
+    wrap(null, () => ({ rules: service.store.getLiveReplyRules() })),
+  );
+  ipcMain.handle(
+    'social:live-reply-rules:set',
+    wrap(
+      z.object({
+        rules: z.array(
+          z.object({
+            id: z.string().min(1),
+            enabled: z.boolean().optional(),
+            mode: z.enum(['live', 'draft_only']).optional(),
+            hashtag: z.string().min(1),
+            replyTemplate: z.string().optional(),
+            linkUrl: z.string().optional().nullable(),
+            accountIds: z.array(z.string()).nullable().optional(),
+            postIds: z.array(z.string()).nullable().optional(),
+          }),
+        ),
+      }),
+      ({ rules }) => ({ rules: service.store.setLiveReplyRules(rules) }),
+    ),
+  );
+
   service.startScheduler();
   // Backfill calendar events for already-scheduled posts (boot catch-up).
   setTimeout(() => void socialCalendarBridge.syncAllFromStore(service.store), 20 * 1000);

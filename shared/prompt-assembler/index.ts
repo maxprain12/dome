@@ -16,6 +16,7 @@ export const DOME_LOAD_DOC_IDS = [
   'excel_artifact_tool',
   'email_tool',
   'github_tool',
+  'social_tool',
 ] as const;
 
 export const DOME_LOAD_DOC_DESCRIPTION =
@@ -33,7 +34,8 @@ export const DOME_LOAD_DOC_DESCRIPTION =
   'excel_notebook_tool (before Excel→notebook pandas flow), ' +
   'excel_artifact_tool (before Excel→artifact dashboard), ' +
   'email_tool (before email_list/email_search/email_send/email_reply), ' +
-  'github_tool (before github_create_issue/github_create_milestone/github_update_issue).';
+  'github_tool (before github_create_issue/github_create_milestone/github_update_issue), ' +
+  'social_tool (before social_post_draft/social_post_publish).';
 
 export type CorePromptSections = {
   roleMany?: string;
@@ -63,6 +65,11 @@ export type VolatileSourceOptions = {
   uiContext?: string;
   userMemory?: string;
   pinnedResources?: Array<{ id: string; title: string; type: string }>;
+  pinnedPeople?: Array<{
+    id: string;
+    title: string;
+    identities?: Array<{ source: string; externalId: string; displayLabel?: string | null }>;
+  }>;
   activeResource?: { id: string; title: string; type?: string } | null;
   dateLine?: string;
   taskLine?: string;
@@ -147,6 +154,22 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
 
   if (opts.userMemory?.trim()) {
     blocks.push(`**user-memory**\n${opts.userMemory.trim()}`);
+  }
+
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople
+      .map((person) => {
+        const identities = (person.identities || [])
+          .map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`)
+          .join(', ');
+        return identities
+          ? `- ${person.id}: ${person.title} (${identities})`
+          : `- ${person.id}: ${person.title}`;
+      })
+      .join('\n');
+    blocks.push(
+      `**mentioned-people** — ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.\n${lines}`,
+    );
   }
 
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {

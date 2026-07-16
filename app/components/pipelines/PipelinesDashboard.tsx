@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -21,7 +21,13 @@ interface DashboardProps {
   onOpenRuns?: () => void;
 }
 
-const pipelineDashboardCardStyle = { background: 'var(--card)', border: '1px solid var(--border)' } as const;
+// Card-style clickable containers use a plain <button> instead of the shadcn
+// <Button> primitive: Button's size variants force a fixed height (e.g. h-7)
+// via cva, which clips/overlaps multi-line card content (icon+count row,
+// label, description). Native buttons keep semantics/accessibility without
+// fighting the design system's height constraints.
+const dashboardCardClass =
+  'rounded-xl border border-border bg-card text-left transition-colors focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50';
 
 /**
  * Pipelines hub. The landing screen for the Pipelines tab: it surfaces metrics
@@ -161,19 +167,19 @@ export default function PipelinesDashboard({
         {navCards.map((n) => {
           const navIcon = n.icon;
           return (
-            <Button
+            <button
               key={n.key}
               type="button"
               onClick={n.onClick}
               disabled={n.disabled}
-              className="text-left rounded-xl p-4 flex flex-col gap-2 transition-colors group"
-              style={{ ...pipelineDashboardCardStyle, cursor: n.disabled ? 'not-allowed' : 'pointer', opacity: n.disabled ? 0.6 : 1 }}
+              className={cn(
+                dashboardCardClass,
+                'group flex flex-col items-stretch gap-2 p-4',
+                n.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-accent/40'
+              )}
             >
               <div className="flex items-center justify-between">
-                <span
-                  className="inline-flex items-center justify-center rounded-lg"
-                  style={{ width: 34, height: 34, background: 'var(--muted)', color: 'var(--primary)' }}
-                >
+                <span className="inline-flex size-[34px] items-center justify-center rounded-lg bg-muted text-primary">
                   <HugeiconsIcon icon={navIcon} size={18} />
                 </span>
                 <span className="text-xl font-semibold tabular-nums text-foreground">
@@ -187,7 +193,7 @@ export default function PipelinesDashboard({
               <span className="text-xs leading-snug text-muted-foreground">
                 {n.desc}
               </span>
-            </Button>
+            </button>
           );
         })}
       </div>
@@ -202,32 +208,30 @@ export default function PipelinesDashboard({
             {quickAccess.map((qa) => {
               const qaIcon = qa.icon;
               return (
-                <div key={qa.key} className="rounded-lg p-3 flex flex-col gap-2" style={pipelineDashboardCardStyle}>
+                <div key={qa.key} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
                       <HugeiconsIcon icon={qaIcon} size={14} className="text-primary" />
                       {qa.label}
                     </span>
-                    <Button
+                    <button
                       type="button"
                       onClick={qa.onOpen}
-                      className="text-[11px] font-medium"
-                      style={{ color: 'var(--primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                      className="cursor-pointer text-[11px] font-medium text-primary hover:underline"
                     >
                       {t('common.view', { defaultValue: 'View all' })}
-                    </Button>
+                    </button>
                   </div>
                   <ul className="flex flex-col">
                     {qa.items.map((name, i) => (
                       <li key={i}>
-                        <Button
+                        <button
                           type="button"
                           onClick={qa.onOpen}
-                          className="w-full text-left text-xs py-1 px-1.5 rounded truncate transition-colors hover:bg-accent"
-                          style={{ color: 'var(--muted-foreground)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          className="w-full cursor-pointer truncate rounded px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent"
                         >
                           {name}
-                        </Button>
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -246,18 +250,17 @@ export default function PipelinesDashboard({
           </h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
             {pipelines.map((p) => (
-              <Button
+              <button
                 key={p.id}
                 type="button"
                 onClick={() => onOpenPipeline?.(p.id)}
-                className="text-left rounded-lg p-3 flex items-center gap-2 transition-colors"
-                style={{ ...pipelineDashboardCardStyle, cursor: 'pointer' }}
+                className={cn(dashboardCardClass, 'flex cursor-pointer items-center gap-2 p-3 hover:bg-accent/40')}
               >
                 <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
                 <span className="text-sm font-medium truncate text-foreground">
                   {p.name}
                 </span>
-              </Button>
+              </button>
             ))}
           </div>
         </div>
@@ -269,12 +272,15 @@ export default function PipelinesDashboard({
           {t('pipelines.quick_start')}
         </h2>
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-          <Button
+          <button
             type="button"
             onClick={() => void createBlank()}
             disabled={busy !== null}
-            className="text-left rounded-lg p-3 flex flex-col gap-1 transition-colors"
-            style={{ background: 'var(--card)', border: '1px dashed var(--border)', cursor: busy ? 'wait' : 'pointer' }}
+            className={cn(
+              dashboardCardClass,
+              'flex flex-col items-stretch gap-1 border-dashed p-3',
+              busy !== null ? 'cursor-wait' : 'cursor-pointer hover:bg-accent/40'
+            )}
           >
             <span className="inline-flex items-center gap-1.5 font-medium text-sm text-foreground">
               {busy === 'blank' ? <HugeiconsIcon icon={Loading03Icon} size={15} className="animate-spin" /> : <HugeiconsIcon icon={PlusSignIcon} size={15} className="text-primary" />}
@@ -283,16 +289,19 @@ export default function PipelinesDashboard({
             <span className="text-xs text-muted-foreground">
               {t('pipelines.template_blank_desc')}
             </span>
-          </Button>
+          </button>
 
           {templates.map((tpl) => (
-            <Button
+            <button
               key={tpl.key}
               type="button"
               onClick={() => void runTemplate(tpl)}
               disabled={busy !== null}
-              className="text-left rounded-lg p-3 flex flex-col gap-1 transition-colors"
-              style={{ ...pipelineDashboardCardStyle, cursor: busy ? 'wait' : 'pointer' }}
+              className={cn(
+                dashboardCardClass,
+                'flex flex-col items-stretch gap-1 p-3',
+                busy !== null ? 'cursor-wait' : 'cursor-pointer hover:bg-accent/40'
+              )}
             >
               <span className="inline-flex items-center gap-1.5 font-medium text-sm text-foreground">
                 {busy === tpl.key ? (
@@ -307,16 +316,12 @@ export default function PipelinesDashboard({
               </span>
               <span className="text-[11px] mt-1 inline-flex flex-wrap gap-1">
                 {tpl.stages.map((s, i) => (
-                  <span
-                    key={i}
-                    className="px-1.5 py-0.5 rounded-full"
-                    style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
-                  >
+                  <span key={i} className="rounded-full bg-accent px-1.5 py-0.5 text-muted-foreground">
                     {s.title}
                   </span>
                 ))}
               </span>
-            </Button>
+            </button>
           ))}
         </div>
       </div>

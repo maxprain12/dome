@@ -8,6 +8,7 @@ export interface SocialAccount {
   displayName: string | null;
   handle: string | null;
   externalId: string | null;
+  scopes?: string | null;
   status: 'active' | 'error' | 'expired';
   lastError: string | null;
   connectedAt: number | null;
