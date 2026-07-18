@@ -1787,11 +1787,10 @@ function mergeMetadataForUpdate(existingMetadata, updates, normalizedNoteLinks) 
   }
   if (normalizedNoteLinks.length > 0) {
     const existingMeta = safeParseMeta(metadata);
-    metadata = JSON.stringify({
-      ...existingMeta,
+    metadata = JSON.stringify(Object.assign({}, existingMeta, {
       sourceResourceIds: Array.from(new Set([...(existingMeta.sourceResourceIds || []), ...normalizedNoteLinks])),
       aiNoteNormalized: true,
-    });
+    }));
   }
   return metadata;
 }
@@ -2139,11 +2138,14 @@ async function resourceDelete(resourceId) {
 }
 
 /**
- * Move a resource (or folder) to a target folder or to root.
- * Prevents cycles when moving folders into their descendants.
- * @param {string} resourceId - Resource ID to move
- * @param {string|null} folderId - Target folder ID, or null to move to root
- * @returns {Promise<Object>}
+ * Validate the target folder for a move operation. Returns null when the move
+ * is allowed, or an error object describing why it must be rejected.
+ * Synchronous: does not return a Promise.
+ * @param {object} queries - prepared statement map
+ * @param {object} resource - resource being moved
+ * @param {string|null} folderId - target folder id, or null to move to root
+ * @param {string} resourceId - id of the resource being moved
+ * @returns {{success: false, error: string} | null}
  */
 function validateMoveTarget(queries, resource, folderId, resourceId) {
   if (folderId == null || folderId === '') return null;
