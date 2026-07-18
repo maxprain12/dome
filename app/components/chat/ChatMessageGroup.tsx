@@ -27,6 +27,44 @@ interface ChatMessageGroupProps {
   className?: string;
 }
 
+function GroupAvatar({
+  isUser,
+  isAssistant,
+  hideUserAvatar,
+  assistantAvatarSrc,
+  surfaceVariant,
+  assistantState,
+}: {
+  isUser: boolean;
+  isAssistant: boolean;
+  hideUserAvatar: boolean;
+  assistantAvatarSrc?: string;
+  surfaceVariant: ChatSurfaceVariant;
+  assistantState: ManyAvatarState;
+}) {
+  if (hideUserAvatar) return null;
+  if (isAssistant) {
+    if (assistantAvatarSrc) {
+      return (
+        <img
+          src={assistantAvatarSrc}
+          alt=""
+          className="size-8 object-contain rounded-lg"
+        />
+      );
+    }
+    return <ManyAvatar size="sm" state={surfaceVariant === 'many' ? assistantState : 'idle'} />;
+  }
+  if (isUser) {
+    return (
+      <div className="flex size-8 items-center justify-center rounded-full bg-primary">
+        <HugeiconsIcon icon={UserIcon} className="text-primary-foreground" />
+      </div>
+    );
+  }
+  return null;
+}
+
 export default memo(function ChatMessageGroup({
   messages,
   onRegenerate,
@@ -52,21 +90,14 @@ export default memo(function ChatMessageGroup({
       <Message align={isUser ? 'end' : 'start'} className={cn(hideUserAvatar && 'gap-1', showThreadRule && 'gap-2')}>
       {/* Avatar - only for first message in group */}
       <MessageAvatar className={cn(!(showAvatar && !hideUserAvatar) && 'w-0 min-w-0 overflow-hidden')}>
-        {hideUserAvatar ? null : isAssistant ? (
-          assistantAvatarSrc ? (
-            <img
-              src={assistantAvatarSrc}
-              alt=""
-              className="size-8 object-contain rounded-lg"
-            />
-          ) : (
-            <ManyAvatar size="sm" state={surfaceVariant === 'many' ? assistantState : 'idle'} />
-          )
-        ) : isUser ? (
-          <div className="flex size-8 items-center justify-center rounded-full bg-primary">
-            <HugeiconsIcon icon={UserIcon} className="text-primary-foreground" />
-          </div>
-        ) : null}
+        <GroupAvatar
+          isUser={isUser}
+          isAssistant={isAssistant}
+          hideUserAvatar={hideUserAvatar}
+          assistantAvatarSrc={assistantAvatarSrc}
+          surfaceVariant={surfaceVariant}
+          assistantState={assistantState}
+        />
       </MessageAvatar>
 
       {showThreadRule ? (
