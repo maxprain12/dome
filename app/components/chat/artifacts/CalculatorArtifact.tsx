@@ -124,7 +124,7 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
             />
           )}
           {inp.kind === 'select' && inp.options && (
-            <Select value={String(values[inp.id] ?? inp.options[0]?.value ?? 0) ?? null} onValueChange={(next) => { if (next != null) ((v) => {
+            <Select value={String(values[inp.id] ?? inp.options[0]?.value ?? 0)} onValueChange={(next) => { if (next != null) ((v) => {
                 const n = Number.parseFloat(v);
                 setValues((s) => ({ ...s, [inp.id]: Number.isFinite(n) ? n : 0 }));
               })(next); }} items={inp.options.map((o) => ({ value: String(o.value), label: o.label }))}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{(inp.options.map((o) => ({ value: String(o.value), label: o.label }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>

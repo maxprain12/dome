@@ -104,7 +104,7 @@ export default function DomeMcpSection() {
     }
   }
 
-  const activePort = status.port ?? Number(portInput) ?? 37214;
+  const activePort = status.port ?? (Number(portInput) || 37214);
 
   const httpConfig = JSON.stringify(
     { mcpServers: { dome: { url: `http://localhost:${activePort}/mcp` } } },

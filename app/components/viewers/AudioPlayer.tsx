@@ -307,7 +307,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                 formatTime={formatMediaTime}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Select value={String(playbackRate) ?? null} onValueChange={(next) => { if (next != null) ((v) => handlePlaybackRateChange(parseFloat(v)))(next); }} items={[
+                <Select value={String(playbackRate)} onValueChange={(next) => { if (next != null) ((v) => handlePlaybackRateChange(parseFloat(v)))(next); }} items={[
                     { value: '0.5', label: '0.5x' },
                     { value: '0.75', label: '0.75x' },
                     { value: '1', label: '1x' },

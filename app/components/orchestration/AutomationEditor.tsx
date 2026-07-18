@@ -297,7 +297,7 @@ export default function AutomationEditor({
                       <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-17" className="text-xs">{t('automation.interval_minutes_label')}</FieldLabel><Input id="fld-input-17" className="text-sm" type="number" min={1} value={draft.intervalMinutes} onChange={(e) => onDraftChange({ intervalMinutes: parseInt(e.target.value) || 60 })} /></Field>
                     )}
                     {draft.cadence === 'weekly' ? (
-                      <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.weekday_label')}</FieldLabel><Select value={String(draft.weekday) ?? null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ weekday: parseInt(v) }))(next); }} items={(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
+                      <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.weekday_label')}</FieldLabel><Select value={String(draft.weekday)} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ weekday: parseInt(v) }))(next); }} items={(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
                           (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
                         )}><SelectTrigger className="w-full" aria-label={t('automation.weekday_label')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{((['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
                           (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
