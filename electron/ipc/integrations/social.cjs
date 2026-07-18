@@ -7,6 +7,7 @@ const { z } = require('zod');
 const { getSocialService } = require('../../social/social-service.cjs');
 const socialCalendarBridge = require('../../social/social-calendar-bridge.cjs');
 const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
+const eventCardsClient = require('../../social/social-event-cards-client.cjs');
 
 const ProviderSchema = z.enum(['linkedin', 'instagram', 'x']);
 const ProviderConfigSchema = z.object({
@@ -50,6 +51,8 @@ const PostCreateSchema = z.object({
   topics: z.array(z.string().max(80)).max(20).default([]),
   campaign: z.string().max(200).optional().nullable(),
   campaignId: z.string().min(1).optional().nullable(),
+  eventCardId: z.string().min(1).optional().nullable(),
+  eventCardPublicUrl: z.string().url().optional().nullable(),
   scheduledAt: z.number().int().positive().optional().nullable(),
   groupId: z.string().optional().nullable(),
 });
@@ -63,6 +66,8 @@ const PostUpdateSchema = z.object({
     topics: z.array(z.string().max(80)).max(20).optional(),
     campaign: z.string().max(200).nullable().optional(),
     campaignId: z.string().min(1).nullable().optional(),
+    eventCardId: z.string().min(1).nullable().optional(),
+    eventCardPublicUrl: z.string().url().nullable().optional(),
     scheduledAt: z.number().int().positive().nullable().optional(),
     status: z.enum(['draft', 'scheduled']).optional(),
   }),
@@ -101,6 +106,22 @@ const ReportConfigSchema = z.object({
   periodDays: z.number().int().min(7).max(365).optional(),
   language: z.enum(['es', 'en', 'fr', 'pt']).optional(),
 });
+const EventCardIdSchema = z.object({ cardId: z.string().uuid() });
+const EventCardDesignSchema = z.object({
+  brandName: z.string().max(200).optional(), logoUrl: z.string().url().nullable().optional(),
+  coverUrl: z.string().url().nullable().optional(), primaryColor: z.string().max(40).optional(), secondaryColor: z.string().max(40).optional(),
+});
+const EventCardInputSchema = z.object({
+  internalName: z.string().min(1).max(200), title: z.string().min(1).max(300), description: z.string().max(5000).nullable().optional(),
+  organizer: z.string().max(300).nullable().optional(), startsAt: z.string().datetime(), endsAt: z.string().datetime(), timezone: z.string().min(1).max(100),
+  venueName: z.string().max(300).nullable().optional(), address: z.string().max(1000).nullable().optional(), latitude: z.number().min(-90).max(90).nullable().optional(), longitude: z.number().min(-180).max(180).nullable().optional(),
+  ctaLabel: z.string().max(120).nullable().optional(), ctaUrl: z.string().url().nullable().optional(), design: EventCardDesignSchema.default({}),
+});
+const EventCardUpdateSchema = z.object({ cardId: z.string().uuid(), patch: EventCardInputSchema.partial() });
+const EventUpdateInputSchema = z.object({ cardId: z.string().uuid(), message: z.string().min(1).max(2000), scheduledAt: z.string().datetime().nullable().optional() });
+const EventUpdatePatchSchema = z.object({ updateId: z.string().uuid(), patch: z.object({ message: z.string().min(1).max(2000).optional(), scheduledAt: z.string().datetime().nullable().optional(), status: z.enum(['draft', 'scheduled', 'cancelled']).optional() }) });
+const DmRuleInputSchema = z.object({ accountId: z.string().min(1), postId: z.string().nullable().optional(), cardId: z.string().uuid(), keyword: z.string().min(1).max(200), replyTemplate: z.string().min(1).max(2000), enabled: z.boolean().optional() });
+const DmRulePatchSchema = z.object({ ruleId: z.string().uuid(), patch: DmRuleInputSchema.partial() });
 
 function register({ ipcMain, windowManager, database, fileStorage }) {
   const service = getSocialService(database, windowManager);
@@ -423,6 +444,34 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       ({ rules }) => ({ rules: service.store.setLiveReplyRules(rules) }),
     ),
   );
+
+  // Provider-backed event cards. Consumers never receive Supabase credentials.
+  ipcMain.handle('social:event-cards:list', wrap(null, () => eventCardsClient.listCards(database)));
+  ipcMain.handle('social:event-cards:get', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.getCard(database, cardId)));
+  ipcMain.handle('social:event-cards:create', wrap(EventCardInputSchema, (input) => eventCardsClient.createCard(database, input)));
+  ipcMain.handle('social:event-cards:update', wrap(EventCardUpdateSchema, ({ cardId, patch }) => eventCardsClient.updateCard(database, cardId, patch)));
+  ipcMain.handle('social:event-cards:publish', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.publishCard(database, cardId)));
+  ipcMain.handle('social:event-cards:archive', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.archiveCard(database, cardId)));
+  ipcMain.handle('social:event-cards:metrics', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.metrics(database, cardId)));
+  ipcMain.handle('social:event-cards:export', wrap(z.object({ cardId: z.string().uuid(), format: z.enum(['url', 'snippet', 'qr-svg', 'qr-png', 'pdf']) }), async ({ cardId, format }) => {
+    const exported = await eventCardsClient.exportCard(database, cardId, format);
+    if (format === 'url' || format === 'snippet') return { content: exported.toString('utf8') };
+    const { dialog } = require('electron');
+    const fs = require('fs');
+    const extension = format === 'qr-svg' ? 'svg' : format === 'qr-png' ? 'png' : 'pdf';
+    const result = await dialog.showSaveDialog({ defaultPath: `evento.${extension}` });
+    if (result.canceled || !result.filePath) return { cancelled: true };
+    fs.writeFileSync(result.filePath, exported);
+    return { cancelled: false, filePath: result.filePath };
+  }));
+  ipcMain.handle('social:event-updates:list', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.listUpdates(database, cardId)));
+  ipcMain.handle('social:event-updates:create', wrap(EventUpdateInputSchema, ({ cardId, ...input }) => eventCardsClient.createUpdate(database, cardId, input)));
+  ipcMain.handle('social:event-updates:update', wrap(EventUpdatePatchSchema, ({ updateId, patch }) => eventCardsClient.updateUpdate(database, updateId, patch)));
+  ipcMain.handle('social:event-updates:cancel', wrap(z.object({ updateId: z.string().uuid() }), ({ updateId }) => eventCardsClient.updateUpdate(database, updateId, { status: 'cancelled' })));
+  ipcMain.handle('social:dm-rules:list', wrap(null, () => eventCardsClient.listDmRules(database)));
+  ipcMain.handle('social:dm-rules:create', wrap(DmRuleInputSchema, (input) => eventCardsClient.createDmRule(database, input)));
+  ipcMain.handle('social:dm-rules:update', wrap(DmRulePatchSchema, ({ ruleId, patch }) => eventCardsClient.updateDmRule(database, ruleId, patch)));
+  ipcMain.handle('social:dm-rules:delete', wrap(z.object({ ruleId: z.string().uuid() }), ({ ruleId }) => eventCardsClient.deleteDmRule(database, ruleId)));
 
   service.startScheduler();
   // Backfill calendar events for already-scheduled posts (boot catch-up).

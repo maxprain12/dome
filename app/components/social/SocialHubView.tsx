@@ -7,6 +7,7 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
 import type {
   SocialAccount,
@@ -21,6 +22,7 @@ import { SocialDetailPanel } from '@/components/social/SocialDetailPanel';
 import { SocialCampaignDetail } from '@/components/social/SocialCampaignDetail';
 import { SocialReportDetail } from '@/components/social/SocialReportDetail';
 import type { SocialFilter, SocialReplyDraft } from '@/lib/social/socialQueues';
+import { SocialEventCardsWorkspace, type SocialEventSection } from './SocialEventCardsWorkspace';
 
 type DetailMode =
   | { kind: 'none' }
@@ -46,6 +48,7 @@ export default function SocialHubView() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailMode>({ kind: 'none' });
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [hubSection, setHubSection] = useState<'posts' | SocialEventSection>('posts');
 
   const load = useCallback(async () => {
     const res = await window.electron.invoke('social:workspace');
@@ -165,7 +168,7 @@ export default function SocialHubView() {
           })
         : t('social.agent_subtitle');
 
-  const detailOpen = detail.kind !== 'none';
+  const detailOpen = hubSection === 'posts' && detail.kind !== 'none';
   const selectedPostId =
     detail.kind === 'post'
       ? detail.post.id
@@ -278,18 +281,27 @@ export default function SocialHubView() {
             </>
           }
         />
-        <HubSearch
+        {hubSection === 'posts' ? <HubSearch
           className="min-w-0 w-full"
           value={query}
           onChange={setQuery}
           placeholder={t('social.agent_search')}
           aria-label={t('social.agent_search')}
           clearLabel={t('common.cancel')}
-        />
+        /> : null}
+        <Tabs value={hubSection} onValueChange={(value) => { setHubSection(value as 'posts' | SocialEventSection); if (value !== 'posts') setDetail({ kind: 'none' }); }}>
+          <TabsList variant="line" className="max-w-full overflow-x-auto">
+            <TabsTrigger value="posts">{t('social.events.posts')}</TabsTrigger>
+            <TabsTrigger value="cards">{t('social.events.cards')}</TabsTrigger>
+            <TabsTrigger value="updates">{t('social.events.updates')}</TabsTrigger>
+            <TabsTrigger value="automations">{t('social.events.automations')}</TabsTrigger>
+            <TabsTrigger value="analytics">{t('social.events.analytics')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </HubPageHeader>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        {hubSection === 'posts' ? <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <SocialDashboard
             posts={posts}
             campaigns={campaigns}
@@ -332,7 +344,7 @@ export default function SocialHubView() {
             onOpenReport={(report) => setDetail({ kind: 'report', report })}
             compact={detailOpen}
           />
-        </div>
+        </div> : <div className="min-h-0 min-w-0 flex-1 overflow-hidden"><SocialEventCardsWorkspace section={hubSection} accounts={accounts} posts={posts} /></div>}
 
         {detailOpen ? (
           <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">

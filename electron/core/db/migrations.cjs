@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 69;
+const SCHEMA_HEAD = 70;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1175,6 +1175,17 @@ function migration69(db, version) {
   }
 }
 
+function migration70(db, version) {
+  if (version >= 70) return;
+  console.log('[DB] Running migration 70 - social event card links');
+  const cols = db.prepare("PRAGMA table_info('social_posts')").all().map((c) => c.name);
+  if (!cols.includes('event_card_id')) db.exec('ALTER TABLE social_posts ADD COLUMN event_card_id TEXT');
+  if (!cols.includes('event_card_public_url')) db.exec('ALTER TABLE social_posts ADD COLUMN event_card_public_url TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_posts_event_card ON social_posts(event_card_id)');
+  setSchemaVersion(db, 70);
+  console.log('[DB] Migration 70 complete - social event card links');
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1231,6 +1242,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration67(db, version);
   migration68(db, version);
   migration69(db, version);
+  migration70(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }
