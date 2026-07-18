@@ -947,9 +947,7 @@ function convertAssistantMessage(
 	// This handles aborted assistant responses that got no content.
 	const content = assistantMsg.content;
 	const hasContent =
-		content !== null &&
-		content !== undefined &&
-		(typeof content === "string" ? content.length > 0 : content.length > 0);
+		content !== null && content !== undefined && content.length > 0;
 	if (!hasContent && !assistantMsg.tool_calls) {
 		return null;
 	}

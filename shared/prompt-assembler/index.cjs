@@ -254,20 +254,3 @@ ${opts.fixtureList.trim()}`);
   sections.push(`Prompt version: ${PROMPT_VERSION}`);
   return sections.join("\n\n");
 }
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  CORE_SECTION_KEYS,
-  DOME_LOAD_DOC_DESCRIPTION,
-  DOME_LOAD_DOC_IDS,
-  PROMPT_VERSION,
-  applyTemplate,
-  buildBenchPrompt,
-  buildCoreToolsBlock,
-  buildDomeSystemPrompt,
-  buildEditorPrompt,
-  buildStudioPrompt,
-  buildSubagentPrompt,
-  buildVoiceSuffix,
-  formatVolatileSourceContext,
-  todayEnLong
-});
