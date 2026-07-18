@@ -207,9 +207,19 @@ export default function AppShell() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsub = window.electron.on('dome:open-settings-in-tab', () => {
-      useTabStore.getState().openSettingsTab();
-    });
+    const unsub = window.electron.on(
+      'dome:open-settings-in-tab',
+      (payload?: { section?: string }) => {
+        useTabStore.getState().openSettingsTab();
+        if (payload?.section) {
+          window.dispatchEvent(
+            new CustomEvent('dome:goto-settings-section', {
+              detail: payload.section,
+            }),
+          );
+        }
+      },
+    );
     return () => unsub?.();
   }, []);
 

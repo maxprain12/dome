@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   BrainIcon,
-  CheckIcon,
   ChevronDownIcon,
   Film01Icon,
   GiftIcon,
@@ -22,6 +21,7 @@ import {
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ModelDefinition } from '@/lib/ai/models';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
@@ -164,14 +164,19 @@ export default function ModelSelector({
             disabled={disabled}
             aria-haspopup="listbox"
             aria-expanded={isOpen}
-            className="h-auto min-h-0 w-full justify-between gap-3 rounded-lg bg-card px-4 py-3 text-left font-normal"
+            className={cn(
+              'h-auto min-h-0 w-full justify-between gap-3 px-4 py-3 text-left font-normal',
+              selectionSurfaceClass(Boolean(selectedModel), 'rounded-lg'),
+            )}
           />
         }
       >
         <span className="min-w-0 flex-1 text-left">
           {selectedModel ? (
             <span className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-mono text-sm font-medium">{selectedModel.id}</span>
+              <span className="truncate font-mono text-sm font-medium text-foreground">
+                {selectedModel.id}
+              </span>
               {providerBadge}
               {renderBadges(selectedModel)}
             </span>
@@ -191,9 +196,10 @@ export default function ModelSelector({
 
       <PopoverContent
         align="start"
-        className="w-(--anchor-width) gap-0 overflow-hidden rounded-xl p-0"
+        // Match trigger width (--anchor-width from Base UI Positioner). Override default w-72.
+        className="w-(--anchor-width) min-w-(--anchor-width) max-w-(--available-width) gap-0 overflow-hidden rounded-xl p-0"
       >
-        <Command shouldFilter={false} className="bg-transparent">
+        <Command shouldFilter={false} className="w-full min-w-0 bg-transparent">
           {configuredHint ? (
             <p className="px-3 pb-1.5 pt-2.5 text-[11px] leading-snug text-muted-foreground">
               {t('settings.ai.models_configured_only')}
@@ -207,45 +213,53 @@ export default function ModelSelector({
               className="font-mono"
             />
           ) : null}
-          <CommandList className="max-h-60">
+          <CommandList className="max-h-72 w-full min-w-0">
             <CommandEmpty>
               {query ? t('settings.ai.no_models_found', { query }) : emptyMessage}
             </CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className="w-full min-w-0">
               {filteredModels.map((model) => {
                 const isCurrent = model.id === selectedModelId;
                 return (
                   <CommandItem
                     key={model.id}
                     value={model.id}
+                    data-checked={isCurrent ? 'true' : undefined}
                     onSelect={() => {
                       onChange(model.id);
                       setIsOpen(false);
                       setQuery('');
                     }}
-                    className="flex-col items-start gap-1"
+                    className={cn(
+                      // flex-col + absolute check so the built-in Tick does not steal row width / truncate the id
+                      'relative w-full min-w-0 flex-col items-start gap-1 border pr-8',
+                      '[&>svg:last-of-type]:absolute [&>svg:last-of-type]:right-2.5 [&>svg:last-of-type]:top-2.5 [&>svg:last-of-type]:ml-0',
+                      isCurrent
+                        ? 'border-primary bg-brand-mint text-foreground data-selected:bg-brand-mint data-selected:text-foreground'
+                        : 'border-transparent',
+                    )}
                   >
-                    <span className="flex w-full min-w-0 items-center gap-2">
-                      <span className="truncate font-mono text-sm">{model.id}</span>
+                    <span className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span
+                        className={cn(
+                          'min-w-0 flex-1 whitespace-normal break-all font-mono text-sm',
+                          isCurrent && 'font-semibold text-primary',
+                        )}
+                      >
+                        {model.id}
+                      </span>
                       {providerBadge}
                       {showContextWindow && model.contextWindow > 0 ? (
-                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                           {formatContextWindow(model.contextWindow)} ctx
                         </span>
-                      ) : null}
-                      {isCurrent ? (
-                        <HugeiconsIcon
-                          icon={CheckIcon}
-                          className="ml-auto shrink-0 text-primary"
-                          aria-hidden
-                        />
                       ) : null}
                     </span>
                     {(showDescription && model.description) || showBadges ? (
                       <span className="flex w-full min-w-0 flex-wrap items-center gap-1.5">
                         {renderBadges(model)}
                         {showDescription && model.description ? (
-                          <span className="min-w-0 truncate text-xs text-muted-foreground">
+                          <span className="min-w-0 whitespace-normal text-xs text-muted-foreground">
                             {model.description}
                           </span>
                         ) : null}

@@ -61,6 +61,8 @@ const learnHandlers = require('./learn/learn.cjs');
 const quizHandlers = require('./learn/quiz.cjs');
 const minimaxFilesHandlers = require('./media/minimax-files.cjs');
 const copilotHandlers = require('./integrations/copilot.cjs');
+const claudeOAuthHandlers = require('./integrations/claude-oauth.cjs');
+const openaiCodexOAuthHandlers = require('./integrations/openai-codex-oauth.cjs');
 const githubHandlers = require('./integrations/github.cjs');
 const peopleHandlers = require('./integrations/people.cjs');
 
@@ -186,6 +188,8 @@ function registerAll(deps) {
   quizHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   minimaxFilesHandlers.register({ ipcMain: secureIpcMain, validateSender });
   copilotHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  claudeOAuthHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  openaiCodexOAuthHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   githubHandlers.register({ ipcMain: secureIpcMain, windowManager });
   peopleHandlers.register({ ipcMain: secureIpcMain, windowManager });
 }

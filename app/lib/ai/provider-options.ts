@@ -21,6 +21,8 @@ const PROVIDER_LOGO_PATHS = {
   moonshot: '/brandlogo/moonshot.svg',
   qwen: '/brandlogo/qwen.svg',
   copilot: '/brandlogo/github.svg',
+  'claude-oauth': '/brandlogo/anthropic.svg',
+  'openai-codex': '/brandlogo/OpenAI-black-monoblossom.svg',
   opencode: '/brandlogo/opencode.svg',
   'opencode-go': '/brandlogo/opencode-go.svg',
 } as const;
@@ -155,6 +157,22 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.copilot.name,
     description: PROVIDERS.copilot.description + '. Connect with GitHub.',
     logoSrc: PROVIDER_LOGO_PATHS.copilot,
+  },
+  {
+    value: 'claude-oauth',
+    label: PROVIDERS['claude-oauth'].name,
+    description: PROVIDERS['claude-oauth'].description + '. Experimental — not an official integration.',
+    logoSrc: PROVIDER_LOGO_PATHS['claude-oauth'],
+    badge: 'EXPERIMENTAL',
+    badgeColor: 'purple',
+  },
+  {
+    value: 'openai-codex',
+    label: PROVIDERS['openai-codex'].name,
+    description: PROVIDERS['openai-codex'].description + '. Experimental — not an official integration.',
+    logoSrc: PROVIDER_LOGO_PATHS['openai-codex'],
+    badge: 'EXPERIMENTAL',
+    badgeColor: 'purple',
   },
   {
     value: 'ollama',

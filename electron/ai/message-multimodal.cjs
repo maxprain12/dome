@@ -12,6 +12,10 @@ const MINIMAX_M3_RE = /^minimax-m3$/i;
 /** Static capability hints when catalog lookup is unavailable in main process. */
 const STATIC_MODEL_INPUT = {
   'minimax-m3': ['text', 'image', 'video'],
+  'gpt-5.6-sol': ['text', 'image'],
+  'gpt-5.6-terra': ['text', 'image'],
+  'gpt-5.6-luna': ['text', 'image'],
+  'gpt-5.6': ['text', 'image'],
   'gpt-5.2': ['text', 'image'],
   'gpt-5': ['text', 'image'],
   'gpt-5-mini': ['text', 'image'],
@@ -21,7 +25,12 @@ const STATIC_MODEL_INPUT = {
   'gpt-4.1': ['text', 'image'],
   'gpt-4.1-mini': ['text', 'image'],
   'gpt-4.1-nano': ['text', 'image'],
+  'claude-fable-5': ['text', 'image'],
+  'claude-opus-4-8': ['text', 'image'],
+  'claude-sonnet-5': ['text', 'image'],
+  'claude-opus-4-7': ['text', 'image'],
   'claude-opus-4-6': ['text', 'image'],
+  'claude-sonnet-4-6': ['text', 'image'],
   'claude-sonnet-4-5': ['text', 'image'],
   'claude-haiku-4-5': ['text', 'image'],
   'gemini-3-flash': ['text', 'image'],
@@ -39,8 +48,14 @@ const STATIC_MODEL_INPUT = {
 
 /** Models on OpenCode that use anthropic-messages API (content block style). */
 const OPENCODE_ANTHROPIC_MODEL_IDS = new Set([
+  'claude-fable-5',
   'claude-haiku-4-5',
+  'claude-sonnet-5',
+  'claude-sonnet-4-6',
   'claude-sonnet-4-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
   'claude-opus-4-1',
   'minimax-m2.5',
   'minimax-m2.7',

@@ -22,6 +22,8 @@ const ALL_CHAT_PROVIDERS = [
   'minimax',
   'openrouter',
   'copilot',
+  'claude-oauth',
+  'openai-codex',
   'deepseek',
   'moonshot',
   'qwen',
@@ -123,6 +125,28 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
       throw new Error('GitHub Copilot is not connected. Open Settings > AI and connect Copilot.');
     }
     return { provider, apiKey: token, baseUrl, model: model || DEFAULT_MODELS.copilot };
+  }
+
+  if (provider === 'claude-oauth') {
+    const claudeOAuth = require('../auth/claude-oauth.cjs');
+    const { token, baseUrl } = await claudeOAuth.getAccessToken(database);
+    return {
+      provider,
+      apiKey: token,
+      baseUrl,
+      model: model || DEFAULT_MODELS['claude-oauth'],
+    };
+  }
+
+  if (provider === 'openai-codex') {
+    const openaiCodexOAuth = require('../auth/openai-codex-oauth.cjs');
+    const { token, baseUrl } = await openaiCodexOAuth.getAccessToken(database);
+    return {
+      provider,
+      apiKey: token,
+      baseUrl,
+      model: model || DEFAULT_MODELS['openai-codex'],
+    };
   }
 
   const apiKey = readProviderApiKey(queries, provider);

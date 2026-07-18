@@ -720,7 +720,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+			output.errorMessage = formatAnthropicProviderError(error);
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
 		}
@@ -804,6 +804,46 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 
 function isOAuthToken(apiKey: string): boolean {
 	return apiKey.includes("sk-ant-oat");
+}
+
+/**
+ * Map Anthropic HTTP / SDK errors to actionable copy (mirrors openai-codex usage limits).
+ * OAuth third-party apps bill against Claude "extra usage", not the claude.ai plan quota.
+ */
+function formatAnthropicProviderError(error: unknown): string {
+	const raw = error instanceof Error ? error.message : String(error ?? "Request failed");
+	const lower = raw.toLowerCase();
+
+	if (lower.includes("out of extra usage") || lower.includes("extra usage")) {
+		return (
+			"Claude Pro/Max: out of extra usage for third-party apps (Dome, Cursor, Claude Code harnesses). " +
+			"Add credits at https://claude.ai/settings/usage — subscription plan limits on claude.ai " +
+			"do not cover OAuth apps once that pool is empty. Or switch Dome to an Anthropic API key."
+		);
+	}
+
+	if (lower.includes("rate_limit") || lower.includes("rate limit") || lower.includes("429")) {
+		return "Claude rate limit reached. Wait a few minutes and try again, or use a lighter model (Sonnet/Haiku).";
+	}
+
+	// Anthropic SDK often surfaces: `400 {"type":"error","error":{"message":"..."}}`
+	try {
+		const jsonStart = raw.indexOf("{");
+		if (jsonStart >= 0) {
+			const parsed = JSON.parse(raw.slice(jsonStart)) as {
+				error?: { message?: string; type?: string };
+				message?: string;
+			};
+			const nested = parsed?.error?.message || parsed?.message;
+			if (nested && nested !== raw) {
+				return formatAnthropicProviderError(nested);
+			}
+		}
+	} catch {
+		/* keep raw */
+	}
+
+	return raw;
 }
 
 function createClient(

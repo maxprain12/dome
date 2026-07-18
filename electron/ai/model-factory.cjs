@@ -11,18 +11,20 @@ const { temperatureOptions } = require('./model-params.cjs');
 const { createDomeLangChainModel } = require('./dome-langchain-model.cjs');
 
 const DEFAULT_MODELS = {
-  openai: 'gpt-4o',
-  anthropic: 'claude-sonnet-4-20250514',
+  openai: 'gpt-5.6-sol',
+  anthropic: 'claude-sonnet-5',
   google: 'gemini-3-flash-preview',
   minimax: 'MiniMax-M3',
   dome: 'dome/auto',
   openrouter: 'anthropic/claude-sonnet-4.5',
   ollama: 'llama3.2',
   copilot: 'gpt-4.1',
+  'claude-oauth': 'claude-sonnet-5',
+  'openai-codex': 'gpt-5.6-sol',
   deepseek: 'deepseek-chat',
   moonshot: 'kimi-k2-0905-preview',
   qwen: 'qwen-max',
-  opencode: 'claude-sonnet-4-5',
+  opencode: 'claude-opus-4-8',
   'opencode-go': 'deepseek-v4-flash',
 };
 
@@ -33,6 +35,8 @@ const DEFAULT_BASE_URLS = {
   ollama: 'http://127.0.0.1:11434',
   opencode: 'https://opencode.ai/zen/v1',
   'opencode-go': 'https://opencode.ai/zen/go/v1',
+  'claude-oauth': 'https://api.anthropic.com',
+  'openai-codex': 'https://chatgpt.com/backend-api',
 };
 
 function stripZodJsonSchemaMeta(obj) {

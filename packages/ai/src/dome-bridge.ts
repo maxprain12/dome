@@ -21,6 +21,8 @@ export type DomeLegacyProvider =
   | 'ollama'
   | 'openrouter'
   | 'copilot'
+  | 'claude-oauth'
+  | 'openai-codex'
   | 'dome'
   | 'minimax'
   | 'deepseek'
@@ -137,6 +139,28 @@ export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
     }
     case 'anthropic':
       return anthropicModel(modelId);
+    case 'claude-oauth':
+      // Same Anthropic Messages API; OAuth vs API key is detected from the token shape.
+      return anthropicModel(modelId);
+    case 'openai-codex': {
+      const fromCodex = getModel('openai-codex', modelId as never);
+      if (fromCodex) {
+        return baseUrl ? { ...fromCodex, baseUrl } : fromCodex;
+      }
+      // Same model ids as OpenAI API / ChatGPT (GPT-5.6 Sol/Terra/Luna) — Codex Responses.
+      return {
+        id: modelId,
+        name: modelId,
+        api: 'openai-codex-responses',
+        provider: 'openai-codex',
+        baseUrl: baseUrl || 'https://chatgpt.com/backend-api',
+        reasoning: true,
+        input: ['text', 'image'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 1_050_000,
+        maxTokens: 128_000,
+      };
+    }
     case 'google':
       return googleModel(modelId);
     case 'ollama':

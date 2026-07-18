@@ -717,6 +717,26 @@ declare global {
         status: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
         disconnect: () => Promise<{ success: boolean; error?: string }>;
       };
+      /** Claude Pro/Max subscription OAuth (experimental) */
+      claudeAuth: {
+        login: () => Promise<{ success: boolean; error?: string }>;
+        status: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
+        disconnect: () => Promise<{ success: boolean; error?: string }>;
+      };
+      /** ChatGPT Plus/Pro Codex OAuth (experimental) */
+      openaiCodexAuth: {
+        login: () => Promise<{ success: boolean; error?: string }>;
+        status: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
+        disconnect: () => Promise<{ success: boolean; error?: string }>;
+        onDeviceCode: (
+          callback: (info: {
+            userCode: string;
+            verificationUri: string;
+            intervalSeconds?: number;
+            expiresInSeconds?: number;
+          }) => void,
+        ) => () => void;
+      };
       github: {
         auth: {
           start: () => Promise<{
@@ -1356,6 +1376,8 @@ declare global {
             | 'minimax'
             | 'openrouter'
             | 'copilot'
+            | 'claude-oauth'
+            | 'openai-codex'
             | 'deepseek'
             | 'moonshot'
             | 'qwen'
@@ -1407,6 +1429,8 @@ declare global {
             | 'minimax'
             | 'openrouter'
             | 'copilot'
+            | 'claude-oauth'
+            | 'openai-codex'
             | 'deepseek'
             | 'moonshot'
             | 'qwen'
@@ -1437,6 +1461,8 @@ declare global {
             | 'minimax'
             | 'openrouter'
             | 'copilot'
+            | 'claude-oauth'
+            | 'openai-codex'
             | 'dome'
             | 'deepseek'
             | 'moonshot'

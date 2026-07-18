@@ -14,6 +14,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
+import { cn } from '@/lib/utils';
 import ProviderBrandIcon from './ProviderBrandIcon';
 
 const EMPTY_CONFIGURED_PROVIDERS: Record<string, boolean> = {};
@@ -28,15 +30,25 @@ export interface AIProviderSelectionProps {
   hideDomeProvider?: boolean;
 }
 
+const OAUTH_PROVIDERS = new Set<AIProviderType>([
+  'dome',
+  'copilot',
+  'claude-oauth',
+  'openai-codex',
+]);
+
 interface ProviderChoiceProps {
   value: AIProviderType;
   name: string;
   description: string;
   badge?: string;
   configured?: boolean;
+  /** Explicit selected state (more reliable than Toggle data-state alone). */
+  selected?: boolean;
   disabled?: boolean;
   local?: boolean;
   featured?: boolean;
+  oauth?: boolean;
   onConfigure?: () => void;
   configureLabel?: string;
 }
@@ -48,9 +60,11 @@ function ProviderChoice({
   description,
   badge,
   configured,
+  selected = false,
   disabled,
   local,
   featured,
+  oauth = false,
   onConfigure,
   configureLabel,
 }: ProviderChoiceProps) {
@@ -62,10 +76,21 @@ function ProviderChoice({
         variant="outline"
         disabled={disabled}
         aria-label={name}
-        className="h-auto min-h-28 w-full flex-col items-stretch justify-start gap-3 rounded-xl p-3 pr-11 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/5"
+        aria-pressed={selected}
+        data-selected={selected ? 'true' : undefined}
+        className={cn(
+          'h-auto min-h-28 w-full flex-col items-stretch justify-start gap-3 p-3 pr-11 text-left',
+          selectionSurfaceClass(selected, selected ? 'shadow-sm' : 'bg-card'),
+        )}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <span
+            className={
+              selected
+                ? 'flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-lime'
+                : 'flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted'
+            }
+          >
             <ProviderBrandIcon provider={value} size={17} />
           </span>
           <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
@@ -82,8 +107,8 @@ function ProviderChoice({
             </Badge>
           ) : configured ? (
             <Badge variant="secondary">
-              <HugeiconsIcon icon={Key01Icon} data-icon="inline-start" />
-              {t('settings.ai.key_saved')}
+              <HugeiconsIcon icon={oauth ? LockIcon : Key01Icon} data-icon="inline-start" />
+              {oauth ? t('settings.ai.status_connected') : t('settings.ai.key_saved')}
             </Badge>
           ) : featured ? (
             <>
@@ -99,7 +124,9 @@ function ProviderChoice({
           ) : (
             <Badge variant="outline">
               <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
-              {t('settings.ai.api_key_required')}
+              {oauth
+                ? t('settings.ai.status_disconnected')
+                : t('settings.ai.api_key_required')}
             </Badge>
           )}
         </span>
@@ -166,6 +193,9 @@ export default function AIProviderSelection({
             description={`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
             badge={t('settings.ai.recommended')}
             featured
+            oauth
+            selected={provider === 'dome'}
+            configured={Boolean(configuredProviders.dome)}
           />
         ) : null}
 
@@ -179,18 +209,26 @@ export default function AIProviderSelection({
                 {group.options.map((option) => {
                   const canConfigure =
                     isVisibleModelsConfigurable(option.value) && Boolean(onConfigureModels);
+                  const isOauth = OAUTH_PROVIDERS.has(option.value);
+                  const isConfigured = Boolean(configuredProviders[option.value]);
                   return (
                     <ProviderChoice
                       key={option.value}
                       value={option.value}
                       name={option.label}
                       description={
-                        configuredProviders[option.value]
-                          ? t('settings.ai.key_saved')
-                          : t('settings.ai.api_key_required')
+                        isConfigured
+                          ? isOauth
+                            ? t('settings.ai.status_connected')
+                            : t('settings.ai.key_saved')
+                          : isOauth
+                            ? t('settings.ai.status_disconnected')
+                            : t('settings.ai.api_key_required')
                       }
                       badge={option.badge}
-                      configured={Boolean(configuredProviders[option.value])}
+                      configured={isConfigured}
+                      selected={provider === option.value}
+                      oauth={isOauth}
                       disabled={option.disabled}
                       onConfigure={
                         canConfigure ? () => onConfigureModels?.(option.value) : undefined
@@ -212,6 +250,7 @@ export default function AIProviderSelection({
           description={t('settings.ai.private_local')}
           badge={t('settings.ai.local_badge')}
           local
+          selected={provider === 'ollama'}
         />
       </ToggleGroup>
     </section>

@@ -27,12 +27,17 @@ const CLOUD_PROVIDERS: AIProviderType[] = [
   'qwen',
   'copilot',
   'dome',
+  'claude-oauth',
+  'openai-codex',
   'opencode',
   'opencode-go',
 ];
 
 /** Local catalog from @dome/ai — no remote /models API or API key required. */
 const CATALOG_PROVIDERS: AIProviderType[] = ['opencode', 'opencode-go'];
+
+/** OAuth subscription providers: main resolves token; no renderer API key needed. */
+const OAUTH_MODEL_PROVIDERS: AIProviderType[] = ['dome', 'claude-oauth', 'openai-codex'];
 
 const STATIC_CATALOG_PROVIDERS: AIProviderType[] = ['deepseek', 'moonshot', 'qwen', 'copilot'];
 
@@ -187,10 +192,9 @@ export function useProviderModels({
       return;
     }
 
-    // Dome no usa API key: el proceso main consulta /api/v1/me/quota con la
-    // sesión OAuth y devuelve los modelos del plan del usuario.
+    // Dome / Claude OAuth / ChatGPT Codex: main resuelve sesión OAuth (sin API key en renderer).
     const key = apiKey.trim();
-    if (!key && !CATALOG_PROVIDERS.includes(provider) && provider !== 'dome') {
+    if (!key && !CATALOG_PROVIDERS.includes(provider) && !OAUTH_MODEL_PROVIDERS.includes(provider)) {
       await finish(staticModels);
       setError(null);
       setLoading(false);

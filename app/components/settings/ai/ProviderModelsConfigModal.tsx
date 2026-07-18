@@ -36,6 +36,8 @@ const CATALOG_FETCH_PROVIDERS: AIProviderType[] = [
   'google',
   'minimax',
   'openrouter',
+  'claude-oauth',
+  'openai-codex',
   'opencode',
   'opencode-go',
 ];

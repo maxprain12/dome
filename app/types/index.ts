@@ -402,6 +402,8 @@ export type AIProviderType =
   | 'synthetic'
   | 'venice'
   | 'copilot'
+  | 'claude-oauth'
+  | 'openai-codex'
   | 'deepseek'
   | 'minimax'
   | 'openrouter'
