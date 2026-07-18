@@ -302,7 +302,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
                       fill="var(--card)"
                       stroke={color}
                       strokeWidth={isSelected ? 3 : 2}
-                      opacity={isSelected ? 1 : 1}
+                      opacity={1}
                     />
                     <foreignObject
                       x={x}
