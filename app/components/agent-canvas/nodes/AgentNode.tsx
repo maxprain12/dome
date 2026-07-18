@@ -74,6 +74,80 @@ function AgentNodeStatusIcon({
   }
 }
 
+
+function resolveNodeBorderColor(
+  selected: boolean,
+  isSystemAgent: boolean,
+  systemDef: (typeof SYSTEM_AGENTS)[SystemAgentRole] | null | undefined,
+): string {
+  if (selected && isSystemAgent && systemDef) return systemDef.color;
+  if (selected) return 'var(--primary)';
+  return 'var(--border)';
+}
+
+function AgentNodeAvatar({
+  isSystemAgent,
+  RoleIcon,
+  agentIconIndex,
+  iconLoadFailed,
+  agentName,
+  agentInitials,
+  onIconError,
+}: {
+  isSystemAgent: boolean;
+  RoleIcon: React.ElementType | null;
+  agentIconIndex: number;
+  iconLoadFailed: boolean;
+  agentName?: string;
+  agentInitials: string;
+  onIconError: () => void;
+}) {
+  if (isSystemAgent && RoleIcon) {
+    return <RoleIcon className="size-3.5 text-white" />;
+  }
+  if (agentIconIndex > 0 && !iconLoadFailed) {
+    return (
+      <img
+        src={`/agents/sprite_${agentIconIndex}.png`}
+        alt={agentName ?? 'Agent'}
+        className="size-full object-contain rounded-lg"
+        onError={onIconError}
+      />
+    );
+  }
+  return <>{agentInitials}</>;
+}
+
+function AgentNodeSubtitle({
+  isSystemAgent,
+  systemDef,
+  agentName,
+  colors,
+  systemBadge,
+}: {
+  isSystemAgent: boolean;
+  systemDef: (typeof SYSTEM_AGENTS)[SystemAgentRole] | null | undefined;
+  agentName?: string;
+  colors: (typeof STATUS_COLORS)[keyof typeof STATUS_COLORS];
+  systemBadge: string;
+}) {
+  if (isSystemAgent && systemDef) {
+    return (
+      <span className="text-[10px] truncate block opacity-60 leading-tight" style={{ color: systemDef.color }}>
+        {systemDef.emoji} {systemBadge}
+      </span>
+    );
+  }
+  if (agentName) {
+    return (
+      <span className="text-[10px] truncate block opacity-70 leading-tight" style={{ color: colors.textColor }}>
+        {agentName}
+      </span>
+    );
+  }
+  return null;
+}
+
 export default function AgentNode({
   data,
   selected,
@@ -107,12 +181,7 @@ export default function AgentNode({
       ? `color-mix(in srgb, ${systemDef.color} 10%, var(--background))`
       : colors.header;
 
-  const borderColor =
-    selected && isSystemAgent && systemDef
-      ? systemDef.color
-      : selected
-        ? 'var(--primary)'
-        : 'var(--border)';
+  const borderColor = resolveNodeBorderColor(selected, isSystemAgent, systemDef);
 
   return (
     <div
@@ -137,18 +206,15 @@ export default function AgentNode({
           className="size-6 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shrink-0"
           style={{ background: systemColor }}
         >
-          {isSystemAgent && RoleIcon ? (
-            <RoleIcon className="size-3.5 text-white" />
-          ) : data.agentIconIndex > 0 && !iconLoadFailed ? (
-            <img
-              src={`/agents/sprite_${data.agentIconIndex}.png`}
-              alt={data.agentName ?? 'Agent'}
-              className="size-full object-contain rounded-lg"
-              onError={() => setIconLoadFailed(true)}
-            />
-          ) : (
-            agentInitials
-          )}
+          <AgentNodeAvatar
+            isSystemAgent={isSystemAgent}
+            RoleIcon={RoleIcon}
+            agentIconIndex={data.agentIconIndex}
+            iconLoadFailed={iconLoadFailed}
+            agentName={data.agentName}
+            agentInitials={agentInitials}
+            onIconError={() => setIconLoadFailed(true)}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <span
@@ -157,15 +223,13 @@ export default function AgentNode({
           >
             {data.label}
           </span>
-          {isSystemAgent && systemDef ? (
-            <span className="text-[10px] truncate block opacity-60 leading-tight" style={{ color: systemDef.color }}>
-              {systemDef.emoji} {t('canvas.system_agent_badge')}
-            </span>
-          ) : data.agentName ? (
-            <span className="text-[10px] truncate block opacity-70 leading-tight" style={{ color: colors.textColor }}>
-              {data.agentName}
-            </span>
-          ) : null}
+          <AgentNodeSubtitle
+            isSystemAgent={isSystemAgent}
+            systemDef={systemDef}
+            agentName={data.agentName}
+            colors={colors}
+            systemBadge={t('canvas.system_agent_badge')}
+          />
         </div>
         <AgentNodeStatusIcon status={data.status} systemColor={systemColor} />
       </div>
