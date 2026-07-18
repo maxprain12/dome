@@ -7,7 +7,7 @@
  * (or by pipeline-runner for run-related transitions).
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const database = require('../core/database.cjs');
 const pipelineRunner = require('./pipeline-runner.cjs');
 const pipelineCalendarSync = require('./pipeline-calendar-sync.cjs');

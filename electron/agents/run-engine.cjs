@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { BrowserWindow } = require('electron');
-const { setMaxListeners } = require('events');
+const { setMaxListeners } = require('node:events');
 const approval = require('../ipc/agents/approval.cjs');
 // Single agent runtime: every agent turn runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).

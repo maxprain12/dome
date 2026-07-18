@@ -15,7 +15,7 @@
  * pipeline-runner's onRunTerminal hook and only acts on report runs it started.
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { serializeArtifactRecord } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
 const { buildReportHtml } = require('./report-markdown.cjs');
