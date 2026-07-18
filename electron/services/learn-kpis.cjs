@@ -47,7 +47,7 @@ function computeStreak(activityDays) {
 
 function computeLongestStreak(activityDays) {
   if (!activityDays || activityDays.size === 0) return 0;
-  const sorted = [...activityDays].sort();
+  const sorted = [...activityDays].sort((a, b) => a.localeCompare(b));
   let longest = 1;
   let current = 1;
   for (let i = 1; i < sorted.length; i++) {
