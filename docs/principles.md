@@ -14,6 +14,7 @@ Cada regla tiene un id **P-NNN** que linters, CI y el auditor pueden citar en me
 | P-008  | Planes de trabajo no triviales en `docs/plans/active/` (versionado) |
 | P-009  | Política de merge con alto caudal (flaky, fix-forward, PRs pequeños) |
 | P-010  | Embeddings: proveedor LangChain solo en `embeddings.service.cjs` |
+| P-011  | Patrones Sonar: no reintroducir anti-patterns documentados |
 
 ## P-001 — Renderer nunca importa módulos Node/DB
 
@@ -59,3 +60,11 @@ Cambios complejos: plan en `docs/plans/active/<slug>.md` con frontmatter, antes 
 ## P-010 — Embeddings (LangChain)
 
 No duplicar lógica de embedding ni lectura de `embeddings_*` settings fuera de `electron/services/embeddings.service.cjs`. Para modelos Ollama cuyo id contiene `nomic`, el servicio añade los prefijos `search_document:` / `search_query:` al texto.
+
+## P-011 — Sonar clean code
+
+No reintroducir anti-patterns que ya limpiamos en campañas Sonar (void innecesario, `.sort()` sin compare, `require('fs')` sin `node:`, `postMessage('*')`, ternarios idénticos, `String(x) ??`, etc.).
+
+- Catálogo: [automation/sonar-clean-code.md](./automation/sonar-clean-code.md)
+- Regla Cursor: `.cursor/rules/sonar-clean-code.mdc`
+- CI: `pnpm run check:sonar-patterns` (+ `--diff` en PRs) y `pnpm run test:sonar-patterns`

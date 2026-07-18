@@ -346,7 +346,7 @@ function getRecentMemory(days = 7) {
 
   const files = fs.readdirSync(memoryDir)
     .filter((f) => f.endsWith('.md'))
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .reverse()
     .slice(0, days);
 

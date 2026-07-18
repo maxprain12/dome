@@ -17,7 +17,7 @@ Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 - **Tabs**: `useTabStore` — not extra Electron windows
 - **Embeddings** (main only): `electron/services/embeddings.service.cjs` — LangChain (OpenAI / Google / Ollama); settings `embeddings_*`
 
-Full rules: [docs/principles.md](docs/principles.md) · Architecture: [docs/architecture/README.md](docs/architecture/README.md) · New IPC: [.claude/sops/new-ipc-channel.md](.claude/sops/new-ipc-channel.md)
+Full rules: [docs/principles.md](docs/principles.md) · Architecture: [docs/architecture/README.md](docs/architecture/README.md) · New IPC: [.claude/sops/new-ipc-channel.md](.claude/sops/new-ipc-channel.md) · Sonar patterns (P-011): [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md)
 
 ---
 
@@ -52,6 +52,8 @@ pnpm run typecheck
 pnpm run lint
 pnpm run build
 pnpm run check:ipc-inventory
+pnpm run check:sonar-patterns
+pnpm run check:sonar-patterns -- --diff=origin/main
 pnpm run depcruise
 ```
 

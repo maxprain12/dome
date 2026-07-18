@@ -172,6 +172,17 @@ Tras merge a `main`:
 2. Confirmar stage *Agent fix (OpenCode)* verde y `verify-loop-diff.sh` sin falsos positivos
 3. PR auto-merge solo si CI pasa — **no confiar en auto-merge hasta 1 run verde**
 
+## Preventing regressions (P-011)
+
+Agents and CI share a living catalog of anti-patterns learned from Sonar batches:
+
+- [sonar-clean-code.md](./sonar-clean-code.md)
+- Cursor rule `.cursor/rules/sonar-clean-code.mdc` (`alwaysApply`)
+- `pnpm run check:sonar-patterns` (strict full-tree) + `--diff=origin/main` (progressive on PR)
+- `pnpm run test:sonar-patterns`
+
+When a batch discovers a new recurring smell, extend the doc + checker + tests in the same PR that fixes it.
+
 ## Quality Gate
 
 Ver [sonar-quality-gate.md](./sonar-quality-gate.md).

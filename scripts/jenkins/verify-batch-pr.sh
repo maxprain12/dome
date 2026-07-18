@@ -12,6 +12,12 @@ pnpm run typecheck
 echo "=== verify-batch-pr: lint (renderer) ==="
 pnpm run lint
 
+echo "=== verify-batch-pr: sonar clean-code patterns (P-011) ==="
+pnpm run test:sonar-patterns
+# Strict full-tree only here (progressive --diff is enforced on GitHub PR CI;
+# quality-loop batches may touch files that still contain legacy void/node: debt).
+pnpm run check:sonar-patterns
+
 echo "=== verify-batch-pr: IPC inventory ==="
 if ! pnpm run check:ipc-inventory; then
   echo "ipc-channels.md out of date — regenerating (common after electron/ipc edits)..."

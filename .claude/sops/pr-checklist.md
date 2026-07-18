@@ -27,6 +27,11 @@ Before every PR is considered ready, verify each item below.
 - [ ] Type-only imports use `import type { }` (verbatimModuleSyntax is on)
 - [ ] No `@ts-ignore` or `@ts-expect-error` without a comment explaining why
 
+## Sonar clean code (P-011)
+
+- [ ] No new anti-patterns from [docs/automation/sonar-clean-code.md](../../docs/automation/sonar-clean-code.md) (`void` in handlers, `.sort()`, `require('fs')` without `node:`, `postMessage('*')`, identical ternaries, etc.)
+- [ ] If this PR taught a new recurring Sonar lesson, update that doc + `scripts/check-sonar-patterns.mjs` + its tests
+
 ## Automated Checks
 
 CI will verify these automatically, but check locally first:
@@ -37,6 +42,11 @@ pnpm exec tsc --noEmit
 
 # Lint
 pnpm exec eslint app/
+
+# Sonar pattern guards (strict + progressive on diff)
+pnpm run check:sonar-patterns
+pnpm run check:sonar-patterns -- --diff=origin/main
+pnpm run test:sonar-patterns
 
 # Architecture: must return 0 results
 grep -rE "bun:|require('fs')\|require('better-sqlite3')" app/
