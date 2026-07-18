@@ -27,7 +27,6 @@ import {
   listAgentFolders,
   updateManyAgent,
 } from '@/lib/agents/api';
-import { listAutomations } from '@/lib/automations/api';
 import { listRuns } from '@/lib/automations/api';
 import { uninstallMarketplaceAgent } from '@/lib/marketplace/api';
 import type { DomeAgentFolder, ManyAgent } from '@/types';
@@ -41,10 +40,14 @@ import { PENDING_AUTOMATIONS_FILTER_KEY } from '@/lib/hub/hubStorageKeys';
 import AgentEditor from './AgentEditor';
 import AgentChatView from '@/components/agents/AgentChatView';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubHeader } from '@/components/hub/HubHeader';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Search01Icon } from '@hugeicons/core-free-icons';
-import { StudioHubShell, askStudioMany, type StudioStat } from '@/components/studio-hub';
+import { askStudioMany } from '@/components/studio-hub';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -83,7 +86,6 @@ export default function AgentsStudioView() {
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [folders, setFolders] = useState<DomeAgentFolder[]>([]);
   const [runsToday, setRunsToday] = useState<number | null>(null);
-  const [activeAutomations, setActiveAutomations] = useState<number | null>(null);
   const [mode, setMode] = useState<ViewMode>({ kind: 'library' });
   const [search, setSearch] = useState('');
   const [folderFilter, setFolderFilter] = useState<string>('all'); // all | favorites | <folderId> | root
@@ -92,19 +94,15 @@ export default function AgentsStudioView() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const fetchListData = useCallback(async () => {
-    const [list, fds, runs, automations] = await Promise.all([
+    const [list, fds, runs] = await Promise.all([
       getManyAgents(projectId),
       listAgentFolders(projectId),
       listRuns({ limit: 100, projectId }).catch(() => []),
-      listAutomations({ projectId }).catch(() => []),
     ]);
     setAgents(list);
     setFolders(fds);
     setRunsToday(
       runs.filter((r) => r.ownerType === 'agent' && isToday(r.updatedAt ?? r.startedAt)).length,
-    );
-    setActiveAutomations(
-      automations.filter((a) => a.targetType === 'agent' && a.enabled).length,
     );
   }, [projectId]);
 
@@ -131,20 +129,19 @@ export default function AgentsStudioView() {
     });
   }, [agents, folderFilter, q]);
 
-  const stats: StudioStat[] = [
+  const stats: DomainStat[] = [
     { id: 'stat_agents', label: t('orchestration.agents.stat_agents'), value: agents.length, tone: 'accent' },
-    { id: 'stat_favorites', label: t('orchestration.agents.stat_favorites'),
+    {
+      id: 'stat_favorites',
+      label: t('orchestration.agents.stat_favorites'),
       value: agents.filter((a) => a.favorite).length,
     },
-    { id: 'stat_runs_today', label: t('orchestration.agents.stat_runs_today'),
+    {
+      id: 'stat_runs_today',
+      label: t('orchestration.agents.stat_runs_today'),
       value: runsToday ?? '—',
       tone: 'success',
       sub: t('orchestration.agents.stat_runs_today_sub'),
-    },
-    { id: 'stat_active_automations', label: t('orchestration.agents.stat_active_automations'),
-      value: activeAutomations ?? '—',
-      tone: 'warning',
-      sub: t('orchestration.agents.stat_active_automations_sub'),
     },
   ];
 
@@ -246,13 +243,15 @@ export default function AgentsStudioView() {
   // ── Sub-screens ─────────────────────────────────────────────────────────────
   if (mode.kind === 'chat') {
     return (
-      <AgentChatView agentId={mode.agentId} onBack={() => setMode({ kind: 'library' })} />
+      <div key={`chat-${mode.agentId}`} className="h-full studio-view-enter">
+        <AgentChatView agentId={mode.agentId} onBack={() => setMode({ kind: 'library' })} />
+      </div>
     );
   }
 
   if (mode.kind === 'edit' || mode.kind === 'new') {
     return (
-      <div className="h-full flex flex-col">
+      <div key={mode.kind === 'edit' ? `edit-${mode.agent.id}` : 'new'} className="flex h-full flex-col studio-view-enter">
         <AgentEditor
           initialAgent={mode.kind === 'edit' ? mode.agent : undefined}
           projectId={projectId}
@@ -278,251 +277,312 @@ export default function AgentsStudioView() {
   ];
 
   return (
-    <StudioHubShell
-      section="agents"
-      title={t('tabs.agents')}
-      description={t('automationHub.agents_subtitle')}
-      stats={stats}
-      actions={
-        <>
-          <Input
-            ref={importInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            aria-label={t('automationHub.import_btn')}
-            onChange={(e) => void handleImportFile(e)}
-          />
-          <Button variant="outline" disabled={importing} onClick={() => importInputRef.current?.click()} size="sm">{importing ? <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" /> : <HugeiconsIcon icon={UploadIcon} className="size-3.5" />}
-            {t('automationHub.import_btn')}
-          </Button>
-          <Button variant="outline" disabled={agents.length === 0} onClick={handleExport} size="sm">{<HugeiconsIcon icon={DownloadIcon} className="size-3.5" />}
-            {t('automationHub.export_btn')}
-          </Button>
-          <Button onClick={() => setMode({ kind: 'new' })} className="!bg-primary" size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
-            {t('orchestration.agents.new_agent')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => askStudioMany(t('orchestration.agent_prompt_agents'))}
-          >
-            {t('orchestration.agent_ask_many')}
-          </Button>
-        </>
-      }
-      toolbar={
-        <div className="flex items-center gap-3 flex-wrap">
+    <div
+      key="library"
+      className="@container/agents flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
+    >
+      <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+        <HubHeader
+          title={t('tabs.agents')}
+          description={t('automationHub.agents_subtitle')}
+          actions={
+            <>
+              <Input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                aria-label={t('automationHub.import_btn')}
+                onChange={(e) => void handleImportFile(e)}
+              />
+              <Button
+                variant="outline"
+                disabled={importing}
+                onClick={() => importInputRef.current?.click()}
+                size="sm"
+              >
+                {importing ? (
+                  <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
+                ) : (
+                  <HugeiconsIcon icon={UploadIcon} className="size-3.5" />
+                )}
+                {t('automationHub.import_btn')}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={agents.length === 0}
+                onClick={handleExport}
+                size="sm"
+              >
+                <HugeiconsIcon icon={DownloadIcon} className="size-3.5" />
+                {t('automationHub.export_btn')}
+              </Button>
+              <Button onClick={() => setMode({ kind: 'new' })} size="sm">
+                <HugeiconsIcon icon={PlusIcon} className="size-3.5" />
+                {t('orchestration.agents.new_agent')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => askStudioMany(t('orchestration.agent_prompt_agents'))}
+              >
+                {t('orchestration.agent_ask_many')}
+              </Button>
+            </>
+          }
+        />
+        <DomainStatChips stats={stats} />
+        <div className="flex flex-wrap items-center gap-3">
           <InputGroup className="h-8 max-w-xl">
-            <InputGroupAddon><HugeiconsIcon icon={Search01Icon} aria-hidden /></InputGroupAddon>
-            <InputGroupInput type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('agents.search_placeholder')} aria-label={t('agents.search_placeholder')} />
+            <InputGroupAddon>
+              <HugeiconsIcon icon={Search01Icon} aria-hidden />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('agents.search_placeholder')}
+              aria-label={t('agents.search_placeholder')}
+            />
           </InputGroup>
-          <ToggleGroup value={[folderFilter]} onValueChange={(values) => values[0] && setFolderFilter(values[0])}>
-            {folderChips.map((chip) => <ToggleGroupItem key={chip.value} value={chip.value} size="sm">{chip.label}</ToggleGroupItem>)}
+          <ToggleGroup
+            value={[folderFilter]}
+            onValueChange={(values) => values[0] && setFolderFilter(values[0])}
+          >
+            {folderChips.map((chip) => (
+              <ToggleGroupItem key={chip.value} value={chip.value} size="sm">
+                {chip.label}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
         </div>
-      }
-    >
-      {loading ? (
-        <div className="p-6">
-          <output className="flex w-full max-w-full flex-col gap-3" aria-live="polite">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
-            ))}
-          </output>
-        </div>
-      ) : agents.length === 0 ? (
-        <div className="p-6">
-          <div
-            className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl px-8 py-10 text-center"
-            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-          >
-            <div
-              className="flex size-14 items-center justify-center rounded-2xl"
-              style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)', color: 'var(--primary)' }}
-            >
-              <HugeiconsIcon icon={BotIcon} className="size-7" strokeWidth={1.5} />
-            </div>
-            <h2 className="text-base font-semibold text-foreground">
-              {t('agents.no_agents_yet')}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t('agents.no_agents_desc')}
-            </p>
-            <div className="mt-2 flex items-center gap-2 flex-wrap justify-center">
-              <Button className="!bg-primary" onClick={() => setMode({ kind: 'new' })} size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
-                {t('agents.create_first_agent')}
-              </Button>
-              <Button variant="outline" onClick={openMarketplaceTab} size="sm">{<HugeiconsIcon icon={StoreIcon} className="size-3.5" />}
-                {t('orchestration.explore_marketplace')}
-              </Button>
-            </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="p-6">
+            <output className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-36 w-full rounded-lg" />
+              ))}
+            </output>
           </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
-          {visibleAgents.map((agent) => {
-            const toolsLabel =
-              agent.toolIds.length > 0
-                ? t('orchestration.agents.tools_count', { count: agent.toolIds.length })
-                : t('agents.all_tools_available');
-            const menuItems: Array<{
-              label: string;
-              icon?: ReactNode;
-              onClick: () => void;
-              variant?: 'default' | 'danger';
-            }> = [
-              {
-                label: t('orchestration.agents.duplicate'),
-                icon: <HugeiconsIcon icon={CopyIcon} className="size-3.5" />,
-                onClick: () => void duplicateAgent(agent),
-              },
-              {
-                label: t('agents.automations'),
-                icon: <HugeiconsIcon icon={ZapIcon} className="size-3.5" />,
-                onClick: () => openAgentAutomations(agent),
-              },
-              {
-                label: t('ui.delete'),
-                icon: <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />,
-                variant: 'danger',
-                onClick: () => setDeleteTarget(agent),
-              },
-            ];
-            return (
-              <div
-                key={agent.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setMode({ kind: 'chat', agentId: agent.id })}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setMode({ kind: 'chat', agentId: agent.id });
-                  }
-                }}
-                className="group flex cursor-pointer flex-col gap-3 rounded-2xl p-4 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform]"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10"
-                  >
-                    <img src={`/agents/sprite_${agent.iconIndex}.png`} alt="" className="size-full object-contain" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-foreground">
-                        {agent.name}
-                      </span>
-                      {agent.marketplaceId ? (
-                        <HugeiconsIcon icon={StoreIcon} className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-                      ) : null}
-                    </div>
-                    <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-                      {agent.description || t('agent.empty_chat')}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void toggleFavorite(agent);
-                    }}
-                    title={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
-                    aria-label={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
-                  >
-                    <HugeiconsIcon icon={StarIcon}
-                      className="size-4"
-                      style={{
-                        color: agent.favorite ? 'var(--primary)' : 'var(--muted-foreground)',
-                        fill: agent.favorite ? 'var(--primary)' : 'none',
-                      }}
-                    />
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
-                  >
-                    <HugeiconsIcon icon={WrenchIcon} className="size-2.5" aria-hidden />
-                    {toolsLabel}
-                  </span>
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
-                  >
-                    {t('agents.row_mcp_capabilities', { mcp: agent.mcpServerIds?.length ?? 0 })}
-                  </span>
-                  {agent.skillIds && agent.skillIds.length > 0 ? (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                      style={{ background: 'var(--accent)', border: '1px solid var(--border)' }}
-                    >
-                      {t('orchestration.agents.skills_count', { count: agent.skillIds.length })}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="mt-auto flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-muted-foreground">
-                    {formatAgentDate(agent.updatedAt)}
-                  </span>
-                  <div
-                    className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    role="presentation"
-                  >
-                    <Button variant="outline" onClick={() => setMode({ kind: 'chat', agentId: agent.id })} size="xs">{<HugeiconsIcon icon={MessageSquareIcon} className="size-3" />}
-                      {t('orchestration.agents.chat_action')}
-                    </Button>
-                    <Button variant="ghost" title={t('ui.edit')} aria-label={t('ui.edit')} onClick={() => setMode({ kind: 'edit', agent })} size="icon-xs">
-                      <HugeiconsIcon icon={PencilIcon} className="size-3.5 text-muted-foreground" />
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            aria-label={t('agents.folder_actions')}
-                            size="icon-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        }
-                      >
-                        <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5 text-muted-foreground" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="min-w-40">
-                        {menuItems.map((menuItem) => (
-                          <DropdownMenuItem
-                            key={menuItem.label}
-                            variant={menuItem.variant === 'danger' ? 'destructive' : 'default'}
-                            onClick={menuItem.onClick}
-                          >
-                            {menuItem.icon}
-                            {menuItem.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
+        ) : agents.length === 0 ? (
+          <div className="space-y-4 p-6">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Card size="sm" className="px-4 py-3">
+                <p className="text-xs text-muted-foreground">{t('orchestration.agents.stat_agents')}</p>
+                <p className="text-xl font-semibold tabular-nums text-primary">0</p>
+              </Card>
+              <Card size="sm" className="px-4 py-3">
+                <p className="text-xs text-muted-foreground">{t('orchestration.agents.stat_favorites')}</p>
+                <p className="text-xl font-semibold tabular-nums">0</p>
+              </Card>
+              <Card size="sm" className="px-4 py-3">
+                <p className="text-xs text-muted-foreground">{t('orchestration.agents.stat_runs_today')}</p>
+                <p className="text-xl font-semibold tabular-nums text-success">{runsToday ?? 0}</p>
+              </Card>
+            </div>
+            <Card className="max-w-2xl gap-3 px-6 py-6">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <HugeiconsIcon icon={BotIcon} className="size-6" strokeWidth={1.5} />
               </div>
-            );
-          })}
-          {q && visibleAgents.length === 0 ? (
-            <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-              {t('agents.no_search_results')}
-            </p>
-          ) : null}
-        </div>
-      )}
+              <h2 className="text-base font-semibold text-foreground">{t('agents.no_agents_yet')}</h2>
+              <p className="text-sm text-muted-foreground">{t('agents.no_agents_desc')}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => setMode({ kind: 'new' })} size="sm">
+                  <HugeiconsIcon icon={PlusIcon} className="size-3.5" />
+                  {t('agents.create_first_agent')}
+                </Button>
+                <Button variant="outline" onClick={openMarketplaceTab} size="sm">
+                  <HugeiconsIcon icon={StoreIcon} className="size-3.5" />
+                  {t('orchestration.explore_marketplace')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => askStudioMany(t('orchestration.agent_prompt_agents'))}
+                >
+                  {t('orchestration.agent_ask_many')}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
+            {visibleAgents.map((agent) => {
+              const toolsLabel =
+                agent.toolIds.length > 0
+                  ? t('orchestration.agents.tools_count', { count: agent.toolIds.length })
+                  : t('agents.all_tools_available');
+              const menuItems: Array<{
+                label: string;
+                icon?: ReactNode;
+                onClick: () => void;
+                variant?: 'default' | 'danger';
+              }> = [
+                {
+                  label: t('orchestration.agents.duplicate'),
+                  icon: <HugeiconsIcon icon={CopyIcon} className="size-3.5" />,
+                  onClick: () => void duplicateAgent(agent),
+                },
+                {
+                  label: t('agents.automations'),
+                  icon: <HugeiconsIcon icon={ZapIcon} className="size-3.5" />,
+                  onClick: () => openAgentAutomations(agent),
+                },
+                {
+                  label: t('ui.delete'),
+                  icon: <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />,
+                  variant: 'danger',
+                  onClick: () => setDeleteTarget(agent),
+                },
+              ];
+              return (
+                <Card
+                  key={agent.id}
+                  size="sm"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setMode({ kind: 'chat', agentId: agent.id })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setMode({ kind: 'chat', agentId: agent.id });
+                    }
+                  }}
+                  className="group cursor-pointer text-left transition-[background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] hover:bg-accent/30"
+                >
+                  <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
+                      <img
+                        src={`/agents/sprite_${agent.iconIndex}.png`}
+                        alt=""
+                        className="size-full object-contain"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-semibold text-foreground">
+                          {agent.name}
+                        </span>
+                        {agent.marketplaceId ? (
+                          <HugeiconsIcon
+                            icon={StoreIcon}
+                            className="size-3 shrink-0 text-muted-foreground"
+                            aria-hidden
+                          />
+                        ) : null}
+                      </div>
+                      <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                        {agent.description || t('agent.empty_chat')}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void toggleFavorite(agent);
+                      }}
+                      title={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
+                      aria-label={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
+                    >
+                      <HugeiconsIcon
+                        icon={StarIcon}
+                        className="size-4"
+                        style={{
+                          color: agent.favorite ? 'var(--primary)' : 'var(--muted-foreground)',
+                          fill: agent.favorite ? 'var(--primary)' : 'none',
+                        }}
+                      />
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary" className="gap-1 font-normal">
+                      <HugeiconsIcon icon={WrenchIcon} className="size-2.5" aria-hidden />
+                      {toolsLabel}
+                    </Badge>
+                    <Badge variant="secondary" className="font-normal">
+                      {t('agents.row_mcp_capabilities', { mcp: agent.mcpServerIds?.length ?? 0 })}
+                    </Badge>
+                    {agent.skillIds && agent.skillIds.length > 0 ? (
+                      <Badge variant="secondary" className="font-normal">
+                        {t('orchestration.agents.skills_count', { count: agent.skillIds.length })}
+                      </Badge>
+                    ) : null}
+                  </CardContent>
+                  <CardFooter className="justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      {formatAgentDate(agent.updatedAt)}
+                    </span>
+                    <div
+                      className="flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      role="presentation"
+                    >
+                      <Button
+                        variant="outline"
+                        onClick={() => setMode({ kind: 'chat', agentId: agent.id })}
+                        size="xs"
+                      >
+                        <HugeiconsIcon icon={MessageSquareIcon} className="size-3" />
+                        {t('orchestration.agents.chat_action')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        title={t('ui.edit')}
+                        aria-label={t('ui.edit')}
+                        onClick={() => setMode({ kind: 'edit', agent })}
+                        size="icon-xs"
+                      >
+                        <HugeiconsIcon icon={PencilIcon} className="size-3.5 text-muted-foreground" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              aria-label={t('agents.folder_actions')}
+                              size="icon-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          }
+                        >
+                          <HugeiconsIcon
+                            icon={MoreHorizontalIcon}
+                            className="size-3.5 text-muted-foreground"
+                          />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-40">
+                          {menuItems.map((menuItem) => (
+                            <DropdownMenuItem
+                              key={menuItem.label}
+                              variant={menuItem.variant === 'danger' ? 'destructive' : 'default'}
+                              onClick={menuItem.onClick}
+                            >
+                              {menuItem.icon}
+                              {menuItem.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+            {q && visibleAgents.length === 0 ? (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                {t('agents.no_search_results')}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </div>
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
@@ -534,6 +594,6 @@ export default function AgentsStudioView() {
         onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
-    </StudioHubShell>
+    </div>
   );
 }

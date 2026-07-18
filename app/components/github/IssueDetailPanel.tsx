@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Activity01Icon, AtSignIcon, Calendar03Icon, Cancel01Icon, CheckmarkCircle02Icon, CircleDotIcon, Comment01Icon, ExternalLinkIcon, Flag02Icon, HashIcon, PencilIcon, SaveIcon, SentIcon, Target02Icon, UserAdd01Icon, UserIcon } from '@hugeicons/core-free-icons';
+import { Activity01Icon, AtSignIcon, Calendar03Icon, Cancel01Icon, CheckmarkCircle02Icon, CircleDotIcon, Comment01Icon, ExternalLinkIcon, Flag02Icon, HashIcon, PencilIcon, SaveIcon, SentIcon, Tag01Icon, Target02Icon, UserAdd01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import IssueTimeline from '@/components/github/IssueTimeline';
@@ -12,11 +12,13 @@ import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
 import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
+import { Badge } from '@/components/ui/badge';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import type { ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 function formatCommentDate(ts: number | null): string {
   if (!ts) return '';
   return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -170,7 +172,6 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const [apiMentionables, setApiMentionables] = useState<Mentionable[]>([]);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const [assigneePickerQuery, setAssigneePickerQuery] = useState('');
-  const assigneePickerRef = useRef<HTMLInputElement>(null);
 
   const loadComments = useCallback(async () => {
     setCommentsLoading(true);
@@ -205,7 +206,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     prevIssueIdRef.current = issueId;
     if (initial) {
       setTitle(initial.title);
-      setBody('');
+      setBody(initial.body ?? '');
       setState(initial.state);
       setMilestoneChoice(initial.milestone_number != null ? String(initial.milestone_number) : 'none');
       setAssignees(parseAssignees(initial.assignees));
@@ -269,11 +270,6 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     }
     return [...byLogin.values()].sort((a, b) => a.login.localeCompare(b.login));
   }, [apiMentionables, comments, timeline]);
-
-  const openAssigneePicker = () => {
-    setAssigneePickerOpen(true);
-    requestAnimationFrame(() => assigneePickerRef.current?.focus());
-  };
 
   const featuredLogins = useMemo(() => {
     const set = new Set<string>();
@@ -406,32 +402,23 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       className="h-full rounded-none border-0 ring-0 md:rounded-lg md:ring-1"
     >
       {editing ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="issue-edit-title"
-              className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
-            >
-              {t('github.minimal_quick_title_label')}
-            </label>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="issue-edit-title">{t('github.minimal_quick_title_label')}</FieldLabel>
             <Input
               id="issue-edit-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-base font-semibold rounded-md px-2.5 py-1.5 outline-none"
-              style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
+              className="text-base font-semibold"
             />
-          </div>
+          </Field>
 
           <div className="flex flex-wrap items-start gap-3">
-            <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-              <label
-                htmlFor="issue-edit-milestone"
-                className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1 text-muted-foreground"
-              >
+            <Field className="min-w-0 flex-1">
+              <FieldLabel htmlFor="issue-edit-milestone" className="inline-flex items-center gap-1">
                 <HugeiconsIcon icon={Flag02Icon} size={11} />
                 {t('github.dash_objective')}
-              </label>
+              </FieldLabel>
               <Select value={milestoneChoice ?? null} onValueChange={(next) => { if (next != null) (setMilestoneChoice)(next); }} items={[
                   { value: 'none', label: t('github.dash_no_objective') },
                   ...(() => {
@@ -442,7 +429,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     }
                     return opts;
                   })(),
-                ]}><SelectTrigger className="w-full" aria-label={t('github.dash_objective')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+                ]}><SelectTrigger id="issue-edit-milestone" className="w-full" aria-label={t('github.dash_objective')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
                   { value: 'none', label: t('github.dash_no_objective') },
                   ...(() => {
                     const opts: { value: string; label: string }[] = [];
@@ -453,33 +440,28 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     return opts;
                   })(),
                 ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
-            </div>
+            </Field>
 
-            <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-              <label
-                htmlFor="issue-edit-state"
-                className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
-              >
+            <Field className="min-w-0 flex-1">
+              <FieldLabel htmlFor="issue-edit-state">
                 {t('github.state_open')} / {t('github.state_closed')}
-              </label>
+              </FieldLabel>
               <Select value={state ?? null} onValueChange={(next) => { if (next != null) (setState)(next); }} items={[
                   { value: 'open', label: t('github.state_open') },
                   { value: 'closed', label: t('github.state_closed') },
-                ]}><SelectTrigger className="w-full" aria-label={`${t('github.state_open')} / ${t('github.state_closed')}`}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+                ]}><SelectTrigger id="issue-edit-state" className="w-full" aria-label={`${t('github.state_open')} / ${t('github.state_closed')}`}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
                   { value: 'open', label: t('github.state_open') },
                   { value: 'closed', label: t('github.state_closed') },
                 ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
-            </div>
+            </Field>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span
-              className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1 text-muted-foreground"
-            >
+          <Field>
+            <FieldLabel className="inline-flex items-center gap-1">
               <HugeiconsIcon icon={UserAdd01Icon} size={11} />
               {t('github.assignees')}
-            </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            </FieldLabel>
+            <div className="flex flex-wrap items-center gap-1.5">
               {assignees.map((login) => {
                 const u = mentionables.find((m) => m.login === login);
                 return (
@@ -492,75 +474,50 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                 );
               })}
               <Popover open={assigneePickerOpen} onOpenChange={(open) => { setAssigneePickerOpen(open); if (!open) setAssigneePickerQuery(''); }}>
-                <PopoverTrigger render={<Button type="button" variant="outline" size="xs" className="shrink-0 rounded-full border-dashed" onClick={openAssigneePicker} />}>
+                <PopoverTrigger render={<Button type="button" variant="outline" size="xs" className="shrink-0 rounded-full border-dashed" />}>
                   <HugeiconsIcon icon={AtSignIcon} size={12} />
                   {t('github.add_assignee')}
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 gap-0 p-1.5">
-                  <Command shouldFilter={false} className="rounded-none p-0">
-                  <Input
-                    ref={assigneePickerRef}
-                    type="text"
-                    value={assigneePickerQuery}
-                    onChange={(e) => setAssigneePickerQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setAssigneePickerOpen(false);
-                        setAssigneePickerQuery('');
-                      }
-                    }}
-                    placeholder={t('github.add_assignee_hint')}
-                    aria-label={t('github.add_assignee')}
-                    className="w-full rounded-md px-2 py-1 text-xs outline-none"
-                    style={{
-                      background: 'var(--background)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--foreground)',
-                      height: 28,
-                    }}
-                  />
-                  {assigneeSuggestions.length > 0 && (
-                    <ul className="mt-1 max-h-48 overflow-auto rounded-md py-1">
-                      {assigneeSuggestions.map((u) => (
-                        <li key={u.login}>
-                          <Button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
+                <PopoverContent align="start" className="w-64 gap-0 overflow-hidden p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      value={assigneePickerQuery}
+                      onValueChange={setAssigneePickerQuery}
+                      placeholder={t('github.add_assignee_hint')}
+                      aria-label={t('github.add_assignee')}
+                    />
+                    <CommandList>
+                      <CommandEmpty>{t('github.add_assignee_hint')}</CommandEmpty>
+                      <CommandGroup>
+                        {assigneeSuggestions.map((u) => (
+                          <CommandItem
+                            key={u.login}
+                            value={u.login}
+                            onSelect={() => {
                               setAssignees((prev) => [...prev, u.login]);
                               setAssigneePickerQuery('');
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
-                            style={{ color: 'var(--foreground)' }}
                           >
                             {u.avatar_url ? (
-                              <img src={u.avatar_url} alt="" className="size-5 rounded-full shrink-0" />
+                              <img src={u.avatar_url} alt="" className="size-5 shrink-0 rounded-full" />
                             ) : (
-                              <span
-                                className="size-5 rounded-full inline-flex items-center justify-center text-[10px] font-semibold shrink-0"
-                                style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
-                              >
+                              <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-muted-foreground">
                                 {u.login.slice(0, 1).toUpperCase()}
                               </span>
                             )}
                             <span className="truncate">@{u.login}</span>
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>
             </div>
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <span
-              className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
-            >
-              {t('github.minimal_quick_body_label')}
-            </span>
+          <Field>
+            <FieldLabel>{t('github.minimal_quick_body_label')}</FieldLabel>
             <MentionTextarea
               value={body}
               onChange={setBody}
@@ -568,48 +525,26 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               featuredLogins={featuredLogins}
               rows={10}
               placeholder={t('github.minimal_quick_body_placeholder')}
-              className="text-sm rounded-md px-2 py-1.5 outline-none resize-y font-mono w-full"
-              style={{
-                background: 'var(--background)',
-                color: 'var(--foreground)',
-                border: '1px solid var(--border)',
-                minHeight: 160,
-              }}
+              className="min-h-40 w-full resize-y font-mono text-sm"
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
       ) : (
-        <div className="flex flex-col gap-4 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4">
           {/* Header: title + status + open button */}
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-semibold leading-tight text-foreground">
               {initial.title}
             </h2>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  background: initial.state === 'open'
-                    ? 'color-mix(in srgb, var(--success) 14%, transparent)'
-                    : 'var(--accent)',
-                  color: initial.state === 'open' ? 'var(--success)' : 'var(--muted-foreground)',
-                  border: '1px solid color-mix(in srgb, var(--success) 28%, transparent)',
-                }}
-              >
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={initial.state === 'open' ? 'secondary' : 'outline'} className="gap-1">
                 {initial.state === 'open' ? <HugeiconsIcon icon={CircleDotIcon} size={11} /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} size={11} />}
                 {stateLabel}
-              </span>
-              <span
-                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  background: 'var(--accent)',
-                  color: 'var(--muted-foreground)',
-                  border: '1px solid var(--border)',
-                }}
-              >
+              </Badge>
+              <Badge variant="outline" className="gap-1">
                 <HugeiconsIcon icon={HashIcon} size={11} />
                 {initial.number}
-              </span>
+              </Badge>
             </div>
           </div>
 
@@ -667,24 +602,16 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
             {labels.length > 0 && (
               <div className="flex items-start gap-2 min-w-0 sm:col-span-2">
-                <HugeiconsIcon icon={UserIcon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
+                <HugeiconsIcon icon={Tag01Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
                 <div className="flex flex-col min-w-0 gap-1">
                   <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     {t('github.labels')}
                   </span>
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-1">
                     {labels.map((l) => (
-                      <span
-                        key={l}
-                        className="text-[11px] px-2 py-0.5 rounded-full"
-                        style={{
-                          background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                          color: 'var(--primary)',
-                          border: '1px solid color-mix(in srgb, var(--primary) 24%, transparent)',
-                        }}
-                      >
+                      <Badge key={l} variant="secondary">
                         {l}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -694,10 +621,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
           {/* Body */}
           {body.trim() ? (
-            <GithubMarkdownBody
-              content={body}
-              className="max-h-[min(50vh,480px)] overflow-y-auto"
-            />
+            <GithubMarkdownBody content={body} />
           ) : (
             <p className="text-sm italic text-muted-foreground">{t('github.no_description')}</p>
           )}

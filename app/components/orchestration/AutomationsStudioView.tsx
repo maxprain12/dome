@@ -53,10 +53,12 @@ import AutomationEditor from './AutomationEditor';
 import { EMPTY_DRAFT, formatHubDate, type DraftState } from '@/components/hub/automations/automationsShared';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
-import { StudioHubShell, askStudioMany, type StudioStat } from '@/components/studio-hub';
+import { askStudioMany } from '@/components/studio-hub';
+import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubHeader } from '@/components/hub/HubHeader';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -78,15 +80,20 @@ interface StoredFilter {
 }
 
 function ActiveFilterBanner({ label, onClear }: { label: ReactNode; onClear: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-4 py-2 text-xs text-foreground">
-      <div className="flex min-w-0 items-center gap-2"><HugeiconsIcon icon={FilterIcon} className="size-3.5 shrink-0 opacity-70" aria-hidden /><span className="truncate">{label}</span></div>
-      <Button type="button" variant="ghost" size="xs" onClick={onClear}><HugeiconsIcon icon={XIcon} data-icon="inline-start" />{tClearLabel}</Button>
+      <div className="flex min-w-0 items-center gap-2">
+        <HugeiconsIcon icon={FilterIcon} className="size-3.5 shrink-0 opacity-70" aria-hidden />
+        <span className="truncate">{label}</span>
+      </div>
+      <Button type="button" variant="ghost" size="xs" onClick={onClear}>
+        <HugeiconsIcon icon={XIcon} data-icon="inline-start" />
+        {t('automation.clear_filter')}
+      </Button>
     </div>
   );
 }
-
-const tClearLabel = 'Clear';
 type HubEntityKind = 'agent' | 'workflow' | 'feeder';
 function EntityIcon({ kind, size = 'sm' }: { kind: HubEntityKind; size?: 'sm' | 'md' }) {
   const Icon = kind === 'agent' ? Bot : kind === 'feeder' ? Cable : Workflow;
@@ -247,7 +254,7 @@ export default function AutomationsStudioView() {
     return result;
   }, [automations, filter, q]);
 
-  const stats: StudioStat[] = [
+  const stats: DomainStat[] = [
     { id: 'stat_total', label: t('orchestration.automations.stat_total'), value: automations.length, tone: 'warning' },
     { id: 'stat_active', label: t('orchestration.automations.stat_active'),
       value: automations.filter((a) => a.enabled).length,
@@ -473,71 +480,100 @@ export default function AutomationsStudioView() {
   // ── Full-screen editor ──────────────────────────────────────────────────────
   if (formMode !== 'hidden') {
     return (
-      <AutomationEditor
-        draft={draft}
-        agents={agents}
-        workflows={workflows}
-        feeders={feeders}
-        hubArtifacts={hubArtifacts}
-        isNew={formMode === 'new'}
-        saving={saving}
-        onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
-        onSave={() => void handleSave()}
-        onCancel={() => setFormMode('hidden')}
-      />
+      <div key={formMode === 'new' ? 'new' : `edit-${draft.id}`} className="h-full studio-view-enter">
+        <AutomationEditor
+          draft={draft}
+          agents={agents}
+          workflows={workflows}
+          feeders={feeders}
+          hubArtifacts={hubArtifacts}
+          isNew={formMode === 'new'}
+          saving={saving}
+          onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
+          onSave={() => void handleSave()}
+          onCancel={() => setFormMode('hidden')}
+        />
+      </div>
     );
   }
 
   return (
-    <StudioHubShell
-      section="automations"
-      title={t('tabs.automations')}
-      description={t('automationHub.automations_subtitle')}
-      stats={stats}
-      actions={
-        <>
-          <Input
-            ref={importInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            aria-label={t('hubExport.import_automation')}
-            onChange={(e) => void handleImportFile(e)}
-            disabled={importingBundle}
-          />
-          <Button variant="outline"
-  disabled={importingBundle}
-  onClick={() => importInputRef.current?.click()}
-  size="sm">{importingBundle ? <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" /> : <HugeiconsIcon icon={UploadIcon} className="size-3.5" />}
-            {t('hubExport.import_automation')}
-          </Button>
-          <Button onClick={handleNew}
-  className="!bg-primary"
-  size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
-            {t('automation.button_new')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => askStudioMany(t('orchestration.agent_prompt_automations'))}
-          >
-            {t('orchestration.agent_ask_many')}
-          </Button>
-        </>
-      }
-      toolbar={
+    <div
+      key="library"
+      className="@container/automations flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
+    >
+      <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+        <HubHeader
+          title={t('tabs.automations')}
+          description={t('automationHub.automations_subtitle')}
+          actions={
+            <>
+              <Input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                aria-label={t('hubExport.import_automation')}
+                onChange={(e) => void handleImportFile(e)}
+                disabled={importingBundle}
+              />
+              <Button
+                variant="outline"
+                disabled={importingBundle}
+                onClick={() => importInputRef.current?.click()}
+                size="sm"
+              >
+                {importingBundle ? (
+                  <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
+                ) : (
+                  <HugeiconsIcon icon={UploadIcon} className="size-3.5" />
+                )}
+                {t('hubExport.import_automation')}
+              </Button>
+              <Button onClick={handleNew} size="sm">
+                <HugeiconsIcon icon={PlusIcon} className="size-3.5" />
+                {t('automation.button_new')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => askStudioMany(t('orchestration.agent_prompt_automations'))}
+              >
+                {t('orchestration.agent_ask_many')}
+              </Button>
+            </>
+          }
+        />
+        <DomainStatChips stats={stats} />
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-wrap items-center gap-3">
             <InputGroup className="h-8 max-w-xl">
-              <InputGroupAddon><HugeiconsIcon icon={Search01Icon} aria-hidden /></InputGroupAddon>
-              <InputGroupInput type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('automation.search_automations')} aria-label={t('automation.search_automations')} />
+              <InputGroupAddon>
+                <HugeiconsIcon icon={Search01Icon} aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('automation.search_automations')}
+                aria-label={t('automation.search_automations')}
+              />
             </InputGroup>
-            <ToggleGroup value={[filter.targetType]} onValueChange={(values) => values[0] && setFilter({ targetType: values[0] as StoredFilter['targetType'] })}>
-              {(['all', 'agent', 'workflow', 'feeder'] as const).map((value) => (
-                <ToggleGroupItem key={value} value={value} size="sm">{t(`automation.filter_target_${value}`)}</ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <Tabs
+              value={filter.targetType}
+              onValueChange={(value) => {
+                if (value) setFilter({ targetType: value as StoredFilter['targetType'] });
+              }}
+            >
+              <TabsList variant="default">
+                {(['all', 'agent', 'workflow', 'feeder'] as const).map((value) => (
+                  <TabsTrigger key={value} value={value}>
+                    {t(`automation.filter_target_${value}`)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
           {filter.targetId ? (
             <ActiveFilterBanner
@@ -548,136 +584,183 @@ export default function AutomationsStudioView() {
             />
           ) : null}
         </div>
-      }
-    >
-      {loading ? (
-        <div className="p-6">
-          <output className="flex w-full max-w-full flex-col gap-3" aria-live="polite">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
-            ))}
-          </output>
-        </div>
-      ) : automations.length === 0 ? (
-        <div className="p-6">
-          <div
-            className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl px-8 py-10 text-center"
-            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-          >
-            <div
-              className="flex size-14 items-center justify-center rounded-2xl"
-              style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="size-7" strokeWidth={1.5} />
-            </div>
-            <h2 className="text-base font-semibold text-foreground">
-              {t('orchestration.automations.empty_title')}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t('orchestration.automations.empty_desc')}
-            </p>
-            <Button className="mt-2 !bg-primary"
-  onClick={handleNew}
-  size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
-              {t('automation.button_new')}
-            </Button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="p-6">
+            <output className="flex w-full flex-col gap-3" aria-live="polite">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+              ))}
+            </output>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2.5 p-6">
-          {filtered.map((a) => {
-            const running = runningId === a.id;
-            return (
-              <div
-                key={a.id}
-                className="flex items-center gap-3 rounded-2xl px-4 py-3"
-                style={{
-                  background: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  opacity: a.enabled ? 1 : 0.65,
-                }}
-              >
-                <EntityIcon
-                  kind={a.targetType === 'agent' ? 'agent' : a.targetType === 'feeder' ? 'feeder' : 'workflow'}
-                  size="md"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="truncate text-sm font-semibold text-foreground">
-                      {a.title}
-                    </span>
-                    {a.lastRunStatus ? <RunStatusBadge status={a.lastRunStatus} /> : null}
-                  </div>
-                  <div
-                    className="mt-0.5 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-muted-foreground"
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {a.triggerType === 'schedule' ? (
-                        <HugeiconsIcon icon={CalendarClockIcon} className="size-3" aria-hidden />
-                      ) : a.triggerType === 'manual' ? (
-                        <HugeiconsIcon icon={HandIcon} className="size-3" aria-hidden />
-                      ) : (
-                        <HugeiconsIcon icon={SparklesIcon} className="size-3" aria-hidden />
-                      )}
-                      {triggerSummary(a)}
-                    </span>
-                    <span aria-hidden>·</span>
-                    <span className="truncate">{targetName(a)}</span>
-                    <span aria-hidden>·</span>
-                    <span>
-                      {t('orchestration.automations.last_run', {
-                        date: formatHubDate(a.lastRunAt, t('runLog.never')),
-                      })}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Switch checked={a.enabled} onCheckedChange={() => void handleToggleEnabled(a)} size="sm" disabled={togglingId === a.id} aria-label={t('orchestration.automations.toggle_enabled')} />
-                  <Button variant="outline"
-  disabled={running}
-  onClick={() => void handleRun(a)}
-  size="xs">{running ? <HugeiconsIcon icon={Loader2Icon} className="size-3 animate-spin" /> : <HugeiconsIcon icon={PlayIcon} className="size-3" />}
-                    {t('orchestration.automations.run_now')}
-                  </Button>
-                  <Button variant="ghost"
-  title={t('ui.edit')}
-  aria-label={t('ui.edit')}
-  onClick={() => handleEdit(a)}
-  size="icon-xs">
-                    <HugeiconsIcon icon={PencilIcon} className="size-3.5 text-muted-foreground" />
-                  </Button>
-                  <Button variant="ghost"
-  title={t('hubExport.export_automation')}
-  aria-label={t('hubExport.export_automation')}
-  onClick={() => void handleExport(a)}
-  size="icon-xs">
-                    <HugeiconsIcon icon={DownloadIcon} className="size-3.5 text-muted-foreground" />
-                  </Button>
-                  <Button variant="ghost"
-  title={t('ui.delete')}
-  aria-label={t('ui.delete')}
-  className="!text-destructive hover:!bg-[color-mix(in srgb, var(--destructive) 12%, transparent)]"
-  onClick={() => setDeleteTarget(a)}
-  size="icon-xs">
-                    <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
-                  </Button>
-                </div>
+        ) : automations.length === 0 ? (
+          <div className="space-y-4 p-6">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border bg-card px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {t('orchestration.automations.stat_total')}
+                </p>
+                <p className="text-xl font-semibold tabular-nums text-warning">0</p>
               </div>
-            );
-          })}
-          {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              {t('orchestration.automations.no_results')}
-            </p>
-          ) : null}
-        </div>
-      )}
+              <div className="rounded-lg border bg-card px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {t('orchestration.automations.stat_active')}
+                </p>
+                <p className="text-xl font-semibold tabular-nums text-success">0</p>
+              </div>
+              <div className="rounded-lg border bg-card px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {t('orchestration.automations.stat_scheduled')}
+                </p>
+                <p className="text-xl font-semibold tabular-nums">0</p>
+              </div>
+            </div>
+            <div className="flex max-w-2xl flex-col gap-3 rounded-lg border bg-card px-6 py-6">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-warning/10 text-warning">
+                <HugeiconsIcon icon={SparklesIcon} className="size-6" strokeWidth={1.5} />
+              </div>
+              <h2 className="text-base font-semibold text-foreground">
+                {t('orchestration.automations.empty_title')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {t('orchestration.automations.empty_desc')}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={handleNew} size="sm">
+                  <HugeiconsIcon icon={PlusIcon} className="size-3.5" />
+                  {t('automation.button_new')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => askStudioMany(t('orchestration.agent_prompt_automations'))}
+                >
+                  {t('orchestration.agent_ask_many')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 p-6">
+            {filtered.map((a) => {
+              const running = runningId === a.id;
+              return (
+                <div
+                  key={a.id}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg border bg-card px-4 py-3',
+                    !a.enabled && 'opacity-65',
+                  )}
+                >
+                  <EntityIcon
+                    kind={
+                      a.targetType === 'agent'
+                        ? 'agent'
+                        : a.targetType === 'feeder'
+                          ? 'feeder'
+                          : 'workflow'
+                    }
+                    size="md"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {a.title}
+                      </span>
+                      {a.lastRunStatus ? <RunStatusBadge status={a.lastRunStatus} /> : null}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        {a.triggerType === 'schedule' ? (
+                          <HugeiconsIcon icon={CalendarClockIcon} className="size-3" aria-hidden />
+                        ) : a.triggerType === 'manual' ? (
+                          <HugeiconsIcon icon={HandIcon} className="size-3" aria-hidden />
+                        ) : (
+                          <HugeiconsIcon icon={SparklesIcon} className="size-3" aria-hidden />
+                        )}
+                        {triggerSummary(a)}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <span className="truncate">{targetName(a)}</span>
+                      <span aria-hidden>·</span>
+                      <span>
+                        {t('orchestration.automations.last_run', {
+                          date: formatHubDate(a.lastRunAt, t('runLog.never')),
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Switch
+                      checked={a.enabled}
+                      onCheckedChange={() => void handleToggleEnabled(a)}
+                      size="sm"
+                      disabled={togglingId === a.id}
+                      aria-label={t('orchestration.automations.toggle_enabled')}
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={running}
+                      onClick={() => void handleRun(a)}
+                      size="xs"
+                    >
+                      {running ? (
+                        <HugeiconsIcon icon={Loader2Icon} className="size-3 animate-spin" />
+                      ) : (
+                        <HugeiconsIcon icon={PlayIcon} className="size-3" />
+                      )}
+                      {t('orchestration.automations.run_now')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      title={t('ui.edit')}
+                      aria-label={t('ui.edit')}
+                      onClick={() => handleEdit(a)}
+                      size="icon-xs"
+                    >
+                      <HugeiconsIcon icon={PencilIcon} className="size-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      title={t('hubExport.export_automation')}
+                      aria-label={t('hubExport.export_automation')}
+                      onClick={() => void handleExport(a)}
+                      size="icon-xs"
+                    >
+                      <HugeiconsIcon icon={DownloadIcon} className="size-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      title={t('ui.delete')}
+                      aria-label={t('ui.delete')}
+                      className="text-destructive"
+                      onClick={() => setDeleteTarget(a)}
+                      size="icon-xs"
+                    >
+                      <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {filtered.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t('orchestration.automations.no_results')}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </div>
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title={t('orchestration.automations.delete_title')}
         message={
-          deleteTarget ? t('orchestration.automations.delete_confirm', { name: deleteTarget.title }) : ''
+          deleteTarget
+            ? t('orchestration.automations.delete_confirm', { name: deleteTarget.title })
+            : ''
         }
         variant="danger"
         confirmLabel={t('ui.delete')}
@@ -685,6 +768,6 @@ export default function AutomationsStudioView() {
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
-    </StudioHubShell>
+    </div>
   );
 }

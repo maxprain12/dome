@@ -37,6 +37,8 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 025 | Social real (campañas SQLite + workspace + métricas honestas) | P0 | L | 024, 012 | DONE |
 | 026 | Social UI clara + master–detail Correo/Social (Many oculto) | P0 | M | 025 | DONE |
 | 027 | Social feed sync (posts nativos) + insights en panel | P0 | M | 026 | DONE |
+| 028 | Seguimiento bugs + shadcn ficha/lista | P0 | M | 021 | DONE |
+| 029 | Seguimiento motion (enter, progress, tokens) | P1 | S | 028 | DONE |
 
 ## Dependency graph
 

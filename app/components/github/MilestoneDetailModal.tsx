@@ -300,8 +300,8 @@ export default function MilestoneDetailModal({
           <div>
             <div className="h-1.5 rounded-full overflow-hidden bg-accent">
               <div
-                className="h-full rounded-full transition-[width]"
-                style={{ width: `${progressPct}%`, background: 'var(--primary)' }}
+                className="h-full w-full origin-left rounded-full bg-primary transition-transform [transition-duration:var(--duration-ui)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
+                style={{ transform: `scaleX(${progressPct / 100})` }}
               />
             </div>
           </div>

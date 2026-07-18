@@ -56,6 +56,8 @@ describe('mailQueues', () => {
     const inbox = [
       env({ id: '1', from: { addr: 'bob@acme.com' }, flags: [] }),
       env({ id: '2', from: { addr: 'x@y.com' }, flags: ['\\Seen'] }),
+      // Unread + answered: counts in attend, not in needsReply
+      env({ id: '3', from: { addr: 'z@y.com' }, flags: ['\\Answered'] }),
     ];
     const sent = [
       env({
@@ -68,7 +70,7 @@ describe('mailQueues', () => {
       }),
     ];
     const stats = computeMailStats(inbox, sent, new Set(['bob@acme.com']), new Set(), now);
-    expect(stats.attend).toBe(1);
+    expect(stats.attend).toBe(2);
     expect(stats.network).toBe(1);
     expect(stats.needsReply).toBe(2);
     expect(stats.recentSent).toBe(1);

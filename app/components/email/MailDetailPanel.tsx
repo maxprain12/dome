@@ -90,11 +90,16 @@ export function MailDetailPanel({
       ) : null}
       {reading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Spinner className="size-4" />
+          <Spinner className="size-4 motion-safe:animate-spin" />
           {t('email.reader.loading')}
         </div>
       ) : (
-        <EmailBody message={message} />
+        <div
+          key={selected.id}
+          className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden"
+        >
+          <EmailBody message={message} />
+        </div>
       )}
     </InlineDetailCard>
   );

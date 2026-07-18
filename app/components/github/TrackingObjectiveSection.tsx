@@ -113,8 +113,8 @@ export function TrackingObjectiveSection({
         <div className="px-4 pb-2">
           <div className="h-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary transition-[width] duration-200"
-              style={{ width: `${progressPct}%` }}
+              className="h-full w-full origin-left rounded-full bg-primary transition-transform [transition-duration:var(--duration-ui)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
+              style={{ transform: `scaleX(${progressPct / 100})` }}
             />
           </div>
         </div>

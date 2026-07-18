@@ -171,7 +171,7 @@ dome/
 │   │   ├── agent-canvas/       # Visual workflow canvas (D3)
 │   │   ├── agent-team/         # Multi-agent team chat
 │   │   ├── automations/        # Automation rules and run logs UI
-│   │   ├── orchestration/      # Agents/Workflows/Automations/Runs studio tabs (StudioHubShell)
+│   │   ├── orchestration/      # Agents/Workflows/Automations/Runs studio tabs (independent pages)
 │   │   ├── social/             # Social hub (LinkedIn/Instagram/X): composer, growth cards, AI reports
 │   │   ├── cloud/              # Cloud storage file picker
 │   │   ├── marketplace/        # Plugin marketplace UI

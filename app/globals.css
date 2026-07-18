@@ -408,10 +408,34 @@ body {
     animation: none !important;
   }
 
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+  }
+
   .tab-pane-reveal {
     filter: none !important;
     transition: opacity var(--duration-instant) linear !important;
   }
+
+  .studio-view-enter {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Brief enter for studio library ↔ subview swaps (Agents / Workflows / Automations). */
+@keyframes studio-view-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.studio-view-enter {
+  animation: studio-view-enter var(--duration-ui) var(--ease-out) both;
 }
 
 /* ============================================

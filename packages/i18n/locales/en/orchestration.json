@@ -1,5 +1,4 @@
 {
-  "sections_nav": "Orchestration sections",
   "filter_all": "All",
   "filter_ungrouped": "No folder",
   "explore_marketplace": "Explore Marketplace",
@@ -8,8 +7,6 @@
     "stat_favorites": "Favorites",
     "stat_runs_today": "Runs today",
     "stat_runs_today_sub": "Agent runs in the last 24 h",
-    "stat_active_automations": "Automations",
-    "stat_active_automations_sub": "Active rules targeting agents",
     "new_agent": "New agent",
     "chat_action": "Chat",
     "duplicate": "Duplicate",
@@ -25,8 +22,6 @@
     "stat_nodes": "Total nodes",
     "stat_runs_today": "Runs today",
     "stat_runs_today_sub": "Workflow runs in the last 24 h",
-    "stat_active_automations": "Automations",
-    "stat_active_automations_sub": "Active rules targeting workflows",
     "no_description": "No description",
     "nodes_count_one": "{{count}} node",
     "nodes_count_other": "{{count}} nodes",

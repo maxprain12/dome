@@ -18,7 +18,8 @@
     "labeled": "{{actor}} adicionou a etiqueta {{label}}",
     "unlabeled": "{{actor}} removeu a etiqueta {{label}}",
     "renamed": "{{actor}} renomeou de \"{{from}}\" para \"{{to}}\"",
-    "review_requested": "{{actor}} solicitou uma revisão"
+    "review_requested": "{{actor}} solicitou uma revisão",
+    "empty": "Ainda não há atividade."
   },
   "loading": "A carregar…",
   "open_on_github": "Abrir no GitHub",

@@ -116,7 +116,11 @@
       "deleted": "Deleted",
       "recent": "Recent"
     },
-    "soon": "Coming soon"
+    "soon": "Coming soon",
+    "empty_body": {
+      "title": "No message content",
+      "subtitle": "This message has no readable body."
+    }
   },
   "settings": {
     "title": "Email accounts",

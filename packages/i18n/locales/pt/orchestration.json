@@ -1,5 +1,4 @@
 {
-  "sections_nav": "Seções de orquestração",
   "filter_all": "Todos",
   "filter_ungrouped": "Sem pasta",
   "explore_marketplace": "Explorar Marketplace",
@@ -8,8 +7,6 @@
     "stat_favorites": "Favoritos",
     "stat_runs_today": "Execuções hoje",
     "stat_runs_today_sub": "Execuções de agentes nas últimas 24 h",
-    "stat_active_automations": "Automações",
-    "stat_active_automations_sub": "Regras ativas com agentes",
     "new_agent": "Novo agente",
     "chat_action": "Conversar",
     "duplicate": "Duplicar",
@@ -25,8 +22,6 @@
     "stat_nodes": "Nós totais",
     "stat_runs_today": "Execuções hoje",
     "stat_runs_today_sub": "Execuções de workflows nas últimas 24 h",
-    "stat_active_automations": "Automações",
-    "stat_active_automations_sub": "Regras ativas com workflows",
     "no_description": "Sem descrição",
     "nodes_count_one": "{{count}} nó",
     "nodes_count_other": "{{count}} nós",

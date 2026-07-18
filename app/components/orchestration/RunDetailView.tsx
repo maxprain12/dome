@@ -298,7 +298,7 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         <div
           className={cn(
-            'flex min-h-0 min-w-0 flex-col border-border lg:w-[40%] lg:max-w-xl lg:shrink-0 lg:border-r',
+            'flex min-h-0 min-w-0 flex-col border-border lg:w-[min(28rem,38%)] lg:shrink-0 lg:border-r',
             mobileDetailOpen ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none',
           )}
           style={{ background: 'var(--background)' }}

@@ -24,7 +24,6 @@ export function MailQueueSection({
   networkEmails,
   selectedId,
   onOpen,
-  compact,
 }: {
   queueId: MailQueueId;
   title: string;
@@ -32,7 +31,6 @@ export function MailQueueSection({
   networkEmails: ReadonlySet<string>;
   selectedId?: string | null;
   onOpen: (env: MailEnvelope) => void;
-  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
@@ -48,30 +46,18 @@ export function MailQueueSection({
 
   return (
     <Card className="shrink-0 gap-0 overflow-hidden py-0 shadow-none">
-      <CardHeader
-        className={
-          compact
-            ? 'flex-row items-center gap-2 space-y-0 px-3 py-2'
-            : 'flex-row items-start gap-3 space-y-0 px-4 py-3'
-        }
-      >
-        {!compact ? (
-          <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <HugeiconsIcon icon={ICONS[queueId]} className="size-3.5" strokeWidth={2} />
-          </span>
-        ) : null}
+      <CardHeader className="flex-row items-start gap-3 space-y-0 px-4 py-3">
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <HugeiconsIcon icon={ICONS[queueId]} className="size-3.5" strokeWidth={2} />
+        </span>
         <div className="min-w-0 flex-1">
           <CardTitle className="truncate text-sm">{title}</CardTitle>
-          {!compact ? (
-            <p className="text-xs text-muted-foreground">
-              {t('email.agent_queue_count', { count: envelopes.length })}
-            </p>
-          ) : (
-            <p className="text-[11px] text-muted-foreground tabular-nums">{envelopes.length}</p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            {t('email.agent_queue_count', { count: envelopes.length })}
+          </p>
         </div>
       </CardHeader>
-      <CardContent className={compact ? 'flex flex-col gap-0.5 px-1 pb-2' : 'flex flex-col gap-0.5 px-2 pb-2'}>
+      <CardContent className="flex flex-col gap-0.5 px-2 pb-2">
         {slice.map((env) => (
           <MailMessageRow
             key={env.id}
@@ -79,7 +65,6 @@ export function MailQueueSection({
             networkEmails={networkEmails}
             active={selectedId === env.id}
             onOpen={() => onOpen(env)}
-            compact={compact}
           />
         ))}
         {remaining > 0 ? (

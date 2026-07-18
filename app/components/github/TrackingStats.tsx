@@ -40,7 +40,7 @@ export function TrackingStats({
           >
             <Card
               className={cn(
-                'gap-0 py-0 shadow-none transition-colors',
+                'gap-0 py-0 shadow-none transition-[background-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)]',
                 active && 'ring-2 ring-primary/40',
               )}
             >

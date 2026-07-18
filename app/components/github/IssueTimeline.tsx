@@ -48,7 +48,11 @@ function relTime(ts: number | null): string {
 
 export default function IssueTimeline({ events }: { events: GitHubTimelineEvent[] }) {
   const { t } = useTranslation();
-  if (events.length === 0) return null;
+  if (events.length === 0) {
+    return (
+      <p className="px-1 text-sm italic text-muted-foreground">{t('github.timeline.empty')}</p>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-3">

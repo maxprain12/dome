@@ -115,11 +115,13 @@ export function InlineDetailCard({
 
       <CardContent
         className={cn(
-          'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3',
+          'flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-3 py-3',
           `@[280px]/${cq}:px-4 @[280px]/${cq}:py-4`,
         )}
       >
-        <div className="flex min-w-0 flex-col gap-4">{children}</div>
+        <div className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col gap-4">
+          {children}
+        </div>
       </CardContent>
 
       {footer != null ? (

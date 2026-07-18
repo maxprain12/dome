@@ -6,6 +6,45 @@ export interface EmailContentParts {
 const HTML_MIME_PREFIXES = new Set(['text/html']);
 const PLAIN_MIME_PREFIXES = new Set(['text/plain']);
 
+/** CSS injected into every email iframe so fixed-width campaigns fit the panel. */
+const EMAIL_CONTAIN_CSS = `
+html, body {
+  margin: 0;
+  padding: 12px;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+*, *::before, *::after { box-sizing: border-box; }
+img, svg, video, canvas, iframe {
+  max-width: 100% !important;
+  height: auto !important;
+}
+table {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+td, th {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100% !important;
+}
+/* Campaign HTML often sets width="600" / style="width:600px" — clamp to the pane. */
+[width], [style*='width'] {
+  max-width: 100% !important;
+}
+pre, code {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+`.trim();
+
+const EMAIL_HEAD_INJECT = `<meta name="viewport" content="width=device-width, initial-scale=1"><style id="dome-email-contain">${EMAIL_CONTAIN_CSS}</style>`;
+
 function isHtmlType(type: string): boolean {
   const lower = type.toLowerCase();
   if (HTML_MIME_PREFIXES.has(lower)) return true;
@@ -89,19 +128,29 @@ function looksLikeHtml(body: string): boolean {
   return /<\s*(html|body|div|table|p|a|img|span|br|h[1-6]|ul|ol|center|font|style)\b/i.test(body);
 }
 
+/** Inject viewport + containment CSS into a full HTML document (or no-op if already present). */
+export function injectEmailContainment(htmlDocument: string): string {
+  if (htmlDocument.includes('id="dome-email-contain"')) return htmlDocument;
+  if (/<\s*head[^>]*>/i.test(htmlDocument)) {
+    return htmlDocument.replace(/<\s*head([^>]*)>/i, `<head$1>${EMAIL_HEAD_INJECT}`);
+  }
+  if (/<\s*html[^>]*>/i.test(htmlDocument)) {
+    return htmlDocument.replace(/<\s*html([^>]*)>/i, `<html$1><head>${EMAIL_HEAD_INJECT}</head>`);
+  }
+  return `<!doctype html><html><head>${EMAIL_HEAD_INJECT}</head><body>${htmlDocument}</body></html>`;
+}
+
 /** Wrap partial HTML fragments in a document shell for iframe rendering. */
 export function wrapEmailHtml(htmlBody: string): string {
   const trimmed = htmlBody.trim();
   const hasDocument = /<\s*html[\s>]/i.test(trimmed);
-  if (hasDocument) return trimmed;
+  if (hasDocument) return injectEmailContainment(trimmed);
   return `<!doctype html><html><head><meta charset="utf-8">
     <base target="_blank">
+    ${EMAIL_HEAD_INJECT}
     <style>
       body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-           color:#1a1a1a;background:#ffffff;margin:0;padding:16px;font-size:14px;line-height:1.5;
-           word-break:break-word;overflow-wrap:anywhere}
-      img{max-width:100%;height:auto}
+           color:#1a1a1a;background:#ffffff;font-size:14px;line-height:1.5}
       a{color:#3b5bdb}
-      table{max-width:100% !important}
     </style></head><body>${trimmed}</body></html>`;
 }

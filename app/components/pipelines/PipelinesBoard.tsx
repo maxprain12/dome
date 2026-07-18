@@ -16,7 +16,8 @@ import StageConfigModal from './StageConfigModal';
 import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
-import { StudioHubShell, askStudioMany } from '@/components/studio-hub';
+import { askStudioMany } from '@/components/studio-hub';
+import { HubHeader } from '@/components/hub/HubHeader';
 
 import {
   Dialog,
@@ -38,7 +39,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
-import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator , DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 export default function PipelinesBoard() {
   const { t } = useTranslation();
@@ -86,9 +86,7 @@ export default function PipelinesBoard() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
-  // Agents/workflows/automations/runs live in their own sidebar sections now;
-  // the dashboard shortcuts route to those tabs.
-  const { openAgentsTab, openWorkflowsTab, openAutomationsTab, openRunsTab } = useTabStore();
+  const { openWorkflowsTab } = useTabStore();
   // Horizontal wheel-scroll + drag for the Kanban columns row.
   const boardScrollRef = useRef<HTMLDivElement>(null);
   const boardScrollReady = !showDashboard && !loadingBoard;
@@ -179,219 +177,251 @@ export default function PipelinesBoard() {
     );
   }
 
-  const detailOpen = Boolean(liveOpenItem || liveConfigStage);
-
   return (
-    <StudioHubShell
-      section="pipelines"
-      title={t('pipelines.title')}
-      description={t('pipelines.dashboard_title')}
-      layout="split"
-      compact={detailOpen}
-      actions={
-        <>
-          <SectionGuideHelp sectionKey="pipelines" />
+    <div className="@container/pipelines flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+        <HubHeader
+          title={t('pipelines.title')}
+          description={t('pipelines.dashboard_title')}
+          actions={
+            <>
+              <SectionGuideHelp sectionKey="pipelines" />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => askStudioMany(t('orchestration.agent_prompt_pipelines'))}
+              >
+                {t('orchestration.agent_ask_many')}
+              </Button>
+            </>
+          }
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={showDashboard ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => setShowDashboard(true)}
+            title={t('pipelines.dashboard_title')}
+          >
+            <HugeiconsIcon icon={DashboardSquare01Icon} data-icon="inline-start" />
+            {t('pipelines.overview')}
+          </Button>
+
+          {renaming ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the rename field the user just opened.
+                autoFocus
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleRename();
+                  if (e.key === 'Escape') setRenaming(false);
+                }}
+                placeholder={t('pipelines.pipeline_name_placeholder')}
+                aria-label={t('pipelines.pipeline_name_placeholder')}
+                className="h-8"
+              />
+              <Button type="button" onClick={() => void handleRename()} size="sm">
+                {t('pipelines.save')}
+              </Button>
+            </div>
+          ) : (
+            <div style={{ minWidth: 180 }}>
+              <Select
+                value={pipelines.length === 0 ? null : (activePipelineId ?? null)}
+                onValueChange={(next) => {
+                  if (next != null) {
+                    setShowDashboard(false);
+                    void selectPipeline(next);
+                  }
+                }}
+                items={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+                disabled={pipelines.length === 0}
+              >
+                <SelectTrigger className="w-full" disabled={pipelines.length === 0}>
+                  <SelectValue
+                    placeholder={
+                      pipelines.length === 0
+                        ? t('pipelines.empty_title')
+                        : t('pipelines.select_pipeline')
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {pipelines.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{p.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <Button
             type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => askStudioMany(t('orchestration.agent_prompt_pipelines'))}
+            onClick={() => setCreatingPipeline(true)}
+            variant="outline"
+            size="icon-sm"
+            title={t('pipelines.new_pipeline')}
           >
-            {t('orchestration.agent_ask_many')}
+            <HugeiconsIcon icon={PlusSignIcon} />
+            <span className="sr-only">{t('pipelines.new_pipeline')}</span>
           </Button>
-        </>
-      }
-      toolbar={
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant={showDashboard ? 'secondary' : 'outline'}
-          size="sm"
-          onClick={() => setShowDashboard(true)}
-          title={t('pipelines.dashboard_title')}
-        >
-          <HugeiconsIcon icon={DashboardSquare01Icon} data-icon="inline-start" />
-          {t('pipelines.overview')}
-        </Button>
 
-        {renaming ? (
-          <div className="flex items-center gap-1.5">
-            <Input
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the rename field the user just opened.
-              autoFocus
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleRename();
-                if (e.key === 'Escape') setRenaming(false);
-              }}
-              placeholder={t('pipelines.pipeline_name_placeholder')}
-              aria-label={t('pipelines.pipeline_name_placeholder')}
-              className="h-8"
-            />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  aria-label={t('pipelines.pipeline_actions')}
+                  disabled={busy}
+                  size="icon-sm"
+                />
+              }
+            >
+              <HugeiconsIcon icon={MoreVerticalIcon} size={14} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-40">
+              <DropdownMenuGroup>
+                <DropdownMenuItem disabled={!activePipeline} onClick={startRename}>
+                  <HugeiconsIcon icon={PencilIcon} size={14} />
+                  {t('pipelines.rename')}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!activePipeline} onClick={() => void handleExport()}>
+                  <HugeiconsIcon icon={Download04Icon} size={14} />
+                  {t('pipelines.export')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => void handleImport()}>
+                  <HugeiconsIcon icon={Upload04Icon} size={14} />
+                  {t('pipelines.import')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={!activePipeline}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <HugeiconsIcon icon={Delete02Icon} size={14} />
+                  {t('pipelines.delete')}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="flex-1" />
+
+          {!showDashboard && (
             <Button
               type="button"
-              onClick={() => void handleRename()}
+              onClick={() => setSourcesOpen((v) => !v)}
+              variant={sourcesOpen ? 'secondary' : 'outline'}
               size="sm"
+              title={t('pipelines.data_sources')}
             >
-              {t('pipelines.save')}
+              <HugeiconsIcon icon={DatabaseIcon} data-icon="inline-start" />
+              {t('pipelines.data_sources')}
             </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {showDashboard ? (
+          <PipelinesDashboard
+            onOpenPipeline={(id) => {
+              setShowDashboard(false);
+              void selectPipeline(id);
+            }}
+          />
+        ) : loadingBoard ? (
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
+            <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
           </div>
         ) : (
-          <div style={{ minWidth: 180 }}>
-            <Select value={activePipelineId ?? ''} onValueChange={(next) => { if (next != null) ((id) => {
-                setShowDashboard(false);
-                void selectPipeline(id);
-              })(next); }} items={pipelines.map((p) => ({ value: p.id, label: p.name }))}><SelectTrigger className="w-full"><SelectValue placeholder={t('pipelines.title')} /></SelectTrigger><SelectContent><SelectGroup>{(pipelines.map((p) => ({ value: p.id, label: p.name }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
+          <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            {sourcesOpen && (
+              <DataSourcePanel
+                sources={sources}
+                stages={sortedStages}
+                onCreate={(input) => createSource(input)}
+                onSync={(sourceId) => syncSource(sourceId)}
+                onDelete={(sourceId) => deleteSource(sourceId)}
+              />
+            )}
+            <div
+              ref={boardScrollRef}
+              className="flex min-h-0 min-w-0 flex-1 flex-nowrap gap-3 overflow-x-auto overflow-y-hidden p-4"
+            >
+              {sortedStages.map((stage) => (
+                <StageColumn
+                  key={stage.id}
+                  stage={stage}
+                  items={itemsByStage(stage.id)}
+                  onDropItem={(itemId) => void moveItem(itemId, stage.id)}
+                  onAddCard={(title) => void createItem({ stageId: stage.id, title })}
+                  onOpenItem={(item) => {
+                    setConfigStage(null);
+                    setOpenItem(item);
+                  }}
+                  onRunItem={(item) => void runItem(item.id)}
+                  onResolveItem={(item) => void resolveItem(item.id)}
+                  onConfigure={() => {
+                    setOpenItem(null);
+                    setConfigStage(stage);
+                  }}
+                />
+              ))}
+              <NewStageColumn onCreate={(data) => createStage(data)} />
+            </div>
+            {liveOpenItem || liveConfigStage ? (
+              <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-80 md:shrink-0 lg:w-[28rem]">
+                {liveOpenItem ? (
+                  <CardDetailModal
+                    item={liveOpenItem}
+                    stage={stages.find((s) => s.id === liveOpenItem.stageId)}
+                    pipelineName={pipelines.find((p) => p.id === liveOpenItem.pipelineId)?.name}
+                    agents={agents}
+                    onClose={() => setOpenItem(null)}
+                    onSave={(patch) => updateItem({ id: liveOpenItem.id, ...patch })}
+                    onDelete={async () => {
+                      await deleteItem(liveOpenItem.id);
+                      setOpenItem(null);
+                    }}
+                    onRun={() => runItem(liveOpenItem.id)}
+                  />
+                ) : null}
+                {liveConfigStage && !liveOpenItem ? (
+                  <StageConfigModal
+                    stage={liveConfigStage}
+                    agents={agents}
+                    workflows={workflows}
+                    projectId={projectId}
+                    onClose={() => setConfigStage(null)}
+                    onSave={(patch) => updateStage({ id: liveConfigStage.id, ...patch })}
+                    onDelete={async () => {
+                      await deleteStage(liveConfigStage.id);
+                      setConfigStage(null);
+                    }}
+                    onExecutorsChanged={() => void loadExecutors()}
+                    onCreateWorkflow={() => {
+                      setConfigStage(null);
+                      openWorkflowsTab();
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
-        )}
-
-        <Button
-          type="button"
-          onClick={() => setCreatingPipeline(true)}
-          variant="outline"
-          size="icon-sm"
-          title={t('pipelines.new_pipeline')}
-        >
-          <HugeiconsIcon icon={PlusSignIcon} />
-          <span className="sr-only">{t('pipelines.new_pipeline')}</span>
-        </Button>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" aria-label={t('pipelines.pipeline_actions')} disabled={busy} size="icon-sm" />
-            }
-          >
-            <HugeiconsIcon icon={MoreVerticalIcon} size={14} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-40"><DropdownMenuGroup>
-            <DropdownMenuItem disabled={!activePipeline} onClick={startRename}>
-              <HugeiconsIcon icon={PencilIcon} size={14} />
-              {t('pipelines.rename')}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!activePipeline} onClick={() => void handleExport()}>
-              <HugeiconsIcon icon={Download04Icon} size={14} />
-              {t('pipelines.export')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void handleImport()}>
-              <HugeiconsIcon icon={Upload04Icon} size={14} />
-              {t('pipelines.import')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" disabled={!activePipeline} onClick={() => setConfirmDelete(true)}>
-              <HugeiconsIcon icon={Delete02Icon} size={14} />
-              {t('pipelines.delete')}
-            </DropdownMenuItem>
-          </DropdownMenuGroup></DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="flex-1" />
-
-        {!showDashboard && (
-          <Button
-            type="button"
-            onClick={() => setSourcesOpen((v) => !v)}
-            variant={sourcesOpen ? 'secondary' : 'outline'}
-            size="sm"
-            title={t('pipelines.data_sources')}
-          >
-            <HugeiconsIcon icon={DatabaseIcon} data-icon="inline-start" />
-            {t('pipelines.data_sources')}
-          </Button>
         )}
       </div>
-      }
-    >
-      {/* Body: dashboard overview or the active board */}
-      {showDashboard ? (
-        <PipelinesDashboard
-          onOpenPipeline={(id) => { setShowDashboard(false); void selectPipeline(id); }}
-          onOpenAgents={openAgentsTab}
-          onOpenWorkflows={openWorkflowsTab}
-          onOpenAutomations={openAutomationsTab}
-          onOpenRuns={openRunsTab}
-        />
-      ) : loadingBoard ? (
-        <div className="flex items-center justify-center flex-1 text-muted-foreground">
-          <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
-        </div>
-      ) : (
-        <div className="relative flex flex-1 min-w-0 min-h-0 overflow-hidden">
-          {sourcesOpen && (
-            <DataSourcePanel
-              sources={sources}
-              stages={sortedStages}
-              onCreate={(input) => createSource(input)}
-              onSync={(sourceId) => syncSource(sourceId)}
-              onDelete={(sourceId) => deleteSource(sourceId)}
-            />
-          )}
-          <div
-            ref={boardScrollRef}
-            className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden flex-1 min-w-0 min-h-0 p-4"
-          >
-            {sortedStages.map((stage) => (
-              <StageColumn
-                key={stage.id}
-                stage={stage}
-                items={itemsByStage(stage.id)}
-                onDropItem={(itemId) => void moveItem(itemId, stage.id)}
-                onAddCard={(title) => void createItem({ stageId: stage.id, title })}
-                onOpenItem={(item) => {
-                  setConfigStage(null);
-                  setOpenItem(item);
-                }}
-                onRunItem={(item) => void runItem(item.id)}
-                onResolveItem={(item) => void resolveItem(item.id)}
-                onConfigure={() => {
-                  setOpenItem(null);
-                  setConfigStage(stage);
-                }}
-              />
-            ))}
-            <NewStageColumn onCreate={(data) => createStage(data)} />
-          </div>
-          {liveOpenItem || liveConfigStage ? (
-            <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-80 md:shrink-0 lg:w-[28rem]">
-              {liveOpenItem ? (
-                <CardDetailModal
-                  item={liveOpenItem}
-                  stage={stages.find((s) => s.id === liveOpenItem.stageId)}
-                  pipelineName={pipelines.find((p) => p.id === liveOpenItem.pipelineId)?.name}
-                  agents={agents}
-                  onClose={() => setOpenItem(null)}
-                  onSave={(patch) => updateItem({ id: liveOpenItem.id, ...patch })}
-                  onDelete={async () => {
-                    await deleteItem(liveOpenItem.id);
-                    setOpenItem(null);
-                  }}
-                  onRun={() => runItem(liveOpenItem.id)}
-                />
-              ) : null}
-              {liveConfigStage && !liveOpenItem ? (
-                <StageConfigModal
-                  stage={liveConfigStage}
-                  agents={agents}
-                  workflows={workflows}
-                  projectId={projectId}
-                  onClose={() => setConfigStage(null)}
-                  onSave={(patch) => updateStage({ id: liveConfigStage.id, ...patch })}
-                  onDelete={async () => {
-                    await deleteStage(liveConfigStage.id);
-                    setConfigStage(null);
-                  }}
-                  onExecutorsChanged={() => void loadExecutors()}
-                  onCreateWorkflow={() => {
-                    setConfigStage(null);
-                    openWorkflowsTab();
-                  }}
-                />
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      )}
 
       <AlertDialog open={confirmDelete && Boolean(activePipeline)} onOpenChange={setConfirmDelete}>
         <AlertDialogContent size="sm">
@@ -401,7 +431,11 @@ export default function PipelinesBoard() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>{t('pipelines.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" disabled={busy} onClick={() => void handleDelete()}>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void handleDelete()}
+            >
               {t('pipelines.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -433,6 +467,6 @@ export default function PipelinesBoard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </StudioHubShell>
+    </div>
   );
 }

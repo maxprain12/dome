@@ -287,8 +287,11 @@ export default function TrackingDashboard({
       case 'done':
         return issues.filter((i) => i.state === 'closed');
       case 'all':
-      default:
-        return issues.filter((i) => i.state === 'open');
+        return issues;
+      default: {
+        const _exhaustive: never = filter;
+        return _exhaustive;
+      }
     }
   }, [filter, issues, milestones, now]);
 
@@ -336,7 +339,7 @@ export default function TrackingDashboard({
   }
 
   return (
-    <div className="mx-auto h-full w-full max-w-3xl space-y-4 overflow-auto px-4 py-4">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4 overflow-y-auto px-4 py-4">
       <TrackingStats
         openCount={stats.open}
         dueSoonCount={stats.dueSoon}

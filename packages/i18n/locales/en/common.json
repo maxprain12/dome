@@ -51,5 +51,7 @@
   "date_picker_placeholder": "Pick a date",
   "date_picker_clear": "Clear date",
   "date_picker_prev_month": "Previous month",
-  "date_picker_next_month": "Next month"
+  "date_picker_next_month": "Next month",
+  "unsaved_changes": "Unsaved changes will be lost.",
+  "discard": "Discard"
 }

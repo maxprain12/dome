@@ -18,7 +18,8 @@
     "labeled": "{{actor}} added the label {{label}}",
     "unlabeled": "{{actor}} removed the label {{label}}",
     "renamed": "{{actor}} renamed this from \"{{from}}\" to \"{{to}}\"",
-    "review_requested": "{{actor}} requested a review"
+    "review_requested": "{{actor}} requested a review",
+    "empty": "No activity yet."
   },
   "loading": "Loading…",
   "open_on_github": "Open on GitHub",

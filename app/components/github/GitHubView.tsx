@@ -234,7 +234,7 @@ export default function GitHubView() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {settingsOpen ? (
             <GitHubSettings projectId={projectId} />
           ) : (
@@ -253,7 +253,7 @@ export default function GitHubView() {
         </div>
 
         {detailOpen ? (
-          <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-l bg-background md:w-80 lg:w-[28rem]">
+          <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-l bg-background studio-view-enter md:w-80 lg:w-[28rem]">
             {openMilestoneId ? (
               <MilestoneDetailModal
                 milestoneId={openMilestoneId}

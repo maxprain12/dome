@@ -116,7 +116,11 @@
       "deleted": "Supprimé",
       "recent": "Récent"
     },
-    "soon": "Bientôt disponible"
+    "soon": "Bientôt disponible",
+    "empty_body": {
+      "title": "Aucun contenu",
+      "subtitle": "Ce message n’a pas de corps lisible."
+    }
   },
   "settings": {
     "title": "Comptes e-mail",

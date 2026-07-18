@@ -19,13 +19,11 @@ export function MailMessageRow({
   networkEmails,
   active,
   onOpen,
-  compact,
 }: {
   envelope: MailEnvelope;
   networkEmails: ReadonlySet<string>;
   active?: boolean;
   onOpen: () => void;
-  compact?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const sender = fromLabel(envelope.from) || t('email.unknown_sender');
@@ -37,27 +35,16 @@ export function MailMessageRow({
     <div
       className={
         active
-          ? 'group flex w-full items-start gap-2 rounded-md bg-accent px-1.5 py-1'
-          : 'group flex w-full items-start gap-2 rounded-md px-1.5 py-1 hover:bg-accent'
+          ? 'group flex w-full items-start gap-2 rounded-md bg-accent px-1.5 py-1 transition-[background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)]'
+          : 'group flex w-full items-start gap-2 rounded-md px-1.5 py-1 transition-[background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] hover:bg-accent'
       }
     >
-      {!compact ? (
-        <span
-          aria-hidden
-          className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary"
-        >
-          {monogram(sender)}
-        </span>
-      ) : (
-        <span
-          aria-hidden
-          className={
-            unread
-              ? 'mt-1.5 size-1.5 shrink-0 rounded-full bg-primary'
-              : 'mt-1.5 size-1.5 shrink-0 rounded-full bg-transparent'
-          }
-        />
-      )}
+      <span
+        aria-hidden
+        className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary"
+      >
+        {monogram(sender)}
+      </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <button type="button" onClick={onOpen} className="flex min-w-0 flex-col gap-0.5 text-left">
           <span className="flex min-w-0 items-center gap-2">
@@ -90,7 +77,7 @@ export function MailMessageRow({
             {envelope.subject || t('email.no_subject')}
           </span>
         </button>
-        {!compact && (unread || network) ? (
+        {unread || network ? (
           <div className="flex flex-wrap gap-1">
             {unread ? (
               <Badge

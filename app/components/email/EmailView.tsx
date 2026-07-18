@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
@@ -111,6 +111,12 @@ export default function EmailView() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [networkEmails, setNetworkEmails] = useState<Set<string>>(() => new Set());
   const [selfEmails, setSelfEmails] = useState<Set<string>>(() => new Set());
+  /** True after a remote search merged into inbox — clear restores folder list. */
+  const searchMergedRef = useRef(false);
+  /** Skip folder/sent effects once after bootstrap already fetched. */
+  const skipFolderRefreshRef = useRef(false);
+  const skipSentRefreshRef = useRef(false);
+  const openMessageSeqRef = useRef(0);
 
   const loadPeople = useCallback(async () => {
     try {
@@ -267,6 +273,8 @@ export default function EmailView() {
             helpUrl: inboxRes.helpUrl,
           });
         }
+        skipFolderRefreshRef.current = true;
+        skipSentRefreshRef.current = true;
         void refreshSent(folderList);
       } catch (err) {
         if (cancelled) return;
@@ -302,17 +310,26 @@ export default function EmailView() {
 
   useEffect(() => {
     if (hasAccount !== true) return;
+    if (skipFolderRefreshRef.current) {
+      skipFolderRefreshRef.current = false;
+      return;
+    }
     void refreshInbox();
   }, [folder, hasAccount, refreshInbox]);
 
   useEffect(() => {
     if (hasAccount !== true) return;
+    if (skipSentRefreshRef.current) {
+      skipSentRefreshRef.current = false;
+      return;
+    }
     void refreshSent(folders);
   }, [folders, hasAccount, refreshSent]);
 
   const runSearch = useCallback(async (raw: string) => {
     const q = raw.trim();
     if (!q) {
+      searchMergedRef.current = false;
       await refreshInbox();
       return;
     }
@@ -334,6 +351,7 @@ export default function EmailView() {
       if (res.success) {
         const remote = (res.envelopes as MailEnvelope[]) || [];
         // Merge into local cache so from:/subject: filters still apply on the full set.
+        searchMergedRef.current = true;
         setInbox((prev) => {
           const byId = new Map(prev.map((e) => [e.id, e]));
           for (const env of remote) byId.set(env.id, env);
@@ -348,33 +366,46 @@ export default function EmailView() {
   }, [folder, projectId, refreshInbox]);
 
   // Local filter is instant; remote search deepens results after a short pause.
+  // Clearing the query restores the folder listing after a remote merge.
   useEffect(() => {
     if (hasAccount !== true) return;
     const q = query.trim();
-    if (q.length < 2) return;
+    if (q.length < 2) {
+      if (searchMergedRef.current) {
+        searchMergedRef.current = false;
+        void refreshInbox();
+      }
+      return;
+    }
     const id = window.setTimeout(() => {
       void runSearch(q);
     }, 400);
     return () => window.clearTimeout(id);
-  }, [hasAccount, query, runSearch]);
+  }, [hasAccount, query, refreshInbox, runSearch]);
 
   const openMessage = useCallback(
     async (env: MailEnvelope, folderName?: string) => {
+      const seq = ++openMessageSeqRef.current;
       const f = folderName ?? folder;
       setComposing(null);
       setSelected(env);
       setReadingId(env.id);
       setMessage(null);
+      setError(null);
       try {
         const res = await window.electron.email.read({ messageId: env.id, folder: f, projectId });
+        if (openMessageSeqRef.current !== seq) return;
         if (res.success) setMessage(res.message);
         else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
       } finally {
-        setReadingId(null);
+        if (openMessageSeqRef.current === seq) setReadingId(null);
       }
     },
     [folder, projectId],
   );
+
+  const sentFolderName = useMemo(() => findSentFolder(folders), [folders]);
+  const sentIds = useMemo(() => new Set(sent.map((e) => e.id)), [sent]);
 
   const askManyAbout = useCallback(
     (env: MailEnvelope | null, prompt: string) => {
@@ -525,16 +556,10 @@ export default function EmailView() {
 
   return (
     <div className="@container/email flex h-full min-h-0 flex-col text-foreground">
-      <div
-        className={
-          detailOpen
-            ? 'flex shrink-0 flex-col gap-2 border-b bg-card px-3 py-2'
-            : 'flex shrink-0 flex-col gap-3 border-b bg-card px-4 py-3'
-        }
-      >
+      <div className="flex shrink-0 flex-col gap-3 border-b bg-card px-4 py-3">
         <HubHeader
           title={t('email.tab_title')}
-          description={detailOpen ? undefined : syncDescription}
+          description={syncDescription}
           className="w-full"
           actions={
             <>
@@ -624,7 +649,8 @@ export default function EmailView() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        {/* Must be a flex column so MailDashboard's flex-1/min-h-0 can bound the list scroll. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <MailDashboard
             inbox={inbox}
             sent={sent}
@@ -634,7 +660,11 @@ export default function EmailView() {
             filter={filter}
             onFilter={setFilter}
             selectedId={selected?.id}
-            onOpen={(env) => void openMessage(env)}
+            onOpen={(env) => {
+              const openInSent =
+                filter === 'recent_sent' || (sentFolderName != null && sentIds.has(env.id));
+              void openMessage(env, openInSent ? sentFolderName ?? undefined : undefined);
+            }}
             onCompose={() => {
               setSelected(null);
               setMessage(null);
@@ -642,13 +672,12 @@ export default function EmailView() {
             }}
             onAskManyTriage={() => askManyAbout(null, t('email.agent_prompt_triage'))}
             onAskManySummarize={() => askManyAbout(null, t('email.agent_prompt_summarize'))}
-            compact={detailOpen}
             resultCount={matchedCount}
           />
         </div>
 
         {detailOpen ? (
-          <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">
+          <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background studio-view-enter md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">
             {composing ? (
               <MailComposePanel
                 mode={composing.mode}

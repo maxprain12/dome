@@ -1,18 +1,18 @@
 import { cn } from '@/lib/utils';
 
-export type StudioStatTone = 'default' | 'accent' | 'success' | 'error' | 'warning' | 'info';
+export type DomainStatTone = 'default' | 'accent' | 'success' | 'error' | 'warning' | 'info';
 
-export interface StudioStat {
+export interface DomainStat {
   id: string;
   label: string;
   value: string | number;
   sub?: string;
-  tone?: StudioStatTone;
+  tone?: DomainStatTone;
   active?: boolean;
   onClick?: () => void;
 }
 
-const TONE_CLASS: Record<StudioStatTone, string> = {
+const TONE_CLASS: Record<DomainStatTone, string> = {
   default: 'text-foreground',
   accent: 'text-primary',
   success: 'text-success',
@@ -21,13 +21,13 @@ const TONE_CLASS: Record<StudioStatTone, string> = {
   info: 'text-info',
 };
 
-/** Compact KPI chips (Social/Email style) — not dense Card grids. */
-export function StudioStats({
+/** Compact domain KPI chips — not a page shell. */
+export function DomainStatChips({
   stats,
   className,
   compact,
 }: {
-  stats: StudioStat[];
+  stats: DomainStat[];
   className?: string;
   compact?: boolean;
 }) {
@@ -54,8 +54,9 @@ export function StudioStats({
         );
         const cls = cn(
           'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs',
+          'transition-[background-color,border-color,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)]',
           stat.active ? 'border-primary/40 bg-primary/10' : 'border-border bg-muted/40',
-          stat.onClick && 'hover:bg-accent',
+          stat.onClick && 'hover:bg-accent active:scale-[0.97]',
         );
         if (stat.onClick) {
           return (

@@ -310,7 +310,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-hidden bg-background">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <GitHubView />
             </div>
           </Suspense>
@@ -321,7 +321,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <SuspenseWithTimeout>
-            <div className="flex flex-col h-full overflow-hidden bg-background">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <EmailView />
             </div>
           </SuspenseWithTimeout>

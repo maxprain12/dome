@@ -5,6 +5,7 @@
   "empty_title": "Ainda não há pipelines",
   "empty_desc": "Crie seu primeiro pipeline para organizar o trabalho em fases com agentes.",
   "empty_cta": "Criar pipeline",
+  "select_pipeline": "Selecione um pipeline",
   "add_stage": "Adicionar fase",
   "stage_title_placeholder": "Nome da fase",
   "add_card": "Adicionar cartão",

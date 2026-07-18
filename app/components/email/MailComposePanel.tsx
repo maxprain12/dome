@@ -134,13 +134,13 @@ export function MailComposePanel({
           <AlertDialogHeader>
             <AlertDialogTitle>{t('email.compose')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('common.unsaved_changes', { defaultValue: 'Se perderán los cambios no guardados.' })}
+              {t('common.unsaved_changes')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={onClose}>
-              {t('common.discard', { defaultValue: 'Descartar' })}
+              {t('common.discard')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

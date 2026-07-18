@@ -26,7 +26,6 @@ export function MailDashboard({
   onCompose,
   onAskManyTriage,
   onAskManySummarize,
-  compact,
   resultCount,
 }: {
   inbox: MailEnvelope[];
@@ -41,8 +40,6 @@ export function MailDashboard({
   onCompose: () => void;
   onAskManyTriage: () => void;
   onAskManySummarize: () => void;
-  /** Narrow / detail-open layout: hide briefing chrome. */
-  compact?: boolean;
   resultCount?: number | null;
 }) {
   const { t } = useTranslation();
@@ -52,11 +49,12 @@ export function MailDashboard({
   const recentSent = filterEnvelopesByQuery(sent, query).filter((e) => isRecentSent(e));
 
   let needsList = queues.needsReply;
-  if (filter === 'attend') {
-    needsList = queues.needsReply.filter((e) => isUnread(e.flags));
-  } else if (filter === 'network') {
+  if (filter === 'network') {
     needsList = queues.needsReply.filter((e) => isFromNetwork(e, networkEmails));
   }
+
+  // Match computeMailStats.attend (all unread in current folder listing).
+  const attendList = filtered.filter((e) => isUnread(e.flags));
 
   const networkOnly =
     filter === 'network'
@@ -77,6 +75,13 @@ export function MailDashboard({
       title: t('email.agent_queue_recent_sent'),
       envelopes: recentSent,
     });
+  } else if (filter === 'attend') {
+    sections.push({
+      key: 'attend',
+      queueId: 'needs_reply',
+      title: t('email.agent_stat_attend'),
+      envelopes: attendList,
+    });
   } else if (filter === 'network') {
     sections.push({
       key: 'from_network',
@@ -85,7 +90,7 @@ export function MailDashboard({
       envelopes: queues.fromNetwork,
     });
   } else {
-    if (filter === 'all' || filter === 'attend' || filter === 'needs_reply') {
+    if (filter === 'all' || filter === 'needs_reply') {
       sections.push({
         key: 'needs_reply',
         queueId: 'needs_reply',
@@ -122,53 +127,35 @@ export function MailDashboard({
       : sections.reduce((n, s) => n + s.envelopes.length, 0);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className={compact ? 'shrink-0 space-y-2 p-2 pb-0' : 'shrink-0 space-y-4 p-4 pb-0'}>
-        {!compact ? (
-          <>
-            <MailStats
-              attend={stats.attend}
-              network={stats.network}
-              needsReply={stats.needsReply}
-              recentSent={stats.recentSent}
-              activeFilter={filter}
-              onFilter={onFilter}
-            />
+    <div className="@container/mail-dash flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 space-y-3 p-3 pb-0 @[36rem]/mail-dash:space-y-4 @[36rem]/mail-dash:p-4">
+        <MailStats
+          attend={stats.attend}
+          network={stats.network}
+          needsReply={stats.needsReply}
+          recentSent={stats.recentSent}
+          activeFilter={filter}
+          onFilter={onFilter}
+        />
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="secondary" onClick={onAskManyTriage}>
-                {t('email.agent_action_triage')}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onAskManySummarize}>
-                {t('email.agent_action_summarize')}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onCompose}>
-                {t('email.compose')}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-wrap items-center gap-1.5 px-1">
-            {(
-              [
-                ['all', t('email.agent_filter_all')],
-                ['attend', t('email.agent_stat_attend')],
-                ['needs_reply', t('email.agent_stat_needs_reply')],
-                ['network', t('email.agent_stat_network')],
-              ] as const
-            ).map(([key, label]) => (
-              <Button
-                key={key}
-                type="button"
-                size="xs"
-                variant={filter === key ? 'secondary' : 'ghost'}
-                onClick={() => onFilter(key)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        )}
+        {/* Redactar stays in HubHeader — avoid a third copy when the column is tight. */}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="secondary" onClick={onAskManyTriage}>
+            {t('email.agent_action_triage')}
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onAskManySummarize}>
+            {t('email.agent_action_summarize')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="hidden @[36rem]/mail-dash:inline-flex"
+            onClick={onCompose}
+          >
+            {t('email.compose')}
+          </Button>
+        </div>
 
         {query.trim() ? (
           <p className="px-1 text-xs text-muted-foreground">
@@ -178,13 +165,7 @@ export function MailDashboard({
         ) : null}
       </div>
 
-      <div
-        className={
-          compact
-            ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-2'
-            : 'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4'
-        }
-      >
+      <div className="isolate min-h-0 flex-1 basis-0 space-y-3 overflow-y-auto overscroll-contain p-3 @[36rem]/mail-dash:space-y-4 @[36rem]/mail-dash:p-4">
         {empty ? (
           <p className="py-8 text-center text-sm text-muted-foreground">{t('email.agent_all_clear')}</p>
         ) : null}
@@ -198,7 +179,6 @@ export function MailDashboard({
             networkEmails={networkEmails}
             selectedId={selectedId}
             onOpen={onOpen}
-            compact={compact}
           />
         ))}
       </div>

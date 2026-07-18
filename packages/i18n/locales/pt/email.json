@@ -116,7 +116,11 @@
       "deleted": "Excluído",
       "recent": "Recente"
     },
-    "soon": "Em breve"
+    "soon": "Em breve",
+    "empty_body": {
+      "title": "Sem conteúdo",
+      "subtitle": "Esta mensagem não tem um corpo legível."
+    }
   },
   "settings": {
     "title": "Contas de e-mail",
