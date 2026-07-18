@@ -133,7 +133,7 @@ export function SocialEventCardsWorkspace({ section, accounts, posts }: { sectio
           <CardDescription>{t('social.events.cards_description')}</CardDescription>
           <CardAction><Button size="icon-sm" onClick={() => { setSelectedId(null); setForm(defaultForm()); }} aria-label={t('social.events.new')}><HugeiconsIcon icon={PlusSignIcon} /></Button></CardAction>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="flex flex-col gap-2">
           {cards.length === 0 ? <p className="text-muted-foreground">{t('social.events.empty')}</p> : cards.map((card) => (
             <Button key={card.id} variant={selectedId === card.id ? 'secondary' : 'ghost'} className="h-auto w-full justify-between py-3 text-left" onClick={() => setSelectedId(card.id)}>
               <span className="min-w-0"><span className="block truncate font-medium">{card.internalName}</span><span className="block truncate text-xs text-muted-foreground">{new Date(card.startsAt).toLocaleString()}</span></span>
@@ -175,7 +175,7 @@ export function SocialEventCardsWorkspace({ section, accounts, posts }: { sectio
             <Card variant="mint" className="self-start">
               {form.design.coverUrl ? <img src={form.design.coverUrl} alt="" className="h-32 w-full object-cover" /> : null}
               <CardHeader><CardDescription>{form.design.brandName || form.organizer}</CardDescription><CardTitle className="text-xl">{form.title || t('social.events.preview_title')}</CardTitle></CardHeader>
-              <CardContent className="space-y-3"><p>{new Date(form.startsAt).toLocaleString()}</p><p>{form.venueName || form.address}</p><p className="text-muted-foreground">{form.description}</p><div className="flex flex-wrap gap-2"><Badge variant={wallet.appleConfigured ? 'outline' : 'secondary'}>Apple Wallet · {wallet.appleConfigured ? 'OK' : t('social.events.setup_required')}</Badge><Badge variant={wallet.googleConfigured ? 'outline' : 'secondary'}>Google Wallet · {wallet.googleConfigured ? 'OK' : t('social.events.setup_required')}</Badge></div>{selected?.publicUrl ? <p className="break-all text-xs">{selected.publicUrl}</p> : null}</CardContent>
+              <CardContent className="flex flex-col gap-3"><p>{new Date(form.startsAt).toLocaleString()}</p><p>{form.venueName || form.address}</p><p className="text-muted-foreground">{form.description}</p><div className="flex flex-wrap gap-2"><Badge variant={wallet.appleConfigured ? 'outline' : 'secondary'}>Apple Wallet · {wallet.appleConfigured ? 'OK' : t('social.events.setup_required')}</Badge><Badge variant={wallet.googleConfigured ? 'outline' : 'secondary'}>Google Wallet · {wallet.googleConfigured ? 'OK' : t('social.events.setup_required')}</Badge></div>{selected?.publicUrl ? <p className="break-all text-xs">{selected.publicUrl}</p> : null}</CardContent>
             </Card>
           </CardContent>
         </Card>
