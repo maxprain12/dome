@@ -18,7 +18,7 @@ function logEvent(itemId, eventType, { actor, summary, detail, runId } = {}) {
   try {
     const item = _queries.getPipelineItemById.get(itemId);
     if (!item) return;
-    const crypto = require('crypto');
+    const crypto = require('node:crypto');
     const id = crypto.randomUUID();
     const projectId = item.project_id || 'default';
     _queries.createPipelineItemEvent.run(

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const database = require('../core/database.cjs');
 const { parseJsonSafely, toJson } = require('./run-store.cjs');
 

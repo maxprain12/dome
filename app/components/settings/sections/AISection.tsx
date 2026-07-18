@@ -248,17 +248,14 @@ export default function AISection() {
     }
   };
 
-  useEffect(() => {
-    void refreshDomeSession();
+  useEffect(() => { refreshDomeSession();
   }, [refreshDomeSession]);
-  useEffect(() => {
-    void refreshCopilotStatus();
+  useEffect(() => { refreshCopilotStatus();
   }, [refreshCopilotStatus]);
-  useEffect(() => {
-    void refreshCloudSyncStatus();
+  useEffect(() => { refreshCloudSyncStatus();
   }, [refreshCloudSyncStatus]);
   useEffect(() => {
-    const onFocus = () => void refreshDomeSession();
+    const onFocus = () => refreshDomeSession();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [refreshDomeSession]);
@@ -272,8 +269,7 @@ export default function AISection() {
     }
   }, []);
 
-  useEffect(() => {
-    void refreshProviderKeyStatus();
+  useEffect(() => { refreshProviderKeyStatus();
   }, [refreshProviderKeyStatus]);
 
   // Deep link from the model switcher: jump to a provider (and optionally its models modal).
@@ -283,8 +279,7 @@ export default function AISection() {
       if (!detail?.provider) return;
       setActiveTab('chat');
       setProvider(detail.provider);
-      if (isCloudAIProvider(detail.provider)) {
-        void (async () => {
+      if (isCloudAIProvider(detail.provider)) { (async () => {
           try {
             const { db } = await import('@/lib/db/client');
             const res = await db.getSetting(`ai_api_key_${detail.provider}`);
@@ -308,8 +303,7 @@ export default function AISection() {
     setModel(getDefaultModelId(newProvider));
     // Cada provider tiene su propia clave en DB: al cambiar, carga la suya
     // (enmascarada) en vez de arrastrar la del provider anterior.
-    if (isCloudAIProvider(newProvider)) {
-      void (async () => {
+    if (isCloudAIProvider(newProvider)) { (async () => {
         try {
           const { db } = await import('@/lib/db/client');
           const res = await db.getSetting(`ai_api_key_${newProvider}`);
@@ -354,8 +348,7 @@ export default function AISection() {
         break;
     }
     try {
-      await saveAIConfig(config);
-      void refreshProviderKeyStatus();
+      await saveAIConfig(config); refreshProviderKeyStatus();
       await transcriptionRef.current?.save();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -530,8 +523,7 @@ export default function AISection() {
               if (savedProvider === provider && !customModel) {
                 const next = resolveVisibleModelAfterSave(savedProvider, model, visibleIds);
                 if (next !== model) {
-                  setModel(next);
-                  void saveChatModelForProvider(savedProvider, next);
+                  setModel(next); saveChatModelForProvider(savedProvider, next);
                   window.dispatchEvent(new Event('dome:ai-config-changed'));
                 }
               }
@@ -574,8 +566,7 @@ export default function AISection() {
                 {!domeConnected ? (
                   <form
                     onSubmit={(event) => {
-                      event.preventDefault();
-                      void handleDomePasswordLogin();
+                      event.preventDefault(); handleDomePasswordLogin();
                     }}
                   >
                     <FieldGroup>
@@ -625,7 +616,7 @@ export default function AISection() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => void handleConnectDome()}
+                    onClick={() => handleConnectDome()}
                     disabled={domeConnecting}
                   >
                     {domeConnecting ? <Spinner data-icon="inline-start" /> : null}
@@ -636,7 +627,7 @@ export default function AISection() {
                         : t('settings.ai.dome_login_via_dashboard')}
                   </Button>
                   {domeConnected ? (
-                    <Button type="button" variant="ghost" onClick={() => void handleDisconnectDome()}>
+                    <Button type="button" variant="ghost" onClick={() => handleDisconnectDome()}>
                       {t('settings.ai.disconnect')}
                     </Button>
                   ) : null}
@@ -701,7 +692,7 @@ export default function AISection() {
                         size="sm"
                         className="self-start"
                         disabled={cloudSyncBusy}
-                        onClick={() => void handleCloudSyncNow()}
+                        onClick={() => handleCloudSyncNow()}
                       >
                         {cloudSyncBusy ? <Spinner data-icon="inline-start" /> : null}
                         {cloudSyncBusy
@@ -730,7 +721,7 @@ export default function AISection() {
                   </Badge>
                   <Button
                     type="button"
-                    onClick={() => void handleConnectCopilot()}
+                    onClick={() => handleConnectCopilot()}
                     disabled={copilotConnecting}
                   >
                     {copilotConnecting ? <Spinner data-icon="inline-start" /> : null}
@@ -744,7 +735,7 @@ export default function AISection() {
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => void handleDisconnectCopilot()}
+                      onClick={() => handleDisconnectCopilot()}
                     >
                       {t('settings.ai.disconnect')}
                     </Button>
@@ -800,14 +791,14 @@ export default function AISection() {
       {activeTab === 'chat' || activeTab === 'transcription' ? (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" onClick={() => void handleSave()}>
+            <Button type="button" onClick={() => handleSave()}>
               {saved ? t('settings.ai.saved_config') : t('settings.ai.save_all')}
             </Button>
             {activeTab === 'chat' ? (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void handleTestConnection()}
+                onClick={() => handleTestConnection()}
                 disabled={testing}
               >
                 {testing ? <Spinner data-icon="inline-start" /> : null}
