@@ -5,7 +5,8 @@ set -euo pipefail
 ROOT="${1:-.}"
 MAX_FILE_DELETIONS="${SONAR_LOOP_MAX_FILE_DELETIONS:-200}"
 MIN_MCP_CLIENT_LINES="${SONAR_LOOP_MIN_MCP_CLIENT_LINES:-400}"
-MIN_GLOBALS_CSS_LINES="${SONAR_LOOP_MIN_GLOBALS_CSS_LINES:-5000}"
+# globals.css was split/slimmed (~2k lines); keep a floor against truncation, not the old 5k monolith.
+MIN_GLOBALS_CSS_LINES="${SONAR_LOOP_MIN_GLOBALS_CSS_LINES:-1500}"
 
 cd "$ROOT"
 

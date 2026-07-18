@@ -14,6 +14,7 @@ pnpm run lint
 
 echo "=== verify-batch-pr: sonar clean-code patterns (P-011) ==="
 pnpm run test:sonar-patterns
+pnpm run test:sonar-hotspots || node --test scripts/sonar/__tests__/review-hotspots.test.mjs
 # Strict full-tree only here (progressive --diff is enforced on GitHub PR CI;
 # quality-loop batches may touch files that still contain legacy void/node: debt).
 pnpm run check:sonar-patterns

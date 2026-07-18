@@ -5,6 +5,14 @@ pipeline {
     cron('H * * * *')
   }
 
+  parameters {
+    choice(
+      name: 'SONAR_LOOP_MODE',
+      choices: ['auto', 'issues', 'coverage', 'hotspots'],
+      description: 'auto = UTC hour%3 (coverage on remainder 1); issues/coverage/hotspots force a mode',
+    )
+  }
+
   environment {
     PNPM_VERSION = '11.8.0'
     NODE_VERSION = '24.13.0'
@@ -14,6 +22,7 @@ pipeline {
     GITHUB_REPOSITORY = 'maxprain12/dome'
     XVFB_DISPLAY = ':99'
     SONAR_BATCH_SIZE = '3'
+    SONAR_COVERAGE_BATCH_SIZE = '2'
     SONAR_LOOP_REVIEWER = '1'
     SONAR_LOOP_TIMEOUT_MS = '3000000'
     SONAR_TRIAGE_MODEL = 'MiniMax-M2.7-highspeed'
@@ -78,7 +87,28 @@ pipeline {
       }
     }
 
+    stage('Resolve loop mode') {
+      steps {
+        script {
+          // Timer builds use choice default; Build with Parameters can force a mode.
+          env.SONAR_LOOP_MODE = (params.SONAR_LOOP_MODE ?: 'auto').toString()
+        }
+        sh '''
+          set -eux
+          mkdir -p .quality-loop
+          node scripts/sonar/resolve-loop-mode.mjs | tee .quality-loop/mode.txt
+        '''
+        script {
+          env.SONAR_LOOP_MODE_RESOLVED = readFile('.quality-loop/mode.txt').trim()
+          echo "Resolved SONAR_LOOP_MODE=${env.SONAR_LOOP_MODE_RESOLVED} (param=${env.SONAR_LOOP_MODE})"
+        }
+      }
+    }
+
     stage('Sync Sonar → GitHub') {
+      when {
+        expression { return env.SONAR_LOOP_MODE_RESOLVED == 'issues' }
+      }
       steps {
         withSonarQubeEnv('SonarQube') {
           withCredentials([
@@ -100,7 +130,10 @@ pipeline {
       }
     }
 
-    stage('Pick batch') {
+    stage('Pick batch (issues)') {
+      when {
+        expression { return env.SONAR_LOOP_MODE_RESOLVED == 'issues' }
+      }
       steps {
         withSonarQubeEnv('SonarQube') {
           withCredentials([
@@ -117,7 +150,28 @@ pipeline {
       }
     }
 
+    stage('Pick batch (coverage)') {
+      when {
+        expression { return env.SONAR_LOOP_MODE_RESOLVED == 'coverage' }
+      }
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          sh '''
+            set -eux
+            mkdir -p .quality-loop
+            pnpm run sonar:pick-coverage -- --size=${SONAR_COVERAGE_BATCH_SIZE} --out=.quality-loop/batch.json
+          '''
+        }
+        archiveArtifacts artifacts: '.quality-loop/batch.json', allowEmptyArchive: true
+      }
+    }
+
     stage('Validate batch') {
+      when {
+        expression {
+          return env.SONAR_LOOP_MODE_RESOLVED == 'issues' || env.SONAR_LOOP_MODE_RESOLVED == 'coverage'
+        }
+      }
       steps {
         sh '''
           set -eux
@@ -127,6 +181,9 @@ pipeline {
     }
 
     stage('Batch triage (OpenCode)') {
+      when {
+        expression { return env.SONAR_LOOP_MODE_RESOLVED == 'issues' }
+      }
       steps {
         withCredentials([
           string(credentialsId: 'minimax-api-key', variable: 'MINIMAX_API_KEY'),
@@ -147,8 +204,11 @@ pipeline {
 
     stage('Mechanical fix') {
       when {
-        expression {
-          return sh(script: 'bash scripts/jenkins/triage-has-fixes.sh "$PWD"', returnStatus: true) == 0
+        allOf {
+          expression { return env.SONAR_LOOP_MODE_RESOLVED == 'issues' }
+          expression {
+            return sh(script: 'bash scripts/jenkins/triage-has-fixes.sh "$PWD"', returnStatus: true) == 0
+          }
         }
       }
       steps {
@@ -183,6 +243,9 @@ pipeline {
       when {
         allOf {
           expression {
+            return env.SONAR_LOOP_MODE_RESOLVED == 'issues' || env.SONAR_LOOP_MODE_RESOLVED == 'coverage'
+          }
+          expression {
             return sh(script: 'bash scripts/jenkins/triage-has-fixes.sh "$PWD"', returnStatus: true) == 0
           }
           expression {
@@ -215,11 +278,20 @@ pipeline {
         }
       }
       steps {
-        sh '''
-          set -eux
-          bash scripts/jenkins/run-fast-gates.sh "$PWD" .quality-loop/batch.json
-        '''
-        archiveArtifacts artifacts: '.quality-loop/fast-gates.json,.quality-loop/gate-failure.log', allowEmptyArchive: true
+        script {
+          def gatesOk = sh(
+            script: 'bash scripts/jenkins/run-fast-gates.sh "$PWD" .quality-loop/batch.json',
+            returnStatus: true,
+          ) == 0
+          archiveArtifacts artifacts: '.quality-loop/fast-gates.json,.quality-loop/gate-failure.log', allowEmptyArchive: true
+          if (!gatesOk) {
+            // Do not leave a poisoned tree for PR; keep build red but allow post maintenance.
+            echo 'Fast gates FAILED — reverting source tree so no bad PR is opened'
+            sh 'git checkout -- . || true'
+            sh 'git clean -fd -- app electron packages shared scripts docs || true'
+            error('Fast gates failed (see .quality-loop/gate-failure.log)')
+          }
+        }
       }
     }
 
@@ -277,13 +349,20 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            BRANCH="fix/sonar-batch-$(date +%Y%m%d-%H%M)"
+            KIND="$(node -e "try{const j=require('./.quality-loop/batch.json');process.stdout.write(j.kind==='coverage'?'coverage':'issues')}catch{process.stdout.write('issues')}")"
+            if [ "$KIND" = "coverage" ]; then
+              BRANCH="test/sonar-coverage-$(date +%Y%m%d-%H%M)"
+              MSG="test(sonar): coverage growth batch $(date -Iseconds)"
+            else
+              BRANCH="fix/sonar-batch-$(date +%Y%m%d-%H%M)"
+              MSG="fix(sonar): quality loop batch $(date -Iseconds)"
+            fi
             git config user.email "jenkins@dowi.es"
             git config user.name "Jenkins Quality Loop"
             git checkout -b "$BRANCH"
             bash scripts/jenkins/stage-loop-changes.sh "$PWD"
             bash scripts/jenkins/verify-loop-diff.sh "$PWD"
-            git commit -m "fix(sonar): quality loop batch $(date -Iseconds)"
+            git commit -m "$MSG"
 
             JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh
             git push -u origin "$BRANCH"
@@ -294,22 +373,30 @@ pipeline {
       }
     }
 
-    stage('Close resolved in Sonar') {
-      steps {
-        withSonarQubeEnv('SonarQube') {
-          withCredentials([
-            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
-          ]) {
-            sh 'pnpm run sonar:close-resolved -- --since-days=14 || true'
-          }
-        }
-      }
-    }
   }
 
   post {
     always {
-      archiveArtifacts artifacts: '.quality-loop/**', allowEmptyArchive: true
+      // Fail-soft maintenance: must run even when Fast gates / PR stages fail
+      // (declarative skips later stages on failure — keep these in post).
+      script {
+        try {
+          withSonarQubeEnv('SonarQube') {
+            sh '''
+              set +e
+              echo "=== post: review security hotspots ==="
+              pnpm run sonar:review-hotspots -- --apply=true \
+                || node scripts/sonar/review-hotspots.mjs --apply=true \
+                || true
+              echo "=== post: close resolved Sonar issues ==="
+              pnpm run sonar:close-resolved -- --since-days=14 || true
+            '''
+          }
+        } catch (err) {
+          echo "post Sonar maintenance skipped/failed: ${err}"
+        }
+      }
+      archiveArtifacts artifacts: '.quality-loop/**,coverage/lcov.info', allowEmptyArchive: true
       cleanWs()
     }
   }

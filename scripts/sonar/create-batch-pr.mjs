@@ -21,6 +21,7 @@ const branch =
   process.env.SONAR_LOOP_BRANCH ||
   `fix/sonar-batch-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
 
+const isCoverage = batch.kind === 'coverage';
 const closes = (batch.batch || [])
   .map((i) => i.githubNumber)
   .filter(Boolean)
@@ -48,7 +49,39 @@ const reviewRow = review
   ? `| LLM reviewer | ${review.verdict || 'unknown'} |`
   : '| LLM reviewer | (skipped) |';
 
-const body = `## Sonar quality loop (Jenkins)
+const coverageTargets = isCoverage
+  ? (batch.batch || [])
+      .map((i) => {
+        const file = String(i.component || '').includes(':')
+          ? String(i.component).split(':').slice(1).join(':')
+          : String(i.component || '');
+        return file ? `- \`${file}\` (${i.uncoveredLines ?? '?'} uncovered lines)` : null;
+      })
+      .filter(Boolean)
+      .join('\n')
+  : '';
+
+const body = isCoverage
+  ? `## Sonar coverage growth (Jenkins)
+
+Automated tests from \`.quality-loop/batch.json\` (\`kind: coverage\`).
+
+### Targets
+${coverageTargets || '_See batch JSON._'}
+
+## Local gates (Jenkins)
+
+| Gate | Result |
+|------|--------|
+${gateRows}
+${reviewRow}
+| Full verify | pass |
+| GitHub CI | pending |
+
+## Checks (GitHub CI)
+- typecheck, lint, test:coverage, build, depcruise
+`
+  : `## Sonar quality loop (Jenkins)
 
 Automated fix from \`.quality-loop/batch.json\`.
 
@@ -71,6 +104,10 @@ const bodyFile = path.join(root, '.quality-loop', 'pr-body.md');
 fs.mkdirSync(path.dirname(bodyFile), { recursive: true });
 fs.writeFileSync(bodyFile, body);
 
+const prTitle = isCoverage
+  ? 'test(sonar): coverage growth batch'
+  : 'fix(sonar): quality loop batch';
+
 const repo = githubRepo();
 const prUrl = execFileSync(
   'gh',
@@ -82,7 +119,7 @@ const prUrl = execFileSync(
     '--base',
     process.env.SONAR_LOOP_BASE_BRANCH || 'main',
     '--title',
-    'fix(sonar): quality loop batch',
+    prTitle,
     '--body-file',
     bodyFile,
     '--head',
