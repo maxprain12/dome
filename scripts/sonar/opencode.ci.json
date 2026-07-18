@@ -28,6 +28,32 @@
         "skill": "deny"
       }
     },
+    "sonar-coverage": {
+      "mode": "primary",
+      "description": "Sonar quality loop — add focused unit tests to raise coverage",
+      "model": "minimax/MiniMax-M3",
+      "prompt": "{file:../../.cursor/prompts/sonar-coverage-batch-ci.md}",
+      "permission": {
+        "read": "allow",
+        "edit": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "bash": {
+          "*": "deny",
+          "bash scripts/jenkins/verify-batch-pr.sh": "allow",
+          "bash scripts/jenkins/verify-batch-pr.sh *": "allow",
+          "pnpm *": "allow",
+          "npm *": "allow",
+          "node *": "allow"
+        },
+        "webfetch": "deny",
+        "websearch": "deny",
+        "task": "deny",
+        "todowrite": "deny",
+        "skill": "deny"
+      }
+    },
     "sonar-triage": {
       "mode": "primary",
       "description": "Sonar quality loop — fast batch triage (fix vs defer)",

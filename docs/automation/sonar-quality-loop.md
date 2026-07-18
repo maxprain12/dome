@@ -6,17 +6,32 @@ Automated correction loop: SonarQube → GitHub Issues → OpenCode CLI (MiniMax
 
 | Component | Role |
 |-----------|------|
-| Jenkins `dome-sonar` | Sonar analysis on push to `main` |
-| Jenkins `dome-quality-loop` | Cron hourly: sync, pick batch, validate, mechanical fix (S7735 only), **OpenCode fixer**, fast gates, full verify, **OpenCode reviewer**, PR |
-| OpenCode CLI | `sonar-fix` agent edits; `sonar-reviewer` read-only audit before PR |
+| Jenkins `dome-sonar` | Sonar analysis on push to `main` (`test:coverage` → lcov + pattern guards + scanner) |
+| Jenkins `dome-quality-loop` | Cron hourly with **modes** (`issues` / `coverage` / `hotspots`): OpenCode fixer or coverage tests → PR; post always reviews hotspots + closes resolved |
+| OpenCode CLI | `sonar-fix` (issues), `sonar-coverage` (tests), `sonar-reviewer` (read-only) |
 
 ## Jenkins setup
 
 ### Job `dome-quality-loop`
 
 - Pipeline from SCM → **`Jenkinsfile.quality-loop`**
-- Branch `*/main`
+- Branch `*/main` (merge this branch first so Jenkins picks up the new modes)
 - Cron incluido en el pipeline (`H * * * *` — cada hora, minuto aleatorio)
+- Parameter **`SONAR_LOOP_MODE`**: `auto` \| `issues` \| `coverage` \| `hotspots`
+
+### Loop modes
+
+| Mode | When (`auto`) | What it does |
+|------|----------------|--------------|
+| **issues** | UTC hour `% 3` ∈ {0, 2} | Sync GitHub issues → pick Sonar batch → triage → fix → PR |
+| **coverage** | UTC hour `% 3` == 1 | Pick files with most `uncovered_lines` → OpenCode writes tests → PR (`test/sonar-coverage-*`) |
+| **hotspots** | Manual param only | Skip fixer; post still reviews hotspots |
+
+`auto` ≈ **2/3 issues, 1/3 coverage** so coverage climbs over days without starving bug fixes.
+
+Every run (even if Fast gates fail) **post always**:
+1. `sonar:review-hotspots --apply` (SAFE / ACKNOWLEDGED classifier)
+2. `sonar:close-resolved`
 
 ### Credentials (Manage Jenkins → Credentials)
 
@@ -46,6 +61,8 @@ Variables de entorno en el job (Environment / pipeline):
 | Variable | Default |
 |----------|---------|
 | `SONAR_BATCH_SIZE` | `3` (issues por batch en pick-batch) |
+| `SONAR_COVERAGE_BATCH_SIZE` | `2` (files per coverage PR) |
+| `SONAR_LOOP_MODE` | job param / `auto` (see modes above) |
 | `SONAR_LOOP_MODEL` | `MiniMax-M3` (1M context) |
 | `SONAR_LOOP_TIMEOUT_MS` | `3000000` (50 min fixer — único límite duro del agente; sin cap de steps en OpenCode) |
 | `SONAR_REVIEW_TIMEOUT_MS` | `300000` (5 min reviewer) |
@@ -89,7 +106,7 @@ pnpm run sonar:run-agent -- --dry-run
 
 **Git commit:** el stage Verify & PR usa `stage-loop-changes.sh` — solo `app/`, `electron/`, `packages/`, `shared/`, `scripts/`, `docs/`. Nunca commitea `.jenkins-node/`, `.jenkins-tools/` ni artefactos del loop.
 
-**Salvaguarda anti-truncado:** antes del commit, `verify-loop-diff.sh` bloquea diffs que borren >200 líneas en archivos guardados (p. ej. `globals.css`, `mcp-client.cjs`).
+**Salvaguarda anti-truncado:** antes del commit, `verify-loop-diff.sh` bloquea diffs que borren >200 líneas en archivos guardados (p. ej. `globals.css`, `mcp-client.cjs`). Floor de líneas: `globals.css` ≥ 1500, `mcp-client.cjs` ≥ 400 (ajustable con env).
 
 **Cuándo corre el agente fixer:** stage *Agent fix* solo si `source-tree-clean.sh` (sin diff en código fuente). Si el fix mecánico void falla fast gates, se **revierte** (`git checkout -- .`) y el fixer corre sobre el batch.
 
@@ -97,17 +114,18 @@ pnpm run sonar:run-agent -- --dry-run
 
 ## Flujo del pipeline (tiers)
 
-1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`) — cap 50 issues abiertas
-2. Pick batch → `.quality-loop/batch.json`
-3. **Validate batch** — `pnpm run sonar:validate-batch`
-4. **Batch triage (OpenCode `sonar-triage`)** — MiniMax-M2.7-highspeed decides fix vs defer; `apply-batch-triage` filters batch
-5. Fix mecánico void (**S7735 only**) → fast gates; revert si fallan
-6. **Agent fix (OpenCode `sonar-fix`)** — si hay issues en fix subset y árbol limpio
-7. **Fast gates (parallel)** — typecheck, lint, scope, diff safety → `.quality-loop/fast-gates.json`
-8. **Full verify** — `verify-batch-pr.sh` (mirror GitHub CI)
-9. **Agent review (OpenCode `sonar-reviewer`)** — read-only; `APPROVE` required (disable with `SONAR_LOOP_REVIEWER=0`)
-10. Verify & PR — commit + push + PR (**auto-merge squash** cuando pase GitHub CI)
-11. Close resolved en Sonar (fail-soft)
+0. **Resolve mode** (`auto` / `issues` / `coverage` / `hotspots`)
+1. *(issues)* Sync Sonar → GitHub issues — cap 50
+2. Pick batch — issues (`sonar:pick-batch`) **or** coverage (`sonar:pick-coverage` via Sonar `uncovered_lines`)
+3. **Validate batch**
+4. *(issues)* **Batch triage** → filter fix vs defer
+5. *(issues)* Fix mecánico void (**S7735 only**); revert si fallan fast gates
+6. **Agent** — `sonar-fix` or `sonar-coverage` (OpenCode)
+7. **Fast gates** — typecheck, lint, scope, diff safety; on failure **revert tree** (no PR)
+8. **Full verify** — `verify-batch-pr.sh`
+9. **Agent review** — `APPROVE` required (`SONAR_LOOP_REVIEWER=0` to skip)
+10. Verify & PR — auto-merge squash
+11. **post always** — hotspots review + close resolved (fail-soft)
 
 ### Auto-merge de PRs
 
@@ -140,17 +158,22 @@ Artefacto del run: `.quality-loop/agent-run.json`.
 ## Scripts
 
 ```bash
+pnpm run sonar:resolve-mode
 pnpm run sonar:fetch-issues
 pnpm run sonar:sync-github
 pnpm run sonar:pick-batch
+pnpm run sonar:pick-coverage
 pnpm run sonar:validate-batch
 pnpm run sonar:run-triage
 pnpm run sonar:apply-triage
 pnpm run sonar:fast-gates
-pnpm run sonar:run-agent
+pnpm run sonar:run-agent          # picks sonar-fix vs sonar-coverage from batch.kind
 pnpm run sonar:run-reviewer
+pnpm run sonar:review-hotspots -- --apply=true
 pnpm run sonar:close-resolved
 ```
+
+Coverage + hotspots background: [sonar-hotspots-and-coverage.md](./sonar-hotspots-and-coverage.md)
 
 Config OpenCode CI: [`scripts/sonar/opencode.ci.json`](../../scripts/sonar/opencode.ci.json)  
 Prompt del agente fixer: [`.cursor/prompts/sonar-fix-batch-ci.md`](../.cursor/prompts/sonar-fix-batch-ci.md)  
@@ -185,4 +208,4 @@ When a batch discovers a new recurring smell, extend the doc + checker + tests i
 
 ## Quality Gate
 
-Ver [sonar-quality-gate.md](./sonar-quality-gate.md).
+Ver [sonar-quality-gate.md](./sonar-quality-gate.md) y [sonar-hotspots-and-coverage.md](./sonar-hotspots-and-coverage.md) (Coverage + Hotspots Reviewed).

@@ -10,6 +10,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildOpencodeCoveragePrompt } from './build-opencode-coverage-prompt.mjs';
 import { buildOpencodePrompt } from './build-opencode-prompt.mjs';
 import { parseArgs } from './lib.mjs';
 
@@ -38,14 +39,27 @@ function writeAgentRun(payload) {
   fs.writeFileSync(path.join(outDir, 'agent-run.json'), `${JSON.stringify(payload, null, 2)}\n`);
 }
 
+function loadBatchKind() {
+  try {
+    const payload = JSON.parse(fs.readFileSync(batchPath, 'utf8'));
+    return payload.kind === 'coverage' ? 'coverage' : 'issues';
+  } catch {
+    return 'issues';
+  }
+}
+
 if (args['dry-run'] === 'true' || args['dry-run'] === true) {
   requireOpencode();
+  const kind = fs.existsSync(batchPath) ? loadBatchKind() : 'issues';
+  const preview =
+    kind === 'coverage' ? buildOpencodeCoveragePrompt(batchPath) : buildOpencodePrompt(batchPath);
   console.log('[SonarLoop] engine: opencode');
   console.log('[SonarLoop] config:', opencodeConfig);
   console.log('[SonarLoop] model: minimax/' + model);
+  console.log('[SonarLoop] kind:', kind);
   console.log('[SonarLoop] batch:', batchPath);
   console.log('[SonarLoop] prompt preview:\n');
-  console.log(buildOpencodePrompt(batchPath).slice(0, 800));
+  console.log(preview.slice(0, 800));
   process.exit(0);
 }
 
@@ -61,11 +75,18 @@ if (!process.env.MINIMAX_API_KEY) {
 
 requireOpencode();
 
-const prompt = buildOpencodePrompt(batchPath);
+const batchKind = loadBatchKind();
+const agentName = batchKind === 'coverage' ? 'sonar-coverage' : 'sonar-fix';
+const prompt =
+  batchKind === 'coverage'
+    ? buildOpencodeCoveragePrompt(batchPath)
+    : buildOpencodePrompt(batchPath);
 const startedAt = new Date().toISOString();
 
 console.log('[SonarLoop] engine: opencode');
 console.log('[SonarLoop] model: minimax/' + model);
+console.log('[SonarLoop] kind:', batchKind);
+console.log('[SonarLoop] agent:', agentName);
 console.log('[SonarLoop] batch:', batchPath);
 console.log('[SonarLoop] config:', opencodeConfig);
 
@@ -82,7 +103,7 @@ const opencodeArgs = [
   'run',
   '--auto',
   '--agent',
-  'sonar-fix',
+  agentName,
   '--model',
   `minimax/${model}`,
   '--file',
@@ -116,6 +137,8 @@ writeAgentRun({
   finishedAt: new Date().toISOString(),
   provider: 'minimax',
   model,
+  kind: batchKind,
+  agent: agentName,
   exitCode,
   error,
   stdout: stdout.slice(-8000),

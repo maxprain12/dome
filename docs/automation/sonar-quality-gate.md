@@ -33,5 +33,6 @@ For GitHub Actions on `pull_request`, set env from `github.event`.
 ## Metrics to track weekly
 
 - OPEN HIGH count (target: −20 in first 2 weeks)
-- Coverage % on `packages/agent-core` + `electron/__tests__`
+- Coverage % on `packages/agent-core` + `electron/__tests__` + renderer (`app/`) + `@dome/ai` — see [sonar-hotspots-and-coverage.md](./sonar-hotspots-and-coverage.md)
+- Security Hotspots Reviewed (UI card **Hotspots Reviewed**): mark Safe / Fixed / Acknowledged; script `pnpm run sonar:review-hotspots`
 - GitHub issues closed with label `sonar`

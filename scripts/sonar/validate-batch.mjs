@@ -58,6 +58,8 @@ if (issues.length === 0) {
   process.exit(1);
 }
 
+const isCoverage = payload.kind === 'coverage';
+
 let fail = 0;
 const unknownRules = new Set();
 
@@ -89,12 +91,16 @@ for (let i = 0; i < issues.length; i++) {
     }
   }
 
-  if (rule && !isKnownRule(String(rule))) {
+  if (isCoverage) {
+    if (rule && rule !== 'dome:COVERAGE') {
+      console.warn(`WARN: coverage batch unexpected rule: ${rule}`);
+    }
+  } else if (rule && !isKnownRule(String(rule))) {
     unknownRules.add(String(rule));
   }
 }
 
-if (unknownRules.size > 0) {
+if (!isCoverage && unknownRules.size > 0) {
   console.warn(
     `WARN: unknown rule(s) in batch (agent-only, no mechanical): ${[...unknownRules].join(', ')}`,
   );

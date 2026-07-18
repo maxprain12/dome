@@ -237,13 +237,43 @@ export function isVoidOperatorRule(rule) {
   return r.endsWith(':S7735') || r.includes('no-void');
 }
 
-/** @param {{ batch?: Array<{ component?: string }> }} batchPayload */
+/**
+ * Colocated / conventional test paths implied by a source file (coverage batches).
+ * @param {string} file
+ */
+export function impliedTestFiles(file) {
+  const f = String(file || '');
+  if (!f || /\.test\.(ts|tsx|mjs|cjs|js)$/.test(f)) return [];
+  const base = f.replace(/\.(tsx?|mjs|cjs|js)$/, '');
+  /** @type {string[]} */
+  const out = [];
+  if (f.startsWith('app/')) {
+    out.push(`${base}.test.ts`, `${base}.test.tsx`);
+  } else if (f.startsWith('electron/')) {
+    const name = base.split('/').pop();
+    out.push(`electron/__tests__/${name}.test.mjs`, `${base}.test.mjs`);
+  } else if (f.startsWith('packages/')) {
+    out.push(`${base}.test.ts`);
+  }
+  return out;
+}
+
+/** @param {{ kind?: string, batch?: Array<{ component?: string, testFile?: string }>, extraFiles?: string[] }} batchPayload */
 export function batchAllowedFiles(batchPayload) {
   /** @type {Set<string>} */
   const files = new Set();
   for (const issue of batchPayload.batch || []) {
     const file = componentToRelativePath(issue.component);
-    if (file) files.add(file);
+    if (file) {
+      files.add(file);
+      if (batchPayload.kind === 'coverage') {
+        for (const t of impliedTestFiles(file)) files.add(t);
+      }
+    }
+    if (issue.testFile) files.add(String(issue.testFile));
+  }
+  for (const f of batchPayload.extraFiles || []) {
+    if (f) files.add(String(f));
   }
   return files;
 }

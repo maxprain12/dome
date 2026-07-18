@@ -59,6 +59,13 @@ pipeline {
           steps {
             sh 'pnpm run build:packages'
             sh 'pnpm run test:coverage'
+            sh 'test -s coverage/lcov.info && wc -l coverage/lcov.info'
+          }
+        }
+        stage('Sonar pattern guards') {
+          steps {
+            sh 'pnpm run test:sonar-patterns'
+            sh 'pnpm run check:sonar-patterns'
           }
         }
       }
@@ -75,6 +82,7 @@ pipeline {
 
   post {
     always {
+      archiveArtifacts artifacts: 'coverage/lcov.info,coverage/**/lcov.info', allowEmptyArchive: true
       cleanWs()
     }
   }
