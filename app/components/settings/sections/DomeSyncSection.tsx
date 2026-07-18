@@ -52,8 +52,7 @@ export default function DomeSyncSection() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadDomainStatus().finally(() => setLoading(false));
+  useEffect(() => { loadDomainStatus().finally(() => setLoading(false));
   }, [loadDomainStatus]);
 
   useEffect(() => {
@@ -70,9 +69,7 @@ export default function DomeSyncSection() {
     try {
       const result = await window.electron.domeAuth.startOAuthFlow();
       if (result.success) {
-        showToast('success', t('settings.domain_sync.connected_to_dome'));
-        void session.refresh();
-        void loadDomainStatus();
+        showToast('success', t('settings.domain_sync.connected_to_dome')); session.refresh(); loadDomainStatus();
       } else {
         showToast('error', result.error ?? t('settings.domain_sync.connect_error'));
       }
@@ -138,7 +135,7 @@ export default function DomeSyncSection() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button type="button" onClick={() => void handleConnect()} disabled={connectingOAuth}>
+            <Button type="button" onClick={() => handleConnect()} disabled={connectingOAuth}>
               {connectingOAuth ? <Spinner data-icon="inline-start" /> : null}
               {connectingOAuth ? 'Conectando…' : 'Iniciar sesión en Dome'}
             </Button>
@@ -186,7 +183,7 @@ export default function DomeSyncSection() {
                 variant="outline"
                 size="sm"
                 disabled={domainSyncing}
-                onClick={() => void syncDomainsNow()}
+                onClick={() => syncDomainsNow()}
               >
                 {domainSyncing ? (
                   <Spinner data-icon="inline-start" />
@@ -204,7 +201,7 @@ export default function DomeSyncSection() {
                 control={
                   <Switch
                     checked={domainState[domain]?.enabled !== false}
-                    onCheckedChange={(checked) => void toggleDomain(domain, checked)}
+                    onCheckedChange={(checked) => toggleDomain(domain, checked)}
                     aria-label={t(labelKey)}
                   />
                 }
@@ -221,8 +218,7 @@ export default function DomeSyncSection() {
               onClick={async () => {
                 const result = await window.electron?.domeAuth?.disconnect?.();
                 if (result?.success) {
-                  showToast('success', t('settings.domain_sync.disconnected_from_dome'));
-                  void session.refresh();
+                  showToast('success', t('settings.domain_sync.disconnected_from_dome')); session.refresh();
                 }
               }}
             >

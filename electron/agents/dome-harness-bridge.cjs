@@ -5,8 +5,8 @@
  * Owns JSONL session storage, skills loading, and MCP → AgentTool conversion.
  */
 
-const path = require('path');
-const os = require('os');
+const path = require('node:path');
+const os = require('node:os');
 
 const SESSION_CWD = 'dome';
 

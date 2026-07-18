@@ -40,7 +40,7 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
         const title = String(row.title || '').trim();
         if (title && title.toLowerCase() !== 'untitled') return;
 
-        const fs = require('fs');
+        const fs = require('node:fs');
         const { getIndexableText } = require('../services/resource-text.cjs');
 
         let imageDataUrl = null;

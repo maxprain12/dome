@@ -498,7 +498,7 @@ export default function EmailSection() {
                   variant="ghost"
                   size="icon-sm"
                   className="text-destructive"
-                  onClick={() => void handleRemove(acc.id)}
+                  onClick={() => handleRemove(acc.id)}
                   title={t('email.settings.remove')}
                   aria-label={t('email.settings.remove')}
                 >
@@ -509,8 +509,7 @@ export default function EmailSection() {
               <EmailPermissionsEditor
                 userActions={acc.user_actions ?? DEFAULT_USER_ACTIONS}
                 agentActions={acc.agent_actions ?? DEFAULT_AGENT_ACTIONS}
-                onChange={(user_actions, agent_actions) =>
-                  void saveAccountPermissions(acc.id, user_actions, agent_actions)
+                onChange={(user_actions, agent_actions) => saveAccountPermissions(acc.id, user_actions, agent_actions)
                 }
               />
             </SettingsRow>
@@ -624,7 +623,7 @@ export default function EmailSection() {
             ) : null}
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Button type="button" disabled={busy} onClick={() => void handleTest()}>
+              <Button type="button" disabled={busy} onClick={() => handleTest()}>
                 {testState === 'testing' ? (
                   <Spinner data-icon="inline-start" />
                 ) : (
@@ -632,7 +631,7 @@ export default function EmailSection() {
                 )}
                 {t('email.settings.test_and_save')}
               </Button>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => void handleAdd()}>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => handleAdd()}>
                 {t('email.settings.save_without_test')}
               </Button>
               <Button

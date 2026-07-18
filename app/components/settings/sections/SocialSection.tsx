@@ -92,9 +92,8 @@ export default function SocialSection() {
     if (accountsRes?.success) setAccounts(accountsRes.data);
   }, []);
 
-  useEffect(() => {
-    void load();
-    const unsub = window.electron?.on?.('social:account-updated', () => void load());
+  useEffect(() => { load();
+    const unsub = window.electron?.on?.('social:account-updated', () => load());
     return () => unsub?.();
   }, [load]);
 
@@ -142,7 +141,7 @@ export default function SocialSection() {
               type="number"
               value={oauthPort}
               onChange={(e) => setOauthPort(Number(e.target.value) || 8737)}
-              onBlur={() => void savePort(oauthPort)}
+              onBlur={() => savePort(oauthPort)}
               className="w-28"
             />
           }
@@ -271,8 +270,7 @@ function ProviderGroup({
     (a) => a.provider === 'linkedin' && (a.accountKind || 'member') === 'member',
   );
 
-  const copyRedirect = () => {
-    void navigator.clipboard?.writeText(status.redirectUri);
+  const copyRedirect = () => { navigator.clipboard?.writeText(status.redirectUri);
   };
 
   const configured =
@@ -368,7 +366,7 @@ function ProviderGroup({
                       <Checkbox
                         checked={Boolean(acc.cloudPublishing)}
                         disabled={cloudBusyId === acc.id}
-                        onCheckedChange={(checked) => void toggleCloudPublishing(acc.id, checked)}
+                        onCheckedChange={(checked) => toggleCloudPublishing(acc.id, checked)}
                       />
                       <span>{t('social.settings.cloud_publishing')}</span>
                     </label>
@@ -388,7 +386,7 @@ function ProviderGroup({
                     variant="ghost"
                     size="icon-sm"
                     className="text-destructive"
-                    onClick={() => void disconnect(acc.id)}
+                    onClick={() => disconnect(acc.id)}
                     title={t('social.settings.disconnect')}
                     aria-label={t('social.settings.disconnect')}
                   >
@@ -406,7 +404,7 @@ function ProviderGroup({
             variant="outline"
             size="sm"
             className="self-start text-primary"
-            onClick={() => void syncLinkedInOrgs(linkedInMemberAccount.id)}
+            onClick={() => syncLinkedInOrgs(linkedInMemberAccount.id)}
             disabled={syncingOrgs}
           >
             {syncingOrgs ? (
@@ -425,7 +423,7 @@ function ProviderGroup({
             <Checkbox
               aria-label={t('social.settings.linkedin_org_enabled')}
               checked={orgEnabled}
-              onCheckedChange={() => void toggleOrgEnabled()}
+              onCheckedChange={() => toggleOrgEnabled()}
               disabled={saving}
               className="mt-0.5"
             />
@@ -496,7 +494,7 @@ function ProviderGroup({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void saveConfig()}
+            onClick={() => saveConfig()}
             disabled={saving}
           >
             {saving ? <Spinner data-icon="inline-start" /> : null}
@@ -505,7 +503,7 @@ function ProviderGroup({
           <Button
             type="button"
             size="sm"
-            onClick={() => void connectOAuth()}
+            onClick={() => connectOAuth()}
             disabled={connecting || !configured}
           >
             {connecting ? t('social.settings.connecting') : t('social.settings.connect_oauth')}
@@ -537,7 +535,7 @@ function ProviderGroup({
             <Button
               type="button"
               size="sm"
-              onClick={() => void connectToken()}
+              onClick={() => connectToken()}
               disabled={connecting || !manualToken.trim()}
             >
               {t('social.settings.connect')}

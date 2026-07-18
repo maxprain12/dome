@@ -75,8 +75,7 @@ function useEmbeddingStatus(pausePolling: boolean) {
     }
   }, []);
 
-  useEffect(() => {
-    void loadEmbedStatus();
+  useEffect(() => { loadEmbedStatus();
     const interval = setInterval(() => {
       if (!pausePolling) void loadEmbedStatus();
     }, 8000);
@@ -117,8 +116,7 @@ function useFullSync(loadEmbedStatus: () => Promise<void>, t: TranslateFn) {
     const off = window.electron.on('indexing:full-sync-progress', (data: FullSyncProgressPayload) => {
       setFullSyncProgress(data);
       if (data.phase === 'finished') {
-        setFullSyncBusy(false);
-        void loadEmbedStatus();
+        setFullSyncBusy(false); loadEmbedStatus();
       }
     });
     return () => {
@@ -146,8 +144,7 @@ function useFullSync(loadEmbedStatus: () => Promise<void>, t: TranslateFn) {
       setLastError(toErrorMessage(e));
     } finally {
       setFullSyncBusy(false);
-      setFullSyncProgress(null);
-      void loadEmbedStatus();
+      setFullSyncProgress(null); loadEmbedStatus();
     }
   };
 
@@ -181,8 +178,7 @@ function useSemanticReindex({
       setEmbedError(toErrorMessage(e));
     } finally {
       setEmbedReindexBusy(false);
-      setEmbedProgress(null);
-      void loadEmbedStatus();
+      setEmbedProgress(null); loadEmbedStatus();
     }
   };
 
@@ -224,8 +220,7 @@ export default function IndexingSection() {
   }, [libraryBusy]);
 
   const handleRefresh = () => {
-    setEmbedLoading(true);
-    void loadEmbedStatus();
+    setEmbedLoading(true); loadEmbedStatus();
   };
 
   const fullSyncPercent = computeFullSyncPercent(fullSyncProgress);
@@ -241,7 +236,7 @@ export default function IndexingSection() {
           title={t('settings.indexing.full_sync_title')}
           description={t('settings.indexing.full_sync_hint')}
           control={
-            <Button type="button" size="sm" disabled={libraryBusy} onClick={() => void handleFullSync()}>
+            <Button type="button" size="sm" disabled={libraryBusy} onClick={() => handleFullSync()}>
               {fullSyncBusy ? (
                 <Spinner data-icon="inline-start" />
               ) : (
@@ -310,7 +305,7 @@ export default function IndexingSection() {
               <Button
                 type="button"
                 size="sm"
-                onClick={() => void handleSemanticReindexAll()}
+                onClick={() => handleSemanticReindexAll()}
                 disabled={libraryBusy}
               >
                 {embedReindexBusy ? (
