@@ -1,0 +1,26 @@
+---
+description: Avoid Sonar anti-patterns learned from quality campaigns (P-011)
+alwaysApply: true
+---
+
+# Sonar clean code (P-011)
+
+Full table: [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md). CI: `pnpm run check:sonar-patterns`.
+
+When writing or reviewing code, **do not introduce**:
+
+1. **`postMessage(..., '*')`** in app TS/TSX — use an explicit origin (`'null'` for opaque srcdoc frames).
+2. **`.sort()` with no compare** for strings/ids — use `localeCompare` or numeric comparator.
+3. **`=> void expr`** in handlers — see `no-void-operator.mdc`; prefer block + `.catch()` for async.
+4. **`require('fs'|'path'|'crypto'|…)`** in electron/shared — use `require('node:…')` (S7772).
+5. **`String(x) ??` / `Number(x) ??`** — left side is never nullish (S6638).
+6. **Identical ternary branches** `cond ? a : a` (S3923).
+7. **`{count && <Jsx/>}`** when `count` is a number — use `!!count` or `count > 0` (S6439).
+8. **`$1` in `.replace`** without a capturing group (S6328).
+9. **`font-weight` before `font:`** shorthand in CSS (S4657).
+
+Prefer `globalThis` / `globalThis.window` over bare `window` in the renderer (S7764).
+
+Do not “fix” Sonar SECURITY FPs (password in i18n keys, private IP allowlists) with insecure changes — Accept in Sonar with a comment.
+
+New recurring Sonar lessons → update `docs/automation/sonar-clean-code.md` + the checker + its tests in the same PR.

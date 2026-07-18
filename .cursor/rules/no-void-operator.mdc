@@ -6,6 +6,8 @@ alwaysApply: false
 
 # No void operator in handlers
 
+Part of **P-011** — see [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md) and `pnpm run check:sonar-patterns -- --diff=origin/main`.
+
 Sonar rule: remove unnecessary `void` in callbacks.
 
 **Sync handler** (returns void):

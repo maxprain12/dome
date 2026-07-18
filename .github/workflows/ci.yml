@@ -89,6 +89,17 @@ jobs:
       - name: Design system ratchet (hardcoded colors)
         run: pnpm run check:design-system
 
+      - name: Sonar clean-code patterns (P-011)
+        run: |
+          pnpm run test:sonar-patterns
+          # Strict rules always; on PRs also progressive rules on the diff
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            pnpm run check:sonar-patterns -- --diff="origin/${{ github.base_ref }}"
+          else
+            pnpm run check:sonar-patterns
+          fi
+
       - name: asarUnpack guard (native addons & bundled binaries)
         run: pnpm run check:asar-unpack
 

@@ -44,6 +44,8 @@
     "check:asar-unpack": "node scripts/check-asar-unpack.cjs",
     "check:prompts-martin": "node scripts/check-no-martin-prompts.mjs",
     "check:prompt-tool-parity": "node scripts/check-prompt-tool-parity.mjs",
+    "check:sonar-patterns": "node scripts/check-sonar-patterns.mjs",
+    "test:sonar-patterns": "node --test scripts/__tests__/check-sonar-patterns.test.mjs",
     "test:many-thread-bridge": "tsx --test scripts/test-many-thread-bridge.mts",
     "test:streaming-snapshot": "tsx --test scripts/test-streaming-snapshot.mts",
     "test:execution-log-display": "tsx --test scripts/test-execution-log-display.mts",

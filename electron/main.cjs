@@ -158,7 +158,10 @@ if (process.platform !== 'win32') {
         // Fallback: add the latest installed NVM version
         const nvmVersionsDir = path.join(home, '.nvm', 'versions', 'node');
         if (fs.existsSync(nvmVersionsDir)) {
-          const versions = fs.readdirSync(nvmVersionsDir).sort().reverse();
+          const versions = fs
+            .readdirSync(nvmVersionsDir)
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+            .reverse();
           if (versions.length > 0) {
             const nvmBin = path.join(nvmVersionsDir, versions[0], 'bin');
             if (!currentParts.includes(nvmBin)) currentParts.push(nvmBin);

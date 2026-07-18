@@ -354,6 +354,7 @@ When replacing or rewriting a component, **never leave residual code behind**:
 5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
 6. **Native addons / bundled binaries**: Any new dep with a `.node` addon or a spawned executable MUST be added to `asarUnpack` (and `after-pack.cjs` `criticalModules`), and its path rewritten from `app.asar` → `app.asar.unpacked` before `spawn`. See **Build & Packaging → asarUnpack**. Forgetting this crashes the packaged app only (dev is fine).
 7. **Residual components**: no `*V2`/`*New` names, no deprecated alias re-exports, no dead variants — delete the old component before creating its replacement. See **Component Lifecycle — No Residual Code**.
+8. **Sonar regressions (P-011)**: do not reintroduce patterns in [docs/automation/sonar-clean-code.md](docs/automation/sonar-clean-code.md) (`void` in handlers, bare `.sort()`, `require('fs')` without `node:`, `postMessage('*')`, identical ternaries, etc.). Local/CI: `pnpm run check:sonar-patterns` and `pnpm run test:sonar-patterns`.
 
 ## File-based skills (Claude / Agent Skills)
 
@@ -370,6 +371,8 @@ Skills are **SKILL.md** files. Every agent (Many, agent-chat, agent-team, workfl
 - `.claude/rules/architecture-rules.md` — Critical architecture rules
 - `.claude/rules/electron-best-practices.md` — Electron patterns and security
 - `.claude/rules/dome-style-guide.md` — Code style (note: any legacy "Next.js" mention in that file may be outdated)
+- `docs/automation/sonar-clean-code.md` — Sonar anti-patterns (P-011) + CI guards
+- `.cursor/rules/sonar-clean-code.mdc` — always-on agent rule for the above
 
 ## Standard Operating Procedures (SOPs)
 

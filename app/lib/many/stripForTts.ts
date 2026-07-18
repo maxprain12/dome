@@ -4,7 +4,7 @@ export function stripForTts(text: string): string {
     text
       .replace(/```[\s\S]*?```/g, ' ')
       .replace(/`[^`]+`/g, ' ')
-      .replace(/\[[^\]]*]\([^)]*\)/g, '$1')
+      .replace(/\[[^\]]*]\([^)]*\)/g, ' ')
       .replace(/\*\*?|__/g, '')
       .replace(/^#+\s+/gm, '')
       .replace(/\n+/g, ' ')
