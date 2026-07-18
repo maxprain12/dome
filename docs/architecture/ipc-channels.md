@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-18T20:05:27.386Z
+> Última generación: 2026-07-18T20:10:48.746Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -119,9 +119,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `calendar:setSettings` | `electron/ipc/integrations/calendar.cjs:147` |
 | `calendar:syncNow` | `electron/ipc/integrations/calendar.cjs:106` |
 | `calendar:updateEvent` | `electron/ipc/integrations/calendar.cjs:78` |
-| `claude:auth:disconnect` | `electron/ipc/integrations/claude-oauth.cjs:40` |
-| `claude:auth:login` | `electron/ipc/integrations/claude-oauth.cjs:13` |
-| `claude:auth:status` | `electron/ipc/integrations/claude-oauth.cjs:29` |
+| `claude:auth:disconnect` | `electron/ipc/integrations/claude-oauth.cjs:50` |
+| `claude:auth:login` | `electron/ipc/integrations/claude-oauth.cjs:17` |
+| `claude:auth:status` | `electron/ipc/integrations/claude-oauth.cjs:36` |
 | `cloud:auth-google` | `electron/ipc/sync/cloud-storage.cjs:273` |
 | `cloud:disconnect` | `electron/ipc/sync/cloud-storage.cjs:378` |
 | `cloud:get-accounts` | `electron/ipc/sync/cloud-storage.cjs:254` |
@@ -405,9 +405,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:269` |
 | `open-external-url` | `electron/ipc/core/system.cjs:173` |
 | `open-path` | `electron/ipc/core/system.cjs:147` |
-| `openai-codex:auth:disconnect` | `electron/ipc/integrations/openai-codex-oauth.cjs:48` |
-| `openai-codex:auth:login` | `electron/ipc/integrations/openai-codex-oauth.cjs:14` |
-| `openai-codex:auth:status` | `electron/ipc/integrations/openai-codex-oauth.cjs:37` |
+| `openai-codex:auth:disconnect` | `electron/ipc/integrations/openai-codex-oauth.cjs:58` |
+| `openai-codex:auth:login` | `electron/ipc/integrations/openai-codex-oauth.cjs:18` |
+| `openai-codex:auth:status` | `electron/ipc/integrations/openai-codex-oauth.cjs:44` |
 | `pdf:render-page` | `electron/ipc/media/pdf-render.cjs:15` |
 | `people:get` | `electron/ipc/integrations/people.cjs:26` |
 | `people:linkIdentity` | `electron/ipc/integrations/people.cjs:62` |
