@@ -24,6 +24,85 @@ import { Spinner } from '@/components/ui/spinner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
+type GitHubRepo = ReturnType<typeof useGitHubStore.getState>['repos'][number];
+
+function buildSyncDescription(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  syncError: string | null,
+  syncStatus: string,
+  isSyncing: boolean,
+  lastSync: number | null,
+): string {
+  if (syncError && syncStatus === 'error') return t('github.sync_error', { error: syncError });
+  if (isSyncing) return t('github.syncing');
+  if (lastSync) {
+    return t('github.dash_subtitle_synced', {
+      time: new Date(lastSync).toLocaleString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: 'numeric',
+        month: 'short',
+      }),
+    });
+  }
+  return t('github.dash_subtitle');
+}
+
+function GitHubSyncBadge({
+  syncStatus,
+  isSyncing,
+  t,
+}: {
+  syncStatus: string;
+  isSyncing: boolean;
+  t: (key: string) => string;
+}) {
+  if (syncStatus === 'error') {
+    return <Badge variant="destructive">{t('github.sync_badge_error')}</Badge>;
+  }
+  if (isSyncing) {
+    return <Badge variant="mint">{t('github.sync_badge_syncing')}</Badge>;
+  }
+  return null;
+}
+
+function getSelectedRepoLabel(
+  selectedRepo: GitHubRepo | null,
+  selectedRepos: GitHubRepo[],
+  t: (key: string) => string,
+): string {
+  if (selectedRepo?.full_name) return selectedRepo.full_name;
+  if (selectedRepos.length === 0) return t('github.select_repos_in_settings');
+  return t('github.tab_title');
+}
+
+function GitHubDetailSidebar({
+  openIssueId,
+  openMilestoneId,
+  onCloseIssue,
+  onCloseMilestone,
+  onOpenIssueFromMilestone,
+}: {
+  openIssueId: string | null;
+  openMilestoneId: string | null;
+  onCloseIssue: () => void;
+  onCloseMilestone: () => void;
+  onOpenIssueFromMilestone: (issueId: string) => void;
+}) {
+  return (
+    <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-l bg-background studio-view-enter md:w-80 lg:w-[28rem]">
+      {openMilestoneId ? (
+        <MilestoneDetailModal
+          milestoneId={openMilestoneId}
+          onClose={onCloseMilestone}
+          onOpenIssue={onOpenIssueFromMilestone}
+        />
+      ) : null}
+      {openIssueId ? <IssueDetailPanel issueId={openIssueId} onClose={onCloseIssue} /> : null}
+    </div>
+  );
+}
+
 export default function GitHubView() {
   const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
@@ -53,21 +132,10 @@ export default function GitHubView() {
     void syncNow(projectId).finally(() => setManualSyncing(false));
   }, [isSyncing, projectId, syncNow]);
 
-  const syncDescription = useMemo(() => {
-    if (syncError && syncStatus === 'error') return t('github.sync_error', { error: syncError });
-    if (isSyncing) return t('github.syncing');
-    if (lastSync) {
-      return t('github.dash_subtitle_synced', {
-        time: new Date(lastSync).toLocaleString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          day: 'numeric',
-          month: 'short',
-        }),
-      });
-    }
-    return t('github.dash_subtitle');
-  }, [isSyncing, lastSync, syncError, syncStatus, t]);
+  const syncDescription = useMemo(
+    () => buildSyncDescription(t, syncError, syncStatus, isSyncing, lastSync),
+    [isSyncing, lastSync, syncError, syncStatus, t],
+  );
 
   useEffect(() => {
     void init(projectId);
@@ -126,11 +194,7 @@ export default function GitHubView() {
           className="w-full"
           actions={
             <>
-              {syncStatus === 'error' ? (
-                <Badge variant="destructive">{t('github.sync_badge_error')}</Badge>
-              ) : isSyncing ? (
-                <Badge variant="mint">{t('github.sync_badge_syncing')}</Badge>
-              ) : null}
+              <GitHubSyncBadge syncStatus={syncStatus} isSyncing={isSyncing} t={t} />
               <SectionGuideHelp sectionKey="github" />
               <Button type="button" variant="outline" size="sm" disabled={isSyncing} onClick={handleSyncClick}>
                 {isSyncing ? (
@@ -171,10 +235,7 @@ export default function GitHubView() {
                 <span className="flex min-w-0 items-center gap-1.5">
                   <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="truncate">
-                    {selectedRepo?.full_name ??
-                      (selectedRepos.length === 0
-                        ? t('github.select_repos_in_settings')
-                        : t('github.tab_title'))}
+                    {getSelectedRepoLabel(selectedRepo, selectedRepos, t)}
                   </span>
                 </span>
                 <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -250,21 +311,16 @@ export default function GitHubView() {
         </div>
 
         {detailOpen ? (
-          <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-l bg-background studio-view-enter md:w-80 lg:w-[28rem]">
-            {openMilestoneId ? (
-              <MilestoneDetailModal
-                milestoneId={openMilestoneId}
-                onClose={() => setOpenMilestoneId(null)}
-                onOpenIssue={(id) => {
-                  setOpenMilestoneId(null);
-                  setOpenIssueId(id);
-                }}
-              />
-            ) : null}
-            {openIssueId ? (
-              <IssueDetailPanel issueId={openIssueId} onClose={() => setOpenIssueId(null)} />
-            ) : null}
-          </div>
+          <GitHubDetailSidebar
+            openIssueId={openIssueId}
+            openMilestoneId={openMilestoneId}
+            onCloseIssue={() => setOpenIssueId(null)}
+            onCloseMilestone={() => setOpenMilestoneId(null)}
+            onOpenIssueFromMilestone={(id) => {
+              setOpenMilestoneId(null);
+              setOpenIssueId(id);
+            }}
+          />
         ) : null}
       </div>
     </div>
