@@ -76,7 +76,7 @@ function MainApp() {
     const unsub = subscribeSettingsCloudUpdates((payload) => {
       const keys = payload?.keys ?? [];
       if (keys.some((k) => k.startsWith('ai_') || k.startsWith('ollama_') || k.startsWith('embeddings_'))) {
-        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+        globalThis.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
       }
     });
     return unsub;
@@ -84,18 +84,19 @@ function MainApp() {
 
   // Handle dome://studio/ID deep links
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsubscribe = window.electron.on('dome:open-studio-output', async (data: { outputId?: string }) => {
+    const win = globalThis.window;
+    if (!win?.electron?.on) return;
+    const unsubscribe = win.electron.on('dome:open-studio-output', async (data: { outputId?: string }) => {
       const outputId = data?.outputId;
-      if (!outputId || !window.electron?.db?.studio?.getById) return;
+      if (!outputId || !win.electron?.db?.studio?.getById) return;
       try {
-        const result = await window.electron.db.studio.getById(outputId);
+        const result = await win.electron.db.studio.getById(outputId);
         if (result?.success && result.data) {
           const output = result.data as StudioOutput;
           addStudioOutput(output);
           setActiveStudioOutput(output);
           setHomeSidebarSection('studio');
-          const projResult = await window.electron.db.projects.getById(output.project_id);
+          const projResult = await win.electron.db.projects.getById(output.project_id);
           if (projResult?.success && projResult.data) {
             setCurrentProject(projResult.data);
           }
@@ -111,8 +112,9 @@ function MainApp() {
 
   // Handle dome://resource/ID deep links
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsub = window.electron.on('dome:open-resource-in-tab', (data: { resourceId: string; resourceType: string; title: string }) => {
+    const win = globalThis.window;
+    if (!win?.electron?.on) return;
+    const unsub = win.electron.on('dome:open-resource-in-tab', (data: { resourceId: string; resourceType: string; title: string }) => {
       useTabStore.getState().openResourceTab(data.resourceId, data.resourceType, data.title || t('app.resource'));
     });
     return () => unsub?.();
@@ -120,8 +122,9 @@ function MainApp() {
 
   // Main process: open built-in singleton tabs
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsub = window.electron.on('dome:open-singleton-tab', (data: { tab?: string }) => {
+    const win = globalThis.window;
+    if (!win?.electron?.on) return;
+    const unsub = win.electron.on('dome:open-singleton-tab', (data: { tab?: string }) => {
       const tab = String(data?.tab || '').toLowerCase();
       const ts = useTabStore.getState();
       switch (tab) {
@@ -161,8 +164,9 @@ function MainApp() {
 
   // PPT background generation notifications
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsubCreated = window.electron.on(
+    const win = globalThis.window;
+    if (!win?.electron?.on) return;
+    const unsubCreated = win.electron.on(
       'ppt:created',
       (data: { resource: { id: string; title: string }; title: string }) => {
         const name = data?.resource?.title || data?.title || 'Presentación';
