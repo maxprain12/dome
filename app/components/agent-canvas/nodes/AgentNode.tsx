@@ -17,7 +17,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import type { AgentNodeData, SystemAgentRole } from '@/types/canvas';
-import { SYSTEM_AGENTS } from '@/lib/agent-canvas/system-agents';
+import { SYSTEM_AGENTS, type SystemAgentDefinition } from '@/lib/agent-canvas/system-agents';
 import { canvasSystemAgentDescKey } from '@/lib/agent-canvas/canvas-layout';
 
 const Search = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
@@ -54,6 +54,165 @@ const STATUS_COLORS = {
   done: { header: 'var(--success-bg)', textColor: 'var(--success)' },
   error: { header: 'color-mix(in srgb, var(--destructive) 12%, transparent)', textColor: 'var(--destructive)' },
 };
+
+type StatusColors = (typeof STATUS_COLORS)[keyof typeof STATUS_COLORS];
+
+function resolveAgentNodeChrome(
+  selected: boolean,
+  isSystemAgent: boolean,
+  systemDef: SystemAgentDefinition | null,
+  colors: StatusColors,
+) {
+  const accent = isSystemAgent && systemDef ? systemDef.color : 'var(--primary)';
+  const headerBg =
+    isSystemAgent && systemDef
+      ? `color-mix(in srgb, ${systemDef.color} 10%, var(--background))`
+      : colors.header;
+  const borderColor =
+    selected && isSystemAgent && systemDef
+      ? systemDef.color
+      : selected
+        ? 'var(--primary)'
+        : 'var(--border)';
+  const boxShadow = selected
+    ? `0 0 0 2px color-mix(in srgb, ${accent} 18%, transparent)`
+    : 'none';
+  return { headerBg, borderColor, boxShadow, accent };
+}
+
+function AgentNodeAvatar({
+  data,
+  isSystemAgent,
+  RoleIcon,
+  systemColor,
+  iconLoadFailed,
+  onIconError,
+  agentInitials,
+}: {
+  data: AgentNodeData;
+  isSystemAgent: boolean;
+  RoleIcon: React.ElementType | null;
+  systemColor: string;
+  iconLoadFailed: boolean;
+  onIconError: () => void;
+  agentInitials: string;
+}) {
+  if (isSystemAgent && RoleIcon) {
+    return <RoleIcon className="size-3.5 text-white" />;
+  }
+  if (data.agentIconIndex > 0 && !iconLoadFailed) {
+    return (
+      <img
+        src={`/agents/sprite_${data.agentIconIndex}.png`}
+        alt={data.agentName ?? 'Agent'}
+        className="size-full object-contain rounded-lg"
+        onError={onIconError}
+      />
+    );
+  }
+  return agentInitials;
+}
+
+function AgentNodeSubtitle({
+  data,
+  isSystemAgent,
+  systemDef,
+  colors,
+  t,
+}: {
+  data: AgentNodeData;
+  isSystemAgent: boolean;
+  systemDef: SystemAgentDefinition | null;
+  colors: StatusColors;
+  t: (key: string) => string;
+}) {
+  if (isSystemAgent && systemDef) {
+    return (
+      <span className="text-[10px] truncate block opacity-60 leading-tight" style={{ color: systemDef.color }}>
+        {systemDef.emoji} {t('canvas.system_agent_badge')}
+      </span>
+    );
+  }
+  if (data.agentName) {
+    return (
+      <span className="text-[10px] truncate block opacity-70 leading-tight" style={{ color: colors.textColor }}>
+        {data.agentName}
+      </span>
+    );
+  }
+  return null;
+}
+
+function AgentNodeBody({
+  data,
+  isSystemAgent,
+  systemDef,
+  systemDesc,
+  t,
+}: {
+  data: AgentNodeData;
+  isSystemAgent: boolean;
+  systemDef: SystemAgentDefinition | null;
+  systemDesc: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
+  if (data.status === 'idle' && !data.agentId && !data.systemAgentRole) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <HugeiconsIcon icon={BotIcon} className="size-4 opacity-40 shrink-0" />
+        <span className="italic leading-snug">{t('canvas.no_agent_assigned')}</span>
+      </div>
+    );
+  }
+  if (data.status === 'idle' && isSystemAgent && systemDef && data.systemAgentRole) {
+    return (
+      <div className="text-xs leading-snug" style={{ color: systemDef.color }}>
+        <span className="opacity-70">{systemDesc}</span>
+      </div>
+    );
+  }
+  if (data.status === 'idle' && data.agentId) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5 opacity-40 shrink-0" />
+        <span className="italic leading-snug">{t('canvas.ready_to_execute')}</span>
+      </div>
+    );
+  }
+  if (data.status === 'running') {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="h-1.5 rounded-full overflow-hidden bg-background">
+          <div
+            className="size-full rounded-full animate-pulse"
+            style={{
+              background: 'linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%)',
+            }}
+          />
+        </div>
+        <p className="text-xs leading-snug text-muted-foreground">{t('canvas.processing')}</p>
+        {data.outputText ? (
+          <p className="text-xs line-clamp-3 mt-0.5 leading-snug text-muted-foreground">{data.outputText}</p>
+        ) : null}
+      </div>
+    );
+  }
+  if (data.status === 'done' && data.outputText) {
+    return (
+      <p className="text-xs line-clamp-4 leading-snug" style={{ color: 'var(--muted-foreground)', lineHeight: 1.45 }}>
+        {data.outputText}
+      </p>
+    );
+  }
+  if (data.status === 'error') {
+    return (
+      <p className="text-xs leading-snug text-destructive">
+        {data.errorMessage ?? t('canvas.unknown_error')}
+      </p>
+    );
+  }
+  return null;
+}
 
 function AgentNodeStatusIcon({
   status,
@@ -101,18 +260,13 @@ export default function AgentNode({
   const RoleIcon = data.systemAgentRole ? SYSTEM_ROLE_ICONS[data.systemAgentRole] : null;
 
   const systemDesc = data.systemAgentRole != null ? t(canvasSystemAgentDescKey(data.systemAgentRole)) : '';
-
-  const headerBg =
-    isSystemAgent && systemDef
-      ? `color-mix(in srgb, ${systemDef.color} 10%, var(--background))`
-      : colors.header;
-
-  const borderColor =
-    selected && isSystemAgent && systemDef
-      ? systemDef.color
-      : selected
-        ? 'var(--primary)'
-        : 'var(--border)';
+  const { headerBg, borderColor, boxShadow } = resolveAgentNodeChrome(
+    selected,
+    isSystemAgent,
+    systemDef,
+    colors,
+  );
+  const titleColor = isSystemAgent && systemDef ? systemDef.color : colors.textColor;
 
   return (
     <div
@@ -120,9 +274,7 @@ export default function AgentNode({
       style={{
         width: 220,
         border: `1px solid ${borderColor}`,
-        boxShadow: selected
-          ? `0 0 0 2px color-mix(in srgb, ${isSystemAgent && systemDef ? systemDef.color : 'var(--primary)'} 18%, transparent)`
-          : 'none',
+        boxShadow,
         background: 'var(--card)',
       }}
     >
@@ -137,91 +289,39 @@ export default function AgentNode({
           className="size-6 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shrink-0"
           style={{ background: systemColor }}
         >
-          {isSystemAgent && RoleIcon ? (
-            <RoleIcon className="size-3.5 text-white" />
-          ) : data.agentIconIndex > 0 && !iconLoadFailed ? (
-            <img
-              src={`/agents/sprite_${data.agentIconIndex}.png`}
-              alt={data.agentName ?? 'Agent'}
-              className="size-full object-contain rounded-lg"
-              onError={() => setIconLoadFailed(true)}
-            />
-          ) : (
-            agentInitials
-          )}
+          <AgentNodeAvatar
+            data={data}
+            isSystemAgent={isSystemAgent}
+            RoleIcon={RoleIcon}
+            systemColor={systemColor}
+            iconLoadFailed={iconLoadFailed}
+            onIconError={() => setIconLoadFailed(true)}
+            agentInitials={agentInitials}
+          />
         </div>
         <div className="flex-1 min-w-0">
-          <span
-            className="text-xs font-semibold leading-tight truncate block"
-            style={{ color: isSystemAgent && systemDef ? systemDef.color : colors.textColor }}
-          >
+          <span className="text-xs font-semibold leading-tight truncate block" style={{ color: titleColor }}>
             {data.label}
           </span>
-          {isSystemAgent && systemDef ? (
-            <span className="text-[10px] truncate block opacity-60 leading-tight" style={{ color: systemDef.color }}>
-              {systemDef.emoji} {t('canvas.system_agent_badge')}
-            </span>
-          ) : data.agentName ? (
-            <span className="text-[10px] truncate block opacity-70 leading-tight" style={{ color: colors.textColor }}>
-              {data.agentName}
-            </span>
-          ) : null}
+          <AgentNodeSubtitle
+            data={data}
+            isSystemAgent={isSystemAgent}
+            systemDef={systemDef}
+            colors={colors}
+            t={t}
+          />
         </div>
         <AgentNodeStatusIcon status={data.status} systemColor={systemColor} />
       </div>
 
       <div className="p-3 min-h-[48px]">
-        {data.status === 'idle' && !data.agentId && !data.systemAgentRole && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <HugeiconsIcon icon={BotIcon} className="size-4 opacity-40 shrink-0" />
-            <span className="italic leading-snug">{t('canvas.no_agent_assigned')}</span>
-          </div>
-        )}
-        {data.status === 'idle' && isSystemAgent && systemDef && data.systemAgentRole && (
-          <div className="text-xs leading-snug" style={{ color: systemDef.color }}>
-            <span className="opacity-70">{systemDesc}</span>
-          </div>
-        )}
-
-        {data.status === 'idle' && data.agentId && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5 opacity-40 shrink-0" />
-            <span className="italic leading-snug">{t('canvas.ready_to_execute')}</span>
-          </div>
-        )}
-
-        {data.status === 'running' && (
-          <div className="flex flex-col gap-1.5">
-            <div className="h-1.5 rounded-full overflow-hidden bg-background">
-              <div
-                className="size-full rounded-full animate-pulse"
-                style={{
-                  background: 'linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%)',
-                }}
-              />
-            </div>
-            <p className="text-xs leading-snug text-muted-foreground">
-              {t('canvas.processing')}
-            </p>
-            {data.outputText && (
-              <p className="text-xs line-clamp-3 mt-0.5 leading-snug text-muted-foreground">
-                {data.outputText}
-              </p>
-            )}
-          </div>
-        )}
-
-        {data.status === 'done' && data.outputText && (
-          <p className="text-xs line-clamp-4 leading-snug" style={{ color: 'var(--muted-foreground)', lineHeight: 1.45 }}>
-            {data.outputText}
-          </p>
-        )}
-
-        {data.status === 'error' && (
-          <p className="text-xs leading-snug text-destructive">
-            {data.errorMessage ?? t('canvas.unknown_error')}
-          </p>
-        )}
+        <AgentNodeBody
+          data={data}
+          isSystemAgent={isSystemAgent}
+          systemDef={systemDef}
+          systemDesc={systemDesc}
+          t={t}
+        />
       </div>
     </div>
   );
