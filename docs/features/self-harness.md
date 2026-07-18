@@ -32,3 +32,16 @@ A candidate is accepted only when it improves at least one split without reducin
 The experiment manifest fixes the base commit, provider, model, split, seed, evaluator version, repeat count, concurrency, and budgets. `self-harness:resume` continues from the persisted state machine after an interruption.
 
 Use `pnpm run test:self-harness` for control-plane tests. Real experiments require the same provider credential variables used by the Dome bench.
+
+## Hourly Jenkins run
+
+[`Jenkinsfile.self-harness`](../../Jenkinsfile.self-harness) runs the complete default experiment every hour (`5` rounds, `4` candidates per round, `2` repetitions) against a detached checkout of `origin/main`. Concurrent executions are disabled, so a slow experiment cannot overlap another run.
+
+Configure a Pipeline from SCM using `Jenkinsfile.self-harness`. It reuses the repository's existing Jenkins string credentials:
+
+- `minimax-api-key` for the fixed `minimax/MiniMax-M2.7` proposer and benchmark runtime.
+- `github-quality-loop` for pushing the generated branch and operating the GitHub CLI.
+
+Every run archives its reproducibility bundle and report. A completed experiment with no accepted lineage does not create a branch or PR. When at least one candidate survives all static, held-in, and sealed held-out gates, Jenkins creates the review branch, pushes it, opens a PR against `main`, and requests squash auto-merge. GitHub branch protection and required CI checks remain authoritative; Jenkins never merges directly or bypasses them.
+
+The job is serialized and has a 24-hour timeout because the full suite may take longer than its one-hour trigger interval. Jenkins queues the next timer execution instead of running two experiments against the same worker concurrently.

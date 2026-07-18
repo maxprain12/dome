@@ -110,7 +110,7 @@
     "self-harness:resume": "node scripts/self-harness/cli.mjs resume",
     "self-harness:report": "node scripts/self-harness/cli.mjs report",
     "self-harness:promote": "node scripts/self-harness/cli.mjs promote",
-    "test:self-harness": "node --test scripts/self-harness/__tests__/*.test.mjs",
+    "test:self-harness": "node --test scripts/self-harness/__tests__/*.test.mjs scripts/jenkins/__tests__/self-harness-ci-result.test.mjs",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "tsx scripts/generate-icons.ts",
     "windows:startup-diag": "node scripts/windows-startup-diag.mjs",
