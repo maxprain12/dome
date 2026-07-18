@@ -80,7 +80,7 @@ Removed npm deps: `langchain`, `@langchain/langgraph`, `@langchain/langgraph-che
 Still present (not LangGraph / not the agent runtime):
 
 - `@langchain/core` — base types for the plain LLM wrappers in `llm-service.cjs`.
-- `@langchain/mcp-adapters` — MCP tool client (converted to native `AgentTool[]` in bridge).
+- `@modelcontextprotocol/sdk` — native MCP client (`electron/mcp/mcp-client.cjs`) and Dome MCP server; tools converted to `AgentTool[]` in the harness bridge.
 
 ## Context usage UI (Many)
 

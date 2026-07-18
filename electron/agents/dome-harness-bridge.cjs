@@ -131,26 +131,27 @@ async function buildMcpAgentTools(database, mcpServerIds) {
   if (!Array.isArray(mcpServerIds) || mcpServerIds.length === 0) return [];
   const { capToolResultString, getCapForTool, safeStringify, boundToolDetails } = require('../tools/tool-result-cap.cjs');
   const { getMCPTools } = require('../mcp/mcp-client.cjs');
-  const lcTools = await getMCPTools(database, mcpServerIds);
-  if (!Array.isArray(lcTools) || lcTools.length === 0) return [];
+  const mcpTools = await getMCPTools(database, mcpServerIds);
+  if (!Array.isArray(mcpTools) || mcpTools.length === 0) return [];
 
   const { normalizeToolParameters } = await import('@dome/tools');
-  return lcTools.map((lcTool) => {
-    const name = typeof lcTool.name === 'string' ? lcTool.name : 'mcp_tool';
-    const rawSchema = lcTool.schema ?? lcTool.lc_kwargs?.schema ?? {};
+  return mcpTools.map((mcpTool) => {
+    const name = typeof mcpTool.name === 'string' ? mcpTool.name : 'mcp_tool';
+    const rawSchema = mcpTool.schema ?? {};
     // Coerce to a valid, non-empty JSON Schema object: strict providers
     // (MiniMax) reject empty `parameters` with error 2013.
     const schema = normalizeToolParameters(rawSchema);
     return {
       name,
       label: name,
-      description: typeof lcTool.description === 'string' ? lcTool.description : '',
+      description: typeof mcpTool.description === 'string' ? mcpTool.description : '',
       // Plain JSON Schema — @dome/ai validateToolArguments accepts this without TypeBox.
       parameters: schema,
       async execute(_toolCallId, params, signal) {
-        const out = await lcTool.invoke(params, { signal });
+        const out = await mcpTool.invoke(params, { signal });
         // safeStringify (not raw JSON.stringify): bounds serialization so a huge
         // MCP payload can't OOM the main process before the char cap runs (ELECTRON-7).
+        // Native MCP tools already cap inside invoke; re-cap for defense in depth.
         const text = safeStringify(out ?? '');
         const capped = capToolResultString(name, text, { maxChars: getCapForTool(name) });
         // boundToolDetails: the loop persists `details` verbatim into the session

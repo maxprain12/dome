@@ -69,7 +69,7 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) (Base UI). Setup: [`.claude/sops/shadcn-ui.md`](.claude/sops/shadcn-ui.md) |
 | AI Agent | `@dome/agent-core` (Dome-native harness) + [LangChain](https://js.langchain.com/) (LLM/embeddings) |
-| MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
+| MCP | [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) (cliente nativo) |
 | Database | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
 | Semantic index | LangChain embeddings + LanceDB + hybrid search; see `docs/features/indexing.md` |
 | State | [Zustand](https://github.com/pmndrs/zustand) |

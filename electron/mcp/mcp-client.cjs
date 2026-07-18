@@ -2,8 +2,8 @@
 /**
  * MCP Client - Main Process
  *
- * Connects to configured MCP servers and provides tools for the agent runtime.
- * Config is stored in dedicated SQLite tables.
+ * Connects to configured MCP servers via the official @modelcontextprotocol/sdk
+ * and provides tools for the agent runtime. Config is stored in dedicated SQLite tables.
  *
  * Format: [{ name, type: "stdio"|"http"|"sse", command?, args?, url?, headers? }]
  * - stdio: command (required), args (optional array)
@@ -11,13 +11,41 @@
  * - sse: url (required), SSE legacy transport
  */
 
+'use strict';
+
+const { createRequire } = require('module');
+const { getPackageJsonPath } = require('../paths.cjs');
 const { capToolResultString, getCapForTool, safeStringify } = require('../tools/tool-result-cap.cjs');
 const {
   isMcpToolDisabledByDefault,
   normalizeMcpId,
 } = require('./mcp-tool-policy.cjs');
 
+/** Resolve MCP SDK anchored to Dome's package.json (Electron + pnpm-safe). */
+const projectRequire = createRequire(getPackageJsonPath());
+
 const DEFAULT_MCP_SERVERS = [];
+const MCP_SERVER_LOAD_TIMEOUT_MS = 25_000;
+const MCP_TOOLS_CACHE_TTL_MS = 5 * 60 * 1000;
+const CLIENT_INFO = { name: 'dome', version: '1.0.0' };
+
+/**
+ * @returns {{
+ *   Client: typeof import('@modelcontextprotocol/sdk/client').Client,
+ *   StdioClientTransport: new (opts: object) => object,
+ *   StreamableHTTPClientTransport: new (url: URL, opts?: object) => object,
+ *   SSEClientTransport: new (url: URL, opts?: object) => object,
+ * }}
+ */
+function loadMcpSdk() {
+  const { Client } = projectRequire('@modelcontextprotocol/sdk/client');
+  const { StdioClientTransport } = projectRequire('@modelcontextprotocol/sdk/client/stdio.js');
+  const { StreamableHTTPClientTransport } = projectRequire(
+    '@modelcontextprotocol/sdk/client/streamableHttp.js',
+  );
+  const { SSEClientTransport } = projectRequire('@modelcontextprotocol/sdk/client/sse.js');
+  return { Client, StdioClientTransport, StreamableHTTPClientTransport, SSEClientTransport };
+}
 
 function normalizeServerId(name) {
   return String(name || '')
@@ -79,6 +107,24 @@ function sanitizeHeaders(h) {
     if (typeof k === 'string' && typeof v === 'string') out[k] = v;
   }
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
+ * Stdio env must be Record<string, string> (no undefined).
+ * @param {Record<string, unknown>|undefined} custom
+ * @returns {Record<string, string>}
+ */
+function buildStdioEnv(custom) {
+  const out = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  if (custom && typeof custom === 'object' && !Array.isArray(custom)) {
+    for (const [k, v] of Object.entries(custom)) {
+      if (typeof k === 'string' && v != null) out[k] = String(v);
+    }
+  }
+  return out;
 }
 
 function pickDiscoveryFields(s) {
@@ -233,13 +279,13 @@ function parseMcpServersConfig(raw) {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       return parsed
-        .map((s) => s && typeof s.name === 'string' ? normalizeServerEntry(s.name, s) : null)
+        .map((s) => (s && typeof s.name === 'string' ? normalizeServerEntry(s.name, s) : null))
         .filter(Boolean)
         .filter(
           (s) =>
-            (s.type === 'stdio' && s.command) ||
-            (s.type === 'http' && s.url) ||
-            (s.type === 'sse' && s.url),
+            (s.type === 'stdio' && s.command)
+            || (s.type === 'http' && s.url)
+            || (s.type === 'sse' && s.url),
         );
     }
     if (parsed && typeof parsed.mcpServers === 'object') {
@@ -248,9 +294,9 @@ function parseMcpServersConfig(raw) {
         .filter(Boolean)
         .filter(
           (s) =>
-            (s.type === 'stdio' && s.command) ||
-            (s.type === 'http' && s.url) ||
-            (s.type === 'sse' && s.url),
+            (s.type === 'stdio' && s.command)
+            || (s.type === 'http' && s.url)
+            || (s.type === 'sse' && s.url),
         );
     }
     return DEFAULT_MCP_SERVERS;
@@ -261,7 +307,7 @@ function parseMcpServersConfig(raw) {
 }
 
 /**
- * Build mcpServers object for MultiServerMCPClient from parsed config.
+ * Build a transport-config object from parsed servers (used by tests / diagnostics).
  * @param {Array} servers
  * @returns {Record<string, { transport?: string; command?: string; args?: string[]; url?: string; headers?: Record<string, string>; env?: Record<string, string> }>}
  */
@@ -270,13 +316,11 @@ function buildMcpServersObject(servers) {
   for (const s of servers) {
     const key = String(s.name).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_') || `server_${Date.now()}`;
     if (s.type === 'stdio') {
-      // Always merge process.env so the spawned MCP process inherits the full environment
-      // (including the PATH enriched by fix-path on macOS GUI apps). Custom env vars override.
       const entry = {
         transport: 'stdio',
         command: s.command,
         args: sanitizeMcpStdioArgs(s.args),
-        env: { ...process.env, ...(s.env || {}) },
+        env: buildStdioEnv(s.env),
       };
       out[key] = entry;
     } else if (s.type === 'http' && s.url) {
@@ -317,14 +361,10 @@ function serializeTool(tool) {
   if (!name) return null;
 
   let inputSchema;
-  try {
-    if (tool.schema && typeof tool.schema === 'object' && typeof tool.schema.toJSON === 'function') {
-      inputSchema = tool.schema.toJSON();
-    } else if (tool.schema && typeof tool.schema === 'object') {
-      inputSchema = tool.schema;
-    }
-  } catch {
-    inputSchema = undefined;
+  if (tool.schema && typeof tool.schema === 'object' && !Array.isArray(tool.schema)) {
+    inputSchema = tool.schema;
+  } else if (tool.inputSchema && typeof tool.inputSchema === 'object' && !Array.isArray(tool.inputSchema)) {
+    inputSchema = tool.inputSchema;
   }
 
   return {
@@ -335,42 +375,136 @@ function serializeTool(tool) {
   };
 }
 
-async function createClientForServers(servers) {
-  const mcpServers = buildMcpServersObject(servers);
-  if (Object.keys(mcpServers).length === 0) {
-    return null;
-  }
-  const { MultiServerMCPClient } = await import('@langchain/mcp-adapters');
-  return new MultiServerMCPClient({
-    mcpServers,
-    throwOnLoadError: false,
-    onConnectionError: 'ignore',
-  });
-}
-
 /**
- * Wrap LangChain MCP tools so large payloads are capped before entering agent state.
- * @param {import('@langchain/core/tools').StructuredToolInterface} tool
- * @returns {import('@langchain/core/tools').StructuredToolInterface}
+ * @param {object} server
+ * @returns {Promise<{ client: object, close: () => Promise<void> }>}
  */
-function wrapMcpToolWithCap(tool) {
-  if (!tool || typeof tool.invoke !== 'function') return tool;
-  const originalInvoke = tool.invoke.bind(tool);
-  const toolName = typeof tool.name === 'string' ? tool.name : 'mcp_tool';
-  tool.invoke = async (input, config) => {
-    const out = await originalInvoke(input, config);
-    // safeStringify (not raw JSON.stringify): bounds serialization so a huge MCP
-    // payload can't OOM the main process before the char cap runs (ELECTRON-7).
-    const text = safeStringify(out ?? '');
-    return capToolResultString(toolName, text, { maxChars: getCapForTool(toolName) });
+async function connectMcpServer(server) {
+  const {
+    Client,
+    StdioClientTransport,
+    StreamableHTTPClientTransport,
+    SSEClientTransport,
+  } = loadMcpSdk();
+
+  const client = new Client(CLIENT_INFO);
+  let transport;
+
+  if (server.type === 'stdio') {
+    transport = new StdioClientTransport({
+      command: server.command,
+      args: sanitizeMcpStdioArgs(server.args),
+      env: buildStdioEnv(server.env),
+      stderr: 'pipe',
+    });
+  } else if (server.type === 'http' && server.url) {
+    const opts = {};
+    if (server.headers && Object.keys(server.headers).length > 0) {
+      opts.requestInit = { headers: server.headers };
+    }
+    transport = new StreamableHTTPClientTransport(new URL(server.url), opts);
+  } else if (server.type === 'sse' && server.url) {
+    const opts = {};
+    if (server.headers && Object.keys(server.headers).length > 0) {
+      opts.requestInit = { headers: server.headers };
+    }
+    transport = new SSEClientTransport(new URL(server.url), opts);
+  } else {
+    throw new Error(`Unsupported MCP server type: ${server?.type || 'unknown'}`);
+  }
+
+  await client.connect(transport);
+  return {
+    client,
+    close: async () => {
+      try {
+        await client.close();
+      } catch (err) {
+        console.warn(`[MCP] Failed to close client for ${server?.name || 'server'}:`, err?.message || err);
+      }
+    },
   };
-  return tool;
 }
 
 /**
- * @param {import('@langchain/core/tools').StructuredToolInterface[]} tools
+ * @template T
+ * @param {object} server
+ * @param {(client: object) => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+async function withMcpClient(server, fn) {
+  const { client, close } = await connectMcpServer(server);
+  try {
+    return await fn(client);
+  } finally {
+    await close();
+  }
+}
+
+/**
+ * Normalize MCP callTool result into a value suitable for agent tool state.
+ * @param {unknown} result
+ * @returns {unknown}
+ */
+function normalizeCallToolResult(result) {
+  if (result == null) return '';
+  if (typeof result !== 'object') return result;
+
+  const structured = /** @type {{ structuredContent?: unknown, content?: unknown[], toolResult?: unknown, isError?: boolean }} */ (result);
+  if (structured.structuredContent != null) {
+    return structured.structuredContent;
+  }
+  if (structured.toolResult != null) {
+    return structured.toolResult;
+  }
+  if (Array.isArray(structured.content)) {
+    const texts = structured.content
+      .filter((part) => part && typeof part === 'object' && part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text);
+    if (texts.length === 1) return texts[0];
+    if (texts.length > 1) return texts.join('\n');
+    return structured.content;
+  }
+  return result;
+}
+
+/**
+ * @param {object} server
+ * @param {{ name: string, description?: string, inputSchema?: object }} toolDef
+ * @returns {{ name: string, description: string, schema: object, invoke: (input?: unknown, config?: { signal?: AbortSignal }) => Promise<string> }}
+ */
+function createNativeMcpTool(server, toolDef) {
+  const name = typeof toolDef.name === 'string' ? toolDef.name.trim() : 'mcp_tool';
+  const description = typeof toolDef.description === 'string' ? toolDef.description : '';
+  const schema = toolDef.inputSchema && typeof toolDef.inputSchema === 'object' && !Array.isArray(toolDef.inputSchema)
+    ? toolDef.inputSchema
+    : { type: 'object', properties: {} };
+
+  return {
+    name,
+    description,
+    schema,
+    async invoke(input, config) {
+      const args = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+      const signal = config?.signal;
+      const out = await withMcpClient(server, async (client) => {
+        const result = await client.callTool(
+          { name, arguments: args },
+          undefined,
+          signal ? { signal } : undefined,
+        );
+        return normalizeCallToolResult(result);
+      });
+      const text = safeStringify(out ?? '');
+      return capToolResultString(name, text, { maxChars: getCapForTool(name) });
+    },
+  };
+}
+
+/**
+ * @param {Array<{ name?: string, schema?: object, invoke?: Function }>} tools
  * @param {{ name?: string; command?: string; args?: string[]; enabledToolIds?: string[] }} server
- * @returns {import('@langchain/core/tools').StructuredToolInterface[]}
+ * @returns {typeof tools}
  */
 function filterToolsForServerPolicy(tools, server) {
   if (!Array.isArray(tools)) return [];
@@ -388,10 +522,7 @@ function filterToolsForServerPolicy(tools, server) {
   });
 }
 
-const MCP_SERVER_LOAD_TIMEOUT_MS = 25_000;
-const MCP_TOOLS_CACHE_TTL_MS = 5 * 60 * 1000;
-
-/** @type {{ key: string; tools: import('@langchain/core/tools').StructuredToolInterface[]; at: number } | null} */
+/** @type {{ key: string; tools: Array<{ name: string, description: string, schema: object, invoke: Function }>; at: number } | null} */
 let mcpToolsCache = null;
 
 function mcpCacheKey(serverIds) {
@@ -403,26 +534,20 @@ function invalidateMcpToolsCache() {
   mcpToolsCache = null;
 }
 
-/** Best-effort: drop cached tool handles (stdio clients are closed per discovery load). */
+/** Best-effort: drop cached tool handles (stdio clients are closed per discovery/invoke). */
 function closeAllMcpClients() {
   invalidateMcpToolsCache();
 }
 
 async function loadToolsForServer(server) {
-  let client = null;
   const loadPromise = (async () => {
-    client = await createClientForServers([server]);
-    if (!client) {
-      return { tools: [], manifest: [] };
-    }
+    const listed = await withMcpClient(server, async (client) => {
+      const result = await client.listTools();
+      return Array.isArray(result?.tools) ? result.tools : [];
+    });
 
-    const tools = await client.getTools();
-    const safeTools = (Array.isArray(tools) ? tools : [])
-      .map((tool) => wrapMcpToolWithCap(tool));
-    const manifest = safeTools
-      .map((tool) => serializeTool(tool))
-      .filter(Boolean);
-
+    const safeTools = listed.map((toolDef) => createNativeMcpTool(server, toolDef));
+    const manifest = safeTools.map((tool) => serializeTool(tool)).filter(Boolean);
     return { tools: safeTools, manifest };
   })();
 
@@ -438,13 +563,6 @@ async function loadToolsForServer(server) {
     return await Promise.race([loadPromise, timeoutPromise]);
   } finally {
     clearTimeout(timeoutId);
-    if (client && typeof client.close === 'function') {
-      try {
-        await client.close();
-      } catch (err) {
-        console.warn(`[MCP] Failed to close client for ${server?.name || 'server'}:`, err?.message || err);
-      }
-    }
   }
 }
 
@@ -452,7 +570,7 @@ async function loadToolsForServer(server) {
  * Get MCP tools from configured servers.
  * @param {object} database - Dome database module (with getQueries())
  * @param {string[]} [serverIds] - Optional. If provided, only include tools from servers whose name matches (case-insensitive).
- * @returns {Promise<import('@langchain/core/tools').StructuredToolInterface[]>}
+ * @returns {Promise<Array<{ name: string, description: string, schema: object, invoke: Function }>>}
  */
 async function getMCPTools(database, serverIds) {
   const queries = database?.getQueries?.();
@@ -511,7 +629,7 @@ async function getMCPTools(database, serverIds) {
 /**
  * Test a single MCP server.
  * @param {object} server - { name, type, command?, args?, url?, env? }
- * @returns {Promise<{ success: boolean; toolCount: number; error?: string }>}
+ * @returns {Promise<{ success: boolean; toolCount: number; tools?: object[]; error?: string }>}
  */
 async function testSingleMcpServer(server) {
   if (!server || !server.name) {
@@ -545,4 +663,10 @@ module.exports = {
   parseMcpServersConfig,
   buildMcpServersObject,
   testSingleMcpServer,
+  // Exported for unit tests
+  normalizeServerEntry,
+  sanitizeMcpStdioArgs,
+  sanitizeArgs,
+  buildStdioEnv,
+  normalizeCallToolResult,
 };
