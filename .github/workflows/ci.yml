@@ -74,8 +74,8 @@ jobs:
       - name: Prompt tool parity (dome_load_doc)
         run: pnpm run check:prompt-tool-parity
 
-      - name: MCP adapters smoke (langchain uuid v6)
-        run: pnpm run smoke:mcp-adapters
+      - name: MCP SDK smoke (native client)
+        run: pnpm run smoke:mcp-sdk
 
       - name: Many thread bridge (tool results + coalescing)
         run: pnpm run test:many-thread-bridge
