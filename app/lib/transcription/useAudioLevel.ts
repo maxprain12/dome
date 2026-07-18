@@ -66,7 +66,7 @@ export function useAudioLevel(stream: MediaStream | null): number {
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
       try { source.disconnect(); } catch { /* ignore */ }
-      try { ctx.close(); } catch { /* ignore */ }
+      void ctx.close().catch(() => { /* ignore */ });
       contextRef.current = null;
       analyserRef.current = null;
       sourceRef.current = null;

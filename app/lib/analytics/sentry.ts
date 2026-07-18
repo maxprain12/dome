@@ -27,11 +27,9 @@ export function isSentryConfigured(): boolean {
 
 /** Forward span consent to the main process (performance only). */
 function setMainSpanConsent(enabled: boolean): void {
-  try {
-    void window.electron?.invoke?.('sentry:set-consent', enabled);
-  } catch {
+  void window.electron?.invoke?.('sentry:set-consent', enabled)?.catch(() => {
     // ignore — main may not have Sentry configured
-  }
+  });
 }
 
 function ensureRendererInitialized(analyticsEnabled: boolean): void {

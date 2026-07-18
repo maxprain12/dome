@@ -543,15 +543,13 @@ export const useTabStore = create<TabStore>((set, get) => {
       };
       const tabType: TabType = typeMap[resourceType] ?? 'resource';
       get().openTab({ type: tabType, title, resourceId, ...(projectId ? { projectId } : {}) });
-      try {
-        void window.electron?.invoke?.('automations:notifyContext', {
-          tag: 'resource_opened',
-          resourceId,
-          resourceType,
-        });
-      } catch {
+      void window.electron?.invoke?.('automations:notifyContext', {
+        tag: 'resource_opened',
+        resourceId,
+        resourceType,
+      })?.catch(() => {
         /* non-Electron or older build */
-      }
+      });
     },
 
     openResourceInSplit: (resourceId, resourceType, title, tabId, _projectId) => {
@@ -757,7 +755,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         resourceId: location.id,
         title: location.title,
         ...(location.color ? { color: location.color } : {}),
-        ...(projectId ? { projectId } : (tabs[fromIdx].projectId ? {} : {})),
+        ...(projectId ? { projectId } : {}),
       };
       const newTabs = [...tabs];
       newTabs[fromIdx] = updatedTab;

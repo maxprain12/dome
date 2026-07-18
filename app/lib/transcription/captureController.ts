@@ -173,7 +173,7 @@ export class CaptureController {
     this.sysVideoSink = null;
     try { this.mic?.recorder.stop(); } catch { /* */ }
     if (this.sessionId) {
-      try { tx.sessionControl({ sessionId: this.sessionId, action: 'cancel' }); } catch { /* */ }
+      void tx.sessionControl({ sessionId: this.sessionId, action: 'cancel' }).catch(() => { /* */ });
     }
     stopStreamTracks(micStream);
     stopStreamTracks(sysStream);
