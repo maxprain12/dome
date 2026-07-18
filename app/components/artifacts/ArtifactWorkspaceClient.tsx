@@ -41,13 +41,19 @@ function mergedDomeDataPayload(artifact: ArtifactRecord | null): Record<string, 
   };
 }
 
+/** Target origin for postMessage into the sandboxed artifact frame. */
+function artifactFrameTargetOrigin(frameSrc: string | null): string {
+  // Served `app://artifact/…` → real origin; srcdoc fallback → opaque `'null'`.
+  return frameSrc ? new URL(frameSrc).origin : 'null';
+}
+
 /** Key-sorted JSON for stable comparison across key order / rebuilds. */
 function canonicalDataJson(obj: Record<string, unknown>): string {
   const sort = (v: unknown): unknown => {
     if (v === null || typeof v !== 'object') return v;
     if (Array.isArray(v)) return v.map(sort);
     const o = v as Record<string, unknown>;
-    const keys = Object.keys(o).sort();
+    const keys = Object.keys(o).sort((a, b) => a.localeCompare(b));
     const out: Record<string, unknown> = {};
     for (const k of keys) {
       out[k] = sort(o[k]);
@@ -325,12 +331,9 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           recent.json === refreshCanon;
         const skipDomRefresh = refreshEchoOnly || iframeEcho;
         if (!skipDomRefresh) {
-          // Sandbox (no allow-same-origin) → opaque origin: 'app://artifact'
-          // when the frame is served from frameSource.src, 'null' for srcdoc fallback.
-          const targetOrigin = frameSource.src ? new URL(frameSource.src).origin : 'null';
           iframeRef.current.contentWindow.postMessage(
             { type: 'dome:data:refresh', payload: refreshPayload },
-            targetOrigin,
+            artifactFrameTargetOrigin(frameSource.src),
           );
         }
         lastLocalDomePushRef.current = null;
@@ -385,9 +388,9 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     if (!iframeRef.current?.contentWindow) return;
     iframeRef.current.contentWindow.postMessage(
       { type: 'dome:theme:update', css: buildDomeThemeStyleContent(themeSnapshot.vars) },
-      '*',
+      artifactFrameTargetOrigin(frameSource.src),
     );
-  }, [themeSnapshot.themeKey, themeSnapshot.vars]);
+  }, [themeSnapshot.themeKey, themeSnapshot.vars, frameSource.src]);
 
   const handleExport = useCallback(async () => {
     try {
@@ -461,14 +464,17 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
 
     window.addEventListener('message', onSnap);
     try {
-      w.postMessage({ type: 'dome:request-state', requestId: reqId }, '*');
+      w.postMessage(
+        { type: 'dome:request-state', requestId: reqId },
+        artifactFrameTargetOrigin(frameSource.src),
+      );
     } catch {
       window.removeEventListener('message', onSnap);
       window.clearTimeout(tmr);
       setSaving(false);
       notifications.show({ message: t('artifacts.save_state_error'), color: 'red' });
     }
-  }, [resourceId, t]);
+  }, [resourceId, t, frameSource.src]);
 
   const handleRefreshLinked = useCallback(async () => {
     setRefreshing(true);
