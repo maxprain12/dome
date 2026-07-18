@@ -13,7 +13,7 @@
 const { readSettingSecret, writeSettingSecret } = require('../core/settings-secrets.cjs');
 
 /** Providers without ai_api_key_<provider> slot (OAuth or Ollama local/cloud via ollama_api_key). */
-const KEYLESS_PROVIDERS = new Set(['dome', 'copilot', 'ollama']);
+const KEYLESS_PROVIDERS = new Set(['dome', 'copilot', 'ollama', 'claude-oauth', 'openai-codex']);
 
 function providerApiKeySetting(provider) {
   return `ai_api_key_${provider}`;

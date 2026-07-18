@@ -64,7 +64,7 @@ export default function AISection() {
   const [provider, setProvider] = useState<AIProviderType>('openai');
   const [apiKey, setApiKey] = useState('');
   const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({});
-  const [model, setModel] = useState('gpt-5.2');
+  const [model, setModel] = useState('gpt-5.6-sol');
   const [customModel, setCustomModel] = useState(false);
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
@@ -90,6 +90,11 @@ export default function AISection() {
   const [copilotConnected, setCopilotConnected] = useState(false);
   const [copilotConnecting, setCopilotConnecting] = useState(false);
   const [copilotUserCode, setCopilotUserCode] = useState<string | null>(null);
+  const [claudeConnected, setClaudeConnected] = useState(false);
+  const [claudeConnecting, setClaudeConnecting] = useState(false);
+  const [codexConnected, setCodexConnected] = useState(false);
+  const [codexConnecting, setCodexConnecting] = useState(false);
+  const [codexUserCode, setCodexUserCode] = useState<string | null>(null);
   const transcriptionRef = useRef<TranscriptionSettingsSectionsHandle>(null);
   const [activeTab, setActiveTab] = useState<AISettingsTab>('chat');
   const [modelsConfigProvider, setModelsConfigProvider] = useState<AIProviderType | null>(null);
@@ -248,10 +253,124 @@ export default function AISection() {
     }
   };
 
+  const refreshClaudeStatus = useCallback(async () => {
+    if (!window.electron?.claudeAuth) return;
+    try {
+      const s = await window.electron.claudeAuth.status();
+      setClaudeConnected(s.success && s.connected === true);
+    } catch {
+      setClaudeConnected(false);
+    }
+  }, []);
+
+  const handleConnectClaude = async () => {
+    if (!window.electron?.claudeAuth) {
+      setTestResult({ success: false, message: t('settings.ai.claude_oauth_unavailable') });
+      return;
+    }
+    setClaudeConnecting(true);
+    setTestResult(null);
+    try {
+      const result = await window.electron.claudeAuth.login();
+      if (result.success) {
+        setClaudeConnected(true);
+        setTestResult({ success: true, message: t('settings.ai.claude_oauth_connected_ok') });
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || t('settings.ai.claude_oauth_connect_failed'),
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : t('settings.ai.claude_oauth_connect_failed'),
+      });
+    } finally {
+      setClaudeConnecting(false);
+    }
+  };
+
+  const handleDisconnectClaude = async () => {
+    if (!window.electron?.claudeAuth) return;
+    try {
+      await window.electron.claudeAuth.disconnect();
+      setClaudeConnected(false);
+      setTestResult({ success: true, message: t('settings.ai.claude_oauth_disconnected') });
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : t('settings.ai.disconnect_failed'),
+      });
+    }
+  };
+
+  const refreshCodexStatus = useCallback(async () => {
+    if (!window.electron?.openaiCodexAuth) return;
+    try {
+      const s = await window.electron.openaiCodexAuth.status();
+      setCodexConnected(s.success && s.connected === true);
+    } catch {
+      setCodexConnected(false);
+    }
+  }, []);
+
+  const handleConnectCodex = async () => {
+    if (!window.electron?.openaiCodexAuth) {
+      setTestResult({ success: false, message: t('settings.ai.openai_codex_unavailable') });
+      return;
+    }
+    setCodexConnecting(true);
+    setCodexUserCode(null);
+    setTestResult(null);
+    const unsubscribe = window.electron.openaiCodexAuth.onDeviceCode?.((info) => {
+      setCodexUserCode(info.userCode);
+    });
+    try {
+      const result = await window.electron.openaiCodexAuth.login();
+      if (result.success) {
+        setCodexConnected(true);
+        setTestResult({ success: true, message: t('settings.ai.openai_codex_connected_ok') });
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || t('settings.ai.openai_codex_connect_failed'),
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : t('settings.ai.openai_codex_connect_failed'),
+      });
+    } finally {
+      unsubscribe?.();
+      setCodexConnecting(false);
+      setCodexUserCode(null);
+    }
+  };
+
+  const handleDisconnectCodex = async () => {
+    if (!window.electron?.openaiCodexAuth) return;
+    try {
+      await window.electron.openaiCodexAuth.disconnect();
+      setCodexConnected(false);
+      setTestResult({ success: true, message: t('settings.ai.openai_codex_disconnected') });
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : t('settings.ai.disconnect_failed'),
+      });
+    }
+  };
+
   useEffect(() => { refreshDomeSession();
   }, [refreshDomeSession]);
   useEffect(() => { refreshCopilotStatus();
   }, [refreshCopilotStatus]);
+  useEffect(() => { refreshClaudeStatus();
+  }, [refreshClaudeStatus]);
+  useEffect(() => { refreshCodexStatus();
+  }, [refreshCodexStatus]);
   useEffect(() => { refreshCloudSyncStatus();
   }, [refreshCloudSyncStatus]);
   useEffect(() => {
@@ -329,6 +448,8 @@ export default function AISection() {
         config.base_url = '';
         break;
       case 'copilot':
+      case 'claude-oauth':
+      case 'openai-codex':
         config.model = model;
         config.base_url = '';
         break;
@@ -763,6 +884,134 @@ export default function AISection() {
                       placeholder={t('settings.ai.model')}
                       providerType="cloud"
                       providerId="copilot"
+                      configuredHint
+                    />
+                  </Field>
+                ) : null}
+              </div>
+            ) : null}
+
+            {provider === 'claude-oauth' ? (
+              <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+                <div>
+                  <p className="text-sm font-medium">{t('settings.ai.claude_oauth_connect_title')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t('settings.ai.claude_oauth_connect_desc')}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={claudeConnected ? 'secondary' : 'outline'}>
+                    {claudeConnected
+                      ? t('settings.ai.status_connected')
+                      : t('settings.ai.status_disconnected')}
+                  </Badge>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      handleConnectClaude().catch(() => {});
+                    }}
+                    disabled={claudeConnecting}
+                  >
+                    {claudeConnecting ? <Spinner data-icon="inline-start" /> : null}
+                    {claudeConnecting
+                      ? t('settings.ai.connecting')
+                      : claudeConnected
+                        ? t('settings.ai.reconnect')
+                        : t('settings.ai.claude_oauth_connect')}
+                  </Button>
+                  {claudeConnected ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        handleDisconnectClaude().catch(() => {});
+                      }}
+                    >
+                      {t('settings.ai.disconnect')}
+                    </Button>
+                  ) : null}
+                </div>
+                {claudeConnected && currentProviderModels.length > 0 ? (
+                  <Field>
+                    <FieldLabel>{t('settings.ai.model')}</FieldLabel>
+                    <ModelSelector
+                      models={currentProviderModels}
+                      selectedModelId={model}
+                      onChange={setModel}
+                      showBadges
+                      searchable={currentProviderModels.length > 5}
+                      placeholder={t('settings.ai.model')}
+                      providerType="cloud"
+                      providerId="claude-oauth"
+                      configuredHint
+                    />
+                  </Field>
+                ) : null}
+              </div>
+            ) : null}
+
+            {provider === 'openai-codex' ? (
+              <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+                <div>
+                  <p className="text-sm font-medium">{t('settings.ai.openai_codex_connect_title')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t('settings.ai.openai_codex_connect_desc')}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={codexConnected ? 'secondary' : 'outline'}>
+                    {codexConnected
+                      ? t('settings.ai.status_connected')
+                      : t('settings.ai.status_disconnected')}
+                  </Badge>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      handleConnectCodex().catch(() => {});
+                    }}
+                    disabled={codexConnecting}
+                  >
+                    {codexConnecting ? <Spinner data-icon="inline-start" /> : null}
+                    {codexConnecting
+                      ? t('settings.ai.connecting')
+                      : codexConnected
+                        ? t('settings.ai.reconnect')
+                        : t('settings.ai.openai_codex_connect')}
+                  </Button>
+                  {codexConnected ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        handleDisconnectCodex().catch(() => {});
+                      }}
+                    >
+                      {t('settings.ai.disconnect')}
+                    </Button>
+                  ) : null}
+                </div>
+                {codexConnecting && codexUserCode ? (
+                  <Alert>
+                    <AlertDescription>
+                      <span>{t('settings.ai.openai_codex_enter_code')}</span>
+                      <code className="ml-2 font-mono text-base font-semibold tracking-widest">
+                        {codexUserCode}
+                      </code>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                {codexConnected && currentProviderModels.length > 0 ? (
+                  <Field>
+                    <FieldLabel>{t('settings.ai.model')}</FieldLabel>
+                    <ModelSelector
+                      models={currentProviderModels}
+                      selectedModelId={model}
+                      onChange={setModel}
+                      showBadges
+                      searchable={currentProviderModels.length > 5}
+                      placeholder={t('settings.ai.model')}
+                      providerType="cloud"
+                      providerId="openai-codex"
                       configuredHint
                     />
                   </Field>

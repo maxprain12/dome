@@ -88,7 +88,12 @@ function assertProviderAuthReady(provider, settings = {}) {
     return;
   }
 
-  if (provider === 'dome' || provider === 'copilot') {
+  if (
+    provider === 'dome' ||
+    provider === 'copilot' ||
+    provider === 'claude-oauth' ||
+    provider === 'openai-codex'
+  ) {
     return;
   }
 
@@ -108,7 +113,12 @@ function isProviderAvailableWithoutApiKey(provider, ollamaBaseUrl) {
   if (provider === 'ollama') {
     return !ollamaRequiresApiKey(ollamaBaseUrl);
   }
-  return provider === 'dome' || provider === 'copilot';
+  return (
+    provider === 'dome' ||
+    provider === 'copilot' ||
+    provider === 'claude-oauth' ||
+    provider === 'openai-codex'
+  );
 }
 
 module.exports = {

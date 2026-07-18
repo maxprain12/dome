@@ -77,6 +77,38 @@ async function getAISettings(database) {
     };
   }
 
+  if (provider === 'claude-oauth') {
+    const claudeOAuth = require('../auth/claude-oauth.cjs');
+    const model = queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS['claude-oauth'];
+    try {
+      const { token, baseUrl } = await claudeOAuth.getAccessToken(database);
+      return { provider: 'claude-oauth', apiKey: token, model, baseUrl };
+    } catch {
+      return {
+        provider: 'claude-oauth',
+        apiKey: undefined,
+        model,
+        baseUrl: claudeOAuth.DEFAULT_BASE_URL,
+      };
+    }
+  }
+
+  if (provider === 'openai-codex') {
+    const openaiCodexOAuth = require('../auth/openai-codex-oauth.cjs');
+    const model = queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS['openai-codex'];
+    try {
+      const { token, baseUrl } = await openaiCodexOAuth.getAccessToken(database);
+      return { provider: 'openai-codex', apiKey: token, model, baseUrl };
+    } catch {
+      return {
+        provider: 'openai-codex',
+        apiKey: undefined,
+        model,
+        baseUrl: openaiCodexOAuth.DEFAULT_BASE_URL,
+      };
+    }
+  }
+
   return {
     provider,
     apiKey: readProviderApiKey(queries, provider),

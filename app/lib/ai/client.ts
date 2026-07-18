@@ -181,7 +181,7 @@ const API_KEY_CHAT_PROVIDERS: AIProviderType[] = [
   'opencode-go',
 ];
 
-const OAUTH_CHAT_PROVIDERS: AIProviderType[] = ['dome', 'copilot'];
+const OAUTH_CHAT_PROVIDERS: AIProviderType[] = ['dome', 'copilot', 'claude-oauth', 'openai-codex'];
 
 /** Providers routed through ai:chat / ai:stream IPC (not ollama). */
 type IpcCloudChatProvider = Exclude<AIProviderType, 'ollama'>;
@@ -204,6 +204,20 @@ export async function checkChatProviderReady(config: AIConfig): Promise<ChatProv
     }
     if (provider === 'copilot') {
       const status = await window.electron?.copilotAuth?.status?.();
+      if (!status?.connected) {
+        return { ready: false, messageKey: 'chat.no_ai_config' };
+      }
+      return { ready: true };
+    }
+    if (provider === 'claude-oauth') {
+      const status = await window.electron?.claudeAuth?.status?.();
+      if (!status?.connected) {
+        return { ready: false, messageKey: 'chat.no_ai_config' };
+      }
+      return { ready: true };
+    }
+    if (provider === 'openai-codex') {
+      const status = await window.electron?.openaiCodexAuth?.status?.();
       if (!status?.connected) {
         return { ready: false, messageKey: 'chat.no_ai_config' };
       }
@@ -306,7 +320,7 @@ async function* streamViaMainProcess(
 export async function chatWithOpenAI(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string, // API key is now fetched from main process
-  model: string = 'gpt-5.2',
+  model: string = 'gpt-5.6-sol',
   _tools?: ToolDefinition[],
 ): Promise<string> {
   if (!isElectron()) {
@@ -323,7 +337,7 @@ export async function chatWithOpenAI(
 export async function* streamOpenAI(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'gpt-5.2',
+  model: string = 'gpt-5.6-sol',
   tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
@@ -389,7 +403,7 @@ export async function* streamOpenAI(
 export async function chatWithClaude(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'claude-sonnet-4-5',
+  model: string = 'claude-sonnet-5',
   _tools?: ToolDefinition[],
 ): Promise<string> {
   if (!isElectron()) {
@@ -406,7 +420,7 @@ export async function chatWithClaude(
 export async function* streamClaude(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'claude-sonnet-4-5',
+  model: string = 'claude-sonnet-5',
   tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
@@ -953,6 +967,14 @@ export async function chat(
         config.model || getDefaultModelId('copilot'),
       );
 
+    case 'claude-oauth':
+    case 'openai-codex':
+      return chatViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+      );
+
     case 'deepseek':
     case 'moonshot':
     case 'qwen':
@@ -1066,6 +1088,17 @@ export async function* chatStream(
         'copilot',
         messages,
         config.model || getDefaultModelId('copilot'),
+        undefined,
+        signal,
+      );
+      break;
+
+    case 'claude-oauth':
+    case 'openai-codex':
+      yield* streamViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
         undefined,
         signal,
       );

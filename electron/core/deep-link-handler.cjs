@@ -39,6 +39,42 @@ async function handleDomeUrl(url, deps) {
     return googleCalendarOAuth.handleOAuthCallback(url);
   }
 
+  // dome://settings or dome://settings/ai — focus app + open Settings tab
+  // Used as OAuth success backlink from localhost callback pages.
+  if (url.startsWith('dome://settings')) {
+    let section;
+    try {
+      const parsed = new URL(url);
+      const path = (parsed.pathname || '').replace(/^\/+/, '');
+      if (path && path !== 'settings') section = path;
+      const q = parsed.searchParams.get('section');
+      if (q) section = q;
+    } catch {
+      /* ignore */
+    }
+    if (!section && /^dome:\/\/settings\/([^/?#]+)/.test(url)) {
+      section = url.match(/^dome:\/\/settings\/([^/?#]+)/)?.[1];
+    }
+    try {
+      const windows = deps.windowManager.getAll?.() || [];
+      for (const win of windows) {
+        if (win && !win.isDestroyed()) {
+          if (typeof win.isMinimized === 'function' && win.isMinimized()) win.restore();
+          win.focus();
+          break;
+        }
+      }
+      deps.windowManager.broadcast('dome:open-settings-in-tab', {
+        section: section || 'ai',
+      });
+      console.log('[DeepLink] Opened settings tab', section || 'ai');
+      return true;
+    } catch (err) {
+      console.error('[DeepLink] Error opening settings:', err);
+      return false;
+    }
+  }
+
   // dome://folder/ID - open Home with folder selected
   const folderMatch = url.match(/^dome:\/\/folder\/([^/?#]+)/);
   if (folderMatch) {

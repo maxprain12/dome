@@ -27,6 +27,8 @@ export const VISIBLE_MODELS_CONFIGURABLE_PROVIDERS: readonly AIProviderType[] = 
   'moonshot',
   'qwen',
   'copilot',
+  'claude-oauth',
+  'openai-codex',
   'opencode',
   'opencode-go',
 ] as const;
@@ -35,8 +37,11 @@ export type VisibleModelsByProvider = Partial<Record<AIProviderType, string[]>>;
 
 /** Default visible model ids per provider (original curated lists). */
 export const DEFAULT_VISIBLE_MODEL_IDS: Readonly<Record<string, readonly string[]>> = {
-  openai: ['gpt-5.2', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-oss-120b'],
-  anthropic: ['claude-opus-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5'],
+  openai: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.2', 'gpt-5-mini'],
+  anthropic: ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'],
+  // Same curated defaults as the API-key providers (subscription = same catalog).
+  'claude-oauth': ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'],
+  'openai-codex': ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'],
   google: [
     'gemini-3-flash-preview',
     'gemini-3-pro-preview',
@@ -55,7 +60,7 @@ export const DEFAULT_VISIBLE_MODEL_IDS: Readonly<Record<string, readonly string[
   moonshot: ['kimi-k2-0905-preview'],
   qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo', 'qwen3-coder-plus'],
   copilot: [...DEFAULT_COPILOT_MODEL_IDS],
-  opencode: ['claude-sonnet-4-5', 'claude-haiku-4-5', 'gpt-5.2', 'gemini-3-flash', 'big-pickle'],
+  opencode: ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'gpt-5.2', 'gemini-3-flash', 'big-pickle'],
   'opencode-go': [
     'deepseek-v4-flash',
     'deepseek-v4-pro',

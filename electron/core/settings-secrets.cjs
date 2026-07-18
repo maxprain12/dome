@@ -11,6 +11,8 @@ const SECRET_KEYS = new Set([
   'transcription_openai_api_key',
   'transcription_groq_api_key',
   'copilot_github_token',
+  'claude_oauth_credentials',
+  'openai_codex_oauth_credentials',
 ]);
 
 function isSecretSettingKey(key) {

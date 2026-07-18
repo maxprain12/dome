@@ -676,6 +676,13 @@ const ALLOWED_CHANNELS = {
     'feeder-secrets:set',
     'feeder-secrets:delete',
     'feeder-secrets:vault-status',
+    // Claude Pro/Max + ChatGPT Codex subscription OAuth (experimental)
+    'claude:auth:login',
+    'claude:auth:status',
+    'claude:auth:disconnect',
+    'openai-codex:auth:login',
+    'openai-codex:auth:status',
+    'openai-codex:auth:disconnect',
     // GitHub project sync
     'github:auth:start',
     'github:auth:poll',
@@ -834,6 +841,7 @@ const ALLOWED_CHANNELS = {
     'domain-sync:progress',
     'settings:cloud-updated',
     'domeauth:sessionState',
+    'openai-codex:auth:device-code',
   ],
   send: [
     'ppt-capture:ready',
@@ -1160,6 +1168,21 @@ const electronHandler = {
     poll: (payload) => ipcRenderer.invoke('copilot:auth:poll', payload),
     status: () => ipcRenderer.invoke('copilot:auth:status'),
     disconnect: () => ipcRenderer.invoke('copilot:auth:disconnect'),
+  },
+  claudeAuth: {
+    login: () => ipcRenderer.invoke('claude:auth:login'),
+    status: () => ipcRenderer.invoke('claude:auth:status'),
+    disconnect: () => ipcRenderer.invoke('claude:auth:disconnect'),
+  },
+  openaiCodexAuth: {
+    login: () => ipcRenderer.invoke('openai-codex:auth:login'),
+    status: () => ipcRenderer.invoke('openai-codex:auth:status'),
+    disconnect: () => ipcRenderer.invoke('openai-codex:auth:disconnect'),
+    onDeviceCode: (callback) => {
+      const sub = (_event, info) => callback(info);
+      ipcRenderer.on('openai-codex:auth:device-code', sub);
+      return () => ipcRenderer.removeListener('openai-codex:auth:device-code', sub);
+    },
   },
 
   // ============================================

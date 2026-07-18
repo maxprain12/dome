@@ -360,7 +360,11 @@ function startLocalOAuthServer(state: string): Promise<OAuthServerInfo> {
 			}
 			res.statusCode = 200;
 			res.setHeader("Content-Type", "text/html; charset=utf-8");
-			res.end(oauthSuccessHtml("OpenAI authentication completed. You can close this window."));
+			res.end(
+				oauthSuccessHtml(
+					"ChatGPT is connected. Return to the Dome app to continue — or open dome.dowi.es.",
+				),
+			);
 			settleWait?.({ code });
 		} catch {
 			res.statusCode = 500;

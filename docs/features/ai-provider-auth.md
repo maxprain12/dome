@@ -27,6 +27,10 @@ Referencia única sobre **cómo debe autenticarse cada proveedor** en Dome. Cual
 | **OpenCode Go** | API key | `ai_api_key_opencode-go`, `ai_model` | Sí | |
 | **Dome** | OAuth (PKCE) | `dome_provider_sessions` | N/A (token de sesión) | Ver [dome-provider-integration.md](./dome-provider-integration.md). |
 | **GitHub Copilot** | OAuth device flow | `copilot_github_token` (encriptado) | N/A (token) | Token + headers Copilot en runtime. |
+| **Claude Pro/Max** (`claude-oauth`) | OAuth PKCE (experimental) | `claude_oauth_credentials` (cifrado) | N/A (token OAuth) | Spike cableado: Settings + IPC `claude:auth:*`. Ver [plan](../plans/subscription-provider-auth.md). |
+| **ChatGPT / Codex** (`openai-codex`) | OAuth device-code (experimental) | `openai_codex_oauth_credentials` (cifrado) | N/A (token OAuth) | Spike cableado: Settings + IPC `openai-codex:auth:*` → `chatgpt.com/backend-api`. Ver [plan](../plans/subscription-provider-auth.md). |
+
+> **Nota:** OpenCode / OpenCode Go usan API key de OpenCode, no la suscripción Claude/ChatGPT del usuario. Claude/ChatGPT subscription login es **experimental / no oficial** (ToS risk). Detalle: [subscription-provider-auth.md](../plans/subscription-provider-auth.md).
 
 ---
 

@@ -868,6 +868,24 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const providers = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', 'deepseek', 'moonshot', 'qwen', 'opencode', 'opencode-go'];
       const status = {};
       for (const p of providers) status[p] = hasProviderApiKey(queries, p);
+      try {
+        const copilotOAuth = require('../../auth/github-copilot-oauth.cjs');
+        status.copilot = !!copilotOAuth.getStatus(database)?.connected;
+      } catch {
+        status.copilot = false;
+      }
+      try {
+        const claudeOAuth = require('../../auth/claude-oauth.cjs');
+        status['claude-oauth'] = !!claudeOAuth.getStatus(database)?.connected;
+      } catch {
+        status['claude-oauth'] = false;
+      }
+      try {
+        const openaiCodexOAuth = require('../../auth/openai-codex-oauth.cjs');
+        status['openai-codex'] = !!openaiCodexOAuth.getStatus(database)?.connected;
+      } catch {
+        status['openai-codex'] = false;
+      }
       return { success: true, data: status };
     } catch (error) {
       console.error('[DB] Error getting provider key status:', error);

@@ -573,8 +573,9 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const queries = database.getQueries();
       const candidate = typeof params.apiKey === 'string' ? params.apiKey : '';
       const { readProviderApiKey } = require('../../ai/provider-keys.cjs');
-      const apiKey = provider === 'dome'
-        ? ''
+      // Subscription providers resolve their OAuth token inside fetchProviderModels.
+      const apiKey = provider === 'dome' || provider === 'claude-oauth' || provider === 'openai-codex'
+        ? (typeof candidate === 'string' ? candidate.trim() : '')
         : (resolveSettingSecretForApi(queries, `ai_api_key_${provider}`, candidate)
           || readProviderApiKey(queries, provider)
           || '');

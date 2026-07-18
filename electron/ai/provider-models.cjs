@@ -16,8 +16,28 @@ const cache = new Map();
 
 /** Static recommended ids per provider (merged when present in API response). */
 const CURATED_IDS = {
-  openai: new Set(['gpt-5.2', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-oss-120b']),
-  anthropic: new Set(['claude-opus-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5']),
+  openai: new Set([
+    'gpt-5.6-sol',
+    'gpt-5.6-terra',
+    'gpt-5.6-luna',
+    'gpt-5.6',
+    'gpt-5.2',
+    'gpt-5',
+    'gpt-5-mini',
+    'gpt-5-nano',
+    'gpt-oss-120b',
+  ]),
+  anthropic: new Set([
+    'claude-fable-5',
+    'claude-opus-4-8',
+    'claude-sonnet-5',
+    'claude-haiku-4-5',
+    'claude-haiku-4-5-20251001',
+    'claude-opus-4-7',
+    'claude-opus-4-6',
+    'claude-sonnet-4-6',
+    'claude-sonnet-4-5',
+  ]),
   google: new Set(['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),
   minimax: new Set(['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.5', 'MiniMax-M2.7-highspeed', 'MiniMax-M2.5-highspeed']),
 };
@@ -161,12 +181,24 @@ async function fetchOpenAiModels(apiKey) {
  * @param {string} apiKey
  * @returns {Promise<{ success: boolean, models?: NormalizedModel[], error?: string }>}
  */
+function anthropicAuthHeaders(apiKey) {
+  const key = String(apiKey || '').trim();
+  const headers = {
+    'anthropic-version': '2023-06-01',
+  };
+  // OAuth tokens (Claude Pro/Max) use Bearer + oauth beta; API keys use x-api-key.
+  if (key.includes('sk-ant-oat')) {
+    headers.Authorization = `Bearer ${key}`;
+    headers['anthropic-beta'] = 'oauth-2025-04-20';
+  } else {
+    headers['x-api-key'] = key;
+  }
+  return headers;
+}
+
 async function fetchAnthropicModels(apiKey) {
   const res = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
+    headers: anthropicAuthHeaders(apiKey),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -323,9 +355,37 @@ async function fetchDomeModels(database) {
  * @param {{ apiKey?: string, database?: object }} [options]
  * @returns {Promise<{ success: boolean, models?: NormalizedModel[], error?: string }>}
  */
+/**
+ * Resolve a usable auth token for subscription providers (same discovery as API).
+ * @param {string} provider
+ * @param {string} apiKey
+ * @param {object} [database]
+ */
+async function resolveListAuthToken(provider, apiKey, database) {
+  if (apiKey) return apiKey;
+  if (!database) return '';
+  try {
+    if (provider === 'claude-oauth' || provider === 'anthropic') {
+      if (provider === 'claude-oauth') {
+        const claudeOAuth = require('../auth/claude-oauth.cjs');
+        const { token } = await claudeOAuth.getAccessToken(database);
+        return token || '';
+      }
+    }
+    if (provider === 'openai-codex') {
+      const openaiCodexOAuth = require('../auth/openai-codex-oauth.cjs');
+      const { token } = await openaiCodexOAuth.getAccessToken(database);
+      return token || '';
+    }
+  } catch (err) {
+    console.warn(`[Provider models] auth for ${provider}:`, err instanceof Error ? err.message : err);
+  }
+  return '';
+}
+
 async function fetchProviderModels(provider, options = {}) {
   const normalized = String(provider || '').trim().toLowerCase();
-  const apiKey = String(options.apiKey || '').trim();
+  let apiKey = String(options.apiKey || '').trim();
 
   if (normalized === 'dome') {
     return fetchDomeModels(options.database);
@@ -350,23 +410,31 @@ async function fetchProviderModels(provider, options = {}) {
     return { success: false, error: 'Use ollama:list-models for Ollama.' };
   }
 
-  const cloudProviders = ['openai', 'anthropic', 'google', 'minimax'];
+  // Subscription providers reuse the same remote catalogs as their API counterparts.
+  const catalogProvider =
+    normalized === 'claude-oauth' ? 'anthropic' : normalized === 'openai-codex' ? 'openai' : normalized;
+
+  const cloudProviders = ['openai', 'anthropic', 'google', 'minimax', 'claude-oauth', 'openai-codex'];
   if (!cloudProviders.includes(normalized)) {
     return { success: false, error: `Unsupported provider: ${provider}` };
+  }
+
+  if (!apiKey && (normalized === 'claude-oauth' || normalized === 'openai-codex')) {
+    apiKey = await resolveListAuthToken(normalized, apiKey, options.database);
   }
 
   if (!apiKey) {
     return { success: false, error: 'API key is required.' };
   }
 
-  const cached = getCached(normalized, apiKey);
+  const cached = getCached(catalogProvider, apiKey);
   if (cached) {
     return { success: true, models: cached };
   }
 
   try {
     let result;
-    switch (normalized) {
+    switch (catalogProvider) {
       case 'openai':
         result = await fetchOpenAiModels(apiKey);
         break;
@@ -384,7 +452,7 @@ async function fetchProviderModels(provider, options = {}) {
     }
 
     if (result.success && result.models?.length) {
-      setCached(normalized, apiKey, result.models);
+      setCached(catalogProvider, apiKey, result.models);
     }
     return result;
   } catch (err) {

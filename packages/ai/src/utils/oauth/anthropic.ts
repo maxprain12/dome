@@ -141,7 +141,11 @@ async function startCallbackServer(expectedState: string): Promise<CallbackServe
 				}
 
 				res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-				res.end(oauthSuccessHtml("Anthropic authentication completed. You can close this window."));
+				res.end(
+					oauthSuccessHtml(
+						"Claude is connected. Return to the Dome app to continue — or open dome.dowi.es.",
+					),
+				);
 				settleWait?.({ code, state });
 			} catch {
 				res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });

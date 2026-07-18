@@ -70,6 +70,8 @@ export type AIProviderType =
   | 'dome'
   | 'ollama'
   | 'copilot'
+  | 'claude-oauth'
+  | 'openai-codex'
   | 'deepseek'
   | 'minimax'
   | 'openrouter'
@@ -83,6 +85,10 @@ export type AIProviderType =
 // =============================================================================
 
 const OPENAI_COSTS: Record<string, ModelCost> = {
+  // GPT-5.6 family (docs: developers.openai.com/api/docs/models — Jul 2026)
+  'gpt-5.6-sol': { input: 5, output: 30, cacheRead: 0.5, cacheWrite: 6.25 },
+  'gpt-5.6-terra': { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite: 3.125 },
+  'gpt-5.6-luna': { input: 1, output: 6, cacheRead: 0.1, cacheWrite: 1.25 },
   'gpt-5.2': { input: 1.75, output: 14, cacheRead: 0.175, cacheWrite: 1.75 },
   'gpt-5': { input: 1.25, output: 10, cacheRead: 0.625, cacheWrite: 1.25 },
   'gpt-5-mini': { input: 0.4, output: 1.6, cacheRead: 0.1, cacheWrite: 0.4 },
@@ -91,9 +97,16 @@ const OPENAI_COSTS: Record<string, ModelCost> = {
 };
 
 const ANTHROPIC_COSTS: Record<string, ModelCost> = {
-  'claude-opus-4-6': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
-  'claude-sonnet-4-5': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+  // Current lineup (platform.claude.com/docs — Jul 2026)
+  'claude-fable-5': { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
+  'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+  // Sonnet 5 intro pricing through 2026-08-31 ($2/$10); then $3/$15
+  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
+  // Legacy still available via API
+  'claude-opus-4-6': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+  'claude-sonnet-4-5': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
 };
 
 const GOOGLE_COSTS: Record<string, ModelCost> = {
@@ -131,14 +144,50 @@ export const OPENROUTER_MODELS: ModelDefinition[] = OPENROUTER_CURATED_SPECS.map
 
 export const OPENAI_MODELS: ModelDefinition[] = [
   {
+    id: 'gpt-5.6-sol',
+    name: 'GPT-5.6 Sol',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1_050_000,
+    maxTokens: 128_000,
+    recommended: true,
+    description: 'Flagship GPT-5.6: razonamiento y coding de frontera (alias gpt-5.6 → Sol)',
+    api: 'openai-completions',
+    cost: OPENAI_COSTS['gpt-5.6-sol'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'gpt-5.6-terra',
+    name: 'GPT-5.6 Terra',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1_050_000,
+    maxTokens: 128_000,
+    description: 'Equilibrio inteligencia/coste para trabajo diario y agentes',
+    api: 'openai-completions',
+    cost: OPENAI_COSTS['gpt-5.6-terra'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'gpt-5.6-luna',
+    name: 'GPT-5.6 Luna',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1_050_000,
+    maxTokens: 128_000,
+    description: 'Rápido y económico para volumen alto',
+    api: 'openai-completions',
+    cost: OPENAI_COSTS['gpt-5.6-luna'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
     id: 'gpt-5.2',
     name: 'GPT-5.2',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 400000,
     maxTokens: 32768,
-    recommended: true,
-    description: 'Mejor modelo para codificación y tareas de agente',
+    description: 'Generación anterior — codificación y agentes',
     api: 'openai-completions',
     cost: OPENAI_COSTS['gpt-5.2'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
@@ -150,7 +199,7 @@ export const OPENAI_MODELS: ModelDefinition[] = [
     input: ['text', 'image'],
     contextWindow: 128000,
     maxTokens: 32768,
-    description: 'Modelo de razonamiento inteligente con esfuerzo configurable',
+    description: 'Modelo de razonamiento con esfuerzo configurable',
     api: 'openai-completions',
     cost: OPENAI_COSTS['gpt-5'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
@@ -162,7 +211,7 @@ export const OPENAI_MODELS: ModelDefinition[] = [
     input: ['text', 'image'],
     contextWindow: 128000,
     maxTokens: 16384,
-    description: 'Versión más rápida y económica para tareas bien definidas',
+    description: 'Más rápido y económico para tareas bien definidas',
     api: 'openai-completions',
     cost: OPENAI_COSTS['gpt-5-mini'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
@@ -221,40 +270,88 @@ export const OPENAI_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
 
 export const ANTHROPIC_MODELS: ModelDefinition[] = [
   {
-    id: 'claude-opus-4-6',
-    name: 'Claude Opus 4.6',
-    reasoning: false,
+    id: 'claude-fable-5',
+    name: 'Claude Fable 5',
+    reasoning: true,
     input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 64000,
-    description: 'Nuestro modelo más inteligente para agentes y codificación',
+    contextWindow: 1_000_000,
+    maxTokens: 128_000,
+    description: 'Máxima capacidad para agentes de larga duración (consume uso más rápido)',
     api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-opus-4-6'],
+    cost: ANTHROPIC_COSTS['claude-fable-5'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
-    id: 'claude-sonnet-4-5',
-    name: 'Claude Sonnet 4.5',
-    reasoning: false,
+    id: 'claude-opus-4-8',
+    name: 'Claude Opus 4.8',
+    reasoning: true,
     input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 64000,
-    recommended: true,
-    description: 'Mejor combinación de velocidad e inteligencia',
+    contextWindow: 1_000_000,
+    maxTokens: 128_000,
+    description: 'Para coding agentic y trabajo enterprise complejo',
     api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-sonnet-4-5'],
+    cost: ANTHROPIC_COSTS['claude-opus-4-8'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'claude-sonnet-5',
+    name: 'Claude Sonnet 5',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1_000_000,
+    maxTokens: 128_000,
+    recommended: true,
+    description: 'Mejor combinación de velocidad e inteligencia para el día a día',
+    api: 'anthropic-messages',
+    cost: ANTHROPIC_COSTS['claude-sonnet-5'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
     id: 'claude-haiku-4-5',
     name: 'Claude Haiku 4.5',
-    reasoning: false,
+    reasoning: true,
     input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 32000,
-    description: 'Nuestro modelo más rápido con inteligencia de vanguardia',
+    contextWindow: 200_000,
+    maxTokens: 64_000,
+    description: 'El más rápido con inteligencia cercana a frontera',
     api: 'anthropic-messages',
     cost: ANTHROPIC_COSTS['claude-haiku-4-5'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'claude-opus-4-6',
+    name: 'Claude Opus 4.6',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1_000_000,
+    maxTokens: 128_000,
+    description: 'Generación anterior — agentes y codificación',
+    api: 'anthropic-messages',
+    cost: ANTHROPIC_COSTS['claude-opus-4-6'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'claude-sonnet-4-6',
+    name: 'Claude Sonnet 4.6',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1_000_000,
+    maxTokens: 128_000,
+    description: 'Generación anterior Sonnet',
+    api: 'anthropic-messages',
+    cost: ANTHROPIC_COSTS['claude-sonnet-4-6'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'claude-sonnet-4-5',
+    name: 'Claude Sonnet 4.5',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 200_000,
+    maxTokens: 64_000,
+    description: 'Legacy Sonnet 4.5',
+    api: 'anthropic-messages',
+    cost: ANTHROPIC_COSTS['claude-sonnet-4-5'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
 ];
@@ -436,7 +533,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'Conecta tu cuenta de Dome',
-    docsUrl: 'https://dome.so',
+    docsUrl: 'https://dome.dowi.es',
     baseUrl: 'https://provider.dome.so',
   },
   ollama: {
@@ -460,6 +557,32 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
+  },
+  'claude-oauth': {
+    id: 'claude-oauth',
+    name: 'Claude Pro/Max',
+    description: 'Suscripción Claude (experimental)',
+    icon: 'anthropic',
+    // Same catalog + remote discovery as Anthropic API key provider.
+    models: ANTHROPIC_MODELS,
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    docsUrl: 'https://claude.ai',
+    baseUrl: 'https://api.anthropic.com',
+  },
+  'openai-codex': {
+    id: 'openai-codex',
+    name: 'ChatGPT (Codex)',
+    description: 'Suscripción ChatGPT Plus/Pro (experimental)',
+    icon: 'openai',
+    // Same static catalog as OpenAI API; remote /v1/models when session allows.
+    models: OPENAI_MODELS,
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    docsUrl: 'https://chatgpt.com',
+    baseUrl: 'https://chatgpt.com/backend-api',
   },
   deepseek: {
     id: 'deepseek',
@@ -703,14 +826,25 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     icon: 'opencode',
     models: [
       {
-        id: 'claude-sonnet-4-5',
-        name: 'Claude Sonnet 4.5',
+        id: 'claude-opus-4-8',
+        name: 'Claude Opus 4.8',
         reasoning: true,
         input: ['text', 'image'],
-        contextWindow: 200000,
-        maxTokens: 64000,
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
         recommended: true,
-        description: 'Claude Sonnet vía OpenCode Zen',
+        description: 'Claude Opus 4.8 vía OpenCode Zen',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'claude-sonnet-4-6',
+        name: 'Claude Sonnet 4.6',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+        description: 'Claude Sonnet 4.6 vía OpenCode Zen',
         api: 'anthropic-messages',
         compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
       },
@@ -920,20 +1054,23 @@ export function getDefaultModelId(providerId: AIProviderType): string {
   
   // Fallback defaults
   switch (providerId) {
-    case 'openai': return 'gpt-5.2';
-    case 'anthropic': return 'claude-sonnet-4-5';
+    case 'openai': return 'gpt-5.6-sol';
+    case 'anthropic': return 'claude-sonnet-5';
     case 'google': return 'gemini-3-flash-preview';
     case 'dome': return 'dome/auto';
     case 'ollama': return 'llama3.2';
     case 'copilot': return 'gpt-4o';
+    case 'claude-oauth': return 'claude-sonnet-5';
+    case 'openai-codex': return 'gpt-5.6-sol';
     case 'deepseek': return 'deepseek-chat';
     case 'minimax': return 'MiniMax-M3';
     case 'openrouter': return 'anthropic/claude-sonnet-4.5';
     case 'moonshot': return 'moonshot-v1-8k';
     case 'qwen': return 'qwen-max';
-    case 'opencode': return 'claude-sonnet-4-5';
+    case 'opencode': return 'claude-opus-4-8';
     case 'opencode-go': return 'deepseek-v4-flash';
-    default: return '';
+    default:
+      return '';
   }
 }
 
@@ -1016,7 +1153,10 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
     case 'opencode':
     case 'opencode-go':
       return 'openai-completions';
+    case 'openai-codex':
+      return 'openai-codex-responses';
     case 'anthropic':
+    case 'claude-oauth':
       return 'anthropic-messages';
     case 'dome':
       return 'openai-completions';
