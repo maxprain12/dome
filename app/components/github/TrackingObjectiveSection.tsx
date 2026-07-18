@@ -56,7 +56,7 @@ export function TrackingObjectiveSection({
           : 'gap-0 overflow-hidden py-0 shadow-none'
       }
     >
-      <CardHeader className="flex-row items-start gap-3 space-y-0 px-4 py-3">
+      <CardHeader className="flex-row items-start gap-3 gap-y-0 px-4 py-3">
         <span
           className={
             variant === 'inbox'

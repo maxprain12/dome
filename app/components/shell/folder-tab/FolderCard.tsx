@@ -682,9 +682,10 @@ function FolderFooter({
   }
 
   return (
-    <button
+    <Button
       type="button"
-      className="dome-fs-card__footer"
+      variant="ghost"
+      className="dome-fs-card__footer h-auto"
       onClick={onActivate}
       aria-label={p.displayTitle}
     >
@@ -701,7 +702,7 @@ function FolderFooter({
         trailing={p.timeAgoShort}
         trailingTitle={p.timeAgoFull}
       />
-    </button>
+    </Button>
   );
 }
 
@@ -962,10 +963,11 @@ function FolderCardImpl({
             ref={previewRef as unknown as React.Ref<HTMLDivElement>}
             className="dome-fs-card__surface"
           >
-            <button
+            <Button
               type="button"
+              variant="ghost"
               className={cn(
-                'dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked',
+                'dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked h-auto',
                 p.artifactTemplate && 'dome-fs-card__cover--artifact',
               )}
               onClick={handleCardActivate}
@@ -979,7 +981,7 @@ function FolderCardImpl({
                 visual={visual}
                 searchQuery={searchQuery}
               />
-            </button>
+            </Button>
           </div>
           {stackedFooter}
         </>
@@ -988,10 +990,11 @@ function FolderCardImpl({
           ref={previewRef as unknown as React.Ref<HTMLDivElement>}
           className="dome-fs-card__surface"
         >
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className={cn(
-              'dome-fs-card__cover dome-fs-card__cover--resource',
+              'dome-fs-card__cover dome-fs-card__cover--resource h-auto',
               p.artifactTemplate && 'dome-fs-card__cover--artifact',
             )}
             onClick={handleCardActivate}
@@ -1012,7 +1015,7 @@ function FolderCardImpl({
             ) : null}
             <div className="dome-fs-card__scrim" aria-hidden />
             <ResourceCaption p={p} searchQuery={searchQuery} />
-          </button>
+          </Button>
         </div>
       )}
 

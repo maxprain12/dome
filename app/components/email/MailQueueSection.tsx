@@ -46,7 +46,7 @@ export function MailQueueSection({
 
   return (
     <Card className="shrink-0 gap-0 overflow-hidden py-0 shadow-none">
-      <CardHeader className="flex-row items-start gap-3 space-y-0 px-4 py-3">
+      <CardHeader className="flex-row items-start gap-3 gap-y-0 px-4 py-3">
         <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <HugeiconsIcon icon={ICONS[queueId]} className="size-3.5" strokeWidth={2} />
         </span>

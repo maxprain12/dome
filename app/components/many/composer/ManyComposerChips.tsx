@@ -66,7 +66,7 @@ export default function ManyComposerChips({
   if (attachments.length === 0 && pinnedResources.length === 0) return null;
 
   return (
-    <div className="min-w-0 w-full space-y-2 px-2.5 pt-2">
+    <div className="flex flex-col min-w-0 w-full gap-y-2 px-2.5 pt-2">
       <PinnedResourceChipList resources={pinnedResources} onRemove={onRemovePinned} />
       {attachments.length > 0 ? (
         <AttachmentGroup className="w-full max-w-full flex-wrap overflow-x-hidden *:data-[slot=attachment]:max-w-full">

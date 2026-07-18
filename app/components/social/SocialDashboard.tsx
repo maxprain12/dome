@@ -161,7 +161,7 @@ export function SocialDashboard({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className={compact ? 'shrink-0 space-y-2 p-2 pb-0' : 'shrink-0 space-y-3 p-4 pb-0'}>
+      <div className={compact ? 'shrink-0 gap-y-2 p-2 pb-0' : 'shrink-0 gap-y-3 p-4 pb-0'}>
         {!compact ? (
           <>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -260,7 +260,7 @@ export function SocialDashboard({
             </div>
           </>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-y-2">
             <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"

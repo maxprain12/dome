@@ -281,7 +281,7 @@ export default function AgentsStudioView() {
       key="library"
       className="@container/agents flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
     >
-      <HubPageHeader className="space-y-3">
+      <HubPageHeader className="flex flex-col gap-y-3">
         <HubHeader
           title={t('tabs.agents')}
           description={t('automationHub.agents_subtitle')}
@@ -369,7 +369,7 @@ export default function AgentsStudioView() {
             </output>
           </div>
         ) : agents.length === 0 ? (
-          <div className="space-y-4 p-6">
+          <div className="flex flex-col gap-y-4 p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               <Card size="sm" className="px-4 py-3">
                 <p className="text-xs text-muted-foreground">{t('orchestration.agents.stat_agents')}</p>
@@ -454,7 +454,7 @@ export default function AgentsStudioView() {
                   }}
                   className="group cursor-pointer text-left transition-[background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] hover:bg-accent/30"
                 >
-                  <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                  <CardHeader className="flex flex-row items-start gap-3 gap-y-0">
                     <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
                       <img
                         src={`/agents/sprite_${agent.iconIndex}.png`}

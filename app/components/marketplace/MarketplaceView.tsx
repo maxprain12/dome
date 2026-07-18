@@ -561,7 +561,7 @@ export default function MarketplaceView() {
   return (
     <>
       <div className="flex h-full min-h-0 flex-col">
-        <HubPageHeader className="space-y-3 px-5 py-4 sm:px-5">
+        <HubPageHeader className="gap-y-3 px-5 py-4 sm:px-5">
           <HubHeader
             title={t('marketplace.title')}
             description={

@@ -625,7 +625,7 @@ export default function DashboardView() {
                       variant="muted"
                       size="sm"
                       render={
-                        <button type="button" onClick={() => openActivity(item)} />
+                        <Button type="button" variant="ghost" onClick={() => openActivity(item)} />
                       }
                     >
                       <ItemMedia variant="icon">
@@ -694,7 +694,7 @@ export default function DashboardView() {
                         key={item.id}
                         size="sm"
                         render={
-                          <button type="button" onClick={() => openPending(item)} />
+                          <Button type="button" variant="ghost" onClick={() => openPending(item)} />
                         }
                       >
                         <ItemContent>
@@ -751,8 +751,9 @@ export default function DashboardView() {
                       key={project.id}
                       size="sm"
                       render={
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
                           onClick={() => setCurrentProject(project)}
                         />
                       }

@@ -121,7 +121,7 @@ export function MailDashboard({
 
   return (
     <div className="@container/mail-dash flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 space-y-3 p-3 pb-0 @[36rem]/mail-dash:space-y-4 @[36rem]/mail-dash:p-4">
+      <div className="flex flex-col shrink-0 gap-y-3 p-3 pb-0 @[36rem]/mail-dash:gap-y-4 @[36rem]/mail-dash:p-4">
         <MailStats
           attend={stats.attend}
           network={stats.network}
@@ -139,7 +139,7 @@ export function MailDashboard({
         ) : null}
       </div>
 
-      <div className="isolate min-h-0 flex-1 basis-0 space-y-3 overflow-y-auto overscroll-contain p-3 @[36rem]/mail-dash:space-y-4 @[36rem]/mail-dash:p-4">
+      <div className="isolate min-h-0 flex-1 basis-0 gap-y-3 overflow-y-auto overscroll-contain p-3 @[36rem]/mail-dash:gap-y-4 @[36rem]/mail-dash:p-4">
         {empty ? (
           <p className="py-8 text-center text-sm text-muted-foreground">{t('email.agent_all_clear')}</p>
         ) : null}

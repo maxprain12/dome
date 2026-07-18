@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { ArrowLeft02Icon } from '@hugeicons/core-free-icons';
 import { HubSearch } from '@/components/hub';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   SETTINGS_GROUPS,
@@ -31,20 +32,21 @@ function SettingsNavButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/80 transition-colors',
+        'h-auto w-full justify-start gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/80',
         active
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent'
           : 'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
       )}
     >
       <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -108,14 +110,15 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
       aria-label={t('settings.nav.sidebar')}
     >
       <div className="shrink-0 px-2 pb-2 pt-2.5">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={handleBack}
-          className="mb-1.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+          className="mb-1.5 h-auto w-full justify-start gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
         >
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t('settings.back_to_app')}</span>
-        </button>
+        </Button>
         <div className="px-0.5">
           <HubSearch
             value={query}

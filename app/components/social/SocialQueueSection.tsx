@@ -57,8 +57,8 @@ export function SocialQueueSection({
       <CardHeader
         className={
           compact
-            ? 'flex-row items-center gap-2 space-y-0 px-3 py-2'
-            : 'flex-row items-start gap-3 space-y-0 px-3 py-2.5'
+            ? 'flex-row items-center gap-2 gap-y-0 px-3 py-2'
+            : 'flex-row items-start gap-3 gap-y-0 px-3 py-2.5'
         }
       >
         <div className="min-w-0 flex-1">

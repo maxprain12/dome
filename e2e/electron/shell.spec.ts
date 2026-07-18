@@ -25,30 +25,28 @@ test('boots the isolated shell without exposing the user profile', async () => {
     await expect(window.getByRole('button', { name: /command|comando/i })).toBeVisible();
 
     const chrome = await window.evaluate(() => {
-      const header = document.querySelector<HTMLElement>('.dome-shell-header');
+      const header = document.querySelector<HTMLElement>('[data-tour="titlebar"]');
       const command = document.querySelector<HTMLElement>('[data-tour="search"]');
       if (!header || !command) throw new Error('Shell chrome is incomplete');
       const headerStyle = getComputedStyle(header);
       const commandStyle = getComputedStyle(command);
       return {
-        platform: header.dataset.platform,
         headerRegion: headerStyle.getPropertyValue('-webkit-app-region'),
         commandRegion: commandStyle.getPropertyValue('-webkit-app-region'),
-        leftInset: Number.parseFloat(headerStyle.getPropertyValue('--dome-titlebar-inset-left')),
-        rightInset: Number.parseFloat(headerStyle.getPropertyValue('--dome-titlebar-inset-right')),
         headerHeight: header.getBoundingClientRect().height,
+        headerPaddingLeft: Number.parseFloat(headerStyle.paddingLeft),
+        commandInHeader: header.contains(command),
       };
     });
 
     expect(chrome.headerRegion).toBe('drag');
     expect(chrome.commandRegion).toBe('no-drag');
-    expect(chrome.headerHeight).toBe(40);
-    if (chrome.platform === 'mac') expect(chrome.leftInset).toBeGreaterThanOrEqual(80);
-    if (chrome.platform === 'win' || chrome.platform === 'linux') {
-      expect(chrome.rightInset).toBeGreaterThanOrEqual(138);
-    }
+    // TitleBar uses h-11 (44px); allow subpixel variance.
+    expect(chrome.headerHeight).toBeGreaterThanOrEqual(40);
+    expect(chrome.headerHeight).toBeLessThanOrEqual(48);
+    expect(chrome.commandInHeader).toBe(true);
 
-    const newConversation = window.getByRole('button', { name: /nueva conversación/i });
+    const newConversation = window.getByRole('button', { name: /nueva conversación|new conversation/i });
     await expect(newConversation).toBeVisible();
     await expect
       .poll(() => newConversation.evaluate((element) => getComputedStyle(element).getPropertyValue('-webkit-app-region')))

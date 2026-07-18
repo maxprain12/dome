@@ -30,7 +30,7 @@ export default function LearnStreakStrip() {
   return (
     <Card size="sm">
       <div className="flex flex-col gap-3 px-(--card-spacing) @[32rem]/learn:flex-row @[32rem]/learn:items-start @[32rem]/learn:justify-between">
-        <div className="min-w-0 space-y-1">
+        <div className="flex flex-col min-w-0 gap-y-1">
           <CardTitle className="flex min-w-0 items-center gap-2 text-balance">
             <HugeiconsIcon icon={FlameIcon} className="size-4 shrink-0" />
             <span className="min-w-0">

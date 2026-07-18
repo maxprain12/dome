@@ -179,7 +179,7 @@ export default function PipelinesBoard() {
 
   return (
     <div className="@container/pipelines flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <HubPageHeader className="shrink-0 space-y-3">
+      <HubPageHeader className="shrink-0 gap-y-3">
         <HubHeader
           title={t('pipelines.title')}
           description={t('pipelines.dashboard_title')}

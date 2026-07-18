@@ -502,7 +502,7 @@ export default function AutomationsStudioView() {
       key="library"
       className="@container/automations flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
     >
-      <HubPageHeader className="space-y-3">
+      <HubPageHeader className="flex flex-col gap-y-3">
         <HubHeader
           title={t('tabs.automations')}
           description={t('automationHub.automations_subtitle')}
@@ -596,7 +596,7 @@ export default function AutomationsStudioView() {
             </output>
           </div>
         ) : automations.length === 0 ? (
-          <div className="space-y-4 p-6">
+          <div className="flex flex-col gap-y-4 p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border bg-card px-4 py-3">
                 <p className="text-xs text-muted-foreground">

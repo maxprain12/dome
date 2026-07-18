@@ -103,7 +103,7 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto">
-      <div className="space-y-3 px-6 pt-6 pb-2">
+      <div className="flex flex-col gap-y-3 px-6 pt-6 pb-2">
         <div>
           <h2 className="text-lg font-semibold text-foreground">{t('pipelines.dashboard_title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('pipelines.dashboard_subtitle')}</p>
