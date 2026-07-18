@@ -351,7 +351,7 @@ export default memo(function ResourceCard({
         </div>
       )}
 
-      {resource.updated_at && (
+      {!!resource.updated_at && (
         <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[color-mix(in_srgb,var(--card)_90%,transparent)] text-muted-foreground shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
           {formatShortDistance(resource.updated_at)}
         </div>

@@ -505,7 +505,7 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
           {artifact.metadata.author && (
             <span><span className="font-semibold">{t('artifacts.author')}:</span> {artifact.metadata.author}</span>
           )}
-          {artifact.total_pages && (
+          {!!artifact.total_pages && (
             <span><span className="font-semibold">{t('artifacts.pages')}:</span> {artifact.total_pages}</span>
           )}
           <span><span className="font-semibold">{t('artifacts.characters')}:</span> {artifact.chars_extracted.toLocaleString()}</span>
