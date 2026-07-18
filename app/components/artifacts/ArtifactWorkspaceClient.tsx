@@ -325,9 +325,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           recent.json === refreshCanon;
         const skipDomRefresh = refreshEchoOnly || iframeEcho;
         if (!skipDomRefresh) {
+          // Sandbox (no allow-same-origin) → opaque origin: 'app://artifact'
+          // when the frame is served from frameSource.src, 'null' for srcdoc fallback.
+          const targetOrigin = frameSource.src ? new URL(frameSource.src).origin : 'null';
           iframeRef.current.contentWindow.postMessage(
             { type: 'dome:data:refresh', payload: refreshPayload },
-            '*',
+            targetOrigin,
           );
         }
         lastLocalDomePushRef.current = null;

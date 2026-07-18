@@ -188,6 +188,20 @@ function getResourceTabType(resourceType: string): DomeTab['type'] {
   return typeMap[resourceType] ?? 'resource';
 }
 
+/**
+ * Renders a tab body that requires a `resourceId`, falling back to
+ * `<NoResource />` when none is set. Extracted so the per-tab dispatch
+ * below stays free of nested `if (!tab.resourceId)` guards, which
+ * previously pushed its cognitive complexity over the Sonar limit.
+ */
+function renderWithResource(
+  tab: DomeTab,
+  render: (resourceId: string) => ReactNode,
+): ReactNode {
+  if (!tab.resourceId) return <NoResource />;
+  return render(tab.resourceId);
+}
+
 function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMode?: boolean }) {
   const closeTab = useTabStore((s) => s.closeTab);
 
@@ -213,76 +227,70 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       );
 
     case 'note':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <NoteWorkspaceClient resourceId={tab.resourceId} readOnly={referenceMode} compact={referenceMode} />
+              <NoteWorkspaceClient resourceId={resourceId} readOnly={referenceMode} compact={referenceMode} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'notebook':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <NotebookWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
+              <NotebookWorkspaceClient key={resourceId} resourceId={resourceId} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'resource':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <WorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
+              <WorkspaceClient key={resourceId} resourceId={resourceId} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'url':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <URLWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
+              <URLWorkspaceClient key={resourceId} resourceId={resourceId} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'youtube':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <YouTubeWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
+              <YouTubeWorkspaceClient key={resourceId} resourceId={resourceId} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'ppt':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <PptWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
+              <PptWorkspaceClient key={resourceId} resourceId={resourceId} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'settings':
       return (
@@ -457,14 +465,13 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       );
 
     case 'folder':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <FolderTabView folderId={tab.resourceId} folderTitle={tab.title} />
+            <FolderTabView folderId={resourceId} folderTitle={tab.title} />
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'transcriptions':
       return (
@@ -478,16 +485,15 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       );
 
     case 'transcription-detail':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
             <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-              <TranscriptionDetailPage noteId={tab.resourceId} />
+              <TranscriptionDetailPage noteId={resourceId} />
             </div>
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     case 'semantic-graph':
       return (
@@ -501,14 +507,13 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       );
 
     case 'artifact':
-      if (!tab.resourceId) return <NoResource />;
-      return (
+      return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <ArtifactWorkspaceClient resourceId={tab.resourceId} />
+            <ArtifactWorkspaceClient resourceId={resourceId} />
           </Suspense>
         </TabBoundary>
-      );
+      ));
 
     default:
       return <NoResource />;

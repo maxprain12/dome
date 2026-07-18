@@ -286,6 +286,108 @@ function convertToolsToOllama(tools) {
 }
 
 /**
+ * Drain an HTTP error body into the reject callback for non-2xx responses.
+ * @param {http.IncomingMessage} res
+ * @param {Function} reject
+ */
+function drainHttpErrorBody(res, reject) {
+  let errorBody = '';
+  res.on('data', (c) => { errorBody += c.toString(); });
+  res.on('end', () => {
+    try {
+      const err = JSON.parse(errorBody);
+      reject(new Error(err.error || `HTTP ${res.statusCode}`));
+    } catch {
+      reject(new Error(`HTTP ${res.statusCode}: ${errorBody}`));
+    }
+  });
+}
+
+/**
+ * Build incremental parsers for the streaming chat response.
+ * @returns {{onData: Function, onEnd: Function}}
+ */
+function createChatStreamParser(opts, onChunk, resolve) {
+  const state = { buffer: '', fullContent: '' };
+
+  function emitToolCall(tc) {
+    const fn = tc.function || tc;
+    const toolId = tc.id || `tool-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const args = typeof fn.arguments === 'string' ? fn.arguments : JSON.stringify(fn.arguments || {});
+    onChunk({
+      type: 'tool_call',
+      toolCall: {
+        id: toolId,
+        name: fn.name || 'unknown',
+        arguments: args,
+      },
+    });
+  }
+
+  function dispatchMessage(message) {
+    if (opts.think && message.thinking && typeof onChunk === 'function') {
+      onChunk({ type: 'thinking', text: message.thinking });
+      state.fullContent += message.thinking;
+    }
+    if (message.content && typeof onChunk === 'function') {
+      onChunk({ type: 'text', text: message.content });
+      state.fullContent += message.content;
+    }
+    // Ollama supports tool_calls in streaming - forward to renderer
+    if (message.tool_calls && Array.isArray(message.tool_calls) && typeof onChunk === 'function') {
+      for (const tc of message.tool_calls) {
+        emitToolCall(tc);
+      }
+    }
+  }
+
+  function handleLine(line) {
+    if (!line.trim()) return;
+    let json;
+    try {
+      json = JSON.parse(line);
+    } catch (e) {
+      // Skip malformed JSON lines
+      return;
+    }
+    if (json.message) {
+      dispatchMessage(json.message);
+    }
+    if (json.done) {
+      resolve(state.fullContent);
+    }
+  }
+
+  function onData(chunk) {
+    state.buffer += chunk.toString();
+    const lines = state.buffer.split('\n');
+    state.buffer = lines.pop() || '';
+    for (const line of lines) {
+      handleLine(line);
+    }
+  }
+
+  function onEnd() {
+    if (state.buffer.trim()) {
+      try {
+        const json = JSON.parse(state.buffer);
+        if (json.message && json.message.content) {
+          state.fullContent += json.message.content;
+          if (typeof onChunk === 'function') {
+            onChunk({ type: 'text', text: json.message.content });
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    resolve(state.fullContent);
+  }
+
+  return { onData, onEnd };
+}
+
+/**
  * Chat with Ollama (streaming)
  * @param {Array<{role: string, content: string}>} messages - Chat messages
  * @param {string} model - Model name
@@ -338,85 +440,12 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
 
     const req = protocol.request(requestOptions, (res) => {
       if (res.statusCode >= 400) {
-        let errorBody = '';
-        res.on('data', (c) => { errorBody += c.toString(); });
-        res.on('end', () => {
-          try {
-            const err = JSON.parse(errorBody);
-            reject(new Error(err.error || `HTTP ${res.statusCode}`));
-          } catch {
-            reject(new Error(`HTTP ${res.statusCode}: ${errorBody}`));
-          }
-        });
+        drainHttpErrorBody(res, reject);
         return;
       }
-
-      let buffer = '';
-      let fullContent = '';
-      const toolCallsAccumulator = [];
-
-      res.on('data', (chunk) => {
-        buffer += chunk.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const json = JSON.parse(line);
-            if (json.message) {
-              if (opts.think && json.message.thinking && typeof onChunk === 'function') {
-                onChunk({ type: 'thinking', text: json.message.thinking });
-                fullContent += json.message.thinking;
-              }
-              if (json.message.content && typeof onChunk === 'function') {
-                onChunk({ type: 'text', text: json.message.content });
-                fullContent += json.message.content;
-              }
-              // Ollama supports tool_calls in streaming - forward to renderer
-              if (json.message.tool_calls && Array.isArray(json.message.tool_calls) && typeof onChunk === 'function') {
-                for (const tc of json.message.tool_calls) {
-                  const fn = tc.function || tc;
-                  const toolId = tc.id || `tool-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-                  const args = typeof fn.arguments === 'string' ? fn.arguments : JSON.stringify(fn.arguments || {});
-                  onChunk({
-                    type: 'tool_call',
-                    toolCall: {
-                      id: toolId,
-                      name: fn.name || 'unknown',
-                      arguments: args,
-                    },
-                  });
-                }
-              }
-            }
-            if (json.done) {
-              resolve(fullContent);
-              return;
-            }
-          } catch (e) {
-            // Skip malformed JSON lines
-          }
-        }
-      });
-
-      res.on('end', () => {
-        if (buffer.trim()) {
-          try {
-            const json = JSON.parse(buffer);
-            if (json.message?.content) {
-              fullContent += json.message.content;
-              if (typeof onChunk === 'function') {
-                onChunk({ type: 'text', text: json.message.content });
-              }
-            }
-          } catch (e) {
-            // Ignore parse errors
-          }
-        }
-        resolve(fullContent);
-      });
-
+      const parser = createChatStreamParser(opts, onChunk, resolve);
+      res.on('data', (chunk) => parser.onData(chunk));
+      res.on('end', () => parser.onEnd());
       res.on('error', reject);
     });
 

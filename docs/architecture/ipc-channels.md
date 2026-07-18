@@ -14,8 +14,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:547` |
 | `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:564` |
 | `ai:stream` | `electron/ipc/ai/ai.cjs:86` |
-| `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:271` |
-| `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:139` |
+| `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:293` |
+| `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:184` |
 | `ai:testConnection` | `electron/ipc/ai/ai.cjs:426` |
 | `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:587` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai/ai-tools.cjs:853` |
@@ -547,8 +547,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `storage:getPath` | `electron/ipc/data/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/data/storage.cjs:3` |
 | `studio:cancel` | `electron/ipc/learn/studio.cjs:213` |
-| `sync:export` | `electron/ipc/sync/sync.cjs:18` |
-| `sync:import` | `electron/ipc/sync/sync.cjs:85` |
+| `sync:export` | `electron/ipc/sync/sync.cjs:122` |
+| `sync:import` | `electron/ipc/sync/sync.cjs:189` |
 | `system:get-app-locale` | `electron/ipc/core/system.cjs:239` |
 | `system:get-login-item` | `electron/ipc/core/system.cjs:217` |
 | `system:memoryInfo` | `electron/ipc/core/system.cjs:264` |

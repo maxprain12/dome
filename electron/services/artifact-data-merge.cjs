@@ -25,6 +25,27 @@ function extractJsonFromOutput(outputText, mode) {
   }
 }
 
+function isPlainObject(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toPlainObject(value) {
+  return isPlainObject(value) ? /** @type {Record<string, unknown>} */ (value) : {};
+}
+
+function deepMergeEntry(a, v) {
+  return isPlainObject(v) && isPlainObject(a)
+    ? { .../** @type {Record<string, unknown>} */ (a), .../** @type {Record<string, unknown>} */ (v) }
+    : v;
+}
+
+function deepMergeInto(out, incObj) {
+  for (const [k, v] of Object.entries(incObj)) {
+    out[k] = deepMergeEntry(out[k], v);
+  }
+  return out;
+}
+
 function applyUpdatePolicy(current, incoming, policy) {
   if (incoming == null) return current;
   if (policy === 'replace') return incoming;
@@ -33,30 +54,13 @@ function applyUpdatePolicy(current, incoming, policy) {
     const inc = Array.isArray(incoming) ? incoming : [incoming];
     return cur.concat(inc);
   }
-  const curObj = current && typeof current === 'object' && !Array.isArray(current) ? current : {};
-  const incObj = incoming && typeof incoming === 'object' && !Array.isArray(incoming) ? incoming : {};
+  const curObj = toPlainObject(current);
+  const incObj = toPlainObject(incoming);
   if (policy === 'merge_shallow') {
     return { ...curObj, ...incObj };
   }
   if (policy === 'merge_deep') {
-    /** @type {Record<string, unknown>} */
-    const out = { ...curObj };
-    for (const [k, v] of Object.entries(incObj)) {
-      const a = out[k];
-      if (
-        v &&
-        typeof v === 'object' &&
-        !Array.isArray(v) &&
-        a &&
-        typeof a === 'object' &&
-        !Array.isArray(a)
-      ) {
-        out[k] = { .../** @type {Record<string, unknown>} */ (a), .../** @type {Record<string, unknown>} */ (v) };
-      } else {
-        out[k] = v;
-      }
-    }
-    return out;
+    return deepMergeInto({ ...curObj }, incObj);
   }
   return incObj;
 }

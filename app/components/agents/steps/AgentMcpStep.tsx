@@ -21,6 +21,19 @@ interface AgentMcpStepProps {
   onChange: (ids: string[]) => void;
 }
 
+function applyGlobalToolToggle(
+  servers: MCPServerConfig[],
+  targetName: string,
+  toolId: string,
+  enabled: boolean,
+): MCPServerConfig[] {
+  return servers.map((server) =>
+    server.name === targetName
+      ? toggleGlobalMcpTool(server, toolId, enabled)
+      : server,
+  );
+}
+
 export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProps) {
   const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServerConfig[]>([]);
@@ -181,12 +194,13 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
                         disabled={savingServerName === s.name}
                         onChange={(event) =>
                           persistServers(
-                            servers.map((server) =>
-                              server.name === s.name
-                                ? toggleGlobalMcpTool(server, tool.id || tool.name, event.target.checked)
-                                : server
+                            applyGlobalToolToggle(
+                              servers,
+                              s.name,
+                              tool.id || tool.name,
+                              event.target.checked,
                             ),
-                            s.name
+                            s.name,
                           )
                         }
                       />

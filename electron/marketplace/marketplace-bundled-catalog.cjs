@@ -39,6 +39,37 @@ function resolveExisting(...segments) {
   return null;
 }
 
+function pickAgentDefaults(entry) {
+  return {
+    systemInstructions: entry.systemInstructions || '',
+    toolIds: Array.isArray(entry.toolIds) ? entry.toolIds : [],
+    iconIndex: typeof entry.iconIndex === 'number' ? entry.iconIndex : 1,
+    author: entry.author || 'Unknown',
+    version: entry.version || '1.0.0',
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    featured: entry.featured !== false,
+    downloads: typeof entry.downloads === 'number' ? entry.downloads : 0,
+    createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
+  };
+}
+
+function mergeAgentEntryWithManifest(entry, id, full) {
+  if (full && typeof full === 'object') {
+    return {
+      ...entry,
+      ...full,
+      id: full.id || id,
+      source: full.source || 'official',
+    };
+  }
+  return {
+    ...entry,
+    ...pickAgentDefaults(entry),
+    mcpServerIds: [],
+    skillIds: [],
+  };
+}
+
 /**
  * @returns {{ id: string, name: string, description: string, author?: string, version?: string, tags?: string[], systemInstructions?: string, toolIds?: string[], mcpServerIds?: string[], skillIds?: string[], iconIndex?: number, [k: string]: unknown }[]}
  */
@@ -49,37 +80,13 @@ function loadBundledAgentsFull() {
   if (!Array.isArray(index)) return [];
 
   const baseDir = path.dirname(indexPath);
-  const out = [];
-  for (const entry of index) {
-    const id = entry && typeof entry.id === 'string' ? entry.id : '';
-    if (!id) continue;
-    const manifestPath = path.join(baseDir, 'agents', id, 'manifest.json');
-    const full = tryReadJson(manifestPath);
-    if (full && typeof full === 'object') {
-      out.push({
-        ...entry,
-        ...full,
-        id: full.id || id,
-        source: full.source || 'official',
-      });
-    } else {
-      out.push({
-        ...entry,
-        systemInstructions: entry.systemInstructions || '',
-        toolIds: Array.isArray(entry.toolIds) ? entry.toolIds : [],
-        mcpServerIds: [],
-        skillIds: [],
-        iconIndex: typeof entry.iconIndex === 'number' ? entry.iconIndex : 1,
-        author: entry.author || 'Unknown',
-        version: entry.version || '1.0.0',
-        tags: Array.isArray(entry.tags) ? entry.tags : [],
-        featured: entry.featured !== false,
-        downloads: typeof entry.downloads === 'number' ? entry.downloads : 0,
-        createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
-      });
-    }
-  }
-  return out;
+  return index
+    .filter((entry) => entry && typeof entry.id === 'string' && entry.id)
+    .map((entry) => {
+      const manifestPath = path.join(baseDir, 'agents', entry.id, 'manifest.json');
+      const full = tryReadJson(manifestPath);
+      return mergeAgentEntryWithManifest(entry, entry.id, full);
+    });
 }
 
 function mergeWorkflowEntryWithManifest(entry, id, full) {

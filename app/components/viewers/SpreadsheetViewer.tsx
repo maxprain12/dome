@@ -254,7 +254,8 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
             if (!changed) break;
           }
 
-          const rows = rawGrid.map((rawRow) => rawRow.map((rc) => rc.value));
+          const cellValue = (rc: RawCell): string => rc.value;
+          const rows = rawGrid.map((rawRow) => rawRow.map(cellValue));
           parsedSheets.push({ name: worksheet.name, data: rows });
         });
 

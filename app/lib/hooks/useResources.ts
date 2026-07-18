@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import type { ResourceType } from '@/types';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -87,6 +88,58 @@ function normalizeResource(r: Resource): Resource {
     };
 }
 
+/** Merge a partial update into a single resource; returns the original when id mismatches. */
+function mergeResourceUpdate(resource: Resource, id: string, updates: Partial<Resource>): Resource {
+    if (resource.id !== id) return resource;
+    const merged = { ...resource, ...updates, updated_at: Date.now() };
+    // Deep-merge metadata so partial updates (e.g. folder color) preserve other fields
+    if (updates?.metadata != null) {
+        const existingMeta = parseResourceMetadata(resource.metadata) || {};
+        const incomingMeta = parseResourceMetadata(updates.metadata) || {};
+        merged.metadata = { ...existingMeta, ...incomingMeta };
+    }
+    return merged;
+}
+
+/** Replace resources: keeps entries with a different id, swaps in `next` for matching id. */
+function replaceResourceById(prev: Resource[], id: string, next: Resource): Resource[] {
+    return prev.map(r => (r.id !== id ? r : next));
+}
+
+/** Apply a partial update to the resource with `id` in state, preserving other entries. */
+function applyMergeUpdate(
+    setResources: Dispatch<SetStateAction<Resource[]>>,
+    id: string,
+    updates: Partial<Resource>
+): void {
+    setResources(prev => prev.map(r => mergeResourceUpdate(r, id, updates)));
+}
+
+/**
+ * Re-fetch a resource by id (used when a `thumbnail_ready` broadcast omits
+ * `thumbnail_data` to avoid OOM). On failure, fall back to a merge.
+ */
+function refreshThumbnailResource(
+    setResources: Dispatch<SetStateAction<Resource[]>>,
+    id: string,
+    updates: Partial<Resource>
+): void {
+    if (!window.electron?.db?.resources?.getById) {
+        applyMergeUpdate(setResources, id, updates);
+        return;
+    }
+    window.electron.db.resources.getById(id)
+        .then(result => {
+            if (result?.success && result.data) {
+                const full = normalizeResource(result.data as Resource);
+                setResources(prev => replaceResourceById(prev, id, full));
+            }
+        })
+        .catch(() => {
+            applyMergeUpdate(setResources, id, updates);
+        });
+}
+
 export function useResources(filter?: ResourceFilter) {
     const [resources, setResources] = useState<Resource[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -153,44 +206,11 @@ export function useResources(filter?: ResourceFilter) {
                 // When thumbnail is ready (e.g. URL screenshot), broadcast omits thumbnail_data
                 // to avoid OOM. Re-fetch the resource to get thumbnail_data for preview.
                 // NOTE: Partial<Resource> may not have thumbnail_ready property - check using 'in' operator.
-                if ('thumbnail_ready' in updates && updates.thumbnail_ready && window.electron?.db?.resources?.getById) {
-                    window.electron.db.resources.getById(id).then((result) => {
-                        if (result?.success && result.data) {
-                            const full = normalizeResource(result.data as Resource);
-                            setResources(prev =>
-                                prev.map(r => (r.id !== id ? r : full))
-                            );
-                        }
-                    }).catch(() => {
-                        // Fallback to merge if re-fetch fails
-                        setResources(prev =>
-                            prev.map(r => {
-                                if (r.id !== id) return r;
-                                const merged = { ...r, ...updates, updated_at: Date.now() };
-                                if (updates?.metadata != null) {
-                                    const existingMeta = parseResourceMetadata(r.metadata) || {};
-                                    const incomingMeta = parseResourceMetadata(updates.metadata) || {};
-                                    merged.metadata = { ...existingMeta, ...incomingMeta };
-                                }
-                                return merged;
-                            })
-                        );
-                    });
+                if ('thumbnail_ready' in updates && updates.thumbnail_ready) {
+                    refreshThumbnailResource(setResources, id, updates);
                     return;
                 }
-                setResources(prev =>
-                    prev.map(r => {
-                        if (r.id !== id) return r;
-                        const merged = { ...r, ...updates, updated_at: Date.now() };
-                        // Deep-merge metadata so partial updates (e.g. folder color) preserve other fields
-                        if (updates?.metadata != null) {
-                            const existingMeta = parseResourceMetadata(r.metadata) || {};
-                            const incomingMeta = parseResourceMetadata(updates.metadata) || {};
-                            merged.metadata = { ...existingMeta, ...incomingMeta };
-                        }
-                        return merged;
-                    })
-                );
+                applyMergeUpdate(setResources, id, updates);
             }
         );
 

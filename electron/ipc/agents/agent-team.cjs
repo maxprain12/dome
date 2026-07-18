@@ -135,50 +135,72 @@ function mapTeamChunk(chunk, send) {
   }
 }
 
+function parseTeamStreamPayload(payload, event, windowManager) {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { ok: false, error: 'Unauthorized' };
+  }
+  if (!payload || typeof payload !== 'object') {
+    return { ok: false, error: 'Invalid payload: must be an object' };
+  }
+  let fields;
+  try {
+    fields = {
+      streamId: payload.streamId,
+      teamId: payload.teamId,
+      messages: payload.messages,
+      memberAgentIds: payload.memberAgentIds,
+      supervisorInstructions: payload.supervisorInstructions,
+      currentResourceId: payload.currentResourceId,
+      currentResourceTitle: payload.currentResourceTitle,
+      currentFolderId: payload.currentFolderId,
+      pathname: payload.pathname,
+      homeSidebarSection: payload.homeSidebarSection,
+      teamToolIds: payload.teamToolIds,
+      teamMcpServerIds: payload.teamMcpServerIds,
+      projectId: payload.projectId,
+    };
+  } catch (err) {
+    if (err instanceof TypeError) {
+      return { ok: false, error: 'Invalid payload: could not read required properties' };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  if (typeof fields.streamId !== 'string' || !fields.streamId) {
+    return { ok: false, error: 'Invalid payload: streamId must be a non-empty string' };
+  }
+  if (typeof fields.teamId !== 'string' || !fields.teamId) {
+    return { ok: false, error: 'Invalid payload: teamId must be a non-empty string' };
+  }
+  if (!Array.isArray(fields.messages)) {
+    return { ok: false, error: 'Invalid payload: messages must be an array' };
+  }
+  if (!Array.isArray(fields.memberAgentIds)) {
+    return { ok: false, error: 'Invalid payload: memberAgentIds must be an array' };
+  }
+  return { ok: true, fields };
+}
+
 function register({ ipcMain, windowManager, database }) {
   ipcMain.handle('ai:team:stream', async (event, payload) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
+    const parsed = parseTeamStreamPayload(payload, event, windowManager);
+    if (!parsed.ok) {
+      return { success: false, error: parsed.error };
     }
-    if (!payload || typeof payload !== 'object') {
-      return { success: false, error: 'Invalid payload: must be an object' };
-    }
-    let streamId, teamId, messages, memberAgentIds, supervisorInstructions, currentResourceId, currentResourceTitle, currentFolderId, pathname, homeSidebarSection, teamToolIds, teamMcpServerIds, projectId;
-    try {
-      ({
-        streamId,
-        teamId,
-        messages,
-        memberAgentIds,
-        supervisorInstructions,
-        currentResourceId,
-        currentResourceTitle,
-        currentFolderId,
-        pathname,
-        homeSidebarSection,
-        teamToolIds,
-        teamMcpServerIds,
-        projectId,
-      } = payload);
-    } catch (err) {
-      if (err instanceof TypeError) {
-        return { success: false, error: 'Invalid payload: could not read required properties' };
-      }
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
-    }
-
-    if (typeof streamId !== 'string' || !streamId) {
-      return { success: false, error: 'Invalid payload: streamId must be a non-empty string' };
-    }
-    if (typeof teamId !== 'string' || !teamId) {
-      return { success: false, error: 'Invalid payload: teamId must be a non-empty string' };
-    }
-    if (!Array.isArray(messages)) {
-      return { success: false, error: 'Invalid payload: messages must be an array' };
-    }
-    if (!Array.isArray(memberAgentIds)) {
-      return { success: false, error: 'Invalid payload: memberAgentIds must be an array' };
-    }
+    const {
+      streamId,
+      teamId,
+      messages,
+      memberAgentIds,
+      supervisorInstructions,
+      currentResourceId,
+      currentResourceTitle,
+      currentFolderId,
+      pathname,
+      homeSidebarSection,
+      teamToolIds,
+      teamMcpServerIds,
+      projectId,
+    } = parsed.fields;
 
     const send = (data) => {
       if (event.sender && !event.sender.isDestroyed()) {
