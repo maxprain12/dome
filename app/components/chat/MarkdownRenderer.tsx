@@ -455,7 +455,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           e.stopPropagation();
           // External links: open via IPC so we don't navigate away from the app
           if (typeof href === 'string' && (href.startsWith('http://') || href.startsWith('https://'))) {
-            void handleOpenExternalUrl(href);
+            handleOpenExternalUrl(href);
           }
         };
 
