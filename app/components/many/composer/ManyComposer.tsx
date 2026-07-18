@@ -54,6 +54,164 @@ const PLACEHOLDER_HINT_KEYS = [
   'many.input_placeholder_hint_attach',
 ] as const;
 
+type MultimodalCaps = {
+  supportsImage: boolean;
+  supportsVideo: boolean;
+};
+
+function isVideoFile(file: File): boolean {
+  return file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv)$/i.test(file.name);
+}
+
+function appendMentionToInput(prev: string, name: string): string {
+  const gap = prev.length > 0 && !/\s$/.test(prev) ? ' ' : '';
+  return `${prev}${gap}@${name} `;
+}
+
+async function processComposerAttachmentFile(
+  file: File,
+  attachments: ChatAttachment[],
+  caps: MultimodalCaps,
+  t: (key: string) => string,
+  onIntermediateAttachments?: (items: ChatAttachment[]) => void,
+): Promise<{ attachments: ChatAttachment[]; mentionName: string | null }> {
+  const isImage = file.type.startsWith('image/');
+  const isVideo = isVideoFile(file);
+  if (isImage && !caps.supportsImage) {
+    console.warn(t('chat.attachment_image_unsupported'));
+    return { attachments, mentionName: null };
+  }
+  if (isVideo && !caps.supportsVideo) {
+    console.warn(t('chat.attachment_video_unsupported'));
+    return { attachments, mentionName: null };
+  }
+
+  const pendingId = isImage || isVideo ? null : newAttachmentId();
+  let working = attachments;
+  if (pendingId) {
+    working = [
+      ...working,
+      {
+        id: pendingId,
+        kind: 'document' as const,
+        name: file.name,
+        text: null,
+        status: 'loading' as const,
+      },
+    ];
+    onIntermediateAttachments?.(working);
+  }
+
+  const attachment = await processAttachmentFile(file);
+  working = pendingId ? working.filter((item) => item.id !== pendingId) : working;
+  if (!attachment) {
+    return { attachments: working, mentionName: null };
+  }
+
+  return {
+    attachments: [...working, attachment],
+    mentionName: attachment.name,
+  };
+}
+
+function buildManyComposerTokenTooltips(params: {
+  t: (key: string, options?: Record<string, string>) => string;
+  pinnedResources: Array<{ title: string; type: string }>;
+  attachments: ChatAttachment[];
+  skillCatalog: SkillItem[];
+  mcpCatalog: Array<{ name: string; description?: string }>;
+  skillHighlightLabels: string[];
+}): Record<string, ComposerTokenTooltip> {
+  const { t, pinnedResources, attachments, skillCatalog, mcpCatalog, skillHighlightLabels } = params;
+  const map: Record<string, ComposerTokenTooltip> = {};
+  const skillByKey = new Map<string, SkillItem>();
+  for (const skill of skillCatalog) {
+    skillByKey.set(skill.name.toLowerCase(), skill);
+    skillByKey.set(skill.slug.toLowerCase(), skill);
+  }
+
+  for (const resource of pinnedResources) {
+    map[`mention:${resource.title}`] = {
+      title: t('many.token_doc_title', { name: resource.title }),
+      description: t('many.token_doc_desc', { type: resource.type }),
+    };
+  }
+
+  for (const attachment of attachments) {
+    map[`file:${attachment.name}`] = {
+      title: t('many.token_file_title', { name: attachment.name }),
+      description: t('many.token_file_desc'),
+    };
+  }
+
+  for (const skill of skillCatalog) {
+    map[`skill:${skill.name}`] = {
+      title: t('many.token_skill_title', { name: skill.name }),
+      description: skill.description?.trim() || t('many.token_skill_desc'),
+    };
+    if (skill.slug !== skill.name) {
+      map[`skill:${skill.slug}`] = map[`skill:${skill.name}`]!;
+    }
+  }
+
+  for (const name of skillHighlightLabels) {
+    if (map[`skill:${name}`]) continue;
+    const found = skillByKey.get(name.toLowerCase());
+    map[`skill:${name}`] = {
+      title: t('many.token_skill_title', { name }),
+      description: found?.description?.trim() || t('many.token_skill_desc'),
+    };
+  }
+
+  for (const server of mcpCatalog) {
+    const slug = server.name.replace(/\s+/g, '-');
+    map[`mcp:${slug}`] = {
+      title: t('many.token_mcp_title', { name: server.name }),
+      description: server.description?.trim() || t('many.token_mcp_desc'),
+    };
+  }
+
+  return map;
+}
+
+function syncRemovedResourcePins(
+  previous: string,
+  next: string,
+  pinnedResources: Array<{ id: string; kind?: string; title: string }>,
+  removePinnedResource: (id: string) => void,
+): void {
+  for (const pin of pinnedResources) {
+    if (pin.kind && pin.kind !== 'resource') continue;
+    const token = `@${pin.title}`;
+    if (previous.includes(token) && !next.includes(token)) {
+      removePinnedResource(pin.id);
+    }
+  }
+}
+
+function syncRemovedSkillTokens(
+  value: string,
+  pendingOneShotSkillId: string | null,
+  activeStickySkillId: string | null,
+  currentSessionId: string | null,
+  skillLabels: Record<string, string>,
+  setPendingOneShotSkill: (id: string | null) => void,
+  setActiveSkillForSession: (sessionId: string, skillId: string | null) => void,
+): void {
+  if (pendingOneShotSkillId) {
+    const label = skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId;
+    if (!value.includes(`/${label}`)) {
+      setPendingOneShotSkill(null);
+    }
+  }
+  if (activeStickySkillId && currentSessionId) {
+    const label = skillLabels[activeStickySkillId] || activeStickySkillId;
+    if (!value.includes(`/${label}`)) {
+      setActiveSkillForSession(currentSessionId, null);
+    }
+  }
+}
+
 export interface ManyComposerProps {
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
@@ -265,49 +423,24 @@ const ManyComposer = memo(function ManyComposer({
       if (!fileList?.length || !onAttachmentsChange) return;
       let working = [...attachments];
       for (const file of Array.from(fileList)) {
-        const isImage = file.type.startsWith('image/');
-        const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv)$/i.test(file.name);
-        if (isImage && !multimodalCaps.supportsImage) {
-          console.warn(t('chat.attachment_image_unsupported'));
-          continue;
-        }
-        if (isVideo && !multimodalCaps.supportsVideo) {
-          console.warn(t('chat.attachment_video_unsupported'));
-          continue;
-        }
-        const pendingId = isImage || isVideo ? null : newAttachmentId();
-        if (pendingId) {
-          working = [
-            ...working,
-            {
-              id: pendingId,
-              kind: 'document' as const,
-              name: file.name,
-              text: null,
-              status: 'loading' as const,
-            },
-          ];
-          onAttachmentsChange(working);
-        }
-        const a = await processAttachmentFile(file);
-        working = pendingId ? working.filter((item) => item.id !== pendingId) : working;
-        if (a) {
-          working = [...working, a];
-          onAttachmentsChange(working);
-          setInput((prev) => {
-            const gap = prev.length > 0 && !/\s$/.test(prev) ? ' ' : '';
-            return `${prev}${gap}@${a.name} `;
-          });
-        } else if (pendingId) {
-          onAttachmentsChange(working);
+        const result = await processComposerAttachmentFile(
+          file,
+          working,
+          multimodalCaps,
+          t,
+          onAttachmentsChange,
+        );
+        working = result.attachments;
+        onAttachmentsChange(working);
+        if (result.mentionName) {
+          setInput((prev) => appendMentionToInput(prev, result.mentionName!));
         }
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
     [
       attachments,
-      multimodalCaps.supportsImage,
-      multimodalCaps.supportsVideo,
+      multimodalCaps,
       onAttachmentsChange,
       setInput,
       t,
@@ -342,27 +475,16 @@ const ManyComposer = memo(function ManyComposer({
       mention.updateFromText(val, cursor);
       slash.updateFromText(val, cursor);
       hash.updateFromText(val, cursor);
-      // Library-resource pins mirror `@title` in the text. Chip-only pins
-      // (person / issue / email / social) are removed only via the chip ×.
-      for (const pin of pinnedResources) {
-        if (pin.kind && pin.kind !== 'resource') continue;
-        const token = `@${pin.title}`;
-        if (previous.includes(token) && !val.includes(token)) {
-          removePinnedResource(pin.id);
-        }
-      }
-      if (pendingOneShotSkillId) {
-        const label = skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId;
-        if (!val.includes(`/${label}`)) {
-          setPendingOneShotSkill(null);
-        }
-      }
-      if (activeStickySkillId && currentSessionId) {
-        const label = skillLabels[activeStickySkillId] || activeStickySkillId;
-        if (!val.includes(`/${label}`)) {
-          setActiveSkillForSession(currentSessionId, null);
-        }
-      }
+      syncRemovedResourcePins(previous, val, pinnedResources, removePinnedResource);
+      syncRemovedSkillTokens(
+        val,
+        pendingOneShotSkillId,
+        activeStickySkillId,
+        currentSessionId,
+        skillLabels,
+        setPendingOneShotSkill,
+        setActiveSkillForSession,
+      );
     },
     [
       input,
@@ -401,57 +523,18 @@ const ManyComposer = memo(function ManyComposer({
     [pendingOneShotSkillId, activeStickySkillId, skillLabels],
   );
 
-  const tokenTooltips = useMemo(() => {
-    const map: Record<string, ComposerTokenTooltip> = {};
-    const skillByKey = new Map<string, SkillItem>();
-    for (const skill of skillCatalog) {
-      skillByKey.set(skill.name.toLowerCase(), skill);
-      skillByKey.set(skill.slug.toLowerCase(), skill);
-    }
-
-    for (const resource of pinnedResources) {
-      map[`mention:${resource.title}`] = {
-        title: t('many.token_doc_title', { name: resource.title }),
-        description: t('many.token_doc_desc', { type: resource.type }),
-      };
-    }
-
-    for (const attachment of attachments) {
-      map[`file:${attachment.name}`] = {
-        title: t('many.token_file_title', { name: attachment.name }),
-        description: t('many.token_file_desc'),
-      };
-    }
-
-    for (const skill of skillCatalog) {
-      map[`skill:${skill.name}`] = {
-        title: t('many.token_skill_title', { name: skill.name }),
-        description: skill.description?.trim() || t('many.token_skill_desc'),
-      };
-      if (skill.slug !== skill.name) {
-        map[`skill:${skill.slug}`] = map[`skill:${skill.name}`]!;
-      }
-    }
-
-    for (const name of skillHighlightLabels) {
-      if (map[`skill:${name}`]) continue;
-      const found = skillByKey.get(name.toLowerCase());
-      map[`skill:${name}`] = {
-        title: t('many.token_skill_title', { name }),
-        description: found?.description?.trim() || t('many.token_skill_desc'),
-      };
-    }
-
-    for (const server of mcpCatalog) {
-      const slug = server.name.replace(/\s+/g, '-');
-      map[`mcp:${slug}`] = {
-        title: t('many.token_mcp_title', { name: server.name }),
-        description: server.description?.trim() || t('many.token_mcp_desc'),
-      };
-    }
-
-    return map;
-  }, [t, pinnedResources, attachments, skillCatalog, mcpCatalog, skillHighlightLabels]);
+  const tokenTooltips = useMemo(
+    () =>
+      buildManyComposerTokenTooltips({
+        t,
+        pinnedResources,
+        attachments,
+        skillCatalog,
+        mcpCatalog,
+        skillHighlightLabels,
+      }),
+    [t, pinnedResources, attachments, skillCatalog, mcpCatalog, skillHighlightLabels],
+  );
 
   return (
     <div className={cn('flex flex-col gap-1.5', !isWelcome && 'px-3 pb-3 pt-1')}>
