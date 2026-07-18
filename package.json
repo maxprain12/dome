@@ -158,7 +158,7 @@
     "@tiptap/starter-kit": "^3.22.4",
     "@tiptap/suggestion": "^3.22.3",
     "@tiptap/y-tiptap": "^3.0.3",
-    "adm-zip": "^0.5.17",
+    "adm-zip": "^0.6.0",
     "apache-arrow": "^18.1.0",
     "archiver": "^7.0.1",
     "better-sqlite3": "^12.6.2",
