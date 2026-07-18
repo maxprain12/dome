@@ -27,6 +27,13 @@ function runProcess(command, args, options = {}) {
   });
 }
 
+export const DEPENDENCY_INSTALL_ARGS = Object.freeze([
+  'install',
+  '--frozen-lockfile',
+  '--prefer-offline',
+  '--ignore-scripts',
+]);
+
 export function createWorktree({ baseSha, experimentId, label, patches = [] }) {
   const parent = ensureDir(path.join(os.tmpdir(), 'dome-self-harness-worktrees'));
   const worktree = fs.mkdtempSync(path.join(parent, `${sanitizeSlug(experimentId)}-${sanitizeSlug(label)}-`));
@@ -64,7 +71,7 @@ export function applyPatch(worktree, patch) {
 }
 
 export async function prepareDependencies(worktree, timeoutMs) {
-  return runProcess('pnpm', ['install', '--frozen-lockfile', '--offline', '--ignore-scripts'], {
+  return runProcess('pnpm', DEPENDENCY_INSTALL_ARGS, {
     cwd: worktree,
     timeoutMs,
   });

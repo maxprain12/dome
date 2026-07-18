@@ -133,6 +133,16 @@ function phase(dir, state, name, extra = {}) {
   return updateState(dir, state, { ...extra, phase: name, lastActivePhase: name });
 }
 
+export function describeGateFailure(results) {
+  const failed = results.find((result) => result.code !== 0);
+  if (!failed) return 'unknown static gate failure';
+  const output = String(failed.stderr || failed.stdout || '')
+    .trim()
+    .slice(-2_000);
+  const detail = output ? `: ${output}` : '';
+  return `${failed.name} exited with code ${failed.code}${detail}`;
+}
+
 export async function runExperiment(id, options = {}, injectedAdapters = {}) {
   const adapters = { ...DEFAULT_ADAPTERS, ...injectedAdapters };
   const loaded = loadExperiment(id);
@@ -161,7 +171,9 @@ export async function runExperiment(id, options = {}, injectedAdapters = {}) {
 
       const baselineGates = options.skipGates ? [{ name: 'skipped', code: 0 }] : await adapters.gates(activeWorktree, manifest);
       persistArtifact(dir, `rounds/${round}/baseline-gates.json`, baselineGates);
-      if (!gatesPassed(baselineGates)) throw new Error(`Active harness failed static gates in round ${round}`);
+      if (!gatesPassed(baselineGates)) {
+        throw new Error(`Active harness failed static gates in round ${round}: ${describeGateFailure(baselineGates)}`);
+      }
 
       const baselineRecords = await adapters.evaluate({
         worktree: activeWorktree, dir, manifest, candidateId: 'baseline', round, repeats,
