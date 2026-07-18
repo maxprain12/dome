@@ -49,3 +49,5 @@ Configure a Pipeline from SCM using `Jenkinsfile.self-harness`. It reuses the re
 Every run archives its reproducibility bundle and report. A completed experiment with no accepted lineage does not create a branch or PR. When at least one candidate survives all static, held-in, and sealed held-out gates, Jenkins creates the review branch, pushes it, opens a PR against `main`, and requests squash auto-merge. GitHub branch protection and required CI checks remain authoritative; Jenkins never merges directly or bypasses them.
 
 The job is serialized and has a 24-hour timeout because the full suite may take longer than its one-hour trigger interval. Jenkins queues the next timer execution instead of running two experiments against the same worker concurrently.
+
+The Docker job opts the benchmark process into `DOME_BENCH_NO_SANDBOX=1`. This adds Chromium's `--no-sandbox` flags only to the Linux Electron benchmark launched inside the isolated Jenkins container, where the SUID helper cannot be owned by root. Normal Dome and local benchmark launches retain Electron's sandbox.

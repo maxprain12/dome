@@ -25,6 +25,7 @@ pipeline {
     SELF_HARNESS_WIDTH = '4'
     SELF_HARNESS_REPEATS = '2'
     SELF_HARNESS_CONCURRENCY = '1'
+    DOME_BENCH_NO_SANDBOX = '1'
   }
 
   stages {
