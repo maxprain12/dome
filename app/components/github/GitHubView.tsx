@@ -129,7 +129,7 @@ export default function GitHubView() {
   const handleSyncClick = useCallback(() => {
     if (isSyncing) return;
     setManualSyncing(true);
-    void syncNow(projectId).finally(() => setManualSyncing(false));
+    syncNow(projectId).finally(() => setManualSyncing(false));
   }, [isSyncing, projectId, syncNow]);
 
   const syncDescription = useMemo(
@@ -138,7 +138,7 @@ export default function GitHubView() {
   );
 
   useEffect(() => {
-    void init(projectId);
+    init(projectId);
     return () => dispose();
   }, [init, dispose, projectId]);
 
@@ -159,7 +159,7 @@ export default function GitHubView() {
       const detail = (e as CustomEvent<{ issueId?: string; repoId?: string }>).detail;
       if (!detail?.issueId) return;
       useOpenIntentStore.getState().consume('github-issue');
-      void applyGithubIssueFocus(detail.issueId, detail.repoId);
+      applyGithubIssueFocus(detail.issueId, detail.repoId);
     };
     window.addEventListener('dome:focus-github-issue', onFocus);
     return () => window.removeEventListener('dome:focus-github-issue', onFocus);
@@ -251,7 +251,7 @@ export default function GitHubView() {
                           key={r.id}
                           value={r.full_name}
                           onSelect={() => {
-                            void selectRepo(r.id);
+                            selectRepo(r.id);
                             setRepoPickerOpen(false);
                           }}
                         >
