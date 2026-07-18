@@ -263,7 +263,8 @@ function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+
+    (async () => {
       const res = await listSkills();
       if (cancelled || !res.success || !Array.isArray(res.data)) {
         if (!cancelled) setSkills([]);

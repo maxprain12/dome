@@ -164,7 +164,8 @@ export default function AutomationsStudioView() {
   useEffect(() => {
     if (formMode === 'hidden') return;
     let cancelled = false;
-    void (async () => {
+
+    (async () => {
       try {
         const res = await window.electron?.artifacts?.list(projectId);
         if (cancelled) return;
@@ -490,7 +491,7 @@ export default function AutomationsStudioView() {
           isNew={formMode === 'new'}
           saving={saving}
           onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
-          onSave={() => void handleSave()}
+          onSave={() => handleSave()}
           onCancel={() => setFormMode('hidden')}
         />
       </div>
@@ -514,7 +515,7 @@ export default function AutomationsStudioView() {
                 accept=".json,application/json"
                 className="hidden"
                 aria-label={t('hubExport.import_automation')}
-                onChange={(e) => void handleImportFile(e)}
+                onChange={(e) => handleImportFile(e)}
                 disabled={importingBundle}
               />
               <Button
@@ -695,7 +696,7 @@ export default function AutomationsStudioView() {
                   <div className="flex shrink-0 items-center gap-1.5">
                     <Switch
                       checked={a.enabled}
-                      onCheckedChange={() => void handleToggleEnabled(a)}
+                      onCheckedChange={() => handleToggleEnabled(a)}
                       size="sm"
                       disabled={togglingId === a.id}
                       aria-label={t('orchestration.automations.toggle_enabled')}
@@ -703,7 +704,7 @@ export default function AutomationsStudioView() {
                     <Button
                       variant="outline"
                       disabled={running}
-                      onClick={() => void handleRun(a)}
+                      onClick={() => handleRun(a)}
                       size="xs"
                     >
                       {running ? (
@@ -726,7 +727,7 @@ export default function AutomationsStudioView() {
                       variant="ghost"
                       title={t('hubExport.export_automation')}
                       aria-label={t('hubExport.export_automation')}
-                      onClick={() => void handleExport(a)}
+                      onClick={() => handleExport(a)}
                       size="icon-xs"
                     >
                       <HugeiconsIcon icon={DownloadIcon} className="size-3.5 text-muted-foreground" />
@@ -765,7 +766,7 @@ export default function AutomationsStudioView() {
         variant="danger"
         confirmLabel={t('ui.delete')}
         cancelLabel={t('ui.cancel')}
-        onConfirm={() => void handleDelete()}
+        onConfirm={() => handleDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
     </div>

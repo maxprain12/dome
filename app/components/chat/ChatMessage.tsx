@@ -395,7 +395,7 @@ export default function ChatMessage({
             <Button type="button" size="xs" onClick={handlePdfRegionCloudHandoff}>
               {t('viewer.pdf_region_qa_continue_many')}
             </Button>
-            <Button type="button" size="xs" variant="outline" onClick={() => void handlePdfRegionCopyHandoff()}>
+            <Button type="button" size="xs" variant="outline" onClick={() => handlePdfRegionCopyHandoff()}>
               {t('viewer.pdf_region_qa_copy_handoff')}
             </Button>
           </div>
@@ -419,7 +419,7 @@ export default function ChatMessage({
 
         {isUser && message.content ? (
           <MessageFooter className="gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <Button type="button" size="icon-xs" variant="ghost" onClick={() => void handleCopy()} title={t('chat.copy_message')}>
+            <Button type="button" size="icon-xs" variant="ghost" onClick={() => handleCopy()} title={t('chat.copy_message')}>
               <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
             </Button>
             <span className="text-xs tabular-nums text-muted-foreground">{formattedTime}</span>
@@ -428,7 +428,7 @@ export default function ChatMessage({
 
         {isAssistant && !message.isStreaming ? (
           <MessageFooter className="gap-0.5">
-            <Button type="button" size="icon-xs" variant="ghost" onClick={() => void handleCopy()} title={t('chat.copy_message')}>
+            <Button type="button" size="icon-xs" variant="ghost" onClick={() => handleCopy()} title={t('chat.copy_message')}>
               <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
             </Button>
             {onSaveAsNote && message.content ? (
