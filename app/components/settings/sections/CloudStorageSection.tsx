@@ -2,17 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { CloudIcon, Delete02Icon } from '@hugeicons/core-free-icons';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
@@ -189,25 +180,18 @@ export default function CloudStorageSection() {
         />
       </SettingsGroup>
 
-      <AlertDialog
-        open={Boolean(pendingDisconnect)}
-        onOpenChange={(open) => {
-          if (!open) setPendingDisconnect(null);
+      <ConfirmDialog
+        isOpen={Boolean(pendingDisconnect)}
+        title={t('settings.cloud.disconnect')}
+        message={pendingDisconnect?.email ?? ''}
+        confirmLabel={t('settings.cloud.disconnect')}
+        cancelLabel={t('common.cancel')}
+        variant="danger"
+        onConfirm={() => {
+          void handleDisconnect();
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('settings.cloud.disconnect')}</AlertDialogTitle>
-            <AlertDialogDescription>{pendingDisconnect?.email}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => void handleDisconnect()}>
-              {t('settings.cloud.disconnect')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onCancel={() => setPendingDisconnect(null)}
+      />
     </SettingsSurface>
   );
 }

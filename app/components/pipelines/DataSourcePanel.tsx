@@ -5,17 +5,7 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { DatabaseIcon, Delete02Icon, FileSpreadsheetIcon, HandIcon, Loading03Icon, PlusSignIcon, RefreshIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import type { CreateSourceInput, PipelineSource, PipelineStage, SourceType } from '@/lib/pipelines/types';
 import SourceConfigModal from './SourceConfigModal';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 const SOURCE_ICON: Record<SourceType, IconSvgElement> = {
   internal_resources: DatabaseIcon,
@@ -37,6 +27,7 @@ export default function DataSourcePanel({ sources, stages, onCreate, onSync, onD
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   const sourceLabel = (s: SourceType) =>
     t(`pipelines.source_${s === 'internal_resources' ? 'internal' : s}`);
@@ -82,22 +73,15 @@ export default function DataSourcePanel({ sources, stages, onCreate, onSync, onD
                 <span className="text-sm flex-1 truncate text-foreground">
                   {s.name}
                 </span>
-                <AlertDialog>
-                  <AlertDialogTrigger render={<Button type="button" variant="ghost" size="icon-xs" />}>
-                    <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
-                    <span className="sr-only">{t('pipelines.delete')}</span>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent size="sm">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
-                      <AlertDialogDescription>{s.name}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction variant="destructive" onClick={() => void onDelete(s.id)}>{t('pipelines.delete')}</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setPendingDelete({ id: s.id, name: s.name })}
+                >
+                  <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
+                  <span className="sr-only">{t('pipelines.delete')}</span>
+                </Button>
               </div>
               <span className="text-[10px] text-muted-foreground">
                 {sourceLabel(s.sourceType)}
@@ -131,6 +115,20 @@ export default function DataSourcePanel({ sources, stages, onCreate, onSync, onD
       {adding && (
         <SourceConfigModal stages={stages} onClose={() => setAdding(false)} onCreate={onCreate} />
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingDelete)}
+        title={t('pipelines.delete')}
+        message={pendingDelete?.name ?? ''}
+        confirmLabel={t('pipelines.delete')}
+        cancelLabel={t('pipelines.cancel')}
+        variant="danger"
+        onConfirm={() => {
+          if (pendingDelete) void onDelete(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

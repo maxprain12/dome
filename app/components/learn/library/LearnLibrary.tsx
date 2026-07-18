@@ -15,7 +15,7 @@ import LearnFilterBar from './LearnFilterBar';
 import LearnSection from './LearnSection';
 import LearnDeckCard from './LearnDeckCard';
 import LearnEmptyState from './LearnEmptyState';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import type { LearnDeckItem } from '@/lib/learn/types';
 
@@ -201,9 +201,16 @@ export default function LearnLibrary() {
           </>
         )}
       </div>
-      <AlertDialog open={Boolean(pendingDelete)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{pendingDelete?.kind === 'flashcard_deck' ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}</AlertDialogTitle><AlertDialogDescription>{pendingDelete?.title}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={confirmDelete}>{t('ui.delete', 'Delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(pendingDelete)}
+        title={pendingDelete?.kind === 'flashcard_deck' ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}
+        message={pendingDelete?.title ?? ''}
+        confirmLabel={t('ui.delete', 'Delete')}
+        cancelLabel={t('common.cancel', 'Cancel')}
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

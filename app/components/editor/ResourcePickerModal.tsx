@@ -6,7 +6,12 @@ import ResourceIcon from '@/components/shared/ResourceIcon';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { useTranslation } from 'react-i18next';
 import ListState from '@/components/shared/ListState';
 function ResourceRowIcon({ type, title }: { type: ResourceType; title?: string }) {
@@ -84,42 +89,52 @@ export default function ResourcePickerModal({
   }, [opened, load, query]);
 
   return (
-    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{title}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <div className="flex flex-col gap-3">
-        <Input
-          placeholder="Buscar en la librería…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          {loading ? 'Buscando…' : `${items.length} resultado(s)`}
-        </p>
-        <ScrollArea className="h-[280px]">
-          <div className="flex flex-col gap-1 pr-2">
-            {items.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => {
-                  onSelect(r);
-                  onClose();
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-              >
-                <ResourceRowIcon type={r.type} title={r.title} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{r.title || 'Sin título'}</p>
-                  <p className="truncate text-xs text-muted-foreground">{r.type}</p>
-                </div>
-              </button>
-            ))}
-            {error ? <ListState variant="error" errorMessage={error} compact /> : null}
-            {!loading && !error && items.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">Sin resultados</p>
-            )}
+    <AppModal
+      open={opened}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <AppModalContent size="md">
+        <AppModalHeader title={title} />
+        <AppModalBody>
+          <div className="flex flex-col gap-3">
+            <Input
+              placeholder="Buscar en la librería…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {loading ? 'Buscando…' : `${items.length} resultado(s)`}
+            </p>
+            <ScrollArea className="h-[280px]">
+              <div className="flex flex-col gap-1 pr-2">
+                {items.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      onSelect(r);
+                      onClose();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+                  >
+                    <ResourceRowIcon type={r.type} title={r.title} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{r.title || 'Sin título'}</p>
+                      <p className="truncate text-xs text-muted-foreground">{r.type}</p>
+                    </div>
+                  </button>
+                ))}
+                {error ? <ListState variant="error" errorMessage={error} compact /> : null}
+                {!loading && !error && items.length === 0 && (
+                  <p className="py-4 text-center text-sm text-muted-foreground">Sin resultados</p>
+                )}
+              </div>
+            </ScrollArea>
           </div>
-        </ScrollArea>
-      </div>
-    </div></DialogContent></Dialog>
+        </AppModalBody>
+      </AppModalContent>
+    </AppModal>
   );
 }

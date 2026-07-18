@@ -18,12 +18,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -642,7 +642,7 @@ export default function McpSection() {
         )}
       </SettingsGroup>
 
-      <Dialog
+      <AppModal
         open={showImport}
         onOpenChange={(next) => {
           if (!next) {
@@ -652,11 +652,9 @@ export default function McpSection() {
           }
         }}
       >
-        <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-          <DialogHeader className="shrink-0 border-b px-4 py-3">
-            <DialogTitle className="truncate">{t('settings.mcp.import_title')}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <AppModalContent size="xl">
+          <AppModalHeader title={t('settings.mcp.import_title')} />
+          <AppModalBody>
             <p className="mb-3 text-xs text-muted-foreground">
               {t('settings.mcp.import_format', { format: FORMAT_EXAMPLE })}
             </p>
@@ -672,8 +670,8 @@ export default function McpSection() {
               onChange={(e) => setImportJson(e.target.value)}
               rows={12}
             />
-          </div>
-          <DialogFooter className="border-t px-4 py-3">
+          </AppModalBody>
+          <AppModalFooter>
             <Button
               type="button"
               variant="outline"
@@ -689,9 +687,9 @@ export default function McpSection() {
             <Button type="button" size="sm" onClick={handleImport}>
               {t('settings.mcp.import_btn')}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AppModalFooter>
+        </AppModalContent>
+      </AppModal>
     </SettingsSurface>
   );
 }

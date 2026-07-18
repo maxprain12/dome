@@ -10,17 +10,8 @@ import {
   PuzzleIcon,
 } from '@hugeicons/core-free-icons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -282,31 +273,19 @@ export default function PluginsSection() {
         </SheetContent>
       </Sheet>
 
-      <AlertDialog
-        open={pendingUninstallId !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingUninstallId(null);
+      <ConfirmDialog
+        isOpen={pendingUninstallId !== null}
+        title={t('settings.plugins.uninstall', 'Uninstall plugin')}
+        message={t('settings.plugins.uninstall_confirm')}
+        confirmLabel={t('settings.plugins.uninstall', 'Uninstall')}
+        cancelLabel={t('common.cancel')}
+        variant="danger"
+        onConfirm={() => {
+          if (pendingUninstallId) void handleUninstall(pendingUninstallId);
+          setPendingUninstallId(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('settings.plugins.uninstall', 'Uninstall plugin')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('settings.plugins.uninstall_confirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                if (pendingUninstallId) void handleUninstall(pendingUninstallId);
-                setPendingUninstallId(null);
-              }}
-            >
-              {t('settings.plugins.uninstall', 'Uninstall')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onCancel={() => setPendingUninstallId(null)}
+      />
     </SettingsSurface>
   );
 }

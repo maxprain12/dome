@@ -31,7 +31,7 @@ import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { useTranslation } from 'react-i18next';
 import {
@@ -752,18 +752,16 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         onSetActiveStickySkill={setActiveStickySkillId}
       />
     </div>
-    <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('agent.clear_chat')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('chat.clear_confirm')}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={handleClear}>{t('agent.clear_chat')}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      isOpen={clearDialogOpen}
+      title={t('agent.clear_chat')}
+      message={t('chat.clear_confirm')}
+      confirmLabel={t('agent.clear_chat')}
+      cancelLabel={t('common.cancel')}
+      variant="danger"
+      onConfirm={handleClear}
+      onCancel={() => setClearDialogOpen(false)}
+    />
     </>
   );
 }

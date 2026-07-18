@@ -20,23 +20,13 @@ import { askStudioMany } from '@/components/studio-hub';
 import { HubHeader, HubPageHeader } from '@/components/hub';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator , DropdownMenuGroup } from '@/components/ui/dropdown-menu';
@@ -425,50 +415,47 @@ export default function PipelinesBoard() {
         )}
       </div>
 
-      <AlertDialog open={confirmDelete && Boolean(activePipeline)} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('pipelines.confirm_delete_pipeline')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>{t('pipelines.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={busy}
-              onClick={() => void handleDelete()}
-            >
-              {t('pipelines.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={confirmDelete && Boolean(activePipeline)}
+        title={t('pipelines.delete')}
+        message={t('pipelines.confirm_delete_pipeline')}
+        confirmLabel={t('pipelines.delete')}
+        cancelLabel={t('pipelines.cancel')}
+        variant="danger"
+        busy={busy}
+        onConfirm={() => {
+          void handleDelete();
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
 
-      <Dialog open={creatingPipeline} onOpenChange={setCreatingPipeline}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('pipelines.new_pipeline')}</DialogTitle>
-            <DialogDescription>{t('pipelines.pipeline_name_placeholder')}</DialogDescription>
-          </DialogHeader>
-          <Input
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void handleCreatePipeline();
-            }}
-            placeholder={t('pipelines.pipeline_name_placeholder')}
-            aria-label={t('pipelines.pipeline_name_placeholder')}
+      <AppModal open={creatingPipeline} onOpenChange={setCreatingPipeline}>
+        <AppModalContent size="sm">
+          <AppModalHeader
+            title={t('pipelines.new_pipeline')}
+            description={t('pipelines.pipeline_name_placeholder')}
           />
-          <DialogFooter>
+          <AppModalBody>
+            <Input
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void handleCreatePipeline();
+              }}
+              placeholder={t('pipelines.pipeline_name_placeholder')}
+              aria-label={t('pipelines.pipeline_name_placeholder')}
+            />
+          </AppModalBody>
+          <AppModalFooter>
             <Button variant="outline" onClick={() => setCreatingPipeline(false)}>
               {t('pipelines.cancel')}
             </Button>
             <Button onClick={() => void handleCreatePipeline()} disabled={!newName.trim()}>
               {t('pipelines.create')}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AppModalFooter>
+        </AppModalContent>
+      </AppModal>
     </div>
   );
 }

@@ -1,6 +1,12 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useLearnStore } from '@/lib/store/useLearnStore';
@@ -102,15 +108,16 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open && !isGenerating) handleClose(); }}>
-      <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-hidden sm:max-w-3xl">
-        <DialogHeader>
-            <DialogTitle>{t('learn.generate_title', 'Generate content')}</DialogTitle>
-            <DialogDescription>{wizardHint}</DialogDescription>
-            {!showProgress ? <WizardStepper step={wizard.step} /> : null}
-        </DialogHeader>
+    <AppModal open onOpenChange={(open) => { if (!open && !isGenerating) handleClose(); }}>
+      <AppModalContent size="xl" className="max-h-[85vh] sm:max-w-3xl">
+        <AppModalHeader title={t('learn.generate_title', 'Generate content')} description={wizardHint} />
+        {!showProgress ? (
+          <div className="shrink-0 border-b px-4 pb-3">
+            <WizardStepper step={wizard.step} />
+          </div>
+        ) : null}
 
-        <div className="min-h-0 overflow-y-auto pr-1">
+        <AppModalBody>
           {showProgress ? (
             <GenerateProgressView progress={progress} onRetry={handleRetry} />
           ) : wizard.step === 0 ? (
@@ -124,10 +131,10 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
           ) : (
             <StepConfigure config={wizard.config} onChange={setWizardConfig} />
           )}
-        </div>
+        </AppModalBody>
 
         {!showProgress ? (
-          <DialogFooter className="items-center sm:justify-between">
+          <AppModalFooter className="sm:justify-between">
             <div className="text-xs text-muted-foreground">
               {wizard.step === 1
                 ? t('learn.source_selected_count', '{{count}} selected', { count: wizard.sourceIds.length })
@@ -150,9 +157,9 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
                 {isGenerating ? <Spinner data-icon="inline-start" /> : null}{wizard.step === 2 ? t('learn.generate_btn', 'Generate') : t('learn.next', 'Next')}
               </Button>
             </div>
-          </DialogFooter>
+          </AppModalFooter>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </AppModalContent>
+    </AppModal>
   );
 }

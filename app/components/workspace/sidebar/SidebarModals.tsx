@@ -6,13 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import type { Resource } from '@/lib/hooks/useResources';
 
@@ -61,9 +60,10 @@ export function BulkDeleteConfirmModal({
       isOpen
       title={t('selection.bulk_delete_confirm', { count })}
       message={`${t('selection.items_selected', { count })} — ${t('ui.delete_content_warning')}`}
-      confirmLabel={busy ? '…' : t('ui.delete')}
+      confirmLabel={t('ui.delete')}
       cancelLabel={t('ui.cancel')}
       variant="danger"
+      busy={busy}
       onConfirm={() => {
         if (!busy) onConfirm();
       }}
@@ -98,36 +98,40 @@ export function NewFolderModal({
   };
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t('ui.new_folder')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('ui.folder_name')}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="new-folder-name">{t('ui.folder_name')}</Label>
-          <Input
-            ref={inputRef}
-            id="new-folder-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
-            }}
-            placeholder={t('ui.folder_name')}
-          />
-        </div>
-        <DialogFooter>
+    <AppModal
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <AppModalContent size="sm">
+        <AppModalHeader title={t('ui.new_folder')} description={t('ui.folder_name')} />
+        <AppModalBody>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="new-folder-name">{t('ui.folder_name')}</Label>
+            <Input
+              ref={inputRef}
+              id="new-folder-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+              placeholder={t('ui.folder_name')}
+            />
+          </div>
+        </AppModalBody>
+        <AppModalFooter>
           <Button variant="outline" onClick={onClose}>
             {t('ui.cancel')}
           </Button>
           <Button onClick={submit} disabled={!name.trim()}>
             {t('ui.create')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }
 
@@ -155,35 +159,39 @@ export function UrlInputModal({
   };
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t('ui.add_url')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('ui.add_url')}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="url-input">{t('ui.add_url')}</Label>
-          <Input
-            ref={inputRef}
-            id="url-input"
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
-            }}
-            placeholder="https://..."
-          />
-        </div>
-        <DialogFooter>
+    <AppModal
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <AppModalContent size="sm">
+        <AppModalHeader title={t('ui.add_url')} />
+        <AppModalBody>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="url-input">{t('ui.add_url')}</Label>
+            <Input
+              ref={inputRef}
+              id="url-input"
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+              placeholder="https://..."
+            />
+          </div>
+        </AppModalBody>
+        <AppModalFooter>
           <Button variant="outline" onClick={onClose}>
             {t('ui.cancel')}
           </Button>
           <Button onClick={submit} disabled={!url.trim()}>
             {t('ui.add')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

@@ -25,7 +25,13 @@ import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 type Props = {
   opened: boolean;
   onClose: () => void;
@@ -119,7 +125,10 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
   const canSave = name.trim().length > 0 && value.length > 0 && !saving;
 
   return (
-    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('feeders.secrets_title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    <AppModal open={opened} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <AppModalContent size="md">
+        <AppModalHeader title={t('feeders.secrets_title')} />
+        <AppModalBody>
       {!vaultAvailable ? (
         <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertTitle className="text-xs">{t('feeders.vault_unavailable_title', { defaultValue: 'Encrypted vault unavailable' })}</AlertTitle><AlertDescription className="text-xs">
           {t('feeders.vault_unavailable')}
@@ -240,8 +249,13 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
           </div>
         </div>
       )}
-    </div><DialogFooter className="border-t px-4 py-3">{<Button variant="ghost" onClick={onClose}>
-          {t('common.close')}
-        </Button>}</DialogFooter></DialogContent></Dialog>
+        </AppModalBody>
+        <AppModalFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

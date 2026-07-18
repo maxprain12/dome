@@ -8,8 +8,14 @@ import { useTranslation } from 'react-i18next';
 import type { Project } from '@/types';
 import type { Resource } from '@/lib/hooks/useResources';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 export interface MoveToProjectModalProps {
   opened: boolean;
   onClose: () => void;
@@ -168,49 +174,60 @@ export default function MoveToProjectModal({
   }, [pickedId, roots, onClose, onCompleted, t]);
 
   return (
-    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('moveProject.title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">{t('moveProject.description')}</p>
-        <p className="text-sm font-medium">{t('moveProject.itemsCount', { count: roots.length })}</p>
+    <AppModal
+      open={opened}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <AppModalContent size="md">
+        <AppModalHeader title={t('moveProject.title')} />
+        <AppModalBody>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">{t('moveProject.description')}</p>
+            <p className="text-sm font-medium">
+              {t('moveProject.itemsCount', { count: roots.length })}
+            </p>
 
-        {loading ? (
-          <p className="text-sm">{t('common.loading')}</p>
-        ) : eligibleProjects.length === 0 ? (
-          <p className="text-sm text-orange-600">{t('moveProject.noTargets')}</p>
-        ) : (
-          <ScrollArea className="max-h-[280px]">
-            <div className="flex flex-col gap-1 pr-2">
-              {eligibleProjects.map((p) => (
-                <ProjectPickButton
-                  key={p.id}
-                  selected={pickedId === p.id}
-                  onClick={() => setPickedId(p.id)}
-                >
-                  <p className="text-sm font-medium">{p.name}</p>
-                  {p.description ? (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
-                  ) : null}
-                </ProjectPickButton>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
+            {loading ? (
+              <p className="text-sm">{t('common.loading')}</p>
+            ) : eligibleProjects.length === 0 ? (
+              <p className="text-sm text-orange-600">{t('moveProject.noTargets')}</p>
+            ) : (
+              <ScrollArea className="max-h-[280px]">
+                <div className="flex flex-col gap-1 pr-2">
+                  {eligibleProjects.map((p) => (
+                    <ProjectPickButton
+                      key={p.id}
+                      selected={pickedId === p.id}
+                      onClick={() => setPickedId(p.id)}
+                    >
+                      <p className="text-sm font-medium">{p.name}</p>
+                      {p.description ? (
+                        <p className="line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
+                      ) : null}
+                    </ProjectPickButton>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
 
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : null}
-      </div>
-    </div><DialogFooter className="border-t px-4 py-3">{<>
-          <Button variant="secondary"
-  onClick={onClose}
-  disabled={submitting}>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </div>
+        </AppModalBody>
+        <AppModalFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={() => void handleMove()}
-  loading={submitting}
-  disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}>
+          <Button
+            onClick={() => void handleMove().catch(() => {})}
+            loading={submitting}
+            disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}
+          >
             {t('moveProject.confirm')}
           </Button>
-        </>}</DialogFooter></DialogContent></Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

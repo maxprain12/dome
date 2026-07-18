@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Alert02Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
@@ -16,10 +17,13 @@ import {
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'default';
+  busy?: boolean;
+  confirmDisabled?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -31,6 +35,9 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   variant = 'default',
+  busy = false,
+  confirmDisabled = false,
+  children,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -43,10 +50,10 @@ export function ConfirmDialog({
     <AlertDialog
       open={isOpen}
       onOpenChange={(open) => {
-        if (!open) onCancel();
+        if (!open && !busy) onCancel();
       }}
     >
-      <AlertDialogContent size="sm">
+      <AlertDialogContent size="default">
         <AlertDialogHeader>
           {isDanger ? (
             <AlertDialogMedia className="bg-destructive/10">
@@ -56,9 +63,17 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>{resolvedCancel}</AlertDialogCancel>
-          <AlertDialogAction variant={isDanger ? 'destructive' : 'default'} onClick={onConfirm}>
+          <AlertDialogCancel disabled={busy} onClick={onCancel}>
+            {resolvedCancel}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            variant={isDanger ? 'destructive' : 'default'}
+            loading={busy}
+            disabled={busy || confirmDisabled}
+            onClick={onConfirm}
+          >
             {resolvedConfirm}
           </AlertDialogAction>
         </AlertDialogFooter>

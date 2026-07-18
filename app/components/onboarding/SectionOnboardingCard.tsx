@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { HelpCircleIcon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { HelpCircleIcon } from '@hugeicons/core-free-icons';
 import { getSectionGuide } from '@/lib/onboarding/sectionGuides';
 import { useSectionTourStore } from '@/lib/store/useSectionTourStore';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 interface SectionGuideProps {
   sectionKey: string;
   className?: string;
@@ -53,11 +59,24 @@ function SectionGuideModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3">{<HugeiconsIcon icon={SparklesIcon} className="size-4 shrink-0 text-primary" />}<div className="min-w-0"><DialogTitle className="truncate">{t(guide.titleKey)}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <SectionGuideSteps sectionKey={sectionKey} />
-    </div><DialogFooter className="border-t px-4 py-3">{<Button type="button" onClick={handleGotIt} size="sm">
-          {t('sectionGuide.got_it')}
-        </Button>}</DialogFooter></DialogContent></Dialog>
+    <AppModal
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <AppModalContent size="sm">
+        <AppModalHeader title={t(guide.titleKey)} />
+        <AppModalBody>
+          <SectionGuideSteps sectionKey={sectionKey} />
+        </AppModalBody>
+        <AppModalFooter>
+          <Button type="button" onClick={handleGotIt} size="sm">
+            {t('sectionGuide.got_it')}
+          </Button>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }
 

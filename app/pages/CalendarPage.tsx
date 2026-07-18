@@ -23,13 +23,12 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
@@ -435,42 +434,43 @@ const loadCalendars = useCallback(async () => {
       </div>
 
       {showImport && importPreview ? (
-        <Dialog open onOpenChange={(next) => { if (!next && !importBusy) setShowImport(false); }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t('calendarPage.import_title')}</DialogTitle>
-              <DialogDescription>
-                {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
-              </DialogDescription>
-            </DialogHeader>
+        <AppModal open onOpenChange={(next) => { if (!next && !importBusy) setShowImport(false); }}>
+          <AppModalContent size="md">
+            <AppModalHeader
+              title={t('calendarPage.import_title')}
+              description={t('calendarPage.import_preview', {
+                count: importPreview.events.length,
+                raw: importPreview.rawCount,
+              })}
+            />
+            <AppModalBody>
+              <Field className="gap-1.5">
+                <FieldLabel className="text-xs">{t('calendarPage.import_target')}</FieldLabel>
+                <Select
+                  value={importTargetId || null}
+                  onValueChange={(next) => { if (next != null) setImportTargetId(String(next)); }}
+                  items={calendars.map((c) => ({ value: c.id, label: c.title }))}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    {calendars.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="block truncate">{c.title}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            <Field className="gap-1.5">
-              <FieldLabel className="text-xs">{t('calendarPage.import_target')}</FieldLabel>
-              <Select
-                value={importTargetId || null}
-                onValueChange={(next) => { if (next != null) setImportTargetId(String(next)); }}
-                items={calendars.map((c) => ({ value: c.id, label: c.title }))}
-              >
-                <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {calendars.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="block truncate">{c.title}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <FieldLabel className="flex items-center gap-2 text-sm font-normal">
-              <Checkbox
-                checked={importSkipDup}
-                onCheckedChange={(checked) => setImportSkipDup(checked === true)}
-              />
-              {t('calendarPage.import_skip_dup')}
-            </FieldLabel>
-
-            <DialogFooter>
+              <FieldLabel className="mt-3 flex items-center gap-2 text-sm font-normal">
+                <Checkbox
+                  checked={importSkipDup}
+                  onCheckedChange={(checked) => setImportSkipDup(checked === true)}
+                />
+                {t('calendarPage.import_skip_dup')}
+              </FieldLabel>
+            </AppModalBody>
+            <AppModalFooter>
               <Button type="button" variant="outline" disabled={importBusy} onClick={() => setShowImport(false)}>
                 {t('common.cancel')}
               </Button>
@@ -482,9 +482,9 @@ const loadCalendars = useCallback(async () => {
               >
                 {t('calendarPage.import_confirm')}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </AppModalFooter>
+          </AppModalContent>
+        </AppModal>
       ) : null}
 
       {dayModalDate ? (

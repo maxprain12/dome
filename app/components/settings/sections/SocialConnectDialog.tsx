@@ -14,13 +14,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
@@ -177,25 +176,18 @@ export default function SocialConnectDialog({
   const done = connectedNow || (showConnect && activeAccount !== null);
 
   return (
-    <Dialog
+    <AppModal
       open
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
     >
-      <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="shrink-0 border-b px-4 py-3">
-          <DialogTitle className="truncate">
-            {t('social.wizard.title', { provider: PROVIDER_LABELS[provider] })}
-          </DialogTitle>
-          {t(`social.wizard.${provider}.intro`) ? (
-            <DialogDescription className="truncate">
-              {t(`social.wizard.${provider}.intro`)}
-            </DialogDescription>
-          ) : null}
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <AppModalContent size="xl">
+        <AppModalHeader
+          title={t('social.wizard.title', { provider: PROVIDER_LABELS[provider] })}
+          description={t(`social.wizard.${provider}.intro`) || undefined}
+        />
+        <AppModalBody>
           <div className="flex flex-col gap-4 text-sm">
             <ol className="flex flex-wrap items-center gap-1.5">
               {STEP_IDS.map((id, i) => (
@@ -433,13 +425,13 @@ export default function SocialConnectDialog({
               ) : null}
             </div>
           </div>
-        </div>
+        </AppModalBody>
 
-        <DialogFooter className="border-t px-4 py-3">
+        <AppModalFooter>
           <div className="flex w-full items-center justify-between gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
@@ -462,8 +454,8 @@ export default function SocialConnectDialog({
               </Button>
             )}
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

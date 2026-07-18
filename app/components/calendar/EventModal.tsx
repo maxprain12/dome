@@ -37,17 +37,7 @@ import type { PipelineItem } from '@/lib/pipelines/types';
 import type { Resource } from '@/types';
 import { cn } from '@/lib/utils';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -181,7 +171,7 @@ interface PipelineDetail {
   pipelineName: string | null;
 }
 
-/** Delete button with shadcn AlertDialog confirmation (replaces window.confirm). */
+/** Delete button with ConfirmDialog confirmation (replaces window.confirm). */
 function DeleteEventAction({
   deleting,
   onConfirm,
@@ -190,26 +180,30 @@ function DeleteEventAction({
   onConfirm: () => void;
 }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button variant="ghost" size="sm" className="mr-auto text-destructive" loading={deleting}>
-            {t('common.delete')}
-          </Button>
-        }
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mr-auto text-destructive"
+        loading={deleting}
+        onClick={() => setOpen(true)}
+      >
+        {t('common.delete')}
+      </Button>
+      <ConfirmDialog
+        isOpen={open}
+        title={t('common.delete')}
+        message={t('calendarPage.delete_event_confirm')}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        variant="danger"
+        busy={deleting}
+        onConfirm={onConfirm}
+        onCancel={() => setOpen(false)}
       />
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('common.delete')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('calendarPage.delete_event_confirm')}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>{t('common.delete')}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    </>
   );
 }
 

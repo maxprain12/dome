@@ -9,13 +9,12 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Spinner } from '@/components/ui/spinner';
@@ -297,21 +296,18 @@ export default function ProviderModelsConfigModal({
   );
 
   return (
-    <Dialog
+    <AppModal
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
     >
-      <DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="shrink-0 border-b px-4 py-3">
-          <DialogTitle className="truncate">{t('settings.ai.visible_models.title')}</DialogTitle>
-          <DialogDescription className="truncate">
-            {t('settings.ai.visible_models.subtitle', { provider: providerLabel })}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <AppModalContent size="xl">
+        <AppModalHeader
+          title={t('settings.ai.visible_models.title')}
+          description={t('settings.ai.visible_models.subtitle', { provider: providerLabel })}
+        />
+        <AppModalBody>
           <div className="flex flex-col gap-4">
             <InputGroup>
               <InputGroupAddon align="inline-start">
@@ -411,16 +407,16 @@ export default function ProviderModelsConfigModal({
               </div>
             </div>
           </div>
-        </div>
+        </AppModalBody>
 
-        <DialogFooter className="border-t px-4 py-3">
+        <AppModalFooter>
           <div className="flex w-full items-center justify-between gap-3">
-            <Button type="button" variant="ghost" size="sm" onClick={resetDefaults}>
+            <Button type="button" variant="outline" size="sm" onClick={resetDefaults}>
               <HugeiconsIcon icon={RotateLeft01Icon} data-icon="inline-start" />
               {t('settings.ai.visible_models.reset')}
             </Button>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
                 {t('common.cancel')}
               </Button>
               <Button
@@ -433,8 +429,8 @@ export default function ProviderModelsConfigModal({
               </Button>
             </div>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }
