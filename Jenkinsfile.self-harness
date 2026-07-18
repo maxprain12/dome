@@ -1,0 +1,222 @@
+pipeline {
+  agent any
+
+  triggers {
+    cron('H * * * *')
+  }
+
+  options {
+    skipDefaultCheckout(true)
+    disableConcurrentBuilds(abortPrevious: false)
+    buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '14'))
+    timeout(time: 24, unit: 'HOURS')
+  }
+
+  environment {
+    PNPM_VERSION = '11.8.0'
+    NODE_VERSION = '24.13.0'
+    NODE_HOME = "${WORKSPACE}/.jenkins-node"
+    PATH = "${WORKSPACE}/.jenkins-tools/bin:${WORKSPACE}/.jenkins-node/bin:${env.PATH}"
+    GITHUB_REPOSITORY = 'maxprain12/dome'
+    XVFB_DISPLAY = ':99'
+    SELF_HARNESS_PROVIDER = 'minimax'
+    SELF_HARNESS_MODEL = 'MiniMax-M2.7'
+    SELF_HARNESS_ROUNDS = '5'
+    SELF_HARNESS_WIDTH = '4'
+    SELF_HARNESS_REPEATS = '2'
+    SELF_HARNESS_CONCURRENCY = '1'
+  }
+
+  stages {
+    stage('Checkout trusted main') {
+      steps {
+        checkout scm
+        sh '''
+          set -eux
+          git fetch origin main
+          git checkout --detach origin/main
+          git status --short
+        '''
+      }
+    }
+
+    stage('Agent preflight') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+        ]) {
+          sh '''
+            set -eux
+            bash scripts/jenkins/bootstrap-agent-tools.sh "$PWD"
+            bash scripts/jenkins/agent-preflight.sh "$PWD"
+          '''
+        }
+      }
+    }
+
+    stage('Setup') {
+      steps {
+        sh '''
+          set -eux
+          if ! command -v node >/dev/null 2>&1 || ! node --version | grep -q '^v24'; then
+            ARCH="$(uname -m)"
+            case "$ARCH" in
+              x86_64) NODE_ARCH=linux-x64 ;;
+              aarch64|arm64) NODE_ARCH=linux-arm64 ;;
+              *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+            esac
+            mkdir -p "$NODE_HOME"
+            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.gz" \
+              | tar -xzf - --strip-components=1 -C "$NODE_HOME"
+          fi
+          node --version
+          npm install -g "pnpm@${PNPM_VERSION}"
+          pnpm --version
+        '''
+      }
+    }
+
+    stage('Install') {
+      steps {
+        sh '''
+          set -eux
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm run build:packages
+          npm rebuild better-sqlite3
+          node -e "require('better-sqlite3')"
+          pnpm run test:self-harness
+        '''
+      }
+    }
+
+    stage('Initialize full experiment') {
+      steps {
+        sh '''
+          set -eux
+          mkdir -p .dome-self-harness
+          EXPERIMENT_ID="jenkins-${BUILD_NUMBER}-$(date -u +%Y%m%dT%H%M%SZ)"
+          printf '%s\n' "$EXPERIMENT_ID" > .dome-self-harness/jenkins-experiment-id
+          pnpm self-harness:init -- \
+            --provider "$SELF_HARNESS_PROVIDER" \
+            --model "$SELF_HARNESS_MODEL" \
+            --id "$EXPERIMENT_ID" \
+            --base-sha "$(git rev-parse HEAD)" \
+            --rounds "$SELF_HARNESS_ROUNDS" \
+            --width "$SELF_HARNESS_WIDTH" \
+            --repeats "$SELF_HARNESS_REPEATS" \
+            --concurrency "$SELF_HARNESS_CONCURRENCY"
+        '''
+        script {
+          env.SELF_HARNESS_EXPERIMENT = readFile('.dome-self-harness/jenkins-experiment-id').trim()
+          currentBuild.description = "${env.SELF_HARNESS_MODEL} · ${env.SELF_HARNESS_EXPERIMENT}"
+        }
+      }
+    }
+
+    stage('Run full Self-Harness suite') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'minimax-api-key', variable: 'MINIMAX_API_KEY'),
+        ]) {
+          sh '''
+            set -eu
+            export MINIMAX_BENCH_API_KEY="$MINIMAX_API_KEY"
+            bash scripts/jenkins/run-with-display.sh \
+              pnpm self-harness:run -- \
+                --experiment "$SELF_HARNESS_EXPERIMENT" \
+                --rounds "$SELF_HARNESS_ROUNDS" \
+                --width "$SELF_HARNESS_WIDTH" \
+                --repeats "$SELF_HARNESS_REPEATS"
+          '''
+        }
+      }
+    }
+
+    stage('Report and promotion decision') {
+      steps {
+        sh '''
+          set -eux
+          pnpm self-harness:report -- --experiment "$SELF_HARNESS_EXPERIMENT"
+          node scripts/jenkins/self-harness-ci-result.mjs \
+            --experiment "$SELF_HARNESS_EXPERIMENT" \
+            --output .dome-self-harness/jenkins-result.json \
+            --pr-body .dome-self-harness/jenkins-pr-body.md
+        '''
+        script {
+          def result = new groovy.json.JsonSlurperClassic().parseText(
+            readFile('.dome-self-harness/jenkins-result.json'),
+          )
+          env.SELF_HARNESS_HAS_PROMOTION = result.hasPromotion.toString()
+          env.SELF_HARNESS_BRANCH = result.branch ?: ''
+          currentBuild.description = result.hasPromotion
+            ? "winner · ${result.promotedEdits} edit(s) · ${result.experimentId}"
+            : "no winner · ${result.experimentId}"
+        }
+      }
+    }
+
+    stage('Create review branch') {
+      when {
+        expression { return env.SELF_HARNESS_HAS_PROMOTION == 'true' }
+      }
+      steps {
+        sh '''
+          set -eux
+          git config user.email "jenkins@dowi.es"
+          git config user.name "Jenkins Self-Harness"
+          pnpm self-harness:promote -- \
+            --experiment "$SELF_HARNESS_EXPERIMENT" \
+            --branch "$SELF_HARNESS_BRANCH"
+          test "$(git rev-list --count "$(git rev-parse HEAD)..$SELF_HARNESS_BRANCH")" -eq 1
+        '''
+      }
+    }
+
+    stage('Push PR and enable auto-merge') {
+      when {
+        expression { return env.SELF_HARNESS_HAS_PROMOTION == 'true' }
+      }
+      steps {
+        withCredentials([
+          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+        ]) {
+          sh '''
+            set -eux
+            JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh
+            git push --set-upstream origin "$SELF_HARNESS_BRANCH"
+            PR_URL="$(gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$SELF_HARNESS_BRANCH" \
+              --title "feat: Self-Harness improvement ${SELF_HARNESS_EXPERIMENT}" \
+              --body-file .dome-self-harness/jenkins-pr-body.md)"
+            printf '%s\n' "$PR_URL" | tee .dome-self-harness/jenkins-pr-url.txt
+            gh pr merge "$PR_URL" --repo "$GITHUB_REPOSITORY" --auto --squash
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh '''
+        set +e
+        if [ -f .dome-self-harness/jenkins-experiment-id ]; then
+          EXPERIMENT_ID="$(cat .dome-self-harness/jenkins-experiment-id)"
+          pnpm self-harness:report -- --experiment "$EXPERIMENT_ID"
+          tar -czf .dome-self-harness/jenkins-experiment.tar.gz \
+            --exclude='profiles' \
+            -C .dome-self-harness/experiments "$EXPERIMENT_ID"
+        fi
+        git worktree prune
+      '''
+      archiveArtifacts(
+        artifacts: '.dome-self-harness/jenkins-experiment.tar.gz,.dome-self-harness/jenkins-result.json,.dome-self-harness/jenkins-pr-body.md,.dome-self-harness/jenkins-pr-url.txt,.dome-self-harness/experiments/*/report.md,.dome-self-harness/experiments/*/winning-lineage.patch',
+        allowEmptyArchive: true,
+        fingerprint: true,
+      )
+      cleanWs()
+    }
+  }
+}
