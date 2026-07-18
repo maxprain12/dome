@@ -15,6 +15,7 @@ Load this doc (`dome_load_doc({ id: "github_tool" })`) before mutating GitHub (`
 | `github_upcoming_milestones` | Cross-repo delivery dates / roadmap |
 | `github_list_milestones` | Milestones for one repo |
 | `github_list_issues` | Issues for one repo; filter `state` |
+| `github_get_issue` | Single issue by Dome `issue_id` (detail / body) |
 | `github_sync` | Force full sync now |
 
 ## Write tools (GitHub API)
