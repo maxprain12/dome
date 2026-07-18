@@ -38,7 +38,7 @@ export function isSubagentType(value: string): value is SubagentType {
 export function subagentTypeFromTaskArgs(args: Record<string, unknown> | undefined): string {
   if (!args) return '';
   const raw = String(args.subagent_type ?? args.subagentType ?? args.name ?? '').trim().toLowerCase();
-  return isSubagentType(raw) ? raw : raw;
+  return raw;
 }
 
 export function subagentTypeFromDelegateArgs(args: Record<string, unknown> | undefined): string {
