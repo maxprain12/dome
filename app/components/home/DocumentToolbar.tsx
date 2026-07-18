@@ -1,14 +1,15 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  FileText,
-  Notebook,
-  Upload,
-  Link2,
-  FolderOpen,
-  ChevronRight,
-  Home as HomeIcon,
-} from 'lucide-react';
+  File02Icon,
+  NotebookIcon,
+  Upload04Icon,
+  Link02Icon,
+  FolderOpenIcon,
+  ChevronRightIcon,
+  Home01Icon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/lib/hooks/useResources';
 
@@ -53,7 +54,7 @@ export default function DocumentToolbar({
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 py-3 mb-6 border-b border-[var(--dome-border)]">
+    <div className="flex items-center justify-between gap-4 py-3 mb-6 border-b border-border">
       {/* Path bar — oculto cuando el breadcrumb está en el panel de carpetas */}
       {!hidePath ? (
         <nav
@@ -63,15 +64,15 @@ export default function DocumentToolbar({
           <button
             type="button"
             onClick={onNavigateToRoot}
-            className="flex items-center gap-1.5 px-1.5 py-1 text-sm font-medium text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] hover:bg-[var(--dome-bg-secondary)] rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-1.5 py-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-[var(--card)] rounded-md transition-colors"
             aria-label={t('toolbar.all')}
           >
-            <HomeIcon size={14} />
+            <HugeiconsIcon icon={Home01Icon} size={14} />
             <span className="hidden sm:inline">{t('toolbar.all')}</span>
           </button>
 
           {breadcrumbPath.length > 0 && (
-            <ChevronRight size={14} className="text-[var(--dome-text-muted)] flex-shrink-0" />
+            <HugeiconsIcon icon={ChevronRightIcon} size={14} className="text-muted-foreground flex-shrink-0" />
           )}
 
           {breadcrumbPath.map((folder, index) => {
@@ -80,7 +81,7 @@ export default function DocumentToolbar({
               <div key={folder.id} className="flex items-center gap-1.5 min-w-0">
                 {isLast ? (
                   <span
-                    className="px-1.5 py-1 text-sm font-semibold text-[var(--dome-text)] truncate max-w-[200px]"
+                    className="px-1.5 py-1 text-sm font-semibold text-foreground truncate max-w-[200px]"
                   >
                     {folder.title}
                   </span>
@@ -89,11 +90,11 @@ export default function DocumentToolbar({
                     <button
                       type="button"
                       onClick={() => onNavigateToFolder(folder.id)}
-                      className="px-1.5 py-1 text-sm font-medium text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] hover:bg-[var(--dome-bg-secondary)] rounded-md transition-colors truncate max-w-[150px]"
+                      className="px-1.5 py-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-[var(--card)] rounded-md transition-colors truncate max-w-[150px]"
                     >
                       {folder.title}
                     </button>
-                    <ChevronRight size={14} className="text-[var(--dome-text-muted)] flex-shrink-0" />
+                    <HugeiconsIcon icon={ChevronRightIcon} size={14} className="text-muted-foreground flex-shrink-0" />
                   </>
                 )}
               </div>
@@ -106,11 +107,11 @@ export default function DocumentToolbar({
 
       {/* Quick actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <ToolbarButton onClick={onCreateNote} icon={<FileText size={16} />} label={t('toolbar.note')} variant="primary" />
-        <ToolbarButton onClick={onCreateNotebook} icon={<Notebook size={16} />} label={t('toolbar.notebook')} />
-        <ToolbarButton onClick={handleUploadClick} icon={<Upload size={16} />} label={t('toolbar.import')} />
-        <ToolbarButton onClick={handleAddUrlClick} icon={<Link2 size={16} />} label={t('toolbar.link')} />
-        <ToolbarButton onClick={onCreateFolder} icon={<FolderOpen size={16} />} label={t('toolbar.folder')} />
+        <ToolbarButton onClick={onCreateNote} icon={<HugeiconsIcon icon={File02Icon} size={16} />} label={t('toolbar.note')} variant="primary" />
+        <ToolbarButton onClick={onCreateNotebook} icon={<HugeiconsIcon icon={NotebookIcon} size={16} />} label={t('toolbar.notebook')} />
+        <ToolbarButton onClick={handleUploadClick} icon={<HugeiconsIcon icon={Upload04Icon} size={16} />} label={t('toolbar.import')} />
+        <ToolbarButton onClick={handleAddUrlClick} icon={<HugeiconsIcon icon={Link02Icon} size={16} />} label={t('toolbar.link')} />
+        <ToolbarButton onClick={onCreateFolder} icon={<HugeiconsIcon icon={FolderOpenIcon} size={16} />} label={t('toolbar.folder')} />
       </div>
     </div>
   );
@@ -132,10 +133,10 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       className={`
-        flex items-center gap-2 h-8 px-3 rounded-lg text-sm font-medium transition-all
+        flex items-center gap-2 h-8 px-3 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow]
         ${variant === 'primary'
-          ? 'bg-[var(--dome-accent)] text-white hover:bg-[var(--dome-accent-hover)] hover:text-white shadow-sm hover:shadow'
-          : 'text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] hover:bg-[var(--dome-bg-secondary)] border border-transparent hover:border-[var(--dome-border)]'
+          ? 'bg-primary text-primary-foreground hover:bg-primary-hover shadow-sm hover:shadow'
+          : 'text-muted-foreground hover:text-foreground hover:bg-card border border-transparent hover:border-border'
         }
       `}
       aria-label={label}

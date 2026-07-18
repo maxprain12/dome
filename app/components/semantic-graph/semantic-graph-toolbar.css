@@ -1,7 +1,7 @@
 /* Minimal toolbar for semantic graph — slider + pills */
 
 .semantic-graph-toolbar {
-  background: color-mix(in srgb, var(--dome-surface) 55%, transparent);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
 }
 
 .semantic-graph-slider {
@@ -9,7 +9,7 @@
   appearance: none;
   height: 3px;
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--dome-border) 85%, transparent);
+  background: color-mix(in srgb, var(--border) 85%, transparent);
   outline: none;
 }
 
@@ -19,9 +19,9 @@
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: var(--dome-accent);
-  border: 2px solid var(--dome-surface);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 25%, transparent);
+  background: var(--primary);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted-foreground) 25%, transparent);
   cursor: pointer;
 }
 
@@ -29,8 +29,8 @@
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: var(--dome-accent);
-  border: 2px solid var(--dome-surface);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 25%, transparent);
+  background: var(--primary);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted-foreground) 25%, transparent);
   cursor: pointer;
 }

@@ -1,80 +1,63 @@
-/** Inline new-folder name input (03/T02 — extracted from FolderTabView.tsx). */
+/** Inline new-folder name input — no color until the user picks one later. */
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, Folder, X } from 'lucide-react';
-import { FOLDER_COLOR_DEFAULT, FOLDER_TAB_SWATCHES } from '@/lib/ui/palettes';
-
-const SWATCHES = FOLDER_TAB_SWATCHES;
+import { CheckIcon, Folder01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function NewFolderInline({
   onConfirm,
   onCancel,
   variant = 'grid',
 }: {
-  onConfirm: (name: string, color: string) => void;
+  onConfirm: (name: string) => void;
   onCancel: () => void;
   variant?: 'grid' | 'list';
 }) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
-  const [selectedColor, setSelectedColor] = useState(FOLDER_COLOR_DEFAULT);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const handleConfirm = () => {
-    if (value.trim()) onConfirm(value.trim(), selectedColor);
+    if (value.trim()) onConfirm(value.trim());
   };
-
-  const swatches = (
-    <div className="dome-new-folder__swatches" role="group" aria-label={t('folder.changeColor', 'Cambiar color')}>
-      {SWATCHES.map((color) => (
-        <button
-          key={color}
-          type="button"
-          aria-label={color}
-          aria-pressed={selectedColor.toLowerCase() === color.toLowerCase()}
-          onClick={() => setSelectedColor(color)}
-          className="dome-new-folder__swatch"
-          style={{
-            backgroundColor: color,
-            borderColor: selectedColor.toLowerCase() === color.toLowerCase()
-              ? 'var(--dome-accent)'
-              : 'transparent',
-          }}
-        />
-      ))}
-    </div>
-  );
 
   const actions = (
     <div className="dome-new-folder__actions">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         onClick={handleConfirm}
         disabled={!value.trim()}
-        className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm"
         aria-label={t('ui.create')}
       >
-        <Check className="size-3.5" />
-      </button>
-      <button
+        <HugeiconsIcon icon={CheckIcon} />
+      </Button>
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         onClick={onCancel}
-        className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel"
         aria-label={t('ui.cancel')}
       >
-        <X className="size-3.5" />
-      </button>
+        <HugeiconsIcon icon={Cancel01Icon} />
+      </Button>
     </div>
   );
 
   if (variant === 'list') {
     return (
       <div className="dome-new-folder dome-new-folder--list">
-        <Folder className="size-4 shrink-0" style={{ color: selectedColor }} />
-        <input
+        <HugeiconsIcon
+          icon={Folder01Icon}
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <Input
           ref={inputRef}
           type="text"
           value={value}
@@ -85,9 +68,8 @@ export default function NewFolderInline({
             if (e.key === 'Enter') handleConfirm();
             if (e.key === 'Escape') onCancel();
           }}
-          className="dome-fs-tree-row__rename-input flex-1 min-w-0"
+          className="h-7 flex-1 min-w-0"
         />
-        {swatches}
         {actions}
       </div>
     );
@@ -95,18 +77,15 @@ export default function NewFolderInline({
 
   return (
     <div className="dome-fs-card dome-fs-card--creating">
-      <div
-        className="dome-fs-card__cover"
-        style={{ background: `color-mix(in srgb, ${selectedColor} 12%, var(--dome-surface))` }}
-      >
-        <Folder
-          className="dome-fs-card__cover-icon"
-          style={{ color: selectedColor }}
+      <div className="dome-fs-card__cover dome-fs-card__cover--folder">
+        <HugeiconsIcon
+          icon={Folder01Icon}
+          className="dome-fs-card__cover-icon text-muted-foreground"
           strokeWidth={1.25}
         />
       </div>
-      <div className="dome-new-folder__body">
-        <input
+      <div className="dome-fs-card__footer dome-new-folder__body">
+        <Input
           ref={inputRef}
           type="text"
           value={value}
@@ -119,7 +98,6 @@ export default function NewFolderInline({
           }}
           className="dome-new-folder__input"
         />
-        {swatches}
         <div className="dome-new-folder__footer">
           {actions}
         </div>

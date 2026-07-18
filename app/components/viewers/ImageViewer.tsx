@@ -1,12 +1,15 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { RotateCw, Maximize2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Maximize02Icon, RotateRight01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { type Resource } from '@/types';
-import LoadingState from '@/components/ui/LoadingState';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 import ZoomControls from './shared/ZoomControls';
 import { useMountAction } from '@/lib/hooks/useMountAction';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import ViewerShell from './shared/ViewerShell';
 
 interface ImageViewerProps {
   resource: Resource;
@@ -159,17 +162,14 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
   }, [handleZoomIn, handleZoomOut, handleResetView, handleRotate]);
 
   if (error) {
-    return <ErrorState error={error} />;
+    return <ListState variant="error" errorMessage={error} fullHeight />;
   }
 
   return (
-    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
-      {/* Toolbar */}
-      <div
-        className="flex items-center justify-between px-4 py-2 border-b"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-      >
-        <div className="flex items-center gap-2">
+    <div ref={mountRef} className="h-full">
+      <ViewerShell
+        toolbar={(
+          <>
           <ZoomControls
             zoom={zoom}
             onZoomIn={handleZoomIn}
@@ -178,74 +178,57 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
             minZoom={MIN_ZOOM}
             maxZoom={MAX_ZOOM}
           />
-
-          <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
-
-          <button
+          <Separator orientation="vertical" className="h-5" />
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleRotate}
-            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary-text)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-            title="Rotate 90° (R)"
-            aria-label="Rotate image"
+            title={t('viewer.rotate_image', { defaultValue: 'Rotate 90° (R)' })}
+            aria-label={t('viewer.rotate_image', { defaultValue: 'Rotate image' })}
           >
-            <RotateCw size={18} />
-          </button>
-
-          <button
+            <HugeiconsIcon icon={RotateRight01Icon} />
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleResetView}
-            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary-text)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-            title="Reset view (0)"
-            aria-label="Reset view"
+            title={t('viewer.reset_zoom')}
+            aria-label={t('viewer.reset_zoom')}
           >
-            <Maximize2 size={18} />
-          </button>
-        </div>
-
-        {/* Keyboard/mouse hints */}
-        <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
-          {t('media.image_viewer_hints')}
-        </span>
-      </div>
-
-      {/* Image Container — overflow hidden + drag-pan/zoom transform */}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pan/zoom surface; keyboard equivalents are global (+/-/0/R) */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-hidden flex items-center justify-center p-4 select-none"
-        style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
-        onMouseDown={handleMouseDown}
-        onDoubleClick={handleDoubleClick}
+            <HugeiconsIcon icon={Maximize02Icon} />
+          </Button>
+          </>
+        )}
+        status={<span>{t('media.image_viewer_hints')}</span>}
+        contentClassName="overflow-hidden"
       >
-        {isLoading && !imageUrl ? (
-          <LoadingState message="Loading image..." />
-        ) : imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={resource.title}
-            className={`max-w-full max-h-full object-contain ${dragging ? '' : 'transition-transform duration-150'}`}
-            style={{
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-              transformOrigin: 'center center',
-            }}
-            draggable={false}
-          />
-        ) : null}
-      </div>
+        {/* Image Container — geometry remains owned by the specialized viewer. */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pan/zoom surface; keyboard equivalents are global (+/-/0/R) */}
+        <div
+          ref={containerRef}
+          className="flex h-full items-center justify-center overflow-hidden p-4 select-none"
+          style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+          onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
+        >
+          {isLoading && !imageUrl ? (
+            <ListState variant="loading" loadingLabel={t('viewer.loading_image')} fullHeight />
+          ) : imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={resource.title}
+              className="max-h-full max-w-full object-contain"
+              style={{
+                transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                transformOrigin: 'center center',
+              }}
+              draggable={false}
+            />
+          ) : null}
+        </div>
+      </ViewerShell>
     </div>
   );
 }

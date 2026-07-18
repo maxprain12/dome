@@ -1,11 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowDown01Icon, File01Icon, Note01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { notifications } from '@mantine/notifications';
-import DomeButton from '@/components/ui/DomeButton';
+import { notifications } from '@/lib/notifications';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { downloadTextFile, structuredToMarkdown, structuredToSrt } from '@/lib/transcription/export';
 import type { TranscriptStructured } from '@/lib/transcription/export';
 import type { Resource } from '@/types';
+import ViewerShell from '@/components/viewers/shared/ViewerShell';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Spinner } from '@/components/ui/spinner';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function parseMeta(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'string') return {};
@@ -92,18 +106,19 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ background: 'var(--dome-bg)' }}>
-        <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('common.loading')}
-        </p>
+      <div className="flex h-full items-center justify-center bg-background">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
+          <span>{t('common.loading')}</span>
+        </div>
       </div>
     );
   }
 
   if (!resource) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ background: 'var(--dome-bg)' }}>
-        <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex h-full items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">
           {t('common.noResourceSelected')}
         </p>
       </div>
@@ -114,84 +129,74 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
   const srt = structured ? structuredToSrt(structured) : '';
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4" style={{ background: 'var(--dome-bg)' }}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
-          {resource.title}
-        </h1>
-        <div className="flex flex-wrap gap-2">
+    <ViewerShell
+      title={resource.title}
+      contextLabel={t('transcriptions.list_title')}
+      toolbar={(
+        <>
           {isAudioTranscription && linkedNoteId && (
-            <DomeButton type="button" size="sm" variant="outline" onClick={() => openNoteTab(linkedNoteId, resource.title || '')}>
+            <Button type="button" variant="outline" onClick={() => openNoteTab(linkedNoteId, resource.title || '')} size="sm">
+              <HugeiconsIcon icon={Note01Icon} data-icon="inline-start" />
               {t('transcriptions.open_note', 'Open note')}
-            </DomeButton>
+            </Button>
           )}
           {isAudioTranscription && !linkedNoteId && (
-            <DomeButton
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => void onConvertToNote()}
-              disabled={converting || !transcriptText}
-            >
+            <Button type="button" variant="outline" onClick={() => void onConvertToNote()} disabled={converting || !transcriptText} size="sm">
+              {converting ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Note01Icon} data-icon="inline-start" />}
               {converting ? t('common.loading') : t('transcriptions.detail_convert_to_note', 'Convert to note')}
-            </DomeButton>
+            </Button>
           )}
           {!isAudioTranscription && resource.type === 'note' && (
-            <DomeButton type="button" size="sm" variant="outline" onClick={() => openNoteTab(resource.id, resource.title || '')}>
+            <Button type="button" variant="outline" onClick={() => openNoteTab(resource.id, resource.title || '')} size="sm">
+              <HugeiconsIcon icon={Note01Icon} data-icon="inline-start" />
               {t('transcriptions.open_note', 'Open note')}
-            </DomeButton>
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" />}>
+              <HugeiconsIcon icon={ArrowDown01Icon} data-icon="inline-start" />
+              {t('common.export', { defaultValue: 'Export' })}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem disabled={!md} onClick={() => downloadTextFile(`${resource.title || 'transcript'}.md`, md, 'text/markdown')}>
+                  {t('transcriptions.export_md')}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!structured} onClick={() => downloadTextFile(`${resource.title || 'transcript'}.json`, JSON.stringify(structured ?? {}, null, 2), 'application/json')}>
+                  {t('transcriptions.export_json')}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!srt} onClick={() => downloadTextFile(`${resource.title || 'transcript'}.srt`, srt, 'text/plain')}>
+                  {t('transcriptions.export_srt')}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
+      contentClassName="overflow-hidden"
+    >
+      <ScrollArea className="h-full">
+        <div className="mx-auto w-full max-w-4xl p-4 sm:p-6">
+          {md ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('transcriptions.transcript', { defaultValue: 'Transcript' })}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{md}</pre>
+              </CardContent>
+            </Card>
+          ) : (
+            <Empty className="min-h-72 border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><HugeiconsIcon icon={File01Icon} /></EmptyMedia>
+                <EmptyTitle>{t('transcriptions.list_title')}</EmptyTitle>
+                <EmptyDescription>{t('media.transcript_empty_hint')}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <DomeButton
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!md}
-          onClick={() => downloadTextFile(`${resource.title || 'transcript'}.md`, md, 'text/markdown')}
-        >
-          {t('transcriptions.export_md')}
-        </DomeButton>
-        <DomeButton
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!structured}
-          onClick={() =>
-            downloadTextFile(
-              `${resource.title || 'transcript'}.json`,
-              JSON.stringify(structured ?? {}, null, 2),
-              'application/json',
-            )
-          }
-        >
-          {t('transcriptions.export_json')}
-        </DomeButton>
-        <DomeButton
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!srt}
-          onClick={() => downloadTextFile(`${resource.title || 'transcript'}.srt`, srt, 'text/plain')}
-        >
-          {t('transcriptions.export_srt')}
-        </DomeButton>
-      </div>
-
-      {md ? (
-        <pre
-          className="whitespace-pre-wrap rounded-xl border p-3 text-xs leading-relaxed"
-          style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)' }}
-        >
-          {md}
-        </pre>
-      ) : (
-        <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('media.transcript_empty_hint')}
-        </p>
-      )}
-    </div>
+      </ScrollArea>
+    </ViewerShell>
   );
 }

@@ -88,6 +88,61 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
     blocks.push(`**user-memory**\n${opts.userMemory.trim()}`);
   }
 
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople
+      .map((person) => {
+        const identities = (person.identities || [])
+          .map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`)
+          .join(', ');
+        return identities
+          ? `- ${person.id}: ${person.title} (${identities})`
+          : `- ${person.id}: ${person.title}`;
+      })
+      .join('\n');
+    blocks.push(
+      `**mentioned-people** — ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.\n${lines}`,
+    );
+  }
+
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources
+      .map((src) => {
+        const repo =
+          src.kind === 'issue' && typeof src.meta?.fullName === 'string'
+            ? ` repo=${src.meta.fullName}`
+            : '';
+        const folder =
+          src.kind === 'email' && typeof src.meta?.folder === 'string'
+            ? ` folder=${src.meta.folder}`
+            : '';
+        const provider =
+          src.kind === 'social_post' && typeof src.meta?.provider === 'string'
+            ? ` provider=${src.meta.provider}`
+            : '';
+        const status =
+          src.kind === 'social_post' && typeof src.meta?.status === 'string'
+            ? ` status=${src.meta.status}`
+            : '';
+        const body =
+          typeof src.meta?.body === 'string' && src.meta.body.trim()
+            ? `\n  body: ${src.meta.body.trim().slice(0, 2000)}`
+            : '';
+        const toolHint =
+          src.kind === 'social_post'
+            ? ' → social_post_get'
+            : src.kind === 'email'
+              ? ' → email_read'
+              : src.kind === 'issue'
+                ? ' → github_get_issue'
+                : '';
+        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+      })
+      .join('\n');
+    blocks.push(
+      `**mentioned-sources** — ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.\n${lines}`,
+    );
+  }
+
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {
     const lines = opts.pinnedResources
       .map((r) => `- ${r.id}: ${r.title} (${r.type})`)

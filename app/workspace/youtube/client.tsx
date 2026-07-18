@@ -1,7 +1,12 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Loading03Icon,
+  AlertCircleIcon,
+  ExternalLinkIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
@@ -195,21 +200,20 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     return (
       <div
         ref={mountRef}
-        className="flex flex-col items-center justify-center min-h-full p-8"
-        style={{ background: 'var(--bg)' }}
+        className="flex flex-col items-center justify-center min-h-full p-8 bg-background"
       >
-        <AlertCircle className="size-12 mb-4" style={{ color: 'var(--error)' }} />
-        <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
+        <HugeiconsIcon icon={AlertCircleIcon} className="size-12 mb-4 text-destructive" />
+        <h2 className="text-lg font-semibold mb-2 text-foreground">
           Error
         </h2>
-        <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
+        <p className="text-sm mb-4 text-muted-foreground">
           {error || 'Resource not found'}
         </p>
         <button
           type="button"
           onClick={() => navigate('/')}
           className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--accent)', color: 'var(--base-text)' }}
+          style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
         >
           Go Back
         </button>
@@ -222,12 +226,12 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
   const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : null;
 
   return (
-    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div ref={mountRef} className="flex flex-col h-full bg-background">
       {isLoading || !resource ? (
         <div className="flex items-center justify-center min-h-full flex-1">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--accent)' }} />
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading video...</p>
+            <HugeiconsIcon icon={Loading03Icon} className="size-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading video...</p>
           </div>
         </div>
       ) : (
@@ -248,9 +252,9 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
           {!embedUrl ? (
             <div className="flex flex-col items-center justify-center flex-1 p-8">
               {(metadata?.processing_status === 'processing' || isProcessing) && (
-                <Loader2 className="size-12 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
+                <HugeiconsIcon icon={Loading03Icon} className="size-12 animate-spin mb-4 text-primary" />
               )}
-              <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
+              <p className="text-sm mb-4 text-muted-foreground">
                 {isProcessing ? 'Fetching video metadata...' : 'Video not ready yet.'}
               </p>
               {!isProcessing && (
@@ -258,7 +262,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
                   type="button"
                   onClick={handleProcess}
                   className="px-4 py-2 rounded-lg text-sm font-medium"
-                  style={{ backgroundColor: 'var(--accent)', color: 'var(--base-text)' }}
+                  style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
                 >
                   Load Video
                 </button>
@@ -270,23 +274,23 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
               <div
                 className="flex items-center justify-end px-4 py-3 border-b shrink-0"
                 style={{
-                  backgroundColor: 'var(--bg-secondary)',
+                  backgroundColor: 'var(--card)',
                   borderColor: 'var(--border)',
                 }}
               >
                 <button
                   type="button"
                   onClick={handleOpenExternal}
-                  className="min-w-[44px] min-h-[44px] px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                  className="min-w-[44px] min-h-[44px] px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   style={{
-                    backgroundColor: 'var(--bg)',
-                    color: 'var(--primary-text)',
+                    backgroundColor: 'var(--background)',
+                    color: 'var(--foreground)',
                     border: '1px solid var(--border)',
                   }}
                   aria-label="Open in YouTube"
                   title="Open in YouTube"
                 >
-                  <ExternalLink className="size-4 shrink-0" aria-hidden />
+                  <HugeiconsIcon icon={ExternalLinkIcon} className="size-4 shrink-0" aria-hidden />
                   Open in YouTube
                 </button>
               </div>
@@ -305,7 +309,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
                     className="size-full rounded-lg"
                     style={{
                       border: '1px solid var(--border)',
-                      backgroundColor: 'var(--bg-secondary)',
+                      backgroundColor: 'var(--card)',
                     }}
                   />
                 </div>

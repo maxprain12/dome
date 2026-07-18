@@ -1,6 +1,10 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from '@hugeicons/core-free-icons';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { PlaygroundArtifactV } from '@/lib/chat/artifactSchemas';
 import './playground-artifact.css';
 
@@ -24,7 +28,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-lg)',
               padding: '12px 14px',
-              background: 'var(--bg-tertiary)',
+              background: 'var(--muted)',
             }}
           >
             <div
@@ -36,7 +40,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
               }}
             >
               <span
-                style={{ fontSize: 12, fontWeight: 600, color: 'var(--secondary-text)' }}
+                style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted-foreground)' }}
               >
                 {i + 1}. {ex.title || ex.id}
               </span>
@@ -49,8 +53,8 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                         fontSize: 12,
                         padding: '2px 6px',
                         borderRadius: 'var(--radius-sm)',
-                        background: 'var(--bg-hover)',
-                        color: 'var(--tertiary-text)',
+                        background: 'var(--accent)',
+                        color: 'var(--muted-foreground)',
                       }}
                     >
                       {tag}
@@ -62,7 +66,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
             <p
               style={{
                 fontSize: 13,
-                color: 'var(--primary-text)',
+                color: 'var(--foreground)',
                 margin: '8px 0 0',
                 lineHeight: 1.55,
               }}
@@ -79,9 +83,9 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                   className="playground-toggle-btn is-hint"
                 >
                   {hintOpen ? (
-                    <ChevronDown className="size-3.5" aria-hidden />
+                    <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5" aria-hidden />
                   ) : (
-                    <ChevronRight className="size-3.5" aria-hidden />
+                    <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5" aria-hidden />
                   )}
                   {t('chat.playground_hint')}
                 </button>
@@ -90,7 +94,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                     id={hintPanelId}
                     style={{
                       fontSize: 12,
-                      color: 'var(--secondary-text)',
+                      color: 'var(--muted-foreground)',
                       margin: '6px 0 0',
                     }}
                   >
@@ -109,9 +113,9 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                   className="playground-toggle-btn is-solution"
                 >
                   {solOpen ? (
-                    <ChevronDown className="size-3.5" aria-hidden />
+                    <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5" aria-hidden />
                   ) : (
-                    <ChevronRight className="size-3.5" aria-hidden />
+                    <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5" aria-hidden />
                   )}
                   {t('chat.playground_solution')}
                 </button>

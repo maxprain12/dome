@@ -31,11 +31,11 @@ function OutlineItemNode({
           if (item.pageNumber != null) onPageChange(item.pageNumber);
         }}
         disabled={!isClickable}
-        className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors truncate focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 ${isClickable ? 'hover:underline' : ''}`}
+        className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors truncate focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${isClickable ? 'hover:underline' : ''}`}
         style={{
           paddingLeft: `${8 + depth * 12}px`,
-          color: isClickable ? 'var(--accent)' : 'var(--tertiary-text)',
-          background: isActive ? 'var(--dome-accent-bg, rgba(var(--accent-rgb), 0.15))' : 'transparent',
+          color: isClickable ? 'var(--primary)' : 'var(--muted-foreground)',
+          background: isActive ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent',
           cursor: isClickable ? 'pointer' : 'default',
         }}
         title={isClickable ? `Ir a página ${item.pageNumber}` : undefined}
@@ -59,7 +59,7 @@ function OutlineItemNode({
 export default function PDFOutline({ outline, currentPage, onPageChange }: PDFOutlineProps) {
   if (outline.length === 0) {
     return (
-      <p className="text-sm px-2 py-4" style={{ color: 'var(--tertiary-text)' }}>
+      <p className="text-sm px-2 py-4 text-muted-foreground">
         No outline available
       </p>
     );

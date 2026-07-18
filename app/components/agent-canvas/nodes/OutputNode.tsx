@@ -1,7 +1,14 @@
-'use client';
-
-import { useState, useCallback } from 'react';
-import { Terminal, Loader2, CheckCircle2, Copy, Check, Save } from 'lucide-react';
+import { useState, useCallback, type ReactNode } from 'react';
+import { typesetDocsClass } from '@/lib/typeset';
+import {
+  TerminalIcon as TerminalIcon,
+  Loading03Icon as Loader2Icon,
+  CheckmarkCircle02Icon as CheckCircle2Icon,
+  CopyIcon as CopyIcon,
+  CheckIcon as CheckIcon,
+  SaveIcon as SaveIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import type { OutputNodeData } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -63,54 +70,54 @@ export default function OutputNode({
       className="wf-node-card workflow-node-card rounded-xl overflow-hidden transition-[box-shadow,border-color]"
       style={{
         width: 260,
-        border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-        boxShadow: selected ? '0 0 0 2px color-mix(in srgb, var(--dome-accent) 18%, transparent)' : 'none',
-        background: 'var(--dome-surface)',
+        border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+        boxShadow: selected ? '0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent)' : 'none',
+        background: 'var(--card)',
       }}
     >
       <div
         className="workflow-node-header flex items-center gap-2 px-3 py-2"
-        style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
+        style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}
       >
         <div
           className="size-6 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: isDone ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
+          style={{ background: isDone ? 'var(--primary)' : 'var(--muted-foreground)' }}
         >
-          <Terminal className="size-3.5 text-white" />
+          <HugeiconsIcon icon={TerminalIcon} className="size-3.5 text-white" />
         </div>
         <span
           className="flex-1 text-xs font-semibold leading-tight truncate"
-          style={{ color: isDone ? 'var(--dome-accent)' : 'var(--dome-text)' }}
+          style={{ color: isDone ? 'var(--primary)' : 'var(--foreground)' }}
         >
           {data.label}
         </span>
-        {isRunning && <Loader2 className="size-3.5 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} />}
+        {isRunning && <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin shrink-0 text-primary" />}
         {isDone && (
           <div className="flex items-center gap-0.5 shrink-0">
-            <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
+            <HugeiconsIcon icon={CheckCircle2Icon} className="size-3.5 text-primary" />
             <button
               type="button"
               onClick={handleCopy}
-              className="nodrag p-1 rounded-md transition-colors hover:bg-[var(--dome-accent-bg)]"
+              className="nodrag p-1 rounded-md transition-colors hover:bg-[color-mix(in srgb, var(--primary) 12%, transparent)]"
               title={t('canvas.copy_to_clipboard')}
             >
               {copied ? (
-                <Check className="size-3.5" style={{ color: 'var(--success)' }} />
+                <HugeiconsIcon icon={CheckIcon} className="size-3.5 text-[var(--success)]" />
               ) : (
-                <Copy className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
+                <HugeiconsIcon icon={CopyIcon} className="size-3.5 text-primary" />
               )}
             </button>
             <button
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="nodrag p-1 rounded-md transition-colors hover:bg-[var(--dome-accent-bg)] disabled:opacity-50"
+              className="nodrag p-1 rounded-md transition-colors hover:bg-[color-mix(in srgb, var(--primary) 12%, transparent)] disabled:opacity-50"
               title={t('canvas.save_as_note')}
             >
               {saving ? (
-                <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+                <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin text-primary" />
               ) : (
-                <Save className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
+                <HugeiconsIcon icon={SaveIcon} className="size-3.5 text-primary" />
               )}
             </button>
           </div>
@@ -119,18 +126,12 @@ export default function OutputNode({
 
       <div className="p-3" style={{ minHeight: 52 }}>
         {!data.content ? (
-          <div className="flex flex-col items-center justify-center py-2 gap-1" style={{ color: 'var(--dome-text-muted)' }}>
-            <Terminal className="size-4 opacity-25" />
+          <div className="flex flex-col items-center justify-center py-2 gap-1 text-muted-foreground">
+            <HugeiconsIcon icon={TerminalIcon} className="size-4 opacity-25" />
             <p className="text-[10px] italic text-center px-1 leading-snug">{t('canvas.output_placeholder')}</p>
           </div>
         ) : (
-          <div
-            className="nowheel text-xs leading-snug overflow-y-auto"
-            style={{
-              color: 'var(--dome-text)',
-              maxHeight: 220,
-            }}
-          >
+          <div className={typesetDocsClass('nowheel max-h-[220px] overflow-y-auto')}>
             <MarkdownPreview content={data.content} />
           </div>
         )}
@@ -142,7 +143,7 @@ export default function OutputNode({
 /** Lightweight markdown renderer for the node canvas. Avoids heavy import of MarkdownRenderer. */
 function MarkdownPreview({ content }: { content: string }) {
   const lines = content.split('\n');
-  const elements: React.ReactNode[] = [];
+  const elements: ReactNode[] = [];
   let i = 0;
   let serial = 0;
   const nextKey = (payload: string) => {
@@ -154,28 +155,16 @@ function MarkdownPreview({ content }: { content: string }) {
     const line = lines[i] ?? '';
 
     if (line.startsWith('### ')) {
-      elements.push(
-        <h3 key={nextKey(`h3:${line}`)} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
-          {line.slice(4)}
-        </h3>,
-      );
+      elements.push(<h3 key={nextKey(`h3:${line}`)}>{line.slice(4)}</h3>);
     } else if (line.startsWith('## ')) {
-      elements.push(
-        <h2 key={nextKey(`h2:${line}`)} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
-          {line.slice(3)}
-        </h2>,
-      );
+      elements.push(<h2 key={nextKey(`h2:${line}`)}>{line.slice(3)}</h2>);
     } else if (line.startsWith('# ')) {
-      elements.push(
-        <h1 key={nextKey(`h1:${line}`)} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
-          {line.slice(2)}
-        </h1>,
-      );
+      elements.push(<h1 key={nextKey(`h1:${line}`)}>{line.slice(2)}</h1>);
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(
-        <div key={nextKey(`li:${line}`)} className="flex gap-1.5 mb-0.5">
-          <span style={{ color: 'var(--dome-accent)' }}>•</span>
-          <span style={{ color: 'var(--dome-text-secondary)' }}>{formatInline(line.slice(2))}</span>
+        <div key={nextKey(`li:${line}`)} className="not-typeset flex gap-1.5">
+          <span>•</span>
+          <span>{formatInline(line.slice(2))}</span>
         </div>,
       );
     } else if (line.trim() === '') {
@@ -190,21 +179,11 @@ function MarkdownPreview({ content }: { content: string }) {
       }
       const codeJoined = codeLines.join('\n');
       elements.push(
-        <pre
-          key={nextKey(`code:${line}:${openIdx}:${codeJoined.slice(0, 80)}`)}
-          className="text-xs p-2 rounded-lg overflow-x-auto mb-1"
-          style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)', fontFamily: 'monospace' }}
-        >
-          {codeJoined}
-        </pre>,
+        <pre key={nextKey(`code:${line}:${openIdx}:${codeJoined.slice(0, 80)}`)}>{codeJoined}</pre>,
       );
     } else {
       elements.push(
-        <p
-          key={nextKey(`p:${line}`)}
-          className="mb-0.5 leading-relaxed"
-          style={{ color: 'var(--dome-text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-        >
+        <p key={nextKey(`p:${line}`)} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {formatInline(line)}
         </p>,
       );
@@ -233,7 +212,7 @@ function formatInline(text: string): React.ReactNode {
         <code
           key={k}
           className="px-1 py-0.5 rounded text-xs"
-          style={{ background: 'var(--dome-bg)', fontFamily: 'monospace' }}
+          style={{ background: 'var(--background)', fontFamily: 'monospace' }}
         >
           {part.slice(1, -1)}
         </code>

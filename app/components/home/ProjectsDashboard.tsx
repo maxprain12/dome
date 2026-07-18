@@ -1,14 +1,41 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FolderOpen, Plus, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Delete02Icon,
+  Folder01Icon,
+  GridViewIcon,
+  ListViewIcon,
+  PlusSignIcon,
+  Search01Icon,
+} from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
-import { HomeSectionHeader } from '@/components/home/dashboard/editorial/HomeSectionHeader';
-import { ProjectsHero } from '@/components/home/projects/ProjectsHero';
 import { ProjectCard } from '@/components/home/projects/ProjectCard';
-import DomeButton from '@/components/ui/DomeButton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { PageToolbar } from '@/components/shared/PageToolbar';
 
 type DashboardStats = {
   resourceCount: number;
@@ -60,6 +87,12 @@ export default function ProjectsDashboard({
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectVaultRoot, setNewProjectVaultRoot] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [projectQuery, setProjectQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [editTarget, setEditTarget] = useState<Project | null>(null);
+  const [editProjectName, setEditProjectName] = useState('');
+  const [editProjectDescription, setEditProjectDescription] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Single delete
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
@@ -76,7 +109,6 @@ export default function ProjectsDashboard({
 
   // KB overrides
   const [kbOverrides, setKbOverrides] = useState<Record<string, 'inherit' | 'enabled' | 'disabled'>>({});
-  const [kbMenuFor, setKbMenuFor] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
@@ -157,6 +189,7 @@ export default function ProjectsDashboard({
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
     const unsubscribeProject = window.electron.on('project:created', () => { void loadProjects(); });
+    const unsubscribeProjectUpdated = window.electron.on('project:updated', () => { void loadProjects(); });
     const unsubscribeProjectDeleted = window.electron.on('project:deleted', () => { void loadProjects(); });
     const unsubscribeResource = window.electron.on('resource:created', () => { void loadProjects(); });
     const unsubscribeResourceUpdate = window.electron.on('resource:updated', () => { void loadProjects(); });
@@ -167,6 +200,7 @@ export default function ProjectsDashboard({
     const unsubscribeDeckDeleted = window.electron.on('flashcard:deckDeleted', () => { void loadProjects(); });
     return () => {
       unsubscribeProject?.();
+      unsubscribeProjectUpdated?.();
       unsubscribeProjectDeleted?.();
       unsubscribeResource?.();
       unsubscribeResourceUpdate?.();
@@ -285,6 +319,34 @@ export default function ProjectsDashboard({
     }
   }, [loadProjects, newProjectDescription, newProjectName, newProjectVaultRoot, onSelectProject, t]);
 
+  const openEditProject = useCallback((project: Project) => {
+    setEditTarget(project);
+    setEditProjectName(project.name);
+    setEditProjectDescription(project.description ?? '');
+  }, []);
+
+  const handleEditProject = useCallback(async () => {
+    if (!editTarget || !editProjectName.trim()) return;
+    setEditSubmitting(true);
+    try {
+      const result = await db.updateProject({
+        id: editTarget.id,
+        name: editProjectName.trim(),
+        description: editProjectDescription.trim() || undefined,
+      });
+      if (!result.success || !result.data) {
+        showToast('error', result.error ?? t('projects.create_error'));
+        return;
+      }
+      if (currentProject?.id === result.data.id) onSelectProject(result.data);
+      setEditTarget(null);
+      showToast('success', t('common.saved', 'Guardado'));
+      await loadProjects();
+    } finally {
+      setEditSubmitting(false);
+    }
+  }, [currentProject?.id, editProjectDescription, editProjectName, editTarget, loadProjects, onSelectProject, t]);
+
   // ── Selection helpers ──────────────────────────────────────────────────────
   const toggleSelect = useCallback((id: string) => {
     if (id === 'default') return;
@@ -314,6 +376,14 @@ export default function ProjectsDashboard({
     return map;
   }, [resources]);
 
+  const filteredProjects = useMemo(() => {
+    const query = projectQuery.trim().toLocaleLowerCase();
+    if (!query) return projects;
+    return projects.filter((project) =>
+      `${project.name} ${project.description ?? ''}`.toLocaleLowerCase().includes(query),
+    );
+  }, [projectQuery, projects]);
+
   const pulseCells = [
     { key: 'resources', value: stats.resourceCount, labelKey: 'projects.resources' },
     { key: 'studio', value: stats.studioCount, labelKey: 'projects.studio' },
@@ -324,7 +394,6 @@ export default function ProjectsDashboard({
 
   const handleKbOverride = useCallback(
     async (projectId: string, val: 'inherit' | 'enabled' | 'disabled') => {
-      setKbMenuFor(null);
       try {
         const r = await window.electron?.kbllm?.setProjectOverride?.({ projectId, override: val });
         const ok = r && typeof r === 'object' && 'success' in r && (r as { success?: boolean }).success;
@@ -339,364 +408,231 @@ export default function ProjectsDashboard({
 
   return (
     <>
-      <div className="home-shell">
-        <div className="home-scroll">
-          <div className="home-canvas">
-            <ProjectsHero
-              projectCount={projects.length}
-              currentProject={currentProject}
-              activeResourceCount={stats.resourceCount}
-              selectionMode={selectionMode}
-              selectableCount={selectableProjects.length}
-              selectedCount={selectedIds.size}
-              allSelected={allSelected}
-              onSwitchToDome={() => domeProject && onSelectProject(domeProject)}
-              onToggleSelectMode={() => setSelectionMode(true)}
-              onToggleSelectAll={toggleSelectAll}
-              onBulkDelete={() => setBulkDeleteOpen(true)}
-              onCancelSelection={() => {
-                setSelectionMode(false);
-                setSelectedIds(new Set());
-              }}
-              onCreateClick={() => setShowCreateForm((v) => !v)}
-              canSwitchToDome={Boolean(domeProject) && currentProject?.id !== 'default'}
+      <main className="h-full overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-8 lg:px-10">
+          <PageHeader
+            title={t('projects.title')}
+            description={currentProject ? t('projects.active_project', { name: currentProject.name }) : t('projects.subtitle')}
+            eyebrow={t('projects.workspaces_count', { count: projects.length })}
+            actions={
+              <>
+                {domeProject && currentProject?.id !== 'default' ? (
+                  <Button type="button" variant="outline" onClick={() => onSelectProject(domeProject)}>
+                    <HugeiconsIcon icon={Folder01Icon} data-icon="inline-start" />
+                    {t('projects.switch_to_dome')}
+                  </Button>
+                ) : null}
+                <Button type="button" onClick={() => setShowCreateForm(true)}>
+                  <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+                  {t('projects.create_project')}
+                </Button>
+              </>
+            }
+          />
+
+          <section aria-label={t('dashboard.section_pulse')} className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            {pulseCells.map((cell) => (
+              <Card key={cell.key} size="sm" className="shadow-sm">
+                <CardContent className="flex flex-col gap-1">
+                  {loading ? <Skeleton className="h-7 w-10" /> : <span className="text-2xl font-semibold tabular-nums">{cell.value}</span>}
+                  <span className="text-xs text-muted-foreground">{t(cell.labelKey)}</span>
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+
+          <section className="flex flex-col gap-4" aria-labelledby="projects-list-heading">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 id="projects-list-heading" className="font-heading text-lg font-semibold">{t('projects.your_projects')}</h2>
+                <p className="text-sm text-muted-foreground">{t('projects.new_project_desc')}</p>
+              </div>
+              <Button type="button" variant="ghost" onClick={onOpenProjectLibrary}>{t('projects.open_library')}</Button>
+            </div>
+            <PageToolbar
+              separated={false}
+              primary={
+                <InputGroup className="max-w-md">
+                  <InputGroupAddon><HugeiconsIcon icon={Search01Icon} /></InputGroupAddon>
+                  <InputGroupInput
+                    value={projectQuery}
+                    onChange={(event) => setProjectQuery(event.target.value)}
+                    placeholder={t('common.search', 'Buscar proyectos')}
+                    aria-label={t('common.search', 'Buscar proyectos')}
+                  />
+                </InputGroup>
+              }
+              secondary={
+                <>
+                  {selectionMode ? (
+                    <>
+                      <Button type="button" variant="outline" onClick={toggleSelectAll}>
+                        {allSelected ? t('common.deselect_all') : t('common.select_all')}
+                      </Button>
+                      <Button type="button" variant="destructive" disabled={selectedIds.size === 0} onClick={() => setBulkDeleteOpen(true)}>
+                        <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+                        {t('common.delete')} ({selectedIds.size})
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => { setSelectionMode(false); setSelectedIds(new Set()); }}>
+                        {t('common.cancel')}
+                      </Button>
+                    </>
+                  ) : selectableProjects.length ? (
+                    <Button type="button" variant="outline" onClick={() => setSelectionMode(true)}>{t('common.select')}</Button>
+                  ) : null}
+                  <ToggleGroup value={[viewMode]} onValueChange={(value) => { const next = value[0]; if (next === 'grid' || next === 'list') setViewMode(next); }} variant="outline" spacing={0} aria-label={t('projects.title')}>
+                    <ToggleGroupItem value="grid" aria-label="Grid"><HugeiconsIcon icon={GridViewIcon} /></ToggleGroupItem>
+                    <ToggleGroupItem value="list" aria-label="List"><HugeiconsIcon icon={ListViewIcon} /></ToggleGroupItem>
+                  </ToggleGroup>
+                </>
+              }
             />
 
-            <section className="p-projects-section">
-              <HomeSectionHeader title={t('dashboard.section_pulse')} />
-              <div className="h-stats">
-                {pulseCells.map((cell) => (
-                  <div key={cell.key} className="cell">
-                    {loading ? (
-                      <span className="v">—</span>
-                    ) : (
-                      <span className="v">{cell.value}</span>
-                    )}
-                    <span className="k">{t(cell.labelKey)}</span>
-                  </div>
+            {loading ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-44" />)}
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <Card className="items-center py-12 text-center shadow-sm">
+                <CardContent className="flex flex-col items-center gap-3">
+                  <HugeiconsIcon icon={Folder01Icon} className="size-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{projectQuery ? t('command.no_results', { query: projectQuery }) : t('projects.empty')}</p>
+                  {!projectQuery ? <Button type="button" onClick={() => setShowCreateForm(true)}>{t('projects.create_project')}</Button> : null}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className={viewMode === 'grid' ? 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3' : 'flex flex-col gap-3'}>
+                {filteredProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    resourceCount={resourceCountByProject.get(project.id) ?? 0}
+                    isActive={currentProject?.id === project.id}
+                    isSelected={selectedIds.has(project.id)}
+                    isDome={project.id === 'default'}
+                    selectionMode={selectionMode}
+                    kbOverride={kbOverrides[project.id] ?? 'inherit'}
+                    kbMenuOpen={false}
+                    onSelect={() => onSelectProject(project)}
+                    onToggleSelect={() => toggleSelect(project.id)}
+                    onKbMenuToggle={() => undefined}
+                    onKbOverrideChange={(value) => void handleKbOverride(project.id, value)}
+                    onEdit={() => openEditProject(project)}
+                    onDelete={() => openDeleteProject(project)}
+                  />
                 ))}
               </div>
-            </section>
-
-            {showCreateForm ? (
-              <div className="h-card p-projects-create" role="region" aria-labelledby="p-projects-create-title">
-                <div className="p-projects-create-hd">
-                  <h3 id="p-projects-create-title" className="h-card-title">
-                    {t('projects.new_project')}
-                  </h3>
-                  <DomeButton
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    iconOnly
-                    className="p-projects-create-close"
-                    onClick={resetCreateForm}
-                    aria-label={t('common.close')}
-                  >
-                    <X size={14} strokeWidth={2} aria-hidden />
-                  </DomeButton>
-                </div>
-                <p className="p-projects-create-desc">{t('projects.new_project_desc')}</p>
-
-                <div className="p-projects-create-form">
-                  <label className="p-projects-create-field">
-                    <span className="p-projects-create-label">{t('projects.project_name')}</span>
-                    <input
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                      placeholder={t('projects.project_name_placeholder')}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
-                        if (e.key === 'Escape') resetCreateForm();
-                      }}
-                      className="p-projects-field"
-                    />
-                  </label>
-
-                  <label className="p-projects-create-field">
-                    <span className="p-projects-create-label">{t('projects.brief_description')}</span>
-                    <textarea
-                      value={newProjectDescription}
-                      onChange={(e) => setNewProjectDescription(e.target.value)}
-                      placeholder={t('projects.brief_description_placeholder')}
-                      rows={2}
-                      className="p-projects-field p-projects-field-area"
-                    />
-                  </label>
-
-                  <div className="p-projects-vault">
-                    <span className="p-projects-create-label">{t('projects.vault_folder_label')}</span>
-                    <div className="p-projects-vault-row">
-                      <FolderOpen size={13} strokeWidth={1.75} className="p-projects-vault-icon" aria-hidden />
-                      <span className="p-projects-vault-value" title={newProjectVaultRoot || undefined}>
-                        {newProjectVaultRoot || t('projects.vault_default_hint')}
-                      </span>
-                      <DomeButton
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        onClick={async () => {
-                          const dir = await window.electron?.selectFolder?.();
-                          if (dir) setNewProjectVaultRoot(dir);
-                        }}
-                      >
-                        {newProjectVaultRoot
-                          ? t('projects.vault_change_folder')
-                          : t('projects.choose_vault_folder')}
-                      </DomeButton>
-                      {newProjectVaultRoot ? (
-                        <DomeButton
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => setNewProjectVaultRoot('')}
-                        >
-                          {t('projects.vault_use_default')}
-                        </DomeButton>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="p-projects-create-actions">
-                    <DomeButton type="button" variant="ghost" size="xs" onClick={resetCreateForm}>
-                      {t('common.cancel')}
-                    </DomeButton>
-                    <DomeButton
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      onClick={() => void handleCreateProject()}
-                      disabled={creating || !newProjectName.trim()}
-                      loading={creating}
-                      leftIcon={creating ? undefined : <Plus size={12} strokeWidth={2} aria-hidden />}
-                    >
-                      {creating ? t('projects.creating') : t('projects.create_project')}
-                    </DomeButton>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <section>
-              <HomeSectionHeader
-                title={t('projects.your_projects')}
-                linkLabel={t('projects.open_library')}
-                onLinkClick={onOpenProjectLibrary}
-              />
-
-              {loading ? (
-                <div className="p-projects-skeleton">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} />
-                  ))}
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="p-projects-empty">
-                  <p>{t('projects.empty')}</p>
-                  <button
-                    type="button"
-                    className="h-pill-btn primary"
-                    style={{ marginTop: 14 }}
-                    onClick={() => setShowCreateForm(true)}
-                  >
-                    <Plus size={13} strokeWidth={2} aria-hidden />
-                    {t('projects.create_project')}
-                  </button>
-                </div>
-              ) : (
-                <div className="p-projects-grid">
-                  {projects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      resourceCount={resourceCountByProject.get(project.id) ?? 0}
-                      isActive={currentProject?.id === project.id}
-                      isSelected={selectedIds.has(project.id)}
-                      isDome={project.id === 'default'}
-                      selectionMode={selectionMode}
-                      kbOverride={kbOverrides[project.id] ?? 'inherit'}
-                      kbMenuOpen={kbMenuFor === project.id}
-                      onSelect={() => onSelectProject(project)}
-                      onToggleSelect={() => toggleSelect(project.id)}
-                      onKbMenuToggle={() =>
-                        setKbMenuFor(kbMenuFor === project.id ? null : project.id)
-                      }
-                      onKbOverrideChange={(val) => void handleKbOverride(project.id, val)}
-                      onDelete={() => openDeleteProject(project)}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
+            )}
+          </section>
         </div>
-      </div>
+      </main>
 
-      {kbMenuFor !== null ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 cursor-default border-0 p-0"
-          style={{ background: 'transparent' }}
-          aria-label={t('common.close')}
-          onClick={() => setKbMenuFor(null)}
-        />
-      ) : null}
+      <Dialog open={showCreateForm} onOpenChange={(open) => { if (!open) resetCreateForm(); else setShowCreateForm(true); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('projects.new_project')}</DialogTitle>
+            <DialogDescription>{t('projects.new_project_desc')}</DialogDescription>
+          </DialogHeader>
+          <form className="contents" onSubmit={(event) => { event.preventDefault(); void handleCreateProject(); }}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="new-project-name">{t('projects.project_name')}</FieldLabel>
+                <Input id="new-project-name" value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder={t('projects.project_name_placeholder')} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="new-project-description">{t('projects.brief_description')}</FieldLabel>
+                <Textarea id="new-project-description" value={newProjectDescription} onChange={(event) => setNewProjectDescription(event.target.value)} placeholder={t('projects.brief_description_placeholder')} />
+              </Field>
+              <Field>
+                <FieldLabel>{t('projects.vault_folder_label')}</FieldLabel>
+                <FieldDescription className="truncate">{newProjectVaultRoot || t('projects.vault_default_hint')}</FieldDescription>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={async () => { const dir = await window.electron?.selectFolder?.(); if (dir) setNewProjectVaultRoot(dir); }}>
+                    <HugeiconsIcon icon={Folder01Icon} data-icon="inline-start" />
+                    {newProjectVaultRoot ? t('projects.vault_change_folder') : t('projects.choose_vault_folder')}
+                  </Button>
+                  {newProjectVaultRoot ? <Button type="button" variant="ghost" onClick={() => setNewProjectVaultRoot('')}>{t('projects.vault_use_default')}</Button> : null}
+                </div>
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={resetCreateForm}>{t('common.cancel')}</Button>
+              <Button type="submit" loading={creating} disabled={!newProjectName.trim()}>{t('projects.create_project')}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {deleteTarget ? (
-        <dialog
-          open
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
-          aria-modal="true"
-          aria-labelledby="delete-project-title"
-          onCancel={(e) => { e.preventDefault(); setDeleteTarget(null); }}
-        >
-          <div className="p-projects-modal">
-            <h3 id="delete-project-title" className="p-projects-modal-title">
-              {t('projects.delete_critical_title')}
-            </h3>
-            <p className="p-projects-modal-warning">{t('projects.delete_critical_warning')}</p>
-            <p className="p-projects-modal-body">
-              <strong style={{ color: 'var(--home-ink)' }}>{deleteTarget.name}</strong>
-            </p>
+      <Dialog open={Boolean(editTarget)} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('common.edit', 'Editar')} {editTarget?.name}</DialogTitle>
+            <DialogDescription>{t('projects.new_project_desc')}</DialogDescription>
+          </DialogHeader>
+          <form className="contents" onSubmit={(event) => { event.preventDefault(); void handleEditProject(); }}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="edit-project-name">{t('projects.project_name')}</FieldLabel>
+                <Input id="edit-project-name" value={editProjectName} onChange={(event) => setEditProjectName(event.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-project-description">{t('projects.brief_description')}</FieldLabel>
+                <Textarea id="edit-project-description" value={editProjectDescription} onChange={(event) => setEditProjectDescription(event.target.value)} />
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" loading={editSubmitting} disabled={!editProjectName.trim()}>{t('common.save', 'Guardar')}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <div
-              className="p-projects-modal-body"
-              style={{
-                marginTop: 12,
-                padding: 12,
-                borderRadius: 12,
-                border: '1px dashed var(--home-edge)',
-              }}
-            >
-              {deleteImpactLoading ? (
-                <p>{t('projects.loading')}</p>
-              ) : (
-                <ul className="list-disc space-y-1 pl-4">
-                  {DELETE_IMPACT_ORDER.map((key) => {
-                    const n = deleteImpact?.[key] ?? 0;
-                    if (n <= 0) return null;
-                    return (
-                      <li key={key}>
-                        {t(`projects.delete_impact_${key}` as 'projects.delete_impact_resources')}:{' '}
-                        <span className="tabular-nums">{n}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            <label className="p-projects-modal-body block" htmlFor="delete-project-confirm-input">
-              {t('projects.delete_confirm_prompt')}
-            </label>
-            <input
-              id="delete-project-confirm-input"
-              autoComplete="off"
-              value={deleteConfirmName}
-              onChange={(e) => setDeleteConfirmName(e.target.value)}
-              placeholder={t('projects.delete_confirm_placeholder')}
-              className="p-projects-field"
-              style={{ marginTop: 8 }}
-            />
-            {deleteConfirmName && deleteConfirmName !== deleteTarget.name ? (
-              <p className="p-projects-modal-warning" style={{ marginTop: 8, fontSize: 12 }}>
-                {t('projects.delete_confirm_mismatch')}
-              </p>
-            ) : null}
-
-            <div className="p-projects-modal-actions">
-              <button
-                type="button"
-                className="h-pill-btn"
-                disabled={deleteSubmitting}
-                onClick={() => {
-                  setDeleteTarget(null);
-                  setDeleteConfirmName('');
-                  setDeleteImpact(null);
-                }}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className="h-pill-btn primary"
-                disabled={
-                  deleteSubmitting || deleteImpactLoading || deleteConfirmName !== deleteTarget.name
-                }
-                onClick={() => void executeDeleteProject()}
-                style={{
-                  background: 'var(--home-rose)',
-                  borderColor: 'var(--home-rose)',
-                }}
-              >
-                {deleteSubmitting ? t('projects.delete_deleting') : t('projects.delete_execute')}
-              </button>
-            </div>
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('projects.delete_critical_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('projects.delete_critical_warning')} <strong>{deleteTarget?.name}</strong></AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="rounded-2xl border border-dashed p-3 text-sm text-muted-foreground">
+            {deleteImpactLoading ? <Skeleton className="h-16" /> : (
+              <ul className="flex flex-col gap-1">
+                {DELETE_IMPACT_ORDER.map((key) => {
+                  const count = deleteImpact?.[key] ?? 0;
+                  return count > 0 ? <li key={key}>{t(`projects.delete_impact_${key}` as 'projects.delete_impact_resources')}: <span className="tabular-nums">{count}</span></li> : null;
+                })}
+              </ul>
+            )}
           </div>
-        </dialog>
-      ) : null}
+          <Field data-invalid={Boolean(deleteConfirmName && deleteConfirmName !== deleteTarget?.name)}>
+            <FieldLabel htmlFor="delete-project-confirm-input">{t('projects.delete_confirm_prompt')}</FieldLabel>
+            <Input id="delete-project-confirm-input" value={deleteConfirmName} onChange={(event) => setDeleteConfirmName(event.target.value)} placeholder={t('projects.delete_confirm_placeholder')} autoComplete="off" />
+            {deleteConfirmName && deleteConfirmName !== deleteTarget?.name ? <FieldDescription>{t('projects.delete_confirm_mismatch')}</FieldDescription> : null}
+          </Field>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSubmitting}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" loading={deleteSubmitting} disabled={deleteImpactLoading || deleteConfirmName !== deleteTarget?.name} onClick={() => void executeDeleteProject()}>
+              {t('projects.delete_execute')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {bulkDeleteOpen ? (
-        <dialog
-          open
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
-          aria-modal="true"
-          aria-labelledby="projects-bulk-delete-title"
-          onCancel={(e) => { e.preventDefault(); setBulkDeleteOpen(false); }}
-        >
-          <div className="p-projects-modal">
-            <h3 id="projects-bulk-delete-title" className="p-projects-modal-title">
-              {t('projects.delete_critical_title')}
-            </h3>
-            <p className="p-projects-modal-body">{t('projects.delete_critical_warning')}</p>
-            <ul className="p-projects-modal-body max-h-40 overflow-y-auto space-y-1">
-              {(() => {
-                const rows: ReactNode[] = [];
-                for (const id of selectedIds) {
-                  if (id === 'default') continue;
-                  const p = projects.find((x) => x.id === id);
-                  if (!p) continue;
-                  rows.push(
-                    <li
-                      key={id}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: 8,
-                        background: 'var(--home-surface-2)',
-                      }}
-                    >
-                      {p.name}
-                    </li>,
-                  );
-                }
-                return rows;
-              })()}
-            </ul>
-            <div className="p-projects-modal-actions">
-              <button
-                type="button"
-                className="h-pill-btn"
-                disabled={bulkDeleteSubmitting}
-                onClick={() => setBulkDeleteOpen(false)}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className="h-pill-btn primary"
-                disabled={bulkDeleteSubmitting}
-                onClick={() => void executeBulkDelete()}
-                style={{
-                  background: 'var(--home-rose)',
-                  borderColor: 'var(--home-rose)',
-                }}
-              >
-                {bulkDeleteSubmitting ? t('projects.delete_deleting') : t('projects.delete_execute')}
-              </button>
-            </div>
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('projects.delete_critical_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('projects.delete_critical_warning')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+            {projects.filter((project) => selectedIds.has(project.id) && project.id !== 'default').map((project) => <Badge key={project.id} variant="outline">{project.name}</Badge>)}
           </div>
-        </dialog>
-      ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteSubmitting}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" loading={bulkDeleteSubmitting} onClick={() => void executeBulkDelete()}>{t('projects.delete_execute')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -155,6 +155,7 @@ export function buildSharedResourceHint(context: SharedAgentContext): string {
   const hints: string[] = [
     'GitHub milestones, fechas de entrega, issues or Seguimiento: call github_upcoming_milestones (all synced repos) or github_list_repos + github_list_milestones. Requires GitHub connected and repos selected in Seguimiento — never answer from library search alone.',
     'Email / correo / bandeja / inbox: call email_list (INBOX) or email_search, then email_read for details. Requires an IMAP account in Settings → Email — never say the tool is unavailable without calling it first.',
+    'Redes sociales / Instagram / LinkedIn / X / Twitter / social media: call social_accounts_list first, then social_posts_list / social_post_get (for a pinned sp-… id) and/or social_metrics_summary. Requires accounts connected in the Social tab — never answer from library search or memory alone. If mentioned-sources lists a social_post, call social_post_get before claiming there is no post.',
   ];
   const isNotebook = context.pathname.includes('/workspace/notebook');
 

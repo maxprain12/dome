@@ -1,15 +1,17 @@
 
 import React, { useState, useCallback } from 'react';
 import { type Resource } from '@/types';
-import LoadingState from '@/components/ui/LoadingState';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 import { useMountAction } from '@/lib/hooks/useMountAction';
+import { typesetDocsClass } from '@/lib/typeset';
+import { useTranslation } from 'react-i18next';
 
 interface DocxViewerProps {
   resource: Resource;
 }
 
 function DocxViewerComponent({ resource }: DocxViewerProps) {
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,18 +62,18 @@ function DocxViewerComponent({ resource }: DocxViewerProps) {
   const mountRef = useMountAction(loadDocx);
 
   if (error) {
-    return <ErrorState error={error} />;
+    return <ListState variant="error" errorMessage={error} fullHeight />;
   }
 
   return (
     <div ref={mountRef} className="docx-viewer">
       {isLoading ? (
-        <LoadingState message="Loading document..." />
+        <ListState variant="loading" loadingLabel={t('viewer.loading_document')} fullHeight />
       ) : (
         <>
       <div className="docx-content-wrapper">
         <div
-          className="docx-content"
+          className={typesetDocsClass('docx-content')}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
@@ -79,24 +81,8 @@ function DocxViewerComponent({ resource }: DocxViewerProps) {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        .docx-viewer { width: 100%; height: 100%; overflow-y: auto; background: var(--bg); }
+        .docx-viewer { width: 100%; height: 100%; overflow-y: auto; background: var(--background); }
         .docx-content-wrapper { max-width: 800px; margin: 0 auto; padding: 32px 40px; }
-        .docx-content h1 { font-size: 24px; font-weight: 700; color: var(--primary-text); margin: 24px 0 12px; line-height: 1.3; }
-        .docx-content h2 { font-size: 20px; font-weight: 600; color: var(--primary-text); margin: 20px 0 10px; line-height: 1.4; }
-        .docx-content h3 { font-size: 16px; font-weight: 600; color: var(--primary-text); margin: 16px 0 8px; line-height: 1.4; }
-        .docx-content p { font-size: 14px; line-height: 1.7; color: var(--secondary-text); margin: 0 0 12px; }
-        .docx-content strong, .docx-content b { font-weight: 600; color: var(--primary-text); }
-        .docx-content em, .docx-content i { font-style: italic; }
-        .docx-content ul, .docx-content ol { margin: 8px 0 12px 24px; padding: 0; color: var(--secondary-text); font-size: 14px; line-height: 1.7; }
-        .docx-content li { margin: 4px 0; }
-        .docx-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
-        .docx-content th, .docx-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; color: var(--secondary-text); }
-        .docx-content th { background: var(--bg-secondary); font-weight: 600; color: var(--primary-text); }
-        .docx-content tr:nth-child(even) td { background: var(--bg-secondary); }
-        .docx-content a { color: var(--accent); text-decoration: underline; }
-        .docx-content a:hover { opacity: 0.8; }
-        .docx-content img { max-width: 100%; height: auto; border-radius: var(--radius-md); margin: 12px 0; }
-        .docx-content blockquote { border-left: 3px solid var(--accent); padding: 8px 16px; margin: 12px 0; color: var(--secondary-text); background: var(--bg-secondary); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
       `,
         }}
       />

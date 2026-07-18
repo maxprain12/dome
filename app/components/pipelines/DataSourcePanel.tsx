@@ -1,15 +1,28 @@
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Database, FileSpreadsheet, Hand, Plus, RefreshCw, Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { DatabaseIcon, Delete02Icon, FileSpreadsheetIcon, HandIcon, Loading03Icon, PlusSignIcon, RefreshIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import type { CreateSourceInput, PipelineSource, PipelineStage, SourceType } from '@/lib/pipelines/types';
 import SourceConfigModal from './SourceConfigModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
-const SOURCE_ICON: Record<SourceType, typeof Database> = {
-  internal_resources: Database,
-  excel: FileSpreadsheet,
-  manual: Hand,
-  external_db: Database,
-  prompt_mcp: Sparkles,
+const SOURCE_ICON: Record<SourceType, IconSvgElement> = {
+  internal_resources: DatabaseIcon,
+  excel: FileSpreadsheetIcon,
+  manual: HandIcon,
+  external_db: DatabaseIcon,
+  prompt_mcp: SparklesIcon,
 };
 
 interface Props {
@@ -31,60 +44,70 @@ export default function DataSourcePanel({ sources, stages, onCreate, onSync, onD
   return (
     <div
       className="flex flex-col shrink-0 h-full overflow-y-auto"
-      style={{ width: 'min(240px, 26vw)', borderRight: '1px solid var(--border)', background: 'var(--bg-secondary)' }}
+      style={{ width: 'min(240px, 26vw)', borderRight: '1px solid var(--border)', background: 'var(--card)' }}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
-        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--secondary-text)' }}>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('pipelines.data_sources')}
         </span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setAdding(true)}
           title={t('pipelines.add_source')}
           aria-label={t('pipelines.add_source')}
-          style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 2 }}
         >
-          <Plus size={15} />
-        </button>
+          <HugeiconsIcon icon={PlusSignIcon} />
+        </Button>
       </div>
 
       <div className="flex flex-col gap-1.5 p-2">
         {sources.length === 0 && (
-          <span className="text-xs text-center py-3" style={{ color: 'var(--tertiary-text)' }}>
+          <span className="text-xs text-center py-3 text-muted-foreground">
             {t('pipelines.no_sources')}
           </span>
         )}
         {sources.map((s) => {
-          const Icon = SOURCE_ICON[s.sourceType];
+          const sourceIcon = SOURCE_ICON[s.sourceType];
           const syncing = syncingId === s.id;
           return (
             <div
               key={s.id}
               className="rounded-md p-2 flex flex-col gap-1"
-              style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+              style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center gap-1.5">
-                <Icon size={13} style={{ color: 'var(--accent)' }} aria-hidden />
-                <span className="text-sm flex-1 truncate" style={{ color: 'var(--primary-text)' }}>
+                <HugeiconsIcon icon={sourceIcon} size={13} className="text-primary" aria-hidden />
+                <span className="text-sm flex-1 truncate text-foreground">
                   {s.name}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => void onDelete(s.id)}
-                  title={t('pipelines.delete')}
-                  aria-label={t('pipelines.delete')}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--tertiary-text)', cursor: 'pointer', padding: 1 }}
-                >
-                  <Trash2 size={12} />
-                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger render={<Button type="button" variant="ghost" size="icon-xs" />}>
+                    <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
+                    <span className="sr-only">{t('pipelines.delete')}</span>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
+                      <AlertDialogDescription>{s.name}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={() => void onDelete(s.id)}>{t('pipelines.delete')}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
-              <span className="text-[10px]" style={{ color: 'var(--tertiary-text)' }}>
+              <span className="text-[10px] text-muted-foreground">
                 {sourceLabel(s.sourceType)}
                 {s.lastSyncStatus ? ` · ${s.lastSyncStatus}` : ''}
               </span>
               {s.sourceType !== 'manual' && (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="xs"
                   disabled={syncing}
                   onClick={async () => {
                     setSyncingId(s.id);
@@ -94,12 +117,11 @@ export default function DataSourcePanel({ sources, stages, onCreate, onSync, onD
                       setSyncingId(null);
                     }
                   }}
-                  className="text-[11px] px-2 py-0.5 rounded-md inline-flex items-center gap-1 self-start"
-                  style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--border)', cursor: syncing ? 'wait' : 'pointer' }}
+                  className="self-start text-[11px]"
                 >
-                  {syncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                  {syncing ? <HugeiconsIcon icon={Loading03Icon} size={11} className="animate-spin" /> : <HugeiconsIcon icon={RefreshIcon} size={11} />}
                   {t('pipelines.sync')}
-                </button>
+                </Button>
               )}
             </div>
           );

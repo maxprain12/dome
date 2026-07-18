@@ -10,20 +10,20 @@ export default function StandaloneFrame({ title, children }: { title: string; ch
   const isMac = typeof window !== 'undefined' && window.electron?.isMac;
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
       <div
         className="flex shrink-0 items-center"
         style={{
           height: 40,
-          background: 'var(--dome-bg)',
-          borderBottom: '1px solid var(--dome-border)',
+          background: 'var(--background)',
+          borderBottom: '1px solid var(--border)',
           paddingLeft: isMac ? 80 : 12,
-          paddingRight: isMac ? 12 : 140, // leave room for Windows overlay controls
+          paddingRight: isMac ? 12 : 140, // native window-controls overlay on Windows/Linux
           WebkitAppRegion: 'drag',
           zIndex: 10,
         } as React.CSSProperties}
       >
-        <span className="text-sm font-medium truncate" style={{ color: 'var(--dome-text-muted)' }}>
+        <span className="text-sm font-medium truncate text-muted-foreground">
           {title}
         </span>
       </div>

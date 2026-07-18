@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, MessageSquareText } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowLeft01Icon, ArrowRight01Icon, Comment02Icon, ExternalLinkIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
@@ -14,8 +15,10 @@ import AnnotationLayer from './pdf/AnnotationLayer';
 import PDFPageInput from './pdf/PDFPageInput';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import PDFViewerSkeleton from './pdf/PDFViewerSkeleton';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 import { useMountAction } from '@/lib/hooks/useMountAction';
+import { Button } from '@/components/ui/button';
+import ViewerShell from './shared/ViewerShell';
 
 interface PDFViewerProps {
   resource: Resource;
@@ -35,7 +38,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const [zoom, setZoom] = useState(1.0);
   const [zoomMode, setZoomMode] = useState<ZoomMode>('fit-width');
   const [activeTool, setActiveTool] = useState<AnnotationType | null>(null);
-  const [color, setColor] = useState('var(--accent)');
+  const [color, setColor] = useState('var(--primary)');
   const [strokeWidth, _setStrokeWidth] = useState(2);
   const [isOpeningExternal, setIsOpeningExternal] = useState(false);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
@@ -388,99 +391,91 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
-        <ErrorState error={error} />
+        <ListState variant="error" errorMessage={error} fullHeight />
         {filePath && (
-          <button
+          <Button
             type="button"
             onClick={handleOpenExternal}
             disabled={isOpeningExternal}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm mt-4 transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer min-h-[44px]"
-            style={{
-              background: 'var(--accent)',
-              color: 'var(--base-text)',
-            }}
+            className="mt-4"
           >
-            <ExternalLink size={16} />
+            <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
             {isOpeningExternal ? t('viewer.opening') : t('viewer.open_external_viewer')}
-          </button>
+          </Button>
         )}
       </div>
     );
   }
 
   return (
-    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
-      {/* Minimal toolbar: page nav + open */}
-      <div
-        className="flex items-center justify-between px-3 py-1.5 border-b shrink-0"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-      >
-        <div className="flex items-center gap-1">
-          <button
+    <div ref={mountRef} className="h-full">
+      <ViewerShell
+        toolbar={(
+          <>
+          <div className="flex items-center gap-1">
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handlePreviousPage}
             disabled={currentPage <= 1}
-            className="p-1.5 rounded disabled:opacity-40"
-            style={{ color: 'var(--secondary-text)' }}
             title={t('viewer.previous_page')}
             aria-label={t('viewer.previous_page')}
           >
-            <ChevronLeft size={16} />
-          </button>
+            <HugeiconsIcon icon={ArrowLeft01Icon} />
+          </Button>
           <PDFPageInput
             currentPage={currentPage}
             totalPages={pdfDocument?.numPages ?? 0}
             onPageChange={setCurrentPage}
             inputRef={pageInputRef}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleNextPage}
             disabled={!pdfDocument || currentPage >= pdfDocument.numPages}
-            className="p-1.5 rounded disabled:opacity-40"
-            style={{ color: 'var(--secondary-text)' }}
             title={t('viewer.next_page')}
             aria-label={t('viewer.next_page')}
           >
-            <ChevronRight size={16} />
-          </button>
+            <HugeiconsIcon icon={ArrowRight01Icon} />
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
           {typeof window !== 'undefined' && window.electron?.db?.cloudLlm && (
-            <button
+            <Button
               type="button"
+              variant={pdfRegionMode ? 'secondary' : 'ghost'}
+              size="icon"
               onClick={() => {
                 setPdfRegionMode((m) => !m);
                 setPdfRegionSelect(null);
                 pdfRegionDragRef.current = null;
               }}
-              className="p-1.5 rounded text-sm flex items-center gap-1"
-              style={{
-                color: pdfRegionMode ? 'var(--accent)' : 'var(--secondary-text)',
-                background: pdfRegionMode ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : undefined,
-              }}
               aria-pressed={pdfRegionMode}
               aria-label={t('viewer.pdf_region_toggle')}
               title={t('viewer.pdf_region_hint')}
             >
-              <MessageSquareText size={16} />
-            </button>
+              <HugeiconsIcon icon={Comment02Icon} />
+            </Button>
           )}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleOpenExternal}
-            className="p-1.5 rounded text-sm"
-            style={{ color: 'var(--secondary-text)' }}
             aria-label={t('viewer.open_external')}
             title={t('viewer.open_external')}
           >
-            <ExternalLink size={16} />
-          </button>
-        </div>
-      </div>
+            <HugeiconsIcon icon={ExternalLinkIcon} />
+          </Button>
+          </>
+        )}
+        contentClassName="overflow-hidden"
+      >
 
       {/* PDF content */}
-      <div ref={containerRef} className="flex-1 overflow-auto">
+      <div ref={containerRef} className="h-full overflow-auto">
         {isLoading ? (
           <PDFViewerSkeleton />
         ) : pages.length > 0 && pages[currentPage - 1] != null ? (
@@ -552,8 +547,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
                         top: pdfRegionSelect.y,
                         width: pdfRegionSelect.w,
                         height: pdfRegionSelect.h,
-                        borderColor: 'var(--dome-accent, var(--accent))',
-                        background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 14%, transparent)',
+                        borderColor: 'var(--primary)',
+                        background: 'color-mix(in srgb, var(--primary) 14%, transparent)',
                       }}
                     />
                   )}
@@ -563,6 +558,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
           </div>
         ) : null}
       </div>
+      </ViewerShell>
     </div>
   );
 }

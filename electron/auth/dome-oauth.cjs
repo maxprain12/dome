@@ -34,38 +34,73 @@ function generatePKCE() {
   return { codeVerifier, codeChallenge };
 }
 
-function getUserIdentifier(database) {
-  try {
-    const queries = database.getQueries();
-    const email = queries.getSetting.get('user_email')?.value;
-    const name = queries.getSetting.get('user_name')?.value;
-    if (email && email.trim()) return email.trim();
-    if (name && name.trim()) return name.trim();
-  } catch {
-    // Ignore and fallback.
+const REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh if expiring within 5 min
+const REFRESH_MAX_ATTEMPTS = 3;
+const REFRESH_RETRY_BASE_MS = 400;
+
+class RefreshTokenError extends Error {
+  /**
+   * @param {string} message
+   * @param {{ status?: number, fatal?: boolean }} [opts]
+   */
+  constructor(message, opts = {}) {
+    super(message);
+    this.name = 'RefreshTokenError';
+    this.status = opts.status;
+    this.fatal = Boolean(opts.fatal);
   }
-  return `desktop-user-${Date.now()}`;
 }
 
-const REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh if expiring within 5 min
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-async function refreshAccessToken(database, refreshToken) {
+function isInvalidGrantResponse(status, bodyText) {
+  if (status !== 400) return false;
+  try {
+    const parsed = JSON.parse(bodyText);
+    return parsed?.error === 'invalid_grant';
+  } catch {
+    return bodyText.includes('invalid_grant');
+  }
+}
+
+async function refreshAccessToken(database, refreshToken, attempt = 0) {
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
     client_id: CLIENT_ID,
   });
-  const response = await fetch(`${getDomeProviderBaseUrl()}/api/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  let response;
+  try {
+    response = await fetch(`${getDomeProviderBaseUrl()}/api/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+  } catch (err) {
+    if (attempt < REFRESH_MAX_ATTEMPTS - 1) {
+      await sleep(REFRESH_RETRY_BASE_MS * (attempt + 1));
+      return refreshAccessToken(database, refreshToken, attempt + 1);
+    }
+    throw new RefreshTokenError(err?.message || 'Refresh network error', { fatal: false });
+  }
+
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Refresh failed: ${response.status} ${text}`);
+    const fatal = isInvalidGrantResponse(response.status, text);
+    if (!fatal && attempt < REFRESH_MAX_ATTEMPTS - 1) {
+      await sleep(REFRESH_RETRY_BASE_MS * (attempt + 1));
+      return refreshAccessToken(database, refreshToken, attempt + 1);
+    }
+    throw new RefreshTokenError(`Refresh failed: ${response.status} ${text}`, {
+      status: response.status,
+      fatal,
+    });
   }
+
   const data = await response.json();
-  if (!data.access_token) throw new Error('Refresh response missing access_token');
+  if (!data.access_token) throw new RefreshTokenError('Refresh response missing access_token', { fatal: false });
   return data;
 }
 
@@ -108,7 +143,8 @@ async function getOrRefreshSession(database) {
         };
       } catch (err) {
         console.warn('[Dome OAuth] Refresh failed:', err?.message);
-        if (expiresAt <= now) {
+        const fatal = err instanceof RefreshTokenError && err.fatal;
+        if (fatal && expiresAt <= now) {
           queries.clearDomeProviderSessions.run();
           return { connected: false };
         }
@@ -117,6 +153,7 @@ async function getOrRefreshSession(database) {
           userId: row.user_id,
           accessToken: row.access_token,
           expiresAt: row.expires_at,
+          stale: expiresAt <= now,
         };
       }
     }
@@ -162,6 +199,37 @@ async function fetchWithDomeAuth(database, url, options = {}) {
     }
   }
   return response;
+}
+
+async function getRemoteProfile(database) {
+  try {
+    const url = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/me`;
+    const res = await fetchWithDomeAuth(database, url, { method: 'GET' });
+    if (!res.ok) return { name: null, email: null };
+    const data = await res.json();
+    return {
+      name: data.displayName ?? data.name ?? null,
+      email: data.email ?? null,
+    };
+  } catch (err) {
+    console.warn('[Dome OAuth] getRemoteProfile failed:', err?.message);
+    return { name: null, email: null };
+  }
+}
+
+async function finalizeAuthConnection(database, windowManager) {
+  const planGate = require('../storage/plan-gate.cjs');
+  planGate.invalidateEntitlementsCache();
+  const sessionMgr = require('./dome-session-manager.cjs');
+  await sessionMgr.refreshSessionIfNeeded();
+  if (!windowManager) return { hadRemoteData: false };
+  try {
+    const { runPostLoginBootstrap } = require('../storage/post-login-bootstrap.cjs');
+    return await runPostLoginBootstrap({ database, windowManager });
+  } catch (err) {
+    console.warn('[Dome OAuth] post-login bootstrap failed:', err?.message);
+    return { hadRemoteData: false };
+  }
 }
 
 function getSession(database) {
@@ -248,11 +316,10 @@ function consumeOAuthPending(pendingMap, key) {
   return flow;
 }
 
-function startOAuthFlow(database) {
+function startOAuthFlow(database, windowManager) {
   return new Promise((resolve, reject) => {
     const { codeVerifier, codeChallenge } = generatePKCE();
     const state = crypto.randomBytes(24).toString('base64url');
-    const userId = getUserIdentifier(database);
 
     const authUrl = new URL(`${getDomeProviderBaseUrl()}/api/oauth/authorize`);
     authUrl.searchParams.set('response_type', 'code');
@@ -261,10 +328,9 @@ function startOAuthFlow(database) {
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('user_id', userId);
 
     const pending = global.__domeOAuthPending || (global.__domeOAuthPending = new Map());
-    registerOAuthPending(pending, state, { resolve, reject, codeVerifier, userId });
+    registerOAuthPending(pending, state, { resolve, reject, codeVerifier, windowManager });
 
     shell.openExternal(authUrl.toString());
   });
@@ -289,7 +355,7 @@ async function exchangeConnectCode(code) {
   return data;
 }
 
-async function handleConnectCallback(url, database) {
+async function handleConnectCallback(url, database, windowManager) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'dome:' || !parsed.pathname.includes('/connect')) {
@@ -313,6 +379,7 @@ async function handleConnectCallback(url, database) {
       tokenResponse.refresh_token || null,
       now + expiresInSec * 1000,
     );
+    await finalizeAuthConnection(database, windowManager);
     console.log('[Dome OAuth] Connected via dashboard, user_id:', tokenResponse.user_id);
     return true;
   } catch (error) {
@@ -321,7 +388,7 @@ async function handleConnectCallback(url, database) {
   }
 }
 
-function handleOAuthCallback(url, database) {
+function handleOAuthCallback(url, database, windowManager) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'dome:' || !parsed.pathname.includes('/oauth/callback')) {
@@ -351,21 +418,26 @@ function handleOAuthCallback(url, database) {
     }
 
     exchangeCodeForToken(code, flow.codeVerifier)
-      .then((tokenResponse) => {
+      .then(async (tokenResponse) => {
+        if (!tokenResponse.user_id) {
+          throw new Error('OAuth token response missing user_id');
+        }
         const queries = database.getQueries();
         const now = Date.now();
         const expiresInSec = Number(tokenResponse.expires_in || 3600);
         persistSession(
           queries,
-          flow.userId,
+          tokenResponse.user_id,
           tokenResponse.access_token,
           tokenResponse.refresh_token || null,
           now + expiresInSec * 1000,
         );
+        const bootstrap = await finalizeAuthConnection(database, flow.windowManager || windowManager);
         flow.resolve({
           success: true,
           connected: true,
-          userId: flow.userId,
+          userId: tokenResponse.user_id,
+          hadRemoteData: Boolean(bootstrap?.hadRemoteData),
         });
       })
       .catch((exchangeError) => {
@@ -385,8 +457,11 @@ module.exports = {
   handleConnectCallback,
   getSession,
   getOrRefreshSession,
+  getRemoteProfile,
+  finalizeAuthConnection,
   fetchWithDomeAuth,
   disconnect,
   openDashboard,
   getDomeProviderBaseUrl,
+  persistSession,
 };

@@ -420,6 +420,33 @@ async function syncNowInternal(opts = {}) {
       console.warn('[github-sync] skipping calendar projection — memory pressure');
     }
 
+    // Seed unified people identities from assignees / owners (plan 003).
+    try {
+      const peopleStore = require('../people/people-store.cjs');
+      const projectIds = new Set(
+        repos.map((r) => r.project_id || r.projectId || 'default').filter(Boolean),
+      );
+      if (opts.projectId) projectIds.add(opts.projectId);
+      if (projectIds.size === 0) projectIds.add('default');
+      for (const pid of projectIds) {
+        peopleStore.syncGithubIdentitiesFromStore(pid);
+      }
+    } catch (err) {
+      console.warn('[github-sync] people identity seed failed:', err.message);
+    }
+
+    try {
+      const sourceIndex = require('../search/source-index.cjs');
+      for (const pid of new Set(
+        repos.map((r) => r.project_id || 'default').concat(opts.projectId ? [opts.projectId] : []),
+      )) {
+        sourceIndex.indexGithubIssues(pid);
+        sourceIndex.indexPeople(pid);
+      }
+    } catch (err) {
+      console.warn('[github-sync] source index failed:', err.message);
+    }
+
     return { success: true, repos: repos.length };
   } catch (err) {
     console.error('[github-sync] syncNow failed:', err.message);

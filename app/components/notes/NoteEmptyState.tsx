@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Calendar, Flag, Lightbulb, ListChecks } from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { BookOpen01Icon, Calendar03Icon, CheckListIcon, Flag02Icon, Idea01Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 
 interface NoteEmptyStateProps {
   onPickTemplate?: (id: string) => void;
@@ -12,11 +14,11 @@ export default function NoteEmptyState({ onPickTemplate }: NoteEmptyStateProps) 
   const templates = useMemo(
     () =>
       [
-        { id: 'daily', label: t('notes.template_daily'), Icon: Calendar },
-        { id: 'meeting', label: t('notes.template_meeting'), Icon: Flag },
-        { id: 'brief', label: t('notes.template_brief'), Icon: Lightbulb },
-        { id: 'pdf_summary', label: t('notes.template_pdf_summary'), Icon: BookOpen },
-        { id: 'weekly', label: t('notes.template_weekly'), Icon: ListChecks },
+        { id: 'daily', label: t('notes.template_daily'), icon: Calendar03Icon },
+        { id: 'meeting', label: t('notes.template_meeting'), icon: Flag02Icon },
+        { id: 'brief', label: t('notes.template_brief'), icon: Idea01Icon },
+        { id: 'pdf_summary', label: t('notes.template_pdf_summary'), icon: BookOpen01Icon },
+        { id: 'weekly', label: t('notes.template_weekly'), icon: CheckListIcon },
       ] as const,
     [t],
   );
@@ -28,16 +30,17 @@ export default function NoteEmptyState({ onPickTemplate }: NoteEmptyStateProps) 
       <div className="note-empty-templates-divider">
         <div className="note-empty-templates-heading">{t('notes.templates_heading')}</div>
         <div className="note-empty-templates-row">
-          {templates.map(({ id, label, Icon }) => (
-            <button
+          {templates.map(({ id, label, icon }) => (
+            <Button
               key={id}
               type="button"
-              className="note-template-pill"
+              variant="outline"
+              size="sm"
               onClick={() => onPickTemplate?.(id)}
             >
-              <Icon size={14} strokeWidth={2} className="note-template-pill-icon shrink-0" aria-hidden />
+              <HugeiconsIcon icon={icon as IconSvgElement} data-icon="inline-start" aria-hidden />
               <span>{label}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </div>

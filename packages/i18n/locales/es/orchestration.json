@@ -1,5 +1,4 @@
 {
-  "sections_nav": "Secciones de orquestación",
   "filter_all": "Todos",
   "filter_ungrouped": "Sin carpeta",
   "explore_marketplace": "Explorar Marketplace",
@@ -8,8 +7,6 @@
     "stat_favorites": "Favoritos",
     "stat_runs_today": "Ejecuciones hoy",
     "stat_runs_today_sub": "Runs de agentes en las últimas 24 h",
-    "stat_active_automations": "Automatizaciones",
-    "stat_active_automations_sub": "Reglas activas con agentes",
     "new_agent": "Nuevo agente",
     "chat_action": "Chatear",
     "duplicate": "Duplicar",
@@ -25,8 +22,6 @@
     "stat_nodes": "Nodos totales",
     "stat_runs_today": "Ejecuciones hoy",
     "stat_runs_today_sub": "Runs de workflows en las últimas 24 h",
-    "stat_active_automations": "Automatizaciones",
-    "stat_active_automations_sub": "Reglas activas con workflows",
     "no_description": "Sin descripción",
     "nodes_count_one": "{{count}} nodo",
     "nodes_count_other": "{{count}} nodos",
@@ -101,5 +96,14 @@
     "stat_tokens_hint": "Tokens de entrada / salida",
     "stat_cost": "Coste est.",
     "stat_model": "Modelo"
-  }
+  },
+  "agent_search": "Buscar agentes, workflows, automatizaciones, ejecuciones…",
+  "runs_search": "Buscar por automatización, destino o id…",
+  "agent_ask_many": "Preguntar a Many",
+  "agent_queue_runs": "Ejecuciones de automatizaciones",
+  "agent_prompt_runs": "Revisa mis ejecuciones de automatizaciones: fallos, cuellos de botella y 3 acciones concretas.",
+  "agent_prompt_automations": "Revisa mis automatizaciones: cuáles activar, fallos a corregir y una regla nueva útil.",
+  "agent_prompt_agents": "Revisa mi biblioteca de agentes y propón mejoras o un agente nuevo para una tarea habitual.",
+  "agent_prompt_workflows": "Revisa mis workflows y sugiere el siguiente o mejoras en el canvas.",
+  "agent_prompt_pipelines": "Revisa mis pipelines y sugiere etapas, triaje de tarjetas o enganches de automatización."
 }

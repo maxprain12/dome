@@ -28,6 +28,7 @@ export const DOME_LOAD_DOC_IDS = [
   'excel_artifact_tool',
   'email_tool',
   'github_tool',
+  'social_tool',
 ] as const;
 
 export type DomeLoadDocId = (typeof DOME_LOAD_DOC_IDS)[number];
@@ -48,7 +49,8 @@ export const DOME_LOAD_DOC_DESCRIPTION =
   'excel_notebook_tool (before Excel→notebook pandas flow), ' +
   'excel_artifact_tool (before Excel→artifact dashboard), ' +
   'email_tool (before email_list/email_search/email_send/email_reply), ' +
-  'github_tool (before github_create_issue/github_create_milestone/github_update_issue).';
+  'github_tool (before github_create_issue/github_create_milestone/github_update_issue), ' +
+  'social_tool (before social_post_draft/social_post_publish).';
 
 /**
  * Summary entry for the `<available_skills>` block injected into the
@@ -109,6 +111,18 @@ export type VolatileSourceOptions = {
   uiContext?: string;
   userMemory?: string;
   pinnedResources?: Array<{ id: string; title: string; type: string }>;
+  pinnedPeople?: Array<{
+    id: string;
+    title: string;
+    identities?: Array<{ source: string; externalId: string; displayLabel?: string | null }>;
+  }>;
+  /** Integration entities mentioned via @: tasks, mail, social posts. */
+  pinnedSources?: Array<{
+    kind: 'issue' | 'email' | 'social_post';
+    id: string;
+    title: string;
+    meta?: Record<string, unknown> | null;
+  }>;
   activeResource?: { id: string; title: string; type?: string } | null;
   dateLine?: string;
   taskLine?: string;

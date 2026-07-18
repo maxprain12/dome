@@ -8,10 +8,12 @@ export interface SocialAccount {
   displayName: string | null;
   handle: string | null;
   externalId: string | null;
+  scopes?: string | null;
   status: 'active' | 'error' | 'expired';
   lastError: string | null;
   connectedAt: number | null;
   lastSyncAt: number | null;
+  cloudPublishing?: boolean;
 }
 
 export interface SocialMediaItem {
@@ -47,6 +49,19 @@ export interface SocialMetric {
   followers: number | null;
 }
 
+export interface SocialCampaign {
+  id: string;
+  name: string;
+  goal: string | null;
+  status: 'active' | 'archived';
+  createdAt: number;
+  updatedAt: number;
+  draft: number;
+  scheduled: number;
+  published: number;
+  failed: number;
+}
+
 export interface SocialPost {
   id: string;
   accountId: string | null;
@@ -57,6 +72,7 @@ export interface SocialPost {
   linkUrl: string | null;
   topics: string[];
   campaign: string | null;
+  campaignId?: string | null;
   scheduledAt: number | null;
   publishedAt: number | null;
   externalPostId: string | null;
@@ -98,6 +114,8 @@ export interface SocialGrowthAccount {
   latest: SocialAccountMetric | null;
   points: { t: number; followers: number | null }[];
   delta: number | null;
+  /** Set when the provider cannot expose followers (e.g. LinkedIn personal). */
+  followersUnavailable?: 'linkedin_member' | null;
 }
 
 export interface SocialReport {

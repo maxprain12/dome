@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mic, Pause, Play, Square, ChevronDown, Loader2, AlertCircle, X } from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { Alert02Icon, ArrowDown01Icon, Cancel01Icon, Mic01Icon, PauseIcon, PlayIcon, StopIcon } from '@hugeicons/core-free-icons';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import StartTranscriptionPopover from './StartTranscriptionPopover';
 import LivePreviewPanel from './LivePreviewPanel';
 import InlineLevelMeter from './InlineLevelMeter';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 
 function formatSeconds(s: number): string {
   const total = Math.max(0, Math.floor(s));
@@ -79,67 +84,32 @@ export default function TranscriptionPill() {
     <>
       <div
         ref={anchorRef}
-        className="flex items-center"
-        style={{ height: '100%' }}
+        className="flex h-full items-center"
         onContextMenu={handleContextMenu}
       >
         {phase === 'idle' && !showError && (
-          <button
+          <Button
             type="button"
+            variant={isStartPopoverOpen ? 'secondary' : 'ghost'}
+            size="icon-sm"
             onClick={handleIdleClick}
             aria-label={t('transcriptions.pill_idle', 'Start transcription')}
             title={t('transcriptions.pill_idle', 'Start transcription')}
-            className="flex items-center justify-center rounded-md transition-colors"
-            style={{
-              width: 34,
-              height: '100%',
-              background: isStartPopoverOpen ? 'var(--dome-bg-hover)' : 'transparent',
-              color: 'var(--dome-text-muted)',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              if (!isStartPopoverOpen) (e.currentTarget.style.background = 'var(--dome-bg-hover)');
-              e.currentTarget.style.color = 'var(--dome-text)';
-            }}
-            onMouseLeave={(e) => {
-              if (!isStartPopoverOpen) e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--dome-text-muted)';
-            }}
+            className="h-full rounded-none"
           >
-            <Mic size={15} aria-hidden />
-          </button>
+            <HugeiconsIcon icon={Mic01Icon} aria-hidden />
+          </Button>
         )}
 
         {(isActive || isBusy) && (
-          <div
-            className="flex items-center gap-1.5 rounded-md px-2"
-            style={{
-              height: 28,
-              alignSelf: 'center',
-              background: phase === 'paused'
-                ? 'color-mix(in srgb, var(--dome-text-muted) 14%, transparent)'
-                : 'color-mix(in srgb, var(--dome-accent) 14%, transparent)',
-              border: `1px solid ${phase === 'paused' ? 'var(--dome-border)' : 'var(--dome-accent)'}`,
-              color: phase === 'paused' ? 'var(--dome-text-muted)' : 'var(--dome-accent)',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
+          <Badge variant={phase === 'paused' ? 'secondary' : 'outline'} className="h-7 gap-1.5 px-2">
             {phase === 'recording' && (
-              <span
-                aria-hidden
-                style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: 'var(--dome-accent)',
-                  animation: 'pulse-dot 1.4s ease-in-out infinite',
-                }}
-              />
+              <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
             )}
-            {phase === 'paused' && <Pause size={11} />}
-            {phase === 'transcribing' && <Loader2 size={11} className="animate-spin" />}
+            {phase === 'paused' && <HugeiconsIcon icon={PauseIcon} />}
+            {phase === 'transcribing' && <Spinner />}
 
-            <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 32 }}>
+            <span className="min-w-8 tabular-nums">
               {phase === 'transcribing' ? t('transcriptions.pill_transcribing', 'Transcribing…') : formatSeconds(seconds)}
             </span>
 
@@ -150,18 +120,19 @@ export default function TranscriptionPill() {
             {isActive && (
               <>
                 <PillIconButton
-                  icon={phase === 'recording' ? <Pause size={12} /> : <Play size={12} />}
+                  icon={phase === 'recording' ? PauseIcon : PlayIcon}
                   label={phase === 'recording' ? t('transcriptions.control_pause', 'Pause') : t('transcriptions.control_resume', 'Resume')}
                   onClick={handlePauseResume}
                 />
                 <PillIconButton
-                  icon={<Square size={12} />}
+                  icon={StopIcon}
                   label={t('transcriptions.control_stop', 'Stop')}
                   onClick={handleStop}
                 />
                 {livePreview && (
                   <PillIconButton
-                    icon={<ChevronDown size={12} className={isLivePanelOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />}
+                    icon={ArrowDown01Icon}
+                    iconClassName={cn('transition-transform motion-reduce:transition-none', isLivePanelOpen && 'rotate-180')}
                     label={isLivePanelOpen
                       ? t('transcriptions.pill_close_panel', 'Hide live transcript')
                       : t('transcriptions.pill_open_panel', 'Show live transcript')}
@@ -173,39 +144,27 @@ export default function TranscriptionPill() {
 
             {isBusy && (
               <PillIconButton
-                icon={<X size={12} />}
+                icon={Cancel01Icon}
                 label={t('transcriptions.control_cancel', 'Cancel')}
                 onClick={() => void cancel()}
               />
             )}
-          </div>
+          </Badge>
         )}
 
         {showError && (
-          <div
-            className="flex items-center gap-1.5 rounded-md px-2"
-            style={{
-              height: 28,
-              alignSelf: 'center',
-              background: 'color-mix(in srgb, var(--dome-danger) 12%, transparent)',
-              border: '1px solid var(--dome-danger)',
-              color: 'var(--dome-danger)',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-            title={error || ''}
-          >
-            <AlertCircle size={12} />
+          <Badge variant="destructive" className="h-7 gap-1.5 px-2" title={error || ''}>
+            <HugeiconsIcon icon={Alert02Icon} />
             <span>{t('transcriptions.pill_error', 'Error')}</span>
             <PillIconButton
-              icon={<X size={12} />}
+              icon={Cancel01Icon}
               label={t('common.dismiss', 'Dismiss')}
               onClick={() => {
                 setErrorVisible(false);
                 useTranscriptionStore.setState({ phase: 'idle', error: null });
               }}
             />
-          </div>
+          </Badge>
         )}
       </div>
 
@@ -220,28 +179,19 @@ export default function TranscriptionPill() {
 }
 
 function PillIconButton({
-  icon, label, onClick,
-}: { icon: React.ReactNode; label: string; onClick: () => void | Promise<void> }) {
+  icon, label, onClick, iconClassName,
+}: { icon: IconSvgElement; label: string; onClick: () => void | Promise<void>; iconClassName?: string }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-xs"
       onClick={() => void onClick()}
       aria-label={label}
       title={label}
-      className="flex items-center justify-center rounded transition-colors"
-      style={{
-        width: 18,
-        height: 18,
-        background: 'transparent',
-        border: 'none',
-        color: 'inherit',
-        cursor: 'pointer',
-        opacity: 0.85,
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.background = 'transparent'; }}
+      className="text-current hover:text-current"
     >
-      {icon}
-    </button>
+      <HugeiconsIcon icon={icon} className={iconClassName} />
+    </Button>
   );
 }

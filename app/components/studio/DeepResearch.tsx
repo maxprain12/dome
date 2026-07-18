@@ -1,25 +1,28 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
-  X,
-  Download,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  Search,
-  Globe,
-  Brain,
-  Sparkles,
-  Info,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  List,
-} from 'lucide-react';
+  Cancel01Icon,
+  Download04Icon,
+  CheckmarkCircle02Icon,
+  CircleIcon,
+  Loading03Icon,
+  Search01Icon,
+  GlobeIcon,
+  BrainIcon,
+  SparklesIcon,
+  InformationCircleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  LeftToRightListBulletIcon,
+} from '@hugeicons/core-free-icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { typesetDocsClass } from '@/lib/typeset';
 import type { ResearchPlan, ResearchReport, ResearchLogEntry } from '@/types';
 import { lazyRef } from '@/lib/utils/lazyRef';
 
@@ -41,20 +44,20 @@ interface DeepResearchProps {
 // Constants
 // =============================================================================
 
-const LOG_TYPE_ICONS: Record<ResearchLogEntry['type'], typeof Search> = {
-  search: Search,
-  fetch: Globe,
-  analyze: Brain,
-  synthesize: Sparkles,
-  info: Info,
+const LOG_TYPE_ICONS: Record<ResearchLogEntry['type'], IconSvgElement> = {
+  search: Search01Icon,
+  fetch: GlobeIcon,
+  analyze: BrainIcon,
+  synthesize: SparklesIcon,
+  info: InformationCircleIcon,
 };
 
 const LOG_TYPE_COLORS: Record<ResearchLogEntry['type'], string> = {
   search: 'var(--info)',
-  fetch: 'var(--dome-accent)',
+  fetch: 'var(--primary)',
   analyze: 'var(--warning)',
-  synthesize: 'var(--accent)',
-  info: 'var(--tertiary-text)',
+  synthesize: 'var(--primary)',
+  info: 'var(--muted-foreground)',
 };
 
 const STATUS_LABELS: Record<DeepResearchProps['status'], string> = {
@@ -77,19 +80,18 @@ function SubtopicItem({
   const getStatusIcon = () => {
     switch (subtopic.status) {
       case 'done':
-        return <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />;
+        return <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} className="text-[var(--success)]" />;
       case 'searching':
       case 'analyzing':
         return (
-          <Loader2
+          <HugeiconsIcon icon={Loading03Icon}
             size={16}
-            className="animate-spin"
-            style={{ color: 'var(--info)' }}
+            className="animate-spin text-[var(--info)]"
           />
         );
       case 'pending':
       default:
-        return <Circle size={16} style={{ color: 'var(--tertiary-text)' }} />;
+        return <HugeiconsIcon icon={CircleIcon} size={16} className="text-muted-foreground" />;
     }
   };
 
@@ -113,21 +115,19 @@ function SubtopicItem({
       style={{
         background:
           subtopic.status === 'searching' || subtopic.status === 'analyzing'
-            ? 'var(--bg-tertiary)'
+            ? 'var(--muted)'
             : 'transparent',
       }}
     >
       <div className="shrink-0 mt-0.5">{getStatusIcon()}</div>
       <div className="flex-1 min-w-0">
         <div
-          className="text-sm font-medium"
-          style={{ color: 'var(--primary-text)' }}
+          className="text-sm font-medium text-foreground"
         >
           {subtopic.title}
         </div>
         <div
-          className="text-xs mt-0.5"
-          style={{ color: 'var(--tertiary-text)' }}
+          className="text-xs mt-0.5 text-muted-foreground"
         >
           {getStatusLabel()}
         </div>
@@ -138,8 +138,8 @@ function SubtopicItem({
                 key={i}
                 className="text-xs px-2 py-0.5 rounded-full"
                 style={{
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--secondary-text)',
+                  background: 'var(--card)',
+                  color: 'var(--muted-foreground)',
                   border: '1px solid var(--border)',
                 }}
               >
@@ -171,7 +171,7 @@ function ActionLog({ log }: { log: ResearchLogEntry[] }) {
       className="rounded-lg overflow-hidden"
       style={{
         border: '1px solid var(--border)',
-        background: 'var(--bg-secondary)',
+        background: 'var(--card)',
       }}
     >
       <button
@@ -181,21 +181,20 @@ function ActionLog({ log }: { log: ResearchLogEntry[] }) {
         style={{ background: 'transparent' }}
       >
         {isExpanded ? (
-          <ChevronDown size={14} style={{ color: 'var(--tertiary-text)' }} />
+          <HugeiconsIcon icon={ChevronDownIcon} size={14} className="text-muted-foreground" />
         ) : (
-          <ChevronRight size={14} style={{ color: 'var(--tertiary-text)' }} />
+          <HugeiconsIcon icon={ChevronRightIcon} size={14} className="text-muted-foreground" />
         )}
         <span
-          className="text-xs font-semibold uppercase tracking-wider"
-          style={{ color: 'var(--tertiary-text)' }}
+          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
           Activity log
         </span>
         <span
           className="text-xs px-1.5 py-0.5 rounded-full"
           style={{
-            background: 'var(--bg-tertiary)',
-            color: 'var(--tertiary-text)',
+            background: 'var(--muted)',
+            color: 'var(--muted-foreground)',
           }}
         >
           {log.length}
@@ -208,7 +207,7 @@ function ActionLog({ log }: { log: ResearchLogEntry[] }) {
           style={{ fontFamily: 'var(--font-mono)' }}
         >
           {log.map((entry, index) => {
-            const Icon = LOG_TYPE_ICONS[entry.type];
+            const entryIcon = LOG_TYPE_ICONS[entry.type];
             const color = LOG_TYPE_COLORS[entry.type];
             const time = new Date(entry.timestamp).toLocaleTimeString([], {
               hour: '2-digit',
@@ -221,9 +220,9 @@ function ActionLog({ log }: { log: ResearchLogEntry[] }) {
                 key={index}
                 className="flex items-start gap-2 py-1 text-xs"
               >
-                <span style={{ color: 'var(--tertiary-text)' }}>{time}</span>
-                <Icon size={12} className="shrink-0 mt-0.5" style={{ color }} />
-                <span style={{ color: 'var(--secondary-text)' }}>
+                <span className="text-muted-foreground">{time}</span>
+                <HugeiconsIcon icon={entryIcon} size={12} className="shrink-0 mt-0.5" style={{ color }} />
+                <span className="text-muted-foreground">
                   {entry.message}
                 </span>
               </div>
@@ -254,25 +253,22 @@ function ProgressView({
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto flex flex-col gap-y-6">
         {/* Status header */}
         <div className="flex items-center gap-3">
-          <Loader2
+          <HugeiconsIcon icon={Loading03Icon}
             size={20}
-            className="animate-spin"
-            style={{ color: 'var(--accent)' }}
+            className="animate-spin text-primary"
           />
           <div>
             <div
-              className="text-sm font-semibold"
-              style={{ color: 'var(--primary-text)' }}
+              className="text-sm font-semibold text-foreground"
             >
               {STATUS_LABELS[status]}
             </div>
             {plan && (
               <div
-                className="text-xs mt-0.5"
-                style={{ color: 'var(--secondary-text)' }}
+                className="text-xs mt-0.5 text-muted-foreground"
               >
                 {completedCount} of {totalCount} subtopics completed
               </div>
@@ -283,14 +279,13 @@ function ProgressView({
         {/* Progress bar */}
         {plan && (
           <div
-            className="h-1.5 rounded-full overflow-hidden"
-            style={{ background: 'var(--bg-tertiary)' }}
+            className="h-1.5 rounded-full overflow-hidden bg-muted"
           >
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="h-full rounded-full transition-[width] duration-500"
               style={{
                 width: `${progressPercent}%`,
-                background: 'var(--accent)',
+                background: 'var(--primary)',
               }}
             />
           </div>
@@ -300,8 +295,7 @@ function ProgressView({
         {plan && (
           <div>
             <h4
-              className="text-xs font-semibold uppercase tracking-wider mb-3"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="text-xs font-semibold uppercase tracking-wider mb-3 text-muted-foreground"
             >
               Research plan: {plan.topic}
             </h4>
@@ -309,7 +303,7 @@ function ProgressView({
               className="rounded-lg overflow-hidden"
               style={{
                 border: '1px solid var(--border)',
-                background: 'var(--bg-secondary)',
+                background: 'var(--card)',
               }}
             >
               {plan.subtopics.map((subtopic) => (
@@ -341,12 +335,11 @@ function TableOfContents({
       style={{ borderRight: '1px solid var(--border)' }}
     >
       <div
-        className="text-xs font-semibold uppercase tracking-wider mb-3 px-2"
-        style={{ color: 'var(--tertiary-text)' }}
+        className="text-xs font-semibold uppercase tracking-wider mb-3 px-2 text-muted-foreground"
       >
         Contents
       </div>
-      <nav className="space-y-0.5">
+      <nav className="flex flex-col gap-y-0.5">
         {sections.map((section) => (
           <button
             type="button"
@@ -356,11 +349,11 @@ function TableOfContents({
             style={{
               color:
                 activeSection === section.id
-                  ? 'var(--accent)'
-                  : 'var(--secondary-text)',
+                  ? 'var(--primary)'
+                  : 'var(--muted-foreground)',
               background:
                 activeSection === section.id
-                  ? 'var(--translucent)'
+                  ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
                   : 'transparent',
               fontWeight: activeSection === section.id ? 600 : 400,
             }}
@@ -383,23 +376,22 @@ function SourcesList({
       className="rounded-lg p-4 mt-8"
       style={{
         border: '1px solid var(--border)',
-        background: 'var(--bg-secondary)',
+        background: 'var(--card)',
       }}
     >
       <h3
-        className="text-sm font-semibold mb-3"
-        style={{ color: 'var(--primary-text)' }}
+        className="text-sm font-semibold mb-3 text-foreground"
       >
         Sources ({sources.length})
       </h3>
-      <div className="space-y-3">
+      <div className="flex flex-col gap-y-3">
         {sources.map((source, index) => (
           <div key={source.id} className="flex gap-3">
             <span
               className="text-xs font-bold shrink-0 mt-0.5 size-5 rounded-full flex items-center justify-center"
               style={{
-                background: 'var(--bg-tertiary)',
-                color: 'var(--secondary-text)',
+                background: 'var(--muted)',
+                color: 'var(--muted-foreground)',
               }}
             >
               {index + 1}
@@ -407,8 +399,7 @@ function SourcesList({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span
-                  className="text-sm font-medium truncate"
-                  style={{ color: 'var(--primary-text)' }}
+                  className="text-sm font-medium truncate text-foreground"
                 >
                   {source.title}
                 </span>
@@ -417,16 +408,14 @@ function SourcesList({
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0"
-                    style={{ color: 'var(--accent)' }}
+                    className="shrink-0 text-primary"
                   >
-                    <ExternalLink size={12} />
+                    <HugeiconsIcon icon={ExternalLinkIcon} size={12} />
                   </a>
                 )}
               </div>
               <p
-                className="text-xs mt-0.5 line-clamp-2"
-                style={{ color: 'var(--tertiary-text)' }}
+                className="text-xs mt-0.5 line-clamp-2 text-muted-foreground"
               >
                 {source.snippet}
               </p>
@@ -484,151 +473,6 @@ function ReportView({
     return () => observer.disconnect();
   }, [report.sections, sectionRefMap]);
 
-  // Markdown components for custom styling
-  const markdownComponents = useMemo(
-    () => ({
-      h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-        <h1
-          className="text-lg font-semibold mt-6 mb-3"
-          style={{ color: 'var(--primary-text)' }}
-          {...props}
-        >
-          {children}
-        </h1>
-      ),
-      h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-        <h2
-          className="text-base font-semibold mt-5 mb-2"
-          style={{ color: 'var(--primary-text)' }}
-          {...props}
-        >
-          {children}
-        </h2>
-      ),
-      h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-        <h3
-          className="text-sm font-semibold mt-4 mb-2"
-          style={{ color: 'var(--primary-text)' }}
-          {...props}
-        >
-          {children}
-        </h3>
-      ),
-      p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-        <p
-          className="text-sm leading-relaxed mb-3"
-          style={{ color: 'var(--secondary-text)' }}
-          {...props}
-        >
-          {children}
-        </p>
-      ),
-      ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
-        <ul className="list-disc pl-5 mb-3 space-y-1" {...props}>
-          {children}
-        </ul>
-      ),
-      ol: ({ children, ...props }: React.HTMLAttributes<HTMLOListElement>) => (
-        <ol className="list-decimal pl-5 mb-3 space-y-1" {...props}>
-          {children}
-        </ol>
-      ),
-      li: ({ children, ...props }: React.HTMLAttributes<HTMLLIElement>) => (
-        <li
-          className="text-sm leading-relaxed"
-          style={{ color: 'var(--secondary-text)' }}
-          {...props}
-        >
-          {children}
-        </li>
-      ),
-      strong: ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => (
-        <strong
-          className="font-semibold"
-          style={{ color: 'var(--primary-text)' }}
-          {...props}
-        >
-          {children}
-        </strong>
-      ),
-      a: ({
-        children,
-        href,
-        ...props
-      }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline"
-          style={{ color: 'var(--accent)' }}
-          {...props}
-        >
-          {children}
-        </a>
-      ),
-      blockquote: ({
-        children,
-        ...props
-      }: React.HTMLAttributes<HTMLQuoteElement>) => (
-        <blockquote
-          className="pl-4 my-3 text-sm italic"
-          style={{
-            borderLeft: '3px solid var(--border)',
-            color: 'var(--secondary-text)',
-          }}
-          {...props}
-        >
-          {children}
-        </blockquote>
-      ),
-      code: ({
-        children,
-        className,
-        ...props
-      }: React.HTMLAttributes<HTMLElement>) => {
-        const isInline = !className;
-        if (isInline) {
-          return (
-            <code
-              className="text-xs px-1.5 py-0.5 rounded"
-              style={{
-                background: 'var(--bg-tertiary)',
-                color: 'var(--primary-text)',
-                fontFamily: 'var(--font-mono)',
-              }}
-              {...props}
-            >
-              {children}
-            </code>
-          );
-        }
-        return (
-          <code
-            className={className}
-            style={{ fontFamily: 'var(--font-mono)' }}
-            {...props}
-          >
-            {children}
-          </code>
-        );
-      },
-      pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
-        <pre
-          className="rounded-lg p-4 my-3 overflow-x-auto text-xs"
-          style={{
-            background: 'var(--bg-tertiary)',
-            fontFamily: 'var(--font-mono)',
-          }}
-          {...props}
-        >
-          {children}
-        </pre>
-      ),
-    }),
-    []
-  );
-
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Table of Contents */}
@@ -647,15 +491,14 @@ function ReportView({
           <h1
             className="text-xl font-bold mb-1"
             style={{
-              color: 'var(--primary-text)',
+              color: 'var(--foreground)',
               fontFamily: 'var(--font-display)',
             }}
           >
             {report.title}
           </h1>
           <div
-            className="text-xs mb-6"
-            style={{ color: 'var(--tertiary-text)' }}
+            className="text-xs mb-6 text-muted-foreground"
           >
             {report.sources.length} sources cited
           </div>
@@ -673,17 +516,14 @@ function ReportView({
               <h2
                 className="text-base font-semibold mb-3 pb-2"
                 style={{
-                  color: 'var(--primary-text)',
+                  color: 'var(--foreground)',
                   borderBottom: '1px solid var(--border)',
                 }}
               >
                 {section.heading}
               </h2>
-              <div className="prose-sm">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={markdownComponents}
-                >
+              <div className={typesetDocsClass()}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {section.content}
                 </ReactMarkdown>
               </div>
@@ -721,17 +561,15 @@ export default function DeepResearch({
   const isComplete = status === 'complete' && report;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border"
       >
         <div className="flex items-center gap-2">
-          <Brain size={16} style={{ color: 'var(--dome-accent)' }} />
+          <HugeiconsIcon icon={BrainIcon} size={16} className="text-primary" />
           <h3
-            className="text-sm font-semibold"
-            style={{ color: 'var(--primary-text)' }}
+            className="text-sm font-semibold text-foreground"
           >
             {title || 'Deep Research'}
           </h3>
@@ -743,7 +581,7 @@ export default function DeepResearch({
                 color: 'var(--info)',
               }}
             >
-              <Loader2 size={10} className="animate-spin" />
+              <HugeiconsIcon icon={Loading03Icon} size={10} className="animate-spin" />
               In progress
             </span>
           )}
@@ -755,7 +593,7 @@ export default function DeepResearch({
                 color: 'var(--success)',
               }}
             >
-              <CheckCircle2 size={10} />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={10} />
               Complete
             </span>
           )}
@@ -763,37 +601,36 @@ export default function DeepResearch({
         <div className="flex items-center gap-1">
           {isComplete && (
             <>
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   /* Toggle TOC handled internally */
                 }}
-                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 aria-label="Toggle table of contents"
                 title="Toggle table of contents"
               >
-                <List size={16} style={{ color: 'var(--secondary-text)' }} />
-              </button>
+                <HugeiconsIcon icon={LeftToRightListBulletIcon} size={16} className="text-muted-foreground" />
+              </Button>
               {onExport && (
-                <button
+                <Button
                   type="button"
                   onClick={onExport}
-                  className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                  variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   aria-label="Export report"
                   title="Export report"
                 >
-                  <Download
-                    size={16}
-                    style={{ color: 'var(--secondary-text)' }}
+                  <HugeiconsIcon icon={Download04Icon}
+                    size={16} className="text-muted-foreground"
                   />
-                </button>
+                </Button>
               )}
             </>
           )}
           {onClose && (
-            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
-              <X size={16} />
-            </button>
+            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+              <HugeiconsIcon icon={Cancel01Icon} size={16} />
+            </Button>
           )}
         </div>
       </div>
@@ -810,20 +647,17 @@ export default function DeepResearch({
       {status === 'idle' && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <Brain
+            <HugeiconsIcon icon={BrainIcon}
               size={40}
-              className="mx-auto mb-3"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="mx-auto mb-3 text-muted-foreground"
             />
             <p
-              className="text-sm"
-              style={{ color: 'var(--secondary-text)' }}
+              className="text-sm text-muted-foreground"
             >
               Ask the AI assistant to research a topic
             </p>
             <p
-              className="text-xs mt-1"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="text-xs mt-1 text-muted-foreground"
             >
               The deep research agent will search, analyze, and synthesize
               findings into a comprehensive report.

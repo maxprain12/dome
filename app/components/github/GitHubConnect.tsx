@@ -1,8 +1,11 @@
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
-import { Github, Copy, Check, ExternalLink } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckIcon, CopyIcon, ExternalLinkIcon, GithubIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { githubClient } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
+import { HubSurface } from '@/components/hub/HubBlocks';
 
 /**
  * Device-flow connect screen. Shows the user code, opens GitHub, then polls
@@ -56,60 +59,48 @@ export default function GitHubConnect({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 p-8" style={{ color: 'var(--dome-text)' }}>
-      <Github size={48} style={{ color: 'var(--dome-accent)' }} />
-      <div className="text-center max-w-md">
-        <h2 className="text-xl font-semibold mb-1">{t('github.connect_title')}</h2>
-        <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('github.connect_description')}
-        </p>
-      </div>
-
-      {userCode ? (
-        <div
-          className="flex flex-col items-center gap-3 p-5 rounded-lg w-full max-w-sm"
-          style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-        >
-          <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('github.enter_code_on_github')}
-          </span>
-          <button
-            type="button"
-            onClick={copyCode}
-            className="flex items-center gap-2 text-2xl font-mono font-bold px-4 py-2 rounded-md"
-            style={{ background: 'var(--dome-bg-hover)' }}
-          >
-            {userCode}
-            {copied ? <Check size={18} /> : <Copy size={18} />}
-          </button>
-          {verificationUri && (
-            <a
-              href={verificationUri}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-sm"
-              style={{ color: 'var(--dome-accent)' }}
+    <div className="flex h-full flex-col items-center justify-center p-8 text-foreground">
+      <HubSurface
+        icon={GithubIcon}
+        title={t('github.connect_title')}
+        description={t('github.connect_description')}
+        className="max-w-md"
+      >
+        {userCode ? (
+          <div className="flex w-full flex-col items-center gap-3 rounded-lg border bg-card p-5">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              {t('github.enter_code_on_github')}
+            </span>
+            <Button
+              type="button"
+              onClick={copyCode}
+              variant="outline"
+              className="font-mono text-lg tracking-widest"
             >
-              {t('github.open_on_github')} <ExternalLink size={14} />
-            </a>
-          )}
-          <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('github.waiting_authorization')}
-          </span>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={start}
-          disabled={busy}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-md font-medium"
-          style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)', opacity: busy ? 0.6 : 1 }}
-        >
-          <Github size={18} /> {busy ? t('github.connecting') : t('github.connect_button')}
-        </button>
-      )}
-
-      {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
+              {userCode}
+              <HugeiconsIcon icon={copied ? CheckIcon : CopyIcon} data-icon="inline-end" />
+            </Button>
+            {verificationUri ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={() => window.open(verificationUri, '_blank', 'noreferrer')}
+              >
+                <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
+                {t('github.open_on_github')}
+              </Button>
+            ) : null}
+            <span className="text-xs text-muted-foreground">{t('github.waiting_authorization')}</span>
+          </div>
+        ) : (
+          <Button type="button" onClick={() => void start()} disabled={busy}>
+            <HugeiconsIcon icon={GithubIcon} data-icon="inline-start" />
+            {busy ? t('github.connecting') : t('github.connect_button')}
+          </Button>
+        )}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </HubSurface>
     </div>
   );
 }

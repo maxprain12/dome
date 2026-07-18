@@ -32,6 +32,7 @@ export function getTagsByResource(db: DomeDb, resourceId: string): TagRow[] {
       name: tags.name,
       color: tags.color,
       createdAt: tags.createdAt,
+      updatedAt: tags.updatedAt,
     })
     .from(tags)
     .innerJoin(resourceTags, eq(resourceTags.tagId, tags.id))
@@ -46,6 +47,7 @@ export function getAllTagsWithCount(db: DomeDb): TagWithCount[] {
       name: tags.name,
       color: tags.color,
       createdAt: tags.createdAt,
+      updatedAt: tags.updatedAt,
       resourceCount: count(resourceTags.resourceId),
     })
     .from(tags)
@@ -63,6 +65,7 @@ export function getAllTagsWithCountByProject(db: DomeDb, projectId: string): Tag
       name: tags.name,
       color: tags.color,
       createdAt: tags.createdAt,
+      updatedAt: tags.updatedAt,
       resourceCount: count(resourceTags.resourceId),
     })
     .from(tags)

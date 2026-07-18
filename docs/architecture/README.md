@@ -11,3 +11,5 @@
 - [Decisiones (ADRs)](decisions/) — registro numerado (p. ej. `0002` Drizzle incremental, layered app structure).
 
 Las guías de **features** del producto están en [../features/](../features/).
+
+**UI master–detail (ficha lateral, no Sheet):** SOP [`.claude/sops/inline-detail-surfaces.md`](../../.claude/sops/inline-detail-surfaces.md).

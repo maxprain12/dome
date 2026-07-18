@@ -19,6 +19,7 @@ import {
   listManyThreadSummariesResult,
 } from '@/lib/chat/manyThreadBridge';
 import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
+import { normalizePinnedResource } from '@/lib/chat/pinLabels';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
@@ -26,6 +27,14 @@ export interface PinnedResource {
   id: string;
   title: string;
   type: string;
+  /** Defaults to resource when omitted (legacy pins). */
+  kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post';
+  identities?: Array<{
+    source: string;
+    externalId: string;
+    displayLabel?: string | null;
+  }>;
+  meta?: Record<string, unknown> | null;
 }
 
 /** Pending PDF region crop for cloud-vision Q&A in Many (memory only; not persisted). */
@@ -51,6 +60,8 @@ export interface ManyMessage {
   timestamp: number;
   /** Image/video attachments for resolving dome-att:// in content */
   attachments?: StructuredMessageAttachments;
+  /** Snapshot of pins that rode with this user turn (shown in transcript). */
+  pinnedResources?: Array<Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind'>>;
   /** Tool calls for assistant messages (traceability) */
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Reasoning/chain-of-thought for assistant messages */
@@ -667,7 +678,9 @@ export const useManyStore = create<ManyState>((set, get) => ({
   addPinnedResource: (resource) =>
     set((state) => {
       if (state.pinnedResources.some((r) => r.id === resource.id)) return state;
-      return { pinnedResources: [...state.pinnedResources, resource] };
+      return {
+        pinnedResources: [...state.pinnedResources, normalizePinnedResource(resource)],
+      };
     }),
   removePinnedResource: (id) =>
     set((state) => ({ pinnedResources: state.pinnedResources.filter((r) => r.id !== id) })),

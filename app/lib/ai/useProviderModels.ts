@@ -159,7 +159,9 @@ export function useProviderModels({
     async (models: ModelDefinition[]) => {
       const customMap = await getCustomModelsByProvider();
       const withCustom = mergeCustomModelDefinitions(models, customMap[provider] ?? []);
-      if (!applyVisibleFilter) return withCustom;
+      // La lista de Dome ya viene filtrada por plan desde el provider; el
+      // filtro local de "modelos visibles" no aplica (default sería solo dome/auto).
+      if (!applyVisibleFilter || provider === 'dome') return withCustom;
       return filterModelsByVisibleIds(withCustom, visibleIds);
     },
     [applyVisibleFilter, visibleIds, provider],
@@ -176,13 +178,6 @@ export function useProviderModels({
       return;
     }
 
-    if (provider === 'dome') {
-      await finish(staticModels);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
     if (STATIC_CATALOG_PROVIDERS.includes(provider)) {
       const catalog =
         provider === 'copilot' ? getCopilotModels() : getStaticProviderCatalog(provider);
@@ -192,8 +187,10 @@ export function useProviderModels({
       return;
     }
 
+    // Dome no usa API key: el proceso main consulta /api/v1/me/quota con la
+    // sesión OAuth y devuelve los modelos del plan del usuario.
     const key = apiKey.trim();
-    if (!key && !CATALOG_PROVIDERS.includes(provider)) {
+    if (!key && !CATALOG_PROVIDERS.includes(provider) && provider !== 'dome') {
       await finish(staticModels);
       setError(null);
       setLoading(false);
@@ -231,6 +228,6 @@ export function useProviderModels({
     loading,
     error,
     refresh: load,
-    canRefresh: isDynamicCloudProvider(provider) && provider !== 'dome',
+    canRefresh: isDynamicCloudProvider(provider),
   };
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useState, useEffect, useMemo } from 'react';
-import { Play, SkipForward, FastForward, Download, Upload, Code2, FileText, GripVertical, Trash2, Terminal } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CodeIcon, Delete02Icon, Download04Icon, FastForwardIcon, File02Icon, GripVerticalIcon, NextIcon, PlayIcon, TerminalIcon, Upload04Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import CodeCell from './CodeCell';
 import MarkdownCell from './MarkdownCell';
@@ -10,6 +11,10 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import type { NotebookContent, NotebookCell, NotebookCodeCell, NotebookMarkdownCell } from '@/types';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
 import { parseNotebookContent, normalizeImportedNotebook } from '@/lib/notebook/default-notebook';
+import { showToast } from '@/lib/store/useToastStore';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface NotebookEditorProps {
   content: string;
@@ -225,13 +230,13 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       if (filePath) {
         const result = await window.electron.file.writeFile(filePath, content);
         if (!result?.success) {
-          console.error('Export failed:', result?.error);
+          showToast('error', result?.error || t('notebook.export_failed'));
         }
       }
     } catch (err) {
-      console.error('Export failed:', err);
+      showToast('error', err instanceof Error ? err.message : t('notebook.export_failed'));
     }
-  }, [content, title]);
+  }, [content, t, title]);
 
   const handleImport = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron) return;
@@ -251,17 +256,17 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
             if (normalized) {
               onChange(JSON.stringify(normalized));
             } else {
-              console.warn(t('notebook.import_invalid_notebook'));
+              showToast('error', t('notebook.import_invalid_notebook'));
             }
           } catch {
-            console.warn(t('notebook.import_invalid_json'));
+            showToast('error', t('notebook.import_invalid_json'));
           }
         } else {
-          console.warn('Import failed:', result?.error);
+          showToast('error', result?.error || t('notebook.import_failed'));
         }
       }
     } catch (err) {
-      console.error('Import failed:', err);
+      showToast('error', err instanceof Error ? err.message : t('notebook.import_failed'));
     }
   }, [onChange, t]);
 
@@ -279,99 +284,87 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
     [nb, onChange]
   );
 
-  const btnSecondary =
-    'px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 cursor-pointer transition-all duration-200 border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--primary-text)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2';
-  const btnPrimary =
-    'px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 cursor-pointer transition-all duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 shadow-sm';
-
   return (
     <div className="notebook-editor flex flex-col gap-8 p-6 pb-24 mx-auto w-full max-w-[900px]">
       {/* Toolbar */}
-      <div
-        className="flex gap-2 flex-wrap items-center p-3 rounded-xl -mx-1"
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <button
+      <div className="-mx-1 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
+        <Button
           type="button"
           onClick={handleRunCell}
-          className={btnPrimary}
-          style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
           title="Run cell (Shift+Enter)"
           aria-label={t('notebook.run_cell')}
+          size="icon"
         >
-          <Play size={14} />
-        </button>
-        <button
+          <HugeiconsIcon icon={PlayIcon} />
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={handleRunAbove}
-          className={btnSecondary}
           title="Run all cells above"
           aria-label={t('notebook.run_above')}
         >
-          <SkipForward size={14} />
-        </button>
-        <button
+          <HugeiconsIcon icon={NextIcon} />
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={handleRunAll}
-          className={btnSecondary}
           title="Run all cells"
           aria-label={t('notebook.run_all')}
         >
-          <FastForward size={14} />
-        </button>
-        <span className="w-px h-6 bg-[var(--border)] self-stretch" aria-hidden />
-        <button
+          <HugeiconsIcon icon={FastForwardIcon} />
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={() => handleAddCell('code', -1)}
-          className={btnSecondary}
           aria-label={t('notebook.add_code_cell')}
         >
-          <Code2 size={14} />
-        </button>
-        <button
+          <HugeiconsIcon icon={CodeIcon} />
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={() => handleAddCell('markdown', -1)}
-          className={btnSecondary}
           aria-label={t('notebook.add_markdown_cell')}
         >
-          <FileText size={14} />
-        </button>
-        <span className="w-px h-6 bg-[var(--border)] self-stretch" aria-hidden />
-        <button
+          <HugeiconsIcon icon={File02Icon} />
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={handleExport}
-          className={btnSecondary}
           title="Export as .ipynb"
           aria-label={t('notebook.export_ipynb')}
         >
-          <Download size={14} />
-        </button>
-        <button
+          <HugeiconsIcon icon={Download04Icon} />
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={handleImport}
-          className={btnSecondary}
           title="Import .ipynb"
           aria-label={t('notebook.import_ipynb')}
         >
-          <Upload size={14} />
-        </button>
+          <HugeiconsIcon icon={Upload04Icon} />
+        </Button>
         {useIPCKernel && pythonInfo && (
           <>
-            <span className="w-px h-6 bg-[var(--border)] self-stretch" aria-hidden />
-            <div
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs"
-              style={{
-                background: pythonInfo.available ? 'var(--bg-tertiary)' : 'var(--error-bg)',
-                color: pythonInfo.available ? 'var(--secondary-text)' : 'var(--error)',
-                border: '1px solid var(--border)',
-              }}
+            <Separator orientation="vertical" className="h-6" />
+            <Badge
+              variant={pythonInfo.available ? 'secondary' : 'destructive'}
               title={pythonInfo.path || t('notebook.python_not_found')}
             >
-              <Terminal size={12} />
+              <HugeiconsIcon icon={TerminalIcon} />
               {pythonInfo.available ? (
                 <span>
                   Python {pythonInfo.version}
@@ -380,7 +373,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
               ) : (
                 <span>{t('notebook.python_unavailable')}</span>
               )}
-            </div>
+            </Badge>
           </>
         )}
       </div>
@@ -390,10 +383,10 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         <div
           key={stableKey}
           className={`cell-wrapper flex flex-col gap-2 rounded-xl p-3 ${
-            prefersReducedMotion ? '' : 'transition-all duration-200'
-          } ${idx === selectedCellIndex ? 'ring-2 ring-[var(--translucent)] ring-offset-2' : ''}`}
+            prefersReducedMotion ? '' : 'transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200'
+          } ${idx === selectedCellIndex ? 'ring-2 ring-[color-mix(in srgb, var(--primary) 12%, transparent)] ring-offset-2' : ''}`}
           style={{
-            background: idx === selectedCellIndex ? 'var(--bg-secondary)' : 'transparent',
+            background: idx === selectedCellIndex ? 'var(--card)' : 'transparent',
             border: idx === selectedCellIndex ? '1px solid var(--border)' : '1px solid transparent',
             boxShadow: idx === selectedCellIndex ? 'var(--shadow-sm)' : undefined,
             opacity: !prefersReducedMotion && draggingIndex === idx ? 0.5 : 1,
@@ -412,8 +405,10 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         >
           <div className="cell-actions flex flex-row items-center gap-1 shrink-0">
             {/* Drag handle - mantén pulsado y arrastra para mover la celda */}
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', String(idx));
@@ -434,69 +429,51 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                   handleMoveCell(idx, idx + 1);
                 }
               }}
-              className={`flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-grab active:cursor-grabbing select-none shrink-0 ${
-                prefersReducedMotion ? '' : 'hover:bg-[var(--bg-hover)]'
-              }`}
-              style={{
-                background: 'var(--bg-secondary)',
-                borderColor: 'var(--border)',
-                color: 'var(--tertiary-text)',
-              }}
+              className="cursor-grab active:cursor-grabbing"
               title={t('notebook.drag_to_reorder')}
               aria-label={t('notebook.drag_to_reorder')}
             >
-              <GripVertical size={18} />
-            </button>
-            <button
+              <HugeiconsIcon icon={GripVerticalIcon} />
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => handleAddCell('code', idx)}
-              className="flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]"
-              style={{
-                background: 'var(--bg-secondary)',
-                borderColor: 'var(--border)',
-                color: 'var(--accent)',
-              }}
               title={t('notebook.add_cell_below')}
               aria-label={t('notebook.add_cell_below')}
             >
-              <Code2 size={18} />
-            </button>
-            <button
+              <HugeiconsIcon icon={CodeIcon} />
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => handleAddCell('markdown', idx)}
-              className="flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]"
-              style={{
-                background: 'var(--bg-secondary)',
-                borderColor: 'var(--border)',
-                color: 'var(--accent)',
-              }}
               title={t('notebook.add_cell_below')}
               aria-label={t('notebook.add_cell_below')}
             >
-              <FileText size={18} />
-            </button>
+              <HugeiconsIcon icon={File02Icon} />
+            </Button>
             {nb.cells.length > 1 && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => handleDeleteCell(idx)}
-                className="flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--error-bg)] hover:border-[var(--error)]"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--error)',
-                }}
+                className="text-destructive hover:text-destructive"
                 title={t('notebook.delete_cell')}
                 aria-label={t('notebook.delete_cell')}
               >
-                <Trash2 size={16} />
-              </button>
+                <HugeiconsIcon icon={Delete02Icon} />
+              </Button>
             )}
           </div>
           {/* Cell body: div[role=button] skipped — nested textarea/input inside CodeCell/MarkdownCell. */}
           <div
             role="button"
             tabIndex={0}
-            className="flex-1 min-w-0 overflow-visible cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded-lg"
+            className="flex-1 min-w-0 overflow-visible cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg"
             onClick={() => setSelectedCellIndex(idx)}
             onKeyDown={(e) => {
               // Don't capture Enter/Space when typing in textarea/input - let them handle it (newline, space)
@@ -535,7 +512,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       ))}
 
       {nb.cells.length === 0 && (
-        <p className="text-sm py-8" style={{ color: 'var(--tertiary)' }}>
+        <p className="text-sm py-8 text-muted-foreground">
           {t('notebook.empty_notebook')}
         </p>
       )}

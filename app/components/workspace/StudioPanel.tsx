@@ -1,7 +1,15 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Delete02Icon,
+  EyeIcon,
+  Loading03Icon,
+  Cancel01Icon,
+  File02Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useCallback, useMemo } from 'react';
-import { Trash2, Eye, Loader2, X, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
@@ -26,13 +34,14 @@ function parseSourceIds(output: StudioOutput): string[] {
 interface StudioPanelProps {
   projectId?: string | null;
   resourceId?: string | null;
+  embedded?: boolean;
 }
 
 function formatStudioDate(timestamp: number): string {
   return formatShortDistance(timestamp);
 }
 
-export default function StudioPanel({ projectId: projectIdProp, resourceId }: StudioPanelProps = {}) {
+export default function StudioPanel({ projectId: projectIdProp, resourceId, embedded = false }: StudioPanelProps = {}) {
   const { t } = useTranslation();
   const currentProject = useAppStore((s) => s.currentProject);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
@@ -119,33 +128,31 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
 
   return (
     <div
-      className="flex flex-col border-l shrink-0 transition-all duration-300 ease-out"
-      style={{
+      className={embedded ? 'flex h-full min-w-0 flex-col' : 'flex shrink-0 flex-col border-l'}
+      style={embedded ? undefined : {
         width: 'min(25vw, 320px)',
         minWidth: '260px',
-        background: 'var(--bg-secondary)',
+        background: 'var(--card)',
         borderColor: 'var(--border)',
       }}
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between px-4 py-3 border-b border-border"
       >
         <h3
-          className="text-xs font-semibold uppercase tracking-wider"
-          style={{ color: 'var(--secondary-text)' }}
+          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
           {t('studio.title')}
         </h3>
         <button
           type="button"
           onClick={() => useAppStore.getState().toggleStudioPanel()}
-          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)] opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{ color: 'var(--secondary-text)' }}
+          className="p-1.5 rounded-lg transition-[background-color,opacity,box-shadow] duration-200 hover:bg-accent opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          style={{ color: 'var(--muted-foreground)' }}
           aria-label={t('studio.close_studio_panel')}
         >
-          <X size={14} />
+          <HugeiconsIcon icon={Cancel01Icon} size={14} />
         </button>
       </div>
 
@@ -174,13 +181,13 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                   handleTileClick(tile.type);
                 }
               }}
-              className={`flex flex-col items-start gap-1.5 p-3 rounded-lg text-left transition-colors duration-200 relative border border-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:outline-none ${
+              className={`flex flex-col items-start gap-1.5 p-3 rounded-lg text-left transition-colors duration-200 relative border border-border focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
                 tile.comingSoon || isGenerating
                   ? 'cursor-default'
-                  : 'hover:border-[var(--accent)] hover:bg-[var(--bg-tertiary)] cursor-pointer'
+                  : 'hover:border-primary hover:bg-muted cursor-pointer'
               }`}
               style={{
-                background: 'var(--bg)',
+                background: 'var(--background)',
                 opacity: tile.comingSoon ? 0.6 : isGenerating ? 0.8 : 1,
               }}
               disabled={tile.comingSoon || isGenerating}
@@ -197,8 +204,8 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                 <span
                   className="absolute top-1.5 right-1.5 text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full"
                   style={{
-                    background: 'var(--bg-hover)',
-                    color: 'var(--tertiary-text)',
+                    background: 'var(--accent)',
+                    color: 'var(--muted-foreground)',
                   }}
                 >
                   Soon
@@ -206,9 +213,9 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
               )}
 
               {/* Icon */}
-              <span className="leading-none shrink-0 flex items-center" style={{ color: 'var(--secondary-text)' }}>
+              <span className="leading-none shrink-0 flex items-center text-muted-foreground">
                 {isGenerating && generatingType === tile.type ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
                 ) : (
                   tile.icon
                 )}
@@ -216,16 +223,14 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
 
               {/* Title */}
               <span
-                className="text-xs font-medium leading-tight"
-                style={{ color: 'var(--primary-text)' }}
+                className="text-xs font-medium leading-tight text-foreground"
               >
                 {tile.title}
               </span>
 
               {/* Description */}
               <span
-                className="text-[10px] leading-tight"
-                style={{ color: 'var(--tertiary-text)' }}
+                className="text-[10px] leading-tight text-muted-foreground"
               >
                 {isGenerating && generatingType === tile.type
                   ? `Generando ${tile.title}...`
@@ -239,8 +244,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         {filteredOutputs.length > 0 && (
           <div className="mt-4">
             <h4
-              className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-1"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 text-muted-foreground"
             >
               {resourceId ? 'Outputs de este recurso' : 'Generated outputs'}
             </h4>
@@ -248,34 +252,30 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
               {filteredOutputs.map((output) => (
                 <div
                   key={output.id}
-                  className="flex items-center gap-2 p-2 rounded-lg group transition-colors duration-200 border border-[var(--border)] hover:border-[var(--accent)] content-visibility-auto"
-                  style={{ background: 'var(--bg)' }}
+                  className="flex items-center gap-2 p-2 rounded-lg group transition-colors duration-200 border border-border hover:border-primary content-visibility-auto bg-background"
                 >
                   {/* Type icon */}
                   <span
-                    className="leading-none shrink-0 flex items-center"
-                    style={{ color: 'var(--secondary-text)' }}
+                    className="leading-none shrink-0 flex items-center text-muted-foreground"
                   >
-                    {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
+                    {STUDIO_TYPE_ICONS[output.type] || <HugeiconsIcon icon={File02Icon} size={16} />}
                   </span>
 
                   {/* Title and date */}
                   <button
                     type="button"
                     onClick={() => handleViewOutput(output)}
-                    className="flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
+                    className="flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
                     title={`View ${output.title}`}
                     aria-label={`View ${output.title}`}
                   >
                     <div
-                      className="text-xs font-medium truncate"
-                      style={{ color: 'var(--primary-text)' }}
+                      className="text-xs font-medium truncate text-foreground"
                     >
                       {output.title}
                     </div>
                     <div
-                      className="text-[10px]"
-                      style={{ color: 'var(--tertiary-text)' }}
+                      className="text-[10px] text-muted-foreground"
                     >
                       {formatStudioDate(output.created_at)}
                     </div>
@@ -285,7 +285,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                         ? ids.map((id) => sourceTitles.get(id) || id.slice(0, 8) + '…').filter(Boolean)
                         : [];
                       return (
-                        <div className="text-[9px] mt-0.5 truncate" style={{ color: 'var(--tertiary-text)' }} title={names.join(', ') || undefined}>
+                        <div className="text-[9px] mt-0.5 truncate text-muted-foreground" title={names.join(', ') || undefined}>
                           {names.length > 0 ? `Fuentes: ${names.join(', ')}` : 'Sin fuentes específicas'}
                         </div>
                       );
@@ -294,33 +294,32 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
 
                   {/* Actions */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => handleViewOutput(output)}
-                      className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                      variant="ghost" className="p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       title="View"
                       aria-label={`View ${output.title}`}
                     >
-                      <Eye size={13} style={{ color: 'var(--secondary-text)' }} />
-                    </button>
-                    <button
+                      <HugeiconsIcon icon={EyeIcon} size={13} className="text-muted-foreground" />
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => handleDeleteOutput(output.id)}
-                      className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                      variant="ghost" className="p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       title="Delete"
                       aria-label={`Delete ${output.title}`}
                       disabled={deletingId === output.id}
                     >
                       {deletingId === output.id ? (
-                        <Loader2
+                        <HugeiconsIcon icon={Loading03Icon}
                           size={13}
-                          className="animate-spin"
-                          style={{ color: 'var(--tertiary-text)' }}
+                          className="animate-spin text-muted-foreground"
                         />
                       ) : (
-                        <Trash2 size={13} style={{ color: 'var(--error)' }} />
+                        <HugeiconsIcon icon={Delete02Icon} size={13} className="text-destructive" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -331,13 +330,11 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         {/* Loading state for outputs */}
         {loadingOutputs && (
           <div className="flex items-center justify-center py-4">
-            <Loader2
-              className="size-4 animate-spin"
-              style={{ color: 'var(--tertiary-text)' }}
+            <HugeiconsIcon icon={Loading03Icon}
+              className="size-4 animate-spin text-muted-foreground"
             />
             <span
-              className="text-xs ml-2"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="text-xs ml-2 text-muted-foreground"
             >
               Loading outputs...
             </span>
@@ -348,8 +345,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         {!loadingOutputs && filteredOutputs.length === 0 ? (
           <div className="mt-4 px-2">
             <p
-              className="text-[10px] text-center"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="text-[10px] text-center text-muted-foreground"
             >
               Click a tile above to generate study materials from your sources.
             </p>

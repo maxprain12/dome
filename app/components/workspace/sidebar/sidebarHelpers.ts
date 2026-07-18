@@ -20,9 +20,9 @@ export function parseMeta(resource: Resource): Record<string, unknown> {
 
 export function getFolderColor(resource: Resource): string {
   const color = parseMeta(resource).color as string | undefined;
-  if (!color) return 'var(--dome-accent)';
+  if (!color) return 'var(--primary)';
   if (color.startsWith('#')) return color;
-  return NAMED_FOLDER_COLORS[color] ?? 'var(--dome-accent)';
+  return NAMED_FOLDER_COLORS[color] ?? 'var(--primary)';
 }
 
 // ---------------------------------------------------------------------------

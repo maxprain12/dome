@@ -1,8 +1,11 @@
 
 import { memo } from 'react';
-import { User } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { UserIcon } from '@hugeicons/core-free-icons';
 import ChatMessage, { type ChatMessageData, type ChatSurfaceVariant } from './ChatMessage';
 import ManyAvatar, { type ManyAvatarState } from '@/components/many/ManyAvatar';
+import { Message, MessageAvatar, MessageContent, MessageGroup } from '@/components/ui/message';
+import { cn } from '@/lib/utils';
 
 /**
  * ChatMessageGroup - Groups consecutive messages from the same role
@@ -45,11 +48,10 @@ export default memo(function ChatMessageGroup({
   const hideUserAvatar = surfaceVariant === 'many' && isUser;
 
   return (
-    <div
-      className={`flex ${isUser ? `flex-row-reverse ${hideUserAvatar ? 'gap-1' : 'gap-3'}` : showThreadRule ? 'gap-2' : 'gap-3'} ${className}`}
-    >
+    <MessageGroup className={className}>
+      <Message align={isUser ? 'end' : 'start'} className={cn(hideUserAvatar && 'gap-1', showThreadRule && 'gap-2')}>
       {/* Avatar - only for first message in group */}
-      <div className={`flex-shrink-0 ${showAvatar && !hideUserAvatar ? 'w-8' : 'w-0 overflow-hidden'}`}>
+      <MessageAvatar className={cn(!(showAvatar && !hideUserAvatar) && 'w-0 min-w-0 overflow-hidden')}>
         {hideUserAvatar ? null : isAssistant ? (
           assistantAvatarSrc ? (
             <img
@@ -61,14 +63,11 @@ export default memo(function ChatMessageGroup({
             <ManyAvatar size="sm" state={surfaceVariant === 'many' ? assistantState : 'idle'} />
           )
         ) : isUser ? (
-          <div
-            className="size-8 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: 'var(--accent)' }}
-          >
-            <User size={16} className="text-white" />
+          <div className="flex size-8 items-center justify-center rounded-full bg-primary">
+            <HugeiconsIcon icon={UserIcon} className="text-primary-foreground" />
           </div>
         ) : null}
-      </div>
+      </MessageAvatar>
 
       {showThreadRule ? (
         <div
@@ -78,7 +77,7 @@ export default memo(function ChatMessageGroup({
       ) : null}
 
       {/* Messages */}
-      <div className={`flex-1 space-y-1 min-w-0 ${isUser ? 'items-end' : ''}`}>
+      <MessageContent className={cn('gap-1', isUser && 'items-end')}>
         {messages.map((message, index) => (
           <ChatMessage
             key={message.id}
@@ -95,7 +94,8 @@ export default memo(function ChatMessageGroup({
             onSaveAsNote={isAssistant ? onSaveAsNote : undefined}
           />
         ))}
-      </div>
-    </div>
+      </MessageContent>
+      </Message>
+    </MessageGroup>
   );
 });

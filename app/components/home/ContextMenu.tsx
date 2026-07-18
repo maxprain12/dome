@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useClickOutside } from '@/lib/hooks/useClickOutside';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export interface ContextMenuItem {
   id: string;
@@ -19,42 +18,26 @@ interface ContextMenuProps {
 }
 
 export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useClickOutside(ref, onClose);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
   return (
-    <div
-      ref={ref}
-      className="dropdown-menu context-menu-scrollable"
-      role="menu"
-      style={{ left: x, top: y }}
-    >
-      <div className="context-menu-items">
+    <DropdownMenu open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DropdownMenuTrigger render={<span className="fixed size-px" style={{ left: x, top: y }} aria-hidden />} />
+      <DropdownMenuContent align="start" side="bottom" sideOffset={0} className="min-w-48 max-w-80">
+        <DropdownMenuGroup>
         {items.map((item) => (
-          <button
+          <DropdownMenuItem
             key={item.id}
-            type="button"
-            role="menuitem"
             onClick={() => {
               item.onClick();
               onClose();
             }}
-            className={`dropdown-item focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:outline-none ${item.danger ? 'danger' : ''}`}
+            variant={item.danger ? 'destructive' : 'default'}
           >
             {item.icon}
-            <span>{item.label}</span>
-          </button>
+            <span className="truncate">{item.label}</span>
+          </DropdownMenuItem>
         ))}
-      </div>
-    </div>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

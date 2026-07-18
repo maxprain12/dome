@@ -6,7 +6,7 @@
   overflow-x: auto;
   overflow-y: auto;
   max-height: 280px;
-  color: var(--primary-text);
+  color: var(--foreground);
   padding: 8px 10px;
   margin: 0;
 }
@@ -16,8 +16,8 @@
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: var(--secondary-text);
+  color: var(--muted-foreground);
   padding: 8px 10px;
-  background: var(--bg-tertiary);
+  background: var(--muted);
   border-radius: 4px;
 }

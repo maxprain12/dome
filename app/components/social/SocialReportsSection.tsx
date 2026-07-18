@@ -1,8 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Alert02Icon, ChevronDownIcon, ChevronRightIcon, Delete02Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
 import {
-  Sparkles, Loader2, Trash2, ChevronDown, ChevronRight, AlertTriangle,
-} from 'lucide-react';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { SocialReport, SocialReportConfig } from '@/components/social/socialTypes';
 
@@ -62,89 +78,86 @@ export default function SocialReportsSection() {
     h === 0 ? t('social.reports.interval_off') : t('social.reports.interval_days', { count: h / 24 });
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="flex flex-col gap-4 max-w-5xl">
       {/* Config + generate */}
-      <div
-        className="rounded-lg px-4 py-3.5"
-        style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-      >
+      <Card size="sm" className="gap-0 rounded-xl px-4 py-3.5 shadow-none">
+        <CardContent className="p-0">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+          <Field className="w-auto gap-1">
+            <FieldLabel className="text-xs text-muted-foreground">
               {t('social.reports.auto_interval')}
-            </label>
-            <select
-              value={config?.intervalHours ?? 0}
-              onChange={(e) => void updateConfig({ intervalHours: Number(e.target.value) })}
-              className="rounded-md px-2.5 py-1.5 text-xs"
-              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            </FieldLabel>
+            <Select
+              value={String(config?.intervalHours ?? 0)}
+              onValueChange={(v) => { if (v != null) void updateConfig({ intervalHours: Number(v) }); }}
+              items={INTERVAL_OPTIONS.map((h) => ({ value: String(h), label: intervalLabel(h) }))}
             >
-              {INTERVAL_OPTIONS.map((h) => (
-                <option key={h} value={h}>{intervalLabel(h)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+              <SelectTrigger size="sm" className="text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectGroup>
+                {INTERVAL_OPTIONS.map((h) => (
+                  <SelectItem key={h} value={String(h)}>{intervalLabel(h)}</SelectItem>
+                ))}
+              </SelectGroup></SelectContent>
+            </Select>
+          </Field>
+          <Field className="w-auto gap-1">
+            <FieldLabel className="text-xs text-muted-foreground">
               {t('social.reports.period')}
-            </label>
-            <select
-              value={config?.periodDays ?? 30}
-              onChange={(e) => void updateConfig({ periodDays: Number(e.target.value) })}
-              className="rounded-md px-2.5 py-1.5 text-xs"
-              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            </FieldLabel>
+            <Select
+              value={String(config?.periodDays ?? 30)}
+              onValueChange={(v) => { if (v != null) void updateConfig({ periodDays: Number(v) }); }}
+              items={PERIOD_OPTIONS.map((d) => ({ value: String(d), label: t('social.reports.period_days', { count: d }) }))}
             >
-              {PERIOD_OPTIONS.map((d) => (
-                <option key={d} value={d}>{t('social.reports.period_days', { count: d })}</option>
-              ))}
-            </select>
-          </div>
+              <SelectTrigger size="sm" className="text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectGroup>
+                {PERIOD_OPTIONS.map((d) => (
+                  <SelectItem key={d} value={String(d)}>{t('social.reports.period_days', { count: d })}</SelectItem>
+                ))}
+              </SelectGroup></SelectContent>
+            </Select>
+          </Field>
           <div className="flex-1" />
-          <button
+          <Button
             type="button"
+            size="sm"
+            className="text-xs"
             onClick={() => void generateNow()}
             disabled={generating}
-            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium whitespace-nowrap"
-            style={{ background: 'var(--dome-accent)', color: 'white', opacity: generating ? 0.7 : 1 }}
           >
-            {generating
-              ? <Loader2 className="size-3.5 animate-spin" />
-              : <Sparkles className="size-3.5" />}
+            {generating ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />}
             {generating ? t('social.reports.generating') : t('social.reports.generate_now')}
-          </button>
+          </Button>
         </div>
-        <p className="text-xs mt-2.5" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-xs mt-2.5 text-muted-foreground">
           {config && config.intervalHours > 0
             ? t('social.reports.auto_hint_on')
             : t('social.reports.auto_hint_off')}
         </p>
-      </div>
+        </CardContent>
+      </Card>
 
       {error && (
-        <p className="text-xs" style={{ color: 'var(--dome-error)' }}>{error}</p>
+        <p className="text-xs text-destructive">{error}</p>
       )}
 
       {/* Report list */}
       {reports.length === 0 ? (
-        <div
-          className="rounded-lg px-4 py-8 text-center"
-          style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-        >
-          <div
-            className="flex items-center justify-center size-10 rounded-full mx-auto mb-3"
-            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-          >
-            <Sparkles className="size-5" style={{ color: 'var(--dome-accent)' }} />
+        <Card size="sm" className="gap-0 rounded-xl px-4 py-8 text-center shadow-none">
+          <CardContent className="p-0">
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full border bg-background">
+            <HugeiconsIcon icon={SparklesIcon} className="size-5 text-primary" />
           </div>
-          <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+          <p className="text-sm font-medium text-foreground">
             {t('social.reports.empty_title')}
           </p>
-          <p className="text-xs mt-1 max-w-md mx-auto" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
             {t('social.reports.empty_hint')}
           </p>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {reports.map((report) => (
             <ReportRow
               key={report.id}
@@ -172,75 +185,75 @@ function ReportRow({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
-  const Chevron = open ? ChevronDown : ChevronRight;
+  const chevronIcon = open ? ChevronDownIcon : ChevronRightIcon;
   return (
-    <div
-      className="rounded-lg overflow-hidden"
-      style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-    >
-      <div className="flex items-center gap-2 pr-2 hover:bg-[var(--dome-bg-hover)]">
-        <button
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex items-center gap-2 pr-2 hover:bg-accent">
+        <Button
           type="button"
           onClick={onToggle}
           className="flex items-center gap-3 flex-1 min-w-0 text-left px-3 py-2.5"
         >
-          <span
-            className="flex items-center justify-center size-8 rounded-lg shrink-0"
-            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-          >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background">
             {report.status === 'generating' ? (
-              <Loader2 className="size-4 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+              <Spinner className="size-4 text-primary" />
             ) : report.status === 'failed' ? (
-              <AlertTriangle className="size-4" style={{ color: 'var(--dome-error)' }} />
+              <HugeiconsIcon icon={Alert02Icon} className="size-4 text-destructive" />
             ) : (
-              <Sparkles className="size-4" style={{ color: 'var(--dome-accent)' }} />
+              <HugeiconsIcon icon={SparklesIcon} className="size-4 text-primary" />
             )}
           </span>
           <span className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
+            <span className="text-sm font-medium truncate text-foreground">
               {report.title
                 || (report.status === 'generating'
                   ? t('social.reports.generating')
                   : t('social.reports.untitled'))}
             </span>
             <span
-              className="flex items-center gap-1.5 text-xs mt-0.5 flex-wrap"
-              style={{ color: 'var(--dome-text-muted)' }}
+              className="flex items-center gap-1.5 text-xs mt-0.5 flex-wrap text-muted-foreground"
             >
               <span>{new Date(report.createdAt).toLocaleString()}</span>
               <span>·</span>
               <span>{t('social.reports.period_days', { count: report.periodDays })}</span>
               {report.trigger === 'auto' && (
-                <span
-                  className="rounded-full px-1.5 py-px"
-                  style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-                >
+                <Badge variant="outline" className="bg-background px-1.5 py-px font-normal">
                   {t('social.reports.trigger_auto')}
-                </span>
+                </Badge>
               )}
             </span>
           </span>
-          <Chevron className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-1.5 rounded-md hover:bg-[var(--dome-bg)] shrink-0"
-          title={t('social.hub.delete')}
-        >
-          <Trash2 className="size-3.5" style={{ color: 'var(--dome-error)' }} />
-        </button>
+          <HugeiconsIcon icon={chevronIcon} className="size-4 shrink-0 text-muted-foreground" />
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button type="button" size="icon-xs" variant="ghost" className="shrink-0" />}>
+            <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
+            <span className="sr-only">{t('social.hub.delete')}</span>
+          </AlertDialogTrigger>
+          <AlertDialogContent size="sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('social.hub.delete')}</AlertDialogTitle>
+              <AlertDialogDescription>{report.title || t('social.reports.untitled')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={onDelete}>
+                {t('social.hub.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       {open && (
-        <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--dome-border)' }}>
+        <div className="border-t px-4 pb-4">
           {report.status === 'failed' ? (
-            <p className="text-xs mt-3" style={{ color: 'var(--dome-error)' }}>{report.error}</p>
+            <p className="text-xs mt-3 text-destructive">{report.error}</p>
           ) : report.status === 'generating' ? (
-            <p className="text-xs mt-3" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs mt-3 text-muted-foreground">
               {t('social.reports.generating_hint')}
             </p>
           ) : (
-            <div className="text-sm mt-3" style={{ color: 'var(--dome-text)' }}>
+            <div className="text-sm mt-3 text-foreground">
               <MarkdownRenderer content={report.content || ''} />
             </div>
           )}

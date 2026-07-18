@@ -5,7 +5,7 @@
   width: 960px;
   height: 540px;
   overflow: hidden;
-  background: var(--bg);
+  background: var(--background);
   margin: 0;
   padding: 0;
 }

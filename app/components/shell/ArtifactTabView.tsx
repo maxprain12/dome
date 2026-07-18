@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { useMemo } from 'react';
-import HubListState from '@/components/ui/HubListState';
+import ListState from '@/components/shared/ListState';
 import ArtifactCard, { type AnyArtifact } from '@/components/chat/ArtifactCard';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import SubpageHeader from '@/components/shared/SubpageHeader';
 import { tryParseArtifact } from '@/lib/chat/artifactSchemas';
 import i18n from '@/lib/i18n';
 
@@ -52,10 +52,9 @@ export default function ArtifactTabView({ rawJson }: { rawJson: string }) {
   if ('error' in parsed) {
     return (
       <div
-        className="flex flex-1 items-center justify-center p-6 min-h-0"
-        style={{ background: 'var(--dome-bg)' }}
+        className="flex flex-1 items-center justify-center p-6 min-h-0 bg-background"
       >
-        <HubListState variant="empty" title={parsed.error} compact />
+        <ListState variant="empty" title={parsed.error} compact />
       </div>
     );
   }
@@ -65,13 +64,12 @@ export default function ArtifactTabView({ rawJson }: { rawJson: string }) {
 
   return (
     <div
-      className="flex flex-1 min-h-0 flex-col overflow-hidden"
-      style={{ background: 'var(--dome-bg)' }}
+      className="flex flex-1 min-h-0 flex-col overflow-hidden bg-background"
     >
-      <DomeSubpageHeader>
-  <DomeSubpageHeader.Title>{title}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{subtitle}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
+      <SubpageHeader>
+  <SubpageHeader.Title>{title}</SubpageHeader.Title>
+  <SubpageHeader.Subtitle>{subtitle}</SubpageHeader.Subtitle>
+</SubpageHeader>
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         <div className="w-full mx-auto" style={{ maxWidth: 'min(100%, 1400px)' }}>
           <ArtifactCard artifact={parsed.artifact} />

@@ -2,8 +2,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ROLE_PRESETS, type RoleId } from '@/lib/onboarding/roles';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-
 interface RoleStepProps {
   initialRoleId?: RoleId | null;
   initialFreeText?: string;
@@ -50,24 +48,24 @@ export default function RoleStep({
               key={role.id}
               type="button"
               onClick={() => setRoleId(role.id)}
-              className="flex flex-col items-start gap-1 rounded-xl p-3 text-left transition-all"
+              className="flex flex-col items-start gap-1 rounded-xl p-3 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform]"
               style={{
-                background: selected ? 'var(--dome-accent-subtle, rgba(101,93,197,0.12))' : 'var(--dome-surface)',
-                border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
+                background: selected ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--card)',
+                border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
                 cursor: 'pointer',
               }}
               onMouseEnter={(e) => {
-                if (!selected) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border-hover, var(--dome-accent))';
+                if (!selected) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--ring, var(--primary))';
               }}
               onMouseLeave={(e) => {
-                if (!selected) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)';
+                if (!selected) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
               }}
             >
               <span className="text-xl leading-none select-none" aria-hidden>{role.emoji}</span>
-              <span className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
+              <span className="font-semibold text-sm text-foreground">
                 {t(role.labelKey)}
               </span>
-              <span className="text-xs leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+              <span className="text-xs leading-snug text-muted-foreground">
                 {t(role.descriptionKey)}
               </span>
             </button>
@@ -76,7 +74,7 @@ export default function RoleStep({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <DomeSectionLabel>{t('onboarding.role_about_label')}</DomeSectionLabel>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('onboarding.role_about_label')}</p>
         <textarea
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
@@ -85,14 +83,14 @@ export default function RoleStep({
           rows={3}
           className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none transition-colors"
           style={{
-            background: 'var(--dome-bg-hover)',
-            border: '1px solid var(--dome-border)',
-            color: 'var(--dome-text)',
+            background: 'var(--accent)',
+            border: '1px solid var(--border)',
+            color: 'var(--foreground)',
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--dome-accent)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--dome-border)'; }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
         />
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-xs text-muted-foreground">
           {t('onboarding.role_about_hint')}
         </p>
       </div>

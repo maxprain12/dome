@@ -1,18 +1,27 @@
 'use client';
 
-import { ArrowRight, Search } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import type { PaletteRow, SearchResourceRow } from './commandPaletteTypes';
+import ResourceIcon from '@/components/shared/ResourceIcon';
+import { CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import type { PaletteFilter, PaletteRow, SearchResourceRow, SourceHitRow } from './commandPaletteTypes';
+import { rowPassesFilter } from './commandPaletteTypes';
 
 export function CommandPaletteResultsList({
   showEmptyQuery,
   showNoResults,
   trimmedQuery,
+  filter,
   quickActions,
   navigationDestinations,
   filteredNav,
   resources,
   interactions,
+  peopleHits,
+  issueHits,
+  emailHits,
+  socialHits,
   flatRows,
   selectedIndex,
   setSelectedIndex,
@@ -21,11 +30,16 @@ export function CommandPaletteResultsList({
   showEmptyQuery: boolean;
   showNoResults: boolean;
   trimmedQuery: string;
+  filter: PaletteFilter;
   quickActions: PaletteRow[];
   navigationDestinations: PaletteRow[];
   filteredNav: PaletteRow[];
   resources: SearchResourceRow[];
   interactions: SearchResourceRow[];
+  peopleHits: SourceHitRow[];
+  issueHits: SourceHitRow[];
+  emailHits: SourceHitRow[];
+  socialHits: SourceHitRow[];
   flatRows: PaletteRow[];
   selectedIndex: number | undefined;
   setSelectedIndex: (index: number) => void;
@@ -41,102 +55,98 @@ export function CommandPaletteResultsList({
 
   const renderRow = (row: PaletteRow) => {
     const idx = nextIndex();
-    const isSelected = selectedIndex === idx;
     return (
-      <button
+      <CommandItem
         key={row.id}
-        type="button"
+        value={row.id}
         data-palette-index={idx}
         onMouseEnter={() => setSelectedIndex(idx)}
-        onClick={() => row.run()}
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
-        style={{
-          background: isSelected ? 'var(--dome-surface)' : 'transparent',
-          color: 'var(--dome-text)',
-        }}
+        onSelect={() => row.run()}
+        className="gap-3"
+        data-selected={selectedIndex === idx ? 'true' : undefined}
       >
-        <span style={{ color: row.kind === 'nav' ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-          {row.icon}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-sm">{row.label}</span>
-        {row.sublabel ? (
-          <span className="shrink-0 text-xs tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
-            {row.sublabel}
-          </span>
-        ) : null}
+        {row.kind === 'resource' || row.kind === 'interaction' ? (
+          <ResourceIcon type={row.type} name={row.label} size={16} className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+        ) : (
+          <HugeiconsIcon icon={row.icon} className={row.kind === 'nav' ? 'text-primary' : 'text-muted-foreground'} />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm text-foreground">{row.label}</span>
+          {row.sublabel ? (
+            <span className="truncate text-xs text-muted-foreground">{row.sublabel}</span>
+          ) : null}
+        </div>
         {row.kind === 'nav' ? (
-          <ArrowRight className="size-3.5 shrink-0 opacity-40" strokeWidth={1.5} />
+          <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5 shrink-0 opacity-40" />
         ) : null}
-      </button>
+      </CommandItem>
+    );
+  };
+
+  const showKind = (kind: PaletteRow['kind']) => rowPassesFilter(kind, filter);
+
+  const renderSourceGroup = (heading: string, hits: SourceHitRow[], prefix: string, kind: SourceHitRow['kind']) => {
+    if (!showKind(kind) || hits.length === 0) return null;
+    return (
+      <CommandGroup heading={heading}>
+        {hits.map((hit) => {
+          const row = flatRows.find((x) => x.id === `${prefix}:${hit.id}`);
+          return row ? renderRow(row) : null;
+        })}
+      </CommandGroup>
     );
   };
 
   return (
-    <div ref={listRef} className="max-h-[min(420px,55vh)] overflow-y-auto p-2">
+    <CommandList ref={listRef} className="max-h-[min(420px,55vh)] p-1">
       {showEmptyQuery ? (
         <>
-          <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('command.quick_actions')}
-          </p>
-          <div className="mb-2 flex flex-col gap-0.5">
+          <CommandGroup heading={t('command.quick_actions')}>
             {quickActions.map((row) => renderRow(row))}
-          </div>
-          <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('command.navigate')}
-          </p>
-          <div className="flex flex-col gap-0.5">
+          </CommandGroup>
+          <CommandGroup heading={t('command.navigate')}>
             {navigationDestinations.map((row) => renderRow(row))}
-          </div>
+          </CommandGroup>
         </>
       ) : null}
 
       {!showEmptyQuery && filteredNav.length > 0 ? (
-        <>
-          <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('command.navigate')}
-          </p>
-          <div className="mb-2 flex flex-col gap-0.5">
-            {filteredNav.map((row) => renderRow(row))}
-          </div>
-        </>
+        <CommandGroup heading={t('command.navigate')}>
+          {filteredNav.map((row) => renderRow(row))}
+        </CommandGroup>
       ) : null}
 
-      {!showEmptyQuery && resources.length > 0 ? (
-        <>
-          <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('command.resources')}
-          </p>
-          <div className="mb-2 flex flex-col gap-0.5">
-            {resources.map((r) => {
-              const row = flatRows.find((x) => x.id === `resource:${r.id}`);
-              return row ? renderRow(row) : null;
-            })}
-          </div>
-        </>
+      {!showEmptyQuery && showKind('resource') && resources.length > 0 ? (
+        <CommandGroup heading={t('command.resources')}>
+          {resources.map((r) => {
+            const row = flatRows.find((x) => x.id === `resource:${r.id}`);
+            return row ? renderRow(row) : null;
+          })}
+        </CommandGroup>
       ) : null}
 
-      {!showEmptyQuery && interactions.length > 0 ? (
-        <>
-          <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('command.notes_annotations')}
-          </p>
-          <div className="flex flex-col gap-0.5">
-            {interactions.map((r, index) => {
-              const row = flatRows.find((x) => x.id === `interaction:${r.id}:${index}`);
-              return row ? renderRow(row) : null;
-            })}
-          </div>
-        </>
+      {!showEmptyQuery && showKind('interaction') && interactions.length > 0 ? (
+        <CommandGroup heading={t('command.notes_annotations')}>
+          {interactions.map((r, index) => {
+            const row = flatRows.find((x) => x.id === `interaction:${r.id}:${index}`);
+            return row ? renderRow(row) : null;
+          })}
+        </CommandGroup>
       ) : null}
+
+      {!showEmptyQuery ? renderSourceGroup(t('command.people'), peopleHits, 'person', 'person') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.issues'), issueHits, 'issue', 'issue') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.emails'), emailHits, 'email', 'email') : null}
+      {!showEmptyQuery ? renderSourceGroup(t('command.social_posts'), socialHits, 'social', 'social_post') : null}
 
       {showNoResults ? (
-        <div className="px-4 py-10 text-center">
-          <Search className="mx-auto mb-2 size-7" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+        <CommandEmpty className="px-4 py-10">
+          <HugeiconsIcon icon={Search01Icon} className="mx-auto mb-2 size-7 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             {t('command.no_results', { query: trimmedQuery })}
           </p>
-        </div>
+        </CommandEmpty>
       ) : null}
-    </div>
+    </CommandList>
   );
 }

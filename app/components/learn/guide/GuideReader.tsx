@@ -1,65 +1,11 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft02Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import LearnViewerEmpty from '../LearnViewerEmpty';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import StudyGuide from '@/components/studio/StudyGuide';
+import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { StudyGuideData, StudioOutput } from '@/types';
-
-interface GuideReaderProps {
-  output: StudioOutput;
-  onBack: () => void;
-}
-
-export default function GuideReader({ output, onBack }: GuideReaderProps) {
-  const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState(0);
-
-  const { data, corrupt } = useMemo(() => {
-    if (!output.content) return { data: { sections: [] } as StudyGuideData, corrupt: false };
-    try {
-      return { data: JSON.parse(output.content) as StudyGuideData, corrupt: false };
-    } catch {
-      return { data: { sections: [] } as StudyGuideData, corrupt: true };
-    }
-  }, [output.content]);
-
-  if (!data.sections || data.sections.length === 0) {
-    return <LearnViewerEmpty onBack={onBack} corrupt={corrupt} />;
-  }
-
-  return (
-    <div className="lr-guide">
-      <nav className="lr-guide-toc">
-        <button type="button" className="lr-deck-back" onClick={onBack} style={{ marginBottom: 12 }}>
-          <ArrowLeft size={14} aria-hidden />
-          {t('learn.back_to_library', 'Back to library')}
-        </button>
-        <div className="lr-guide-toc-eyebrow">{t('learn.guide_toc', 'Contents')}</div>
-        {data.sections.map((section, index) => (
-          <button
-            key={`${section.title}-${index}`}
-            type="button"
-            className={`lr-guide-toc-row${activeSection === index ? ' on' : ''}`}
-            onClick={() => setActiveSection(index)}
-          >
-            {section.title}
-          </button>
-        ))}
-      </nav>
-      <div className="lr-guide-content">
-        <div className="crumb">{output.title}</div>
-        {data.sections[activeSection] ? (
-          <>
-            <h1>{data.sections[activeSection].title}</h1>
-            <StudyGuide
-              data={{ sections: [data.sections[activeSection]] }}
-              title={output.title}
-            />
-          </>
-        ) : (
-          <StudyGuide data={data} title={output.title} />
-        )}
-      </div>
-    </div>
-  );
-}
+interface GuideReaderProps { output: StudioOutput; onBack: () => void; }
+export default function GuideReader({ output, onBack }: GuideReaderProps) { const { t } = useTranslation(); const [activeSection, setActiveSection] = useState(0); const { data, corrupt } = useMemo(() => { if (!output.content) return { data: { sections: [] } as StudyGuideData, corrupt: false }; try { return { data: JSON.parse(output.content) as StudyGuideData, corrupt: false }; } catch { return { data: { sections: [] } as StudyGuideData, corrupt: true }; } }, [output.content]); if (!data.sections?.length) return <LearnViewerEmpty onBack={onBack} corrupt={corrupt} />; const current = data.sections[activeSection]; return <div className="grid h-full overflow-hidden md:grid-cols-[240px_minmax(0,1fr)]"><aside className="flex flex-col gap-4 overflow-y-auto border-r p-4"><Button type="button" variant="ghost" size="sm" className="w-fit" onClick={onBack}><HugeiconsIcon icon={ArrowLeft02Icon} data-icon="inline-start" />{t('learn.back_to_library', 'Back to library')}</Button><p className="text-xs font-medium text-muted-foreground">{t('learn.guide_toc', 'Contents')}</p><ToggleGroup value={[String(activeSection)]} onValueChange={(value) => value[0] && setActiveSection(Number(value[0]))} orientation="vertical" variant="outline" className="w-full items-stretch">{data.sections.map((section, index) => <ToggleGroupItem key={`${section.title}-${index}`} value={String(index)} className="justify-start">{section.title}</ToggleGroupItem>)}</ToggleGroup></aside><main className="overflow-y-auto p-5"><div className="mx-auto max-w-3xl">{current ? <StudyGuide data={{ sections: [current] }} title={output.title} /> : <StudyGuide data={data} title={output.title} />}</div></main></div>; }

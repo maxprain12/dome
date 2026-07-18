@@ -376,6 +376,12 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   }
 }
 
+/** Subscribe to cloud-pulled settings updates (main → renderer). */
+export function subscribeSettingsCloudUpdates(onUpdate: (payload: { keys?: string[] }) => void): () => void {
+  if (!window.electron?.on) return () => {};
+  return window.electron.on('settings:cloud-updated', onUpdate);
+}
+
 // ===========================
 // Initialization
 // ===========================

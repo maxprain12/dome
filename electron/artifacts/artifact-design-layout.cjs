@@ -10,15 +10,6 @@ const MAX_SECTIONS_PER_PANEL = 32;
 const MAX_BLOCKS_PER_SECTION = 48;
 const MAX_STRING_LEN = 12000;
 const MAX_BULLETS = 40;
-const MAX_LABEL_LEN = 200;
-const MAX_KICKER_LEN = 400;
-const MAX_BADGE_LEN = 80;
-const MAX_TITLE_LEN = 500;
-const MAX_NUMBERED_TITLE_LEN = 500;
-const MAX_BULLET_LEN = 2000;
-const MAX_CODE_LEN = 8000;
-const MAX_EMOJI_LEN = 8;
-const VALID_ID_RE = /[^a-zA-Z0-9_-]/g;
 
 /** @type {Set<string>} */
 const BADGE_TONES = new Set(['neutral', 'info', 'success', 'warning', 'error']);
@@ -57,329 +48,215 @@ function isPlainObject(v) {
 }
 
 /**
- * @param {unknown} value
- * @returns {string}
+ * @param {unknown} spec
+ * @returns {{ ok: true, html: string, data: Record<string, unknown> } | { ok: false, error: string }}
  */
-function readTrimmedString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-/**
- * @param {string} raw
- * @returns {string}
- */
-function sanitizeTabId(raw) {
-  return raw.trim().replace(VALID_ID_RE, '');
-}
-
-/**
- * @param {Record<string, unknown>} o
- * @returns {{ title: string, subtitle: string, titleEmoji: string, error: string | null }}
- */
-function parseHeader(o) {
-  const title = readTrimmedString(o.title);
-  if (!title) {
-    return { title: '', subtitle: '', titleEmoji: '', error: 'title is required (non-empty string)' };
+function buildArtifactDesignLayout(spec) {
+  if (!isPlainObject(spec)) {
+    return { ok: false, error: 'spec must be a JSON object' };
   }
-  const subtitle = readTrimmedString(o.subtitle);
-  const emojiInput = o.title_emoji != null ? String(o.title_emoji).trim() : '';
-  const titleEmoji = emojiInput !== '' ? emojiInput.slice(0, MAX_EMOJI_LEN) : '';
-  return { title, subtitle, titleEmoji, error: null };
-}
+  /** @type {Record<string, unknown>} */
+  const o = /** @type {Record<string, unknown>} */ (spec);
 
-/**
- * @param {Record<string, unknown>} o
- * @returns {{ tabs: Array<{ id: string, label: string }>, error: string | null }}
- */
-function parseTabs(o) {
+  const titleRaw = typeof o.title === 'string' ? o.title.trim() : '';
+  if (!titleRaw) {
+    return { ok: false, error: 'title is required (non-empty string)' };
+  }
+
+  const subtitleRaw = typeof o.subtitle === 'string' ? o.subtitle.trim() : '';
+  const titleEmojiRaw =
+    o.title_emoji != null && String(o.title_emoji).trim() !== ''
+      ? String(o.title_emoji).trim().slice(0, 8)
+      : '';
+
   if (!Array.isArray(o.tabs) || o.tabs.length === 0) {
-    return { tabs: [], error: 'tabs must be a non-empty array of { id, label }' };
+    return { ok: false, error: 'tabs must be a non-empty array of { id, label }' };
   }
   if (o.tabs.length > MAX_TABS) {
-    return { tabs: [], error: `at most ${MAX_TABS} tabs allowed` };
+    return { ok: false, error: `at most ${MAX_TABS} tabs allowed` };
   }
 
-  /** @type {Array<{ id: string, label: string }>} */
+  /** @type {Array<{ id: string; label: string }>} */
   const tabs = [];
   for (const row of o.tabs) {
     if (!isPlainObject(row)) continue;
-    const r = /** @type {Record<string, unknown>} */ (row);
-    const id = typeof r.id === 'string' ? sanitizeTabId(r.id) : '';
-    const label = readTrimmedString(r.label);
+    const id = typeof row.id === 'string' ? row.id.trim().replace(/[^a-zA-Z0-9_-]/g, '') : '';
+    const label = typeof row.label === 'string' ? row.label.trim() : '';
     if (!id || !label) {
-      return { tabs: [], error: 'each tab needs id (letters, digits, _, -) and label' };
+      return { ok: false, error: 'each tab needs id (letters, digits, _, -) and label' };
     }
-    tabs.push({ id, label: clipStr(label, MAX_LABEL_LEN) });
+    tabs.push({ id, label: clipStr(label, 200) });
   }
   if (tabs.length === 0) {
-    return { tabs: [], error: 'no valid tabs after validation' };
+    return { ok: false, error: 'no valid tabs after validation' };
   }
-  return { tabs, error: null };
-}
 
-/**
- * @param {unknown} panels
- * @param {Array<{ id: string }>} tabs
- * @returns {{ error: string | null }}
- */
-function validatePanels(panels, tabs) {
+  const panels = o.panels;
   if (!isPlainObject(panels)) {
-    return { error: 'panels must be an object keyed by tab id' };
+    return { ok: false, error: 'panels must be an object keyed by tab id' };
   }
-  const p = /** @type {Record<string, unknown>} */ (panels);
+
   for (const t of tabs) {
-    if (!(t.id in p)) {
-      return { error: `missing panels entry for tab id "${t.id}"` };
+    if (!(t.id in /** @type {Record<string, unknown>} */ (panels))) {
+      return { ok: false, error: `missing panels entry for tab id "${t.id}"` };
     }
   }
-  return { error: null };
-}
 
-/**
- * @param {Record<string, unknown>} o
- * @param {Array<{ id: string }>} tabs
- * @returns {string}
- */
-function resolveActiveTab(o, tabs) {
   const firstTabId = tabs[0].id;
-  if (typeof o.active_tab === 'string' && o.active_tab.trim()) {
-    const candidate = sanitizeTabId(o.active_tab);
-    if (tabs.some((x) => x.id === candidate)) return candidate;
-  }
-  return firstTabId;
-}
+  let activeTab =
+    typeof o.active_tab === 'string' && o.active_tab.trim()
+      ? o.active_tab.trim().replace(/[^a-zA-Z0-9_-]/g, '')
+      : firstTabId;
+  if (!tabs.some((x) => x.id === activeTab)) activeTab = firstTabId;
 
-/**
- * @param {unknown} items
- * @param {string} ulMargin
- * @returns {string}
- */
-function renderBulletList(items, ulMargin) {
-  if (!Array.isArray(items) || items.length === 0) return '';
-  let html = `<ul style="margin:${ulMargin};padding-left:var(--space-5);color:var(--secondary-text);font-size:14px;line-height:1.5;">`;
-  let count = 0;
-  for (const item of items) {
-    if (count >= MAX_BULLETS) break;
-    count += 1;
-    if (typeof item !== 'string') continue;
-    html += `<li style="margin-bottom:var(--space-1);">${clipStr(item, MAX_BULLET_LEN)}</li>`;
-  }
-  html += `</ul>`;
-  return html;
-}
+  /** @param {unknown} panelVal
+   * @returns {string}
+   */
+  function renderPanel(panelVal) {
+    if (!isPlainObject(panelVal)) return '';
+    const p = /** @type {Record<string, unknown>} */ (panelVal);
+    const sections = p.sections;
+    if (!Array.isArray(sections)) return '';
 
-/**
- * @param {Record<string, unknown>} b
- * @returns {string}
- */
-function renderParagraphBlock(b) {
-  const text = typeof b.text === 'string' ? clipStr(b.text, MAX_STRING_LEN) : '';
-  if (!text) return '';
-  return `<p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.6;color:var(--primary-text);">${text}</p>`;
-}
+    let html = '';
+    let secCount = 0;
+    for (const sec of sections) {
+      if (secCount >= MAX_SECTIONS_PER_PANEL) break;
+      if (!isPlainObject(sec)) continue;
+      secCount += 1;
+      const s = /** @type {Record<string, unknown>} */ (sec);
+      const kicker = typeof s.kicker === 'string' ? clipStr(s.kicker, 400) : '';
+      const badge = typeof s.badge === 'string' ? clipStr(s.badge, 80) : '';
+      const badgeTone =
+        typeof s.badge_tone === 'string' && BADGE_TONES.has(s.badge_tone) ? s.badge_tone : 'neutral';
 
-/**
- * @param {Record<string, unknown>} b
- * @returns {string}
- */
-function renderNumberedBlock(b) {
-  const num = typeof b.number === 'number' && b.number >= 0 ? Math.floor(b.number) : 0;
-  const bt = typeof b.title === 'string' ? clipStr(b.title, MAX_NUMBERED_TITLE_LEN) : '';
-  const body = typeof b.body === 'string' ? clipStr(b.body, MAX_STRING_LEN) : '';
-  let html = `<div style="margin-bottom:var(--space-4);">`;
-  html += `<div style="display:flex;gap:var(--space-2);align-items:flex-start;">`;
-  html += `<span style="flex-shrink:0;font-size:14px;font-weight:600;color:var(--accent);">${num || ''}</span>`;
-  html += `<div style="flex:1;min-width:0;">`;
-  if (bt) {
-    html += `<div style="font-size:14px;font-weight:600;color:var(--primary-text);margin-bottom:var(--space-2);">${bt}</div>`;
-  }
-  if (body) {
-    html += `<p style="margin:0;font-size:14px;line-height:1.6;color:var(--secondary-text);">${body}</p>`;
-  }
-  const bulletsHtml = renderBulletList(b.bullets, 'var(--space-2) 0 0');
-  if (bulletsHtml) html += bulletsHtml;
-  html += `</div></div></div>`;
-  return html;
-}
+      const badgeClass = `dome-design-badge dome-design-badge--${badgeTone}`;
 
-/**
- * @param {Record<string, unknown>} b
- * @returns {string}
- */
-function renderBulletsBlock(b) {
-  return renderBulletList(b.items, '0 0 var(--space-3)');
-}
+      html += `<article class="dome-design-card" style="margin-bottom:var(--space-4);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);">`;
+      if (kicker || badge) {
+        html += `<header style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap;">`;
+        if (kicker) {
+          html += `<span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted-foreground);">${kicker}</span>`;
+        } else {
+          html += `<span></span>`;
+        }
+        if (badge) {
+          html += `<span class="${badgeClass}" style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:var(--radius-full);white-space:nowrap;">${badge}</span>`;
+        }
+        html += `</header>`;
+      }
 
-/**
- * @param {Record<string, unknown>} b
- * @returns {string}
- */
-function renderCodeBlock(b) {
-  const text = typeof b.text === 'string' ? clipStr(b.text, MAX_CODE_LEN) : '';
-  if (!text) return '';
-  return `<pre style="margin:0 0 var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);background:var(--bg-tertiary);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;line-height:1.5;color:var(--primary-text);white-space:pre-wrap;word-break:break-word;">${text}</pre>`;
-}
+      const blocks = s.blocks;
+      if (!Array.isArray(blocks)) {
+        html += `</article>`;
+        continue;
+      }
 
-/**
- * @param {Record<string, unknown>} b
- * @returns {string}
- */
-function renderBlock(b) {
-  const type = typeof b.type === 'string' ? b.type : '';
-  switch (type) {
-    case 'paragraph': return renderParagraphBlock(b);
-    case 'numbered': return renderNumberedBlock(b);
-    case 'bullets': return renderBulletsBlock(b);
-    case 'code': return renderCodeBlock(b);
-    default: return '';
-  }
-}
+      let bCount = 0;
+      for (const blk of blocks) {
+        if (bCount >= MAX_BLOCKS_PER_SECTION) break;
+        if (!isPlainObject(blk)) continue;
+        bCount += 1;
+        const b = /** @type {Record<string, unknown>} */ (blk);
+        const type = typeof b.type === 'string' ? b.type : '';
 
-/**
- * @param {string} kicker
- * @param {string} badge
- * @param {string} badgeClass
- * @returns {string}
- */
-function renderSectionHeader(kicker, badge, badgeClass) {
-  if (!kicker && !badge) return '';
-  let html = `<header style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap;">`;
-  html += kicker
-    ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text);">${kicker}</span>`
-    : `<span></span>`;
-  if (badge) {
-    html += `<span class="${badgeClass}" style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:var(--radius-full);white-space:nowrap;">${badge}</span>`;
-  }
-  html += `</header>`;
-  return html;
-}
+        if (type === 'paragraph') {
+          const text = typeof b.text === 'string' ? clipStr(b.text, MAX_STRING_LEN) : '';
+          if (text) {
+            html += `<p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.6;color:var(--foreground);">${text}</p>`;
+          }
+        } else if (type === 'numbered') {
+          const num = typeof b.number === 'number' && b.number >= 0 ? Math.floor(b.number) : 0;
+          const bt = typeof b.title === 'string' ? clipStr(b.title, 500) : '';
+          const body = typeof b.body === 'string' ? clipStr(b.body, MAX_STRING_LEN) : '';
+          html += `<div style="margin-bottom:var(--space-4);">`;
+          html += `<div style="display:flex;gap:var(--space-2);align-items:flex-start;">`;
+          html += `<span style="flex-shrink:0;font-size:14px;font-weight:600;color:var(--primary);">${num || ''}</span>`;
+          html += `<div style="flex:1;min-width:0;">`;
+          if (bt) {
+            html += `<div style="font-size:14px;font-weight:600;color:var(--foreground);margin-bottom:var(--space-2);">${bt}</div>`;
+          }
+          if (body) {
+            html += `<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted-foreground);">${body}</p>`;
+          }
+          const bullets = b.bullets;
+          if (Array.isArray(bullets) && bullets.length > 0) {
+            html += `<ul style="margin:var(--space-2) 0 0;padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;">`;
+            let bi = 0;
+            for (const item of bullets) {
+              if (bi >= MAX_BULLETS) break;
+              bi += 1;
+              if (typeof item !== 'string') continue;
+              html += `<li style="margin-bottom:var(--space-1);">${clipStr(item, 2000)}</li>`;
+            }
+            html += `</ul>`;
+          }
+          html += `</div></div></div>`;
+        } else if (type === 'bullets') {
+          const items = b.items;
+          if (Array.isArray(items) && items.length > 0) {
+            html += `<ul style="margin:0 0 var(--space-3);padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;">`;
+            let bi = 0;
+            for (const item of items) {
+              if (bi >= MAX_BULLETS) break;
+              bi += 1;
+              if (typeof item !== 'string') continue;
+              html += `<li style="margin-bottom:var(--space-1);">${clipStr(item, 2000)}</li>`;
+            }
+            html += `</ul>`;
+          }
+        } else if (type === 'code') {
+          const text = typeof b.text === 'string' ? clipStr(b.text, 8000) : '';
+          if (text) {
+            html += `<pre style="margin:0 0 var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;line-height:1.5;color:var(--foreground);white-space:pre-wrap;word-break:break-word;">${text}</pre>`;
+          }
+        }
+      }
 
-/**
- * @param {Record<string, unknown>} s
- * @returns {string}
- */
-function renderSection(s) {
-  const kicker = typeof s.kicker === 'string' ? clipStr(s.kicker, MAX_KICKER_LEN) : '';
-  const badge = typeof s.badge === 'string' ? clipStr(s.badge, MAX_BADGE_LEN) : '';
-  const badgeToneRaw = typeof s.badge_tone === 'string' ? s.badge_tone : '';
-  const badgeTone = BADGE_TONES.has(badgeToneRaw) ? badgeToneRaw : 'neutral';
-  const badgeClass = `dome-design-badge dome-design-badge--${badgeTone}`;
-
-  let html = `<article class="dome-design-card" style="margin-bottom:var(--space-4);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--bg-secondary);">`;
-  html += renderSectionHeader(kicker, badge, badgeClass);
-
-  const blocks = s.blocks;
-  if (!Array.isArray(blocks)) {
-    html += `</article>`;
+      html += `</article>`;
+    }
     return html;
   }
 
-  let bCount = 0;
-  for (const blk of blocks) {
-    if (bCount >= MAX_BLOCKS_PER_SECTION) break;
-    if (!isPlainObject(blk)) continue;
-    bCount += 1;
-    html += renderBlock(/** @type {Record<string, unknown>} */ (blk));
+  let bodyHtml = '';
+  bodyHtml += `<div class="dome-design-root" style="padding:var(--space-4);max-width:920px;margin:0 auto;">`;
+
+  bodyHtml += `<header style="text-align:center;margin-bottom:var(--space-6);">`;
+  if (titleEmojiRaw) {
+    bodyHtml += `<div style="font-size:28px;line-height:1;margin-bottom:var(--space-2);" aria-hidden="true">${escapeHtml(titleEmojiRaw)}</div>`;
   }
-
-  html += `</article>`;
-  return html;
-}
-
-/**
- * @param {unknown} panelVal
- * @returns {string}
- */
-function renderPanel(panelVal) {
-  if (!isPlainObject(panelVal)) return '';
-  const p = /** @type {Record<string, unknown>} */ (panelVal);
-  const sections = p.sections;
-  if (!Array.isArray(sections)) return '';
-
-  let html = '';
-  let secCount = 0;
-  for (const sec of sections) {
-    if (secCount >= MAX_SECTIONS_PER_PANEL) break;
-    if (!isPlainObject(sec)) continue;
-    secCount += 1;
-    html += renderSection(/** @type {Record<string, unknown>} */ (sec));
+  bodyHtml += `<h1 style="margin:0;font-size:22px;font-weight:600;color:var(--foreground);line-height:1.3;">${clipStr(titleRaw, 500)}</h1>`;
+  if (subtitleRaw) {
+    bodyHtml += `<p style="margin:var(--space-2) 0 0;font-size:14px;color:var(--muted-foreground);line-height:1.5;">${clipStr(subtitleRaw, MAX_STRING_LEN)}</p>`;
   }
-  return html;
-}
+  bodyHtml += `</header>`;
 
-/**
- * @param {string} title
- * @param {string} subtitle
- * @param {string} titleEmoji
- * @returns {string}
- */
-function renderHeader(title, subtitle, titleEmoji) {
-  let html = `<header style="text-align:center;margin-bottom:var(--space-6);">`;
-  if (titleEmoji) {
-    html += `<div style="font-size:28px;line-height:1;margin-bottom:var(--space-2);" aria-hidden="true">${escapeHtml(titleEmoji)}</div>`;
-  }
-  html += `<h1 style="margin:0;font-size:22px;font-weight:600;color:var(--primary-text);line-height:1.3;">${clipStr(title, MAX_TITLE_LEN)}</h1>`;
-  if (subtitle) {
-    html += `<p style="margin:var(--space-2) 0 0;font-size:14px;color:var(--secondary-text);line-height:1.5;">${clipStr(subtitle, MAX_STRING_LEN)}</p>`;
-  }
-  html += `</header>`;
-  return html;
-}
-
-/**
- * @param {Array<{ id: string, label: string }>} tabs
- * @param {string} activeTab
- * @returns {string}
- */
-function renderTabList(tabs, activeTab) {
-  let html = `<div role="tablist" aria-label="Sections" style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-5);border-bottom:1px solid var(--border);padding-bottom:var(--space-3);">`;
+  bodyHtml += `<div role="tablist" aria-label="Sections" style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-5);border-bottom:1px solid var(--border);padding-bottom:var(--space-3);">`;
   for (const t of tabs) {
     const selected = t.id === activeTab;
-    const bg = selected ? 'color-mix(in oklab, var(--accent) 14%, transparent)' : 'transparent';
-    const color = selected ? 'var(--accent)' : 'var(--secondary-text)';
-    html += `<button type="button" role="tab" class="dome-design-tab" data-dome-tab="${escapeHtml(t.id)}" aria-selected="${selected ? 'true' : 'false'}" tabindex="${selected ? '0' : '-1'}" style="cursor:pointer;border:none;background:${bg};color:${color};font-family:var(--font-sans);font-size:13px;font-weight:500;padding:var(--space-2) var(--space-3);border-radius:var(--radius-lg);transition:background-color 0.16s ease,color 0.16s ease;">${t.label}</button>`;
+    bodyHtml += `<button type="button" role="tab" class="dome-design-tab" data-dome-tab="${escapeHtml(t.id)}" aria-selected="${selected ? 'true' : 'false'}" tabindex="${selected ? '0' : '-1'}" style="cursor:pointer;border:none;background:${selected ? 'color-mix(in oklab, var(--primary) 14%, transparent)' : 'transparent'};color:${selected ? 'var(--primary)' : 'var(--muted-foreground)'};font-family:var(--font-sans);font-size:13px;font-weight:500;padding:var(--space-2) var(--space-3);border-radius:var(--radius-lg);transition:background-color 0.16s ease,color 0.16s ease;">${t.label}</button>`;
   }
-  html += `</div>`;
-  return html;
-}
+  bodyHtml += `</div>`;
 
-/**
- * @param {Array<{ id: string }>} tabs
- * @param {Record<string, unknown>} panels
- * @param {string} activeTab
- * @returns {string}
- */
-function renderPanelSections(tabs, panels, activeTab) {
-  let html = '';
   for (const t of tabs) {
-    const panelObj = panels[t.id];
-    const isActive = t.id === activeTab;
-    const display = isActive ? 'block' : 'none';
-    html += `<section role="tabpanel" class="dome-design-panel" data-dome-panel="${escapeHtml(t.id)}" aria-hidden="${isActive ? 'false' : 'true'}" style="display:${display};">`;
-    html += renderPanel(panelObj);
-    html += `</section>`;
+    const panelObj = /** @type {Record<string, unknown>} */ (panels)[t.id];
+    const hidden = t.id !== activeTab ? 'none' : 'block';
+    bodyHtml += `<section role="tabpanel" class="dome-design-panel" data-dome-panel="${escapeHtml(t.id)}" aria-hidden="${t.id === activeTab ? 'false' : 'true'}" style="display:${hidden};">`;
+    bodyHtml += renderPanel(panelObj);
+    bodyHtml += `</section>`;
   }
-  return html;
-}
 
-/**
- * @returns {string}
- */
-function renderBadgeCss() {
-  return `
-.dome-design-badge--neutral { background: var(--bg-tertiary); color: var(--secondary-text); }
+  bodyHtml += `</div>`;
+
+  const badgeCss = `
+.dome-design-badge--neutral { background: var(--muted); color: var(--muted-foreground); }
 .dome-design-badge--info { background: var(--info-bg); color: var(--info); }
 .dome-design-badge--success { background: var(--success-bg); color: var(--success); }
 .dome-design-badge--warning { background: var(--warning-bg); color: var(--warning); }
-.dome-design-badge--error { background: var(--error-bg); color: var(--error); }
+.dome-design-badge--error { background: var(--error-bg); color: var(--destructive); }
 `;
-}
 
-/**
- * @returns {string}
- */
-function renderClientScript() {
-  return `
+  const script = `
 (function(){
   function readData(){
     return (typeof window.DOME_DATA === 'object' && window.DOME_DATA !== null) ? window.DOME_DATA : {};
@@ -393,8 +270,8 @@ function renderClientScript() {
       var on = id === tabId;
       b.setAttribute('aria-selected', on ? 'true' : 'false');
       b.setAttribute('tabindex', on ? '0' : '-1');
-      b.style.background = on ? 'color-mix(in oklab, var(--accent) 14%, transparent)' : 'transparent';
-      b.style.color = on ? 'var(--accent)' : 'var(--secondary-text)';
+      b.style.background = on ? 'color-mix(in oklab, var(--primary) 14%, transparent)' : 'transparent';
+      b.style.color = on ? 'var(--primary)' : 'var(--muted-foreground)';
     }
     for (var j = 0; j < panels.length; j++) {
       var p = panels[j];
@@ -425,42 +302,11 @@ function renderClientScript() {
   }
 })();
 `;
-}
-
-/**
- * @param {unknown} spec
- * @returns {{ ok: true, html: string, data: Record<string, unknown> } | { ok: false, error: string }}
- */
-function buildArtifactDesignLayout(spec) {
-  if (!isPlainObject(spec)) {
-    return { ok: false, error: 'spec must be a JSON object' };
-  }
-  const o = /** @type {Record<string, unknown>} */ (spec);
-
-  const header = parseHeader(o);
-  if (header.error) return { ok: false, error: header.error };
-
-  const tabsResult = parseTabs(o);
-  if (tabsResult.error) return { ok: false, error: tabsResult.error };
-  const tabs = tabsResult.tabs;
-
-  const panelsResult = validatePanels(o.panels, tabs);
-  if (panelsResult.error) return { ok: false, error: panelsResult.error };
-  const panels = /** @type {Record<string, unknown>} */ (o.panels);
-
-  const activeTab = resolveActiveTab(o, tabs);
-
-  const bodyHtml =
-    `<div class="dome-design-root" style="padding:var(--space-4);max-width:920px;margin:0 auto;">` +
-    renderHeader(header.title, header.subtitle, header.titleEmoji) +
-    renderTabList(tabs, activeTab) +
-    renderPanelSections(tabs, panels, activeTab) +
-    `</div>`;
 
   const html =
-    `<style id="dome-design-layout-style">${renderBadgeCss()}</style>` +
+    `<style id="dome-design-layout-style">${badgeCss}</style>` +
     bodyHtml +
-    `<script>${renderClientScript()}</script>`;
+    `<script>${script}</script>`;
 
   const data = {
     activeTab,

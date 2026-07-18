@@ -1,20 +1,32 @@
 import { useTranslation } from 'react-i18next';
-import { ChevronRight } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowRight01Icon, Calendar03Icon } from '@hugeicons/core-free-icons';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-function formatFeedTime(event: CalendarEvent, locale: string): { time: string; ampm?: string } {
+function formatFeedTime(event: CalendarEvent, locale: string): string {
   const start = new Date(event.start_at);
-  if (event.all_day) {
-    return {
-      time: start.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' }),
-    };
-  }
-  const hours = start.getHours();
-  const h12 = hours % 12 || 12;
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const minutes = String(start.getMinutes()).padStart(2, '0');
-  return { time: `${h12}:${minutes}`, ampm };
+  if (event.all_day) return start.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' });
+  return start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 export function CalendarUpcoming({
@@ -28,64 +40,61 @@ export function CalendarUpcoming({
   const locale = getDateTimeLocaleTag();
 
   return (
-    <aside className={`c-calendar-sidebar${events.length === 0 ? ' is-empty' : ''}`}>
-      <div className="h-today">
-        <div className="h-today-hd">
-          <h2 className="h-today-title">{t('calendarPage.upcoming')}</h2>
-          <span className="h-today-count">{t('dashboard.today_count', { count: events.length })}</span>
-        </div>
-        <p className="h-today-sub">{t('calendarPage.upcoming_hint')}</p>
-
+    <Card className="flex h-full min-h-0 flex-col gap-0 overflow-hidden py-0 shadow-none">
+      <CardHeader className="shrink-0 border-b px-4 py-3">
+        <CardTitle className="flex items-center justify-between text-sm">
+          {t('calendarPage.upcoming')}
+          <span className="text-xs font-normal tabular-nums text-muted-foreground">
+            {events.length}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="min-h-0 flex-1 p-0">
         {events.length === 0 ? (
-          <p className="h-feed-empty">{t('calendarPage.no_upcoming')}</p>
+          <Empty className="min-h-44 border-0 p-4">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={Calendar03Icon} />
+              </EmptyMedia>
+              <EmptyTitle>{t('calendarPage.no_upcoming')}</EmptyTitle>
+              <EmptyDescription>{t('calendarPage.upcoming_hint')}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="h-feed">
-            {events.map((event) => {
-              const { time, ampm } = formatFeedTime(event, locale);
-              const dateLabel = new Date(event.start_at).toLocaleDateString(locale, {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              });
-              return (
-                <button
-                  key={event.id}
-                  type="button"
-                  className="h-feed-item"
-                  onClick={() => onEventClick(event)}
-                >
-                  <div className="h-feed-time">
-                    {time}
-                    {ampm ? <span className="ampm">{ampm}</span> : null}
-                  </div>
-                  <div className="h-feed-body">
-                    <div className="h-feed-title">{event.title}</div>
-                    <div className="h-feed-meta">
-                      <span
-                        className="tag"
-                        style={
-                          event.calendar_color
-                            ? {
-                                borderColor: event.calendar_color,
-                                color: event.calendar_color,
-                                background: `color-mix(in srgb, ${event.calendar_color} 12%, transparent)`,
-                              }
-                            : undefined
-                        }
-                      >
-                        {event.calendar_title ?? t('calendarPage.title')}
-                      </span>
-                      <span className="dotsep" aria-hidden />
-                      <span>{dateLabel}</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-feed-arrow" size={16} strokeWidth={2} aria-hidden />
-                </button>
-              );
-            })}
-          </div>
+          <ScrollArea className="h-full">
+            <ItemGroup className="gap-1 p-2">
+              {events.map((event) => (
+                <Item key={event.id} size="xs" variant="default">
+                  <ItemMedia className="w-14 justify-start text-xs tabular-nums text-muted-foreground">
+                    {formatFeedTime(event, locale)}
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{event.title}</ItemTitle>
+                    <ItemDescription>
+                      {new Date(event.start_at).toLocaleDateString(locale, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={() => onEventClick(event)}
+                      aria-label={event.title}
+                    >
+                      <HugeiconsIcon icon={ArrowRight01Icon} />
+                    </Button>
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          </ScrollArea>
         )}
-      </div>
-    </aside>
+      </CardContent>
+    </Card>
   );
 }

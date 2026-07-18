@@ -193,5 +193,7 @@
   "viewer_corrupt_title": "No se pudo mostrar este contenido",
   "viewer_corrupt_sub": "El contenido generado parece incompleto o inválido. Intenta generarlo de nuevo.",
   "viewer_empty_title": "Nada que mostrar todavía",
-  "viewer_empty_sub": "Este elemento aún no tiene contenido."
+  "viewer_empty_sub": "Este elemento aún no tiene contenido.",
+  "agent_ask_many": "Preguntar a Many",
+  "agent_prompt": "Ayúdame a planificar el estudio: qué mazos revisar, qué generar y un plan corto de práctica."
 }

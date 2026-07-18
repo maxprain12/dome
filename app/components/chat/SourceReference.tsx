@@ -1,5 +1,7 @@
 
-import { FileText, Bookmark, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Bookmark01Icon, CheckmarkCircle02Icon, File02Icon, PlusSignCircleIcon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import { useManyStore } from '@/lib/store/useManyStore';
 import './source-reference.css';
 
@@ -24,36 +26,29 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
   if (!sources || sources.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: 'var(--tertiary-text)',
-          marginBottom: 8,
-          textTransform: 'uppercase',
-          letterSpacing: '0.07em',
-        }}
-      >
+    <div className="mt-3 border-t pt-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Sources
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      <div className="flex flex-wrap gap-1.5">
         {sources.map((source) => {
           const isPinned = pinnedIds.has(source.id);
           return (
-            <div key={source.number} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
+            <div key={source.number} className="flex items-center gap-1">
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => onClickSource?.(source)}
-                className="source-ref-btn"
+                className="source-ref-btn h-auto max-w-64 justify-start gap-1.5 rounded-xl px-2 py-1"
                 title={[source.title, source.pageLabel, source.nodeTitle].filter(Boolean).join(' · ')}
               >
                 <span className="source-ref-number">
                   {source.number}
                 </span>
-                <FileText style={{ width: 12, height: 12, flexShrink: 0, color: 'var(--tertiary-text)' }} />
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, display: 'block' }}>
+                <HugeiconsIcon icon={File02Icon} className="size-3 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="block max-w-48 truncate">
                     {source.title}
                   </span>
                   {source.nodeTitle && (
@@ -63,17 +58,19 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                   )}
                 </span>
                 {source.pageLabel ? (
-                  <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, color: 'var(--accent)', fontWeight: 500 }}>
-                    <Bookmark style={{ width: 10, height: 10 }} />
+                  <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-primary">
+                    <HugeiconsIcon icon={Bookmark01Icon} className="size-2.5" />
                     {source.pageLabel.replace(/^págs?\.\s*/i, 'p. ')}
                   </span>
                 ) : null}
-              </button>
+              </Button>
 
               {/* Add-to-context button */}
               {source.id && (
-                <button
+                <Button
                   type="button"
+                  variant={isPinned ? 'secondary' : 'ghost'}
+                  size="icon-xs"
                   onClick={() => {
                     if (isPinned) {
                       removePinnedResource(source.id);
@@ -85,10 +82,10 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                   className={`source-ref-pin-btn ${isPinned ? 'is-pinned' : 'is-unpinned'}`}
                 >
                   {isPinned
-                    ? <CheckCircle2 style={{ width: 13, height: 13 }} />
-                    : <PlusCircle style={{ width: 13, height: 13 }} />
+                    ? <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" />
+                    : <HugeiconsIcon icon={PlusSignCircleIcon} className="size-3.5" />
                   }
-                </button>
+                </Button>
               )}
             </div>
           );

@@ -70,7 +70,8 @@ const ListEnvelopesSchema = z.object({
   projectId: z.string().min(1).optional(),
   folder: z.string().optional(),
   page: z.number().int().positive().optional(),
-  pageSize: z.number().int().positive().max(200).optional(),
+  pageSize: z.number().int().positive().max(500).optional(),
+  source: z.enum(['auto', 'cache', 'live']).optional(),
 });
 
 const ReadMessageSchema = z.object({
@@ -85,7 +86,7 @@ const SearchSchema = z.object({
   projectId: z.string().min(1).optional(),
   query: z.string().optional(),
   folder: z.string().optional(),
-  pageSize: z.number().int().positive().max(200).optional(),
+  pageSize: z.number().int().positive().max(500).optional(),
 });
 
 const SendSchema = z.object({
@@ -196,11 +197,49 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = ListEnvelopesSchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params', envelopes: [] };
-      const { accountId, folder, page, pageSize, projectId } = parsed.data;
-      return await emailService.listEnvelopes(accountId ?? null, { folder, page, pageSize, projectId });
+      const { accountId, folder, page, pageSize, projectId, source } = parsed.data;
+      return await emailService.listEnvelopes(accountId ?? null, {
+        folder,
+        page,
+        pageSize,
+        projectId,
+        source: source ?? 'auto',
+      });
     } catch (err) {
       console.error('[Email IPC] listEnvelopes error:', err);
       return fail(err, { envelopes: [] });
+    }
+  });
+
+  ipcMain.handle('email:sync:now', async (event, params) => {
+    try {
+      guard(event);
+      const syncService = require('../../email/email-sync-service.cjs');
+      return await syncService.syncNow({
+        accountId: params?.accountId ?? null,
+        projectId: params?.projectId ?? null,
+      });
+    } catch (err) {
+      console.error('[Email IPC] sync:now error:', err);
+      return fail(err);
+    }
+  });
+
+  ipcMain.handle('email:sync:status', (event, params) => {
+    try {
+      guard(event);
+      const syncService = require('../../email/email-sync-service.cjs');
+      const emailStore = require('../../email/email-store.cjs');
+      const accountId = params?.accountId ?? null;
+      return {
+        success: true,
+        data: {
+          ...syncService.getStatus(),
+          folders: accountId ? emailStore.getSyncStatus(accountId) : [],
+        },
+      };
+    } catch (err) {
+      return fail(err);
     }
   });
 

@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
 import {
   startOfWeek, endOfWeek,
   startOfYear, endOfYear, startOfMonth, endOfMonth,
 } from 'date-fns';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import type { EventDateChangePayload } from '@/components/calendar/CalendarGrid';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import EventModal from '@/components/calendar/EventModal';
 import DayEventsModal from '@/components/calendar/DayEventsModal';
 import { CalendarHero } from '@/components/calendar/CalendarHero';
@@ -20,6 +18,22 @@ import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getEventsForDay } from '@/lib/calendar/dayEvents';
+import { cn } from '@/lib/utils';
+
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
+import { Toggle } from '@/components/ui/toggle';
 
 type CalRow = { id: string; title: string; color?: string; account_id?: string; is_selected?: boolean };
 
@@ -104,6 +118,7 @@ const loadCalendars = useCallback(async () => {
     const r = await window.electron.calendar.listCalendars({ projectId });
     if (r.success && r.calendars) {
       const rows = r.calendars as CalRow[];
+      setCalendars(rows);
       const rowIds = new Set(rows.map((c) => c.id));
       const isVisibleCalendar = (id: string) => rowIds.has(id);
       setVisibleCalendarIds((prev) => {
@@ -309,14 +324,19 @@ const loadCalendars = useCallback(async () => {
     start_at: string;
     end_at: string;
     all_day: boolean;
+    metadata?: Record<string, unknown>;
   }) => {
-    if (!window.electron?.calendar) return;
-    if (selectedEvent) {
-      await window.electron.calendar.updateEvent(selectedEvent.id, data);
-    } else {
-      await window.electron.calendar.createEvent({ ...data, projectId });
+    if (!window.electron?.calendar) {
+      throw new Error(t('calendarPage.import_error'));
     }
-    loadEvents();
+    const result = selectedEvent
+      ? await window.electron.calendar.updateEvent(selectedEvent.id, data)
+      : await window.electron.calendar.createEvent({ ...data, projectId });
+    if (!result.success) {
+      throw new Error(result.error || t('calendarPage.import_error'));
+    }
+    void loadEvents();
+    void loadUpcoming();
   };
 
   const handleDelete = async (eventId: string) => {
@@ -335,106 +355,136 @@ const loadCalendars = useCallback(async () => {
         : t('calendarPage.sync_never');
 
   return (
-    <div className="home-shell c-calendar-shell">
-      <div className="home-scroll">
-        <div className="home-canvas">
-          <CalendarHero
-            syncHint={syncHint}
-            syncing={syncing}
-            upcomingCount={upcomingEvents.length}
-            onOpenSettings={openCalendarSettings}
-            onImport={() => void openImport()}
-            onSync={() => void handleSyncNow()}
-            onNewEvent={openNewEvent}
-          />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <CalendarHero
+        syncHint={syncHint}
+        syncing={syncing}
+        upcomingCount={upcomingEvents.length}
+        onOpenSettings={openCalendarSettings}
+        onImport={() => void openImport()}
+        onSync={() => void handleSyncNow()}
+        onNewEvent={openNewEvent}
+      />
 
-          {calendars.length > 0 ? (
-            <div className="c-calendar-filters">
-              <span className="c-calendar-filters-label">{t('calendarPage.filter_calendars')}</span>
-              {calendars.map((c) => {
-                const on = visibleCalendarIds.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => toggleCalendarFilter(c.id)}
-                    className={`c-calendar-filter-chip ${on ? 'is-on' : 'is-off'}`}
-                    style={{ borderColor: c.color || undefined }}
-                  >
-                    {c.title}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <div className="c-calendar-body">
-            <div className="c-calendar-main">
-              {loading ? (
-                <div className="c-calendar-loading">
-                  <Loader2 className="size-7 animate-spin" aria-hidden />
-                </div>
-              ) : (
-                <div className="c-calendar-grid-panel">
-                  <CalendarGrid
-                    currentDate={currentDate}
-                    viewMode={viewMode}
-                    events={events}
-                    onCurrentDateChange={setCurrentDate}
-                    onViewModeChange={setViewMode}
-                    onDayClick={handleDayClick}
-                    onEventClick={handleEventClick}
-                    onEventDateChange={handleEventDateChange}
-                  />
-                </div>
-              )}
-            </div>
-
-            <CalendarUpcoming events={upcomingEvents} onEventClick={handleEventClick} />
-          </div>
+      {calendars.length > 0 ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-4 py-2 md:px-5">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t('calendarPage.filter_calendars')}
+          </span>
+          {calendars.map((c) => {
+            const on = visibleCalendarIds.includes(c.id);
+            return (
+              <Toggle
+                key={c.id}
+                variant="outline"
+                size="sm"
+                pressed={on}
+                onPressedChange={() => toggleCalendarFilter(c.id)}
+                className={cn('h-6 rounded-full px-2.5 text-[11px]', !on && 'opacity-50')}
+                style={{ borderColor: c.color || undefined }}
+              >
+                {c.title}
+              </Toggle>
+            );
+          })}
         </div>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 md:flex-row md:p-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
+              <Spinner className="size-7" aria-hidden />
+            </div>
+          ) : (
+            <CalendarGrid
+              currentDate={currentDate}
+              viewMode={viewMode}
+              events={events}
+              onCurrentDateChange={setCurrentDate}
+              onViewModeChange={setViewMode}
+              onDayClick={handleDayClick}
+              onEventClick={(ev) => void handleEventClick(ev)}
+              onEventDateChange={(p) => void handleEventDateChange(p)}
+            />
+          )}
+        </div>
+
+        {showModal ? (
+          <div className="flex h-[min(70vh,32rem)] min-h-0 w-full shrink-0 flex-col md:h-auto md:w-72 lg:w-80">
+            <EventModal
+              key={selectedEvent?.id ?? `new-${initialModalDate?.getTime() ?? 'blank'}`}
+              event={selectedEvent}
+              initialDate={initialModalDate}
+              onClose={() => {
+                setShowModal(false);
+                setSelectedEvent(null);
+              }}
+              onSave={handleSave}
+              onDelete={selectedEvent ? handleDelete : undefined}
+            />
+          </div>
+        ) : (
+          <aside className="h-64 shrink-0 md:h-auto md:w-72 lg:w-80">
+            <CalendarUpcoming
+              events={upcomingEvents}
+              onEventClick={(ev) => void handleEventClick(ev)}
+            />
+          </aside>
+        )}
       </div>
 
       {showImport && importPreview ? (
-        <dialog
-          open
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
-          aria-modal="true"
-          aria-labelledby="calendar-import-dialog-title"
-          onCancel={(e) => { e.preventDefault(); setShowImport(false); }}
-        >
-          <div className="p-projects-modal">
-            <h3 id="calendar-import-dialog-title" className="p-projects-modal-title">
-              {t('calendarPage.import_title')}
-            </h3>
-            <p className="p-projects-modal-body">
-              {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
-            </p>
-            <DomeSelectMenu
-              label={t('calendarPage.import_target')}
-              value={importTargetId}
-              onChange={setImportTargetId}
-              options={calendars.map((c) => ({ value: c.id, label: c.title }))}
-            />
-            <label className="c-calendar-modal-check mt-3">
-              <input type="checkbox" checked={importSkipDup} onChange={(e) => setImportSkipDup(e.target.checked)} />
+        <Dialog open onOpenChange={(next) => { if (!next && !importBusy) setShowImport(false); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('calendarPage.import_title')}</DialogTitle>
+              <DialogDescription>
+                {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
+              </DialogDescription>
+            </DialogHeader>
+
+            <Field className="gap-1.5">
+              <FieldLabel className="text-xs">{t('calendarPage.import_target')}</FieldLabel>
+              <Select
+                value={importTargetId || null}
+                onValueChange={(next) => { if (next != null) setImportTargetId(String(next)); }}
+                items={calendars.map((c) => ({ value: c.id, label: c.title }))}
+              >
+                <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {calendars.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="block truncate">{c.title}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <FieldLabel className="flex items-center gap-2 text-sm font-normal">
+              <Checkbox
+                checked={importSkipDup}
+                onCheckedChange={(checked) => setImportSkipDup(checked === true)}
+              />
               {t('calendarPage.import_skip_dup')}
-            </label>
-            <div className="p-projects-modal-actions">
-              <button type="button" disabled={importBusy} onClick={() => setShowImport(false)} className="h-pill-btn">
+            </FieldLabel>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={importBusy} onClick={() => setShowImport(false)}>
                 {t('common.cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={importBusy || importPreview.events.length === 0}
+                loading={importBusy}
                 onClick={() => void runImport()}
-                className="h-pill-btn primary"
               >
-                {importBusy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : t('calendarPage.import_confirm')}
-              </button>
-            </div>
-          </div>
-        </dialog>
+                {t('calendarPage.import_confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {dayModalDate ? (
@@ -456,18 +506,7 @@ const loadCalendars = useCallback(async () => {
         />
       ) : null}
 
-      {showModal ? (
-        <EventModal
-          event={selectedEvent}
-          initialDate={initialModalDate}
-          onClose={() => {
-            setShowModal(false);
-            setSelectedEvent(null);
-          }}
-          onSave={handleSave}
-          onDelete={selectedEvent ? handleDelete : undefined}
-        />
-      ) : null}
     </div>
   );
 }
+

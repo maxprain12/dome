@@ -1,5 +1,8 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
 
 export type RelationChipVariant = 'tag' | 'mention' | 'url';
 
@@ -68,14 +71,14 @@ export default function RelationChip({
           <span
             className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
             style={{
-              background: accentColor ?? 'var(--dome-accent-bg)',
-              color: 'var(--dome-text)',
+              background: accentColor ?? 'color-mix(in srgb, var(--primary) 12%, transparent)',
+              color: 'var(--foreground)',
             }}
           >
             #{title}
           </span>
         ) : (
-          <p className="text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
+          <p className="text-sm font-medium truncate text-foreground">
             {title}
           </p>
         )}
@@ -83,8 +86,8 @@ export default function RelationChip({
           <span
             className="text-[10px] px-1.5 py-0 rounded-full shrink-0 font-medium"
             style={{
-              background: 'var(--dome-accent-bg)',
-              color: 'var(--dome-text-muted)',
+              background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+              color: 'var(--muted-foreground)',
             }}
             title={t('workspace.relations_similarity_hint')}
           >
@@ -95,8 +98,8 @@ export default function RelationChip({
           <span
             className="text-[10px] px-1.5 py-0 rounded-full shrink-0 font-medium capitalize"
             style={{
-              background: 'var(--dome-bg-hover)',
-              color: 'var(--dome-text-muted)',
+              background: 'var(--accent)',
+              color: 'var(--muted-foreground)',
             }}
           >
             {stateLabel}
@@ -104,7 +107,7 @@ export default function RelationChip({
         ) : null}
       </div>
       {typeHint && variant !== 'tag' ? (
-        <p className="text-[11px] mt-0.5 truncate w-full" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-[11px] mt-0.5 truncate w-full text-muted-foreground">
           {typeHint}
         </p>
       ) : null}
@@ -115,15 +118,15 @@ export default function RelationChip({
     <div
       className="group flex items-stretch gap-2 min-w-0 rounded-lg border"
       style={{
-        background: 'var(--dome-surface)',
-        borderColor: 'var(--dome-border)',
+        background: 'var(--card)',
+        borderColor: 'var(--border)',
       }}
     >
       {onOpen ? (
         <button
           type="button"
           onClick={onOpen}
-          className="flex-1 min-w-0 text-left px-2.5 py-1.5 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2 rounded-lg flex flex-col justify-center"
+          className="flex-1 min-w-0 text-left px-2.5 py-1.5 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg flex flex-col justify-center"
         >
           {body}
         </button>
@@ -138,14 +141,14 @@ export default function RelationChip({
             onRemove();
           }}
           disabled={removeDisabled}
-          className="px-2 rounded-lg shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--dome-bg-hover)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] disabled:opacity-40 self-stretch flex items-center"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="px-2 rounded-lg shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40 self-stretch flex items-center"
+          style={{ color: 'var(--muted-foreground)' }}
           aria-label="Remove"
         >
           {removeDisabled ? (
             <span className="inline-block size-3.5 border border-current border-t-transparent rounded-full animate-spin" />
           ) : (
-            <X size={14} />
+            <HugeiconsIcon icon={Cancel01Icon} size={14} />
           )}
         </button>
       ) : null}

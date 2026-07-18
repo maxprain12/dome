@@ -1,73 +1,87 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-} from 'react';
-import ReactDOM from 'react-dom';
+  Activity01Icon,
+  BookOpen01Icon,
+  BotIcon,
+  BubbleChatIcon,
+  Calendar03Icon,
+  Cancel01Icon,
+  File01Icon,
+  FileEditIcon,
+  FolderOpenIcon,
+  GlobeIcon,
+  HierarchySquare01Icon,
+  Home01Icon,
+  Layers01Icon,
+  LayoutTable01Icon,
+  Mail01Icon,
+  Mic01Icon,
+  MoreHorizontalIcon,
+  PlusSignIcon,
+  Presentation01Icon,
+  Settings01Icon,
+  SparklesIcon,
+  Store01Icon,
+  Tag01Icon,
+  Task01Icon,
+  WalletCardsIcon,
+  WorkflowSquare01Icon,
+  YoutubeIcon,
+  ZapIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  Home,
-  Settings,
-  Calendar,
-  MessageCircle,
-  FileEdit,
-  BookOpen,
-  Globe,
-  Youtube,
-  Presentation,
-  File,
-  X,
-  Plus,
-  Sparkles,
-  WalletCards,
-  Tag,
-  Store,
-  Zap,
-  FolderOpen,
-  Bot,
-  Workflow,
-  Activity,
-  Mail,
-  ListTodo,
-  Network,
-  LayoutTemplate,
-  MoreHorizontal,
-  ChevronLeft,
-  Layers,
-  Mic,
-} from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
+
+import { Button } from '@/components/ui/button';
 import {
-  useTabStore,
-  type DomeTab,
-  HOME_TAB_ID,
-  SETTINGS_TAB_ID,
-  CALENDAR_TAB_ID,
-  GITHUB_TAB_ID,
-  EMAIL_TAB_ID,
-  STUDIO_TAB_ID,
-  FLASHCARDS_TAB_ID,
-  LEARN_TAB_ID,
-  TAGS_TAB_ID,
-  MARKETPLACE_TAB_ID,
-  AGENTS_TAB_ID,
-  WORKFLOWS_TAB_ID,
-  AUTOMATIONS_TAB_ID,
-  RUNS_TAB_ID,
-  PROJECTS_TAB_ID,
-  TRANSCRIPTIONS_TAB_ID,
-  isTabStripVisible,
-} from '@/lib/store/useTabStore';
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { FOLDER_COLOR_SWATCHES } from '@/components/home/FolderColorPicker';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
-import { FOLDER_COLOR_SWATCHES } from '@/components/home/FolderColorPicker';
-import DomeDivider from '@/components/ui/DomeDivider';
+import {
+  AGENTS_TAB_ID,
+  AUTOMATIONS_TAB_ID,
+  CALENDAR_TAB_ID,
+  EMAIL_TAB_ID,
+  FLASHCARDS_TAB_ID,
+  GITHUB_TAB_ID,
+  HOME_TAB_ID,
+  LEARN_TAB_ID,
+  MARKETPLACE_TAB_ID,
+  PROJECTS_TAB_ID,
+  RUNS_TAB_ID,
+  SETTINGS_TAB_ID,
+  STUDIO_TAB_ID,
+  TAGS_TAB_ID,
+  TRANSCRIPTIONS_TAB_ID,
+  WORKFLOWS_TAB_ID,
+  isTabStripVisible,
+  type DomeTab,
+  useTabStore,
+} from '@/lib/store/useTabStore';
+import { cn } from '@/lib/utils';
 
-/** Fixed-id hub tabs — icon-only when inactive in compact mode */
 const HUB_TAB_IDS = new Set([
   HOME_TAB_ID,
   SETTINGS_TAB_ID,
@@ -87,50 +101,61 @@ const HUB_TAB_IDS = new Set([
   TRANSCRIPTIONS_TAB_ID,
 ]);
 
-/** Extra width (px) each open tab adds to the compact threshold */
 const COMPACT_WIDTH_PER_TAB = 76;
-/** Total strip width (px) at/below which the hub collapses to icons (≤3 tabs) */
 const COMPACT_STRIP_WIDTH = 640;
-/** Dead-band (px) so the compact decision never flip-flops around the threshold */
 const COMPACT_HYSTERESIS = 60;
 
-function TabIcon({ tab }: { tab: DomeTab }) {
-  const cls = 'size-3.5 shrink-0';
-  const sw = 1.75;
+function getTabIcon(tab: DomeTab): IconSvgElement {
   switch (tab.type) {
-    case 'home': return <Home className={cls} strokeWidth={sw} />;
-    case 'projects': return <Layers className={cls} strokeWidth={sw} />;
-    case 'settings': return <Settings className={cls} strokeWidth={sw} />;
-    case 'calendar': return <Calendar className={cls} strokeWidth={sw} />;
-    case 'github': return <ListTodo className={cls} strokeWidth={sw} />;
-    case 'email': return <Mail className={cls} strokeWidth={sw} />;
-    case 'chat': return <MessageCircle className={cls} strokeWidth={sw} />;
-    case 'note': return <FileEdit className={cls} strokeWidth={sw} />;
-    case 'notebook': return <BookOpen className={cls} strokeWidth={sw} />;
-    case 'url': return <Globe className={cls} strokeWidth={sw} />;
-    case 'youtube': return <Youtube className={cls} strokeWidth={sw} />;
-    case 'ppt': return <Presentation className={cls} strokeWidth={sw} />;
-    case 'resource': return <File className={cls} strokeWidth={sw} />;
-    case 'studio': return <Sparkles className={cls} strokeWidth={sw} />;
-    case 'flashcards': return <WalletCards className={cls} strokeWidth={sw} />;
-    case 'tags': return <Tag className={cls} strokeWidth={sw} />;
-    case 'marketplace': return <Store className={cls} strokeWidth={sw} />;
-    case 'pipelines': return <Workflow className={cls} strokeWidth={sw} />;
-    case 'agents': return <Bot className={cls} strokeWidth={sw} />;
-    case 'workflows': return <Workflow className={cls} strokeWidth={sw} />;
-    case 'automations': return <Zap className={cls} strokeWidth={sw} />;
-    case 'runs': return <Activity className={cls} strokeWidth={sw} />;
-    case 'folder': return <FolderOpen className={cls} strokeWidth={sw} style={tab.color ? { color: tab.color } : undefined} />;
-    case 'learn': return <BookOpen className={cls} strokeWidth={sw} />;
+    case 'home': return Home01Icon;
+    case 'projects': return Layers01Icon;
+    case 'settings': return Settings01Icon;
+    case 'calendar': return Calendar03Icon;
+    case 'github': return Task01Icon;
+    case 'email': return Mail01Icon;
+    case 'chat': return BubbleChatIcon;
+    case 'note': return FileEditIcon;
+    case 'notebook': return BookOpen01Icon;
+    case 'url': return GlobeIcon;
+    case 'youtube': return YoutubeIcon;
+    case 'ppt': return Presentation01Icon;
+    case 'studio': return SparklesIcon;
+    case 'flashcards': return WalletCardsIcon;
+    case 'tags': return Tag01Icon;
+    case 'marketplace': return Store01Icon;
+    case 'pipelines':
+    case 'workflows': return WorkflowSquare01Icon;
+    case 'agents': return BotIcon;
+    case 'automations': return ZapIcon;
+    case 'runs': return Activity01Icon;
+    case 'folder': return FolderOpenIcon;
+    case 'learn': return BookOpen01Icon;
     case 'transcriptions':
-    case 'transcription-detail':
-      return <Mic className={cls} strokeWidth={sw} />;
-    case 'semantic-graph':
-      return <Network className={cls} strokeWidth={sw} />;
-    case 'artifact':
-      return <LayoutTemplate className={cls} strokeWidth={sw} />;
-    default: return <File className={cls} strokeWidth={sw} />;
+    case 'transcription-detail': return Mic01Icon;
+    case 'semantic-graph': return HierarchySquare01Icon;
+    case 'artifact': return LayoutTable01Icon;
+    default: return File01Icon;
   }
+}
+
+function TabIcon({ tab }: { tab: DomeTab }) {
+  if (tab.type === 'folder' && tab.color) {
+    return (
+      <HugeiconsIcon
+        icon={getTabIcon(tab)}
+        className="size-3.5 shrink-0"
+        style={{ color: tab.color }}
+        strokeWidth={1.75}
+        fill={`${tab.color}33`}
+      />
+    );
+  }
+  return (
+    <HugeiconsIcon
+      icon={getTabIcon(tab)}
+      className={tab.type === 'folder' ? 'text-primary' : undefined}
+    />
+  );
 }
 
 function parseResourceMetadata(raw: unknown): Record<string, unknown> {
@@ -142,653 +167,385 @@ function parseResourceMetadata(raw: unknown): Record<string, unknown> {
       return {};
     }
   }
-  if (typeof raw === 'object') return { ...(raw as Record<string, unknown>) };
-  return {};
+  return typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : {};
 }
 
 async function persistFolderTabColor(tab: DomeTab, color: string): Promise<void> {
   if (tab.type !== 'folder' || !tab.resourceId || !window.electron?.db?.resources) return;
-  const res = await window.electron.db.resources.getById(tab.resourceId);
-  if (!res?.success || !res.data) return;
-  const meta = parseResourceMetadata(res.data.metadata);
+  const result = await window.electron.db.resources.getById(tab.resourceId);
+  if (!result?.success || !result.data) return;
   await window.electron.db.resources.update({
     id: tab.resourceId,
-    metadata: { ...meta, color },
+    metadata: { ...parseResourceMetadata(result.data.metadata), color },
     updated_at: Date.now(),
   });
   useTabStore.getState().updateTab(tab.id, { color });
 }
 
-type TabCtxState = {
-  x: number;
-  y: number;
-  tab: DomeTab;
-  view: 'main' | 'colors';
-};
-
-interface TabItemProps {
-  tab: DomeTab;
-  isActive: boolean;
-  iconOnly: boolean;
-  onActivate: () => void;
-  onClose: () => void;
-  onContextMenu: (e: ReactMouseEvent, tab: DomeTab) => void;
-}
-
-function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }: TabItemProps) {
-  const { t } = useTranslation();
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const displayTitle = getDomeTabDisplayTitle(tab, t);
-  const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
-  const accentColor = folderColor ?? 'var(--dome-accent)';
-  const isHubTab = HUB_TAB_IDS.has(tab.id);
-  const prevIsActiveRef = useRef(isActive);
-  if (isActive && !prevIsActiveRef.current) {
-    btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
-  }
-  prevIsActiveRef.current = isActive;
-  return (
-    <button
-      ref={btnRef}
-      type="button"
-      role="tab"
-      aria-selected={isActive}
-      aria-label={displayTitle}
-      tabIndex={isActive ? 0 : -1}
-      onClick={onActivate}
-      onContextMenu={(e) => onContextMenu(e, tab)}
-      data-ui-target={`tab-${tab.type}`}
-      className="dome-tab-item"
-      data-active={isActive ? 'true' : 'false'}
-      data-hub={isHubTab ? 'true' : 'false'}
-      data-icon-only={iconOnly ? 'true' : 'false'}
-      data-has-accent={folderColor ? 'true' : 'false'}
-      title={iconOnly ? displayTitle : undefined}
-      style={{ ['--dome-tab-accent' as string]: accentColor }}
-    >
-      <TabIcon tab={tab} />
-      <span className="dome-tab-item-title">{displayTitle}</span>
-      {!tab.pinned && (
-        // Close control lives inside the tab button — nested <button> is invalid HTML.
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-        <span
-          tabIndex={-1}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.stopPropagation();
-              onClose();
-            }
-          }}
-          className="dome-tab-close"
-          aria-label={t('workspace.close_tab', { title: displayTitle })}
-        >
-          <X className="size-3" strokeWidth={2} />
-        </span>
-      )}
-    </button>
-  );
-}
-
-interface DomeTabBarProps {
-  onNewChat?: () => void;
-}
-
-export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
+function TabActions({ tab }: { tab: DomeTab }) {
   const { t } = useTranslation();
   const {
-    tabs,
     activeTabId,
-    activateTab,
-    closeTab,
-    closeAllUnpinnedTabs,
-    closeAllTabsToHome,
-  } = useTabStore(
-    useShallow((s) => ({
-      tabs: s.tabs,
-      activeTabId: s.activeTabId,
-      activateTab: s.activateTab,
-      closeTab: s.closeTab,
-      closeAllUnpinnedTabs: s.closeAllUnpinnedTabs,
-      closeAllTabsToHome: s.closeAllTabsToHome,
-    })),
-  );
-
-  const stripTabs = useMemo(() => tabs.filter(isTabStripVisible), [tabs]);
-
-  const stripRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useHorizontalScroll(scrollRef);
-
-  const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
-  const [needsCompactLayout, setNeedsCompactLayout] = useState(false);
-  const [scrollFade, setScrollFade] = useState({ left: false, right: false });
-  const [ctxMenu, setCtxMenu] = useState<TabCtxState | null>(null);
-  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
-  const [overflowAnchor, setOverflowAnchor] = useState<{ top: number; left: number } | null>(null);
-  const overflowWrapRef = useRef<HTMLDivElement>(null);
-  const overflowBtnRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    const strip = stripRef.current;
-    if (!el) return;
-
-    let raf2 = 0;
-
-    const measure = () => {
-      const scrollClient = el.clientWidth;
-
-      // Compact decision uses ONLY the stable total strip width (set by the
-      // parent flex, independent of whether hub tabs show labels) plus the tab
-      // count, with hysteresis. It must NOT use the inner scroll width or any
-      // content-derived signal (overflow/truncation), because those change when
-      // compact mode is applied and would feed back into a size oscillation.
-      const stripW = strip?.clientWidth ?? scrollClient;
-      const compactThreshold =
-        COMPACT_STRIP_WIDTH + Math.max(0, stripTabs.length - 3) * COMPACT_WIDTH_PER_TAB;
-      setNeedsCompactLayout((prev) =>
-        prev ? stripW < compactThreshold + COMPACT_HYSTERESIS : stripW < compactThreshold,
-      );
-
-      // Overflow + scroll fades concern the scrollable tab strip only and never
-      // influence compactness.
-      setHasHorizontalOverflow(el.scrollWidth > scrollClient + 1);
-      setScrollFade({
-        left: el.scrollLeft > 1,
-        right: el.scrollLeft + scrollClient < el.scrollWidth - 1,
-      });
-    };
-
-    const scheduleMeasure = () => {
-      measure();
-      raf2 = window.requestAnimationFrame(measure);
-    };
-
-    scheduleMeasure();
-    const ro = new ResizeObserver(scheduleMeasure);
-    ro.observe(el);
-    if (strip) ro.observe(strip);
-    el.addEventListener('scroll', measure, { passive: true });
-    return () => {
-      window.cancelAnimationFrame(raf2);
-      ro.disconnect();
-      el.removeEventListener('scroll', measure);
-    };
-  }, [stripTabs.length, activeTabId]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey;
-      if (!mod) return;
-
-      // Ctrl/Cmd+Tab — cycle through strip tabs (sidebar nav tabs are hidden)
-      if (e.key === 'Tab' && stripTabs.length >= 2) {
-        e.preventDefault();
-        let idx = stripTabs.findIndex((tab) => tab.id === activeTabId);
-        if (idx < 0) idx = 0;
-        const nextIdx = e.shiftKey
-          ? (idx - 1 + stripTabs.length) % stripTabs.length
-          : (idx + 1) % stripTabs.length;
-        activateTab(stripTabs[nextIdx].id);
-        return;
-      }
-
-      // Ctrl/Cmd+W — close the active tab (pinned/home tabs stay open)
-      if ((e.key === 'w' || e.key === 'W') && !e.shiftKey && !e.altKey) {
-        const active = tabs.find((tab) => tab.id === activeTabId);
-        if (active && !active.pinned && active.id !== HOME_TAB_ID) {
-          e.preventDefault();
-          closeTab(active.id);
-        }
-        return;
-      }
-
-      // Ctrl/Cmd+1..9 — jump to tab N (9 = last tab, like browsers)
-      if (!e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '9') {
-        const n = Number(e.key);
-        const target = n === 9 ? stripTabs[stripTabs.length - 1] : stripTabs[n - 1];
-        if (target) {
-          e.preventDefault();
-          activateTab(target.id);
-        }
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [tabs, stripTabs, activeTabId, activateTab, closeTab]);
-
-  /* WAI-ARIA tabs: arrow keys move focus between tabs (roving tabindex) */
-  const onTablistKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-    const list = scrollRef.current;
-    if (!list) return;
-    const tabButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-    if (tabButtons.length === 0) return;
-    const focused = document.activeElement as HTMLElement | null;
-    const currentIdx = tabButtons.findIndex((b) => b === focused);
-    if (currentIdx < 0) return;
-    e.preventDefault();
-    let nextIdx = currentIdx;
-    if (e.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + tabButtons.length) % tabButtons.length;
-    else if (e.key === 'ArrowRight') nextIdx = (currentIdx + 1) % tabButtons.length;
-    else if (e.key === 'Home') nextIdx = 0;
-    else if (e.key === 'End') nextIdx = tabButtons.length - 1;
-    tabButtons[nextIdx]?.focus();
-  }, []);
-
-  const isCompact = needsCompactLayout;
-
-  const tabIconOnly = useCallback(
-    (tab: DomeTab, isActive: boolean) => {
-      if (isActive) return false;
-      if (tab.pinned) return true;
-      if (isCompact && HUB_TAB_IDS.has(tab.id)) return true;
-      return false;
-    },
-    [isCompact],
-  );
-
-  if (!hasHorizontalOverflow && overflowMenuOpen) {
-    setOverflowMenuOpen(false);
-    setOverflowAnchor(null);
-  }
-
-  useEffect(() => {
-    if (!overflowMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (overflowWrapRef.current?.contains(target)) return;
-      if ((target as HTMLElement).closest?.('.dome-tab-overflow-menu')) return;
-      setOverflowMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOverflowMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [overflowMenuOpen]);
-
-  const toggleOverflowMenu = useCallback(() => {
-    setOverflowMenuOpen((open) => {
-      const next = !open;
-      if (next && overflowBtnRef.current) {
-        const rect = overflowBtnRef.current.getBoundingClientRect();
-        setOverflowAnchor({
-          top: rect.bottom + 4,
-          left: Math.min(rect.left, window.innerWidth - 296),
-        });
-      } else if (!next) {
-        setOverflowAnchor(null);
-      }
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!ctxMenu) return;
-    const close = () => setCtxMenu(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    /* Bubble phase so clicks on menu items run before we close */
-    document.addEventListener('click', close, false);
-    document.addEventListener('contextmenu', close, false);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('click', close, false);
-      document.removeEventListener('contextmenu', close, false);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [ctxMenu]);
-
-  const openTabContext = useCallback((e: ReactMouseEvent, tab: DomeTab) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCtxMenu({ x: e.clientX, y: e.clientY, tab, view: 'main' });
-  }, []);
-
-  const closeCtx = useCallback(() => setCtxMenu(null), []);
-
-  /* Render context menu with local view switch (fix broken color submenu) */
-  const ctxPortal = ctxMenu && (
-    <TabContextMenuBridge
-      state={ctxMenu}
-      onClose={closeCtx}
-      onOpenColors={() => {
-        setCtxMenu((s) => (s ? { ...s, view: 'colors' } : null));
-      }}
-      onBackToMain={() => {
-        setCtxMenu((s) => (s ? { ...s, view: 'main' } : null));
-      }}
-    />
-  );
-
-  return (
-    <>
-      {ctxPortal}
-      <div
-        ref={stripRef}
-        className="dome-tab-strip flex items-stretch flex-1 min-w-0"
-        data-compact={isCompact ? 'true' : 'false'}
-      >
-        {overflowMenuOpen && overflowAnchor
-          ? ReactDOM.createPortal(
-              <div
-                className="dome-tab-overflow-menu"
-                role="menu"
-                style={{ top: overflowAnchor.top, left: overflowAnchor.left }}
-              >
-                <div className="dome-tab-overflow-list">
-                  {stripTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="menuitem"
-                      className="dome-tab-overflow-item"
-                      data-active={tab.id === activeTabId ? 'true' : 'false'}
-                      onClick={() => {
-                        activateTab(tab.id);
-                        setOverflowMenuOpen(false);
-                        setOverflowAnchor(null);
-                      }}
-                    >
-                      <TabIcon tab={tab} />
-                      <span>{getDomeTabDisplayTitle(tab, t)}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="dome-tab-overflow-footer">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="dome-tab-overflow-action dome-tab-overflow-action--secondary"
-                    onClick={() => {
-                      closeAllUnpinnedTabs();
-                      setOverflowMenuOpen(false);
-                      setOverflowAnchor(null);
-                    }}
-                  >
-                    {t('workspace.tab_menu_close_all_unpinned')}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="dome-tab-overflow-action dome-tab-overflow-action--danger"
-                    onClick={() => {
-                      closeAllTabsToHome();
-                      setOverflowMenuOpen(false);
-                      setOverflowAnchor(null);
-                    }}
-                  >
-                    {t('workspace.tab_menu_close_all')}
-                  </button>
-                </div>
-              </div>,
-              document.body,
-            )
-          : null}
-
-        <div className="dome-tab-scroll-wrap">
-          <div
-            ref={scrollRef}
-            className="dome-tab-scroll"
-            tabIndex={-1}
-            role="tablist"
-            aria-label={t('workspace.tabs', { defaultValue: 'Tabs' })}
-            onKeyDown={onTablistKeyDown}
-            data-fade-left={scrollFade.left ? 'true' : 'false'}
-            data-fade-right={scrollFade.right ? 'true' : 'false'}
-          >
-            {stripTabs.map((tab) => (
-              <TabItem
-                key={tab.id}
-                tab={tab}
-                isActive={tab.id === activeTabId}
-                iconOnly={tabIconOnly(tab, tab.id === activeTabId)}
-                onActivate={() => activateTab(tab.id)}
-                onClose={() => closeTab(tab.id)}
-                onContextMenu={openTabContext}
-              />
-            ))}
-          </div>
-        </div>
-
-        {hasHorizontalOverflow ? (
-          <div
-            ref={overflowWrapRef}
-            className="relative shrink-0 self-stretch"
-            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          >
-            <button
-              ref={overflowBtnRef}
-              type="button"
-              className="dome-tab-overflow-btn"
-              onClick={toggleOverflowMenu}
-              aria-expanded={overflowMenuOpen}
-              aria-haspopup="menu"
-              title={t('workspace.tab_menu_all_tabs')}
-              aria-label={t('workspace.tab_menu_all_tabs')}
-            >
-              <MoreHorizontal className="size-4" strokeWidth={2} />
-            </button>
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          className="dome-tab-new-btn"
-          onClick={onNewChat}
-          title={t('workspace.new_conversation')}
-          aria-label={t('workspace.new_conversation')}
-        >
-          <Plus className="size-3.5" strokeWidth={2} />
-        </button>
-      </div>
-    </>
-  );
-}
-
-function TabContextMenuItem({
-  label,
-  onClick,
-  disabled,
-  danger,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      disabled={disabled}
-      className="dome-tab-ctx-item"
-      data-danger={danger ? 'true' : undefined}
-      onClick={() => {
-        if (!disabled) onClick();
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-/** Connects context menu actions and color-submenu navigation */
-function TabContextMenuBridge({
-  state,
-  onClose,
-  onOpenColors,
-  onBackToMain,
-}: {
-  state: TabCtxState;
-  onClose: () => void;
-  onOpenColors: () => void;
-  onBackToMain: () => void;
-}) {
-  const { t } = useTranslation();
-  const {
+    tabs,
     closeTab,
     closeOtherTabs,
     closeTabsToTheRight,
     togglePinTab,
     duplicateTab,
     openResourceInSplit,
-    tabs,
-    activeTabId,
   } = useTabStore(
-    useShallow((s) => ({
-      closeTab: s.closeTab,
-      closeOtherTabs: s.closeOtherTabs,
-      closeTabsToTheRight: s.closeTabsToTheRight,
-      togglePinTab: s.togglePinTab,
-      duplicateTab: s.duplicateTab,
-      openResourceInSplit: s.openResourceInSplit,
-      tabs: s.tabs,
-      activeTabId: s.activeTabId,
+    useShallow((state) => ({
+      activeTabId: state.activeTabId,
+      tabs: state.tabs,
+      closeTab: state.closeTab,
+      closeOtherTabs: state.closeOtherTabs,
+      closeTabsToTheRight: state.closeTabsToTheRight,
+      togglePinTab: state.togglePinTab,
+      duplicateTab: state.duplicateTab,
+      openResourceInSplit: state.openResourceInSplit,
     })),
   );
-
-  const { tab, view, x, y } = state;
-  const displayTitle = getDomeTabDisplayTitle(tab, t);
-  const idx = tabs.findIndex((q) => q.id === tab.id);
-  const hasRight = idx >= 0 && idx < tabs.length - 1;
+  const index = tabs.findIndex((item) => item.id === tab.id);
+  const activeTab = tabs.find((item) => item.id === activeTabId) ?? null;
   const isHome = tab.id === HOME_TAB_ID;
-  const canPinToggle = !isHome;
-  const showColors = tab.type === 'folder' && Boolean(tab.resourceId);
+  const displayTitle = getDomeTabDisplayTitle(tab, t);
+  const canOpenAsReference = Boolean(
+    tab.resourceId &&
+      tab.type !== 'folder' &&
+      activeTab?.id !== tab.id &&
+      activeTab?.id !== HOME_TAB_ID &&
+      activeTab?.resourceId,
+  );
 
-  /**
-   * "Open as reference in active tab" — moves this tab's resource into the
-   * split pane of the currently active tab. Only meaningful when:
-   *   - this tab carries a resource (notes, pdfs, urls, etc.),
-   *   - the active tab is a different one,
-   *   - the active tab can host a split (any non-home tab with a resource).
-   */
-  const activeTab = tabs.find((q) => q.id === activeTabId) ?? null;
-  const canOpenAsReference =
-    Boolean(tab.resourceId) &&
-    tab.type !== 'folder' &&
-    activeTab !== null &&
-    activeTab.id !== tab.id &&
-    activeTab.id !== HOME_TAB_ID &&
-    Boolean(activeTab.resourceId);
-
-  const run = (fn: () => void) => {
-    fn();
-    onClose();
-  };
-
-  const menuStyle: CSSProperties = {
-    position: 'fixed',
-    left: Math.min(x, window.innerWidth - 240),
-    top: Math.min(y, window.innerHeight - 320),
-    zIndex: 100000,
-  };
-
-  if (view === 'colors' && showColors) {
-    return ReactDOM.createPortal(
-      <div className="dome-tab-ctx-menu" style={menuStyle} role="menu">
-        <button
-          type="button"
-          className="dome-tab-ctx-item"
-          onClick={onBackToMain}
-          style={{ marginBottom: 4 }}
-        >
-          <ChevronLeft className="size-3.5 shrink-0" />
-          {t('workspace.tab_menu_back')}
-        </button>
-        <fieldset className="flex flex-wrap gap-1.5 border-0 p-0 m-0 min-w-0 px-1 pb-1">
-          {FOLDER_COLOR_SWATCHES.map((color) => (
-            <button
-              key={color}
-              type="button"
-              onClick={() => {
-                void persistFolderTabColor(tab, color);
-                onClose();
-              }}
-              className="size-6 rounded border"
-              style={{
-                backgroundColor: color,
-                borderColor: 'var(--dome-border)',
-              }}
-              aria-label={color}
-            />
-          ))}
-        </fieldset>
-      </div>,
-      document.body,
-    );
-  }
-
-  return ReactDOM.createPortal(
-    <div
-      className="dome-tab-ctx-menu"
-      style={menuStyle}
-      tabIndex={-1}
-      role="menu"
-      aria-label={displayTitle}
-      onContextMenu={(e) => e.stopPropagation()}
-    >
-      <TabContextMenuItem
-        label={t('workspace.tab_menu_close')}
-        disabled={Boolean(tab.pinned)}
-        onClick={() => run(() => closeTab(tab.id))}
-      />
-      <TabContextMenuItem
-        label={t('workspace.tab_menu_close_others')}
-        onClick={() => run(() => closeOtherTabs(tab.id))}
-      />
-      <TabContextMenuItem
-        label={t('workspace.tab_menu_close_to_right')}
-        disabled={!hasRight}
-        onClick={() => run(() => closeTabsToTheRight(tab.id))}
-      />
-      <DomeDivider spacingClass="my-1" className="mx-1" />
-      <TabContextMenuItem
-        label={tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
-        disabled={!canPinToggle}
-        onClick={() => run(() => togglePinTab(tab.id))}
-      />
-      {showColors && (
-        <TabContextMenuItem
-          label={t('workspace.tab_menu_change_color')}
-          onClick={() => onOpenColors()}
-        />
-      )}
-      <TabContextMenuItem
-        label={t('workspace.tab_menu_duplicate')}
-        disabled={isHome}
-        onClick={() => run(() => duplicateTab(tab.id))}
-      />
-      {canOpenAsReference && (
+  return (
+    <ContextMenuContent>
+      <ContextMenuGroup>
+        <ContextMenuLabel className="max-w-64 truncate">{displayTitle}</ContextMenuLabel>
+        <ContextMenuItem disabled={Boolean(tab.pinned)} onClick={() => closeTab(tab.id)}>
+          {t('workspace.tab_menu_close')}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => closeOtherTabs(tab.id)}>
+          {t('workspace.tab_menu_close_others')}
+        </ContextMenuItem>
+        <ContextMenuItem disabled={index < 0 || index === tabs.length - 1} onClick={() => closeTabsToTheRight(tab.id)}>
+          {t('workspace.tab_menu_close_to_right')}
+        </ContextMenuItem>
+      </ContextMenuGroup>
+      <ContextMenuSeparator />
+      <ContextMenuGroup>
+        <ContextMenuItem disabled={isHome} onClick={() => togglePinTab(tab.id)}>
+          {tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
+        </ContextMenuItem>
+        {tab.type === 'folder' && tab.resourceId ? (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>{t('workspace.tab_menu_change_color')}</ContextMenuSubTrigger>
+            <ContextMenuSubContent className="min-w-44">
+              <div className="grid grid-cols-5 gap-2 p-2">
+                {FOLDER_COLOR_SWATCHES.map((color) => (
+                  <Button
+                    key={color}
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="rounded-full border-2"
+                    style={{ backgroundColor: color }}
+                    onClick={() => void persistFolderTabColor(tab, color)}
+                    aria-label={color}
+                  />
+                ))}
+              </div>
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        ) : null}
+        <ContextMenuItem disabled={isHome} onClick={() => duplicateTab(tab.id)}>
+          {t('workspace.tab_menu_duplicate')}
+        </ContextMenuItem>
+      </ContextMenuGroup>
+      {canOpenAsReference ? (
         <>
-          <DomeDivider spacingClass="my-1" className="mx-1" />
-          <TabContextMenuItem
-            label={t('workspace.tab_menu_open_as_reference', 'Abrir como referencia en pestaña activa')}
-            onClick={() =>
-              run(() => {
+          <ContextMenuSeparator />
+          <ContextMenuGroup>
+            <ContextMenuItem
+              onClick={() => {
                 if (!tab.resourceId || !activeTab) return;
-                openResourceInSplit(
-                  tab.resourceId,
-                  tab.type,
-                  tab.title || displayTitle,
-                  activeTab.id,
-                );
-              })
-            }
-          />
+                openResourceInSplit(tab.resourceId, tab.type, tab.title || displayTitle, activeTab.id);
+              }}
+            >
+              {t('workspace.tab_menu_open_as_reference', 'Abrir como referencia en pestaña activa')}
+            </ContextMenuItem>
+          </ContextMenuGroup>
         </>
-      )}
-    </div>,
-    document.body,
+      ) : null}
+    </ContextMenuContent>
+  );
+}
+
+function TabItem({
+  tab,
+  active,
+  iconOnly,
+  onActivate,
+  onClose,
+}: {
+  tab: DomeTab;
+  active: boolean;
+  iconOnly: boolean;
+  onActivate: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const tabRef = useRef<HTMLButtonElement>(null);
+  const title = getDomeTabDisplayTitle(tab, t);
+  const wasActive = useRef(active);
+
+  useEffect(() => {
+    if (active && !wasActive.current) tabRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    wasActive.current = active;
+  }, [active]);
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger className="flex shrink-0 items-center [-webkit-app-region:no-drag]">
+        <div
+          className={cn(
+            'group/tab flex h-8 max-w-52 items-center rounded-2xl border border-transparent',
+            active ? 'border-border bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          <Button
+            ref={tabRef}
+            type="button"
+            role="tab"
+            variant="ghost"
+            size={iconOnly ? 'icon-sm' : 'sm'}
+            aria-selected={active}
+            aria-label={title}
+            tabIndex={active ? 0 : -1}
+            onClick={onActivate}
+            data-ui-target={`tab-${tab.type}`}
+            className={cn('h-7 min-w-0 rounded-2xl px-2 hover:bg-transparent', !iconOnly && 'max-w-44')}
+          >
+            <TabIcon tab={tab} />
+            {!iconOnly ? <span className="truncate">{title}</span> : null}
+          </Button>
+          {!tab.pinned && !iconOnly ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="mr-1 opacity-50 hover:opacity-100 focus-visible:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onClose();
+                    }}
+                    aria-label={t('workspace.close_tab', { title })}
+                  />
+                }
+              >
+                <HugeiconsIcon icon={Cancel01Icon} />
+              </TooltipTrigger>
+              <TooltipContent>{t('workspace.close_tab', { title })}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      </ContextMenuTrigger>
+      <TabActions tab={tab} />
+    </ContextMenu>
+  );
+}
+
+export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
+  const { t } = useTranslation();
+  const { tabs, activeTabId, activateTab, closeTab, closeAllUnpinnedTabs, closeAllTabsToHome } = useTabStore(
+    useShallow((state) => ({
+      tabs: state.tabs,
+      activeTabId: state.activeTabId,
+      activateTab: state.activateTab,
+      closeTab: state.closeTab,
+      closeAllUnpinnedTabs: state.closeAllUnpinnedTabs,
+      closeAllTabsToHome: state.closeAllTabsToHome,
+    })),
+  );
+  const stripTabs = useMemo(() => tabs.filter(isTabStripVisible), [tabs]);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const newChatBtnRef = useRef<HTMLButtonElement>(null);
+  useHorizontalScroll(scrollRef);
+  const [overflow, setOverflow] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const [fade, setFade] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    const strip = stripRef.current;
+    if (!scroll) return;
+    let frame = 0;
+    const measure = () => {
+      const width = strip?.clientWidth ?? scroll.clientWidth;
+      const threshold = COMPACT_STRIP_WIDTH + Math.max(0, stripTabs.length - 3) * COMPACT_WIDTH_PER_TAB;
+      setCompact((current) => current ? width < threshold + COMPACT_HYSTERESIS : width < threshold);
+      setOverflow(scroll.scrollWidth > scroll.clientWidth + 1);
+      setFade({
+        left: scroll.scrollLeft > 1,
+        right: scroll.scrollLeft + scroll.clientWidth < scroll.scrollWidth - 1,
+      });
+    };
+    const schedule = () => {
+      measure();
+      frame = window.requestAnimationFrame(measure);
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(scroll);
+    if (strip) observer.observe(strip);
+    scroll.addEventListener('scroll', measure, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      scroll.removeEventListener('scroll', measure);
+    };
+  }, [activeTabId, stripTabs.length]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!event.metaKey && !event.ctrlKey) return;
+      if (event.key === 'Tab' && stripTabs.length >= 2) {
+        event.preventDefault();
+        const current = Math.max(0, stripTabs.findIndex((tab) => tab.id === activeTabId));
+        const next = event.shiftKey
+          ? (current - 1 + stripTabs.length) % stripTabs.length
+          : (current + 1) % stripTabs.length;
+        activateTab(stripTabs[next].id);
+      } else if (/^[1-9]$/.test(event.key) && !event.shiftKey && !event.altKey) {
+        const index = Number(event.key) === 9 ? stripTabs.length - 1 : Number(event.key) - 1;
+        if (stripTabs[index]) {
+          event.preventDefault();
+          activateTab(stripTabs[index].id);
+        }
+      } else if (event.key.toLowerCase() === 'w' && !event.shiftKey && !event.altKey) {
+        const active = tabs.find((tab) => tab.id === activeTabId);
+        if (active && !active.pinned && active.id !== HOME_TAB_ID) {
+          event.preventDefault();
+          closeTab(active.id);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [activateTab, activeTabId, closeTab, stripTabs, tabs]);
+
+  const handleTablistKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const buttons = Array.from(scrollRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
+    const current = buttons.findIndex((button) => button === document.activeElement);
+    if (current < 0 || buttons.length === 0) return;
+    event.preventDefault();
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? buttons.length - 1
+        : event.key === 'ArrowLeft'
+          ? (current - 1 + buttons.length) % buttons.length
+          : (current + 1) % buttons.length;
+    buttons[next]?.focus();
+  }, []);
+
+  return (
+    <div ref={stripRef} className="flex min-w-0 flex-1 items-stretch bg-transparent [-webkit-app-region:drag]">
+      <div className="relative flex min-w-0 flex-1 items-center">
+        <div
+          ref={scrollRef}
+          role="tablist"
+          aria-label={t('workspace.tabs', { defaultValue: 'Tabs' })}
+          tabIndex={-1}
+          onKeyDown={handleTablistKeyDown}
+          className={cn(
+            'flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            fade.left && '[mask-image:linear-gradient(to_right,transparent,black_16px,black_100%)]',
+            fade.right && '[mask-image:linear-gradient(to_right,black_0,black_calc(100%_-_16px),transparent_100%)]',
+            fade.left && fade.right && '[mask-image:linear-gradient(to_right,transparent_0,black_16px,black_calc(100%_-_16px),transparent_100%)]',
+          )}
+        >
+          {stripTabs.map((tab) => {
+            const active = tab.id === activeTabId;
+            return (
+              <TabItem
+                key={tab.id}
+                tab={tab}
+                active={active}
+                iconOnly={!active && (tab.pinned || (compact && HUB_TAB_IDS.has(tab.id)))}
+                onActivate={() => activateTab(tab.id)}
+                onClose={() => closeTab(tab.id)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {overflow ? (
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-full shrink-0 rounded-none border-l [-webkit-app-region:no-drag]"
+                      aria-label={t('workspace.tab_menu_all_tabs')}
+                    />
+                  }
+                />
+              }
+            >
+              <HugeiconsIcon icon={MoreHorizontalIcon} />
+            </TooltipTrigger>
+            <TooltipContent>{t('workspace.tab_menu_all_tabs')}</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="max-h-[min(32rem,calc(100vh-3rem))] w-72">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t('workspace.tab_menu_all_tabs')}</DropdownMenuLabel>
+              {stripTabs.map((tab) => (
+                <DropdownMenuItem key={tab.id} onClick={() => activateTab(tab.id)} className={tab.id === activeTabId ? 'bg-muted' : undefined}>
+                  <TabIcon tab={tab} />
+                  <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={closeAllUnpinnedTabs}>
+              {t('workspace.tab_menu_close_all_unpinned')}
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={closeAllTabsToHome}>
+              {t('workspace.tab_menu_close_all')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              ref={newChatBtnRef}
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="m-1 shrink-0 self-center border-dashed [-webkit-app-region:no-drag]"
+              onClick={onNewChat}
+              aria-label={t('workspace.new_conversation')}
+            />
+          }
+        >
+          <HugeiconsIcon icon={PlusSignIcon} />
+        </TooltipTrigger>
+        <TooltipContent>{t('workspace.new_conversation')}</TooltipContent>
+      </Tooltip>
+    </div>
   );
 }

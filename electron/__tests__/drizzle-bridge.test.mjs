@@ -11,6 +11,7 @@ const { createBaseSchema } = require('../core/db/schema.cjs');
 const { applyMigrations } = require('../core/db/migrations.cjs');
 const { runDrizzleMigrations, LEGACY_SCHEMA_VERSION } = require('../core/db/drizzle-bridge.cjs');
 const { LEGACY_SCHEMA_VERSION: PKG_VERSION } = require('@dome/db');
+const { SCHEMA_HEAD } = require('../core/db/migrations.cjs');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tmpDir = path.join(__dirname, '.tmp-drizzle-bridge');
@@ -38,7 +39,7 @@ describe('drizzle-bridge', () => {
       const result = runDrizzleMigrations(db);
       assert.equal(result.applied, true);
       const version = db.prepare("SELECT value FROM settings WHERE key = 'schema_version'").get();
-      assert.equal(parseInt(version.value, 10), LEGACY_SCHEMA_VERSION);
+      assert.equal(parseInt(version.value, 10), SCHEMA_HEAD);
       const drizzleCount = db.prepare('SELECT COUNT(*) AS c FROM __drizzle_migrations').get();
       assert.ok(drizzleCount.c >= 1);
     } finally {

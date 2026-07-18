@@ -292,6 +292,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  ipcMain.handle('db:projects:update', (event, project) => {
+    try {
+      validateSender(event, windowManager);
+      const id = typeof project?.id === 'string' ? project.id.trim() : '';
+      const name = typeof project?.name === 'string' ? project.name.trim() : '';
+      if (!id || !name) return { success: false, error: 'id and name required' };
+      const description = typeof project.description === 'string' && project.description.trim()
+        ? project.description.trim()
+        : null;
+      const updatedAt = Date.now();
+      const queries = database.getQueries();
+      const result = queries.updateProject.run(name, description, updatedAt, id);
+      if (result.changes === 0) return { success: false, error: 'Project not found' };
+      const updated = queries.getProjectById.get(id);
+      windowManager.broadcast('project:updated', updated);
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error('[DB] Error updating project:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Set (or clear) a project's custom Markdown vault root. Moves existing note
   // .md files to the new location and (re)watches it for external edits.
   ipcMain.handle('db:projects:setVaultRoot', (event, args) => {
@@ -824,6 +846,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         if (!isMaskedSecret(value)) writeSettingSecret(queries, key, value);
       } else {
         database.getSettingsRepo().set(key, value, Date.now());
+        const db = database.getDB?.();
+        if (db) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(db, key, value);
+        }
       }
       return { success: true };
     } catch (error) {
@@ -856,7 +883,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const { provider, apiKey, model, embeddingModel, baseURL } = config;
       const { writeProviderApiKey, writeProviderBaseUrl, KEYLESS_PROVIDERS } = require('../../ai/provider-keys.cjs');
 
-      if (provider) queries.setSetting.run('ai_provider', provider, Date.now());
+      if (provider) {
+        queries.setSetting.run('ai_provider', provider, Date.now());
+        const db = database.getDB?.();
+        if (db) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(db, 'ai_provider', provider);
+        }
+      }
       const targetProvider = provider || queries.getSetting.get('ai_provider')?.value;
       if (apiKey && !isMaskedSecret(apiKey) && targetProvider && !KEYLESS_PROVIDERS.has(targetProvider)) {
         // Per-provider slot (cambiar de provider conserva cada clave); la
@@ -864,8 +898,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         writeProviderApiKey(queries, targetProvider, apiKey);
         writeSettingSecret(queries, 'ai_api_key', apiKey);
       }
-      if (model) queries.setSetting.run('ai_model', model, Date.now());
-      if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+      if (model) {
+        queries.setSetting.run('ai_model', model, Date.now());
+        const dbAi = database.getDB?.();
+        if (dbAi) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(dbAi, 'ai_model', model);
+        }
+      }
+      if (embeddingModel) {
+        queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+        const dbEmb = database.getDB?.();
+        if (dbEmb) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(dbEmb, 'ai_embedding_model', embeddingModel);
+        }
+      }
       if (baseURL && targetProvider) writeProviderBaseUrl(queries, targetProvider, baseURL);
       if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());
 
@@ -1677,6 +1725,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       resources: (data.resources || []).filter((r) => r.project_id === projectId),
       interactions: (data.interactions || []).filter((i) => i.project_id === projectId),
       studioOutputs: (data.studioOutputs || []).filter((s) => s.project_id === projectId),
+      sources: (data.sources || []).filter((s) => s.projectId === projectId),
     };
   };
 
@@ -1754,13 +1803,36 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     return resourceResults;
   };
 
-  // First-pass search: Lance + FTS + interactions + studio outputs.
+  // First-pass search: Lance + FTS + interactions + studio outputs + integration sources.
   const performUnifiedSearch = async (queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery) => {
     const resourceResults = await searchResourcesUnified(queries, lanceQuery, sanitizedQuery, scopeProjectId);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
     const studioResults = searchStudioOutputs(rawTerms);
-    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults };
+    let sources = [];
+    try {
+      const sourceIndex = require('../../search/source-index.cjs');
+      // Warm FTS when hub tables have rows but source_documents is empty/behind.
+      sourceIndex.ensureAllSourcesIndexed(scopeProjectId || null);
+      sources = sourceIndex.searchDocuments(sanitizedQuery, {
+        projectId: scopeProjectId,
+        rawTerms,
+      });
+      // Direct SQL fallbacks for any missing kind (same tables the hubs read).
+      sources = sourceIndex.enrichSourcesWithDirectFallback(
+        sources,
+        rawTerms,
+        scopeProjectId || null,
+      );
+    } catch (err) {
+      console.warn('[DB] unified search source_documents:', err?.message || err);
+    }
+    return {
+      resources: resourceResults,
+      interactions: interactionResults,
+      studioOutputs: studioResults,
+      sources,
+    };
   };
 
   // Retry path after a corruption repair: skip Lance (it may be why we failed),
@@ -1771,7 +1843,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
     const studioResults = searchStudioOutputs(rawTerms);
-    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults };
+    let sources = [];
+    try {
+      const sourceIndex = require('../../search/source-index.cjs');
+      sources = sourceIndex.searchDocuments(sanitizedQuery);
+    } catch {
+      sources = [];
+    }
+    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults, sources };
   };
 
   // Last-ditch retry after a second repair cycle. Mirrors the original: studio
@@ -1781,7 +1860,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     const resourceResults = queries.searchResources.all(sanitizedQuery);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
-    return { resources: resourceResults, interactions: interactionResults };
+    return { resources: resourceResults, interactions: interactionResults, sources: [] };
   };
 
   // After a corruption repair fails, run a more aggressive repair cycle.
@@ -1836,7 +1915,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     if (!sanitizedQuery) {
       return {
         success: true,
-        data: { resources: [], interactions: [], studioOutputs: [] },
+        data: { resources: [], interactions: [], studioOutputs: [], sources: [] },
       };
     }
 
@@ -1849,6 +1928,34 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (error) {
       return handleUnifiedSearchError(error, sanitizedQuery, rawTerms, scopeProjectId);
+    }
+  });
+
+  ipcMain.handle('db:search:reindexSources', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const sourceIndex = require('../../search/source-index.cjs');
+      const counts = sourceIndex.rebuildAll(
+        typeof projectId === 'string' && projectId ? projectId : null,
+      );
+      return { success: true, data: counts };
+    } catch (error) {
+      console.error('[DB] reindexSources error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /** Recent integration sources for @ mention empty-query (people/tasks/mail/posts). */
+  ipcMain.handle('db:search:recentSources', (event, projectId, limitPerKind = 5) => {
+    try {
+      validateSender(event, windowManager);
+      const sourceIndex = require('../../search/source-index.cjs');
+      const pid = typeof projectId === 'string' && projectId ? projectId : null;
+      const data = sourceIndex.listRecentSources(pid, limitPerKind);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[DB] recentSources error:', error);
+      return { success: false, error: error.message };
     }
   });
 

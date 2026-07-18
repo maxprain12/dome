@@ -16,6 +16,9 @@ function buildQueries(db) {
     `),
     getProjects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC'),
     getProjectById: db.prepare('SELECT * FROM projects WHERE id = ?'),
+    updateProject: db.prepare(`
+      UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ?
+    `),
 
     // Resources
     createResource: db.prepare(`
@@ -468,6 +471,19 @@ function buildQueries(db) {
     getLatestAutomationRunsByProject: db.prepare(`
       SELECT * FROM automation_runs
       WHERE project_id = ?
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    /** Runs triggered by an automation (automation_id set), any target type. */
+    getLatestLinkedAutomationRuns: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE automation_id IS NOT NULL
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    getLatestLinkedAutomationRunsByProject: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE project_id = ? AND automation_id IS NOT NULL
       ORDER BY updated_at DESC
       LIMIT ?
     `),
@@ -1292,25 +1308,59 @@ function buildQueries(db) {
     touchSocialAccountSync: db.prepare(`
       UPDATE social_accounts SET last_sync_at = ?, updated_at = ? WHERE id = ?
     `),
+    updateSocialAccountCloudPublishing: db.prepare(`
+      UPDATE social_accounts SET cloud_publishing = ?, updated_at = ? WHERE id = ?
+    `),
+    updateSocialPostMediaStorage: db.prepare(`
+      UPDATE social_posts SET media_storage = ?, updated_at = ? WHERE id = ?
+    `),
     deleteSocialAccount: db.prepare('DELETE FROM social_accounts WHERE id = ?'),
+
+    createSocialCampaign: db.prepare(`
+      INSERT INTO social_campaigns (id, name, goal, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `),
+    getSocialCampaignById: db.prepare('SELECT * FROM social_campaigns WHERE id = ?'),
+    getSocialCampaignByName: db.prepare('SELECT * FROM social_campaigns WHERE name = ?'),
+    updateSocialCampaign: db.prepare(`
+      UPDATE social_campaigns SET name = ?, goal = ?, status = ?, updated_at = ? WHERE id = ?
+    `),
+    listSocialCampaigns: db.prepare(`
+      SELECT * FROM social_campaigns ORDER BY
+        CASE status WHEN 'active' THEN 0 ELSE 1 END, updated_at DESC
+    `),
+    listSocialCampaignsByStatus: db.prepare(`
+      SELECT * FROM social_campaigns WHERE status = ? ORDER BY updated_at DESC
+    `),
+    countSocialPostsByCampaignId: db.prepare(`
+      SELECT status, COUNT(*) AS c FROM social_posts WHERE campaign_id = ? GROUP BY status
+    `),
 
     createSocialPost: db.prepare(`
       INSERT INTO social_posts (
-        id, account_id, provider, status, body, media, link_url, topics, campaign,
+        id, account_id, provider, status, body, media, link_url, topics, campaign, campaign_id,
         scheduled_at, published_at, external_post_id, external_url, error,
         created_by, group_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialPostById: db.prepare('SELECT * FROM social_posts WHERE id = ?'),
+    getSocialPostByExternalId: db.prepare(
+      'SELECT * FROM social_posts WHERE external_post_id = ? LIMIT 1',
+    ),
     updateSocialPostContent: db.prepare(`
       UPDATE social_posts
-      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?,
+      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?, campaign_id = ?,
           scheduled_at = ?, status = ?, updated_at = ?
       WHERE id = ?
     `),
     updateSocialPostPublishResult: db.prepare(`
       UPDATE social_posts
       SET status = ?, published_at = ?, external_post_id = ?, external_url = ?, error = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    updateImportedSocialPost: db.prepare(`
+      UPDATE social_posts
+      SET body = ?, external_url = ?, published_at = COALESCE(?, published_at), updated_at = ?
       WHERE id = ?
     `),
     listSocialPosts: db.prepare(`
@@ -1333,8 +1383,8 @@ function buildQueries(db) {
 
     insertSocialMetric: db.prepare(`
       INSERT INTO social_metrics (
-        id, post_id, captured_at, impressions, likes, comments, shares, saves, clicks, followers, raw
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, post_id, captured_at, impressions, likes, comments, shares, saves, clicks, followers, raw, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getLatestSocialMetricForPost: db.prepare(`
       SELECT * FROM social_metrics WHERE post_id = ? ORDER BY captured_at DESC LIMIT 1
@@ -1351,8 +1401,8 @@ function buildQueries(db) {
 
     insertSocialAccountMetric: db.prepare(`
       INSERT INTO social_account_metrics (
-        id, account_id, captured_at, followers, following, posts_count, raw
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, account_id, captured_at, followers, following, posts_count, raw, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getLatestSocialAccountMetric: db.prepare(`
       SELECT * FROM social_account_metrics WHERE account_id = ? ORDER BY captured_at DESC LIMIT 1

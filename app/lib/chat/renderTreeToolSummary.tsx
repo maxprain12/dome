@@ -9,26 +9,26 @@ export function renderTreeToolSummary(
     <div className="tool-tree-summary">
       {summary.path ? (
         <div>
-          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_path', { defaultValue: 'Ruta' })}: </span>
+          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{t('chat.tree_tool_path', { defaultValue: 'Ruta' })}: </span>
           <span style={{ wordBreak: 'break-all' }}>{summary.path}</span>
         </div>
       ) : null}
       {summary.shown != null ? (
         <div>
-          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_entries', { defaultValue: 'Entradas' })}: </span>
+          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{t('chat.tree_tool_entries', { defaultValue: 'Entradas' })}: </span>
           {summary.shown}
           {summary.truncated ? ` (${t('chat.tree_tool_truncated', { defaultValue: 'truncado' })})` : ''}
         </div>
       ) : null}
       {summary.max_depth != null ? (
         <div>
-          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_depth', { defaultValue: 'Profundidad' })}: </span>
+          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{t('chat.tree_tool_depth', { defaultValue: 'Profundidad' })}: </span>
           {summary.max_depth}
         </div>
       ) : null}
       {summary.node_count != null ? (
         <div>
-          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_nodes', { defaultValue: 'Nodos' })}: </span>
+          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{t('chat.tree_tool_nodes', { defaultValue: 'Nodos' })}: </span>
           {summary.node_count}
         </div>
       ) : null}

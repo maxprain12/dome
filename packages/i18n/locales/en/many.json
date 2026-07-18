@@ -48,6 +48,9 @@
   "hitl_continue": "Continue",
   "hitl_multi_hint": "Confirm each command, then continue.",
   "hitl_confirm_title": "Confirm this action",
+  "action_suggestion_label": "Suggested action",
+  "action_suggestion_confirm": "Confirm",
+  "action_suggestion_dismiss": "Dismiss",
   "hitl_run_paused": "Run paused",
   "hitl_waiting": "Waiting for confirmation",
   "hitl_waiting_detail": "The run continues when you approve.",
@@ -91,5 +94,8 @@
   "composer_keyboard_hint": "Enter to send · Shift+Enter for new line",
   "error_report": "Report",
   "error_copied": "Error details copied to clipboard",
-  "view_section": "View"
+  "view_section": "View",
+  "context_title": "Context",
+  "context_empty": "No active context",
+  "context_pin_hint": "Pin resources with @ in the composer to always include them."
 }

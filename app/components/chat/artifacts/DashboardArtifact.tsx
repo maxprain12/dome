@@ -1,14 +1,17 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+} from '@hugeicons/core-free-icons';
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import type { DashboardArtifactV } from '@/lib/chat/artifactSchemas';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import './dashboard-artifact.css';
 
 const toneColor: Record<string, string> = {
-  neutral: 'var(--secondary-text)',
+  neutral: 'var(--muted-foreground)',
   good: 'var(--success)',
   warn: 'var(--warning)',
-  bad: 'var(--error)',
+  bad: 'var(--destructive)',
 };
 
 function clampPercent(n: number): number {
@@ -26,8 +29,8 @@ const trendArrow: Record<string, string> = {
 
 const trendColor: Record<string, string> = {
   up: 'var(--success)',
-  down: 'var(--error)',
-  flat: 'var(--secondary-text)',
+  down: 'var(--destructive)',
+  flat: 'var(--muted-foreground)',
 };
 
 export default function DashboardArtifact({ artifact }: { artifact: DashboardArtifactV }) {
@@ -90,7 +93,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.04em',
-                    color: 'var(--secondary-text)',
+                    color: 'var(--muted-foreground)',
                   }}
                 >
                   {k.label}
@@ -108,7 +111,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                       fontSize: 26,
                       fontWeight: 700,
                       lineHeight: 1.1,
-                      color: isFocused || isLead ? 'var(--accent)' : 'var(--primary-text)',
+                      color: isFocused || isLead ? 'var(--primary)' : 'var(--foreground)',
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
@@ -119,7 +122,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                       style={{
                         fontSize: 12,
                         fontWeight: 500,
-                        color: 'var(--secondary-text)',
+                        color: 'var(--muted-foreground)',
                       }}
                     >
                       {k.unit}
@@ -130,7 +133,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                       style={{
                         fontSize: 14,
                         fontWeight: 600,
-                        color: trendColor[k.trend] ?? 'var(--secondary-text)',
+                        color: trendColor[k.trend] ?? 'var(--muted-foreground)',
                         marginLeft: 'auto',
                       }}
                       aria-label={`trend ${k.trend}`}
@@ -143,7 +146,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                   <div
                     style={{
                       fontSize: 12,
-                      color: 'var(--tertiary-text)',
+                      color: 'var(--muted-foreground)',
                       lineHeight: 1.4,
                       marginTop: 2,
                     }}
@@ -184,7 +187,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                       width: 4,
                       height: 14,
                       borderRadius: 2,
-                      background: 'var(--accent)',
+                      background: 'var(--primary)',
                       flexShrink: 0,
                     }}
                   />
@@ -192,7 +195,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     style={{
                       fontSize: 13,
                       fontWeight: 600,
-                      color: 'var(--primary-text)',
+                      color: 'var(--foreground)',
                       margin: 0,
                       lineHeight: 1.3,
                       flex: 1,
@@ -201,11 +204,11 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                   >
                     {s.title}
                   </h4>
-                  <ChevronDown
+                  <HugeiconsIcon icon={ChevronDownIcon}
                     style={{
                       width: 14,
                       height: 14,
-                      color: 'var(--secondary-text)',
+                      color: 'var(--muted-foreground)',
                       transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
                       transition: 'transform 160ms ease',
                       flexShrink: 0,
@@ -218,7 +221,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     className="dashboard-section-body"
                     style={{
                       fontSize: 12.5,
-                      color: 'var(--secondary-text)',
+                      color: 'var(--muted-foreground)',
                       lineHeight: 1.55,
                     }}
                   >
@@ -284,9 +287,9 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     marginBottom: 4,
                   }}
                 >
-                  <span style={{ color: 'var(--primary-text)' }}>{it.label}</span>
+                  <span className="text-foreground">{it.label}</span>
                   <span
-                    style={{ color: 'var(--tertiary-text)', fontVariantNumeric: 'tabular-nums' }}
+                    style={{ color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}
                   >
                     {pct}%
                   </span>
@@ -299,7 +302,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                   style={{
                     height: 6,
                     borderRadius: 'var(--radius-full)',
-                    background: 'var(--bg-hover)',
+                    background: 'var(--accent)',
                     overflow: 'hidden',
                     appearance: 'none',
                     WebkitAppearance: 'none',

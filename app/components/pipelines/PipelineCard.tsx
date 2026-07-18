@@ -1,41 +1,55 @@
-import { useState, type DragEvent as ReactDragEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useState, type DragEvent as ReactDragEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar, GripVertical, Play, Check, Bot, User, Zap, Loader2, CheckSquare, MessageSquare } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  BotIcon,
+  Calendar03Icon,
+  CheckIcon,
+  CheckmarkSquare02Icon,
+  Comment01Icon,
+  GripVerticalIcon,
+  Loading03Icon,
+  PlayIcon,
+  UserIcon,
+  ZapIcon,
+} from '@hugeicons/core-free-icons';
 import type { PipelineItem, PipelineStage, ExecStatus } from '@/lib/pipelines/types';
 import { PIPELINE_ITEM_DRAG_TYPE } from '@/lib/pipelines/types';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
+import { cn } from '@/lib/utils';
 
-const STATUS_COLOR: Record<ExecStatus, string> = {
-  pending: 'var(--warning)',
-  running: 'var(--accent)',
-  ready: 'var(--success)',
-  failed: 'var(--error)',
-  blocked: 'var(--tertiary-text)',
+const STATUS_BADGE: Record<ExecStatus, 'outline' | 'mint' | 'lime' | 'destructive' | 'secondary'> = {
+  pending: 'outline',
+  running: 'mint',
+  ready: 'lime',
+  failed: 'destructive',
+  blocked: 'secondary',
 };
 
 function formatDate(ms?: number | null): string | null {
   if (!ms) return null;
-  return new Date(ms).toLocaleDateString();
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 /**
  * Flatten markdown into a clean single-line snippet for the compact card
- * preview (strips headings, emphasis, tables, lists, code and links). The card
- * detail panel renders full markdown; here we only want readable plain text.
+ * preview (strips headings, emphasis, tables, lists, code and links).
  */
 function toPreviewText(md: string): string {
   return md
-    .replace(/```[\s\S]*?```/g, ' ') // fenced code blocks
-    .replace(/`([^`]+)`/g, '$1') // inline code
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ') // images
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') // links → text
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '') // headings
-    .replace(/^\s{0,3}>\s?/gm, '') // blockquotes
-    .replace(/^\s*[-*+]\s+/gm, '') // list bullets
-    .replace(/\|/g, ' ') // table pipes
-    .replace(/[-:]{3,}/g, ' ') // table separators / hr
-    .replace(/(\*\*|__|\*|_|~~)/g, '') // emphasis markers
-    .replace(/\s+/g, ' ') // collapse whitespace/newlines
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s{0,3}>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\|/g, ' ')
+    .replace(/[-:]{3,}/g, ' ')
+    .replace(/(\*\*|__|\*|_|~~)/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -55,19 +69,24 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
   const isRunning = item.execStatus === 'running' || runPending;
   const displayStatus: ExecStatus = isRunning ? 'running' : item.execStatus;
 
-  const handleDragStart = (e: ReactDragEvent<HTMLButtonElement>) => {
+  const handleDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData(PIPELINE_ITEM_DRAG_TYPE, item.id);
     e.dataTransfer.effectAllowed = 'move';
     setDragging(true);
   };
 
-  const statusColor = STATUS_COLOR[displayStatus];
   const due = formatDate(item.endAt) ?? formatDate(item.startAt);
   const canRun = stage?.executionPolicy === 'manual_agent' && !isRunning;
   const canResolve = stage?.executionPolicy === 'manual_resolve' && item.execStatus !== 'ready';
 
-  const AssignedIcon =
-    item.assignedKind === 'agent' ? Bot : item.assignedKind === 'auto' ? Zap : item.assignedKind === 'manual' ? User : null;
+  const assignedIcon =
+    item.assignedKind === 'agent'
+      ? BotIcon
+      : item.assignedKind === 'auto'
+        ? ZapIcon
+        : item.assignedKind === 'manual'
+          ? UserIcon
+          : null;
 
   const todos = Array.isArray(item.data?.todos) ? (item.data!.todos as Array<{ done?: boolean }>) : [];
   const todoTotal = todos.length;
@@ -78,131 +97,135 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
       ? toPreviewText(item.data.text)
       : null;
 
-  const showLastOutput = !isRunning &&
+  const showLastOutput =
+    !isRunning &&
     (item.execStatus === 'failed' || item.execStatus === 'ready') &&
-    typeof item.lastOutput === 'string' && item.lastOutput.trim().length > 0;
+    typeof item.lastOutput === 'string' &&
+    item.lastOutput.trim().length > 0;
   const lastOutputSnippet = showLastOutput ? toPreviewText(item.lastOutput!).slice(0, 80) : null;
 
+  const onKeyActivate = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpen();
+    }
+  };
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={() => setDragging(false)}
       onClick={onOpen}
+      onKeyDown={onKeyActivate}
       aria-grabbed={dragging}
-      className="rounded-md p-2.5 cursor-grab active:cursor-grabbing transition-opacity w-full text-left"
-      style={{
-        background: 'var(--bg)',
-        border: isRunning ? '1px solid var(--accent)' : '1px solid var(--border)',
-        opacity: dragging ? 0.55 : 1,
-      }}
+      className={cn(
+        'group w-full cursor-grab rounded-xl border bg-card p-2.5 text-left shadow-none',
+        'transition-[border-color,opacity,background-color] [transition-duration:var(--duration-fast)]',
+        'hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        isRunning && 'border-primary',
+        dragging && 'opacity-50',
+        'active:cursor-grabbing',
+      )}
     >
       <div className="flex items-start gap-1.5">
-        <GripVertical size={12} className="shrink-0 mt-0.5" style={{ color: 'var(--tertiary-text)' }} aria-hidden />
-        <span className="text-sm leading-snug flex-1" style={{ color: 'var(--primary-text)' }}>
+        <HugeiconsIcon
+          icon={GripVerticalIcon}
+          className="mt-0.5 size-3 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-foreground">
           {item.title}
         </span>
-        {todoTotal > 0 && (
-          <span
-            className="shrink-0 mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-medium px-1 py-0 rounded-full"
-            style={{ background: 'var(--bg-hover)', color: 'var(--secondary-text)' }}
-            title={t('pipelines.todos_progress', { done: todoDone, total: todoTotal })}
-          >
-            <CheckSquare size={11} />
+        {todoTotal > 0 ? (
+          <Badge variant="outline" className="shrink-0 gap-0.5 tabular-nums">
+            <HugeiconsIcon icon={CheckmarkSquare02Icon} className="size-3" />
             {todoDone}/{todoTotal}
-          </span>
-        )}
+          </Badge>
+        ) : null}
         {isRunning ? (
-          <Loader2 size={13} className="shrink-0 mt-0.5 animate-spin" style={{ color: statusColor }} aria-hidden />
-        ) : (
-          <span
-            className="shrink-0 mt-1 rounded-full"
-            style={{ width: 8, height: 8, background: statusColor }}
-            aria-label={t(`pipelines.status_${displayStatus}`)}
+          <HugeiconsIcon
+            icon={Loading03Icon}
+            className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary"
+            aria-hidden
           />
-        )}
+        ) : null}
       </div>
 
-      <div className="flex items-center gap-2 mt-2 pl-5 flex-wrap">
-        <span
-          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-          style={{ background: 'var(--bg-hover)', color: statusColor }}
-        >
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-4">
+        <Badge variant={STATUS_BADGE[displayStatus]} className="font-normal">
           {t(`pipelines.status_${displayStatus}`)}
-        </span>
-        {AssignedIcon && (
-          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--secondary-text)' }}>
-            <AssignedIcon size={11} />
-            {agentName ?? t(`pipelines.assigned_${item.assignedKind}`)}
+        </Badge>
+        {assignedIcon ? (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <HugeiconsIcon icon={assignedIcon} className="size-3" />
+            <span className="max-w-[7rem] truncate">
+              {agentName ?? t(`pipelines.assigned_${item.assignedKind}`)}
+            </span>
           </span>
-        )}
-        {due && (
-          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--tertiary-text)' }}>
-            <Calendar size={10} />
+        ) : null}
+        {due ? (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <HugeiconsIcon icon={Calendar03Icon} className="size-2.5" />
             {due}
           </span>
-        )}
+        ) : null}
       </div>
 
-      {(dataText || lastOutputSnippet) && (
-        <div className="mt-1.5 pl-5 flex flex-col gap-1">
-          {dataText && (
-            <span
-              className="text-[11px] leading-snug truncate"
-              style={{ color: 'var(--tertiary-text)' }}
-              title={dataText}
-            >
+      {dataText || lastOutputSnippet ? (
+        <div className="mt-1.5 flex flex-col gap-1 pl-4">
+          {dataText ? (
+            <span className="line-clamp-2 text-[11px] leading-snug text-muted-foreground" title={dataText}>
               {dataText}
             </span>
-          )}
-          {lastOutputSnippet && (
+          ) : null}
+          {lastOutputSnippet ? (
             <span
-              className="text-[11px] leading-snug truncate inline-flex items-center gap-1"
-              style={{ color: 'var(--tertiary-text)' }}
+              className="inline-flex items-center gap-1 truncate text-[11px] leading-snug text-muted-foreground"
               title={item.lastOutput ?? undefined}
             >
-              <MessageSquare size={10} className="shrink-0" aria-hidden />
+              <HugeiconsIcon icon={Comment01Icon} className="size-2.5 shrink-0" aria-hidden />
               {lastOutputSnippet}
             </span>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {(canRun || canResolve) && (
-        <div className="flex items-center justify-end gap-1 mt-2">
-          {canRun && (
-            <button
+      {canRun || canResolve ? (
+        <div className="mt-2 flex items-center justify-end gap-1">
+          {canRun ? (
+            <Button
               type="button"
+              size="xs"
               draggable={false}
               onClick={(e) => {
                 e.stopPropagation();
                 onRun();
               }}
-              className="text-[11px] px-2 py-0.5 rounded-md inline-flex items-center gap-1"
-              style={{ background: 'var(--accent)', color: 'var(--dome-on-accent)', border: 'none', cursor: 'pointer' }}
             >
-              <Play size={11} />
+              <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />
               {t('pipelines.run_now')}
-            </button>
-          )}
-          {canResolve && (
-            <button
+            </Button>
+          ) : null}
+          {canResolve ? (
+            <Button
               type="button"
+              size="xs"
+              variant="outline"
               draggable={false}
               onClick={(e) => {
                 e.stopPropagation();
                 onResolve();
               }}
-              className="text-[11px] px-2 py-0.5 rounded-md inline-flex items-center gap-1"
-              style={{ background: 'transparent', color: 'var(--success)', border: '1px solid var(--border)', cursor: 'pointer' }}
             >
-              <Check size={11} />
+              <HugeiconsIcon icon={CheckIcon} data-icon="inline-start" />
               {t('pipelines.resolve')}
-            </button>
-          )}
+            </Button>
+          ) : null}
         </div>
-      )}
-    </button>
+      ) : null}
+    </div>
   );
 }

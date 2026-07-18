@@ -1,40 +1,52 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Add01Icon,
+  ArrowDataTransferHorizontalIcon,
+  FolderLibraryIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { db } from '@/lib/db/client';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
-import { db } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
-import ManyIcon from '@/components/many/ManyIcon';
 import type { Project } from '@/types';
 
-interface ShellProjectPickerProps {
-  compact?: boolean;
-}
-
-export default function ShellProjectPicker({ compact = false }: ShellProjectPickerProps) {
+/**
+ * Workspace / project switcher. Trigger is an icon button (sidebar);
+ * the header no longer hosts a duplicate label trigger.
+ */
+export default function ShellProjectPicker({
+  className,
+}: {
+  className?: string;
+}) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [quickProjectName, setQuickProjectName] = useState('');
   const [quickCreating, setQuickCreating] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const currentProject = useAppStore((s) => s.currentProject);
-  const setCurrentProject = useAppStore((s) => s.setCurrentProject);
-  const openProjectsTab = useTabStore((s) => s.openProjectsTab);
-
-  const hubProjectId = currentProject?.id ?? 'default';
+  const currentProject = useAppStore((state) => state.currentProject);
+  const setCurrentProject = useAppStore((state) => state.setCurrentProject);
+  const openProjectsTab = useTabStore((state) => state.openProjectsTab);
+  const activeId = currentProject?.id ?? 'default';
   const activeLabel =
-    currentProject?.name ?? projects.find((p) => p.id === hubProjectId)?.name ?? 'Dome';
+    currentProject?.name ??
+    projects.find((project) => project.id === activeId)?.name ??
+    'Dome';
 
   const fetchProjects = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electron?.db?.projects) return;
+    if (!window.electron?.db?.projects) return;
     try {
       const result = await window.electron.db.projects.getAll();
       if (result?.success && result.data) setProjects(result.data as Project[]);
     } catch {
-      /* ignore */
+      setProjects([]);
     }
   }, []);
 
@@ -43,38 +55,19 @@ export default function ShellProjectPicker({ compact = false }: ShellProjectPick
   }, [fetchProjects]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron) return;
-    const onCreated = () => { void fetchProjects(); };
-    const onDeleted = () => { void fetchProjects(); };
-    const u1 = window.electron.on('project:created', onCreated);
-    const u2 = window.electron.on('project:deleted', onDeleted);
+    if (!window.electron) return;
+    const refresh = () => {
+      void fetchProjects();
+    };
+    const removeCreated = window.electron.on('project:created', refresh);
+    const removeDeleted = window.electron.on('project:deleted', refresh);
     return () => {
-      u1?.();
-      u2?.();
+      removeCreated?.();
+      removeDeleted?.();
     };
   }, [fetchProjects]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [menuOpen]);
-
-  const handleProjectChange = useCallback(
-    (projectId: string) => {
-      const next = projects.find((p) => p.id === projectId) ?? null;
-      setCurrentProject(next);
-      setMenuOpen(false);
-    },
-    [projects, setCurrentProject],
-  );
-
-  const handleQuickCreate = useCallback(async () => {
+  const createProject = useCallback(async () => {
     const name = quickProjectName.trim();
     if (!name || quickCreating || !db.isAvailable()) return;
     setQuickCreating(true);
@@ -84,7 +77,7 @@ export default function ShellProjectPicker({ compact = false }: ShellProjectPick
         setQuickProjectName('');
         await fetchProjects();
         setCurrentProject(result.data);
-        setMenuOpen(false);
+        setOpen(false);
         showToast('success', t('projects.created'));
       } else {
         showToast('error', result.error ?? t('toast.project_create_error'));
@@ -95,83 +88,80 @@ export default function ShellProjectPicker({ compact = false }: ShellProjectPick
   }, [fetchProjects, quickCreating, quickProjectName, setCurrentProject, t]);
 
   return (
-    <div ref={menuRef} className="dome-shell-project-picker relative flex-1 min-w-0">
-      <button
-        type="button"
-        onClick={() => setMenuOpen((o) => !o)}
-        className={`dome-shell-project-trigger${compact ? ' dome-shell-project-trigger--compact' : ''}`}
-        aria-expanded={menuOpen}
-        aria-haspopup="listbox"
-        title={activeLabel}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={className}
+            aria-label={t('sidebar.switch_project', { name: activeLabel })}
+            title={t('sidebar.switch_project_short')}
+          />
+        }
       >
-        <span className="dome-shell-project-logo" style={{ filter: 'var(--dome-logo-filter)' }}>
-          <ManyIcon size={compact ? 14 : 16} />
-        </span>
-        {!compact ? (
-          <>
-            <span className="dome-shell-project-label">{activeLabel}</span>
-            <ChevronDown
-              className={`dome-shell-project-chevron ${menuOpen ? 'is-open' : ''}`}
-              strokeWidth={2.5}
-              aria-hidden
-            />
-          </>
-        ) : null}
-      </button>
-
-      {menuOpen ? (
-        <div className="dome-shell-project-menu">
-          <ul className="dome-shell-project-list list-none m-0 p-0" role="listbox">
+        <HugeiconsIcon icon={ArrowDataTransferHorizontalIcon} />
+      </PopoverTrigger>
+      <PopoverContent align="start" side="bottom" className="w-72 gap-3 p-2">
+        <ScrollArea className="max-h-64">
+          <div role="listbox" aria-label={t('sidebar.projects')} className="grid gap-1 pr-2">
             {projects.map((project) => (
-              <li key={project.id} className="list-none">
-              <button
+              <Button
+                key={project.id}
                 type="button"
                 role="option"
-                aria-selected={project.id === hubProjectId}
-                onClick={() => handleProjectChange(project.id)}
-                className="dome-shell-project-option"
-                data-active={project.id === hubProjectId ? 'true' : 'false'}
+                aria-selected={project.id === activeId}
+                variant={project.id === activeId ? 'secondary' : 'ghost'}
+                className="w-full justify-start"
+                onClick={() => {
+                  setCurrentProject(project);
+                  setOpen(false);
+                }}
               >
-                {project.name}
-              </button>
-              </li>
+                <span className="truncate">{project.name}</span>
+              </Button>
             ))}
-          </ul>
-          <div className="dome-shell-project-quick">
-            <input
-              value={quickProjectName}
-              onChange={(e) => setQuickProjectName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void handleQuickCreate();
-                }
-              }}
-              placeholder={t('sidebar.quick_create_project_placeholder')}
-              aria-label={t('sidebar.quick_create_project_placeholder')}
-              className="dome-shell-project-input"
-            />
-            <button
-              type="button"
-              disabled={quickCreating || !quickProjectName.trim()}
-              onClick={() => void handleQuickCreate()}
-              className="dome-shell-project-create"
-            >
-              {t('sidebar.quick_create_project_button')}
-            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              openProjectsTab();
+        </ScrollArea>
+        <div className="flex gap-2 border-t pt-2">
+          <Input
+            value={quickProjectName}
+            onChange={(event) => setQuickProjectName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void createProject();
+              }
             }}
-            className="dome-shell-project-manage"
+            placeholder={t('sidebar.quick_create_project_placeholder')}
+            aria-label={t('sidebar.quick_create_project_placeholder')}
+            className="min-w-0 flex-1"
+          />
+          <Button
+            type="button"
+            size="icon"
+            disabled={quickCreating || !quickProjectName.trim()}
+            loading={quickCreating}
+            onClick={() => void createProject()}
+            aria-label={t('sidebar.quick_create_project_button')}
           >
-            {t('sidebar.manage_projects')}
-          </button>
+            <HugeiconsIcon icon={Add01Icon} />
+          </Button>
         </div>
-      ) : null}
-    </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-start"
+          onClick={() => {
+            setOpen(false);
+            openProjectsTab();
+          }}
+        >
+          <HugeiconsIcon icon={FolderLibraryIcon} data-icon="inline-start" />
+          {t('sidebar.manage_projects')}
+        </Button>
+      </PopoverContent>
+    </Popover>
   );
 }

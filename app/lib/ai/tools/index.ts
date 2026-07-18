@@ -306,6 +306,18 @@ export {
 // Tools - GitHub Seguimiento
 export { createGithubTools } from './github-tools';
 
+// Tools - Social hub (LinkedIn / Instagram / X)
+export { createSocialTools } from './social-tools';
+
+// Tools - People
+export { createPeopleTools } from './people-tools';
+
+// Tools - Pipelines (Kanban)
+export { createPipelineTools } from './pipeline-tools';
+
+// Tools - Vision (on-device Gemma)
+export { createVisionTools } from './vision-tools';
+
 // Tools - Email (himalaya)
 export {
   createEmailListTool,
@@ -371,8 +383,11 @@ import { createEmailTools } from './email-tools';
 import { createEntityTools } from './entity-tools';
 import { createMarketplaceTools } from './marketplace-tools';
 import { createGithubTools } from './github-tools';
-import { createFileTools } from './file-tools';
-import { createShellTools } from './shell-tools';
+import { createSocialTools } from './social-tools';
+import { createPeopleTools } from './people-tools';
+import { createPipelineTools } from './pipeline-tools';
+import { createVisionTools } from './vision-tools';
+import { createFileTools } from './file-tools';import { createShellTools } from './shell-tools';
 import { createUiTools } from './ui-tools';
 import { createArtifactTools } from './artifact-tools';
 import { createFeederTools } from './feeder-tools';
@@ -483,6 +498,18 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // GitHub Seguimiento (milestones, issues, repos)
   tools.push(...createGithubTools());
 
+  // People (pinned / mentioned contacts)
+  tools.push(...createPeopleTools());
+
+  // Social hub (LinkedIn / Instagram / X)
+  tools.push(...createSocialTools());
+
+  // Pipelines (Kanban)
+  tools.push(...createPipelineTools());
+
+  // On-device vision (Gemma)
+  tools.push(...createVisionTools());
+
   // Native file & shell tools
   tools.push(...createFileTools());
   tools.push(...createShellTools());
@@ -585,6 +612,18 @@ export function createManyToolsForContext(
 
   // GitHub Seguimiento (milestones, issues, repos)
   tools.push(...createGithubTools());
+
+  // People (pinned / mentioned contacts)
+  tools.push(...createPeopleTools());
+
+  // Social hub (LinkedIn / Instagram / X)
+  tools.push(...createSocialTools());
+
+  // Pipelines (Kanban)
+  tools.push(...createPipelineTools());
+
+  // On-device vision (Gemma)
+  tools.push(...createVisionTools());
 
   // Native file & shell tools
   tools.push(...createFileTools());

@@ -1,18 +1,19 @@
 import type {
-  CSSProperties,
   DragEventHandler,
   FormEventHandler,
   MouseEventHandler,
   ReactNode,
   Ref,
 } from 'react';
-import { X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Cancel01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { attachmentVisualKind, type ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { resourceVisualCssSuffix } from '@/lib/resources/resourceVisual';
 import type { PinnedResource } from '@/lib/store/useManyStore';
-import DomeResourceIcon, { DomeResourceIconBox } from '@/components/ui/DomeResourceIcon';
+import ResourceIcon, { ResourceIconBox } from '@/components/shared/ResourceIcon';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface AIComposerFrameProps {
   children: ReactNode;
@@ -37,15 +38,11 @@ export function AIComposerFrame({
     <div
       ref={containerRef}
       className={cn(
-        'ai-composer-frame relative flex flex-col overflow-hidden border transition-colors',
-        'focus-within:border-[var(--border-hover)] focus-within:shadow-[var(--focus-ring)]',
-        isDragging && 'ai-composer-frame-dragging',
-        isWelcomeScreen && 'ai-composer-frame-welcome',
+        'ai-composer-frame relative flex flex-col overflow-hidden border shadow-sm transition-colors',
+        'focus-within:border-ring focus-within:shadow-[0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)]',
+        isDragging && 'ai-composer-frame-dragging border-primary',
+        isWelcomeScreen && 'ai-composer-frame-welcome shadow-lg',
       )}
-      style={{
-        borderColor: isDragging ? 'var(--accent)' : 'var(--border)',
-        boxShadow: isWelcomeScreen ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
-      }}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -92,22 +89,24 @@ export function AIComposerAttachmentTray({
                   <img src={attachment.dataUrl} alt="" />
                 </span>
               ) : (
-                <DomeResourceIconBox kind={kind} name={attachment.name} />
+                <ResourceIconBox kind={kind} name={attachment.name} />
               )}
               <span className="attach-chip__name">{attachment.name}</span>
               {meta ? <span className="attach-chip__meta">· {meta}</span> : null}
               {isLoading ? (
                 <span className="attach-chip__spinner" aria-hidden />
               ) : (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   className="attach-chip__remove"
                   onClick={() => onRemove(attachment.id)}
                   aria-label={t('chat.remove_attachment')}
                   title={t('chat.remove_attachment')}
                 >
-                  <X size={11} strokeWidth={2} aria-hidden />
-                </button>
+                  <HugeiconsIcon icon={Cancel01Icon} />
+                </Button>
               )}
             </span>
           );
@@ -117,27 +116,29 @@ export function AIComposerAttachmentTray({
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5 border-b border-dashed border-[var(--border)] px-3 pt-2">
+    <div className="flex flex-wrap gap-1.5 border-b border-dashed border-border px-3 pt-2">
       {attachments.map((attachment) => (
         <div
           key={attachment.id}
-          className="inline-flex max-w-[200px] items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 py-0.5 text-[11px] text-[var(--secondary-text)]"
+          className="inline-flex max-w-[200px] items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground"
         >
           {attachment.kind === 'image' ? (
             <img src={attachment.dataUrl} alt="" className="size-6 shrink-0 rounded object-cover" />
           ) : (
-            <DomeResourceIcon name={attachment.name} size={14} className="size-3.5 shrink-0" />
+            <ResourceIcon name={attachment.name} size={14} className="size-3.5 shrink-0" />
           )}
           <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
-          <button
+          <Button
             type="button"
-            className="shrink-0 rounded p-0.5 text-[var(--tertiary-text)] transition-colors hover:text-[var(--error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
             onClick={() => onRemove(attachment.id)}
             aria-label={t('chat.remove_attachment')}
             title={t('chat.remove_attachment')}
           >
-            <X className="size-3.5" aria-hidden />
-          </button>
+            <HugeiconsIcon icon={Cancel01Icon} />
+          </Button>
         </div>
       ))}
     </div>
@@ -154,17 +155,19 @@ export function AIComposerPinnedResourceChip({ resource, onRemove }: AIComposerP
 
   return (
     <div className="ai-context-chip">
-      <DomeResourceIcon type={resource.type} name={resource.title} size={11} className="shrink-0 text-[var(--accent)]" />
+      <ResourceIcon type={resource.type} name={resource.title} size={11} className="shrink-0 text-primary" />
       <span className="min-w-0 flex-1 truncate">{resource.title}</span>
-      <button
+      <Button
         type="button"
         onClick={() => onRemove(resource.id)}
-        className="flex shrink-0 items-center rounded-sm p-0 text-[var(--tertiary-text)] transition-colors hover:text-[var(--error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        variant="ghost"
+        size="icon-xs"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
         title={t('chat.remove_from_context')}
         aria-label={t('chat.remove_from_context')}
       >
-        <X className="h-[11px] w-[11px]" aria-hidden />
-      </button>
+        <HugeiconsIcon icon={Cancel01Icon} />
+      </Button>
     </div>
   );
 }
@@ -182,7 +185,6 @@ interface AIComposerIconButtonProps {
   onPointerLeave?: React.PointerEventHandler<HTMLButtonElement>;
   type?: 'button' | 'submit';
   className?: string;
-  style?: CSSProperties;
   ariaHaspopup?: 'menu';
   ariaExpanded?: boolean;
 }
@@ -200,12 +202,11 @@ export function AIComposerIconButton({
   onPointerLeave,
   type = 'button',
   className,
-  style,
   ariaHaspopup,
   ariaExpanded,
 }: AIComposerIconButtonProps) {
   return (
-    <button
+    <Button
       type={type}
       onClick={onClick}
       onPointerDown={onPointerDown}
@@ -213,12 +214,13 @@ export function AIComposerIconButton({
       onPointerCancel={onPointerCancel}
       onPointerLeave={onPointerLeave}
       disabled={disabled}
+      variant="ghost"
+      size="icon"
       className={cn(
-        'flex size-9 shrink-0 items-center justify-center rounded-full transition-all',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+        'shrink-0 rounded-full transition-[color,background-color,border-color,box-shadow,opacity,transform]',
         active
-          ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
-          : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]',
+          ? 'bg-[color-mix(in srgb, var(--primary) 12%, transparent)] text-primary'
+          : 'text-muted-foreground hover:bg-accent hover:text-muted-foreground',
         disabled && 'cursor-not-allowed opacity-50',
         className,
       )}
@@ -226,15 +228,14 @@ export function AIComposerIconButton({
       aria-label={ariaLabel ?? title}
       aria-haspopup={ariaHaspopup}
       aria-expanded={ariaExpanded}
-      style={style}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
 export const AI_COMPOSER_TEXTAREA_CLASS =
-  'w-full resize-none border-none bg-transparent px-4 pt-4 pb-2 text-[14px] leading-[1.6] text-[var(--primary-text)] placeholder:text-[var(--tertiary-text)] focus:outline-none focus:ring-0 disabled:opacity-50';
+  'w-full resize-none border-none bg-transparent px-4 pt-4 pb-2 text-[14px] leading-[1.6] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 disabled:opacity-50';
 
 export const AI_COMPOSER_INPUT_HANDLER: FormEventHandler<HTMLTextAreaElement> = (event) => {
   const target = event.target as HTMLTextAreaElement;

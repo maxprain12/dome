@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useStudioGenerateStream } from '@/lib/hooks/useStudioGenerateStream';
@@ -92,7 +94,7 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, [handleClose, handleNext, isGenerating, showProgress]);
 
   const handleRetry = () => {
     setProgress(null);
@@ -100,20 +102,15 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
   };
 
   return (
-    <div className="lr-scrim" role="presentation">
-      <dialog open className="lr-modal lg m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-labelledby="generate-wizard-title" onCancel={(e) => { e.preventDefault(); if (!isGenerating) handleClose(); }}>
-        <div className="lr-modal-hd">
-          <div className="lr-modal-hd-text">
-            <h2 id="generate-wizard-title">{t('learn.generate_title', 'Generate content')}</h2>
-            <p>{wizardHint}</p>
+    <Dialog open onOpenChange={(open) => { if (!open && !isGenerating) handleClose(); }}>
+      <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-hidden sm:max-w-3xl">
+        <DialogHeader>
+            <DialogTitle>{t('learn.generate_title', 'Generate content')}</DialogTitle>
+            <DialogDescription>{wizardHint}</DialogDescription>
             {!showProgress ? <WizardStepper step={wizard.step} /> : null}
-          </div>
-          <button type="button" className="lr-modal-hd-x" onClick={handleClose} disabled={isGenerating} aria-label={t('ui.close', 'Close')}>
-            <X size={16} />
-          </button>
-        </div>
+        </DialogHeader>
 
-        <div className="lr-modal-body">
+        <div className="min-h-0 overflow-y-auto pr-1">
           {showProgress ? (
             <GenerateProgressView progress={progress} onRetry={handleRetry} />
           ) : wizard.step === 0 ? (
@@ -130,19 +127,18 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
         </div>
 
         {!showProgress ? (
-          <div className="lr-modal-ft">
-            <div className="lr-modal-ft-left">
+          <DialogFooter className="items-center sm:justify-between">
+            <div className="text-xs text-muted-foreground">
               {wizard.step === 1
                 ? t('learn.source_selected_count', '{{count}} selected', { count: wizard.sourceIds.length })
                 : null}
             </div>
-            <div className="lr-modal-ft-right">
-              <button type="button" className="lr-btn" onClick={handleBack}>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={handleBack}>
                 {wizard.step === 0 ? t('learn.cancel', 'Cancel') : t('learn.back', 'Back')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="lr-btn lr-btn-primary"
                 disabled={
                   (wizard.step === 0 && !wizard.type) ||
                   (wizard.step === 1 && wizard.sourceIds.length === 0) ||
@@ -151,12 +147,12 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
                 }
                 onClick={() => void handleNext()}
               >
-                {wizard.step === 2 ? t('learn.generate_btn', 'Generate') : t('learn.next', 'Next')}
-              </button>
+                {isGenerating ? <Spinner data-icon="inline-start" /> : null}{wizard.step === 2 ? t('learn.generate_btn', 'Generate') : t('learn.next', 'Next')}
+              </Button>
             </div>
-          </div>
+          </DialogFooter>
         ) : null}
-      </dialog>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

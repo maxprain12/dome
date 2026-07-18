@@ -58,7 +58,7 @@ export default function PDFPageInput({
 
   if (totalPages === 0) {
     return (
-      <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+      <span className="text-sm font-medium text-foreground">
         0 / 0
       </span>
     );
@@ -75,16 +75,16 @@ export default function PDFPageInput({
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-12 px-1.5 py-1 text-sm text-center rounded border focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-1"
+        className="w-12 px-1.5 py-1 text-sm text-center rounded border focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
         style={{
-          background: 'var(--bg-secondary)',
+          background: 'var(--card)',
           borderColor: 'var(--border)',
-          color: 'var(--primary-text)',
+          color: 'var(--foreground)',
         }}
         aria-label="Go to page"
         title="Go to page (Ctrl+G)"
       />
-      <span className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+      <span className="text-sm text-muted-foreground">
         / {totalPages}
       </span>
     </div>

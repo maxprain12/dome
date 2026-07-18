@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 const domeOauth = require('../../auth/dome-oauth.cjs');
+const domeNativeLogin = require('../../auth/dome-native-login.cjs');
+const planGate = require('../../storage/plan-gate.cjs');
 
 function register({ ipcMain, windowManager, database }) {
   ipcMain.handle('domeauth:startOAuthFlow', async (event) => {
@@ -8,7 +10,7 @@ function register({ ipcMain, windowManager, database }) {
     }
 
     try {
-      const result = await domeOauth.startOAuthFlow(database);
+      const result = await domeOauth.startOAuthFlow(database, windowManager);
       return result;
     } catch (error) {
       console.error('[DomeAuth] OAuth flow failed:', error);
@@ -48,9 +50,32 @@ function register({ ipcMain, windowManager, database }) {
 
     try {
       await domeOauth.disconnect(database);
+      planGate.invalidateEntitlementsCache();
       return { success: true };
     } catch (error) {
       return { success: false, error: error?.message || 'Failed to disconnect' };
+    }
+  });
+
+  ipcMain.handle('domeauth:nativeLogin', async (event, payload) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!payload || typeof payload.email !== 'string' || typeof payload.password !== 'string') {
+      return { success: false, error: 'Invalid argument' };
+    }
+    try {
+      const result = await domeNativeLogin.loginOrRegister(database, {
+        email: payload.email.trim(),
+        password: payload.password,
+        isRegister: Boolean(payload.isRegister),
+        name: typeof payload.name === 'string' ? payload.name.trim() : undefined,
+        windowManager,
+      });
+      if (result.connected) planGate.invalidateEntitlementsCache();
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || 'login_failed', errorCode: error?.code };
     }
   });
 

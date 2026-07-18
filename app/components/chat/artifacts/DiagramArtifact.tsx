@@ -82,7 +82,7 @@ export default function DiagramArtifact({ artifact }: { artifact: DiagramArtifac
         <desc id="dome-diagram-desc">{description}</desc>
         <defs>
           <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6 z" fill="var(--secondary-text)" opacity={0.6} />
+            <path d="M0,0 L6,3 L0,6 z" fill="var(--muted-foreground)" opacity={0.6} />
           </marker>
         </defs>
         {artifact.edges.map((e, idx) => {
@@ -110,7 +110,7 @@ export default function DiagramArtifact({ artifact }: { artifact: DiagramArtifac
                   y={(y1 + y2) / 2 - 4}
                   textAnchor="middle"
                   fontSize={10}
-                  fill="var(--tertiary-text)"
+                  fill="var(--muted-foreground)"
                 >
                   {e.label}
                 </text>
@@ -127,15 +127,15 @@ export default function DiagramArtifact({ artifact }: { artifact: DiagramArtifac
                 width={140}
                 height={NODE_H}
                 rx={8}
-                fill="var(--bg-tertiary)"
-                stroke="var(--accent)"
+                fill="var(--muted)"
+                stroke="var(--primary)"
                 strokeWidth={1}
               />
-              <text x={10} y={22} fontSize={12} fill="var(--primary-text)">
+              <text x={10} y={22} fontSize={12} fill="var(--foreground)">
                 {n.label}
               </text>
               {n.lane && (
-                <text x={10} y={-6} fontSize={9} fill="var(--tertiary-text)">
+                <text x={10} y={-6} fontSize={9} fill="var(--muted-foreground)">
                   {n.lane}
                 </text>
               )}

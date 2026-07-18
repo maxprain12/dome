@@ -1,9 +1,25 @@
-import { useEffect, useState, useRef } from 'react';
-import { Paperclip, AtSign, ChevronRight, ChevronLeft, X, Sparkles, Slash, Hash, type LucideIcon } from 'lucide-react';
+import { useEffect, useState, type ReactElement } from 'react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { AtSignIcon, AttachmentIcon, BookOpen01Icon, BrainIcon, Cancel01Icon, ChevronLeftIcon, ChevronRightIcon, CircleSlash2Icon, GlobeIcon, HashIcon, Plug02Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Brain, Globe, Plug2 } from 'lucide-react';
 import { ChatInputToggle } from '@/components/chat/ChatInputToggle';
 import { listSkills } from '@/lib/skills/client';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+
+function MenuIconBadge({ icon }: { icon: IconSvgElement }) {
+  return (
+    <span
+      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground transition-colors group-hover:bg-background"
+      aria-hidden
+    >
+      <HugeiconsIcon icon={icon} />
+    </span>
+  );
+}
 
 function MenuPillButton({
   icon: Icon,
@@ -11,26 +27,22 @@ function MenuPillButton({
   onClick,
   disabled,
 }: {
-  icon: LucideIcon;
+  icon: IconSvgElement;
   label: string;
   onClick: () => void;
   disabled?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       disabled={disabled}
       onClick={onClick}
-      className="group flex min-h-[36px] w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+      className="group h-auto min-h-9 w-full justify-start gap-2 rounded-xl px-2 py-1.5"
     >
-      <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
-        aria-hidden
-      >
-        <Icon className="size-4" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
-    </button>
+      <MenuIconBadge icon={Icon} />
+      <span className="min-w-0 flex-1 text-left text-xs font-medium leading-snug">{label}</span>
+    </Button>
   );
 }
 
@@ -40,27 +52,23 @@ function MenuNavRow({
   onNavigate,
   disabled,
 }: {
-  icon: LucideIcon;
+  icon: IconSvgElement;
   label: string;
   onNavigate: () => void;
   disabled?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       disabled={disabled}
       onClick={onNavigate}
-      className="group flex min-h-[36px] w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+      className="group h-auto min-h-9 w-full justify-start gap-2 rounded-xl px-2 py-1.5"
     >
-      <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
-        aria-hidden
-      >
-        <Icon className="size-4" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
-      <ChevronRight className="size-4 shrink-0 text-[var(--tertiary-text)]" aria-hidden />
-    </button>
+      <MenuIconBadge icon={Icon} />
+      <span className="min-w-0 flex-1 text-left text-xs font-medium leading-snug">{label}</span>
+      <HugeiconsIcon icon={ChevronRightIcon} className="shrink-0 text-muted-foreground" />
+    </Button>
   );
 }
 
@@ -80,19 +88,19 @@ function CapabilityToggleRow({
   checked,
   onChange,
 }: {
-  icon: LucideIcon;
+  icon: IconSvgElement;
   label: string;
   description: string;
   checked: boolean;
   onChange: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-[var(--bg-hover)]">
+    <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-muted">
       <div className="flex min-w-0 items-center gap-2">
-        <Icon className="size-3.5 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+        <HugeiconsIcon icon={Icon} className="shrink-0 text-muted-foreground" />
         <div className="min-w-0">
-          <p className="truncate text-[12px] font-medium text-[var(--primary-text)]">{label}</p>
-          <p className="truncate text-[10px] text-[var(--secondary-text)]">{description}</p>
+          <p className="truncate text-xs font-medium">{label}</p>
+          <p className="truncate text-[10px] text-muted-foreground">{description}</p>
         </div>
       </div>
       <ChatInputToggle checked={checked} onChange={onChange} label={label} />
@@ -103,9 +111,9 @@ function CapabilityToggleRow({
 export function ManyCapabilitiesToggles(p: ManyCapabilitiesBlockProps) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-1 px-1">
+    <div className="flex flex-col gap-1 px-1">
       <CapabilityToggleRow
-        icon={Globe}
+        icon={GlobeIcon}
         label={t('chat.capability_web')}
         description={t('chat.capability_web_desc')}
         checked={p.toolsEnabled}
@@ -113,7 +121,7 @@ export function ManyCapabilitiesToggles(p: ManyCapabilitiesBlockProps) {
       />
       {p.setMemoryEnabled ? (
         <CapabilityToggleRow
-          icon={Brain}
+          icon={BrainIcon}
           label={t('many.capability_memory')}
           description={t('chat.capability_memory_desc')}
           checked={p.memoryEnabled ?? true}
@@ -121,7 +129,7 @@ export function ManyCapabilitiesToggles(p: ManyCapabilitiesBlockProps) {
         />
       ) : null}
       <CapabilityToggleRow
-        icon={BookOpen}
+        icon={BookOpen01Icon}
         label={t('chat.capability_resources')}
         description={t('chat.capability_resources_desc')}
         checked={p.resourceToolsEnabled}
@@ -135,7 +143,6 @@ export type ChatComposerSkillsHandlers = {
   onInvokeOneShot: (id: string) => void;
   onSetSticky: (id: string | null) => void;
   activeStickySkillId: string | null;
-  /** Called after picking a skill from the menu (closes dropdown from parent) */
   onCloseMenu?: () => void;
 };
 
@@ -174,28 +181,25 @@ function PlusMenuQuickActions({
 }) {
   return (
     <>
-      <p
-        className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider"
-        style={{ color: 'var(--tertiary-text)' }}
-      >
+      <p className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
         {t('chat.menu_quick_actions')}
       </p>
-      <div className="space-y-1">
+      <div className="flex flex-col gap-1">
         {showAttach ? (
-          <MenuPillButton icon={Paperclip} label={t('chat.quick_attach')} onClick={onAttach} disabled={disableQuick} />
+          <MenuPillButton icon={AttachmentIcon} label={t('chat.quick_attach')} onClick={onAttach} disabled={disableQuick} />
         ) : null}
         {showAddContext ? (
-          <MenuPillButton icon={AtSign} label={t('chat.quick_context')} onClick={onAddContext} disabled={disableQuick} />
+          <MenuPillButton icon={AtSignIcon} label={t('chat.quick_context')} onClick={onAddContext} disabled={disableQuick} />
         ) : null}
         {showSlashSkills && onSlashSkills ? (
-          <MenuPillButton icon={Slash} label={t('chat.quick_skill')} onClick={onSlashSkills} disabled={disableQuick} />
+          <MenuPillButton icon={CircleSlash2Icon} label={t('chat.quick_skill')} onClick={onSlashSkills} disabled={disableQuick} />
         ) : null}
         {showHashMcp && onHashMcp ? (
-          <MenuPillButton icon={Hash} label={t('chat.quick_mcp')} onClick={onHashMcp} disabled={disableQuick} />
+          <MenuPillButton icon={HashIcon} label={t('chat.quick_mcp')} onClick={onHashMcp} disabled={disableQuick} />
         ) : null}
         {showSkillsNav && skillsHandlers ? (
           <MenuNavRow
-            icon={Sparkles}
+            icon={SparklesIcon}
             label={t('chat.plus_skills')}
             onNavigate={() => setView('skills')}
             disabled={disableQuick}
@@ -203,7 +207,7 @@ function PlusMenuQuickActions({
         ) : null}
         {showToolsNav ? (
           <MenuNavRow
-            icon={Plug2}
+            icon={Plug02Icon}
             label={t('chat.plus_tools')}
             onNavigate={() => setView('tools')}
             disabled={disableQuick}
@@ -217,11 +221,8 @@ function PlusMenuQuickActions({
 function PlusMenuCapabilitiesSection({ manyCapabilities, t }: { manyCapabilities: ManyCapabilitiesBlockProps; t: (key: string) => string }) {
   return (
     <>
-      <hr className="mx-3 my-3 h-px border-0 bg-[var(--border)]" aria-label="Separator" />
-      <p
-        className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
-        style={{ color: 'var(--tertiary-text)' }}
-      >
+      <Separator className="mx-1 my-3" />
+      <p className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
         {t('chat.capabilities_base')}
       </p>
       <ManyCapabilitiesToggles {...manyCapabilities} />
@@ -243,13 +244,18 @@ type ChatComposerPlusMenuContentProps = {
   disableQuick?: boolean;
   toolsSectionLabelKey?: 'chat.mcp_global_tools' | 'chat.agent_functions';
   hideToolsSectionHeader?: boolean;
-  /** `flat` = legacy single-scroll layout; `nested` = Claude-style submenus */
   menuLayout?: 'flat' | 'nested';
-  /** When menu opens, pass true so the panel resets to root */
-  isMenuOpen?: boolean;
   skillsHandlers?: ChatComposerSkillsHandlers | null;
   onCloseMenu?: () => void;
 };
+
+function PlusMenuCloseButton({ onClose, label }: { onClose: () => void; label: string }) {
+  return (
+    <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={label}>
+      <HugeiconsIcon icon={Cancel01Icon} />
+    </Button>
+  );
+}
 
 function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers }) {
   const { t } = useTranslation();
@@ -281,64 +287,51 @@ function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers
   }, []);
 
   if (skills.length === 0) {
-    return (
-      <p className="px-3 py-4 text-[13px] text-[var(--tertiary-text)]">{t('settings.skills.empty')}</p>
-    );
+    return <p className="px-3 py-4 text-sm text-muted-foreground">{t('settings.skills.empty')}</p>;
   }
 
   return (
-    <div className="space-y-2 px-1 pb-2">
+    <div className="flex flex-col gap-2 px-1 pb-2">
       {skills.map((s) => {
         const sticky = handlers.activeStickySkillId === s.id;
         return (
-          <div
-            key={s.id}
-            className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5"
-          >
-            <p className="text-[13px] font-medium text-[var(--primary-text)]">{s.name}</p>
+          <Card key={s.id} size="sm" className="gap-2 rounded-xl px-3 py-2.5 shadow-none ring-1 ring-border">
+            <p className="text-sm font-medium">{s.name}</p>
             {s.description ? (
-              <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--secondary-text)]">{s.description}</p>
+              <p className="line-clamp-2 text-[11px] text-muted-foreground">{s.description}</p>
             ) : null}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
                 type="button"
-                className="rounded-lg bg-[var(--bg-tertiary)] px-2.5 py-1 text-[11px] font-medium text-[var(--primary-text)] hover:bg-[var(--bg-hover)]"
+                size="xs"
+                variant="secondary"
                 onClick={() => {
                   handlers.onInvokeOneShot(s.id);
                   handlers.onCloseMenu?.();
                 }}
               >
                 {t('chat.skill_use_once')}
-              </button>
-              <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-[var(--secondary-text)]">
-                <input
-                  type="checkbox"
+              </Button>
+              <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Checkbox
                   checked={sticky}
-                  onChange={() => {
+                  onCheckedChange={() => {
                     handlers.onSetSticky(sticky ? null : s.id);
                     handlers.onCloseMenu?.();
                   }}
-                  className="rounded border-[var(--border)]"
                 />
                 {t('chat.slash_keep_active')}
               </label>
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>
   );
 }
 
-/**
- * Body of the "Claude-style" + menu: quick actions, then capabilities, then MCP/tools.
- * With `menuLayout="nested"`, capabilities / tools / skills open sub-panels.
- */
-const plusMenuShellStyle = {
-  background: 'var(--bg-secondary)',
-  borderColor: 'var(--border)',
-  boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
-} as const;
+// The card chrome (bg, border, shadow, radius) comes from PopoverContent.
+const menuShellClass = 'flex max-h-[min(400px,60vh)] w-full flex-col overflow-hidden';
 
 export function ChatComposerPlusMenuContent({
   showAttach,
@@ -353,40 +346,22 @@ export function ChatComposerPlusMenuContent({
   toolsSlot,
   disableQuick,
   toolsSectionLabelKey = 'chat.mcp_global_tools',
-  hideToolsSectionHeader = false,
   menuLayout = 'nested',
-  isMenuOpen = true,
   skillsHandlers = null,
   onCloseMenu,
 }: ChatComposerPlusMenuContentProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<PlusMenuView>('root');
 
-  const prevIsMenuOpenRef = useRef(isMenuOpen);
-  if (isMenuOpen !== prevIsMenuOpenRef.current) {
-    prevIsMenuOpenRef.current = isMenuOpen;
-    if (isMenuOpen) setView('root');
-  }
-
   const showSkillsNav = Boolean(skillsHandlers);
   const showToolsNav = Boolean(toolsSlot);
 
-  const menuShellClass =
-    'flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl';
-
   if (menuLayout === 'flat') {
     return (
-      <div className={menuShellClass} style={plusMenuShellStyle}>
+      <div className={menuShellClass}>
         {onCloseMenu ? (
-          <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-0.5">
-            <button
-              type="button"
-              className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
-              onClick={onCloseMenu}
-              aria-label={t('common.close')}
-            >
-              <X className="h-[16px] w-[16px]" />
-            </button>
+          <div className="flex shrink-0 justify-end border-b border-border px-2 py-0.5">
+            <PlusMenuCloseButton onClose={onCloseMenu} label={t('common.close')} />
           </div>
         ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
@@ -420,49 +395,28 @@ export function ChatComposerPlusMenuContent({
         : '';
 
   return (
-    <div
-      className="flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
-      style={plusMenuShellStyle}
-    >
+    <div className={menuShellClass}>
       {view !== 'root' ? (
-        <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] p-2">
-          <button
+        <div className="flex shrink-0 items-center gap-1 border-b border-border p-2">
+          <Button
             type="button"
-            className="flex size-8 items-center justify-center rounded-lg text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setView('root')}
             aria-label={t('chat.plus_menu_back')}
           >
-            <ChevronLeft className="h-[18px] w-[18px]" />
-          </button>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--primary-text)]">{subTitle}</span>
-          {onCloseMenu ? (
-            <button
-              type="button"
-              className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
-              onClick={onCloseMenu}
-              aria-label={t('common.close')}
-            >
-              <X className="h-[16px] w-[16px]" />
-            </button>
-          ) : null}
+            <HugeiconsIcon icon={ChevronLeftIcon} />
+          </Button>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{subTitle}</span>
+          {onCloseMenu ? <PlusMenuCloseButton onClose={onCloseMenu} label={t('common.close')} /> : null}
         </div>
       ) : onCloseMenu ? (
-        <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-0.5">
-          <button
-            type="button"
-            className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
-            onClick={onCloseMenu}
-            aria-label={t('common.close')}
-          >
-            <X className="h-[16px] w-[16px]" />
-          </button>
+        <div className="flex shrink-0 justify-end border-b border-border px-2 py-0.5">
+          <PlusMenuCloseButton onClose={onCloseMenu} label={t('common.close')} />
         </div>
       ) : null}
 
-      <div
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 transition-transform duration-150"
-        style={{ transform: view === 'root' ? 'translateX(0)' : 'translateX(0)' }}
-      >
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
         {view === 'root' ? (
           <>
             <PlusMenuQuickActions
@@ -494,10 +448,34 @@ export function ChatComposerPlusMenuContent({
           />
         ) : null}
 
-        {view === 'tools' && toolsSlot ? (
-          <div className="px-0 pb-0.5">{toolsSlot}</div>
-        ) : null}
+        {view === 'tools' && toolsSlot ? <div className="px-0 pb-0.5">{toolsSlot}</div> : null}
       </div>
     </div>
+  );
+}
+
+export interface ChatComposerPlusMenuProps extends ChatComposerPlusMenuContentProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Botón «+» que ancla el popover (se pasa como render del trigger). */
+  trigger: ReactElement;
+}
+
+/**
+ * Menú «+» del composer como Popover de shadcn: posicionamiento, click-outside,
+ * Escape y chrome (fondo/borde/sombra) los aporta PopoverContent.
+ */
+export function ChatComposerPlusMenu({ open, onOpenChange, trigger, ...content }: ChatComposerPlusMenuProps) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger render={trigger} />
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-[min(calc(100vw-20px),320px)] gap-0 overflow-hidden p-0"
+      >
+        <ChatComposerPlusMenuContent {...content} onCloseMenu={content.onCloseMenu ?? (() => onOpenChange(false))} />
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
-import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Layers } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+  EyeIcon,
+  EyeOffIcon,
+  Key01Icon,
+  Layers01Icon,
+} from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Spinner } from '@/components/ui/spinner';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { SettingsGroup, SettingsRow } from '../blocks';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import {
   EMBEDDINGS_PROVIDER_IDS,
@@ -13,45 +29,19 @@ import {
 } from '@/lib/ai/models';
 import ModelSelector from '../ModelSelector';
 import ProviderBrandIcon from './ProviderBrandIcon';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import { DomeInput } from '@/components/ui/DomeInput';
-import { cn } from '@/lib/utils';
-
-interface EmbeddingsDiscoveredModel {
-  id: string;
-  name: string;
-  dimensions?: number;
-  recommended?: boolean;
-}
-
-interface EmbeddingsSelectorSource {
-  source: 'remote' | 'static';
-  models?: EmbeddingsDiscoveredModel[];
-}
-
-interface EmbeddingsTestResult {
-  success: boolean;
-  message: string;
-}
-
-interface EmbeddingsStatus {
-  configured?: boolean;
-  modelVersion?: string | null;
-  dimensions?: number | null;
-  chunksTotal?: number;
-  indexedResourceCount?: number;
-}
+import { showToast } from '@/lib/store/useToastStore';
 
 function embeddingModelsAsSelector(
   provider: EmbeddingsProviderType,
-  discovered?: EmbeddingsDiscoveredModel[],
+  discovered?: Array<{
+    id: string;
+    name: string;
+    dimensions?: number;
+    recommended?: boolean;
+  }>,
 ): ModelDefinition[] {
   const source =
-    discovered && discovered.length > 0
-      ? discovered
-      : getEmbeddingModelsForProvider(provider);
+    discovered && discovered.length > 0 ? discovered : getEmbeddingModelsForProvider(provider);
   return source.map((m) => ({
     id: m.id,
     name: m.name,
@@ -64,427 +54,7 @@ function embeddingModelsAsSelector(
   }));
 }
 
-function EmbeddingsProviderCheck({ selected }: { selected: boolean }) {
-  return (
-    <CheckCircle2
-      aria-hidden
-      className={cn(
-        'pointer-events-none absolute top-2 right-2 size-3.5 shrink-0 transition-opacity duration-150',
-        selected ? 'opacity-100' : 'opacity-0',
-      )}
-      style={{ color: 'var(--dome-accent)' }}
-    />
-  );
-}
-
-async function discoverEmbeddingsModels(
-  provider: EmbeddingsProviderType,
-  apiKey: string,
-  baseUrl: string,
-): Promise<EmbeddingsSelectorSource> {
-  if (!window.electron?.embeddings?.listModels) return { source: 'static' };
-  try {
-    const r = await window.electron.embeddings.listModels({
-      provider,
-      api_key: provider === 'ollama' ? undefined : apiKey,
-      base_url: provider === 'ollama' ? baseUrl : undefined,
-    });
-    if (r.success && r.data?.models?.length) {
-      return { source: r.data.source, models: r.data.models };
-    }
-    return { source: 'static' };
-  } catch {
-    return { source: 'static' };
-  }
-}
-
-function pickPreferredModelId(
-  mapped: ModelDefinition[],
-  currentId: string,
-): string {
-  if (mapped.some((m) => m.id === currentId)) return currentId;
-  const rec = mapped.find((m) => m.recommended) ?? mapped[0];
-  return rec?.id ?? currentId;
-}
-
-async function runEmbeddingsTest(
-  args: {
-    provider: EmbeddingsProviderType;
-    model: string;
-    apiKey: string;
-    baseUrl: string;
-  },
-  t: TFunction,
-): Promise<EmbeddingsTestResult> {
-  if (!window.electron?.embeddings?.test) {
-    return { success: false, message: t('settings.ai.embeddings.test_unavailable') };
-  }
-  const r = await window.electron.embeddings.test({
-    provider: args.provider,
-    model: args.model,
-    api_key: args.apiKey,
-    base_url: args.baseUrl,
-  });
-  if (r.success && r.data?.ok) {
-    return {
-      success: true,
-      message: t('settings.ai.embeddings.test_ok', {
-        dimensions: String(r.data.dimensions ?? '?'),
-        ms: String(r.data.latencyMs ?? '?'),
-      }),
-    };
-  }
-  return {
-    success: false,
-    message: r.error || t('settings.ai.embeddings.test_failed'),
-  };
-}
-
-function buildEmbeddingsSaveKey(
-  provider: EmbeddingsProviderType,
-  model: string,
-  apiKey: string,
-  baseUrl: string,
-): string {
-  return `${provider}|${model}|${apiKey}|${baseUrl}`;
-}
-
-function buildEmbeddingsSaveConfig(
-  provider: EmbeddingsProviderType,
-  model: string,
-  apiKey: string,
-  baseUrl: string,
-): Parameters<typeof saveAIConfig>[0] {
-  return {
-    embeddings_provider: provider,
-    embeddings_api_key: provider === 'ollama' ? '' : apiKey,
-    embeddings_model: model,
-    embeddings_base_url: provider === 'ollama' ? baseUrl : '',
-  };
-}
-
-function confirmEmbeddingsReindex(changed: boolean, t: TFunction): boolean {
-  if (!changed) return true;
-  return window.confirm(t('settings.ai.embeddings.reindex_warning'));
-}
-
-function describeTestError(e: unknown, t: TFunction): string {
-  return e instanceof Error ? e.message : t('settings.ai.embeddings.test_failed');
-}
-
-function getEmbeddingsReloadDelay(provider: EmbeddingsProviderType): number {
-  return provider === 'ollama' ? 0 : 400;
-}
-
-function clearDebounceRef(ref: { current: ReturnType<typeof setTimeout> | null }) {
-  if (ref.current) clearTimeout(ref.current);
-}
-
-async function fetchEmbeddingsStatus(): Promise<EmbeddingsStatus | null> {
-  if (!window.electron?.embeddings?.getStatus) return null;
-  try {
-    const r = await window.electron.embeddings.getStatus();
-    if (r.success && r.data) return r.data;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function applyProviderDefaults(
-  p: EmbeddingsProviderType,
-  setModel: (m: string) => void,
-  setBaseUrl: (b: string) => void,
-) {
-  const rec = getRecommendedEmbeddingModel(p);
-  if (rec) setModel(rec.id);
-  if (p === 'ollama') setBaseUrl('http://localhost:11434');
-}
-
-async function persistEmbeddingsConfig(args: {
-  provider: EmbeddingsProviderType;
-  model: string;
-  apiKey: string;
-  baseUrl: string;
-  nextKey: string;
-  changed: boolean;
-  initialKeyRef: { current: string };
-  setSaved: (v: boolean) => void;
-  setSaving: (v: boolean) => void;
-  loadStatus: () => Promise<void>;
-}): Promise<void> {
-  args.setSaving(true);
-  try {
-    await saveAIConfig(buildEmbeddingsSaveConfig(args.provider, args.model, args.apiKey, args.baseUrl));
-    args.initialKeyRef.current = args.nextKey;
-    args.setSaved(true);
-    setTimeout(() => args.setSaved(false), 3000);
-    if (args.changed && window.electron?.embeddings?.apply) {
-      void window.electron.embeddings.apply();
-    }
-    await args.loadStatus();
-  } catch (e) {
-    console.error('[AIEmbeddingsTab] save', e);
-  } finally {
-    args.setSaving(false);
-  }
-}
-
-function EmbeddingsHeader() {
-  const { t } = useTranslation();
-  return (
-    <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
-      {t('settings.ai.embeddings.description')}
-    </p>
-  );
-}
-
-function EmbeddingsProviderPicker({
-  provider,
-  onChange,
-}: {
-  provider: EmbeddingsProviderType;
-  onChange: (p: EmbeddingsProviderType) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div>
-      <div className="ai-settings__section-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span>{t('settings.ai.embeddings.provider')}</span>
-        <span className="text-[11px] font-normal normal-case tracking-normal opacity-80">
-          {t('settings.ai.active_provider')}:{' '}
-          <span className="font-medium text-[var(--dome-text)]">{PROVIDERS[provider].name}</span>
-        </span>
-      </div>
-      <div
-        role="radiogroup"
-        aria-label={t('settings.ai.embeddings.provider')}
-        className="ai-provider-picker__grid settings-choice-grid settings-choice-grid--3 gap-2"
-      >
-        {EMBEDDINGS_PROVIDER_IDS.map((id) => {
-          const def = PROVIDERS[id];
-          const active = provider === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange(id)}
-              className={cn(
-                'ai-provider-picker__card settings-provider-card relative flex w-full min-w-0 flex-col items-start p-2.5 pr-7 rounded-xl text-left transition-all',
-                active
-                  ? 'border border-[var(--dome-accent)] bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] shadow-sm'
-                  : 'border border-[var(--dome-border)] bg-[var(--dome-surface)] hover:border-[var(--dome-border-hover,var(--dome-border))]',
-              )}
-            >
-              <EmbeddingsProviderCheck selected={active} />
-              <ProviderBrandIcon provider={id} size={20} />
-              <span className="settings-provider-card__title mt-1.5 w-full min-w-0 truncate text-xs font-semibold text-[var(--dome-text)]">
-                {def.name}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function EmbeddingsApiKeyField({
-  provider,
-  apiKey,
-  setApiKey,
-  showApiKey,
-  setShowApiKey,
-  hasApiKey,
-}: {
-  provider: EmbeddingsProviderType;
-  apiKey: string;
-  setApiKey: (v: string) => void;
-  showApiKey: boolean;
-  setShowApiKey: (v: boolean | ((prev: boolean) => boolean)) => void;
-  hasApiKey: boolean;
-}) {
-  const { t } = useTranslation();
-  const providerDef = PROVIDERS[provider];
-  return (
-    <div>
-      <label
-        htmlFor="embeddings-api-key"
-        className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-[var(--dome-text)]"
-      >
-        {t('settings.ai.embeddings.api_key')}
-        {hasApiKey ? (
-          <KeyRound className="size-3 text-[var(--success)]" aria-label={t('settings.ai.provider_status_configured')} />
-        ) : null}
-      </label>
-      <div className="relative w-full">
-        <DomeInput
-          id="embeddings-api-key"
-          type={showApiKey ? 'text' : 'password'}
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={providerDef?.apiKeyPlaceholder || ''}
-          inputClassName="pr-10"
-          className="w-full [&_input]:pr-10"
-        />
-        <DomeButton
-          type="button"
-          variant="ghost"
-          size="xs"
-          iconOnly
-          className="absolute right-1 top-1/2 -translate-y-1/2"
-          onClick={() => setShowApiKey((v) => !v)}
-          aria-label={showApiKey ? 'Hide' : 'Show'}
-        >
-          {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-        </DomeButton>
-      </div>
-      {providerDef?.docsUrl ? (
-        <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">
-          {t('settings.ai.free_key_at')}{' '}
-          <a href={providerDef.docsUrl} target="_blank" rel="noreferrer" className="underline">
-            {providerDef.docsUrl}
-          </a>
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function EmbeddingsBaseUrlField({
-  baseUrl,
-  setBaseUrl,
-}: {
-  baseUrl: string;
-  setBaseUrl: (v: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div>
-      <label htmlFor="embeddings-base-url" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
-        {t('settings.ai.embeddings.base_url')}
-      </label>
-      <DomeInput
-        id="embeddings-base-url"
-        value={baseUrl}
-        onChange={(e) => setBaseUrl(e.target.value)}
-        placeholder="http://localhost:11434"
-      />
-      <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">{t('settings.ai.ollama_install')}</p>
-    </div>
-  );
-}
-
-function EmbeddingsModelSection({
-  selectorModels,
-  model,
-  onChange,
-  modelsLoading,
-  modelsSource,
-}: {
-  selectorModels: ModelDefinition[];
-  model: string;
-  onChange: (m: string) => void;
-  modelsLoading: boolean;
-  modelsSource: 'remote' | 'static' | null;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div>
-      <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-[var(--dome-text)]">
-        {t('settings.ai.embeddings.model')}
-        {modelsLoading ? <Loader2 className="size-3 animate-spin opacity-60" aria-hidden /> : null}
-      </label>
-      <ModelSelector
-        models={selectorModels}
-        selectedModelId={model}
-        onChange={onChange}
-        showContextWindow={false}
-        showDescription
-        placeholder={t('settings.ai.embeddings.model')}
-        disabled={modelsLoading}
-      />
-      {modelsSource === 'remote' ? (
-        <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">
-          {t('settings.ai.embeddings.models_discovered')}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function EmbeddingsActionButtons({
-  testing,
-  saving,
-  saved,
-  onTest,
-  onSave,
-}: {
-  testing: boolean;
-  saving: boolean;
-  saved: boolean;
-  onTest: () => void;
-  onSave: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-wrap gap-2">
-      <DomeButton
-        type="button"
-        variant="outline"
-        size="md"
-        disabled={testing || saving}
-        onClick={() => void onTest()}
-        leftIcon={testing ? <Loader2 className="size-4 animate-spin" /> : undefined}
-      >
-        {testing ? t('settings.ai.testing') : t('settings.ai.embeddings.test')}
-      </DomeButton>
-      <DomeButton
-        type="button"
-        variant="primary"
-        size="md"
-        disabled={saving}
-        onClick={() => void onSave()}
-        leftIcon={saving ? <Loader2 className="size-4 animate-spin" /> : <Layers className="size-4" />}
-      >
-        {saved ? t('settings.ai.saved_config') : t('settings.ai.embeddings.save')}
-      </DomeButton>
-    </div>
-  );
-}
-
-function EmbeddingsStatusCard({ status }: { status: EmbeddingsStatus | null }) {
-  const { t } = useTranslation();
-  return (
-    <DomeCard className="space-y-2">
-      <p className="text-sm font-medium text-[var(--dome-text)]">{t('settings.ai.embeddings.status_title')}</p>
-      {!status?.configured ? (
-        <p className="text-sm text-[var(--dome-text-muted)]">{t('settings.ai.embeddings.status.not_configured')}</p>
-      ) : (
-        <ul className="text-sm space-y-1 text-[var(--dome-text)]">
-          {status.modelVersion ? (
-            <li>
-              {t('settings.ai.embeddings.status.model_active')}:{' '}
-              <span className="font-mono text-xs">{status.modelVersion}</span>
-            </li>
-          ) : null}
-          {status.dimensions != null ? (
-            <li>
-              {t('settings.ai.embeddings.status.dimensions')}: {status.dimensions}
-            </li>
-          ) : null}
-          <li>
-            {t('settings.embeddings.chunks')}: {status.chunksTotal ?? 0} · {t('settings.embeddings.indexed')}:{' '}
-            {status.indexedResourceCount ?? 0}
-          </li>
-        </ul>
-      )}
-    </DomeCard>
-  );
-}
-
+/** Embeddings pipeline config: provider, credentials, model and index status. */
 export default function AIEmbeddingsTab() {
   const { t } = useTranslation();
   const [provider, setProvider] = useState<EmbeddingsProviderType>('openai');
@@ -494,10 +64,18 @@ export default function AIEmbeddingsTab() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<EmbeddingsTestResult | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<EmbeddingsStatus | null>(null);
+  const [confirmReindex, setConfirmReindex] = useState(false);
+  const [status, setStatus] = useState<{
+    configured?: boolean;
+    modelVersion?: string | null;
+    dimensions?: number | null;
+    chunksTotal?: number;
+    indexedResourceCount?: number;
+  } | null>(null);
   const initialKeyRef = useRef('');
+  const skipConfirmRef = useRef(false);
   const [selectorModels, setSelectorModels] = useState<ModelDefinition[]>(() =>
     embeddingModelsAsSelector('openai'),
   );
@@ -507,14 +85,33 @@ export default function AIEmbeddingsTab() {
 
   const loadDiscoveredModels = useCallback(async () => {
     setModelsLoading(true);
-    const result = await discoverEmbeddingsModels(provider, apiKey, baseUrl);
-    const mapped = embeddingModelsAsSelector(provider, result.models);
-    setSelectorModels(mapped);
-    setModelsSource(result.source);
-    if (result.source === 'remote') {
-      setModel((current) => pickPreferredModelId(mapped, current));
+    try {
+      if (window.electron?.embeddings?.listModels) {
+        const r = await window.electron.embeddings.listModels({
+          provider,
+          api_key: provider === 'ollama' ? undefined : apiKey,
+          base_url: provider === 'ollama' ? baseUrl : undefined,
+        });
+        if (r.success && r.data?.models?.length) {
+          const mapped = embeddingModelsAsSelector(provider, r.data.models);
+          setSelectorModels(mapped);
+          setModelsSource(r.data.source);
+          setModel((current) => {
+            if (mapped.some((m) => m.id === current)) return current;
+            const rec = mapped.find((m) => m.recommended) ?? mapped[0];
+            return rec?.id ?? current;
+          });
+          return;
+        }
+      }
+      setSelectorModels(embeddingModelsAsSelector(provider));
+      setModelsSource('static');
+    } catch {
+      setSelectorModels(embeddingModelsAsSelector(provider));
+      setModelsSource('static');
+    } finally {
+      setModelsLoading(false);
     }
-    setModelsLoading(false);
   }, [provider, apiKey, baseUrl]);
 
   const loadConfig = useCallback(async () => {
@@ -526,13 +123,17 @@ export default function AIEmbeddingsTab() {
     const rec = getRecommendedEmbeddingModel(safeProvider);
     setModel(config.embeddings_model || rec?.id || 'text-embedding-3-small');
     setBaseUrl(config.embeddings_base_url || 'http://localhost:11434');
-    initialKeyRef.current =
-      `${safeProvider}|${config.embeddings_model || ''}|${config.embeddings_api_key || ''}|${config.embeddings_base_url || ''}`;
+    initialKeyRef.current = `${safeProvider}|${config.embeddings_model || ''}|${config.embeddings_api_key || ''}|${config.embeddings_base_url || ''}`;
   }, []);
 
   const loadStatus = useCallback(async () => {
-    const nextStatus = await fetchEmbeddingsStatus();
-    if (nextStatus) setStatus(nextStatus);
+    if (!window.electron?.embeddings?.getStatus) return;
+    try {
+      const r = await window.electron.embeddings.getStatus();
+      if (r.success && r.data) setStatus(r.data);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -540,90 +141,296 @@ export default function AIEmbeddingsTab() {
     void loadStatus();
   }, [loadConfig, loadStatus]);
 
+  // Debounce model discovery while the user types the API key.
   useEffect(() => {
-    clearDebounceRef(apiKeyDebounceRef);
+    if (apiKeyDebounceRef.current) clearTimeout(apiKeyDebounceRef.current);
+    const delay = provider === 'ollama' ? 0 : 400;
     apiKeyDebounceRef.current = setTimeout(() => {
       void loadDiscoveredModels();
-    }, getEmbeddingsReloadDelay(provider));
+    }, delay);
     return () => {
-      clearDebounceRef(apiKeyDebounceRef);
+      if (apiKeyDebounceRef.current) clearTimeout(apiKeyDebounceRef.current);
     };
   }, [loadDiscoveredModels, provider, baseUrl, apiKey]);
 
   const handleProviderChange = (p: EmbeddingsProviderType) => {
     setProvider(p);
-    applyProviderDefaults(p, setModel, setBaseUrl);
+    const rec = getRecommendedEmbeddingModel(p);
+    if (rec) setModel(rec.id);
+    if (p === 'ollama') setBaseUrl('http://localhost:11434');
   };
 
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await runEmbeddingsTest({ provider, model, apiKey, baseUrl }, t);
-      setTestResult(result);
+      if (!window.electron?.embeddings?.test) {
+        setTestResult({ success: false, message: t('settings.ai.embeddings.test_unavailable') });
+        return;
+      }
+      const r = await window.electron.embeddings.test({
+        provider,
+        model,
+        api_key: apiKey,
+        base_url: baseUrl,
+      });
+      if (r.success && r.data?.ok) {
+        setTestResult({
+          success: true,
+          message: t('settings.ai.embeddings.test_ok', {
+            dimensions: String(r.data.dimensions ?? '?'),
+            ms: String(r.data.latencyMs ?? '?'),
+          }),
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: r.error || t('settings.ai.embeddings.test_failed'),
+        });
+      }
     } catch (e) {
-      setTestResult({ success: false, message: describeTestError(e, t) });
+      setTestResult({
+        success: false,
+        message: e instanceof Error ? e.message : t('settings.ai.embeddings.test_failed'),
+      });
     } finally {
       setTesting(false);
     }
   };
 
   const handleSave = async () => {
-    const nextKey = buildEmbeddingsSaveKey(provider, model, apiKey, baseUrl);
+    const nextKey = `${provider}|${model}|${apiKey}|${baseUrl}`;
     const changed = nextKey !== initialKeyRef.current;
-    if (!confirmEmbeddingsReindex(changed, t)) return;
-    await persistEmbeddingsConfig({
-      provider,
-      model,
-      apiKey,
-      baseUrl,
-      nextKey,
-      changed,
-      initialKeyRef,
-      setSaved,
-      setSaving,
-      loadStatus,
-    });
+    if (changed && !skipConfirmRef.current) {
+      setConfirmReindex(true);
+      return;
+    }
+    skipConfirmRef.current = false;
+    setSaving(true);
+    try {
+      await saveAIConfig({
+        embeddings_provider: provider,
+        embeddings_api_key: provider === 'ollama' ? '' : apiKey,
+        embeddings_model: model,
+        embeddings_base_url: provider === 'ollama' ? baseUrl : '',
+      });
+      initialKeyRef.current = nextKey;
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      if (changed && window.electron?.embeddings?.apply) {
+        void window.electron.embeddings.apply();
+      }
+      await loadStatus();
+    } catch (e) {
+      console.error('[AIEmbeddingsTab] save', e);
+      showToast('error', e instanceof Error ? e.message : t('common.error'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const hasApiKey = provider !== 'ollama' && apiKey.trim().length > 0;
 
   return (
-    <div className="min-w-0 w-full space-y-4">
-      <EmbeddingsHeader />
-      <EmbeddingsProviderPicker provider={provider} onChange={handleProviderChange} />
-      <DomeCard className="space-y-4">
-        {provider !== 'ollama' ? (
-          <EmbeddingsApiKeyField
-            provider={provider}
-            apiKey={apiKey}
-            setApiKey={setApiKey}
-            showApiKey={showApiKey}
-            setShowApiKey={setShowApiKey}
-            hasApiKey={hasApiKey}
-          />
-        ) : (
-          <EmbeddingsBaseUrlField baseUrl={baseUrl} setBaseUrl={setBaseUrl} />
-        )}
-        <EmbeddingsModelSection
-          selectorModels={selectorModels}
-          model={model}
-          onChange={setModel}
-          modelsLoading={modelsLoading}
-          modelsSource={modelsSource}
-        />
-        <EmbeddingsActionButtons
-          testing={testing}
-          saving={saving}
-          saved={saved}
-          onTest={handleTest}
-          onSave={handleSave}
-        />
-        {testResult ? (
-          <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
-        ) : null}
-      </DomeCard>
-      <EmbeddingsStatusCard status={status} />
+    <div className="flex w-full min-w-0 flex-col gap-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        {t('settings.ai.embeddings.description')}
+      </p>
+
+      <SettingsGroup
+        title={t('settings.ai.embeddings.provider')}
+        actions={
+          <span className="text-[11px] text-muted-foreground">
+            {t('settings.ai.active_provider')}:{' '}
+            <span className="font-medium text-foreground">{PROVIDERS[provider].name}</span>
+          </span>
+        }
+        bare
+      >
+        <ToggleGroup
+          value={[provider]}
+          onValueChange={(values) =>
+            values[0] && handleProviderChange(values[0] as EmbeddingsProviderType)
+          }
+          aria-label={t('settings.ai.embeddings.provider')}
+          className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3"
+        >
+          {EMBEDDINGS_PROVIDER_IDS.map((id) => (
+            <ToggleGroupItem
+              key={id}
+              value={id}
+              variant="outline"
+              aria-label={PROVIDERS[id].name}
+              className="h-auto w-full flex-col items-start gap-1.5 rounded-xl p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/5"
+            >
+              <ProviderBrandIcon provider={id} size={20} />
+              <span className="w-full min-w-0 truncate text-xs font-semibold">
+                {PROVIDERS[id].name}
+              </span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </SettingsGroup>
+
+      <SettingsGroup
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={testing || saving}
+              onClick={() => void handleTest()}
+            >
+              {testing ? <Spinner data-icon="inline-start" /> : null}
+              {testing ? t('settings.ai.testing') : t('settings.ai.embeddings.test')}
+            </Button>
+            <Button type="button" size="sm" disabled={saving} onClick={() => void handleSave()}>
+              {saving ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <HugeiconsIcon icon={Layers01Icon} data-icon="inline-start" />
+              )}
+              {saved ? t('settings.ai.saved_config') : t('settings.ai.embeddings.save')}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4 px-4 py-4">
+          {provider !== 'ollama' ? (
+            <Field>
+              <FieldLabel htmlFor="embeddings-api-key" className="flex items-center gap-1.5">
+                {t('settings.ai.embeddings.api_key')}
+                {hasApiKey ? (
+                  <HugeiconsIcon
+                    icon={Key01Icon}
+                    className="size-3 text-success"
+                    aria-label={t('settings.ai.provider_status_configured')}
+                  />
+                ) : null}
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="embeddings-api-key"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || ''}
+                />
+                <InputGroupAddon align="inline-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setShowApiKey((v) => !v)}
+                    aria-label={showApiKey ? 'Hide' : 'Show'}
+                  >
+                    <HugeiconsIcon icon={showApiKey ? EyeOffIcon : EyeIcon} />
+                  </Button>
+                </InputGroupAddon>
+              </InputGroup>
+              {PROVIDERS[provider]?.docsUrl ? (
+                <p className="text-[11px] text-muted-foreground">
+                  {t('settings.ai.free_key_at')}{' '}
+                  <a
+                    href={PROVIDERS[provider].docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    {PROVIDERS[provider].docsUrl}
+                  </a>
+                </p>
+              ) : null}
+            </Field>
+          ) : (
+            <Field>
+              <FieldLabel htmlFor="embeddings-base-url">
+                {t('settings.ai.embeddings.base_url')}
+              </FieldLabel>
+              <Input
+                id="embeddings-base-url"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="http://localhost:11434"
+              />
+              <p className="text-[11px] text-muted-foreground">{t('settings.ai.ollama_install')}</p>
+            </Field>
+          )}
+
+          <Field>
+            <FieldLabel className="flex items-center gap-2">
+              {t('settings.ai.embeddings.model')}
+              {modelsLoading ? <Spinner className="opacity-60" /> : null}
+            </FieldLabel>
+            <ModelSelector
+              models={selectorModels}
+              selectedModelId={model}
+              onChange={setModel}
+              showContextWindow={false}
+              showDescription
+              placeholder={t('settings.ai.embeddings.model')}
+              disabled={modelsLoading}
+            />
+            {modelsSource === 'remote' ? (
+              <p className="text-[11px] text-muted-foreground">
+                {t('settings.ai.embeddings.models_discovered')}
+              </p>
+            ) : null}
+          </Field>
+
+          {testResult ? (
+            <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
+              <HugeiconsIcon
+                icon={testResult.success ? CheckmarkCircle02Icon : AlertCircleIcon}
+                aria-hidden
+              />
+              <AlertDescription className="text-xs">{testResult.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title={t('settings.ai.embeddings.status_title')}>
+        <SettingsRow
+          title={t('settings.ai.embeddings.status_title')}
+          description={
+            !status?.configured ? t('settings.ai.embeddings.status.not_configured') : undefined
+          }
+        >
+          {status?.configured ? (
+            <ul className="flex flex-col gap-1 text-sm">
+              {status.modelVersion ? (
+                <li>
+                  {t('settings.ai.embeddings.status.model_active')}:{' '}
+                  <span className="font-mono text-xs">{status.modelVersion}</span>
+                </li>
+              ) : null}
+              {status.dimensions != null ? (
+                <li>
+                  {t('settings.ai.embeddings.status.dimensions')}: {status.dimensions}
+                </li>
+              ) : null}
+              <li>
+                {t('settings.embeddings.chunks')}: {status.chunksTotal ?? 0} ·{' '}
+                {t('settings.embeddings.indexed')}: {status.indexedResourceCount ?? 0}
+              </li>
+            </ul>
+          ) : null}
+        </SettingsRow>
+      </SettingsGroup>
+
+      <ConfirmDialog
+        isOpen={confirmReindex}
+        title={t('settings.ai.embeddings.reindex_warning')}
+        message={t('settings.ai.embeddings.reindex_warning')}
+        onConfirm={() => {
+          setConfirmReindex(false);
+          skipConfirmRef.current = true;
+          void handleSave();
+        }}
+        onCancel={() => setConfirmReindex(false)}
+      />
     </div>
   );
 }

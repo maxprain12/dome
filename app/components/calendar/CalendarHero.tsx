@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Link2, Plus, RefreshCw, Upload } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Add01Icon, Link01Icon, RefreshIcon, Upload04Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
+import { cn } from '@/lib/utils';
 
 export function CalendarHero({
   syncHint,
@@ -20,52 +24,51 @@ export function CalendarHero({
   onNewEvent: () => void;
 }) {
   const { t, i18n } = useTranslation();
-
-  const eyebrowDate = new Date()
-    .toLocaleDateString(i18n.language, { weekday: 'short', month: 'short', day: 'numeric' })
-    .toUpperCase()
-    .replace(/\./g, '');
+  const date = new Date().toLocaleDateString(i18n.language, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 
   return (
-    <header className="h-hero c-calendar-hero">
-      <div className="h-hero-main">
-        <div className="h-eyebrow h-hero-eyebrow">
-          <span>{eyebrowDate}</span>
-          <span className="sep" aria-hidden />
-          <span>{syncHint}</span>
+    <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b bg-muted px-4 py-3 md:px-5">
+      <div className="flex flex-col min-w-0 gap-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">{date}</span>
+          <Badge variant="lavender" className="font-normal">
+            {syncHint}
+          </Badge>
+          <Badge variant="outline" className="tabular-nums font-normal">
+            {t('calendarPage.upcoming')}: {upcomingCount}
+          </Badge>
         </div>
-
-        <h1 className="h-page-title inline-flex items-center gap-2 min-w-0">
-          <span className="min-w-0">{t('calendarPage.title')}</span>
+        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          {t('calendarPage.title')}
           <SectionGuideHelp sectionKey="calendar" />
         </h1>
-        <p className="h-hero-sub">{t('calendarPage.subtitle')}</p>
-
-        <div className="h-hero-actions">
-          <button type="button" className="h-pill-btn" onClick={onOpenSettings} title={t('calendarPage.open_settings')}>
-            <Link2 size={12} strokeWidth={2} aria-hidden />
-            {t('calendarPage.google_settings_short')}
-          </button>
-          <button type="button" className="h-pill-btn" onClick={onImport}>
-            <Upload size={12} strokeWidth={2} aria-hidden />
-            {t('calendarPage.import_ics_short')}
-          </button>
-          <button type="button" className="h-pill-btn" onClick={onSync} disabled={syncing} title={t('calendarPage.sync')}>
-            <RefreshCw size={12} strokeWidth={2} className={syncing ? 'animate-spin' : ''} aria-hidden />
-            {t('calendarPage.sync')}
-          </button>
-          <button type="button" className="h-pill-btn primary" onClick={onNewEvent}>
-            <Plus size={12} strokeWidth={2} aria-hidden />
-            {t('calendarPage.new_event_short')}
-          </button>
-        </div>
+        <p className="max-w-xl text-sm text-muted-foreground">{t('calendarPage.subtitle')}</p>
       </div>
-
-      <div className="c-calendar-hero-card" aria-label={t('calendarPage.upcoming')}>
-        <span className="label">{t('calendarPage.upcoming')}</span>
-        <span className="value">{upcomingCount}</span>
-        <span className="sub">{t('calendarPage.upcoming_hint')}</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+          <HugeiconsIcon icon={Link01Icon} />
+          {t('calendarPage.google_settings_short')}
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={onImport}>
+          <HugeiconsIcon icon={Upload04Icon} />
+          {t('calendarPage.import_ics_short')}
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={onSync} disabled={syncing}>
+          <HugeiconsIcon
+            icon={RefreshIcon}
+            className={cn(syncing && 'animate-spin motion-reduce:animate-none')}
+          />
+          {t('calendarPage.sync')}
+        </Button>
+        <Button type="button" size="sm" onClick={onNewEvent}>
+          <HugeiconsIcon icon={Add01Icon} />
+          {t('calendarPage.new_event_short')}
+        </Button>
       </div>
-    </header>
+    </div>
   );
 }

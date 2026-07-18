@@ -3,42 +3,42 @@
  * tool→category/icon mapping and codegen preview limits. Pure data.
  */
 
+import type { IconSvgElement } from '@hugeicons/react';
 import {
-  Bot,
-  Calendar,
-  Crop,
-  Database,
-  FileCode2,
-  FilePenLine,
-  FilePlus2,
-  FileText,
-  FileTextIcon,
-  FolderSearch,
-  FolderTree,
-  GitBranch,
-  Globe,
-  GraduationCap,
-  Image,
-  Layers,
-  Network,
-  Plug,
-  Search,
-  ShoppingBag,
-  Terminal,
-  Users,
-  Zap,
-} from 'lucide-react';
+  BotIcon,
+  Calendar03Icon,
+  CropIcon,
+  DatabaseIcon,
+  File02Icon,
+  FileAddIcon,
+  FileCodeIcon,
+  FileEditIcon,
+  FolderSearchIcon,
+  FolderTreeIcon,
+  GitBranchIcon,
+  GlobeIcon,
+  GraduationCapIcon,
+  HierarchySquare01Icon,
+  Image01Icon,
+  Layers01Icon,
+  Plug01Icon,
+  Search01Icon,
+  ShoppingBag01Icon,
+  TerminalIcon,
+  UserMultiple02Icon,
+  ZapIcon,
+} from '@hugeicons/core-free-icons';
 
 export type ToolCategory = 'search' | 'file' | 'agent' | 'db' | 'mcp' | 'default';
 
 /** Category color accent (border/dot color) using CSS variables for theme compatibility */
 export const CATEGORY_COLORS: Record<ToolCategory, string> = {
-  search: 'var(--accent)',   // blue
+  search: 'var(--primary)',   // blue
   file: 'var(--success)',     // green
-  agent: 'var(--accent)',    // purple
+  agent: 'var(--primary)',    // purple
   db: 'var(--warning)',       // orange
-  mcp: 'var(--secondary-text)',      // gray
-  default: 'var(--secondary-text)',  // gray
+  mcp: 'var(--muted-foreground)',      // gray
+  default: 'var(--muted-foreground)',  // gray
 };
 
 export function getCategory(name: string): ToolCategory {
@@ -55,76 +55,76 @@ export function getCategory(name: string): ToolCategory {
   return 'default';
 }
 
-export const TOOL_ICONS: Record<string, typeof Globe> = {
-  web_search: Search,
-  web_fetch: Globe,
-  deep_research: Search,
-  file_search: FolderSearch,
-  delegate_to_agent: Users,
-  resource_create: FileText,
-  resource_get: FileText,
-  resource_search: Search,
-  call_research_agent: Search,
-  call_library_agent: FileText,
-  call_writer_agent: FileText,
-  call_data_agent: Database,
-  start_async_subagent_task: GitBranch,
-  check_async_subagent_task: GitBranch,
-  update_async_subagent_task: GitBranch,
-  cancel_async_subagent_task: GitBranch,
-  list_async_subagent_tasks: GitBranch,
-  notebook_add_cell: FileText,
-  notebook_update_cell: FileText,
-  notebook_delete_cell: FileText,
-  pdf_extract_text: FileTextIcon,
-  pdf_get_metadata: FileTextIcon,
-  pdf_get_structure: FileTextIcon,
-  pdf_summarize: FileTextIcon,
-  pdf_extract_tables: FileTextIcon,
-  pdf_render_page: Image,
-  marketplace_search: ShoppingBag,
-  marketplace_install: ShoppingBag,
-  browser_get_active_tab: Globe,
-  workflow_create: GitBranch,
-  agent_create: Bot,
-  automation_create: Zap,
-  image_crop: Crop,
-  image_thumbnail: Layers,
-  generate_mindmap: Network,
-  generate_quiz: GraduationCap,
-  generate_knowledge_graph: Network,
-  calendar_list_events: Calendar,
-  calendar_list: Calendar,
-  calendar_get_upcoming: Calendar,
-  calendar_create: Calendar,
-  calendar_create_event: Calendar,
-  calendar_update: Calendar,
-  calendar_update_event: Calendar,
-  calendar_delete: Calendar,
-  calendar_delete_event: Calendar,
-  flashcard_create: Layers,
+export const TOOL_ICONS: Record<string, IconSvgElement> = {
+  web_search: Search01Icon,
+  web_fetch: GlobeIcon,
+  deep_research: Search01Icon,
+  file_search: FolderSearchIcon,
+  delegate_to_agent: UserMultiple02Icon,
+  resource_create: File02Icon,
+  resource_get: File02Icon,
+  resource_search: Search01Icon,
+  call_research_agent: Search01Icon,
+  call_library_agent: File02Icon,
+  call_writer_agent: File02Icon,
+  call_data_agent: DatabaseIcon,
+  start_async_subagent_task: GitBranchIcon,
+  check_async_subagent_task: GitBranchIcon,
+  update_async_subagent_task: GitBranchIcon,
+  cancel_async_subagent_task: GitBranchIcon,
+  list_async_subagent_tasks: GitBranchIcon,
+  notebook_add_cell: File02Icon,
+  notebook_update_cell: File02Icon,
+  notebook_delete_cell: File02Icon,
+  pdf_extract_text: File02Icon,
+  pdf_get_metadata: File02Icon,
+  pdf_get_structure: File02Icon,
+  pdf_summarize: File02Icon,
+  pdf_extract_tables: File02Icon,
+  pdf_render_page: Image01Icon,
+  marketplace_search: ShoppingBag01Icon,
+  marketplace_install: ShoppingBag01Icon,
+  browser_get_active_tab: GlobeIcon,
+  workflow_create: GitBranchIcon,
+  agent_create: BotIcon,
+  automation_create: ZapIcon,
+  image_crop: CropIcon,
+  image_thumbnail: Layers01Icon,
+  generate_mindmap: HierarchySquare01Icon,
+  generate_quiz: GraduationCapIcon,
+  generate_knowledge_graph: HierarchySquare01Icon,
+  calendar_list_events: Calendar03Icon,
+  calendar_list: Calendar03Icon,
+  calendar_get_upcoming: Calendar03Icon,
+  calendar_create: Calendar03Icon,
+  calendar_create_event: Calendar03Icon,
+  calendar_update: Calendar03Icon,
+  calendar_update_event: Calendar03Icon,
+  calendar_delete: Calendar03Icon,
+  calendar_delete_event: Calendar03Icon,
+  flashcard_create: Layers01Icon,
   // Filesystem / codegen (deepagents harness + Dome aliases)
-  write_file: FilePlus2,
-  file_write: FilePlus2,
-  edit_file: FilePenLine,
-  read_file: FileCode2,
-  file_read: FileCode2,
-  glob: FolderSearch,
-  ls: FolderTree,
-  file_list: FolderTree,
-  file_tree: FolderTree,
-  shell_exec: Terminal,
+  write_file: FileAddIcon,
+  file_write: FileAddIcon,
+  edit_file: FileEditIcon,
+  read_file: FileCodeIcon,
+  file_read: FileCodeIcon,
+  glob: FolderSearchIcon,
+  ls: FolderTreeIcon,
+  file_list: FolderTreeIcon,
+  file_tree: FolderTreeIcon,
+  shell_exec: TerminalIcon,
   // Subagent delegation (deepagents `task`)
-  task: Users,
+  task: UserMultiple02Icon,
 };
 
-export function getIconForTool(name: string): typeof Globe {
+export function getIconForTool(name: string): IconSvgElement {
   const norm = (name || '').toLowerCase();
   if (TOOL_ICONS[norm]) return TOOL_ICONS[norm];
   if (TOOL_ICONS[name]) return TOOL_ICONS[name];
-  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) return Database;
-  if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug;
-  return Globe;
+  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) return DatabaseIcon;
+  if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug01Icon;
+  return GlobeIcon;
 }
 
 /** Parse result as document-style array [{ content, metadata }] */
@@ -138,4 +138,3 @@ export const EXT_LANG: Record<string, string> = {
 
 export const CODEGEN_MAX_LINES = 48;
 export const CODEGEN_MAX_CHARS = 2400;
-

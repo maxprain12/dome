@@ -1,18 +1,18 @@
 import { StrictMode, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import ThemeProvider from '@/components/ui/ThemeProvider';
+import ThemeProvider from '@/components/shared/ThemeProvider';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useUserStore } from '@/lib/store/useUserStore';
 import type { StudioOutput } from '@/types';
-import PromptModal from '@/components/ui/PromptModal';
-import ToastContainer from '@/components/ui/Toast';
+import PromptModal from '@/components/shared/PromptModal';
 import { showToast } from '@/lib/store/useToastStore';
 import AnalyticsProvider from '@/components/analytics/AnalyticsProvider';
 import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import { ensureHubEventsBridge } from '@/lib/hub/hubEventsBridge';
+import { subscribeSettingsCloudUpdates } from '@/lib/settings';
 import PptCapturePage from './pages/PptCapturePage';
 import NoteFocusPage from './pages/NoteFocusPage';
 import ManyPopoutPage from './pages/ManyPopoutPage';
@@ -71,6 +71,16 @@ function MainApp() {
     void loadPreferences();
     void loadUserProfile();
   }, [loadPreferences, loadUserProfile]);
+
+  useEffect(() => {
+    const unsub = subscribeSettingsCloudUpdates((payload) => {
+      const keys = payload?.keys ?? [];
+      if (keys.some((k) => k.startsWith('ai_') || k.startsWith('ollama_') || k.startsWith('embeddings_'))) {
+        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+      }
+    });
+    return unsub;
+  }, []);
 
   // Handle dome://studio/ID deep links
   useEffect(() => {
@@ -187,7 +197,6 @@ function MainApp() {
     <>
       <AppShell />
       <PromptModal />
-      <ToastContainer />
     </>
   );
 }

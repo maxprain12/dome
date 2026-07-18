@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ratchet check: hardcoded hex colors outside allowed palette files.
- * Fails if count exceeds scripts/baselines/hardcoded-colors.txt baseline.
+ * Strict gate: zero hardcoded hex colors outside allowed palette files.
  */
 import fs from 'fs';
 import path from 'path';
@@ -9,7 +8,6 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-const BASELINE_FILE = path.join(__dirname, 'baselines', 'hardcoded-colors.txt');
 
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/g;
 
@@ -38,7 +36,8 @@ function walk(dir, out = []) {
     if (entry.isDirectory()) {
       if (entry.name === 'vendor') continue;
       walk(full, out);
-    } else if (/\.(tsx?|css|scss)$/.test(entry.name)) {
+    } else if (/\.(tsx?|css|scss)$/.test(entry.name) && !/\.test\.[jt]sx?$/.test(entry.name)) {
+      // Skip unit tests — `#450` issue titles etc. are not palette colors.
       out.push(full);
     }
   }
@@ -73,12 +72,6 @@ function collectFiles() {
   return files;
 }
 
-function readBaseline() {
-  if (!fs.existsSync(BASELINE_FILE)) return null;
-  const n = Number.parseInt(fs.readFileSync(BASELINE_FILE, 'utf8').trim(), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
 const files = collectFiles();
 let total = 0;
 const offenders = [];
@@ -91,21 +84,13 @@ for (const file of files) {
   }
 }
 
-const baseline = readBaseline();
-
-if (baseline == null) {
-  fs.mkdirSync(path.dirname(BASELINE_FILE), { recursive: true });
-  fs.writeFileSync(BASELINE_FILE, String(total));
-  console.log(`check:design-system: baseline created with ${total} hardcoded hex colors`);
-  process.exit(0);
-}
-
-if (total > baseline) {
-  console.error(`[design-system] Hardcoded hex count ${total} exceeds baseline ${baseline}`);
-  for (const o of offenders.sort((a, b) => b.count - a.count).slice(0, 15)) {
+if (total > 0) {
+  console.error(`[design-system] Found ${total} hardcoded hex color(s) outside allowed files.`);
+  console.error('Use a theme token or color-mix(), or add the file to ALLOWED_FILES with a documented reason.');
+  for (const o of offenders.sort((a, b) => b.count - a.count)) {
     console.error(`  ${o.count}\t${o.file}`);
   }
   process.exit(1);
 }
 
-console.log(`check:design-system: OK (${total}/${baseline} hardcoded hex colors)`);
+console.log('check:design-system: OK (0 hardcoded hex colors)');

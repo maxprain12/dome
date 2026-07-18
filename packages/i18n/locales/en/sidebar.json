@@ -2,5 +2,12 @@
   "quick_create_project_placeholder": "New project name…",
   "quick_create_project_button": "Add",
   "manage_projects": "Manage projects",
-  "more_tools": "More"
+  "switch_project": "Switch project (current: {{name}})",
+  "switch_project_short": "Switch project",
+  "projects": "Projects",
+  "more_tools": "More",
+  "sign_in": "Sign in to Dome",
+  "sign_in_connecting": "Connecting…",
+  "sign_in_success": "Connected to Dome",
+  "sign_in_error": "Couldn't sign in"
 }

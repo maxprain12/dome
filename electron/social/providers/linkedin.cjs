@@ -14,10 +14,13 @@
  */
 
 const API = 'https://api.linkedin.com/v2';
+/** LMS / Community Management versioned REST (YYYYMM). Bump when LinkedIn sunsets. */
+const LINKEDIN_VERSION = '202601';
 
 const database = require('../../core/database.cjs');
 const fileStorage = require('../../storage/file-storage.cjs');
 const { resolveMediaItems, uploadLinkedInImage } = require('../social-media.cjs');
+const { normalizeComment } = require('../social-messaging.cjs');
 
 async function linkedinFetch(accessToken, path, options = {}) {
   const res = await fetch(path.startsWith('http') ? path : `${API}${path}`, {
@@ -26,6 +29,7 @@ async function linkedinFetch(accessToken, path, options = {}) {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
+      'LinkedIn-Version': LINKEDIN_VERSION,
       ...options.headers,
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -225,52 +229,348 @@ async function publishPost(store, post) {
   };
 }
 
+/** Rest.li entity param for memberCreatorPostAnalytics (share | ugcPost). */
+function memberAnalyticsEntityParam(externalPostId) {
+  const raw = String(externalPostId || '').trim();
+  if (!raw) return null;
+  const urn = raw.startsWith('urn:')
+    ? raw
+    : raw.includes('share')
+      ? `urn:li:share:${raw}`
+      : `urn:li:ugcPost:${raw}`;
+  const kind = urn.includes(':share:') ? 'share' : 'ugcPost';
+  return `(${kind}:${encodeURIComponent(urn)})`;
+}
+
+async function fetchMemberCreatorMetric(accessToken, entityParam, queryType) {
+  const url =
+    `https://api.linkedin.com/rest/memberCreatorPostAnalytics` +
+    `?q=entity&entity=${entityParam}&queryType=${queryType}&aggregation=TOTAL`;
+  const data = await linkedinFetch(accessToken, url);
+  const el = data?.elements?.[0] || data;
+  const count =
+    el?.count ??
+    el?.value ??
+    el?.metricValue ??
+    el?.[queryType.toLowerCase()] ??
+    null;
+  return typeof count === 'number' ? count : null;
+}
+
 async function fetchPostMetrics(store, post) {
   if (!post.externalPostId) return null;
   const account = store.getAccount(post.accountId);
   if (!account) return null;
   const accessToken = await ensureAccessToken(store, account.id);
-  // socialActions gives aggregate likes/comments for a share/ugcPost URN.
-  const data = await linkedinFetch(
-    accessToken,
-    `/socialActions/${encodeURIComponent(post.externalPostId)}`
-  );
+  const kind = account.accountKind || account.account_kind || 'member';
+
+  let likes = null;
+  let comments = null;
+  let shares = null;
+  let impressions = null;
+  let socialRaw = null;
+  let analyticsRaw = null;
+
+  try {
+    const data = await linkedinFetch(
+      accessToken,
+      `/socialActions/${encodeURIComponent(post.externalPostId)}`,
+    );
+    socialRaw = data;
+    likes = data?.likesSummary?.totalLikes ?? null;
+    comments =
+      data?.commentsSummary?.aggregatedTotalComments ??
+      data?.commentsSummary?.totalFirstLevelComments ??
+      null;
+    shares = data?.sharesSummary?.totalShares ?? null;
+  } catch (err) {
+    console.warn('[Social][LI] socialActions metrics failed:', err.message);
+  }
+
+  // Personal + CMA: richer post analytics (impressions / reactions / …).
+  if (kind === 'member') {
+    const entity = memberAnalyticsEntityParam(post.externalPostId);
+    if (entity) {
+      try {
+        const [imp, reaction, comment, reshare] = await Promise.all([
+          fetchMemberCreatorMetric(accessToken, entity, 'IMPRESSION').catch(() => null),
+          fetchMemberCreatorMetric(accessToken, entity, 'REACTION').catch(() => null),
+          fetchMemberCreatorMetric(accessToken, entity, 'COMMENT').catch(() => null),
+          fetchMemberCreatorMetric(accessToken, entity, 'RESHARE').catch(() => null),
+        ]);
+        analyticsRaw = { IMPRESSION: imp, REACTION: reaction, COMMENT: comment, RESHARE: reshare };
+        if (imp != null) impressions = imp;
+        if (reaction != null) likes = reaction;
+        if (comment != null) comments = comment;
+        if (reshare != null) shares = reshare;
+      } catch (err) {
+        console.warn('[Social][LI] memberCreatorPostAnalytics failed:', err.message);
+      }
+    }
+  }
+
+  if (
+    likes == null &&
+    comments == null &&
+    shares == null &&
+    impressions == null
+  ) {
+    return null;
+  }
   return {
-    likes: data?.likesSummary?.totalLikes ?? null,
-    comments: data?.commentsSummary?.aggregatedTotalComments ?? data?.commentsSummary?.totalFirstLevelComments ?? null,
-    raw: data,
+    impressions,
+    likes,
+    comments,
+    shares,
+    raw: { socialActions: socialRaw, memberAnalytics: analyticsRaw },
   };
 }
 
+async function mapPostsFromElements(accessToken, elements) {
+  const posts = [];
+  for (const el of elements) {
+    const id = el.id || el.$URN || null;
+    if (!id) continue;
+    const commentary =
+      el.commentary ||
+      el.specificContent?.['com.linkedin.ugc.ShareContent']?.shareCommentary?.text ||
+      '';
+    const created =
+      el.createdAt ||
+      el.publishedAt ||
+      el.lastModifiedAt ||
+      el.created?.time ||
+      null;
+    const publishedAt = created != null ? Number(created) : null;
+    let metrics = null;
+    try {
+      const social = await linkedinFetch(
+        accessToken,
+        `/socialActions/${encodeURIComponent(id)}`,
+      );
+      metrics = {
+        likes: social?.likesSummary?.totalLikes ?? null,
+        comments:
+          social?.commentsSummary?.aggregatedTotalComments ??
+          social?.commentsSummary?.totalFirstLevelComments ??
+          null,
+        shares: social?.sharesSummary?.totalShares ?? null,
+        raw: social,
+      };
+    } catch {
+      /* socialActions may be unavailable for some post types */
+    }
+    posts.push({
+      externalPostId: String(id),
+      body: typeof commentary === 'string' ? commentary : String(commentary || ''),
+      externalUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}/`,
+      publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
+      metrics,
+    });
+  }
+  return posts;
+}
+
 /**
- * Account-level metrics. Member follower counts need a partner tier we don't
- * have, but organization pages expose follower counts via networkSizes with
- * the Community Management API scopes.
+ * List recent posts (org pages via CMA, personal when the token has read access).
+ * Personal history normally needs r_member_social (closed by LinkedIn); we still
+ * try /rest/posts so apps that somehow have it work, and return a clear skip.
  */
-async function fetchAccountMetrics(store, account) {
-  if ((account.accountKind || 'member') !== 'organization') return null;
+async function listRecentPosts(store, account, { limit = 25 } = {}) {
+  const kind = account.account_kind || account.accountKind || 'member';
   const accessToken = await ensureAccessToken(store, account.id);
-  const urn = encodeURIComponent(`urn:li:organization:${account.externalId}`);
-  // The edgeType enum differs per API surface: legacy /v2 wants camel case,
-  // the versioned /rest API wants SCREAMING_SNAKE + a LinkedIn-Version header.
-  // Mixing them yields a confusing 403 "validation failed ... [/edgeType]".
+  const externalId = account.external_id || account.externalId;
+  if (!externalId) throw new Error('LinkedIn account missing external id');
+  const capped = Math.min(Math.max(Number(limit) || 25, 1), 50);
+  const authorUrn =
+    kind === 'organization'
+      ? `urn:li:organization:${externalId}`
+      : `urn:li:person:${externalId}`;
+  const author = encodeURIComponent(authorUrn);
+
   let data;
   try {
     data = await linkedinFetch(
       accessToken,
-      `/networkSizes/${urn}?edgeType=CompanyFollowedByMember`
+      `https://api.linkedin.com/rest/posts?author=${author}&q=author&count=${capped}&sortBy=LAST_MODIFIED`,
+    );
+  } catch (err) {
+    console.warn('[Social][LI] listRecentPosts failed:', kind, err.message);
+    if (kind === 'member') {
+      return {
+        posts: [],
+        skipped: 'linkedin_member',
+        error: err.message,
+      };
+    }
+    return { posts: [], error: err.message };
+  }
+
+  const elements = data?.elements || data?.posts || [];
+  const posts = await mapPostsFromElements(accessToken, elements);
+  if (kind === 'member' && posts.length === 0) {
+    return { posts: [], skipped: 'linkedin_member' };
+  }
+  return { posts };
+}
+
+async function fetchMemberAccountMetrics(store, account, accessToken) {
+  const personId = account.externalId || account.external_id;
+  const raw = {};
+  let followers = null;
+  let following = null; // 1st-degree connections count
+
+  try {
+    const data = await linkedinFetch(
+      accessToken,
+      'https://api.linkedin.com/rest/memberFollowersCount?q=me',
+    );
+    raw.memberFollowersCount = data;
+    const el = data?.elements?.[0];
+    const n = el?.memberFollowersCount ?? data?.memberFollowersCount;
+    if (typeof n === 'number') followers = n;
+  } catch (err) {
+    console.warn('[Social][LI] memberFollowersCount failed:', err.message);
+  }
+
+  if (personId) {
+    try {
+      const data = await linkedinFetch(
+        accessToken,
+        `/connections/${encodeURIComponent(`urn:li:person:${personId}`)}`,
+      );
+      raw.connections = data;
+      if (typeof data?.firstDegreeSize === 'number') following = data.firstDegreeSize;
+    } catch (err) {
+      console.warn('[Social][LI] connections size failed:', err.message);
+    }
+  }
+
+  if (followers == null && following == null) return null;
+  return { followers, following, raw };
+}
+
+async function fetchOrganizationAccountMetrics(accessToken, account) {
+  const urn = encodeURIComponent(`urn:li:organization:${account.externalId}`);
+  // The edgeType enum differs per API surface: legacy /v2 wants camel case,
+  // the versioned /rest API wants SCREAMING_SNAKE + a LinkedIn-Version header.
+  let data;
+  try {
+    data = await linkedinFetch(
+      accessToken,
+      `/networkSizes/${urn}?edgeType=CompanyFollowedByMember`,
     );
   } catch (err) {
     if (!err.status || err.status < 400 || err.status >= 500) throw err;
     data = await linkedinFetch(
       accessToken,
       `https://api.linkedin.com/rest/networkSizes/${urn}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`,
-      { headers: { 'LinkedIn-Version': '202506' } }
     );
   }
   const followers = data?.firstDegreeSize;
   if (typeof followers !== 'number') return null;
   return { followers, raw: data };
+}
+
+async function fetchAccountMetrics(store, account) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const kind = account.accountKind || account.account_kind || 'member';
+  if (kind === 'organization') {
+    return fetchOrganizationAccountMetrics(accessToken, account);
+  }
+  return fetchMemberAccountMetrics(store, account, accessToken);
+}
+
+/**
+ * Comments on a share/ugcPost via socialActions (works best with org CMA scopes).
+ */
+async function listComments(store, { accountId, externalPostId, cursor } = {}) {
+  if (!externalPostId) return { comments: [] };
+  const accessToken = await ensureAccessToken(store, accountId);
+  const urn = encodeURIComponent(externalPostId);
+  let path = `/socialActions/${urn}/comments?count=50`;
+  if (cursor) path += `&start=${encodeURIComponent(cursor)}`;
+  let data;
+  try {
+    data = await linkedinFetch(accessToken, path);
+  } catch (err) {
+    console.warn('[Social][LI] listComments failed:', err.message);
+    return { comments: [] };
+  }
+  const comments = (data?.elements || []).map((el) => {
+    const actor = el?.actor || el?.commenter || null;
+    const text =
+      el?.message?.text ||
+      el?.commentary?.text ||
+      el?.message ||
+      '';
+    return normalizeComment({
+      id: el?.id || el?.$URN || `${externalPostId}:${el?.created?.time || Math.random()}`,
+      text: typeof text === 'string' ? text : String(text || ''),
+      authorName: null,
+      authorExternalId: typeof actor === 'string' ? actor : actor?.id || null,
+      createdAt: el?.created?.time || el?.lastModified?.time || null,
+    });
+  });
+  const nextStart = data?.paging?.start != null && data?.paging?.count != null
+    ? data.paging.start + data.paging.count
+    : undefined;
+  return { comments, nextCursor: nextStart != null ? String(nextStart) : undefined };
+}
+
+/**
+ * Best-effort cold DM via LinkedIn messages API (often partner-gated).
+ * recipientExternalId should be a person URN or member id.
+ */
+async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
+  if (!recipientExternalId) throw new Error('LinkedIn DM requires recipientExternalId.');
+  if (!String(text || '').trim()) throw new Error('LinkedIn DM text is empty.');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const account = store.getAccount(accountId);
+  const recipientUrn = String(recipientExternalId).startsWith('urn:')
+    ? String(recipientExternalId)
+    : `urn:li:person:${recipientExternalId}`;
+  const senderUrn =
+    (account?.account_kind || account?.accountKind) === 'organization'
+      ? `urn:li:organization:${account.external_id}`
+      : `urn:li:person:${account.external_id}`;
+
+  // Prefer versioned Messages API; fall back to legacy mailbox.
+  try {
+    const result = await linkedinFetch(accessToken, 'https://api.linkedin.com/rest/messages', {
+      method: 'POST',
+      body: {
+        recipients: [recipientUrn],
+        subject: '',
+        body: String(text).slice(0, 8000),
+        // Some tenants require sender; ignored when unsupported.
+        sender: senderUrn,
+      },
+    });
+    const externalMessageId =
+      result?.id || result?._headers?.['x-restli-id'] || `li-msg-${Date.now()}`;
+    return { externalMessageId: String(externalMessageId) };
+  } catch (err) {
+    console.warn('[Social][LI] rest/messages failed, trying legacy mailbox:', err.message);
+  }
+
+  const result = await linkedinFetch(accessToken, '/messages', {
+    method: 'POST',
+    body: {
+      recipients: { person: [recipientUrn] },
+      subject: 'Dome',
+      body: String(text).slice(0, 8000),
+      messageType: 'MEMBER_TO_MEMBER',
+    },
+  });
+  const externalMessageId =
+    result?.id || result?._headers?.['x-restli-id'] || null;
+  if (!externalMessageId) {
+    throw new Error(
+      'LinkedIn DM failed — messaging usually needs partner/Community access. Draft kept; reconnect with org scopes or use Monitor.',
+    );
+  }
+  return { externalMessageId: String(externalMessageId) };
 }
 
 module.exports = {
@@ -280,6 +580,9 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listRecentPosts,
+  listComments,
+  sendDm,
   syncOrganizations,
   supportsManualToken: true,
   requiresMedia: false,

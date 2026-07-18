@@ -29,7 +29,10 @@ const VISION_PROVIDERS = new Set([
  */
 function resolveConfig(getQueries) {
   const q = getQueries();
-  const provider = String(q.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
+  const billingMode = q.getSetting.get('ai_billing_mode')?.value || 'dome_cloud';
+  let provider = String(q.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
+  if (billingMode === 'dome_cloud') provider = 'dome';
+  if (billingMode === 'custom_api_key' && provider === 'dome') provider = 'openai';
 
   if (provider === 'ollama') {
     return {
@@ -41,11 +44,10 @@ function resolveConfig(getQueries) {
   }
 
   if (provider === 'dome') {
-    const row = q.getDomeProviderSessionWithRefresh?.get?.();
     return {
       provider: 'dome',
       model: q.getSetting.get('ai_model')?.value || 'dome/auto',
-      apiKey: row?.access_token || '',
+      apiKey: '',
       openaiBase: `${getDomeProviderBaseUrl()}/api/v1`,
     };
   }
@@ -104,8 +106,12 @@ function isCloudLlmAvailable(getQueries) {
       return true;
     }
     if (cfg.provider === 'dome') {
+      const database = require('../core/database.cjs');
+      const domeOauth = require('../auth/dome-oauth.cjs');
+      const session = domeOauth.getSession(database);
+      if (session?.connected && session?.accessToken) return true;
       const row = getQueries().getDomeProviderSessionWithRefresh?.get?.();
-      return Boolean(row?.access_token);
+      return Boolean(row?.refresh_token);
     }
     if (cfg.provider === 'copilot') {
       return Boolean(readSettingSecret(getQueries(), 'copilot_github_token'));
@@ -117,6 +123,18 @@ function isCloudLlmAvailable(getQueries) {
 }
 
 async function resolveLlmAuth(cfg) {
+  if (cfg.provider === 'dome') {
+    const database = require('../core/database.cjs');
+    const domeOauth = require('../auth/dome-oauth.cjs');
+    const session = await domeOauth.getOrRefreshSession(database);
+    if (!session?.connected || !session?.accessToken) {
+      throw new Error('Dome Cloud no conectado. Conecta tu cuenta en Ajustes.');
+    }
+    return {
+      apiKey: session.accessToken,
+      baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
+    };
+  }
   if (cfg.provider === 'copilot') {
     const database = require('../core/database.cjs');
     const copilotOAuth = require('../auth/github-copilot-oauth.cjs');

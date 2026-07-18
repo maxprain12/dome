@@ -1,14 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+  EyeIcon,
+  EyeOffIcon,
+  Search01Icon,
+} from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { SettingsGroup } from '../blocks';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
+import { showToast } from '@/lib/store/useToastStore';
 import type { AISettings } from '@/types';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import { DomeInput } from '@/components/ui/DomeInput';
-import { DomeSelect } from '@/components/ui/DomeSelect';
-import { cn } from '@/lib/utils';
 
 type WebSearchProvider = NonNullable<AISettings['web_search_provider']>;
 type WebFetchProvider = NonNullable<AISettings['web_fetch_provider']>;
@@ -16,14 +37,54 @@ type WebFetchProvider = NonNullable<AISettings['web_fetch_provider']>;
 const SEARCH_PROVIDERS: WebSearchProvider[] = ['auto', 'tavily', 'brave', 'searxng', 'ddg'];
 const FETCH_PROVIDERS: WebFetchProvider[] = ['auto', 'jina', 'readability', 'tavily'];
 
+function SecretField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <InputGroup>
+        <InputGroupInput
+          id={id}
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+        <InputGroupAddon align="inline-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setShow((v) => !v)}
+            aria-label={show ? 'Hide' : 'Show'}
+          >
+            <HugeiconsIcon icon={show ? EyeOffIcon : EyeIcon} />
+          </Button>
+        </InputGroupAddon>
+      </InputGroup>
+    </Field>
+  );
+}
+
+/** Web tools: search + fetch provider choice with optional API keys. */
 export default function AIWebSearchTab() {
   const { t } = useTranslation();
   const [searchProvider, setSearchProvider] = useState<WebSearchProvider>('auto');
   const [fetchProvider, setFetchProvider] = useState<WebFetchProvider>('auto');
   const [tavilyKey, setTavilyKey] = useState('');
   const [braveKey, setBraveKey] = useState('');
-  const [showTavilyKey, setShowTavilyKey] = useState(false);
-  const [showBraveKey, setShowBraveKey] = useState(false);
   const [showOptionalKeys, setShowOptionalKeys] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -43,20 +104,24 @@ export default function AIWebSearchTab() {
     void loadConfig();
   }, [loadConfig]);
 
+  const persist = () =>
+    saveAIConfig({
+      web_search_provider: searchProvider,
+      web_fetch_provider: fetchProvider,
+      web_search_tavily_key: tavilyKey,
+      web_search_brave_key: braveKey,
+    });
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     try {
-      await saveAIConfig({
-        web_search_provider: searchProvider,
-        web_fetch_provider: fetchProvider,
-        web_search_tavily_key: tavilyKey,
-        web_search_brave_key: braveKey,
-      });
+      await persist();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (error) {
       console.error('[AIWebSearchTab] save', error);
+      showToast('error', error instanceof Error ? error.message : t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -66,12 +131,7 @@ export default function AIWebSearchTab() {
     setTesting(true);
     setTestResult(null);
     try {
-      await saveAIConfig({
-        web_search_provider: searchProvider,
-        web_fetch_provider: fetchProvider,
-        web_search_tavily_key: tavilyKey,
-        web_search_brave_key: braveKey,
-      });
+      await persist();
       if (!window.electron?.ai?.testWebSearch) {
         setTestResult({ success: false, message: t('settings.ai.web_search.test_unavailable') });
         return;
@@ -99,137 +159,118 @@ export default function AIWebSearchTab() {
   };
 
   return (
-    <div className="min-w-0 w-full space-y-4">
-      <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
+    <div className="flex w-full min-w-0 flex-col gap-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         {t('settings.ai.web_search.zero_config_banner')}
       </p>
 
-      <DomeCard className="space-y-4">
-        <div className="settings-field-grid settings-field-grid--2">
-          <DomeSelect
-            label={t('settings.ai.web_search.search_provider')}
-            value={searchProvider}
-            onChange={(e) => setSearchProvider(e.target.value as WebSearchProvider)}
-          >
-            {SEARCH_PROVIDERS.map((id) => (
-              <option key={id} value={id}>
-                {t(`settings.ai.web_search.providers.${id}`)}
-              </option>
-            ))}
-          </DomeSelect>
+      <SettingsGroup
+        actions={
+          <>
+            <Button type="button" size="sm" onClick={() => void handleSave()} disabled={saving}>
+              {saving ? <Spinner data-icon="inline-start" /> : null}
+              {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleTest()}
+              disabled={testing}
+            >
+              {testing ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <HugeiconsIcon icon={Search01Icon} data-icon="inline-start" />
+              )}
+              {testing ? t('settings.ai.testing') : t('settings.ai.test_brave')}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4 px-4 py-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel>{t('settings.ai.web_search.search_provider')}</FieldLabel>
+              <Select
+                value={searchProvider}
+                onValueChange={(next) => setSearchProvider(next as WebSearchProvider)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {SEARCH_PROVIDERS.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {t(`settings.ai.web_search.providers.${id}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
 
-          <DomeSelect
-            label={t('settings.ai.web_search.fetch_provider')}
-            value={fetchProvider}
-            onChange={(e) => setFetchProvider(e.target.value as WebFetchProvider)}
-          >
-            {FETCH_PROVIDERS.map((id) => (
-              <option key={id} value={id}>
-                {t(`settings.ai.web_search.fetch_providers.${id}`)}
-              </option>
-            ))}
-          </DomeSelect>
-        </div>
+            <Field>
+              <FieldLabel>{t('settings.ai.web_search.fetch_provider')}</FieldLabel>
+              <Select
+                value={fetchProvider}
+                onValueChange={(next) => setFetchProvider(next as WebFetchProvider)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {FETCH_PROVIDERS.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {t(`settings.ai.web_search.fetch_providers.${id}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
 
-        <div>
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="!px-0 !text-[var(--dome-text-muted)] hover:!text-[var(--dome-text)]"
-            onClick={() => setShowOptionalKeys((v) => !v)}
-            rightIcon={
-              <ChevronDown
-                className={cn('size-3.5 transition-transform', showOptionalKeys && 'rotate-180')}
+          <Collapsible open={showOptionalKeys} onOpenChange={setShowOptionalKeys}>
+            <CollapsibleTrigger className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none">
+              {t('settings.ai.web_search.optional_keys')}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 border-t pt-4">
+              <FieldGroup>
+                <SecretField
+                  id="web-tavily-key"
+                  label={t('settings.ai.web_search.tavily_key')}
+                  value={tavilyKey}
+                  onChange={setTavilyKey}
+                  placeholder="tvly-..."
+                />
+                <SecretField
+                  id="web-brave-key"
+                  label={t('settings.ai.brave_search_key_label')}
+                  value={braveKey}
+                  onChange={setBraveKey}
+                  placeholder="BSA..."
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {t('settings.ai.web_search.keys_hint')}
+                </p>
+              </FieldGroup>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {testResult ? (
+            <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
+              <HugeiconsIcon
+                icon={testResult.success ? CheckmarkCircle02Icon : AlertCircleIcon}
                 aria-hidden
               />
-            }
-          >
-            {t('settings.ai.web_search.optional_keys')}
-          </DomeButton>
-
-          {showOptionalKeys ? (
-            <div className="mt-3 space-y-4 border-t border-[var(--dome-border)] pt-4">
-              <div>
-                <label htmlFor="web-tavily-key" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
-                  {t('settings.ai.web_search.tavily_key')}
-                </label>
-                <div className="relative w-full">
-                  <DomeInput
-                    id="web-tavily-key"
-                    type={showTavilyKey ? 'text' : 'password'}
-                    value={tavilyKey}
-                    onChange={(e) => setTavilyKey(e.target.value)}
-                    placeholder="tvly-..."
-                    inputClassName="pr-10"
-                    className="w-full [&_input]:pr-10"
-                  />
-                  <DomeButton
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    iconOnly
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                    onClick={() => setShowTavilyKey((v) => !v)}
-                    aria-label={showTavilyKey ? 'Hide' : 'Show'}
-                  >
-                    {showTavilyKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                  </DomeButton>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="web-brave-key" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
-                  {t('settings.ai.brave_search_key_label')}
-                </label>
-                <div className="relative w-full">
-                  <DomeInput
-                    id="web-brave-key"
-                    type={showBraveKey ? 'text' : 'password'}
-                    value={braveKey}
-                    onChange={(e) => setBraveKey(e.target.value)}
-                    placeholder="BSA..."
-                    inputClassName="pr-10"
-                    className="w-full [&_input]:pr-10"
-                  />
-                  <DomeButton
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    iconOnly
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                    onClick={() => setShowBraveKey((v) => !v)}
-                    aria-label={showBraveKey ? 'Hide' : 'Show'}
-                  >
-                    {showBraveKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                  </DomeButton>
-                </div>
-              </div>
-              <p className="text-[11px] text-[var(--dome-text-muted)]">{t('settings.ai.web_search.keys_hint')}</p>
-            </div>
+              <AlertDescription className="text-xs">{testResult.message}</AlertDescription>
+            </Alert>
           ) : null}
         </div>
-
-        <div className="flex flex-wrap gap-2 pt-1">
-          <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()} loading={saving}>
-            {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
-          </DomeButton>
-          <DomeButton
-            type="button"
-            variant="outline"
-            size="md"
-            onClick={() => void handleTest()}
-            loading={testing}
-            leftIcon={<Search className="size-4" aria-hidden />}
-          >
-            {testing ? t('settings.ai.testing') : t('settings.ai.test_brave')}
-          </DomeButton>
-        </div>
-
-        {testResult ? (
-          <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
-        ) : null}
-      </DomeCard>
+      </SettingsGroup>
     </div>
   );
 }

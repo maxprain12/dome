@@ -1,10 +1,13 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronRightIcon,
+} from '@hugeicons/core-free-icons';
 import React, { useMemo } from 'react';
 import { LEGACY_PDF_HIGHLIGHT_VARS } from '@/lib/ui/palettes';
-import { ChevronRight } from 'lucide-react';
 import type { PDFAnnotation } from '@/lib/pdf/annotation-utils';
 
 const COLOR_ORDER = [
-  'var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)',
+  'var(--warning)', 'var(--success)', 'var(--primary)', 'var(--destructive)',
 ];
 
 const HEX_TO_VAR_MAP = LEGACY_PDF_HIGHLIGHT_VARS;
@@ -66,7 +69,7 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
 
   if (highlights.length === 0) {
     return (
-      <p className="text-sm px-2 py-4" style={{ color: 'var(--tertiary-text)' }}>
+      <p className="text-sm px-2 py-4 text-muted-foreground">
         No highlights yet
       </p>
     );
@@ -85,7 +88,7 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
                 className="size-3 rounded-sm shrink-0"
                 style={{ background: color, opacity: 0.8 }}
               />
-              <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
+              <span className="text-xs font-medium text-muted-foreground">
                 {items.length} highlight{items.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -93,15 +96,14 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
               {items.map((ann) => (
                 <div
                   key={ann.id}
-                  className="flex items-start gap-2 px-2 py-1.5 rounded text-sm transition-colors hover:bg-[var(--bg-secondary)]"
+                  className="flex items-start gap-2 px-2 py-1.5 rounded text-sm transition-colors hover:bg-card"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs mb-0.5" style={{ color: 'var(--tertiary-text)' }}>
+                    <div className="text-xs mb-0.5 text-muted-foreground">
                       Page {ann.pageIndex + 1}
                     </div>
                     <p
-                      className="line-clamp-2 break-words"
-                      style={{ color: 'var(--primary-text)' }}
+                      className="line-clamp-2 break-words text-foreground"
                     >
                       {truncateText(ann.selectedText ?? '')}
                     </p>
@@ -109,12 +111,12 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
                   <button
                     type="button"
                     onClick={() => onGoToPage(ann.pageIndex + 1)}
-                    className="p-1 rounded shrink-0 cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-                    style={{ color: 'var(--secondary-text)' }}
+                    className="p-1 rounded shrink-0 cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                    style={{ color: 'var(--muted-foreground)' }}
                     title="Go to page"
                     aria-label={`Go to page ${ann.pageIndex + 1}`}
                   >
-                    <ChevronRight size={16} />
+                    <HugeiconsIcon icon={ChevronRightIcon} size={16} />
                   </button>
                 </div>
               ))}

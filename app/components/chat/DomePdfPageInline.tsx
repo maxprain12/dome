@@ -45,7 +45,7 @@ export default function DomePdfPageInline({ resourceId, pageNumber, alt }: DomeP
   }
   if (!dataUrl) {
     return (
-      <span className="text-xs opacity-50 animate-pulse" title={`Cargando página ${pageNumber}…`}>
+      <span className="text-xs opacity-50 animate-pulse motion-reduce:animate-none" title={`Cargando página ${pageNumber}…`}>
         …
       </span>
     );

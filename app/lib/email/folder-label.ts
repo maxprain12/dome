@@ -14,7 +14,11 @@ export function emailFolderLabel(name: string, t: TFunction): string {
   if (base.includes('draft')) return t('email.folders.drafts');
   if (base.includes('trash') || base.includes('deleted')) return t('email.folders.trash');
   if (base.includes('spam') || base.includes('junk')) return t('email.folders.spam');
-  if (base.includes('archive') || base === 'all mail') return t('email.folders.archive');
+  if (base.includes('archive')) return t('email.folders.archive');
+  // Gmail / Spanish providers: All Mail · Todos · All
+  if (base === 'all mail' || base === 'all' || base === 'todos' || base.includes('all mail')) {
+    return t('email.folders.all');
+  }
   if (base.includes('starred') || base.includes('important')) return t('email.folders.starred');
   const short = name.includes('/') ? name.split('/').pop() || name : name;
   return short.replace(/^\[|\]$/g, '');

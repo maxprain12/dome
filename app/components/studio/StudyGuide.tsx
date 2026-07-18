@@ -1,5 +1,13 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Cancel01Icon,
+  CopyIcon,
+  CheckIcon,
+} from '@hugeicons/core-free-icons';
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, X, Copy, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { StudyGuideData } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -37,25 +45,24 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border"
       >
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+        <h3 className="text-sm font-semibold text-foreground">
           {title || 'Study Guide'}
         </h3>
         {onClose && (
-          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
-            <X size={16} />
-          </button>
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+            <HugeiconsIcon icon={Cancel01Icon} size={16} />
+          </Button>
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-4">
+        <div className="max-w-2xl mx-auto flex flex-col gap-y-4">
           {data.sections.map((section, index) => {
             const isExpanded = expandedSections.has(index);
 
@@ -65,7 +72,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
                 className="rounded-lg overflow-hidden"
                 style={{
                   border: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
+                  background: 'var(--card)',
                 }}
               >
                 {/* Section header */}
@@ -74,41 +81,40 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
                   onClick={() => toggleSection(index)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors group"
                   style={{
-                    background: isExpanded ? 'var(--dome-accent-bg)' : 'transparent',
+                    background: isExpanded ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent',
                   }}
                 >
                   {isExpanded ? (
-                    <ChevronDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                    <HugeiconsIcon icon={ChevronDownIcon} size={16} className="text-muted-foreground" />
                   ) : (
-                    <ChevronRight size={16} style={{ color: 'var(--secondary-text)' }} />
+                    <HugeiconsIcon icon={ChevronRightIcon} size={16} className="text-muted-foreground" />
                   )}
                   <span
-                    className="text-sm font-semibold flex-1"
-                    style={{ color: 'var(--primary-text)' }}
+                    className="text-sm font-semibold flex-1 text-foreground"
                   >
                     {section.title}
                   </span>
-                  <button
+                  <Button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       copySection(section.content, index);
                     }}
-                    className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
+                    variant="ghost" className="p-2.5 min-h-[44px] min-w-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Copy section"
                     aria-label="Copy section"
                   >
                     {copiedIndex === index ? (
-                      <Check size={14} style={{ color: 'var(--success)' }} />
+                      <HugeiconsIcon icon={CheckIcon} size={14} className="text-[var(--success)]" />
                     ) : (
-                      <Copy size={14} style={{ color: 'var(--tertiary-text)' }} />
+                      <HugeiconsIcon icon={CopyIcon} size={14} className="text-muted-foreground" />
                     )}
-                  </button>
+                  </Button>
                 </button>
 
                 {/* Section content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 prose prose-sm max-w-none" style={{ color: 'var(--secondary-text)' }}>
+                  <div className="px-4 pb-4">
                     <MarkdownRenderer content={section.content} />
                   </div>
                 )}

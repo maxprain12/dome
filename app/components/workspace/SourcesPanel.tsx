@@ -1,8 +1,14 @@
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  PlusSignIcon,
+  CheckmarkSquare02Icon,
+  SquareIcon,
+  MinusSignSquareIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, CheckSquare, Square, MinusSquare } from 'lucide-react';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 import { useMountAction } from '@/lib/hooks/useMountAction';
@@ -10,9 +16,10 @@ import { useMountAction } from '@/lib/hooks/useMountAction';
 interface SourcesPanelProps {
   resourceId: string;
   projectId: string;
+  embedded?: boolean;
 }
 
-export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProps) {
+export default function SourcesPanel({ resourceId, projectId, embedded = false }: SourcesPanelProps) {
   const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,39 +85,36 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
   return (
     <div
       ref={mountRef}
-      className="flex flex-col border-r shrink-0 transition-all duration-300 ease-out"
-      style={{
+      className={embedded ? 'flex h-full min-w-0 flex-col' : 'flex shrink-0 flex-col border-r'}
+      style={embedded ? undefined : {
         width: 'min(18vw, 260px)',
         minWidth: '200px',
-        background: 'var(--bg-secondary)',
+        background: 'var(--card)',
         borderColor: 'var(--border)',
       }}
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between p-3 border-b"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between p-3 border-b border-border"
       >
         <h3
-          className="text-xs font-semibold uppercase tracking-wider"
-          style={{ color: 'var(--secondary-text)' }}
+          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
           {t('workspace.sources')}
         </h3>
         <button
           type="button"
           onClick={handleToggleAll}
-          className="flex items-center justify-center size-6 rounded transition-colors duration-150"
-          style={{ color: 'var(--secondary-text)' }}
+          className="flex items-center justify-center size-6 rounded transition-colors duration-150 text-muted-foreground"
           title={allSelected ? t('common.deselect_all') : t('common.select_all')}
           aria-label={allSelected ? t('common.deselect_all') : t('common.select_all')}
         >
           {allSelected ? (
-            <CheckSquare size={14} style={{ color: 'var(--accent)' }} />
+            <HugeiconsIcon icon={CheckmarkSquare02Icon} size={14} className="text-primary" />
           ) : someSelected ? (
-            <MinusSquare size={14} style={{ color: 'var(--accent)' }} />
+            <HugeiconsIcon icon={MinusSignSquareIcon} size={14} className="text-primary" />
           ) : (
-            <Square size={14} />
+            <HugeiconsIcon icon={SquareIcon} size={14} />
           )}
         </button>
       </div>
@@ -119,13 +123,13 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
       <div className="flex-1 overflow-y-auto py-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+            <p className="text-xs text-muted-foreground">
               {t('ui.loading')}
             </p>
           </div>
         ) : resources.length === 0 ? (
           <div className="flex items-center justify-center py-8 px-3">
-            <p className="text-xs text-center" style={{ color: 'var(--tertiary-text)' }}>
+            <p className="text-xs text-center text-muted-foreground">
               {t('workspace.sources_empty')}
             </p>
           </div>
@@ -138,17 +142,17 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
               <button
                 type="button"
                 key={res.id}
-                className="flex items-center gap-2 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors duration-150 w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                className="flex items-center gap-2 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors duration-150 w-full text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 style={{
                   background: isCurrent
-                    ? 'var(--bg-hover)'
+                    ? 'var(--accent)'
                     : 'transparent',
                   border: 'none',
                 }}
                 onClick={() => toggleSourceId(res.id)}
                 onMouseEnter={(e) => {
                   if (!isCurrent) {
-                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                    e.currentTarget.style.background = 'var(--muted)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -163,20 +167,20 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
                 }
               >
                 {/* Checkbox */}
-                <div className="shrink-0" style={{ color: isSelected ? 'var(--accent)' : 'var(--tertiary-text)' }}>
-                  {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                <div className="shrink-0" style={{ color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)' }}>
+                  {isSelected ? <HugeiconsIcon icon={CheckmarkSquare02Icon} size={14} /> : <HugeiconsIcon icon={SquareIcon} size={14} />}
                 </div>
 
                 {/* Type icon */}
-                <div style={{ color: 'var(--secondary-text)' }}>
-                  <DomeResourceIcon type={res.type} name={res.title} size={14} className="shrink-0" />
+                <div className="text-muted-foreground">
+                  <ResourceIcon type={res.type} name={res.title} size={14} className="shrink-0" />
                 </div>
 
                 {/* Title */}
                 <span
                   className="text-xs truncate flex-1"
                   style={{
-                    color: isCurrent ? 'var(--primary-text)' : 'var(--secondary-text)',
+                    color: isCurrent ? 'var(--foreground)' : 'var(--muted-foreground)',
                     fontWeight: isCurrent ? 500 : 400,
                   }}
                   title={res.title}
@@ -191,25 +195,24 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
 
       {/* Add source button */}
       <div
-        className="border-t px-3 py-2"
-        style={{ borderColor: 'var(--border)' }}
+        className="border-t px-3 py-2 border-border"
       >
         <button
           type="button"
           onClick={handleAddSource}
           className="flex items-center gap-2 w-full p-2 rounded-md text-xs font-medium transition-colors duration-150"
           style={{
-            color: 'var(--accent)',
+            color: 'var(--primary)',
             background: 'transparent',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-tertiary)';
+            e.currentTarget.style.background = 'var(--muted)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
           }}
         >
-          <Plus size={14} />
+          <HugeiconsIcon icon={PlusSignIcon} size={14} />
           {t('workspace.add_source')}
         </button>
       </div>

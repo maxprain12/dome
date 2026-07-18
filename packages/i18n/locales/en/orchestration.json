@@ -1,5 +1,4 @@
 {
-  "sections_nav": "Orchestration sections",
   "filter_all": "All",
   "filter_ungrouped": "No folder",
   "explore_marketplace": "Explore Marketplace",
@@ -8,8 +7,6 @@
     "stat_favorites": "Favorites",
     "stat_runs_today": "Runs today",
     "stat_runs_today_sub": "Agent runs in the last 24 h",
-    "stat_active_automations": "Automations",
-    "stat_active_automations_sub": "Active rules targeting agents",
     "new_agent": "New agent",
     "chat_action": "Chat",
     "duplicate": "Duplicate",
@@ -25,8 +22,6 @@
     "stat_nodes": "Total nodes",
     "stat_runs_today": "Runs today",
     "stat_runs_today_sub": "Workflow runs in the last 24 h",
-    "stat_active_automations": "Automations",
-    "stat_active_automations_sub": "Active rules targeting workflows",
     "no_description": "No description",
     "nodes_count_one": "{{count}} node",
     "nodes_count_other": "{{count}} nodes",
@@ -101,5 +96,14 @@
     "stat_tokens_hint": "Input / output tokens",
     "stat_cost": "Est. cost",
     "stat_model": "Model"
-  }
+  },
+  "agent_search": "Search agents, workflows, automations, runs…",
+  "runs_search": "Search by automation, target, or id…",
+  "agent_ask_many": "Ask Many",
+  "agent_queue_runs": "Recent automation runs",
+  "agent_prompt_runs": "Review my automation runs: highlight failures, bottlenecks, and 3 concrete next actions.",
+  "agent_prompt_automations": "Review my automations: suggest which to enable, fix failing ones, and propose one new useful rule.",
+  "agent_prompt_agents": "Review my agents library and propose improvements or a new agent for a recurring task.",
+  "agent_prompt_workflows": "Review my workflows and suggest a practical next workflow or canvas improvements.",
+  "agent_prompt_pipelines": "Review my pipelines boards and suggest stages, card triage, or automation hooks."
 }

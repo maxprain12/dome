@@ -1,4 +1,6 @@
 {
+  "faq_title": "Preguntas frecuentes",
+  "faq_question_count": "{{count}} preguntas",
   "filter_rows_label": "Filtrar filas",
   "filter_rows_placeholder": "Filtrar filas...",
   "no_matching_rows": "Ninguna fila coincide",

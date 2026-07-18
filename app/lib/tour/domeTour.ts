@@ -13,30 +13,30 @@ const TOUR_STEPS: DriveStep[] = [
     },
   },
   {
-    element: '[data-tour="studio"]',
+    element: '[data-tour="projects"]',
     popover: {
-      title: 'Studio',
+      title: 'Proyectos',
       description:
-        'Genera mapas mentales, quizzes, guías y flashcards con IA.',
+        'Agrupa recursos, conversaciones y trabajo en espacios separados.',
       side: 'right',
       align: 'center',
     },
   },
   {
-    element: '[data-tour="flashcards"]',
+    element: '[data-tour="calendar"]',
     popover: {
-      title: 'Flashcards',
+      title: 'Calendario',
       description:
-        'Repetición espaciada (SM-2). Mazos generados por IA.',
+        'Revisa eventos y trabajo planificado sin salir de Dome.',
       side: 'right',
       align: 'center',
     },
   },
   {
-    element: '[data-tour="tags"]',
+    element: '[data-tour="automations"]',
     popover: {
-      title: 'Tags',
-      description: 'Navega tus recursos por etiquetas.',
+      title: 'Automatizaciones',
+      description: 'Crea flujos repetibles y consulta sus ejecuciones.',
       side: 'right',
       align: 'center',
     },
@@ -90,7 +90,7 @@ function prefersReducedMotion(): boolean {
 /**
  * Inicia el tour guiado de Dome.
  * Solo tiene sentido en la ruta Home (/).
- * Los elementos deben tener data-tour en HomeSidebar y AppHeader.
+ * Los elementos deben tener data-tour en UnifiedSidebar y AppShell.
  */
 export function startDomeTour(): void {
   const isHome =

@@ -1,7 +1,20 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  FolderOpenIcon,
+  FilePlusIcon,
+  Folder01Icon,
+  File01Icon,
+  RefreshIcon,
+  FolderCodeIcon,
+  TerminalIcon,
+  PackageIcon,
+  Loading03Icon,
+  LeftToRightListBulletIcon,
+  File02Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, FilePlus, Folder, File, RefreshCw, FolderGit2, Terminal, Package, Loader2, List, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface WorkspaceFilesPanelProps {
@@ -247,7 +260,7 @@ export default function WorkspaceFilesPanel({
         <div
           className="flex-1 flex flex-col items-center justify-center p-6 text-center min-h-[280px]"
           style={{
-            background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg) 100%)',
+            background: 'linear-gradient(180deg, var(--card) 0%, var(--background) 100%)',
             border: '1px dashed var(--border)',
             borderRadius: 'var(--radius-xl)',
             margin: '12px',
@@ -256,38 +269,38 @@ export default function WorkspaceFilesPanel({
           <div
             className="flex items-center justify-center size-14 rounded-2xl mb-4"
             style={{
-              background: 'var(--translucent)',
-              color: 'var(--accent)',
+              background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+              color: 'var(--primary)',
             }}
           >
-            <FolderGit2 size={28} strokeWidth={1.5} />
+            <HugeiconsIcon icon={FolderCodeIcon} size={28} strokeWidth={1.5} />
           </div>
-          <h3 className="text-sm font-semibold mb-1.5" style={{ color: 'var(--primary-text)' }}>
+          <h3 className="text-sm font-semibold mb-1.5 text-foreground">
             {t('workspaceFiles.empty_title')}
           </h3>
-          <p className="text-xs max-w-[200px] mb-5 leading-relaxed" style={{ color: 'var(--secondary-text)' }}>
+          <p className="text-xs max-w-[200px] mb-5 leading-relaxed text-muted-foreground">
             {t('workspaceFiles.empty_description')}
           </p>
           <button
             type="button"
             onClick={handleSelectFolder}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-[opacity,transform,box-shadow] duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 shadow-sm"
             style={{
-              background: 'var(--accent)',
-              color: 'var(--base-text)',
+              background: 'var(--primary)',
+              color: 'var(--primary-foreground)',
             }}
           >
-            <FolderOpen size={18} />
+            <HugeiconsIcon icon={FolderOpenIcon} size={18} />
             {t('workspaceFiles.select_folder_btn')}
           </button>
           {error && (
-            <p className="mt-3 text-xs max-w-[220px]" style={{ color: 'var(--error)' }}>
+            <p className="mt-3 text-xs max-w-[220px] text-destructive">
               {error}
             </p>
           )}
           {useElectron && onVenvPathChange && (
-            <div className="mt-6 pt-6 border-t w-full max-w-[240px]" style={{ borderColor: 'var(--border)' }}>
-              <p className="text-xs font-medium mb-2" style={{ color: 'var(--secondary-text)' }}>
+            <div className="mt-6 pt-6 border-t w-full max-w-[240px] border-border">
+              <p className="text-xs font-medium mb-2 text-muted-foreground">
                 {t('workspaceFiles.python_env_heading')}
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
@@ -296,18 +309,18 @@ export default function WorkspaceFilesPanel({
                   onClick={handleCreateVenv}
                   disabled={venvCreating}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                  style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+                  style={{ background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                 >
-                  {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
+                  {venvCreating ? <HugeiconsIcon icon={Loading03Icon} size={14} className="animate-spin" /> : <HugeiconsIcon icon={TerminalIcon} size={14} />}
                   {venvCreating ? t('workspaceFiles.creating') : t('workspaceFiles.create_venv')}
                 </button>
                 <button
                   type="button"
                   onClick={handleSelectVenv}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                  style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+                  style={{ background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                 >
-                  <FolderOpen size={14} />
+                  <HugeiconsIcon icon={FolderOpenIcon} size={14} />
                   {t('workspaceFiles.select_venv')}
                 </button>
               </div>
@@ -318,27 +331,26 @@ export default function WorkspaceFilesPanel({
         <div className="flex flex-col gap-4 p-4 h-full min-h-0 overflow-hidden">
           {/* Workspace (archivos) */}
           <div className="shrink-0">
-            <h4 className="text-xs font-semibold flex items-center gap-2 mb-2" style={{ color: 'var(--primary-text)' }}>
-              <Folder size={14} style={{ color: 'var(--accent)' }} />
+            <h4 className="text-xs font-semibold flex items-center gap-2 mb-2 text-foreground">
+              <HugeiconsIcon icon={Folder01Icon} size={14} className="text-primary" />
               {t('workspaceFiles.workspace_files_heading')}
             </h4>
             <div
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
               style={{
-                background: 'var(--bg-secondary)',
+                background: 'var(--card)',
                 border: '1px solid var(--border)',
                 boxShadow: 'var(--shadow-sm)',
               }}
             >
               <div
                 className="flex items-center justify-center size-8 rounded-lg shrink-0"
-                style={{ background: 'var(--translucent)', color: 'var(--accent)' }}
+                style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)', color: 'var(--primary)' }}
               >
-                <Folder size={16} />
+                <HugeiconsIcon icon={Folder01Icon} size={16} />
               </div>
               <span
-                className="text-xs truncate flex-1 font-medium"
-                style={{ color: 'var(--primary-text)' }}
+                className="text-xs truncate flex-1 font-medium text-foreground"
                 title={workspacePath}
               >
                 {workspacePath}
@@ -351,41 +363,41 @@ export default function WorkspaceFilesPanel({
             <button
               type="button"
               onClick={handleSelectFolder}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[background-color,box-shadow] hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               style={{
-                background: 'var(--bg-secondary)',
-                color: 'var(--primary-text)',
+                background: 'var(--card)',
+                color: 'var(--foreground)',
                 border: '1px solid var(--border)',
               }}
             >
-              <FolderOpen size={14} />
+              <HugeiconsIcon icon={FolderOpenIcon} size={14} />
               {t('workspaceFiles.change_folder')}
             </button>
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddFile(); }}
               disabled={addingFile}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
-              style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[opacity,box-shadow] hover:opacity-90 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
+              style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
               title={t('workspaceFiles.copy_file_title')}
             >
-              <FilePlus size={14} />
+              <HugeiconsIcon icon={FilePlusIcon} size={14} />
               {addingFile ? t('workspaceFiles.adding') : t('workspaceFiles.add_file')}
             </button>
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); loadEntries(); }}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-[var(--bg-hover)] disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[background-color,opacity,box-shadow] hover:bg-accent disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer"
             style={{
-              background: 'var(--bg-secondary)',
-              color: 'var(--primary-text)',
+              background: 'var(--card)',
+              color: 'var(--foreground)',
               border: '1px solid var(--border)',
             }}
             aria-label={t('workspaceFiles.refresh')}
             title={t('workspaceFiles.refreshFiles')}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin shrink-0' : 'shrink-0'} />
+            <HugeiconsIcon icon={RefreshIcon} size={14} className={loading ? 'animate-spin shrink-0' : 'shrink-0'} />
             <span>{loading ? t('workspaceFiles.updating') : t('workspaceFiles.refresh')}</span>
           </button>
           </div>
@@ -393,7 +405,7 @@ export default function WorkspaceFilesPanel({
           {error && (
             <div
               className="px-3 py-2 rounded-lg text-xs shrink-0"
-              style={{ background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid var(--error)' }}
+              style={{ background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', color: 'var(--destructive)', border: '1px solid var(--destructive)' }}
             >
               {error}
             </div>
@@ -402,21 +414,20 @@ export default function WorkspaceFilesPanel({
           {/* Entorno Python (Electron only) */}
           {useElectron && onVenvPathChange && (
             <div
-              className="flex flex-col gap-3 shrink-0 pt-2 border-t"
-              style={{ borderColor: 'var(--border)' }}
+              className="flex flex-col gap-3 shrink-0 pt-2 border-t border-border"
             >
-              <h4 className="text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--primary-text)' }}>
-                <Terminal size={14} style={{ color: 'var(--accent)' }} />
+              <h4 className="text-xs font-semibold flex items-center gap-2 text-foreground">
+                <HugeiconsIcon icon={TerminalIcon} size={14} className="text-primary" />
                 {t('workspaceFiles.python_env_heading')}
               </h4>
               {venvPath ? (
                 <>
                   <div
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs truncate"
-                    style={{ background: 'var(--bg-tertiary)', color: 'var(--primary-text)' }}
+                    style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
                     title={venvPath}
                   >
-                    <Folder size={14} className="shrink-0" />
+                    <HugeiconsIcon icon={Folder01Icon} size={14} className="shrink-0" />
                     <span className="truncate">{venvPath}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0">
@@ -425,12 +436,12 @@ export default function WorkspaceFilesPanel({
                       onClick={handleSelectVenv}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
                       style={{
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--primary-text)',
+                        background: 'var(--card)',
+                        color: 'var(--foreground)',
                         border: '1px solid var(--border)',
                       }}
                     >
-                      <FolderOpen size={14} />
+                      <HugeiconsIcon icon={FolderOpenIcon} size={14} />
                       {t('workspaceFiles.change_folder')}
                     </button>
                     <button
@@ -438,8 +449,8 @@ export default function WorkspaceFilesPanel({
                       onClick={() => onVenvPathChange?.('')}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
                       style={{
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--secondary-text)',
+                        background: 'var(--card)',
+                        color: 'var(--muted-foreground)',
                         border: '1px solid var(--border)',
                       }}
                     >
@@ -451,12 +462,12 @@ export default function WorkspaceFilesPanel({
                       disabled={pipListLoading}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
                       style={{
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--primary-text)',
+                        background: 'var(--card)',
+                        color: 'var(--foreground)',
                         border: '1px solid var(--border)',
                       }}
                     >
-                      {pipListLoading ? <Loader2 size={14} className="animate-spin" /> : <List size={14} />}
+                      {pipListLoading ? <HugeiconsIcon icon={Loading03Icon} size={14} className="animate-spin" /> : <HugeiconsIcon icon={LeftToRightListBulletIcon} size={14} />}
                       {t('workspaceFiles.list_packages')}
                     </button>
                     <button
@@ -465,35 +476,35 @@ export default function WorkspaceFilesPanel({
                       disabled={pipRequirementsInstalling}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
                       style={{
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--primary-text)',
+                        background: 'var(--card)',
+                        color: 'var(--foreground)',
                         border: '1px solid var(--border)',
                       }}
                     >
-                      {pipRequirementsInstalling ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                      {pipRequirementsInstalling ? <HugeiconsIcon icon={Loading03Icon} size={14} className="animate-spin" /> : <HugeiconsIcon icon={File02Icon} size={14} />}
                       {t('workspaceFiles.requirements')}
                     </button>
                   </div>
                   {pipListOutput && (
                     <div
                       className="rounded-lg overflow-hidden border shrink-0"
-                      style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
+                      style={{ borderColor: 'var(--border)', background: 'var(--muted)' }}
                     >
                       <button
                         type="button"
                         onClick={() => setPipListExpanded(!pipListExpanded)}
                         className="w-full flex items-center justify-between px-3 py-2 text-left text-xs font-medium"
-                        style={{ color: 'var(--primary-text)' }}
+                        style={{ color: 'var(--foreground)' }}
                       >
                         {t('workspaceFiles.installed_packages')}
-                        <span className="text-[10px]" style={{ color: 'var(--tertiary-text)' }}>
+                        <span className="text-[10px] text-muted-foreground">
                           {pipListExpanded ? t('workspaceFiles.hide') : t('workspaceFiles.show')}
                         </span>
                       </button>
                       {pipListExpanded && (
                         <pre
                           className="px-3 py-2 text-[11px] overflow-auto max-h-40 whitespace-pre-wrap break-words"
-                          style={{ color: 'var(--secondary-text)', borderTop: '1px solid var(--border)' }}
+                          style={{ color: 'var(--muted-foreground)', borderTop: '1px solid var(--border)' }}
                         >
                           {pipListOutput}
                         </pre>
@@ -510,9 +521,9 @@ export default function WorkspaceFilesPanel({
                       onKeyDown={(e) => e.key === 'Enter' && handlePipInstall()}
                       className="flex-1 min-w-0 p-2 rounded-lg text-xs"
                       style={{
-                        background: 'var(--bg-secondary)',
+                        background: 'var(--card)',
                         border: '1px solid var(--border)',
-                        color: 'var(--primary-text)',
+                        color: 'var(--foreground)',
                       }}
                     />
                     <button
@@ -520,9 +531,9 @@ export default function WorkspaceFilesPanel({
                       onClick={handlePipInstall}
                       disabled={pipInstalling || !pipInput.trim()}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium shrink-0"
-                      style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
+                      style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
                     >
-                      {pipInstalling ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+                      {pipInstalling ? <HugeiconsIcon icon={Loading03Icon} size={14} className="animate-spin" /> : <HugeiconsIcon icon={PackageIcon} size={14} />}
                       {t('workspaceFiles.install')}
                     </button>
                   </div>
@@ -534,9 +545,9 @@ export default function WorkspaceFilesPanel({
                     onClick={handleCreateVenv}
                     disabled={venvCreating}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
-                    style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
+                    style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
                   >
-                    {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
+                    {venvCreating ? <HugeiconsIcon icon={Loading03Icon} size={14} className="animate-spin" /> : <HugeiconsIcon icon={TerminalIcon} size={14} />}
                     {venvCreating ? t('workspaceFiles.creating') : t('workspaceFiles.create_venv')}
                   </button>
                   <button
@@ -544,12 +555,12 @@ export default function WorkspaceFilesPanel({
                     onClick={handleSelectVenv}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
                     style={{
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--primary-text)',
+                      background: 'var(--card)',
+                      color: 'var(--foreground)',
                       border: '1px solid var(--border)',
                     }}
                   >
-                    <FolderOpen size={14} />
+                    <HugeiconsIcon icon={FolderOpenIcon} size={14} />
                     {t('workspaceFiles.select_venv')}
                   </button>
                 </div>
@@ -558,18 +569,18 @@ export default function WorkspaceFilesPanel({
           )}
 
           {/* Lista de archivos */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}>
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <RefreshCw size={24} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                <HugeiconsIcon icon={RefreshIcon} size={24} className="animate-spin text-primary" />
               </div>
             ) : entries.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4">
-                <File size={32} className="mb-2 opacity-30" style={{ color: 'var(--secondary-text)' }} />
-                <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+                <HugeiconsIcon icon={File01Icon} size={32} className="mb-2 opacity-30 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
                   {t('workspaceFiles.empty_folder_title')}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
+                <p className="text-xs mt-0.5 text-muted-foreground">
                   {t('workspaceFiles.empty_folder_hint')}
                 </p>
               </div>
@@ -578,15 +589,12 @@ export default function WorkspaceFilesPanel({
                 {entries.map((e) => (
                   <li
                     key={e.path}
-                    className="flex items-center gap-2.5 px-3 py-2 mx-1 rounded-lg text-sm transition-colors hover:bg-[var(--bg-hover)]"
-                    style={{
-                      color: 'var(--primary-text)',
-                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 mx-1 rounded-lg text-sm transition-colors hover:bg-accent text-foreground"
                   >
                     {e.isDirectory ? (
-                      <Folder size={16} className="shrink-0 opacity-70" style={{ color: 'var(--accent)' }} />
+                      <HugeiconsIcon icon={Folder01Icon} size={16} className="shrink-0 opacity-70 text-primary" />
                     ) : (
-                      <File size={16} className="shrink-0 opacity-60" style={{ color: 'var(--secondary-text)' }} />
+                      <HugeiconsIcon icon={File01Icon} size={16} className="shrink-0 opacity-60 text-muted-foreground" />
                     )}
                     <span className="truncate" title={e.name}>
                       {e.name}

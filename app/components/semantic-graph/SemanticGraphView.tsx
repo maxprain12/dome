@@ -1,7 +1,12 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  RefreshIcon,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import HubListState from '@/components/ui/HubListState';
+import ListState from '@/components/shared/ListState';
 import { useTabStore } from '@/lib/store/useTabStore';
 import SemanticGraphCanvas, {
   type GraphEdgeDatum,
@@ -180,28 +185,26 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
 
   if (!focusResourceId) {
     return (
-      <div className="flex flex-1 items-center justify-center p-6" style={{ background: 'var(--dome-bg)' }}>
-        <HubListState variant="empty" title={t('semantic_graph.no_focus')} compact />
+      <div className="flex flex-1 items-center justify-center p-6 bg-background">
+        <ListState variant="empty" title={t('semantic_graph.no_focus')} compact />
       </div>
     );
   }
 
   if (loading && data.nodes.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center" style={{ background: 'var(--dome-bg)' }}>
-        <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
+      <div className="flex flex-1 items-center justify-center bg-background">
+        <ListState variant="loading" loadingLabel={t('common.loading')} compact />
       </div>
     );
   }
 
   return (
     <div
-      className="flex flex-col flex-1 min-h-0 h-full relative"
-      style={{ background: 'var(--dome-bg)' }}
+      className="flex flex-col flex-1 min-h-0 h-full relative bg-background"
     >
       <div
-        className="semantic-graph-toolbar shrink-0 flex flex-col gap-2.5 px-4 py-3 border-b"
-        style={{ borderColor: 'var(--dome-border)' }}
+        className="semantic-graph-toolbar shrink-0 flex flex-col gap-2.5 px-4 py-3 border-b border-border"
       >
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex flex-wrap gap-1.5">
@@ -211,9 +214,9 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
                 type="button"
                 className="text-[11px] font-medium px-3 py-1.5 rounded-full border transition-colors"
                 style={{
-                  borderColor: filterMode === f ? 'var(--dome-accent)' : 'var(--dome-border)',
-                  background: filterMode === f ? 'var(--dome-accent-bg)' : 'transparent',
-                  color: filterMode === f ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+                  borderColor: filterMode === f ? 'var(--primary)' : 'var(--border)',
+                  background: filterMode === f ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent',
+                  color: filterMode === f ? 'var(--foreground)' : 'var(--muted-foreground)',
                 }}
                 onClick={() => setFilterMode(f)}
               >
@@ -222,8 +225,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
             ))}
           </div>
           <label
-            className="flex items-center gap-2.5 text-[11px] min-w-0"
-            style={{ color: 'var(--dome-text-muted)' }}
+            className="flex items-center gap-2.5 text-[11px] min-w-0 text-muted-foreground"
           >
             <span className="shrink-0 whitespace-nowrap">
               {t('semantic_graph.min_similarity')}: {simThreshold.toFixed(2)}
@@ -243,20 +245,20 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
             type="button"
             className="text-[11px] font-medium px-3 py-1.5 rounded-full border ml-auto inline-flex items-center gap-1.5 disabled:opacity-45 transition-colors"
             style={{
-              borderColor: 'var(--dome-border)',
+              borderColor: 'var(--border)',
               background: 'transparent',
-              color: 'var(--dome-text-secondary)',
+              color: 'var(--muted-foreground)',
             }}
             disabled={reindexBusy}
             onClick={() => void runReindexAll()}
             title={t('semantic_graph.reindex_all')}
           >
-            <RefreshCw className={`size-3.5 shrink-0 ${reindexBusy ? 'animate-spin' : ''}`} />
+            <HugeiconsIcon icon={RefreshIcon} className={`size-3.5 shrink-0 ${reindexBusy ? 'animate-spin' : ''}`} />
             <span>{reindexBusy ? t('semantic_graph.indexing') : t('semantic_graph.reindex_all')}</span>
           </button>
         </div>
         <section className="flex flex-wrap items-center gap-1.5" aria-label={t('semantic_graph.resource_types')}>
-          <span className="text-[11px] shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-[11px] shrink-0 text-muted-foreground">
             {t('semantic_graph.resource_types')}
           </span>
           {GRAPH_RESOURCE_TYPES.map((rt) => {
@@ -267,9 +269,9 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
                 type="button"
                 className="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors capitalize"
                 style={{
-                  borderColor: 'var(--dome-border)',
-                  background: hidden ? 'transparent' : 'var(--dome-accent-bg)',
-                  color: hidden ? 'var(--dome-text-muted)' : 'var(--dome-text)',
+                  borderColor: 'var(--border)',
+                  background: hidden ? 'transparent' : 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                  color: hidden ? 'var(--muted-foreground)' : 'var(--foreground)',
                   opacity: hidden ? 0.5 : 1,
                 }}
                 onClick={() => toggleResourceType(rt)}
@@ -279,18 +281,17 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
             );
           })}
         </section>
-        <div className="border-t pt-2" style={{ borderColor: 'var(--dome-border)' }}>
+        <div className="border-t pt-2 border-border">
           <button
             type="button"
-            className="flex items-center gap-1.5 text-[11px] font-medium w-full text-left py-0.5"
-            style={{ color: 'var(--dome-text-muted)' }}
+            className="flex items-center gap-1.5 text-[11px] font-medium w-full text-left py-0.5 text-muted-foreground"
             aria-expanded={legendOpen}
             onClick={() => setLegendOpen((o) => !o)}
           >
             {legendOpen ? (
-              <ChevronDown className="size-3.5 shrink-0" />
+              <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0" />
             ) : (
-              <ChevronRight className="size-3.5 shrink-0" />
+              <HugeiconsIcon icon={ChevronRightIcon} className="size-3.5 shrink-0" />
             )}
             <span>{t('semantic_graph.legend_heading')}</span>
             <span className="sr-only">{legendOpen ? t('semantic_graph.legend_collapse') : t('semantic_graph.legend_expand')}</span>
@@ -298,12 +299,12 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
           {legendOpen ? (
             <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 list-none p-0 m-0">
               {GRAPH_RESOURCE_TYPES.map((rt) => (
-                <li key={rt} className="flex items-center gap-1.5 text-[11px] capitalize" style={{ color: 'var(--dome-text-secondary)' }}>
+                <li key={rt} className="flex items-center gap-1.5 text-[11px] capitalize text-muted-foreground">
                   <span
                     className="size-2.5 rounded-full shrink-0 border"
                     style={{
-                      background: SEMANTIC_RESOURCE_TYPE_FILL[rt] ?? 'var(--dome-bg-hover)',
-                      borderColor: 'var(--dome-border)',
+                      background: SEMANTIC_RESOURCE_TYPE_FILL[rt] ?? 'var(--accent)',
+                      borderColor: 'var(--border)',
                     }}
                   />
                   {rt}
@@ -314,7 +315,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
         </div>
       </div>
       {progress && progress.total > 0 ? (
-        <div className="px-4 py-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="px-4 py-2 text-xs text-muted-foreground">
           {t('semantic_graph.reindex_progress', { done: progress.done, total: progress.total })}
         </div>
       ) : null}
@@ -328,7 +329,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <HubListState variant="empty" title={t('semantic_graph.empty')} compact />
+            <ListState variant="empty" title={t('semantic_graph.empty')} compact />
           </div>
         )}
       </div>

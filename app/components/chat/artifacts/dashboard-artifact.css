@@ -5,7 +5,7 @@
   cursor: pointer;
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  background: var(--card);
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -25,13 +25,13 @@
 }
 
 .dash-kpi-card.is-accent {
-  background: color-mix(in oklab, var(--accent) 8%, var(--bg-secondary));
-  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+  background: color-mix(in oklab, var(--primary) 8%, var(--card));
+  border-color: color-mix(in oklab, var(--primary) 30%, var(--border));
 }
 
 .dash-kpi-card.is-focused {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px color-mix(in oklab, var(--accent) 18%, transparent);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--primary) 18%, transparent);
 }
 
 .dash-kpi-card.is-dimmed {
@@ -40,13 +40,13 @@
 
 .dash-kpi-card:not(.is-focused):hover {
   transform: translateY(-1px);
-  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+  border-color: color-mix(in oklab, var(--primary) 30%, var(--border));
 }
 
 .dash-section {
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  background: var(--card);
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -55,7 +55,7 @@
 }
 
 .dash-section:hover {
-  border-color: var(--border-hover);
+  border-color: var(--ring);
 }
 
 .dash-section-toggle {
@@ -90,10 +90,10 @@
 }
 
 .dash-map-cell.is-empty {
-  color: var(--tertiary-text);
-  background: var(--bg-secondary);
+  color: var(--muted-foreground);
+  background: var(--card);
 }
 
 .dash-map-cell.is-filled {
-  background: var(--bg-hover);
+  background: var(--accent);
 }

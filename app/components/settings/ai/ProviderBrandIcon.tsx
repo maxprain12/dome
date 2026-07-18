@@ -14,6 +14,7 @@ function readResolvedTheme(): ResolvedTheme {
   return attr === 'light' ? 'light' : 'dark';
 }
 
+/** Tracks the shell theme so brand logos swap their light/dark variant live. */
 function useResolvedTheme(): ResolvedTheme {
   const [theme, setTheme] = useState<ResolvedTheme>(readResolvedTheme);
 
@@ -34,7 +35,7 @@ export interface ProviderBrandIconProps {
   provider: ProviderWithBrandLogo;
   /** Fixed pixel size. Ignored when `fill` is true. */
   size?: number;
-  /** Fill the parent container (e.g. DomeIconBox). */
+  /** Fill the parent container. */
   fill?: boolean;
   className?: string;
 }
@@ -56,10 +57,10 @@ export default function ProviderBrandIcon({
       height={fill ? undefined : size}
       className={cn(
         'shrink-0 object-contain',
-        fill ? 'size-[78%] max-h-full max-w-full' : '',
+        fill && 'size-[78%] max-h-full max-w-full',
+        providerLogoUsesDarkInvert(provider) && '[filter:var(--logo-filter)]',
         className,
       )}
-      style={providerLogoUsesDarkInvert(provider) ? { filter: 'var(--dome-logo-filter)' } : undefined}
     />
   );
 }
@@ -75,9 +76,7 @@ export function ProviderModelChip({ provider, label, className }: ProviderModelC
   const hasLogo = isProviderWithBrandLogo(provider);
   return (
     <span className={cn('inline-flex items-center gap-1.5', className)}>
-      {hasLogo ? (
-        <ProviderBrandIcon provider={provider} size={12} className="!p-0" />
-      ) : null}
+      {hasLogo ? <ProviderBrandIcon provider={provider} size={12} /> : null}
       <span className="min-w-0 truncate">{label}</span>
     </span>
   );

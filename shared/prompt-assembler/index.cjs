@@ -4,7 +4,7 @@ const __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 const __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (let name in all)
+  for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
@@ -15,7 +15,7 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-const __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var prompt_assembler_exports = {};
 __export(prompt_assembler_exports, {
   CORE_SECTION_KEYS: () => CORE_SECTION_KEYS,
@@ -49,9 +49,10 @@ const DOME_LOAD_DOC_IDS = [
   "excel_notebook_tool",
   "excel_artifact_tool",
   "email_tool",
-  "github_tool"
+  "github_tool",
+  "social_tool"
 ];
-const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard), email_tool (before email_list/email_search/email_send/email_reply), github_tool (before github_create_issue/github_create_milestone/github_update_issue).";
+const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard), email_tool (before email_list/email_search/email_send/email_reply), github_tool (before github_create_issue/github_create_milestone/github_update_issue), social_tool (before social_post_draft/social_post_publish).";
 const VOICE_LANGUAGE_NAMES = {
   es: "Spanish",
   en: "English",
@@ -116,6 +117,32 @@ ${opts.uiContext.trim()}`);
   if (opts.userMemory?.trim()) {
     blocks.push(`**user-memory**
 ${opts.userMemory.trim()}`);
+  }
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople.map((person) => {
+      const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+      return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
+  }
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources.map((src) => {
+      const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
+      const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
+      const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
+      const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+      const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
+  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
+      const toolHint = src.kind === "social_post" ? " \u2192 social_post_get" : src.kind === "email" ? " \u2192 email_read" : src.kind === "issue" ? " \u2192 github_get_issue" : "";
+      return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+    );
   }
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {
     const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");

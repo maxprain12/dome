@@ -1,5 +1,11 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronRightIcon,
+  PencilIcon,
+  Delete02Icon,
+  PlusSignIcon,
+} from '@hugeicons/core-free-icons';
 import React, { useState } from 'react';
-import { ChevronRight, Pencil, Trash2, Plus } from 'lucide-react';
 import type { PDFAnnotation } from '@/lib/pdf/annotation-utils';
 
 const PREVIEW_MAX_LENGTH = 60;
@@ -57,15 +63,15 @@ export default function PDFNotesList({
       <button
         type="button"
         onClick={() => onAddNote(currentPage - 1)}
-        className="flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-        style={{ color: 'var(--accent)' }}
+        className="flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer hover:bg-card focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+        style={{ color: 'var(--primary)' }}
       >
-        <Plus size={14} />
+        <HugeiconsIcon icon={PlusSignIcon} size={14} />
         Add note for page {currentPage}
       </button>
 
       {sortedNotes.length === 0 ? (
-        <p className="text-sm px-2 py-4" style={{ color: 'var(--tertiary-text)' }}>
+        <p className="text-sm px-2 py-4 text-muted-foreground">
           No notes yet
         </p>
       ) : (
@@ -76,7 +82,7 @@ export default function PDFNotesList({
               className="rounded border px-2 py-1.5"
               style={{
                 borderColor: 'var(--border)',
-                background: 'var(--bg)',
+                background: 'var(--background)',
               }}
             >
               {editingId === ann.id ? (
@@ -87,9 +93,9 @@ export default function PDFNotesList({
                     aria-label="Note text"
                     className="w-full px-2 py-1 text-sm rounded resize-none"
                     style={{
-                      background: 'var(--bg-secondary)',
+                      background: 'var(--card)',
                       border: '1px solid var(--border)',
-                      color: 'var(--primary-text)',
+                      color: 'var(--foreground)',
                       minHeight: 60,
                     }}
                     rows={3}
@@ -100,8 +106,8 @@ export default function PDFNotesList({
                       onClick={saveEdit}
                       className="px-2 py-1 text-xs rounded cursor-pointer"
                       style={{
-                        background: 'var(--accent)',
-                        color: 'var(--base-text)',
+                        background: 'var(--primary)',
+                        color: 'var(--primary-foreground)',
                       }}
                     >
                       Save
@@ -111,8 +117,8 @@ export default function PDFNotesList({
                       onClick={cancelEdit}
                       className="px-2 py-1 text-xs rounded cursor-pointer"
                       style={{
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--secondary-text)',
+                        background: 'var(--card)',
+                        color: 'var(--muted-foreground)',
                       }}
                     >
                       Cancel
@@ -122,45 +128,44 @@ export default function PDFNotesList({
               ) : (
                 <>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                    <span className="text-xs text-muted-foreground">
                       Page {ann.pageIndex + 1}
                     </span>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => onGoToPage(ann.pageIndex + 1)}
-                        className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-                        style={{ color: 'var(--secondary-text)' }}
+                        className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                        style={{ color: 'var(--muted-foreground)' }}
                         title="Go to page"
                         aria-label={`Go to page ${ann.pageIndex + 1}`}
                       >
-                        <ChevronRight size={14} />
+                        <HugeiconsIcon icon={ChevronRightIcon} size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => startEdit(ann)}
-                        className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-                        style={{ color: 'var(--secondary-text)' }}
+                        className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                        style={{ color: 'var(--muted-foreground)' }}
                         title="Edit note"
                         aria-label="Edit note"
                       >
-                        <Pencil size={14} />
+                        <HugeiconsIcon icon={PencilIcon} size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => onDeleteNote(ann.id)}
-                        className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-                        style={{ color: 'var(--error)' }}
+                        className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                        style={{ color: 'var(--destructive)' }}
                         title="Delete note"
                         aria-label="Delete note"
                       >
-                        <Trash2 size={14} />
+                        <HugeiconsIcon icon={Delete02Icon} size={14} />
                       </button>
                     </div>
                   </div>
                   <p
-                    className="text-sm mt-1 break-words line-clamp-2"
-                    style={{ color: 'var(--primary-text)' }}
+                    className="text-sm mt-1 break-words line-clamp-2 text-foreground"
                   >
                     {truncatePreview(ann.content ?? '')}
                   </p>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeInput } from '@/components/ui/DomeInput';
-
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 interface NoteQuickTagModalProps {
   opened: boolean;
   onClose: () => void;
@@ -43,38 +43,40 @@ export default function NoteQuickTagModal({
   };
 
   return (
-    <DomeModal
-      open={opened}
-      onClose={onClose}
-      title={t('notes.quick_tag_title')}
-      size="sm"
-      footer={
-        <>
-          <DomeButton type="button" variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('notes.quick_tag_title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <Field className="gap-1.5">
+        <FieldLabel htmlFor="note-quick-tag" className="text-xs">{t('notes.quick_tag_label')}</FieldLabel>
+        <Input
+          id="note-quick-tag"
+          placeholder={t('notes.quick_tag_placeholder')}
+          value={name}
+          disabled={busy}
+          onChange={(e) => setName(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+          // Focus the single input of a just-opened quick modal (expected UX).
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus
+        />
+      </Field>
+    </div><DialogFooter className="border-t px-4 py-3">{<>
+          <Button type="button"
+  variant="ghost"
+  onClick={onClose}
+  disabled={busy}
+  size="sm">
             {t('common.cancel')}
-          </DomeButton>
-          <DomeButton type="button" variant="primary" size="sm" loading={busy} onClick={() => void submit()}>
+          </Button>
+          <Button type="button"
+  loading={busy}
+  onClick={() => void submit()}
+  size="sm">
             {t('notes.quick_tag_save')}
-          </DomeButton>
-        </>
-      }
-    >
-      <DomeInput
-        label={t('notes.quick_tag_label')}
-        placeholder={t('notes.quick_tag_placeholder')}
-        value={name}
-        disabled={busy}
-        onChange={(e) => setName(e.currentTarget.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            void submit();
-          }
-        }}
-        // Focus the single input of a just-opened quick modal (expected UX).
-        // eslint-disable-next-line jsx-a11y/no-autofocus
-        autoFocus
-      />
-    </DomeModal>
+          </Button>
+        </>}</DialogFooter></DialogContent></Dialog>
   );
 }

@@ -1,12 +1,18 @@
 import { useTranslation } from 'react-i18next';
-import DomeCallout from '@/components/ui/DomeCallout';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { InformationCircleIcon } from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
+/** Onboarding note: the Dome account can be connected later from Settings → AI. */
 export default function AIDomeOnboardingCallout() {
   const { t } = useTranslation();
 
   return (
-    <DomeCallout tone="info">
-      {t('onboarding.dome_connect_later')}
-    </DomeCallout>
+    <Alert role="note">
+      <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
+      <AlertDescription className="text-xs">
+        {t('onboarding.dome_connect_later')}
+      </AlertDescription>
+    </Alert>
   );
 }

@@ -27,17 +27,17 @@ export const UnifiedChatHeader = memo(function UnifiedChatHeader({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3 shrink-0',
+        'flex items-center gap-2 border-b border-border bg-background px-4 py-3 shrink-0',
         className,
       )}
     >
       {startSlot ? <div className="shrink-0 flex items-center">{startSlot}</div> : null}
-      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-secondary)]">
+      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-card">
         {left}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-medium text-[var(--primary-text)]">{title}</div>
-        <div className="truncate text-[11px] text-[var(--tertiary-text)]">{subtitle ?? null}</div>
+        <div className="text-[14px] font-medium text-foreground">{title}</div>
+        <div className="truncate text-[11px] text-muted-foreground">{subtitle ?? null}</div>
       </div>
       {actions ? <div className="flex items-center gap-0.5 shrink-0">{actions}</div> : null}
     </div>

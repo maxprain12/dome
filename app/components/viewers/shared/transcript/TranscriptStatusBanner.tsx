@@ -18,9 +18,9 @@ export default function TranscriptStatusBanner({
       <div
         className="border-b px-4 py-2 text-xs font-medium md:px-6"
         style={{
-          borderColor: 'var(--dome-border)',
+          borderColor: 'var(--border)',
           background: 'rgba(185, 28, 28, 0.08)',
-          color: 'var(--dome-text)',
+          color: 'var(--foreground)',
         }}
       >
         {t('media.transcript_status_failed')}
@@ -32,9 +32,9 @@ export default function TranscriptStatusBanner({
       <div
         className="border-b px-4 py-2 text-xs font-medium md:px-6"
         style={{
-          borderColor: 'var(--dome-border)',
-          background: 'var(--dome-bg-hover)',
-          color: 'var(--dome-text-muted)',
+          borderColor: 'var(--border)',
+          background: 'var(--accent)',
+          color: 'var(--muted-foreground)',
         }}
       >
         {t('media.transcript_status_processing')}

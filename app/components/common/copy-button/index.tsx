@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { ActionIcon, Tooltip } from "@mantine/core";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { CheckmarkCircle02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CopyButtonProps {
   value: string;
@@ -13,14 +16,25 @@ export function CopyButton({ value }: CopyButtonProps) {
     navigator.clipboard.writeText(value).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => toast.error("Could not copy to clipboard"));
   };
 
   return (
-    <Tooltip label={copied ? "Copied!" : "Copy"} withArrow>
-      <ActionIcon onClick={handleCopy} variant="subtle" color={copied ? "teal" : "gray"} size="sm">
-        {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-      </ActionIcon>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleCopy}
+            className={copied ? "text-primary" : undefined}
+          />
+        }
+      >
+        {copied ? <HugeiconsIcon icon={CheckmarkCircle02Icon} data-icon="inline-start" /> : <HugeiconsIcon icon={Copy01Icon} data-icon="inline-start" />}
+      </TooltipTrigger>
+      <TooltipContent>{copied ? "Copied!" : "Copy"}</TooltipContent>
     </Tooltip>
   );
 }

@@ -1,134 +1,90 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import SettingsLayout, { type SettingsSection } from '@/components/settings/SettingsLayout';
-import GeneralSettings from '@/components/settings/GeneralSettings';
-import AppearanceSettings from '@/components/settings/AppearanceSettings';
-import FeaturesSettings from '@/components/settings/FeaturesSettings';
-import AISettingsPanel from '@/components/settings/AISettingsPanel';
-import MCPSettingsPanel from '@/components/settings/MCPSettingsPanel';
-import SkillsSettingsPanel from '@/components/settings/SkillsSettingsPanel';
-import AdvancedSettings from '@/components/settings/AdvancedSettings';
-import PluginsSettings from '@/components/settings/PluginsSettings';
-import IndexingSettings from '@/components/settings/IndexingSettings';
-import CloudStorageSettings from '@/components/settings/CloudStorageSettings';
-import DomeSyncSettings from '@/components/settings/DomeSyncSettings';
-import LanguageSettings from '@/components/settings/LanguageSettings';
-import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
-import CalendarSettingsPanel from '@/components/settings/CalendarSettingsPanel';
-import EmailSettings from '@/components/settings/EmailSettings';
-import SocialSettings from '@/components/settings/SocialSettings';
-import DomeMcpServerSettings from '@/components/settings/DomeMcpServerSettings';
+import SettingsShell from '@/components/settings/SettingsShell';
+import {
+  getSettingsEntry,
+  resolveSettingsSection,
+  type SettingsSection,
+} from '@/components/settings/registry';
+import { Spinner } from '@/components/ui/spinner';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
+import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 
-const VALID_SECTIONS = [
-  'general',
-  'appearance',
-  'features',
-  'ai',
-  'transcription',
-  'mcp',
-  'dome_mcp',
-  'skills',
-  'plugins',
-  'advanced',
-  'indexing',
-  'cloud',
-  'dome_sync',
-  'language',
-  'kb_llm',
-  'calendar',
-  'email',
-  'social',
-] as const;
-
-function normalizeSection(section: string | null): SettingsSection {
-  if (!section) return 'general';
-  if (section === 'transcription') return 'ai';
-  if (VALID_SECTIONS.includes(section as SettingsSection)) {
-    return section as SettingsSection;
-  }
-  return 'general';
-}
+export const normalizeSection = resolveSettingsSection;
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
   const sectionParam = searchParams.get('section');
-  const [activeSection, setActiveSection] = useState<SettingsSection>(
-    normalizeSection(sectionParam),
-  );
+  const activeSection = useSettingsUiStore((s) => s.activeSection);
+  const setActiveSection = useSettingsUiStore((s) => s.setActiveSection);
+  const setHiddenSections = useSettingsUiStore((s) => s.setHiddenSections);
   const { loadUserProfile } = useUserStore();
+  const { loadPreferences } = useAppStore();
+  const cloudEntitlements = useCloudEntitlements();
 
   useEffect(() => {
-    setActiveSection(normalizeSection(sectionParam));
-  }, [sectionParam]);
+    if (sectionParam) {
+      setActiveSection(resolveSettingsSection(sectionParam));
+    }
+  }, [sectionParam, setActiveSection]);
 
+  // Section navigation arrives from three channels: the URL param above, the
+  // main process (`settings:navigate-to-section`) and in-app dispatches
+  // (`dome:goto-settings-section`).
   useEffect(() => {
     const unsub = window.electron?.on?.('settings:navigate-to-section', (section: string) => {
-      setActiveSection(normalizeSection(section));
+      setActiveSection(resolveSettingsSection(section));
     });
     const handleCustomNav = (e: Event) => {
       const section = (e as CustomEvent<string>).detail;
-      setActiveSection(normalizeSection(section));
+      setActiveSection(resolveSettingsSection(section));
     };
     window.addEventListener('dome:goto-settings-section', handleCustomNav);
     return () => {
       unsub?.();
       window.removeEventListener('dome:goto-settings-section', handleCustomNav);
     };
-  }, []);
-  const { loadPreferences } = useAppStore();
+  }, [setActiveSection]);
+
+  const hiddenSections = useMemo(() => {
+    const hidden = new Set<SettingsSection>();
+    if (!cloudEntitlements.loading && !cloudEntitlements.showCloudUi) {
+      hidden.add('dome_sync');
+    }
+    return hidden;
+  }, [cloudEntitlements.loading, cloudEntitlements.showCloudUi]);
+
+  useEffect(() => {
+    setHiddenSections(hiddenSections);
+  }, [hiddenSections, setHiddenSections]);
+
+  useEffect(() => {
+    if (cloudEntitlements.loading) return;
+    if (activeSection === 'dome_sync' && !cloudEntitlements.showCloudUi) {
+      setActiveSection('general');
+    }
+  }, [activeSection, cloudEntitlements.loading, cloudEntitlements.showCloudUi, setActiveSection]);
 
   useEffect(() => {
     loadUserProfile();
     loadPreferences();
   }, [loadUserProfile, loadPreferences]);
 
-  const renderSection = () => {
-    switch (activeSection) {
-      case 'general':
-        return <GeneralSettings />;
-      case 'appearance':
-        return <AppearanceSettings />;
-      case 'features':
-        return <FeaturesSettings />;
-      case 'ai':
-      case 'transcription':
-        return <AISettingsPanel />;
-      case 'mcp':
-        return <MCPSettingsPanel />;
-      case 'dome_mcp':
-        return <DomeMcpServerSettings />;
-      case 'skills':
-        return <SkillsSettingsPanel />;
-      case 'plugins':
-        return <PluginsSettings />;
-      case 'advanced':
-        return <AdvancedSettings />;
-      case 'indexing':
-        return <IndexingSettings />;
-      case 'cloud':
-        return <CloudStorageSettings />;
-      case 'dome_sync':
-        return <DomeSyncSettings />;
-      case 'language':
-        return <LanguageSettings />;
-      case 'kb_llm':
-        return <KbLlmSettingsPanel />;
-      case 'calendar':
-        return <CalendarSettingsPanel />;
-      case 'email':
-        return <EmailSettings />;
-      case 'social':
-        return <SocialSettings />;
-      default:
-        return <GeneralSettings />;
-    }
-  };
+  const ActiveSectionComponent = getSettingsEntry(activeSection).component;
 
   return (
-    <SettingsLayout activeSection={activeSection} onSectionChange={setActiveSection}>
-      {renderSection()}
-    </SettingsLayout>
+    <SettingsShell>
+      <Suspense
+        fallback={
+          <div className="flex min-h-48 items-center justify-center">
+            <Spinner />
+          </div>
+        }
+      >
+        <ActiveSectionComponent />
+      </Suspense>
+    </SettingsShell>
   );
 }

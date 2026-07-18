@@ -2,7 +2,16 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Trash2, Bot, Type, FileText, Image, Terminal } from 'lucide-react';
+import {
+  Cancel01Icon as XIcon,
+  Delete02Icon as Trash2Icon,
+  BotIcon as BotIcon,
+  TextFontIcon as TypeIcon,
+  File02Icon as FileTextIcon,
+  Image01Icon as ImageIcon,
+  TerminalIcon as TerminalIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import type {
   CanvasNodeData,
   AgentNodeData,
@@ -13,6 +22,27 @@ import type {
   WorkflowNode,
 } from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
+import { Button } from '@/components/ui/button';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+
+const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BotIcon} {...props} />
+);
+const Type = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={TypeIcon} {...props} />
+);
+const FileText = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={FileTextIcon} {...props} />
+);
+const Image = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ImageIcon} {...props} />
+);
+const Terminal = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={TerminalIcon} {...props} />
+);
 
 interface PropertiesPanelProps {
   node: WorkflowNode<CanvasNodeData>;
@@ -29,17 +59,15 @@ const TYPE_ICONS = {
 } as const;
 
 const TYPE_COLORS = {
-  'text-input': 'var(--dome-accent)',
+  'text-input': 'var(--primary)',
   document: 'var(--success)',
   image: 'var(--warning)',
-  agent: 'var(--dome-accent)',
-  output: 'var(--dome-accent)',
+  agent: 'var(--primary)',
+  output: 'var(--primary)',
 } as const;
 
 const fieldLabelClass = 'block text-[11px] font-medium mb-1.5';
-const fieldLabelStyle = { color: 'var(--dome-text-muted)' } as const;
-const inputClass =
-  'w-full px-3 py-2 rounded-lg text-xs outline-none transition-all focus:ring-1 focus:ring-[var(--dome-accent)]';
+const fieldLabelStyle = { color: 'var(--muted-foreground)' } as const;
 
 export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesPanelProps) {
   const { t } = useTranslation();
@@ -65,7 +93,7 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
       default:
         label = t('canvas.output_result_label');
     }
-    return { Icon, label, color: TYPE_COLORS[ty] ?? 'var(--dome-accent)' };
+    return { Icon, label, color: TYPE_COLORS[ty] ?? 'var(--primary)' };
   }, [node.data.type, t]);
 
   const agentStatusLabel = (status: AgentNodeData['status']) => {
@@ -83,20 +111,18 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
     }
   };
 
-  const sectionGap = 'space-y-5';
-
   return (
     <div
       className="flex flex-col h-full shrink-0"
       style={{
         width: 280,
-        background: 'var(--dome-surface)',
-        borderLeft: '1px solid var(--dome-border)',
+        background: 'var(--card)',
+        borderLeft: '1px solid var(--border)',
       }}
     >
       <div
         className="flex items-center gap-3 px-4 py-3.5 shrink-0"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
+        style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div
           className="size-9 rounded-xl flex items-center justify-center shrink-0"
@@ -104,86 +130,74 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
         >
           <meta.Icon className="size-4 text-white" />
         </div>
-        <span className="flex-1 text-sm font-semibold leading-tight" style={{ color: 'var(--dome-text)' }}>
+        <span className="flex-1 text-sm font-semibold leading-tight text-foreground">
           {meta.label}
         </span>
-        <button
+        <Button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors shrink-0"
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0"
+          aria-label={t('ui.close')}
         >
-          <X className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-        </button>
+          <HugeiconsIcon icon={XIcon} className="size-4 text-muted-foreground" />
+        </Button>
       </div>
 
-      <div className={`flex-1 overflow-y-auto px-4 py-5 ${sectionGap}`}>
-        <div>
-          <label className={fieldLabelClass} style={fieldLabelStyle}>
+      <FieldGroup className="flex-1 overflow-y-auto px-4 py-5">
+        <Field>
+          <FieldLabel>
             {t('canvas.prop_label')}
-          </label>
-          <input
+          </FieldLabel>
+          <Input
             type="text"
             value={node.data.label}
             onChange={(e) => updateNode(node.id, { label: e.target.value } as Partial<CanvasNodeData>)}
             aria-label={t('canvas.prop_label')}
-            className={inputClass}
-            style={{
-              background: 'var(--dome-bg)',
-              color: 'var(--dome-text)',
-              border: '1px solid var(--dome-border)',
-            }}
           />
-        </div>
+        </Field>
 
         {node.data.type === 'text-input' && (
-          <div>
-            <label className={fieldLabelClass} style={fieldLabelStyle}>
+          <Field>
+            <FieldLabel>
               {t('canvas.prop_value')}
-            </label>
-            <textarea
+            </FieldLabel>
+            <Textarea
               value={(node.data as TextInputNodeData).value}
               onChange={(e) =>
                 updateNode(node.id, { value: e.target.value } as Partial<TextInputNodeData>)
               }
               aria-label={t('canvas.prop_value')}
               rows={5}
-              className={`${inputClass} resize-none`}
-              style={{
-                background: 'var(--dome-bg)',
-                color: 'var(--dome-text)',
-                border: '1px solid var(--dome-border)',
-              }}
+              className="resize-none"
             />
-          </div>
+          </Field>
         )}
 
         {node.data.type === 'document' && (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div>
               <label className={fieldLabelClass} style={fieldLabelStyle}>
                 {t('canvas.prop_resource')}
               </label>
               {(node.data as DocumentNodeData).resourceTitle ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+                  <span className="text-xs font-medium text-foreground">
                     {(node.data as DocumentNodeData).resourceTitle}
                   </span>
                   {(node.data as DocumentNodeData).resourceType && (
-                    <span
+                    <Badge
+                      variant="secondary"
                       title={t('canvas.prop_resource_type')}
-                      className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md font-medium"
-                      style={{
-                        background: 'var(--dome-bg)',
-                        color: 'var(--dome-text-muted)',
-                        border: '1px solid var(--dome-border)',
-                      }}
+                      className="uppercase tracking-wide"
                     >
                       {(node.data as DocumentNodeData).resourceType}
-                    </span>
+                    </Badge>
                   )}
                 </div>
               ) : (
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs text-muted-foreground">
                   {t('canvas.prop_no_resource')}
                 </p>
               )}
@@ -196,9 +210,9 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
                 <pre
                   className="text-[11px] leading-relaxed rounded-lg p-3 max-h-52 overflow-auto font-mono whitespace-pre-wrap break-words"
                   style={{
-                    background: 'var(--dome-bg)',
-                    color: 'var(--dome-text-secondary)',
-                    border: '1px solid var(--dome-border)',
+                    background: 'var(--background)',
+                    color: 'var(--muted-foreground)',
+                    border: '1px solid var(--border)',
                   }}
                 >
                   {(node.data as DocumentNodeData).resourceContent}
@@ -218,10 +232,10 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
                 src={(node.data as ImageNodeData).resourceUrl!}
                 alt={(node.data as ImageNodeData).resourceTitle ?? ''}
                 className="w-full rounded-lg object-cover"
-                style={{ maxHeight: 140, border: '1px solid var(--dome-border)' }}
+                style={{ maxHeight: 140, border: '1px solid var(--border)' }}
               />
             ) : (
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs text-muted-foreground">
                 {t('canvas.prop_no_image')}
               </p>
             )}
@@ -229,12 +243,12 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
         )}
 
         {node.data.type === 'agent' && (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div>
               <label className={fieldLabelClass} style={fieldLabelStyle}>
                 {t('canvas.prop_agent')}
               </label>
-              <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+              <p className="text-xs font-medium text-foreground">
                 {(node.data as AgentNodeData).agentName ?? t('canvas.prop_unassigned')}
               </p>
             </div>
@@ -249,18 +263,18 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
                     (node.data as AgentNodeData).status === 'done'
                       ? 'var(--success-bg)'
                       : (node.data as AgentNodeData).status === 'error'
-                        ? 'var(--error-bg)'
+                        ? 'color-mix(in srgb, var(--destructive) 12%, transparent)'
                         : (node.data as AgentNodeData).status === 'running'
-                          ? 'var(--dome-accent-bg)'
-                          : 'var(--dome-bg)',
+                          ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
+                          : 'var(--background)',
                   color:
                     (node.data as AgentNodeData).status === 'done'
                       ? 'var(--success)'
                       : (node.data as AgentNodeData).status === 'error'
-                        ? 'var(--error)'
+                        ? 'var(--destructive)'
                         : (node.data as AgentNodeData).status === 'running'
-                          ? 'var(--dome-accent)'
-                          : 'var(--dome-text-muted)',
+                          ? 'var(--primary)'
+                          : 'var(--muted-foreground)',
                 }}
               >
                 {agentStatusLabel((node.data as AgentNodeData).status)}
@@ -274,9 +288,9 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
                 <pre
                   className="text-[11px] rounded-lg p-3 max-h-40 overflow-auto font-mono whitespace-pre-wrap break-words"
                   style={{
-                    background: 'var(--dome-bg)',
-                    color: 'var(--dome-text-secondary)',
-                    border: '1px solid var(--dome-border)',
+                    background: 'var(--background)',
+                    color: 'var(--muted-foreground)',
+                    border: '1px solid var(--border)',
                   }}
                 >
                   {(node.data as AgentNodeData).outputText}
@@ -294,27 +308,27 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
             <pre
               className="text-[11px] font-mono leading-relaxed rounded-lg p-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words"
               style={{
-                background: 'var(--dome-bg)',
-                color: 'var(--dome-text)',
-                border: '1px solid var(--dome-border)',
+                background: 'var(--background)',
+                color: 'var(--foreground)',
+                border: '1px solid var(--border)',
               }}
             >
               {(node.data as OutputNodeData).content}
             </pre>
           </div>
         )}
-      </div>
+      </FieldGroup>
 
-      <div className="p-4 shrink-0" style={{ borderTop: '1px solid var(--dome-border)' }}>
-        <button
+      <div className="shrink-0 border-t p-4">
+        <Button
           type="button"
           onClick={() => onDelete(node.id)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors border border-[var(--dome-border)] bg-transparent hover:bg-[var(--error-bg)]"
-          style={{ color: 'var(--error)' }}
+          variant="destructive"
+          className="w-full"
         >
-          <Trash2 className="size-3.5" />
+          <HugeiconsIcon icon={Trash2Icon} data-icon="inline-start" />
           {t('canvas.prop_delete_node')}
-        </button>
+        </Button>
       </div>
     </div>
   );

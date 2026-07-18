@@ -2,8 +2,16 @@
 
 import { useRef, useLayoutEffect, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Terminal, Clock, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
+import {
+  ChevronDownIcon as ChevronDownIcon,
+  ChevronUpIcon as ChevronUpIcon,
+  TerminalIcon as TerminalIcon,
+  Clock01Icon as ClockIcon,
+  CheckmarkCircle02Icon as CheckCircle2Icon,
+  AlertCircleIcon as AlertCircleIcon,
+  Wrench01Icon as WrenchIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import type { ExecutionLogEntry } from '@/lib/agent-canvas/executor';
 import type { CanvasExecutionStatus } from '@/lib/store/useCanvasStore';
 import type { WorkflowExecution } from '@/types/canvas';
@@ -16,6 +24,21 @@ import {
   resolveExecutionDisplay,
 } from '@/lib/agent-canvas/executionLogDisplay';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ReactNode } from 'react';
+
+const Terminal = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={TerminalIcon} {...props} />
+);
+const CheckCircle2 = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={CheckCircle2Icon} {...props} />
+);
+const AlertCircle = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={AlertCircleIcon} {...props} />
+);
+const Wrench = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={WrenchIcon} {...props} />
+);
 interface ExecutionLogProps {
   entries: ExecutionLogEntry[];
   status: CanvasExecutionStatus;
@@ -32,10 +55,10 @@ function formatElapsed(ms: number): string {
 }
 
 const TYPE_STYLES = {
-  info: { icon: Terminal, color: 'var(--dome-text-muted)' },
+  info: { icon: Terminal, color: 'var(--muted-foreground)' },
   tool_call: { icon: Wrench, color: 'var(--info)' },
   done: { icon: CheckCircle2, color: 'var(--success)' },
-  error: { icon: AlertCircle, color: 'var(--error)' },
+  error: { icon: AlertCircle, color: 'var(--destructive)' },
 };
 
 const EMPTY_HISTORY: WorkflowExecution[] = [];
@@ -61,14 +84,14 @@ function ExecutionLogEntryRow({
   });
   return (
     <div className="flex items-start gap-2 text-xs leading-relaxed">
-      <span className="shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)', fontSize: 12 }}>
+      <span className="shrink-0 tabular-nums" style={{ color: 'var(--muted-foreground)', fontSize: 12 }}>
         {time}
       </span>
       <EntryIcon className="size-3 shrink-0 mt-0.5" style={{ color: meta.color }} />
       <span className="font-semibold shrink-0" style={{ color: meta.color }}>
         [{entry.nodeLabel}]
       </span>
-      <span style={{ color: 'var(--dome-text-secondary)', wordBreak: 'break-all' }}>
+      <span style={{ color: 'var(--muted-foreground)', wordBreak: 'break-all' }}>
         {entry.message}
       </span>
     </div>
@@ -116,7 +139,7 @@ export default function ExecutionLog({
   if (!hasExecutionLogContent(status, entries, history)) return null;
 
   const isLiveRunning = status === 'running';
-  const { isRunning, isDone, statusColor, statusLabelKey } =
+  const { isDone, statusColor, statusLabelKey } =
     getExecutionStatusPresentation(displayStatus);
   const { completedAgents, totalAgents } = countAgentProgress(displayEntries);
   const statusLabel = t(statusLabelKey);
@@ -135,66 +158,60 @@ export default function ExecutionLog({
     <div
       className="shrink-0 border-t"
       style={{
-        background: 'var(--dome-surface)',
-        borderColor: 'var(--dome-border)',
+        background: 'var(--card)',
+        borderColor: 'var(--border)',
       }}
     >
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
         className="w-full flex items-center gap-2 px-4 py-2 text-left transition-colors hover:opacity-80"
-        style={{ background: 'var(--dome-bg)' }}
+        style={{ background: 'var(--background)' }}
       >
         <div
-          className={`size-2 rounded-full shrink-0 ${isLiveRunning ? 'animate-pulse' : ''}`}
+          className={`size-2 rounded-full shrink-0 ${isLiveRunning ? 'animate-pulse motion-reduce:animate-none' : ''}`}
           style={{ background: statusColor }}
         />
         <span className="text-xs font-semibold" style={{ color: statusColor }}>
           {statusLabel}
         </span>
         {isLiveRunning && (
-          <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-xs font-mono tabular-nums text-muted-foreground">
             {formatElapsed(elapsed)}
           </span>
         )}
         {isDone && displayStartTime && !isLiveRunning && (
-          <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <Clock className="size-3 inline mr-0.5 -mt-0.5" />
+          <span className="text-xs text-muted-foreground">
+            <HugeiconsIcon icon={ClockIcon} className="size-3 inline mr-0.5 -mt-0.5" />
             {formatElapsedFromRange(displayStartTime, selectedExecution?.finishedAt)}
           </span>
         )}
         {totalAgents > 0 && (
-          <span className="ml-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="ml-1 text-xs text-muted-foreground">
             {t('canvas.exec_agents_count', { completed: completedAgents, total: totalAgents })}
           </span>
         )}
         <div className="flex-1" />
         {historyOptions && (
-          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- propagation guard only; the inner DomeSelectMenu owns all interaction.
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- propagation guard only; the inner Select owns all interaction.
           <div style={{ maxWidth: 180 }} onClick={(e) => e.stopPropagation()}>
-            <DomeSelectMenu
-              value={selectedExecutionId ?? ''}
-              onChange={(v) => onSelectExecution?.(v || null)}
-              fullWidth={false}
-              aria-label={t('canvas.exec_current_run')}
-              options={historyOptions}
-            />
+            <Select value={selectedExecutionId ?? ''} onValueChange={(next) => { if (next != null) ((v) => onSelectExecution?.(v || null))(next); }} items={historyOptions}><SelectTrigger className="w-fit" aria-label={t('canvas.exec_current_run')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{(historyOptions).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
           </div>
         )}
         {collapsed ? (
-          <ChevronUp className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <HugeiconsIcon icon={ChevronUpIcon} className="size-3.5 shrink-0 text-muted-foreground" />
         ) : (
-          <ChevronDown className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" />
         )}
       </button>
 
       {!collapsed && (
         <div
-          className="overflow-y-auto px-4 py-2 space-y-1 font-mono"
-          style={{ maxHeight: 180, background: 'var(--dome-bg)' }}
+          className="overflow-y-auto px-4 py-2 flex flex-col gap-1 font-mono"
+          style={{ maxHeight: 180, background: 'var(--background)' }}
         >
           {displayEntries.length === 0 && (
-            <p className="text-xs italic" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs italic text-muted-foreground">
               {status === 'running' ? t('canvas.exec_starting') : t('canvas.exec_no_entries')}
             </p>
           )}

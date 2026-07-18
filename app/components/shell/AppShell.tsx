@@ -1,20 +1,20 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import ManyIcon from '@/components/many/ManyIcon';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePanelRef } from 'react-resizable-panels';
 import { useShallow } from 'zustand/react/shallow';
-import DomeTabBar from './DomeTabBar';
+import TitleBar from './TitleBar';
 import ContentRouter from './ContentRouter';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
 import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
+import SettingsNav from '@/components/settings/SettingsNav';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
-import ResizeHandle from '@/components/workspace/ResizeHandle';
-import WindowControls from '@/components/ui/WindowControls';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 import SystemErrorNotifier from '@/components/shell/SystemErrorNotifier';
-import TranscriptionPill from '@/components/transcription/TranscriptionPill';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
 import CommandPalette from '@/components/search/CommandPalette';
@@ -26,6 +26,7 @@ import {
   MANY_PANEL_WIDTH_KEY,
 } from '@/lib/shell/layoutReset';
 import { useSyncManyActiveResourceContext } from '@/lib/many/useSyncManyActiveResourceContext';
+import { cn } from '@/lib/utils';
 
 const MANY_WIDTH_KEY = MANY_PANEL_WIDTH_KEY;
 const MANY_MIN = 280;
@@ -58,6 +59,18 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
   return fallback;
 }
 
+function useNarrowShell(): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return narrow;
+}
+
 // Eagerly start the import at module level so it's already resolving before
 // AppShell renders. Using useState+useEffect instead of React.lazy()+Suspense
 // prevents React 18's concurrent scheduler from deferring the Suspense resolution
@@ -87,8 +100,8 @@ function ManyPanelWithSuspense(props: ManyPanelWithSuspenseProps) {
 
   if (!ManyPanelComp) {
     return (
-      <div className="flex flex-1 items-center justify-center h-full min-h-[80px]" style={{ background: 'var(--dome-bg)' }}>
-        <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('common.loading')}</span>
+      <div className="flex flex-1 items-center justify-center h-full min-h-[80px] bg-background">
+        <span className="text-xs text-muted-foreground">{t('common.loading')}</span>
       </div>
     );
   }
@@ -102,9 +115,8 @@ export default function AppShell() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(() => readManyPanelOpen());
   /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
   const [manyRightOverride, setManyRightOverride] = useState(false);
-
-  const manyWidthRef = useRef(manyWidth);
-  manyWidthRef.current = manyWidth;
+  const narrowShell = useNarrowShell();
+  const manyPanelRef = usePanelRef();
 
   const openChatTab = useTabStore((s) => s.openChatTab);
   const { activeTabId, tabs } = useTabStore(
@@ -115,15 +127,18 @@ export default function AppShell() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isChatTab = activeTab?.type === 'chat';
+  const isSettingsTab = activeTab?.type === 'settings';
 
   useSyncManyActiveResourceContext();
 
-  const isElectron = typeof window !== 'undefined' && Boolean(window.electron);
-  const isMac = isElectron && window.electron!.isMac;
-  const isWindows = isElectron && window.electron!.isWindows;
-  const isLinux = isElectron && window.electron!.isLinux;
-  /** Windows overlay + controles dibujados en Linux (no usar titleBarOverlay de Win). */
-  const needsRightTitleInset = Boolean(isWindows || isLinux);
+  // Settings mode replaces UnifiedSidebar with SettingsNav — keep the left
+  // rail open so section navigation is immediately usable.
+  useEffect(() => {
+    if (!isSettingsTab) return;
+    if (useResizeStore.getState().leftSidebarCollapsed) {
+      useResizeStore.setState({ leftSidebarCollapsed: false });
+    }
+  }, [isSettingsTab]);
 
   useEffect(() => {
     setManyWidth(readInt(MANY_WIDTH_KEY, MANY_DEFAULT, MANY_MIN, MANY_MAX));
@@ -162,12 +177,14 @@ export default function AppShell() {
     return () => off?.();
   }, []);
 
-  const handleManyResize = useCallback((deltaX: number) => {
-    // Panel is on the right: dragging handle left (negative deltaX) expands it
-    const newWidth = manyWidthRef.current - deltaX;
-    if (newWidth >= MANY_MIN && newWidth <= MANY_MAX) {
-      setManyWidth(newWidth);
-    }
+  const handleManyResize = useCallback((width: number) => {
+    const next = Math.round(width);
+    if (next < MANY_MIN || next > MANY_MAX) return;
+    setManyWidth(next);
+    useResizeStore.getState().setRightSidebarWidth(next);
+    try {
+      localStorage.setItem(MANY_WIDTH_KEY, String(next));
+    } catch { /* ignore unavailable storage */ }
   }, []);
 
   const handleToggleRightSidebar = useCallback(() => {
@@ -233,7 +250,7 @@ export default function AppShell() {
     const onReq = () => {
       const { tabs: tabList, activeTabId: aid } = useTabStore.getState();
       const tab = tabList.find((x) => x.id === aid);
-      if (tab?.type === 'chat') return;
+      if (tab?.type === 'chat' || tab?.type === 'settings') return;
       setManyRightOverride(true);
       setRightSidebarOpen(true);
       persistManyPanelOpen(true);
@@ -252,6 +269,7 @@ export default function AppShell() {
     const onOpenManySidebar = () => {
       const { tabs: tabList, activeTabId: aid } = useTabStore.getState();
       const tab = tabList.find((x) => x.id === aid);
+      if (tab?.type === 'settings') return;
       if (tab?.type === 'chat') {
         setManyRightOverride(true);
       }
@@ -262,112 +280,158 @@ export default function AppShell() {
     return () => window.removeEventListener('dome:many-sidebar-open', onOpenManySidebar);
   }, []);
 
-  const showManyInSidebar = Boolean(rightSidebarOpen && (!isChatTab || manyRightOverride));
+  const showManyInSidebar = Boolean(
+    rightSidebarOpen && !isSettingsTab && (!isChatTab || manyRightOverride),
+  );
+  const showManyInDesktopSidebar = showManyInSidebar && !narrowShell;
 
-  const headerPlatform = !isElectron
-    ? 'web'
-    : isMac
-      ? 'mac'
-      : isWindows
-        ? 'win'
-        : 'linux';
+  // Keep the panel group structure stable (always 2 panels on desktop) and
+  // collapse/expand Many imperatively. Remounting the group via `key` was
+  // remounting ContentRouter → home/dashboard "reload" flash.
+  // Defer + try/catch: react-resizable-panels can throw
+  // "Panel constraints not found for Panel many-sidebar" on the first paint
+  // before the panel registers its constraints (also crashes EmailView).
+  useEffect(() => {
+    if (narrowShell) return;
+    let cancelled = false;
+    let retryId = 0;
+
+    const applyManyLayout = (attempt = 0) => {
+      if (cancelled) return;
+      const panel = manyPanelRef.current;
+      if (!panel) {
+        if (attempt < 8) {
+          retryId = window.requestAnimationFrame(() => applyManyLayout(attempt + 1));
+        }
+        return;
+      }
+      try {
+        if (showManyInDesktopSidebar) {
+          if (panel.isCollapsed()) {
+            panel.expand();
+            // Cold start with defaultSize=0 has no "recent" size for expand().
+            if (panel.getSize().inPixels < MANY_MIN) panel.resize(manyWidth);
+          }
+        } else if (!panel.isCollapsed()) {
+          panel.collapse();
+        }
+      } catch {
+        if (attempt < 8) {
+          retryId = window.requestAnimationFrame(() => applyManyLayout(attempt + 1));
+        }
+      }
+    };
+
+    retryId = window.requestAnimationFrame(() => applyManyLayout(0));
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(retryId);
+    };
+    // manyWidth only applied when expanding from collapsed; omit from deps
+    // so drag-resize does not re-enter this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [manyPanelRef, narrowShell, showManyInDesktopSidebar]);
 
   return (
-    <div
-      className="flex flex-col h-screen overflow-hidden"
-      data-platform={headerPlatform}
-      data-sidebar-collapsed={leftSidebarCollapsed ? 'true' : 'false'}
-      style={{ background: 'var(--dome-bg)' }}
-    >
-
-      {/* ── Unified top bar (CSS grid: left chrome | tabs | actions) ── */}
-      <header
-        className="dome-shell-header shrink-0"
-        data-platform={headerPlatform}
-        data-sidebar-collapsed={leftSidebarCollapsed ? 'true' : 'false'}
-        data-many-panel-open={showManyInSidebar ? 'true' : 'false'}
-      >
-        <div className="dome-shell-header-left" aria-hidden="true" />
-
-        <button
-          type="button"
-          className="dome-chrome-icon-btn dome-chrome-icon-btn--strip-edge dome-shell-sidebar-toggle"
-          data-active={!leftSidebarCollapsed ? 'true' : 'false'}
-          onClick={toggleLeftSidebar}
-          title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
-          aria-label={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-          </svg>
-        </button>
-
-        <div className="dome-shell-header-tabs">
-          <DomeTabBar onNewChat={handleNewChat} />
-
-          <button
-            type="button"
-            className="dome-chrome-icon-btn dome-chrome-icon-btn--strip-edge"
-            data-active={rightSidebarOpen ? 'true' : 'false'}
-            onClick={handleToggleRightSidebar}
-            title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
-            aria-label={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
-          >
-            <span aria-hidden style={{ filter: 'var(--dome-logo-filter)', display: 'inline-flex' }}>
-              <ManyIcon size={14} />
-            </span>
-          </button>
-        </div>
-
-        <div className="dome-shell-header-actions">
-          <div className="dome-header-drag-zone" aria-hidden />
-
-          <div className="dome-header-actions-inner no-drag">
-            <TranscriptionPill />
-          </div>
-
-          {needsRightTitleInset ? <div className="dome-titlebar-inset-spacer" aria-hidden /> : null}
-        </div>
-
-        <WindowControls />
-      </header>
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      <TitleBar
+        leftSidebarCollapsed={leftSidebarCollapsed}
+        onToggleLeftSidebar={toggleLeftSidebar}
+        rightSidebarOpen={rightSidebarOpen}
+        onToggleRightSidebar={handleToggleRightSidebar}
+        onNewChat={handleNewChat}
+        settingsMode={isSettingsTab}
+      />
 
       {/* ── Body row ── */}
-      <div className="dome-app-body flex flex-1 min-h-0 overflow-hidden">
-        {/* Left sidebar */}
-        <UnifiedSidebar collapsed={leftSidebarCollapsed} onCollapse={toggleLeftSidebar} />
+      <div className="dome-app-body flex min-h-0 flex-1 overflow-hidden">
+        {/* Left sidebar — Settings replaces UnifiedSidebar with section nav */}
+        {isSettingsTab ? (
+          <SettingsNav collapsed={leftSidebarCollapsed} />
+        ) : (
+          <UnifiedSidebar collapsed={leftSidebarCollapsed} />
+        )}
 
-        {/* Main content */}
-        <main
-          className="dome-main-content flex flex-col flex-1 min-w-0 overflow-hidden"
-          style={{ background: 'var(--dome-surface)' }}
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-w-0 flex-1"
         >
-          <ContentRouter />
-        </main>
+          <ResizablePanel id="dome-content" minSize={420}>
+            <main className="dome-main-content flex h-full min-w-0 flex-col overflow-hidden bg-card">
+              <ContentRouter />
+            </main>
+          </ResizablePanel>
 
-        {/* Right sidebar: Many en modo panel (no en pestaña Chat fullscreen — historial va dentro de Many). */}
-        {showManyInSidebar ? (
-          <>
-            <ResizeHandle onResize={handleManyResize} direction="horizontal" />
-            <div
-              className="dome-right-panel shrink-0 overflow-hidden"
-              style={{
-                width: manyWidth,
-                minWidth: manyWidth,
-              }}
-            >
-              <ManyPanelWithSuspense
-                width={manyWidth}
-                onClose={handleToggleRightSidebar}
-                isVisible
-                isFullscreen={false}
+          {/* Many — always present on desktop so content does not remount on toggle. */}
+          {!narrowShell ? (
+            <>
+              <ResizableHandle
+                aria-label={t('shell.resize_right_panel', 'Redimensionar Many')}
+                disabled={!showManyInDesktopSidebar}
+                className={cn(
+                  'bg-transparent hover:bg-border',
+                  !showManyInDesktopSidebar && 'pointer-events-none opacity-0',
+                )}
               />
-            </div>
-          </>
-        ) : null}
-
+              <ResizablePanel
+                id="many-sidebar"
+                panelRef={manyPanelRef}
+                collapsible
+                collapsedSize={0}
+                defaultSize={showManyInDesktopSidebar ? manyWidth : 0}
+                minSize={MANY_MIN}
+                maxSize={MANY_MAX}
+                groupResizeBehavior="preserve-pixel-size"
+                onResize={(size) => {
+                  try {
+                    const px = Math.round(size.inPixels);
+                    if (px < MANY_MIN / 2) return;
+                    handleManyResize(px);
+                  } catch {
+                    /* panel constraints not ready yet */
+                  }
+                }}
+              >
+                <aside
+                  className={cn(
+                    'dome-right-panel flex h-full flex-col overflow-hidden bg-sidebar',
+                    !showManyInDesktopSidebar && 'invisible',
+                  )}
+                  aria-label="Many"
+                  aria-hidden={!showManyInDesktopSidebar}
+                >
+                  <ManyPanelWithSuspense
+                    width={manyWidth}
+                    onClose={handleToggleRightSidebar}
+                    isVisible={showManyInDesktopSidebar}
+                    isFullscreen={false}
+                  />
+                </aside>
+              </ResizablePanel>
+            </>
+          ) : null}
+        </ResizablePanelGroup>
       </div>
+
+      <Sheet
+        open={showManyInSidebar && narrowShell}
+        onOpenChange={(open) => {
+          if (!open && rightSidebarOpen) handleToggleRightSidebar();
+        }}
+      >
+        <SheetContent side="right" showCloseButton={false} className="w-[min(92vw,30rem)] p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Many</SheetTitle>
+            <SheetDescription>{t('shell.right_panel_description', 'Asistente contextual de Dome')}</SheetDescription>
+          </SheetHeader>
+          <ManyPanelWithSuspense
+            width={Math.min(manyWidth, 480)}
+            onClose={handleToggleRightSidebar}
+            isVisible
+            isFullscreen={false}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Pet mascot overlay */}
       <PetPluginSlot />

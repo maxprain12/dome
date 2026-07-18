@@ -1,15 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core';
-import { ChevronRight, Folder } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronRightIcon,
+  Folder01Icon,
+} from '@hugeicons/core-free-icons';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/lib/hooks/useResources';
 import { buildMoveFolderRows } from '@/lib/workspace/buildMoveFolderRows';
 import { getFolderColor } from '@/components/shell/folder-tab/folderTabShared';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 export interface MoveFolderModalProps {
   open: boolean;
   onClose: () => void;
@@ -21,6 +26,34 @@ export interface MoveFolderModalProps {
   /** Shown under the title when moving a single resource. */
   resourceTitle?: string | null;
   onConfirm: (targetFolderId: string | null) => void | Promise<void>;
+}
+
+function FolderPickButton({
+  selected,
+  onClick,
+  children,
+  className,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'w-full rounded-lg border p-3 text-left transition-colors',
+        selected
+          ? 'border-2 border-primary bg-accent'
+          : 'border border-border bg-card',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 export default function MoveFolderModal({
@@ -75,88 +108,51 @@ export default function MoveFolderModal({
   };
 
   return (
-    <DomeModal
-      open={open}
-      onClose={onClose}
-      title={title}
-      subtitle={subtitle}
-      size="sm"
-      footer={
-        <>
-          <DomeButton variant="secondary" onClick={onClose} disabled={submitting}>
-            {t('common.cancel')}
-          </DomeButton>
-          <DomeButton variant="primary" onClick={() => void handleMove()} loading={submitting}>
-            {t('common.move')}
-          </DomeButton>
-        </>
-      }
-    >
-      <Stack gap="xs">
-        <ScrollArea.Autosize mah={280}>
-          <Stack gap={4}>
-            <UnstyledButton
-              type="button"
-              onClick={() => setSelectedId(null)}
-              p="sm"
-              style={{
-                borderRadius: 8,
-                border: selectedId === null
-                  ? '2px solid var(--dome-accent)'
-                  : '1px solid var(--dome-border)',
-                textAlign: 'left',
-                background: selectedId === null ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
-              }}
-            >
-              <Text size="sm" fw={500}>
-                {t('selection.move_to_root')}
-              </Text>
-            </UnstyledButton>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{title}</DialogTitle>{subtitle ? <DialogDescription className="truncate">{subtitle}</DialogDescription> : null}</div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex flex-col gap-2">
+        <ScrollArea className="max-h-[280px]">
+          <div className="flex flex-col gap-1 pr-2">
+            <FolderPickButton selected={selectedId === null} onClick={() => setSelectedId(null)}>
+              <span className="text-sm font-medium">{t('selection.move_to_root')}</span>
+            </FolderPickButton>
             {rows.map(({ folder: f, depth }) => (
-              <UnstyledButton
+              <FolderPickButton
                 key={f.id}
-                type="button"
+                selected={selectedId === f.id}
                 onClick={() => setSelectedId(f.id)}
-                p="sm"
-                style={{
-                  borderRadius: 8,
-                  border: selectedId === f.id
-                    ? '2px solid var(--dome-accent)'
-                    : '1px solid var(--dome-border)',
-                  textAlign: 'left',
-                  background: selectedId === f.id ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
-                }}
               >
                 <span
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    minWidth: 0,
-                    marginLeft: depth * 20,
-                  }}
+                  className="flex min-w-0 items-center gap-2"
+                  style={{ marginLeft: depth * 20 }}
                 >
                   {depth > 0 ? (
-                    <ChevronRight
-                      className="size-3 shrink-0"
-                      style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}
+                    <HugeiconsIcon icon={ChevronRightIcon}
+                      className="size-3 shrink-0 opacity-60 text-muted-foreground"
                       aria-hidden
                     />
                   ) : null}
-                  <Folder
+                  <HugeiconsIcon icon={Folder01Icon}
                     className="size-4 shrink-0"
-                    style={{ color: getFolderColor(f) ?? 'var(--dome-accent)' }}
+                    style={{ color: getFolderColor(f) ?? 'var(--primary)' }}
                     strokeWidth={1.75}
                   />
-                  <Text size="sm" fw={500} truncate>
-                    {f.title}
-                  </Text>
+                  <span className="truncate text-sm font-medium">{f.title}</span>
                 </span>
-              </UnstyledButton>
+              </FolderPickButton>
             ))}
-          </Stack>
-        </ScrollArea.Autosize>
-      </Stack>
-    </DomeModal>
+          </div>
+        </ScrollArea>
+      </div>
+    </div><DialogFooter className="border-t px-4 py-3">{<>
+          <Button variant="secondary"
+  onClick={onClose}
+  disabled={submitting}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={() => void handleMove()}
+  loading={submitting}>
+            {t('common.move')}
+          </Button>
+        </>}</DialogFooter></DialogContent></Dialog>
   );
 }

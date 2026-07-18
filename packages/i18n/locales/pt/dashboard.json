@@ -1,4 +1,10 @@
 {
+  "greeting_name": "Olá, {{name}}",
+  "subtitle": "Continua de onde paraste ou começa algo novo.",
+  "continue_activity": "Continua de onde paraste",
+  "continue_activity_desc": "O teu trabalho mais recente.",
+  "no_recent_activity": "Nenhuma atividade recente.",
+  "pending_today": "Para hoje",
   "greeting_morning": "Bom dia",
   "greeting_afternoon": "Boa tarde",
   "greeting_evening": "Boa noite",

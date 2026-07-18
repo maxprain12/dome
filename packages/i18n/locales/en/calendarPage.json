@@ -40,5 +40,13 @@
   "import_ics_short": "Import",
   "new_event_short": "New event",
   "day_events_count_one": "{{count}} event",
-  "day_events_count_other": "{{count}} events"
+  "day_events_count_other": "{{count}} events",
+  "more_events": "+{{count}} more",
+  "events_count_one": "{{count}} event",
+  "events_count_other": "{{count}} events",
+  "linked_resources": "Linked resources",
+  "linked_resources_empty": "No linked resources yet.",
+  "link_resource": "Link resource",
+  "open_in_github": "Open in GitHub",
+  "open_in_social": "Open in Social"
 }

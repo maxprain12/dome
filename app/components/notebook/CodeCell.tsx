@@ -1,9 +1,15 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  PlayIcon,
+  Loading03Icon,
+  InformationCircleIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useCallback } from 'react';
-import { Play, Loader2, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
+import { typesetDocsClass } from '@/lib/typeset';
 import CodeCellEditor from './CodeCellEditor';
 import type { NotebookCodeCell, NotebookOutput } from '@/types';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
@@ -32,8 +38,8 @@ function renderNotebookOutput(output: NotebookOutput) {
         <pre
           className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
           style={{
-            background: output.name === 'stderr' ? 'var(--error-bg)' : 'var(--bg-secondary)',
-            color: output.name === 'stderr' ? 'var(--error)' : 'var(--primary-text)',
+            background: output.name === 'stderr' ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : 'var(--card)',
+            color: output.name === 'stderr' ? 'var(--destructive)' : 'var(--foreground)',
           }}
         >
           {text}
@@ -70,12 +76,7 @@ function renderNotebookOutput(output: NotebookOutput) {
       const html = Array.isArray(textHtml) ? textHtml.join('') : textHtml;
       return (
         <div
-          className="p-2 prose prose-sm max-w-none break-words overflow-x-auto"
-          style={{
-            color: 'var(--primary-text)',
-            minHeight: '400px',
-            overflow: 'auto',
-          }}
+          className={typesetDocsClass('min-h-[400px] overflow-auto p-2 break-words')}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       );
@@ -85,7 +86,7 @@ function renderNotebookOutput(output: NotebookOutput) {
       <div className="overflow-x-auto max-w-full">
         <pre
           className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-          style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)' }}
+          style={{ background: 'var(--card)', color: 'var(--foreground)' }}
         >
           {text}
         </pre>
@@ -98,7 +99,7 @@ function renderNotebookOutput(output: NotebookOutput) {
       <div className="overflow-x-auto max-w-full">
         <pre
           className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-          style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
+          style={{ background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', color: 'var(--destructive)' }}
         >
           {tb}
         </pre>
@@ -172,7 +173,7 @@ export default function CodeCell({
       className="code-cell rounded-xl overflow-hidden"
       style={{
         border: '1px solid var(--border)',
-        background: 'var(--bg-secondary)',
+        background: 'var(--card)',
         boxShadow: 'var(--shadow-sm)',
       }}
     >
@@ -181,25 +182,24 @@ export default function CodeCell({
           type="button"
           onClick={handleRun}
           disabled={isRunning || isLoading}
-          className="p-1.5 rounded shrink-0 cursor-pointer transition-colors duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          className="p-1.5 rounded shrink-0 cursor-pointer transition-colors duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
-            background: 'var(--accent)',
-            color: 'var(--base-text)',
+            background: 'var(--primary)',
+            color: 'var(--primary-foreground)',
           }}
           title="Run cell (Shift+Enter)"
           aria-label={t('notebook.run_cell')}
           aria-busy={isRunning || isLoading}
         >
           {isRunning || isLoading ? (
-            <Loader2 size={16} className="animate-spin" />
+            <HugeiconsIcon icon={Loading03Icon} size={16} className="animate-spin" />
           ) : (
-            <Play size={16} />
+            <HugeiconsIcon icon={PlayIcon} size={16} />
           )}
         </button>
         {executionCount != null && (
           <span
-            className="text-xs font-mono shrink-0 py-1"
-            style={{ color: 'var(--tertiary)' }}
+            className="text-xs font-mono shrink-0 py-1 text-muted-foreground"
           >
             [{executionCount}]
           </span>
@@ -218,12 +218,12 @@ export default function CodeCell({
         <div
           className="flex items-center gap-2 p-3 text-sm rounded-b-lg"
           style={{
-            background: 'var(--bg-tertiary)',
-            color: 'var(--secondary-text)',
+            background: 'var(--muted)',
+            color: 'var(--muted-foreground)',
             borderTop: '1px solid var(--border)',
           }}
         >
-          <Info size={16} className="shrink-0" style={{ color: 'var(--accent)' }} />
+          <HugeiconsIcon icon={InformationCircleIcon} size={16} className="shrink-0 text-primary" />
           <span>{t('notebook.python_runtime_hint')}</span>
         </div>
       )}
@@ -231,12 +231,12 @@ export default function CodeCell({
         <div
           className="flex items-center gap-2 p-3 text-sm rounded-b-lg"
           style={{
-            background: 'var(--bg-tertiary)',
-            color: 'var(--secondary-text)',
+            background: 'var(--muted)',
+            color: 'var(--muted-foreground)',
             borderTop: '1px solid var(--border)',
           }}
         >
-          <Loader2 size={16} className="animate-spin shrink-0" style={{ color: 'var(--accent)' }} />
+          <HugeiconsIcon icon={Loading03Icon} size={16} className="animate-spin shrink-0 text-primary" />
           <span>{t('notebook.loading_python')}</span>
         </div>
       )}
@@ -244,9 +244,9 @@ export default function CodeCell({
         <div
           className="p-3 text-sm rounded-b-lg border border-t-0"
           style={{
-            background: 'var(--error-bg)',
-            color: 'var(--error)',
-            borderColor: 'var(--error)',
+            background: 'color-mix(in srgb, var(--destructive) 12%, transparent)',
+            color: 'var(--destructive)',
+            borderColor: 'var(--destructive)',
           }}
         >
           {loadError}
@@ -255,10 +255,10 @@ export default function CodeCell({
 
       {cell.outputs.length > 0 && (
         <div
-          className="p-2 space-y-1 content-visibility-auto"
+          className="p-2 flex flex-col gap-y-1 content-visibility-auto"
           style={{
             borderTop: '1px solid var(--border)',
-            background: 'var(--bg-tertiary)',
+            background: 'var(--muted)',
           }}
         >
           {(() => {

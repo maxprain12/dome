@@ -265,6 +265,7 @@ const runLifecycle = require('./agents/run-lifecycle.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
 const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
+const domainSyncScheduler = require('./storage/domain-sync-scheduler.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
@@ -934,16 +935,6 @@ function trySeedBundledSkills() {
   }
 }
 
-// Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
-function trySeedOnboardingGuide() {
-  try {
-    const { seedGuide } = require('./core/guide-bootstrap.cjs');
-    seedGuide(database.getDB());
-  } catch (e) {
-    console.warn('[Main] guide bootstrap:', e?.message || e);
-  }
-}
-
 async function initSemanticStack() {
   const lancedbSemantic = require('./services/lancedb-semantic.cjs');
   try {
@@ -1225,6 +1216,8 @@ function initRuntimeServices() {
   automationService.init(windowManager, database);
   runRetention.init();
   errorNotify.init(windowManager);
+  domainSyncScheduler.init({ database, windowManager });
+  domainSyncScheduler.start();
 }
 
 // Initialize the app in background (SQLite settings, filesystem)
@@ -1309,7 +1302,6 @@ app
 
     tryStartBackupScheduler();
     trySeedBundledSkills();
-    trySeedOnboardingGuide();
     await initSemanticStack();
     runEmbeddingsRefactorGuard();
 
@@ -1318,6 +1310,9 @@ app
     if (isDev) installDevIpcCapture();
     registerAllIpcHandlers();
     if (isDev) startDevIpcBridge();
+
+    const { startDomeSessionManager } = require('./auth/dome-session-manager.cjs');
+    startDomeSessionManager(database, windowManager);
 
     tryInitTranscriptionShortcut();
     tryAutoStartDomeMcpServer();
@@ -1361,6 +1356,7 @@ app.on('before-quit', async () => {
   transcriptionShortcut.unregisterAll();
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
+  domainSyncScheduler.stop();
   automationService.stop();
   runRetention.stop();
   try {

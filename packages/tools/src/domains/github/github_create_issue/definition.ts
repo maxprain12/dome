@@ -16,6 +16,11 @@ export const githubCreateIssueDefinition: ToolDefinition = {
         },
         milestone_number: { type: 'number', description: 'Optional milestone number to assign' },
         labels: { type: 'array', items: { type: 'string' }, description: 'Optional labels' },
+        assignees: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'GitHub logins to assign (from mentioned-people github identities; no @ prefix)',
+        },
       },
       required: ['repo_id', 'title'],
     },

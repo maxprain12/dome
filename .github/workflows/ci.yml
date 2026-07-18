@@ -56,6 +56,12 @@ jobs:
       - name: Lint renderer
         run: pnpm run lint
 
+      - name: Renderer interaction tests
+        run: pnpm run test:ui
+
+      - name: UI composition and motion contracts
+        run: pnpm run check:ui-contracts
+
       - name: IPC inventory up to date
         run: pnpm run check:ipc-inventory
 
@@ -121,6 +127,31 @@ jobs:
 
       - name: Build renderer (Vite)
         run: pnpm run build
+
+  electron-smoke:
+    name: Electron smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      # Electron and its native dependencies are required by this isolated smoke job.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderer
+        run: pnpm run build
+
+      - name: Boot Electron with an isolated profile
+        run: xvfb-run --auto-servernum pnpm run test:e2e:electron:run
 
   dependency-cruiser:
     name: Dependency structure

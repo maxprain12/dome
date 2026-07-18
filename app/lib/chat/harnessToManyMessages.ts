@@ -185,18 +185,6 @@ function consumeAssistantTurn(
   };
 }
 
-function buildUserMessage(msg: PiMessage, messageIndex: number): HarnessManyMessage | null {
-  const ts = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
-  const text = extractTextFromContent(msg.content);
-  if (!text.trim()) return null;
-  return {
-    id: `msg-${ts}-${messageIndex}`,
-    role: 'user',
-    content: text,
-    timestamp: ts,
-  };
-}
-
 /** Convert agent harness messages (JSONL context) into Many UI messages. */
 export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessage[] {
   const out: HarnessManyMessage[] = [];
@@ -211,8 +199,14 @@ export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessag
     const msg = item as PiMessage;
 
     if (msg.role === 'user') {
-      const userMsg = buildUserMessage(msg, out.length);
-      if (userMsg) out.push(userMsg);
+      const ts = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
+      // Keep empty user turns (chip-only pins) so JSONL↔local counts stay aligned.
+      out.push({
+        id: `msg-${ts}-${out.length}`,
+        role: 'user',
+        content: extractTextFromContent(msg.content),
+        timestamp: ts,
+      });
       index += 1;
       continue;
     }

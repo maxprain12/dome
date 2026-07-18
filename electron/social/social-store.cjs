@@ -14,6 +14,7 @@
 
 const crypto = require('crypto');
 const { safeStorage } = require('electron');
+const syncTombstone = require('../storage/sync-tombstone.cjs');
 
 const PROVIDERS = ['linkedin', 'instagram', 'x'];
 
@@ -27,7 +28,12 @@ const SECRET_FIELDS = new Set(['clientSecret']);
 const OAUTH_PORT_KEY = 'social_oauth_port';
 const DEFAULT_OAUTH_PORT = 8737;
 const LINKEDIN_ORG_KEY = 'social_linkedin_org_enabled';
+const REPLY_DRAFTS_KEY = 'social_reply_drafts_v1';
+const COMMENT_SEEN_KEY = 'social_comment_seen_v1';
+const LIVE_REPLY_RULES_KEY = 'social_live_reply_rules_v1';
 const ACCOUNT_KINDS = ['member', 'organization'];
+const MAX_REPLY_DRAFTS = 200;
+const MAX_SEEN_COMMENTS = 2000;
 
 function encryptionAvailable() {
   try {
@@ -169,6 +175,27 @@ function createSocialStore(database) {
     return q().getSocialAccountById.get(accountId) || null;
   }
 
+  function getAccountRow(accountId) {
+    return getAccount(accountId);
+  }
+
+  function isAccountCloudPublishing(accountId) {
+    const row = getAccount(accountId);
+    return row?.cloud_publishing === 1;
+  }
+
+  function setCloudPublishing(accountId, enabled) {
+    const row = getAccount(accountId);
+    if (!row) throw new Error(`Social account not found: ${accountId}`);
+    q().updateSocialAccountCloudPublishing.run(enabled ? 1 : 0, Date.now(), accountId);
+  }
+
+  function setPostMediaStorage(postId, storagePaths) {
+    const row = q().getSocialPostById.get(postId);
+    if (!row) throw new Error(`Social post not found: ${postId}`);
+    q().updateSocialPostMediaStorage.run(JSON.stringify(storagePaths || []), Date.now(), postId);
+  }
+
   function getAccountTokens(accountId) {
     const row = getAccount(accountId);
     if (!row) return null;
@@ -204,6 +231,8 @@ function createSocialStore(database) {
   }
 
   function deleteAccount(accountId) {
+    const db = database.getDB?.();
+    if (db) syncTombstone.recordTombstone(db, 'social_accounts', accountId);
     q().deleteSocialAccount.run(accountId);
   }
 
@@ -222,6 +251,7 @@ function createSocialStore(database) {
       lastError: row.last_error,
       connectedAt: row.connected_at,
       lastSyncAt: row.last_sync_at,
+      cloudPublishing: row.cloud_publishing === 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -247,9 +277,11 @@ function createSocialStore(database) {
       status: row.status,
       body: row.body,
       media: parseJsonArray(row.media),
+      mediaStorage: parseJsonArray(row.media_storage),
       linkUrl: row.link_url,
       topics: parseJsonArray(row.topics),
       campaign: row.campaign,
+      campaignId: row.campaign_id || null,
       scheduledAt: row.scheduled_at,
       publishedAt: row.published_at,
       externalPostId: row.external_post_id,
@@ -262,20 +294,182 @@ function createSocialStore(database) {
     };
   }
 
+  // ── Campaigns ────────────────────────────────────────────────────────────
+
+  function serializeCampaign(row, counts = null) {
+    if (!row) return null;
+    const base = {
+      id: row.id,
+      name: row.name,
+      goal: row.goal || null,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      draft: 0,
+      scheduled: 0,
+      published: 0,
+      failed: 0,
+    };
+    if (counts) {
+      for (const c of counts) {
+        if (c.status === 'draft') base.draft = c.c;
+        else if (c.status === 'scheduled' || c.status === 'publishing') base.scheduled += c.c;
+        else if (c.status === 'published') base.published = c.c;
+        else if (c.status === 'failed') base.failed = c.c;
+      }
+    }
+    return base;
+  }
+
+  function listCampaigns({ status = null } = {}) {
+    const rows = status
+      ? q().listSocialCampaignsByStatus.all(status)
+      : q().listSocialCampaigns.all();
+    return rows.map((row) =>
+      serializeCampaign(row, q().countSocialPostsByCampaignId.all(row.id)),
+    );
+  }
+
+  function getCampaign(campaignId) {
+    const row = q().getSocialCampaignById.get(campaignId);
+    if (!row) return null;
+    return serializeCampaign(row, q().countSocialPostsByCampaignId.all(row.id));
+  }
+
+  function createCampaign({ name, goal = null, status = 'active' } = {}) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) throw new Error('Campaign name is required');
+    const existing = q().getSocialCampaignByName.get(trimmed);
+    if (existing) {
+      return serializeCampaign(existing, q().countSocialPostsByCampaignId.all(existing.id));
+    }
+    const now = Date.now();
+    const id = `scamp-${crypto.randomBytes(8).toString('hex')}`;
+    q().createSocialCampaign.run(id, trimmed, goal ? String(goal) : null, status || 'active', now, now);
+    return getCampaign(id);
+  }
+
+  function updateCampaign(campaignId, patch = {}) {
+    const row = q().getSocialCampaignById.get(campaignId);
+    if (!row) throw new Error(`Campaign not found: ${campaignId}`);
+    const name = patch.name !== undefined ? String(patch.name).trim() : row.name;
+    if (!name) throw new Error('Campaign name is required');
+    const goal = patch.goal !== undefined ? (patch.goal ? String(patch.goal) : null) : row.goal;
+    const status = patch.status !== undefined ? patch.status : row.status;
+    q().updateSocialCampaign.run(name, goal, status, Date.now(), campaignId);
+    if (name !== row.name) {
+      // Keep denormalized campaign string in sync for posts.
+      const db = typeof database.getDB === 'function' ? database.getDB() : database;
+      db.prepare(`UPDATE social_posts SET campaign = ? WHERE campaign_id = ?`).run(name, campaignId);
+    }
+    return getCampaign(campaignId);
+  }
+
+  function archiveCampaign(campaignId) {
+    return updateCampaign(campaignId, { status: 'archived' });
+  }
+
+  /** Resolve campaignId and/or campaign name into { campaignId, campaign }. */
+  function resolveCampaignRef({ campaignId = null, campaign = null } = {}) {
+    if (campaignId) {
+      const row = q().getSocialCampaignById.get(campaignId);
+      if (!row) throw new Error(`Campaign not found: ${campaignId}`);
+      return { campaignId: row.id, campaign: row.name };
+    }
+    const name = campaign != null ? String(campaign).trim() : '';
+    if (!name) return { campaignId: null, campaign: null };
+    const created = createCampaign({ name });
+    return { campaignId: created.id, campaign: created.name };
+  }
+
   function createPost({
     provider, accountId = null, body = '', media = [], linkUrl = null, topics = [],
-    campaign = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
+    campaign = null, campaignId = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
   }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
     const now = Date.now();
     const id = `sp-${crypto.randomBytes(8).toString('hex')}`;
     const finalStatus = status || (scheduledAt ? 'scheduled' : 'draft');
+    const ref = resolveCampaignRef({ campaignId, campaign });
     q().createSocialPost.run(
       id, accountId, provider, finalStatus, String(body || ''),
-      JSON.stringify(media || []), linkUrl, JSON.stringify(topics || []), campaign,
+      JSON.stringify(media || []), linkUrl, JSON.stringify(topics || []),
+      ref.campaign, ref.campaignId,
       scheduledAt, null, null, null, null, createdBy, groupId, now, now
     );
     return serializePost(q().getSocialPostById.get(id));
+  }
+
+  /**
+   * Upsert a post that already exists on the platform (feed sync).
+   * Idempotent on externalPostId. Does not overwrite drafts Dome still owns.
+   */
+  function upsertImportedPost({
+    accountId,
+    provider,
+    body = '',
+    externalPostId,
+    externalUrl = null,
+    publishedAt = null,
+    metrics = null,
+  }) {
+    if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
+    const ext = String(externalPostId || '').trim();
+    if (!ext) throw new Error('externalPostId is required');
+    const now = Date.now();
+    const pubAt = publishedAt != null && Number.isFinite(publishedAt) ? publishedAt : now;
+    const existing = q().getSocialPostByExternalId.get(ext);
+    if (existing) {
+      const ownedByDome = existing.created_by !== 'import' && existing.status !== 'published';
+      if (ownedByDome) {
+        return { post: serializePost(existing), created: false, skipped: true };
+      }
+      q().updateImportedSocialPost.run(
+        String(body || existing.body || ''),
+        externalUrl || existing.external_url,
+        pubAt,
+        now,
+        existing.id,
+      );
+      if (metrics && typeof metrics === 'object') {
+        insertMetric(existing.id, metrics);
+      }
+      return {
+        post: serializePost(q().getSocialPostById.get(existing.id)),
+        created: false,
+        skipped: false,
+      };
+    }
+    const id = `sp-${crypto.randomBytes(8).toString('hex')}`;
+    q().createSocialPost.run(
+      id,
+      accountId,
+      provider,
+      'published',
+      String(body || ''),
+      '[]',
+      null,
+      '[]',
+      null,
+      null,
+      null,
+      pubAt,
+      ext,
+      externalUrl,
+      null,
+      'import',
+      null,
+      now,
+      now,
+    );
+    if (metrics && typeof metrics === 'object') {
+      insertMetric(id, metrics);
+    }
+    return {
+      post: serializePost(q().getSocialPostById.get(id)),
+      created: true,
+      skipped: false,
+    };
   }
 
   function getPost(postId) {
@@ -290,13 +484,32 @@ function createSocialStore(database) {
     const row = q().getSocialPostById.get(postId);
     if (!row) throw new Error(`Social post not found: ${postId}`);
     if (row.status === 'published') throw new Error('Cannot edit a published post');
+    let campaign = row.campaign;
+    let campaignId = row.campaign_id || null;
+    if (patch.campaignId !== undefined || patch.campaign !== undefined) {
+      const clear =
+        (patch.campaignId === null || patch.campaignId === '') &&
+        (patch.campaign === null || patch.campaign === '' || patch.campaign === undefined);
+      if (clear && patch.campaignId !== undefined) {
+        campaign = null;
+        campaignId = null;
+      } else {
+        const ref = resolveCampaignRef({
+          campaignId: patch.campaignId || null,
+          campaign: patch.campaignId ? null : patch.campaign,
+        });
+        campaign = ref.campaign;
+        campaignId = ref.campaignId;
+      }
+    }
     const next = {
       accountId: patch.accountId !== undefined ? patch.accountId : row.account_id,
       body: patch.body !== undefined ? String(patch.body) : row.body,
       media: patch.media !== undefined ? JSON.stringify(patch.media || []) : row.media,
       linkUrl: patch.linkUrl !== undefined ? patch.linkUrl : row.link_url,
       topics: patch.topics !== undefined ? JSON.stringify(patch.topics || []) : row.topics,
-      campaign: patch.campaign !== undefined ? patch.campaign : row.campaign,
+      campaign,
+      campaignId,
       scheduledAt: patch.scheduledAt !== undefined ? patch.scheduledAt : row.scheduled_at,
     };
     let status = patch.status !== undefined ? patch.status : row.status;
@@ -305,7 +518,7 @@ function createSocialStore(database) {
       if (!next.scheduledAt && row.status === 'scheduled') status = 'draft';
     }
     q().updateSocialPostContent.run(
-      next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign,
+      next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign, next.campaignId,
       next.scheduledAt, status, Date.now(), postId
     );
     return getPost(postId);
@@ -347,6 +560,8 @@ function createSocialStore(database) {
   }
 
   function deletePost(postId) {
+    const db = database.getDB?.();
+    if (db) syncTombstone.recordTombstone(db, 'social_posts', postId);
     q().deleteSocialPost.run(postId);
   }
 
@@ -376,11 +591,13 @@ function createSocialStore(database) {
 
   function insertMetric(postId, metric) {
     const id = `sm-${crypto.randomBytes(8).toString('hex')}`;
+    const capturedAt = Date.now();
     q().insertSocialMetric.run(
-      id, postId, Date.now(),
+      id, postId, capturedAt,
       metric.impressions ?? null, metric.likes ?? null, metric.comments ?? null,
       metric.shares ?? null, metric.saves ?? null, metric.clicks ?? null,
-      metric.followers ?? null, metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null
+      metric.followers ?? null, metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null,
+      capturedAt,
     );
   }
 
@@ -412,10 +629,12 @@ function createSocialStore(database) {
 
   function insertAccountMetric(accountId, metric) {
     const id = `sam-${crypto.randomBytes(8).toString('hex')}`;
+    const capturedAt = Date.now();
     q().insertSocialAccountMetric.run(
-      id, accountId, Date.now(),
+      id, accountId, capturedAt,
       metric.followers ?? null, metric.following ?? null, metric.postsCount ?? null,
-      metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null
+      metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null,
+      capturedAt,
     );
     return serializeAccountMetric(q().getLatestSocialAccountMetric.get(accountId));
   }
@@ -518,6 +737,144 @@ function createSocialStore(database) {
     return getReportConfig();
   }
 
+  // ── Reply drafts (plan 014 draft_only — no live DM until provider caps) ──
+
+  function listReplyDrafts() {
+    try {
+      const raw = q().getSetting.get(REPLY_DRAFTS_KEY)?.value;
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveReplyDrafts(list) {
+    const trimmed = (Array.isArray(list) ? list : []).slice(0, MAX_REPLY_DRAFTS);
+    q().setSetting.run(REPLY_DRAFTS_KEY, JSON.stringify(trimmed), Date.now());
+    return trimmed;
+  }
+
+  function createReplyDraft(input = {}) {
+    const draft = {
+      id: `srd-${crypto.randomBytes(8).toString('hex')}`,
+      status: input.status || 'draft_only',
+      provider: input.provider || null,
+      accountId: input.accountId || null,
+      postId: input.postId || null,
+      externalCommentId: input.externalCommentId || null,
+      hashtag: input.hashtag || null,
+      commentText: input.commentText || null,
+      commentAuthor: input.commentAuthor || null,
+      replyBody: String(input.replyBody || ''),
+      linkUrl: input.linkUrl || null,
+      commentAuthorExternalId: input.commentAuthorExternalId || null,
+      externalMessageId: null,
+      sentAt: null,
+      error: null,
+      createdAt: Date.now(),
+    };
+    saveReplyDrafts([draft, ...listReplyDrafts()]);
+    return draft;
+  }
+
+  function dismissReplyDraft(draftId) {
+    const id = String(draftId || '');
+    if (!id) return { deleted: false };
+    saveReplyDrafts(listReplyDrafts().filter((d) => d.id !== id));
+    return { deleted: true };
+  }
+
+  function updateReplyDraft(draftId, patch = {}) {
+    const id = String(draftId || '');
+    const list = listReplyDrafts();
+    const idx = list.findIndex((d) => d.id === id);
+    if (idx < 0) return null;
+    list[idx] = { ...list[idx], ...patch, updatedAt: Date.now() };
+    saveReplyDrafts(list);
+    return list[idx];
+  }
+
+  function listSeenCommentIds() {
+    try {
+      const raw = q().getSetting.get(COMMENT_SEEN_KEY)?.value;
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function markCommentSeen(externalCommentId) {
+    const id = String(externalCommentId || '');
+    if (!id) return;
+    const next = [id, ...listSeenCommentIds().filter((x) => x !== id)].slice(0, MAX_SEEN_COMMENTS);
+    q().setSetting.run(COMMENT_SEEN_KEY, JSON.stringify(next), Date.now());
+  }
+
+  function hasSeenComment(externalCommentId) {
+    return listSeenCommentIds().includes(String(externalCommentId || ''));
+  }
+
+  /** Default live: cold DM automation for #Curso (plan 018 product decisions). */
+  function getLiveReplyRules() {
+    try {
+      const raw = q().getSetting.get(LIVE_REPLY_RULES_KEY)?.value;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch { /* fall through */ }
+    return [
+      {
+        id: 'default-curso',
+        enabled: true,
+        mode: 'live',
+        hashtag: 'Curso',
+        replyTemplate:
+          'Hola {{author}}! Gracias por tu interés en #{{hashtag}}. Aquí tienes el enlace: {{link}}',
+        linkUrl: '',
+        accountIds: null,
+        postIds: null,
+      },
+    ];
+  }
+
+  function setLiveReplyRules(rules) {
+    const list = Array.isArray(rules) ? rules : [];
+    q().setSetting.run(LIVE_REPLY_RULES_KEY, JSON.stringify(list), Date.now());
+    return getLiveReplyRules();
+  }
+
+  function messagingFlagKey(provider, kind) {
+    return `social_${provider}_messaging_${kind}`;
+  }
+
+  /** Defaults to enabled (true) when unset — matches product decision for live cold DM. */
+  function getMessagingCommentsEnabled(provider) {
+    const v = q().getSetting.get(messagingFlagKey(provider, 'comments'))?.value;
+    if (v === '0') return false;
+    return true;
+  }
+
+  function setMessagingCommentsEnabled(provider, enabled) {
+    q().setSetting.run(messagingFlagKey(provider, 'comments'), enabled ? '1' : '0', Date.now());
+    return getMessagingCommentsEnabled(provider);
+  }
+
+  function getMessagingDmEnabled(provider) {
+    const v = q().getSetting.get(messagingFlagKey(provider, 'dm'))?.value;
+    if (v === '0') return false;
+    return true;
+  }
+
+  function setMessagingDmEnabled(provider, enabled) {
+    q().setSetting.run(messagingFlagKey(provider, 'dm'), enabled ? '1' : '0', Date.now());
+    return getMessagingDmEnabled(provider);
+  }
+
   return {
     PROVIDERS,
     encryptionAvailable,
@@ -530,6 +887,10 @@ function createSocialStore(database) {
     setOAuthPort,
     createAccount,
     getAccount,
+    getAccountRow,
+    isAccountCloudPublishing,
+    setCloudPublishing,
+    setPostMediaStorage,
     getAccountTokens,
     updateAccountTokens,
     updateAccountProfile,
@@ -537,7 +898,14 @@ function createSocialStore(database) {
     listAccounts,
     deleteAccount,
     serializeAccount,
+    listCampaigns,
+    getCampaign,
+    createCampaign,
+    updateCampaign,
+    archiveCampaign,
+    resolveCampaignRef,
     createPost,
+    upsertImportedPost,
     getPost,
     getPostRow,
     updatePost,
@@ -566,6 +934,18 @@ function createSocialStore(database) {
     deleteReport,
     getReportConfig,
     setReportConfig,
+    listReplyDrafts,
+    createReplyDraft,
+    dismissReplyDraft,
+    updateReplyDraft,
+    hasSeenComment,
+    markCommentSeen,
+    getLiveReplyRules,
+    setLiveReplyRules,
+    getMessagingCommentsEnabled,
+    setMessagingCommentsEnabled,
+    getMessagingDmEnabled,
+    setMessagingDmEnabled,
   };
 }
 

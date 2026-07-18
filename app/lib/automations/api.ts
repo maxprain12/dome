@@ -213,11 +213,18 @@ export async function listRuns(filters?: {
   ownerType?: string;
   ownerId?: string;
   automationId?: string;
+  /** When true, only runs with a non-null automationId (studio Ejecuciones). */
+  automationLinkedOnly?: boolean;
   sessionId?: string;
   projectId?: string;
   limit?: number;
 }): Promise<PersistentRun[]> {
   return invoke<PersistentRun[]>('runs:list', filters);
+}
+
+/** True when the run was started by an automation (any target: agent / workflow / many). */
+export function isAutomationLinkedRun(run: Pick<PersistentRun, 'automationId'>): boolean {
+  return Boolean(run.automationId);
 }
 
 export async function getRun(runId: string): Promise<PersistentRun | null> {

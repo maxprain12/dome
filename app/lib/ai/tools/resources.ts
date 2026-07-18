@@ -660,12 +660,64 @@ export function createResourceSemanticSearchTool(): AnyAgentTool {
 /**
  * Create all resource tools.
  */
+export function createResourceGetActiveTool(): AnyAgentTool {
+  return {
+    label: 'Get active resource',
+    name: 'resource_get_active',
+    description: 'Get the resource currently open in the viewer (active tab).',
+    parameters: Type.Object({}),
+    execute: async () =>
+      jsonResult({
+        status: 'error',
+        error: 'resource_get_active runs in the Dome agent runtime (Many).',
+      }),
+  };
+}
+
+export function createResourceGetPinnedTool(): AnyAgentTool {
+  return {
+    label: 'Get pinned resource',
+    name: 'resource_get_pinned',
+    description:
+      'Get content of a user-pinned library resource by ID. Call this when pinned-resources ' +
+      'lists a document id before answering about its contents.',
+    parameters: Type.Object({
+      id: Type.String({ description: 'Pinned resource ID from context' }),
+    }),
+    execute: async () =>
+      jsonResult({
+        status: 'error',
+        error: 'resource_get_pinned runs in the Dome agent runtime (Many).',
+      }),
+  };
+}
+
+export function createGetDocumentStructureTool(): AnyAgentTool {
+  return {
+    label: 'Get document structure',
+    name: 'get_document_structure',
+    description:
+      'Lightweight outline for PDFs with Gemma transcript (page markers). Prefer resource_get for full text.',
+    parameters: Type.Object({
+      resource_id: Type.String({ description: 'ID of the resource to get the structure of' }),
+    }),
+    execute: async () =>
+      jsonResult({
+        status: 'error',
+        error: 'get_document_structure runs in the Dome agent runtime (Many).',
+      }),
+  };
+}
+
 export function createResourceTools(): AnyAgentTool[] {
   return [
     createResourceSearchTool(),
     createResourceHybridSearchTool(),
     createResourceGetTool(),
+    createResourceGetActiveTool(),
+    createResourceGetPinnedTool(),
     createResourceGetSectionTool(),
+    createGetDocumentStructureTool(),
     createResourceListTool(),
     createResourceSemanticSearchTool(),
     createPdfRenderPageTool(),

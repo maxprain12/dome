@@ -71,14 +71,6 @@ export const manyAgentVersions = sqliteTable('many_agent_versions', {
   createdAt: integer('created_at').notNull(),
 });
 
-export const agentStore = sqliteTable('agent_store', {
-  id: text('id').primaryKey(),
-  agentId: text('agent_id').notNull(),
-  key: text('key').notNull(),
-  valueJson: text('value_json'),
-  updatedAt: integer('updated_at').notNull(),
-});
-
 export const mcpServers = sqliteTable('mcp_servers', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
@@ -148,15 +140,6 @@ export const domeProviderSessions = sqliteTable('dome_provider_sessions', {
   accessToken: text('access_token').notNull(),
   refreshToken: text('refresh_token'),
   expiresAt: integer('expires_at').notNull(),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-export const authProfiles = sqliteTable('auth_profiles', {
-  id: text('id').primaryKey(),
-  provider: text('provider').notNull(),
-  label: text('label'),
-  credentialsJson: text('credentials_json'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

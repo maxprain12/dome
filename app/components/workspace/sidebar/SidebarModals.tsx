@@ -1,59 +1,54 @@
-/** Sidebar modals: delete/new-folder/url — unified on DomeModal. */
+/** Sidebar modals: delete/new-folder/url — centered dialogs. */
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import type { Resource } from '@/lib/hooks/useResources';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
 
-export function DeleteConfirmModal({ resource, onConfirm, onClose }: {
+export function DeleteConfirmModal({
+  resource,
+  onConfirm,
+  onClose,
+}: {
   resource: Resource;
   onConfirm: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const isFolder = resource.type === 'folder';
+  const warning = isFolder ? t('ui.delete_content_warning') : t('ui.delete_warning');
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
+    <ConfirmDialog
+      isOpen
       title={t('ui.delete_confirm', { type: isFolder ? 'folder' : 'resource' })}
-      subtitle={isFolder ? t('ui.delete_content_warning') : t('ui.delete_warning')}
-      size="sm"
-      headerIcon={
-        <span
-          className="flex size-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: 'color-mix(in srgb, var(--dome-error) 12%, transparent)' }}
-        >
-          <AlertTriangle className="size-4" style={{ color: 'var(--dome-error)' }} />
-        </span>
-      }
-      footer={
-        <>
-          <DomeButton variant="secondary" onClick={onClose}>
-            {t('ui.cancel')}
-          </DomeButton>
-          <DomeButton
-            variant="primary"
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-            style={{ background: 'var(--dome-error)' }}
-          >
-            {t('ui.delete')}
-          </DomeButton>
-        </>
-      }
-    >
-      <p className="truncate text-sm font-medium text-[var(--primary-text)]">{resource.title}</p>
-    </DomeModal>
+      message={`${resource.title} — ${warning}`}
+      confirmLabel={t('ui.delete')}
+      cancelLabel={t('ui.cancel')}
+      variant="danger"
+      onConfirm={onConfirm}
+      onCancel={onClose}
+    />
   );
 }
 
-export function BulkDeleteConfirmModal({ count, busy = false, onConfirm, onClose }: {
+export function BulkDeleteConfirmModal({
+  count,
+  busy = false,
+  onConfirm,
+  onClose,
+}: {
   count: number;
   busy?: boolean;
   onConfirm: () => void;
@@ -62,44 +57,26 @@ export function BulkDeleteConfirmModal({ count, busy = false, onConfirm, onClose
   const { t } = useTranslation();
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
+    <ConfirmDialog
+      isOpen
       title={t('selection.bulk_delete_confirm', { count })}
-      subtitle={t('ui.delete_content_warning')}
-      size="sm"
-      headerIcon={
-        <span
-          className="flex size-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: 'color-mix(in srgb, var(--dome-error) 12%, transparent)' }}
-        >
-          <AlertTriangle className="size-4" style={{ color: 'var(--dome-error)' }} />
-        </span>
-      }
-      footer={
-        <>
-          <DomeButton variant="secondary" onClick={onClose} disabled={busy}>
-            {t('ui.cancel')}
-          </DomeButton>
-          <DomeButton
-            variant="primary"
-            onClick={onConfirm}
-            disabled={busy}
-            style={{ background: 'var(--dome-error)' }}
-          >
-            {busy ? '…' : t('ui.delete')}
-          </DomeButton>
-        </>
-      }
-    >
-      <p className="m-0 text-sm text-[var(--secondary-text)]">
-        {t('selection.items_selected', { count })}
-      </p>
-    </DomeModal>
+      message={`${t('selection.items_selected', { count })} — ${t('ui.delete_content_warning')}`}
+      confirmLabel={busy ? '…' : t('ui.delete')}
+      cancelLabel={t('ui.cancel')}
+      variant="danger"
+      onConfirm={() => {
+        if (!busy) onConfirm();
+      }}
+      onCancel={onClose}
+    />
   );
 }
 
-export function NewFolderModal({ parentId, onConfirm, onClose }: {
+export function NewFolderModal({
+  parentId,
+  onConfirm,
+  onClose,
+}: {
   parentId: string | null;
   onConfirm: (name: string, parentId: string | null) => void;
   onClose: () => void;
@@ -121,45 +98,43 @@ export function NewFolderModal({ parentId, onConfirm, onClose }: {
   };
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={t('ui.new_folder')}
-      size="sm"
-      initialFocusRef={inputRef}
-      footer={
-        <>
-          <DomeButton variant="secondary" onClick={onClose}>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('ui.new_folder')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('ui.folder_name')}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="new-folder-name">{t('ui.folder_name')}</Label>
+          <Input
+            ref={inputRef}
+            id="new-folder-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            placeholder={t('ui.folder_name')}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('ui.cancel')}
-          </DomeButton>
-          <DomeButton variant="primary" onClick={submit} disabled={!name.trim()}>
+          </Button>
+          <Button onClick={submit} disabled={!name.trim()}>
             {t('ui.create')}
-          </DomeButton>
-        </>
-      }
-    >
-      <input
-        ref={inputRef}
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-        }}
-        placeholder={t('ui.folder_name')}
-        aria-label={t('ui.folder_name')}
-        className="w-full rounded-md px-3 py-2 text-sm outline-none"
-        style={{
-          background: 'var(--dome-bg-hover)',
-          border: '1px solid var(--dome-border)',
-          color: 'var(--dome-text)',
-        }}
-      />
-    </DomeModal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-export function UrlInputModal({ onConfirm, onClose }: {
+export function UrlInputModal({
+  onConfirm,
+  onClose,
+}: {
   onConfirm: (url: string) => void;
   onClose: () => void;
 }) {
@@ -180,40 +155,35 @@ export function UrlInputModal({ onConfirm, onClose }: {
   };
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={t('ui.add_url')}
-      size="sm"
-      initialFocusRef={inputRef}
-      footer={
-        <>
-          <DomeButton variant="secondary" onClick={onClose}>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('ui.add_url')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('ui.add_url')}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="url-input">{t('ui.add_url')}</Label>
+          <Input
+            ref={inputRef}
+            id="url-input"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            placeholder="https://..."
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('ui.cancel')}
-          </DomeButton>
-          <DomeButton variant="primary" onClick={submit} disabled={!url.trim()}>
+          </Button>
+          <Button onClick={submit} disabled={!url.trim()}>
             {t('ui.add')}
-          </DomeButton>
-        </>
-      }
-    >
-      <input
-        ref={inputRef}
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-        }}
-        placeholder="https://..."
-        aria-label={t('ui.add_url')}
-        className="w-full rounded-md px-3 py-2 text-sm outline-none"
-        style={{
-          background: 'var(--dome-bg-hover)',
-          border: '1px solid var(--dome-border)',
-          color: 'var(--dome-text)',
-        }}
-      />
-    </DomeModal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

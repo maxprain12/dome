@@ -1,36 +1,22 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  File,
-  Video,
-  Music,
-  Image,
-  Link2,
-  FolderOpen,
-  ChevronRight,
-  ChevronDown,
-  Search,
-  Check,
-  Loader2,
-} from 'lucide-react';
+import { ArrowDown01Icon, ArrowRight01Icon, File02Icon, FolderOpenIcon, Image01Icon, Link02Icon, MusicNote01Icon, Search01Icon, Video01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
 
-function getTypeIcon(type: string, size = 14) {
-  const props = { size, className: 'shrink-0' };
-  switch (type) {
-    case 'pdf':
-      return <File {...props} />;
-    case 'video':
-      return <Video {...props} />;
-    case 'audio':
-      return <Music {...props} />;
-    case 'image':
-      return <Image {...props} />;
-    case 'url':
-      return <Link2 {...props} />;
-    default:
-      return <File {...props} />;
-  }
+function getTypeIcon(type: string): IconSvgElement {
+  if (type === 'video') return Video01Icon;
+  if (type === 'audio') return MusicNote01Icon;
+  if (type === 'image') return Image01Icon;
+  if (type === 'url') return Link02Icon;
+  return File02Icon;
 }
 
 interface FolderNode {
@@ -233,39 +219,28 @@ export default function StepSourcePicker({ projectId, selectedIds, onChange }: S
       const check = folderCheckState(folder);
 
       return (
-        <div key={folder.id}>
-          <div
-            className={`lr-source-row${depth > 0 ? ' indent' : ''}${depth > 1 ? ' indent2' : ''}`}
-            style={{ paddingLeft: 12 + depth * 24 }}
-          >
-            <button
-              type="button"
-              className={`lr-source-check${check === 'on' ? ' on' : check === 'partial' ? ' partial' : ''}`}
+        <div key={folder.id} className="flex flex-col gap-1">
+          <Item size="xs" variant="muted" style={{ paddingLeft: 12 + depth * 20 }}>
+            <Checkbox
+              checked={check !== 'off'}
+              aria-checked={check === 'partial' ? 'mixed' : check === 'on'}
               aria-label={t('studio.folder', 'Folder')}
               onClick={() => toggleFolder(folder)}
-            >
-              {check === 'on' ? <Check size={10} /> : null}
-            </button>
-            <button
+            />
+            <Button
               type="button"
-              className="lr-source-folder"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => toggleExpand(folder.id)}
               aria-expanded={isExpanded}
             >
               {folder.children.length > 0 ? (
-                isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-              ) : (
-                <span style={{ width: 14 }} />
-              )}
-            </button>
-            <FolderOpen
-              size={14}
-              className="lr-source-folder"
-              style={{ color: (folder.metadata?.color as string) || 'var(--accent)' }}
-            />
-            <span className="lr-source-name">{folder.title}</span>
-            <span className="lr-source-meta">{collectResourceIds(folder).length}</span>
-          </div>
+                <HugeiconsIcon icon={isExpanded ? ArrowDown01Icon : ArrowRight01Icon} />
+              ) : <span aria-hidden />}
+            </Button>
+            <ItemMedia variant="icon"><HugeiconsIcon icon={FolderOpenIcon} /></ItemMedia>
+            <ItemContent><ItemTitle>{folder.title}</ItemTitle><ItemDescription>{collectResourceIds(folder).length}</ItemDescription></ItemContent>
+          </Item>
           {isExpanded ? folder.children.map((child) => renderItem(child, depth + 1)) : null}
         </div>
       );
@@ -274,59 +249,51 @@ export default function StepSourcePicker({ projectId, selectedIds, onChange }: S
     const res = item as Resource;
     const isSelected = selectedIds.includes(res.id);
     return (
-      <button
+      <Item
         key={res.id}
-        type="button"
-        className={`lr-source-row${isSelected ? ' selected' : ''}${depth > 0 ? ' indent' : ''}${depth > 1 ? ' indent2' : ''}`}
-        style={{ paddingLeft: 12 + depth * 24, width: '100%', border: 'none', background: 'transparent' }}
-        onClick={() => toggleResource(res.id)}
+        variant={isSelected ? 'muted' : 'default'}
+        size="xs"
+        style={{ paddingLeft: 12 + depth * 20 }}
       >
-        <span className={`lr-source-check${isSelected ? ' on' : ''}`}>
-          {isSelected ? <Check size={10} /> : null}
-        </span>
-        {getTypeIcon(res.type)}
-        <span className="lr-source-name">{res.title}</span>
-      </button>
+        <Checkbox checked={isSelected} onCheckedChange={() => toggleResource(res.id)} aria-label={res.title} />
+        <ItemMedia variant="icon"><HugeiconsIcon icon={getTypeIcon(res.type)} /></ItemMedia>
+        <ItemContent><ItemTitle>{res.title}</ItemTitle><ItemDescription>{res.type}</ItemDescription></ItemContent>
+        <ItemActions><Button type="button" variant="ghost" size="sm" onClick={() => toggleResource(res.id)}>{isSelected ? t('learn.selected', 'Selected') : t('learn.select', 'Select')}</Button></ItemActions>
+      </Item>
     );
   }
 
   return (
-    <div>
-      <div className="lr-source-list">
-        <div className="lr-source-search">
-          <Search size={14} aria-hidden />
-          <input
+    <div className="flex flex-col gap-3">
+      <InputGroup>
+          <InputGroupAddon><HugeiconsIcon icon={Search01Icon} /></InputGroupAddon>
+          <InputGroupInput
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('learn.source_search', 'Search sources…')}
             aria-label={t('learn.source_search', 'Search sources…')}
           />
-        </div>
-        <div className="lr-source-tree">
+      </InputGroup>
+        <div className="max-h-80 overflow-y-auto rounded-2xl border p-2">
           {isLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-              <Loader2 size={18} className="animate-spin" />
-            </div>
+            <div className="flex justify-center p-6"><Spinner /></div>
           ) : filteredTree.length === 0 ? (
-            <div className="lr-source-row">
-              <span className="lr-source-name muted">
+            <Empty><EmptyHeader><EmptyTitle>{t('learn.no_sources', 'No sources')}</EmptyTitle><EmptyDescription>
                 {projectId ? t('studio.no_sources_in_project', 'No resources in project') : t('studio.select_project', 'Select a project')}
-              </span>
-            </div>
+              </EmptyDescription></EmptyHeader></Empty>
           ) : (
-            filteredTree.map((item) => renderItem(item, 0))
+            <ItemGroup>{filteredTree.map((item) => renderItem(item, 0))}</ItemGroup>
           )}
         </div>
-      </div>
-      <p className="lr-field-hint" style={{ marginTop: 8, color: overBudget ? 'var(--warning-text)' : undefined }}>
+      <Alert variant={overBudget ? 'destructive' : 'default'}><AlertDescription>
         {t('learn.source_token_estimate', '~{{tokens}} tokens estimated', { tokens: estimatedTokens.toLocaleString() })}
         {' · '}
         {t('learn.source_selected_count', '{{count}} selected', { count: selectedIds.length })}
         {overBudget
           ? ` · ${t('learn.source_over_budget', 'May exceed model context budget')}`
           : ''}
-      </p>
+      </AlertDescription></Alert>
     </div>
   );
 }

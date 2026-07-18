@@ -1,7 +1,9 @@
 import React from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeSlider from '@/components/ui/DomeSlider';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { PauseIcon, PlayIcon, VolumeHighIcon, VolumeMute01Icon } from '@hugeicons/core-free-icons';
+import { Slider } from '@/components/ui/slider';
+import { useTranslation } from 'react-i18next';
 
 interface MediaControlsProps {
   isPlaying: boolean;
@@ -22,49 +24,47 @@ function MediaControlsComponent({
   onVolumeChange,
   variant = 'full',
 }: MediaControlsProps) {
+  const { t } = useTranslation();
   const isCompact = variant === 'compact';
 
   return (
     <div className="flex items-center gap-2">
-      <DomeButton
+      <Button
         type="button"
-        variant="primary"
-        size={isCompact ? 'md' : 'lg'}
-        iconOnly
+        size={isCompact ? 'icon' : 'icon-lg'}
         onClick={onPlayPause}
-        className={`rounded-full hover:brightness-110 ${isCompact ? '!p-2 min-w-[44px] min-h-[44px]' : '!p-4'}`}
-        aria-label={isPlaying ? 'Pause' : 'Play'}
+        className="rounded-full"
+        aria-label={isPlaying ? t('media.pause', { defaultValue: 'Pause' }) : t('media.play', { defaultValue: 'Play' })}
       >
         {isPlaying ? (
-          <Pause size={isCompact ? 20 : 28} />
+          <HugeiconsIcon icon={PauseIcon} />
         ) : (
-          <Play size={isCompact ? 20 : 28} className="ml-0.5" />
+          <HugeiconsIcon icon={PlayIcon} />
         )}
-      </DomeButton>
+      </Button>
 
       <div className="flex items-center gap-2">
-        <DomeButton
+        <Button
           type="button"
           variant="ghost"
-          size="md"
-          iconOnly
           onClick={onToggleMute}
-          className="min-w-[44px] min-h-[44px] !text-[var(--secondary-text)] hover:bg-[var(--bg-tertiary)]"
-          aria-label={isMuted ? 'Unmute' : 'Mute'}
+          aria-label={isMuted ? t('media.unmute', { defaultValue: 'Unmute' }) : t('media.mute', { defaultValue: 'Mute' })}
+          size="icon"
         >
-          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </DomeButton>
+          <HugeiconsIcon icon={isMuted ? VolumeMute01Icon : VolumeHighIcon} />
+        </Button>
 
         {!isCompact && (
-          <DomeSlider
+          <Slider
             min={0}
             max={1}
             step={0.1}
-            value={isMuted ? 0 : volume}
-            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-            className="w-24 h-1.5"
-            trackClassName="h-1.5"
-            aria-label="Volume"
+            value={[isMuted ? 0 : volume]}
+            onValueChange={(next) => {
+              if (typeof next === 'number') onVolumeChange(next);
+            }}
+            className="w-24"
+            aria-label={t('media.volume', { defaultValue: 'Volume' })}
           />
         )}
       </div>

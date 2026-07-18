@@ -17,6 +17,7 @@ export type ToolFamily =
   | 'resources'
   | 'projects'
   | 'memory'
+  | 'people'
   | 'calendar'
   | 'email'
   | 'github'
@@ -56,6 +57,8 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   project_list: 'projects', project_get: 'projects', get_current_project: 'projects',
   // memory / interactions
   interaction_list: 'memory', remember_fact: 'memory',
+  // people
+  people_get: 'people',
   // calendar
   calendar_list_events: 'calendar', calendar_get_upcoming: 'calendar',
   calendar_create_event: 'calendar', calendar_update_event: 'calendar',
@@ -66,12 +69,15 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   // github
   github_list_repos: 'github', github_upcoming_milestones: 'github',
   github_list_milestones: 'github', github_list_issues: 'github',
+  github_get_issue: 'github',
   github_create_issue: 'github', github_update_issue: 'github',
   github_create_milestone: 'github', github_sync: 'github',
   // social (LinkedIn / Instagram / X)
   social_accounts_list: 'social', social_post_draft: 'social',
-  social_post_publish: 'social', social_posts_list: 'social',
+  social_post_publish: 'social', social_posts_list: 'social', social_post_get: 'social',
   social_metrics_summary: 'social',
+  social_campaigns_list: 'social', social_campaign_create: 'social',
+  social_growth: 'social',
   // artifacts
   artifact_create: 'artifacts', artifact_get: 'artifacts', artifact_merge_data: 'artifacts',
   artifact_update_state: 'artifacts', artifact_list: 'artifacts', artifact_delete: 'artifacts',

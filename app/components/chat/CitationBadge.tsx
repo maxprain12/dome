@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeCard from '@/components/ui/DomeCard';
+import { Badge } from '@/components/ui/badge';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 interface CitationBadgeProps {
   number: number;
@@ -19,45 +18,45 @@ export default function CitationBadge({
   nodeTitle,
   onClickCitation,
 }: CitationBadgeProps) {
-  const [showTooltip, setShowTooltip] = useState(false);
+  const hasPreview = Boolean(sourceTitle || sourcePassage || pageLabel || nodeTitle);
+  const metaLine = [nodeTitle, pageLabel].filter(Boolean).join(' · ');
+
+  const trigger = (
+    <button
+      type="button"
+      onClick={() => onClickCitation?.(number)}
+      className="not-typeset inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      aria-label={`Citation ${number}${sourceTitle ? `: ${sourceTitle}` : ''}`}
+    >
+      <Badge
+        variant="secondary"
+        className="h-auto max-w-full gap-1 border-transparent bg-primary/18 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+      >
+        <span className="truncate">{String(number)}</span>
+      </Badge>
+    </button>
+  );
+
+  if (!hasPreview) return trigger;
 
   return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => onClickCitation?.(number)}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
-        aria-label={`Citation ${number}${sourceTitle ? `: ${sourceTitle}` : ''}`}
-      >
-        <DomeBadge label={String(number)} variant="soft" size="xs" color="var(--accent)" />
-      </button>
-
-      {showTooltip && (sourceTitle || sourcePassage || pageLabel || nodeTitle) ? (
-        <DomeCard
-          padding="sm"
-          className="absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 w-[280px] pointer-events-none shadow-lg animate-in"
-          style={{ boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)' }}
-        >
-          {sourceTitle && (
-            <div className="text-xs font-semibold text-[var(--dome-text)] mb-1">{sourceTitle}</div>
-          )}
-          {(pageLabel || nodeTitle) && (
-            <div
-              className="text-[11px] text-[var(--tertiary-text)] mb-1.5"
-              style={{ marginBottom: sourcePassage ? 6 : 0 }}
-            >
-              {[nodeTitle, pageLabel].filter(Boolean).join(' · ')}
-            </div>
-          )}
-          {sourcePassage && (
-            <div className="text-xs text-[var(--secondary-text)] leading-relaxed max-h-[80px] overflow-hidden">
-              &ldquo;{sourcePassage}&rdquo;
-            </div>
-          )}
-        </DomeCard>
-      ) : null}
-    </span>
+    <HoverCard>
+      <HoverCardTrigger delay={150} render={trigger} />
+      <HoverCardContent side="top" align="center" className="pointer-events-none">
+        {sourceTitle && (
+          <div className="mb-1 text-xs font-semibold text-foreground">{sourceTitle}</div>
+        )}
+        {metaLine && (
+          <div className={`text-[11px] text-muted-foreground ${sourcePassage ? 'mb-1.5' : ''}`}>
+            {metaLine}
+          </div>
+        )}
+        {sourcePassage && (
+          <div className="max-h-20 overflow-hidden text-xs leading-relaxed text-muted-foreground">
+            &ldquo;{sourcePassage}&rdquo;
+          </div>
+        )}
+      </HoverCardContent>
+    </HoverCard>
   );
 }

@@ -1,5 +1,5 @@
 .ppt-thumb-strip {
-  background: var(--bg);
+  background: var(--background);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -26,7 +26,7 @@
   height: 105px;
   overflow: hidden;
   position: relative;
-  background: var(--bg);
+  background: var(--background);
   flex-shrink: 0;
 }
 
@@ -60,7 +60,7 @@
 }
 
 .ppt-thumb-badge-num.is-active {
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .ppt-thumb-collapse-btn {
@@ -74,7 +74,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  background: var(--background);
   color: rgb(255 255 255 / 0.45);
   border: 1px solid var(--border);
   border-left: none;

@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Bot, Loader2, Sparkles, Square, Trash2, Workflow } from 'lucide-react';
+import {
+  ArrowLeft02Icon as ArrowLeftIcon,
+  BotIcon as BotIcon,
+  Loading03Icon as Loader2Icon,
+  SparklesIcon as SparklesIcon,
+  SquareIcon as SquareIcon,
+  Delete02Icon as Trash2Icon,
+  WorkflowSquare01Icon as WorkflowIcon,
+  ZapIcon as ZapIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
 import { RunProgressBar } from '@/lib/automations/run-log-ui';
 import {
@@ -9,11 +20,9 @@ import {
   getRunUsageFromRunMetadata,
 } from '@/lib/automations/run-cost';
 import { getRunProgress } from '@/lib/automations/run-progress';
-import type { PersistentRun } from '@/lib/automations/api';
+import { isAutomationLinkedRun, type PersistentRun } from '@/lib/automations/api';
 import { cn } from '@/lib/utils';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
-import DomeListState from '@/components/ui/DomeListState';
+import ListState from '@/components/shared/ListState';
 import {
   buildTranscriptRows,
   buildWorkflowStepGroups,
@@ -31,6 +40,20 @@ import {
 } from '@/components/hub/runs/RunStepBits';
 import RunRightOverview from '@/components/hub/runs/RunRightOverview';
 
+import RunStatusBadge from '@/components/automations/RunStatusBadge';
+
+const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BotIcon} {...props} />
+);
+const Sparkles = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={SparklesIcon} {...props} />
+);
+const Workflow = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={WorkflowIcon} {...props} />
+);
+const Zap = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ZapIcon} {...props} />
+);
 interface RunDetailViewProps {
   run: PersistentRun;
   onBack: () => void;
@@ -42,19 +65,33 @@ interface RunDetailViewProps {
 
 function HeaderStat({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div
-      className="min-w-0 rounded-xl px-3 py-2"
-      style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-      title={title}
-    >
-      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+    <div className="min-w-0 rounded-xl border border-border bg-card px-3 py-2" title={title}>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className="truncate text-sm font-semibold tabular-nums" style={{ color: 'var(--dome-text)' }}>
-        {value}
-      </div>
+      <div className="truncate text-sm font-semibold tabular-nums text-foreground">{value}</div>
     </div>
   );
+}
+
+function ownerPresentation(run: PersistentRun, t: (key: string) => string) {
+  if (isAutomationLinkedRun(run)) {
+    return { Icon: Zap, label: t('runLog.detail_owner_automation') };
+  }
+  switch (run.ownerType) {
+    case 'agent':
+      return { Icon: Bot, label: t('runLog.detail_owner_agent') };
+    case 'workflow':
+      return { Icon: Workflow, label: t('runLog.detail_owner_workflow') };
+    case 'many':
+      return { Icon: Sparkles, label: t('runLog.detail_owner_other') };
+    case 'automation':
+      return { Icon: Zap, label: t('runLog.detail_owner_automation') };
+    default: {
+      const _exhaustive: never = run.ownerType;
+      return _exhaustive;
+    }
+  }
 }
 
 /**
@@ -96,13 +133,7 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
   const costUsd = useMemo(() => estimateRunCostUsd(modelId, meta.usage), [modelId, meta]);
   const costLabel = formatUsdEstimate(costUsd, i18n.language);
 
-  const OwnerIcon = run.ownerType === 'agent' ? Bot : run.ownerType === 'many' ? Sparkles : Workflow;
-  const ownerKindLabel =
-    run.ownerType === 'agent'
-      ? t('runLog.detail_owner_agent')
-      : run.ownerType === 'workflow'
-        ? t('runLog.detail_owner_workflow')
-        : t('runLog.detail_owner_other');
+  const { Icon: OwnerIcon, label: ownerKindLabel } = ownerPresentation(run, t);
 
   const selectedStep = useMemo(
     () => sortedSteps.find((s) => s.id === selectedStepId) ?? null,
@@ -166,65 +197,78 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       {/* Hero header */}
-      <header className="shrink-0 px-5 pt-3 pb-3" style={{ borderBottom: '1px solid var(--dome-border)' }}>
+      <header className="shrink-0 border-b border-border bg-muted/40 px-4 pt-3 pb-3 sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onBack} aria-label={t('common.back')}>
-              <ArrowLeft className="size-4" />
-            </DomeButton>
-            <div
-              className="flex size-9 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              aria-label={t('common.back')}
+              size="icon-sm"
             >
+              <HugeiconsIcon icon={ArrowLeftIcon} className="size-4" />
+            </Button>
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-mint text-primary">
               <OwnerIcon className="size-5" strokeWidth={1.75} />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="min-w-0 break-words text-base font-semibold leading-tight" style={{ color: 'var(--dome-text)' }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="min-w-0 break-words text-base font-semibold leading-tight text-foreground">
                   {run.title || run.id}
                 </h1>
-                <DomeStatusBadge status={run.status} />
+                <RunStatusBadge status={run.status} />
               </div>
-              <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-[11px] text-muted-foreground">
                 {ownerKindLabel}
-                <span aria-hidden className="px-1">·</span>
-                <span className="font-mono break-all">{run.id}</span>
+                {isAutomationLinkedRun(run) && run.ownerType !== 'automation' ? (
+                  <>
+                    <span aria-hidden className="px-1">
+                      ·
+                    </span>
+                    <span>
+                      {run.ownerType === 'agent'
+                        ? t('runLog.detail_target_agent')
+                        : run.ownerType === 'workflow'
+                          ? t('runLog.detail_target_workflow')
+                          : t('runLog.detail_target_many')}
+                    </span>
+                  </>
+                ) : null}
+                <span aria-hidden className="px-1">
+                  ·
+                </span>
+                <span className="break-all font-mono">{run.id}</span>
               </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {isRunning && onStop ? (
-              <DomeButton
-                type="button"
-                variant="secondary"
-                size="xs"
-                disabled={stopping || deleting}
-                onClick={onStop}
-                leftIcon={stopping ? <Loader2 className="size-3 animate-spin" /> : <Square className="size-3" />}
-              >
+              <Button type="button"
+  variant="secondary"
+  disabled={stopping || deleting}
+  onClick={onStop}
+  size="xs">{stopping ? <HugeiconsIcon icon={Loader2Icon} className="size-3 animate-spin" /> : <HugeiconsIcon icon={SquareIcon} className="size-3" />}
                 {stopping ? t('chat.stop') : t('runLog.stop_run')}
-              </DomeButton>
+              </Button>
             ) : null}
             {onDelete ? (
-              <DomeButton
-                type="button"
-                variant="ghost"
-                size="xs"
-                iconOnly
-                title={t('runLog.delete_run_aria')}
-                aria-label={t('runLog.delete_run_aria')}
-                disabled={deleting || stopping}
-                className="!text-[var(--error)] hover:!bg-[var(--error-bg)] disabled:!opacity-50"
-                onClick={onDelete}
-              >
+              <Button type="button"
+  variant="ghost"
+  title={t('runLog.delete_run_aria')}
+  aria-label={t('runLog.delete_run_aria')}
+  disabled={deleting || stopping}
+  className="!text-destructive hover:!bg-[color-mix(in srgb, var(--destructive) 12%, transparent)] disabled:!opacity-50"
+  onClick={onDelete}
+  size="icon-xs">
                 {deleting ? (
-                  <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                  <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin text-muted-foreground" aria-hidden />
                 ) : (
-                  <Trash2 className="size-3.5" aria-hidden />
+                  <HugeiconsIcon icon={Trash2Icon} className="size-3.5" aria-hidden />
                 )}
-              </DomeButton>
+              </Button>
             ) : null}
           </div>
         </div>
@@ -261,8 +305,8 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
       </header>
 
       {/* Visual timeline */}
-      <div className="shrink-0 border-b px-5 pt-2 pb-3" style={{ borderColor: 'var(--dome-border)' }}>
-        <p className="mb-1.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="shrink-0 border-b px-5 pt-2 pb-3 border-border">
+        <p className="mb-1.5 text-[11px] text-muted-foreground">
           {t('runLog.detail_timeline')}
         </p>
         <RunTimelineBar run={run} steps={sortedSteps} stepGroups={isWorkflowRun(run) ? stepGroups : undefined} />
@@ -281,19 +325,19 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         <div
           className={cn(
-            'flex min-h-0 min-w-0 flex-col border-[var(--dome-border)] lg:w-[40%] lg:max-w-xl lg:shrink-0 lg:border-r',
+            'flex min-h-0 min-w-0 flex-col border-border lg:w-[min(28rem,38%)] lg:shrink-0 lg:border-r',
             mobileDetailOpen ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none',
           )}
-          style={{ background: 'var(--dome-bg)' }}
+          style={{ background: 'var(--background)' }}
         >
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-3 lg:max-h-full">
             {sortedSteps.length > 0 ? (
-              <p className="mb-1.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="mb-1.5 text-[11px] text-muted-foreground">
                 {t('runLog.detail_transcript_feed')}
               </p>
             ) : null}
             {sortedSteps.length === 0 ? (
-              <DomeListState
+              <ListState
                 variant={isRunning ? 'loading' : 'empty'}
                 loadingLabel={t('runLog.executing')}
                 title={isRunning ? undefined : t('runLog.no_steps')}
@@ -332,7 +376,7 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
           </div>
 
           {/* Mobile: overview below list */}
-          <div className="shrink-0 border-t lg:hidden" style={{ borderColor: 'var(--dome-border)' }}>
+          <div className="shrink-0 border-t lg:hidden border-border">
             <div className="max-h-[45vh] overflow-y-auto p-3">
               <RunRightOverview
                 run={run}
@@ -352,22 +396,20 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
             'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
             mobileDetailOpen ? 'flex' : 'hidden lg:flex',
           )}
-          style={{ background: 'var(--dome-bg)' }}
+          style={{ background: 'var(--background)' }}
         >
-          <div className="flex shrink-0 items-center gap-2 border-b p-2 lg:hidden" style={{ borderColor: 'var(--dome-border)' }}>
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="gap-1"
-              onClick={() => {
+          <div className="flex shrink-0 items-center gap-2 border-b p-2 lg:hidden border-border">
+            <Button type="button"
+  variant="ghost"
+  className="gap-1"
+  onClick={() => {
                 setSelectedStepId(null);
                 setMobileDetailOpen(false);
               }}
-            >
-              <ArrowLeft className="size-4" aria-hidden />
+  size="sm">
+              <HugeiconsIcon icon={ArrowLeftIcon} className="size-4" aria-hidden />
               {t('runLog.detail_back_list')}
-            </DomeButton>
+            </Button>
           </div>
 
           {selectedStep ? (
@@ -381,12 +423,12 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
             <>
               <div
                 className="hidden shrink-0 border-b px-4 py-2 lg:block"
-                style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
+                style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
               >
-                <p className="text-[11px] font-semibold" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-[11px] font-semibold text-muted-foreground">
                   {t('runLog.detail_run_overview')}
                 </p>
-                <p className="mt-0.5 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {t('runLog.detail_select_hint')}
                 </p>
               </div>

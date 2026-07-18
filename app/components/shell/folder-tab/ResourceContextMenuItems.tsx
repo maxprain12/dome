@@ -2,19 +2,21 @@
 
 import { useTranslation } from 'react-i18next';
 import {
-  Pencil,
-  Trash2,
-  FolderInput,
-  FolderPlus,
-  FolderOpen,
-  FolderSymlink,
-  ExternalLink,
-  ClipboardCopy,
-  CopyPlus,
-  PanelRightOpen,
-  Maximize2,
-  Palette,
-} from 'lucide-react';
+  PencilEdit02Icon,
+  Delete02Icon,
+  FolderInputIcon,
+  FolderAddIcon,
+  FolderOpenIcon,
+  FolderSymlinkIcon,
+  ExternalLinkIcon,
+  ClipboardCopyIcon,
+  CopyPlusIcon,
+  PanelRightOpenIcon,
+  Maximize02Icon,
+  PaintBoardIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import type { Resource } from '@/lib/hooks/useResources';
 import { showToast } from '@/lib/store/useToastStore';
 
@@ -67,17 +69,17 @@ export default function ResourceContextMenuItems({
   const { isFolder, isNote, canOpenInSplit } = options;
 
   const menuItem = (icon: React.ReactNode, label: string, action: () => void, danger = false) => (
-    <button
-      type="button"
+    <DropdownMenuItem
+      variant={danger ? 'destructive' : 'default'}
       onClick={(e) => {
         e.stopPropagation();
         onDismiss();
         action();
       }}
-      className={`dome-folder-view__row-menu-item${danger ? ' dome-folder-view__row-menu-item--danger' : ''}`}
+      className="dome-folder-view__row-menu-item"
     >
       {icon} {label}
-    </button>
+    </DropdownMenuItem>
   );
 
   const revealLabel = IS_MAC ? t('folder.reveal_in_finder') : t('folder.reveal_in_explorer');
@@ -131,56 +133,56 @@ export default function ResourceContextMenuItems({
 
   return (
     <>
-      {menuItem(<Pencil className="size-3" />, t('folder.rename'), actions.onRename)}
+      {menuItem(<HugeiconsIcon icon={PencilEdit02Icon} />, t('folder.rename'), actions.onRename)}
       {!isFolder && actions.onOpenInSplit && canOpenInSplit
         ? menuItem(
-            <PanelRightOpen className="size-3" />,
+            <HugeiconsIcon icon={PanelRightOpenIcon} />,
             t('focused_editor.open_reference', 'Abrir como referencia'),
             actions.onOpenInSplit,
           )
         : null}
       {!isFolder && actions.onOpenInWindow && isNote
         ? menuItem(
-            <Maximize2 className="size-3" />,
+            <HugeiconsIcon icon={Maximize02Icon} />,
             t('focused_editor.popout', 'Abrir en ventana'),
             actions.onOpenInWindow,
           )
         : null}
       {isFolder && actions.onChangeColor
         ? menuItem(
-            <Palette className="size-3" />,
+            <HugeiconsIcon icon={PaintBoardIcon} />,
             t('folder.changeColor', 'Cambiar color'),
             actions.onChangeColor,
           )
         : null}
       {actions.onMoveToFolder
         ? menuItem(
-            <FolderOpen className="size-3" />,
+            <HugeiconsIcon icon={FolderOpenIcon} />,
             t('selection.move_to_folder'),
             actions.onMoveToFolder,
           )
         : null}
-      {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), actions.onMoveToProject)}
+      {menuItem(<HugeiconsIcon icon={FolderInputIcon} />, t('selection.move_to_project'), actions.onMoveToProject)}
       {isFolder && actions.onNewSubfolder
-        ? menuItem(<FolderPlus className="size-3" />, t('folder.newFolderBtn'), actions.onNewSubfolder)
+        ? menuItem(<HugeiconsIcon icon={FolderAddIcon} />, t('folder.newFolderBtn'), actions.onNewSubfolder)
         : null}
       {resource ? (
         <>
-          <div className="dome-folder-view__row-menu-divider" />
-          {menuItem(<FolderSymlink className="size-3" />, revealLabel, () => void handleReveal())}
+          <DropdownMenuSeparator />
+          {menuItem(<HugeiconsIcon icon={FolderSymlinkIcon} />, revealLabel, () => void handleReveal())}
           {!isFolder
             ? menuItem(
-                <ExternalLink className="size-3" />,
+                <HugeiconsIcon icon={ExternalLinkIcon} />,
                 t('folder.open_with_system'),
                 () => void handleOpenWithSystem(),
               )
             : null}
-          {menuItem(<ClipboardCopy className="size-3" />, t('folder.copy_path'), () => void handleCopyPath())}
-          {menuItem(<CopyPlus className="size-3" />, t('folder.duplicate'), () => void handleDuplicate())}
+          {menuItem(<HugeiconsIcon icon={ClipboardCopyIcon} />, t('folder.copy_path'), () => void handleCopyPath())}
+          {menuItem(<HugeiconsIcon icon={CopyPlusIcon} />, t('folder.duplicate'), () => void handleDuplicate())}
         </>
       ) : null}
-      <div className="dome-folder-view__row-menu-divider" />
-      {menuItem(<Trash2 className="size-3" />, t('folder.delete'), actions.onDelete, true)}
+      <DropdownMenuSeparator />
+      {menuItem(<HugeiconsIcon icon={Delete02Icon} />, t('folder.delete'), actions.onDelete, true)}
     </>
   );
 }

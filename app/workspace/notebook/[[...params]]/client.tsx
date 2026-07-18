@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import NotebookEditor from '@/components/notebook/NotebookEditor';
 import { PyodideProvider } from '@/lib/notebook/PyodideProvider';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
@@ -214,29 +215,29 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading notebook...</div>
+      <div className="h-full flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading notebook...</div>
       </div>
     );
   }
 
   if (error || !resource) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
-        <div style={{ color: 'var(--error)' }}>{error || 'Notebook not found'}</div>
-        <button
+      <div className="h-full flex flex-col items-center justify-center gap-4 bg-background">
+        <div className="text-destructive">{error || 'Notebook not found'}</div>
+        <Button
           type="button"
           onClick={() => { if (typeof window !== 'undefined') window.close(); }}
-          className="btn btn-primary"
+          
         >
           Close Window
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
+    <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--background)', overflow: 'clip' }}>
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={isPanelOpen}
@@ -253,7 +254,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         }}
         savingIndicator={
           isSaving ? (
-            <span className="text-xs shrink-0" style={{ color: 'var(--secondary-text)' }}>Saving...</span>
+            <span className="text-xs shrink-0 text-muted-foreground">Saving...</span>
           ) : null
         }
       />

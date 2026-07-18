@@ -12,8 +12,21 @@ per-post metrics.
    user gave an explicit date/time.
 3. `social_post_publish` — publishes to the REAL account immediately.
    Never call it unless the user explicitly asked to publish now.
-4. `social_posts_list` / `social_metrics_summary` — read the queue and the
-   analytics to answer questions and ground recommendations.
+4. `social_posts_list` / `social_post_get` / `social_metrics_summary` /
+   `social_growth` — read the queue and analytics. When Source /
+   **mentioned-sources** lists a `social_post` id (`sp-…`), call
+   `social_post_get` with that id before analysing or claiming there is no
+   post. LinkedIn personal profiles often lack follower counts
+   (`followersUnavailable: linkedin_member`) — say so, do not invent numbers.
+5. Soft campaigns: `social_campaigns_list` / `social_campaign_create` then tag
+   drafts with `campaign` (or campaign id) via `social_post_draft`. No separate
+   publish step for campaigns.
+
+## Memory (domains/social.md)
+
+- **Do** call `remember_fact` with `domain=social` for durable preferences: niche, winning hooks/hashtags, KPI targets, tone do/don't.
+- **Don't** remember every draft, list, or publish ack — only high-signal wins and decisions.
+- Prefer reading Domain memory (social) when advising on growth/SEO.
 
 ## Per-network rules
 
@@ -52,3 +65,8 @@ Use `social_metrics_summary` (optionally `refresh: true`) before making claims
 about performance. Look at `topPosts`, per-provider totals and the `topics` /
 `campaign` fields of recent posts to identify what resonates; propose concrete
 next topics and posting times based on that data, not on generic advice.
+
+## Mentioned people
+- When Source has **mentioned-people** with `social_x` / `social_linkedin` / `social_instagram`,
+  weave those handles into copy only when the user asked to tag someone.
+- Do not invent handles.

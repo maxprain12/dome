@@ -4,7 +4,31 @@ import { orderUnifiedResourcesByHybrid } from '@/lib/search/hybrid-search';
 import {
   initialPaletteSearchState,
   paletteSearchReducer,
+  type SourceHitRow,
 } from './commandPaletteTypes';
+
+function mapSources(raw: unknown): SourceHitRow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SourceHitRow[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const kind = row.kind;
+    if (kind !== 'person' && kind !== 'issue' && kind !== 'email' && kind !== 'social_post') {
+      continue;
+    }
+    if (typeof row.id !== 'string' || typeof row.title !== 'string') continue;
+    out.push({
+      kind,
+      id: row.id,
+      title: row.title,
+      snippet: typeof row.snippet === 'string' ? row.snippet : undefined,
+      projectId: typeof row.projectId === 'string' ? row.projectId : undefined,
+      meta: (row.meta as Record<string, unknown> | null | undefined) ?? null,
+    });
+  }
+  return out.slice(0, 20);
+}
 
 export function useCommandPaletteSearch(
   isOpen: boolean,
@@ -16,7 +40,7 @@ export function useCommandPaletteSearch(
 
   useEffect(() => {
     if (!isOpen || !trimmedQuery) {
-      dispatch({ type: 'SEARCH_SUCCESS', resources: [], interactions: [] });
+      dispatch({ type: 'SEARCH_SUCCESS', resources: [], interactions: [], sources: [] });
       return;
     }
 
@@ -58,8 +82,12 @@ export function useCommandPaletteSearch(
           }));
         }
 
+        const sources = mapSources(
+          (result.data as { sources?: unknown }).sources,
+        );
+
         if (!ignore) {
-          dispatch({ type: 'SEARCH_SUCCESS', resources, interactions });
+          dispatch({ type: 'SEARCH_SUCCESS', resources, interactions, sources });
         }
       } catch (err) {
         console.error('[CommandPalette] search failed:', err);

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AlertCircleIcon, ArrowRight01Icon, CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -13,27 +15,36 @@ import AIProviderSelection from '@/components/settings/ai/AIProviderSelection';
 import AICloudProviderConfig from '@/components/settings/ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from '@/components/settings/ai/AIOllamaProviderConfig';
 import AIDomeOnboardingCallout from '@/components/settings/ai/AIDomeOnboardingCallout';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import { accentMix } from '@/lib/ui/accent';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 interface AISetupStepProps {
   onComplete: () => void;
   onValidationChange?: (isValid: boolean) => void;
+  /** Onboarding-only: user chose "local mode" at the account gate — never offer/default to Dome here. */
+  localModeOnly?: boolean;
+  /** Account login pulled AI preferences from cloud sync. */
+  syncedFromCloud?: boolean;
 }
 
 type OnboardingProviderType = AIProviderType | 'skip';
 
-export default function AISetupStep({ onComplete, onValidationChange }: AISetupStepProps) {
+export default function AISetupStep({
+  onComplete,
+  onValidationChange,
+  localModeOnly = false,
+  syncedFromCloud = false,
+}: AISetupStepProps) {
   const { t } = useTranslation();
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
+  const domeAvailable = DOME_PROVIDER_ENABLED && !localModeOnly;
+
   const [provider, setProvider] = useState<OnboardingProviderType>(
-    DOME_PROVIDER_ENABLED ? 'dome' : 'openai',
+    domeAvailable ? 'dome' : 'openai',
   );
   const [lastProvider, setLastProvider] = useState<AIProviderType>(
-    DOME_PROVIDER_ENABLED ? 'dome' : 'openai',
+    domeAvailable ? 'dome' : 'openai',
   );
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState(() => getDefaultModelId('openai'));
@@ -136,9 +147,13 @@ export default function AISetupStep({ onComplete, onValidationChange }: AISetupS
   const displayProvider = provider === 'skip' ? lastProvider : provider;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-y-4">
       {saveError ? (
-        <DomeCallout tone="error">{saveError}</DomeCallout>
+        <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertDescription className="text-xs">{saveError}</AlertDescription></Alert>
+      ) : null}
+
+      {syncedFromCloud && provider !== 'skip' ? (
+        <Alert role="note"><HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden /><AlertDescription className="text-xs">{t('onboarding.ai_synced_from_cloud')}</AlertDescription></Alert>
       ) : null}
 
       <AIProviderSelection
@@ -146,26 +161,23 @@ export default function AISetupStep({ onComplete, onValidationChange }: AISetupS
         onProviderChange={handleCloudProviderChange}
         showSectionLabel={false}
         highlightSelection={provider !== 'skip'}
+        hideDomeProvider={localModeOnly}
       />
 
-      <button
+      <Button
         type="button"
+        variant={provider === 'skip' ? 'secondary' : 'ghost'}
         onClick={() => handleProviderSelect('skip')}
-        className="w-full py-2.5 text-center text-xs transition-colors rounded-lg"
-        style={{
-          color: provider === 'skip' ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-          backgroundColor: provider === 'skip' ? accentMix(8) : 'transparent',
-          border: provider === 'skip' ? `1px solid ${accentMix(40)}` : '1px solid transparent',
-        }}
+        className="w-full text-xs"
       >
-        {t('onboarding.configure_later')} <ArrowRight size={14} className="inline ml-1" />
-      </button>
+        {t('onboarding.configure_later')} <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
+      </Button>
 
       {provider !== 'skip' && isCloudAIProvider(provider) && (
         <div>
-          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
             {t('settings.ai.configuration')}
-          </DomeSectionLabel>
+          </p>
           <AICloudProviderConfig
             provider={provider}
             apiKey={apiKey}
@@ -181,9 +193,9 @@ export default function AISetupStep({ onComplete, onValidationChange }: AISetupS
 
       {provider === 'ollama' && (
         <div>
-          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
             {t('settings.ai.configuration')}
-          </DomeSectionLabel>
+          </p>
           <AIOllamaProviderConfig
             ollamaBaseURL={ollamaBaseURL}
             onOllamaBaseURLChange={setOllamaBaseURL}

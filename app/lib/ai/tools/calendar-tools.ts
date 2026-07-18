@@ -23,6 +23,11 @@ const CalendarCreateSchema = Type.Object({
   description: Type.Optional(Type.String({ description: 'Event description.' })),
   location: Type.Optional(Type.String({ description: 'Event location.' })),
   all_day: Type.Optional(Type.Boolean({ description: 'Whether the event is all-day.' })),
+  resource_ids: Type.Optional(
+    Type.Array(Type.String(), {
+      description: 'Optional Dome resource ids to link on the event (metadata.resourceIds).',
+    }),
+  ),
   idempotency_key: Type.Optional(
     Type.String({
       description: 'Optional key to prevent duplicate events from retries.',
@@ -38,6 +43,11 @@ const CalendarUpdateSchema = Type.Object({
   description: Type.Optional(Type.String({ description: 'New description.' })),
   location: Type.Optional(Type.String({ description: 'New location.' })),
   all_day: Type.Optional(Type.Boolean({ description: 'Whether the event is all-day.' })),
+  resource_ids: Type.Optional(
+    Type.Array(Type.String(), {
+      description: 'Replace linked Dome resource ids (metadata.resourceIds).',
+    }),
+  ),
 });
 
 const CalendarListSchema = Type.Object({
@@ -89,6 +99,9 @@ export function createCalendarCreateTool(): AnyAgentTool {
         const location = readStringParam(params, 'location');
         const allDay = params.all_day === true;
         const idempotencyKey = readStringParam(params, 'idempotency_key');
+        const resourceIds = Array.isArray(params.resource_ids)
+          ? params.resource_ids.filter((id): id is string => typeof id === 'string')
+          : undefined;
 
         const result = await window.electron.calendar.createEvent({
           title,
@@ -98,6 +111,9 @@ export function createCalendarCreateTool(): AnyAgentTool {
           location: location || undefined,
           all_day: allDay,
           idempotency_key: idempotencyKey || undefined,
+          ...(resourceIds && resourceIds.length > 0
+            ? { metadata: { resourceIds } }
+            : {}),
         });
 
         if (!result.success) {
@@ -141,6 +157,11 @@ export function createCalendarUpdateTool(): AnyAgentTool {
         if (params.description != null) updates.description = params.description;
         if (params.location != null) updates.location = params.location;
         if (params.all_day != null) updates.all_day = params.all_day;
+        if (Array.isArray(params.resource_ids)) {
+          updates.metadata = {
+            resourceIds: params.resource_ids.filter((id): id is string => typeof id === 'string'),
+          };
+        }
 
         const result = await window.electron.calendar.updateEvent(eventId, updates);
 

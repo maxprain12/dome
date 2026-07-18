@@ -1,5 +1,23 @@
 # Dome - UI Style Guidelines
 
+## shadcn/ui (librería principal)
+
+Dome migra a **[shadcn/ui](https://ui.shadcn.com/)** con primitivos **Base UI** (preset `base-luma`, color `olive`, iconos Hugeicons).
+
+| Qué | Dónde |
+|-----|-------|
+| Componentes shadcn | `app/components/ui/` (`button.tsx`, …) |
+| Config CLI | `components.json` (raíz del repo) |
+| Utilidad `cn()` | `app/lib/utils.ts` |
+| Init / add en monorepo pnpm | [`.claude/sops/shadcn-ui.md`](../sops/shadcn-ui.md) |
+
+**Reglas:**
+- UI **nueva** → importar desde `@/components/ui/<componente>` (shadcn).
+- Componentes `Dome*` / `Hub*` → ELIMINADOS (jul-2026). `ui/` = solo shadcn originales; composiciones de app en `app/components/shared/`.
+- Mantine → en desuso; no añadir imports nuevos de `@mantine/*`.
+
+---
+
 ## Design Principles
 
 ### 1. Clarity Over Decoration
@@ -37,55 +55,72 @@ El estado "cero datos" es un caso de diseño de primera clase, no un placeholder
 ## Color System
 
 > **Fuente de verdad: [`new-color-palette.md`](new-color-palette.md) y `app/globals.css`.**
-> Las variables `--brand-*` están **eliminadas** (ya no existen en `globals.css`). No usar valores
-> hex en componentes — siempre variables CSS. El check `pnpm run check:design-system` lo verifica en CI.
+> Paleta forest / lime / mint / lavender. Tokens shadcn (`--primary`, `--background`, …) +
+> `--brand-lime|mint|lavender` + `--primary-hover`. Sin hex en componentes.
+> `pnpm run check:design-system` lo verifica en CI.
 
 ### Variables vigentes (resumen)
 
 ```css
-/* Texto */
---primary-text     /* títulos, texto importante */
---secondary-text   /* texto de cuerpo, descripciones */
---tertiary-text    /* placeholders, deshabilitado */
+/* shadcn / surfaces */
+--background --foreground --card --popover
+--primary --primary-foreground --primary-hover
+--secondary --muted --accent --border --input --ring
+--destructive
 
-/* Fondos */
---bg               /* fondo principal */
---bg-secondary     /* cards, paneles */
---bg-tertiary      /* inputs, fondos sutiles */
---bg-hover         /* estados hover */
+/* brand tints */
+--brand-lime --brand-mint --brand-lavender
 
-/* Interactivo */
---accent           /* botones primarios, links, focus */
---secondary        /* estados activos, highlights */
-
-/* Bordes */
---border
---border-hover
-
-/* Semánticos (con par light/dark y variantes -bg) */
+/* estado (data-theme) */
 --success / --success-bg
---warning / --warning-bg
---error / --error-bg
+--warning / --warning-bg / --warning-text
 --info / --info-bg
 ```
 
-Los valores hex por tema viven en `app/globals.css` (`:root` y `[data-theme="dark"]`); consultarlos ahí, no copiarlos a componentes.
+Hex por tema: `app/globals.css` (`:root` / `.dark`). Ver `new-color-palette.md`.
 
 ### Usage Guidelines
 
-| Element | Color Variable |
-|---------|---------------|
-| Primary buttons | `--accent` |
-| Links | `--accent` |
-| Success states | `--success` |
-| Error states | `--error` |
-| Body text | `--secondary-text` |
-| Headings | `--primary-text` |
-| Disabled elements | `--tertiary-text` |
-| Card backgrounds | `--bg-secondary` |
-| Input backgrounds | `--bg-tertiary` |
+| Element | Token / variante |
+|---------|------------------|
+| Primary buttons | `Button` default → `bg-primary` / `hover:bg-primary-hover` |
+| Secondary / outline | `Button` `outline` o `secondary` (borde forest, hover mint) |
+| Soft CTA | `Button` `soft` (lime) |
+| Links / focus | `--primary` / `--ring` |
+| Success / error | `--success` / `--destructive` |
+| Body text | `--foreground` / `--muted-foreground` |
+| Category chips | `Badge` `lime` \| `mint` \| `lavender` |
+| Tinted cards | `Card` `lime` \| `lavender` \| `brand` |
+| Headings | `--foreground` · `text-brand-h*` en heroes |
+| Disabled / placeholder | `--muted-foreground` |
+| Card backgrounds | `--card` · o `Card` tinted |
+| Input backgrounds | `--input` / `bg-input` |
+| Active selection (nav / filters / rows) | mint + `border-primary` — ver abajo |
+
+### Active selection (obligatorio en hubs)
+
+El estado activo de navegación, filtros y filas seleccionables usa **mint + borde forest**, no gris plano:
+
+- Activo: `bg-brand-mint border-primary` (`rounded-xl` o chip `rounded-full`)
+- Hover idle: `hover:bg-brand-mint/55`
+- Helper: `selectionSurfaceClass(active)` (`app/components/shared/selectionSurface.ts`)
+- Ejemplo de referencia: sidebar (`UnifiedSidebar`) y sección **Social** (stats, cuentas, posts, campañas, composer)
+
+Header de sección (todas las hubs): usar `HubPageHeader` (`bg-muted` gris). Nunca `bg-card` / blanco en el chrome del título. Contenido bajo el header: `bg-background` / cards.
 
 ---
+
+## Text containment (no escaped / clipped copy)
+
+Dense UI (folder cards, list rows, chips, toolbars) must keep labels inside their box. Full checklist and helpers: [`.claude/sops/text-containment.md`](../sops/text-containment.md).
+
+- Flex/grid text nodes need `min-w-0` up the parent chain.
+- Prefer `SafeText` / `MetaLine` (`app/components/shared/SafeText.tsx`) with a `title` tooltip for the full string.
+- Card timestamps: visible `formatShortDistance` / `formatRelativePair` — never long phrases like “hace menos de un minuto” / “less than a minute ago” as the only visible meta.
+
+## Markdown descriptions
+
+Read-only descriptions, release notes, and issue bodies: use **`MarkdownBody`** (`app/components/shared/MarkdownBody.tsx`), not `whitespace-pre-wrap` plain text. GitHub-synced bodies: `GithubMarkdownBody` (proxy de imágenes). SOP: [`.claude/sops/markdown-surfaces.md`](../sops/markdown-surfaces.md).
 
 ## Typography
 
@@ -491,6 +526,10 @@ When implementing dark mode, swap these values:
 ---
 
 ## Implementation Checklist
+
+### Reduced motion
+
+Keep opacity and color feedback available, but disable spatial movement, blur, pulsing, and decorative transforms with `motion-reduce:transition-none` or `motion-reduce:animate-none`. Global reduced-motion rules are intentionally scoped to shared entrance/exit classes; each feature that adds motion must provide its own local reduced-motion behavior.
 
 Before shipping a component:
 

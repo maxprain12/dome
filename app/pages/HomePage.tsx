@@ -5,6 +5,8 @@ import Onboarding from '@/components/onboarding/Onboarding';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { initializeApp } from '@/lib/init';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Spinner } from '@/components/ui/spinner';
 
 // Timeout for initialization (10 seconds)
 const INIT_TIMEOUT_MS = 10000;
@@ -14,7 +16,7 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('Starting...');
+  const [, setDebugInfo] = useState<string>('Starting...');
   const { loadUserProfile } = useUserStore();
   const { loadPreferences } = useAppStore();
 
@@ -141,20 +143,11 @@ export default function HomePage() {
     return (
       <div
         data-tab-loading
-        className="min-h-full flex items-center justify-center"
-        style={{ background: 'var(--bg)' }}
+        className="min-h-full flex items-center justify-center bg-background"
       >
-        <div className="text-center">
-          <div className="text-lg font-medium mb-2 font-display" style={{ color: 'var(--primary-text)' }}>
-            {t('app.loading')}
-          </div>
-          <div className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            {t('app.initializing')}
-          </div>
-          {/* Debug info - shows what step we're on */}
-          <div className="text-xs mt-4 opacity-50" style={{ color: 'var(--secondary-text)' }}>
-            {debugInfo}
-          </div>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Spinner />
+          <span>{t('app.initializing')}</span>
         </div>
       </div>
     );
@@ -164,12 +157,10 @@ export default function HomePage() {
     <>
       {/* Show warning banner if there was an init error */}
       {initError && (
-        <div
-          className="fixed top-0 left-0 right-0 px-4 py-2 text-center text-sm"
-          style={{ background: 'var(--warning)', color: 'var(--bg)', zIndex: 'var(--z-fixed)' }}
-        >
-          {t('app.limited_functionality')} ({initError})
-        </div>
+        <Alert variant="destructive" className="fixed inset-x-4 top-4 z-50 mx-auto max-w-xl">
+          <AlertTitle>{t('app.limited_functionality')}</AlertTitle>
+          <AlertDescription>{initError}</AlertDescription>
+        </Alert>
       )}
       <Home />
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}

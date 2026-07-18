@@ -28,7 +28,11 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   social_post_draft: 'Social Draft',
   social_post_publish: 'Social Publish',
   social_posts_list: 'Social Posts',
+  social_post_get: 'Social Post',
   social_metrics_summary: 'Social Analytics',
+  github_get_issue: 'GitHub Issue',
+  people_get: 'Person',
+  email_read: 'Read Email',
   // Artifacts
   artifact_create: 'Artifact Create',
   artifact_design: 'Artifact Design',

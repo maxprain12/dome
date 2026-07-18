@@ -1,4 +1,4 @@
-import DomeProgressBar from '@/components/ui/DomeProgressBar';
+import { Progress } from '@/components/ui/progress';
 import type { PersistentRun } from '@/lib/automations/api';
 import { getRunProgress } from '@/lib/automations/run-progress';
 import { statusLabel } from '@/lib/automations/run-status';
@@ -9,14 +9,13 @@ export function RunProgressBar({ run }: { run: PersistentRun }) {
 
   if (progress.mode === 'determinate') {
     return (
-      <DomeProgressBar
+      <Progress
         value={progress.percent ?? 0}
-        max={100}
-        size="sm"
+        className="h-1.5"
         aria-label={statusLabel(run.status)}
       />
     );
   }
 
-  return <DomeProgressBar indeterminate size="sm" aria-label={statusLabel(run.status)} />;
+  return <Progress value={null} className="h-1.5" aria-label={statusLabel(run.status)} />;
 }

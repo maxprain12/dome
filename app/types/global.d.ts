@@ -105,6 +105,15 @@ interface ResourceInteraction {
   updated_at: number;
 }
 
+interface UnifiedSourceHit {
+  kind: 'person' | 'issue' | 'email' | 'social_post';
+  id: string;
+  title: string;
+  snippet?: string;
+  projectId?: string;
+  meta?: Record<string, unknown> | null;
+}
+
 interface UnifiedSearchResult {
   resources: Resource[];
   interactions: (ResourceInteraction & { resource_title: string })[];
@@ -114,6 +123,7 @@ interface UnifiedSearchResult {
     content?: string;
     updated_at?: number;
   }>;
+  sources?: UnifiedSourceHit[];
 }
 
 /** Chunk-level semantic hit (Nomic embeddings, `resource_chunks`) */
@@ -420,31 +430,54 @@ declare global {
         import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
       };
 
-      /** Cloud library sync via Dome Provider + Supabase (subscription `cloud_sync` feature). */
-      cloudSync: {
+      domainSync: {
+        getEntitlements: () => Promise<{
+          success: boolean;
+          subscribed?: boolean;
+          showCloudUi?: boolean;
+          hasCloudSync?: boolean;
+          hasSocialCloud?: boolean;
+          hasPipelinesCloud?: boolean;
+          planId?: string;
+          subscriptionStatus?: string;
+          features?: string[];
+          error?: string;
+        }>;
         getStatus: () => Promise<{
           success: boolean;
-          connected?: boolean;
-          localRevision?: number;
-          currentRevision?: number;
-          syncSchemaVersion?: number;
+          showCloudUi?: boolean;
+          entitlements?: {
+            subscribed: boolean;
+            showCloudUi: boolean;
+            hasCloudSync: boolean;
+            hasSocialCloud: boolean;
+            hasPipelinesCloud: boolean;
+            features: string[];
+          };
+          domains?: Record<string, { enabled: boolean; lastPushAt: number; lastPullCursor?: string }>;
           error?: string;
         }>;
-        push: () => Promise<{ success: boolean; newRevision?: number; error?: string }>;
-        pull: () => Promise<{ success: boolean; revision?: number; error?: string }>;
-        startRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
-        stopRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
-        onRevision: (cb: (data: { revision: number }) => void) => () => void;
-        onPullDone: (cb: (data: { revision: number }) => void) => () => void;
-        getSettings: () => Promise<{
+        setDomainEnabled: (args: {
+          domain: string;
+          enabled: boolean;
+        }) => Promise<{ success: boolean; error?: string; feature?: string }>;
+        syncNow: (args?: { domain?: string }) => Promise<{
           success: boolean;
-          settings?: { auto_enabled: boolean; interval_minutes: number };
+          skipped?: boolean;
           error?: string;
+          gated?: boolean;
         }>;
-        setSettings: (partial: {
-          auto_enabled?: boolean;
-          interval_minutes?: number;
-        }) => Promise<{ success: boolean; error?: string }>;
+        onCompleted: (cb: (data: { domain: string; success?: boolean }) => void) => () => void;
+        onProgress: (
+          cb: (data: { phase: string; domain?: string; index?: number; total?: number }) => void,
+        ) => () => void;
+      };
+
+      socialCloud: {
+        setCloudPublishing: (args: {
+          accountId: string;
+          enabled: boolean;
+        }) => Promise<{ success: boolean; error?: string; feature?: string; account?: unknown }>;
       };
 
       // Email API (himalaya)
@@ -528,6 +561,32 @@ declare global {
           body?: string;
           folder?: string;
         }) => Promise<EmailResult>;
+        syncNow: (params?: {
+          accountId?: string | null;
+          projectId?: string;
+        }) => Promise<EmailResult<{ synced?: boolean; status?: string }>>;
+        syncStatus: (params?: {
+          accountId?: string | null;
+          projectId?: string;
+        }) => Promise<
+          EmailResult<{
+            data?: {
+              status?: string;
+              syncing?: boolean;
+              lastSync?: number | null;
+              error?: string | null;
+            };
+          }>
+        >;
+        onSyncStatus: (
+          callback: (data: {
+            status?: string;
+            syncing?: boolean;
+            lastSync?: number | null;
+            error?: string | null;
+          }) => void,
+        ) => () => void;
+        onDataUpdated: (callback: (data?: { local?: boolean }) => void) => () => void;
       };
 
       // Calendar API
@@ -597,7 +656,14 @@ declare global {
       domeAuth: {
         startOAuthFlow: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
         openDashboard: () => Promise<{ success: boolean; error?: string }>;
-        getSession: () => Promise<{ success: boolean; connected: boolean; userId?: string; error?: string }>;
+        getSession: () => Promise<{
+          success: boolean;
+          connected: boolean;
+          userId?: string;
+          expiresAt?: number;
+          stale?: boolean;
+          error?: string;
+        }>;
         disconnect: () => Promise<{ success: boolean; error?: string }>;
         getQuota: () => Promise<{
           success: boolean;
@@ -609,6 +675,31 @@ declare global {
           subscriptionStatus?: string;
           error?: string;
         }>;
+        nativeLogin: (
+          email: string,
+          password: string,
+          isRegister: boolean,
+          name?: string,
+        ) => Promise<{
+          success: boolean;
+          connected?: boolean;
+          userId?: string;
+          name?: string | null;
+          email?: string | null;
+          hadRemoteData?: boolean;
+          alreadyOnboarded?: boolean;
+          pendingConfirmation?: boolean;
+          error?: string;
+          errorCode?: string;
+        }>;
+        onSessionState: (
+          callback: (state: {
+            connected: boolean;
+            userId?: string | null;
+            expiresAt?: number | null;
+            error?: string;
+          }) => void,
+        ) => () => void;
       };
 
       // GitHub Copilot OAuth API
@@ -693,6 +784,66 @@ declare global {
         onDataUpdated: (cb: (data: { local?: boolean }) => void) => () => void;
       };
 
+      people: {
+        list: (projectId?: string) => Promise<{
+          success: boolean;
+          data?: {
+            people: Array<{
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              avatarUrl?: string | null;
+              identities?: Array<{
+                source: string;
+                externalId: string;
+                displayLabel?: string | null;
+              }>;
+            }>;
+          };
+          error?: string;
+        }>;
+        get: (id: string) => Promise<{
+          success: boolean;
+          data?: {
+            person: {
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              identities?: Array<{
+                source: string;
+                externalId: string;
+                displayLabel?: string | null;
+              }>;
+            };
+          };
+          error?: string;
+        }>;
+        search: (payload: {
+          projectId?: string;
+          query: string;
+          limit?: number;
+        }) => Promise<{
+          success: boolean;
+          data?: {
+            people: Array<{
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              identities?: Array<{
+                source: string;
+                externalId: string;
+                displayLabel?: string | null;
+              }>;
+            }>;
+          };
+          error?: string;
+        }>;
+        upsert: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
+        linkIdentity: (payload: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+        upsertIdentity: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
+        syncGithub: (projectId?: string) => Promise<{ success: boolean; error?: string }>;
+      };
+
       // Plugins API
       plugins: {
         list: () => Promise<{ success: boolean; data?: any[] }>;
@@ -728,6 +879,7 @@ declare global {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
           getById: (id: string) => Promise<DBResponse<Project>>;
+          update: (project: Pick<Project, 'id' | 'name'> & Partial<Pick<Project, 'description'>>) => Promise<DBResponse<Project>>;
           setVaultRoot: (args: { projectId: string; vaultRoot: string | null }) => Promise<DBResponse<never> & { root?: string }>;
           getVaultRoot: (projectId: string) => Promise<DBResponse<{ root: string; custom: boolean }>>;
           getDeletionImpact: (projectId: string) => Promise<DBResponse<Record<string, number>>>;
@@ -894,6 +1046,11 @@ declare global {
         };
         search: {
           unified: (query: string, projectId?: string) => Promise<DBResponse<UnifiedSearchResult>>;
+          reindexSources: (projectId?: string) => Promise<DBResponse<Record<string, number>>>;
+          recentSources: (
+            projectId?: string,
+            limitPerKind?: number,
+          ) => Promise<DBResponse<UnifiedSourceHit[]>>;
         };
         flashcards: {
           createDeck: (deck: any) => Promise<DBResponse<any>>;
@@ -2122,11 +2279,35 @@ declare global {
           data?: { soul: string; user: string; memory: string; recentMemory: string };
           error?: string;
         }>;
+        getAgentMemoryContext: (params?: {
+          memoryEnabled?: boolean;
+          projectId?: string | null;
+          projectPath?: string | null;
+          includeProject?: boolean;
+          includeDomains?: Array<'social' | 'email' | string>;
+        }) => Promise<{
+          success: boolean;
+          data?: {
+            soul: string;
+            user: string;
+            memory: string;
+            recentMemory: string;
+            memoryBlock: string;
+            projectMemory: string;
+            domainMemory: string;
+            volatileMemory: string;
+          };
+          error?: string;
+        }>;
         readFile: (filename: string) => Promise<{ success: boolean; data?: string; error?: string }>;
         writeFile: (filename: string, content: string) => Promise<{ success: boolean; error?: string }>;
         addMemory: (entry: string) => Promise<{ success: boolean; error?: string }>;
         listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
-        rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
+        rememberFact: (
+          key: string,
+          value: string,
+          domain?: 'general' | 'social' | 'email' | string,
+        ) => Promise<{ success: boolean; domain?: string; error?: string }>;
         openFolder: () => Promise<{ success: boolean; data?: string; error?: string }>;
         listDailyMemory: (days?: number) => Promise<{
           success: boolean;
@@ -2425,4 +2606,3 @@ declare module '*.module.css' {
   const classes: Record<string, string>;
   export default classes;
 }
-

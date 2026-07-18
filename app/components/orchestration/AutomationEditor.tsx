@@ -1,31 +1,48 @@
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
-  Bot,
-  Cable,
-  CalendarClock,
-  Hand,
-  Layers,
-  MessageSquareText,
-  Sparkles,
-  Workflow,
-  X,
-  Zap,
-} from 'lucide-react';
+  BotIcon as BotIcon,
+  CableIcon as CableIcon,
+  CalendarClockIcon as CalendarClockIcon,
+  HandIcon as HandIcon,
+  Layers01Icon as LayersIcon,
+  Comment02Icon as MessageSquareTextIcon,
+  SparklesIcon as SparklesIcon,
+  WorkflowSquare01Icon as WorkflowIcon,
+  Cancel01Icon as XIcon,
+  ZapIcon as ZapIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import type { AutomationOutputMode } from '@/lib/automations/api';
 import type { FeederRecord } from '@/lib/feeders/api';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
-import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
-import DomeToggle from '@/components/ui/DomeToggle';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import {
   type AutomationBindingDraft,
   type DraftState,
 } from '@/components/hub/automations/automationsShared';
 
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ReactNode } from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={BotIcon} {...props} />
+);
+const CalendarClock = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={CalendarClockIcon} {...props} />
+);
+const Layers = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={LayersIcon} {...props} />
+);
+const MessageSquareText = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={MessageSquareTextIcon} {...props} />
+);
 interface AutomationEditorProps {
   draft: DraftState;
   agents: ManyAgent[];
@@ -50,7 +67,7 @@ function SectionCard({
   hint,
   children,
 }: {
-  icon: typeof Zap;
+  icon: React.ElementType;
   title: string;
   hint?: string;
   children: React.ReactNode;
@@ -58,16 +75,16 @@ function SectionCard({
   return (
     <section
       className="rounded-2xl p-4"
-      style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+      style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
     >
       <div className="flex items-center gap-1.5">
-        <Icon className="size-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+        <Icon className="size-3.5 text-primary" aria-hidden />
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {title}
         </h2>
       </div>
       {hint ? (
-        <p className="mt-0.5 text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
           {hint}
         </p>
       ) : null}
@@ -162,46 +179,50 @@ export default function AutomationEditor({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex h-full min-h-0 flex-col bg-background">
       {/* Header */}
       <header
         className="flex shrink-0 items-center justify-between gap-3 px-6 py-4"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
+        style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex min-w-0 items-center gap-3">
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-xl"
             style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}
           >
-            <Zap className="size-5" strokeWidth={1.75} />
+            <HugeiconsIcon icon={ZapIcon} className="size-5" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
+            <h1 className="truncate text-base font-semibold text-foreground">
               {isNew ? t('automation.new_page_title') : t('automation.edit_page_title')}
             </h1>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs text-muted-foreground">
               {isNew ? t('automation.new_page_subtitle') : t('automation.edit_page_subtitle')}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <DomeButton type="button" variant="outline" size="sm" onClick={onCancel}>
+          <Button type="button"
+  variant="outline"
+  onClick={onCancel}
+  size="sm">
             {t('automation.cancel')}
-          </DomeButton>
-          <DomeButton
-            type="button"
-            variant="primary"
-            size="sm"
-            className="!bg-[var(--dome-accent)]"
-            loading={saving}
-            disabled={!canSave}
-            onClick={onSave}
-          >
+          </Button>
+          <Button type="button"
+  className="!bg-primary"
+  loading={saving}
+  disabled={!canSave}
+  onClick={onSave}
+  size="sm">
             {isNew ? t('automation.create_footer') : t('automation.save_changes')}
-          </DomeButton>
-          <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('ui.close')}>
-            <X className="size-4" />
-          </DomeButton>
+          </Button>
+          <Button type="button"
+  variant="ghost"
+  onClick={onCancel}
+  aria-label={t('ui.close')}
+  size="icon-sm">
+            <HugeiconsIcon icon={XIcon} className="size-4" />
+          </Button>
         </div>
       </header>
 
@@ -218,84 +239,42 @@ export default function AutomationEditor({
             >
               <div className="flex flex-col gap-3">
                 {isNew ? (
-                  <DomeSegmentedControl
-                    size="sm"
-                    aria-label={t('automation.destination')}
-                    options={[
-                      { value: 'agent', label: t('automation.agent'), icon: <Bot className="size-3.5" aria-hidden /> },
-                      { value: 'workflow', label: t('automation.workflow'), icon: <Workflow className="size-3.5" aria-hidden /> },
-                      { value: 'feeder', label: t('automation.feeder'), icon: <Cable className="size-3.5" aria-hidden /> },
-                    ]}
-                    value={draft.targetType}
-                    onChange={(v) => onDraftChange({ targetType: v as DraftState['targetType'], targetId: '' })}
-                  />
+                  <Tabs value={draft.targetType} onValueChange={(v) => onDraftChange({ targetType: v as DraftState['targetType'], targetId: '' })} className="min-w-0"><TabsList aria-label={t('automation.destination')} className="h-auto w-full max-w-full flex-wrap">{([
+                      { value: 'agent', label: t('automation.agent'), icon: <HugeiconsIcon icon={BotIcon} className="size-3.5" aria-hidden /> },
+                      { value: 'workflow', label: t('automation.workflow'), icon: <HugeiconsIcon icon={WorkflowIcon} className="size-3.5" aria-hidden /> },
+                      { value: 'feeder', label: t('automation.feeder'), icon: <HugeiconsIcon icon={CableIcon} className="size-3.5" aria-hidden /> },
+                    ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
                 ) : null}
                 {isNew ? (
-                  <DomeSelectMenu
-                    value={draft.targetId || null}
-                    options={targetOptions}
-                    onChange={(v) => onDraftChange({ targetId: v })}
-                    placeholder={
+                  <Select value={draft.targetId || null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ targetId: v }))(next); }} items={targetOptions}><SelectTrigger className="w-full" aria-label={t('automation.destination')}><SelectValue placeholder={
                       isFeederTarget
                         ? t('automation.select_feeder')
                         : t('automation.select_agent_or_workflow', { type: targetTypeLabel })
-                    }
-                    aria-label={t('automation.destination')}
-                  />
+                    } /></SelectTrigger><SelectContent>{(targetOptions).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
                 ) : (
-                  <p className="text-sm" style={{ color: 'var(--dome-text)' }}>
+                  <p className="text-sm text-foreground">
                     {targetTypeLabel}
                     {targetName ? ` · ${targetName}` : ''}
                   </p>
                 )}
-                <DomeInput
-                  label={t('automation.name')}
-                  type="text"
-                  value={draft.title}
-                  onChange={(e) => onDraftChange({ title: e.target.value })}
-                  placeholder={t('automation.name_placeholder')}
-                  className="w-full"
-                  inputClassName="text-sm"
-                />
-                <DomeInput
-                  label={t('automation.description')}
-                  type="text"
-                  value={draft.description}
-                  onChange={(e) => onDraftChange({ description: e.target.value })}
-                  placeholder={t('automation.description_placeholder')}
-                  className="w-full"
-                  inputClassName="text-sm"
-                />
+                <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-13" className="text-xs">{t('automation.name')}</FieldLabel><Input id="fld-input-13" className="text-sm" type="text" value={draft.title} onChange={(e) => onDraftChange({ title: e.target.value })} placeholder={t('automation.name_placeholder')} /></Field>
+                <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-14" className="text-xs">{t('automation.description')}</FieldLabel><Input id="fld-input-14" className="text-sm" type="text" value={draft.description} onChange={(e) => onDraftChange({ description: e.target.value })} placeholder={t('automation.description_placeholder')} /></Field>
               </div>
             </SectionCard>
 
             {/* Trigger */}
             <SectionCard icon={CalendarClock} title={t('automation.trigger')}>
               <div className="flex flex-col gap-3">
-                <DomeSegmentedControl
-                  size="sm"
-                  aria-label={t('automation.trigger')}
-                  options={[
-                    { value: 'manual', label: t('automation.manual'), icon: <Hand className="size-3.5" aria-hidden /> },
-                    { value: 'schedule', label: t('automation.scheduled'), icon: <CalendarClock className="size-3.5" aria-hidden /> },
-                    { value: 'contextual', label: t('automation.contextual'), icon: <Sparkles className="size-3.5" aria-hidden /> },
-                  ]}
-                  value={draft.triggerType}
-                  onChange={(v) => onDraftChange({ triggerType: v as DraftState['triggerType'] })}
-                />
+                <Tabs value={draft.triggerType} onValueChange={(v) => onDraftChange({ triggerType: v as DraftState['triggerType'] })} className="min-w-0"><TabsList aria-label={t('automation.trigger')} className="h-auto w-full max-w-full flex-wrap">{([
+                    { value: 'manual', label: t('automation.manual'), icon: <HugeiconsIcon icon={HandIcon} className="size-3.5" aria-hidden /> },
+                    { value: 'schedule', label: t('automation.scheduled'), icon: <HugeiconsIcon icon={CalendarClockIcon} className="size-3.5" aria-hidden /> },
+                    { value: 'contextual', label: t('automation.contextual'), icon: <HugeiconsIcon icon={SparklesIcon} className="size-3.5" aria-hidden /> },
+                  ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
 
                 {draft.triggerType === 'contextual' ? (
                   <div className="flex flex-col gap-1.5">
-                    <DomeInput
-                      label={t('automation.context_tags_label')}
-                      type="text"
-                      value={draft.contextTags}
-                      onChange={(e) => onDraftChange({ contextTags: e.target.value })}
-                      placeholder={t('automation.context_tags_placeholder')}
-                      className="w-full"
-                      inputClassName="text-sm"
-                    />
-                    <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+                    <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-15" className="text-xs">{t('automation.context_tags_label')}</FieldLabel><Input id="fld-input-15" className="text-sm" type="text" value={draft.contextTags} onChange={(e) => onDraftChange({ contextTags: e.target.value })} placeholder={t('automation.context_tags_placeholder')} /></Field>
+                    <p className="text-[11px] leading-snug text-muted-foreground">
                       {t('automation.context_tags_hint')}
                     </p>
                   </div>
@@ -303,49 +282,26 @@ export default function AutomationEditor({
 
                 {draft.triggerType === 'schedule' ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <DomeSelectMenu
-                      label={t('automation.cadence')}
-                      value={draft.cadence}
-                      options={[
+                    <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.cadence')}</FieldLabel><Select value={draft.cadence ?? null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ cadence: v as DraftState['cadence'] }))(next); }} items={[
                         { value: 'daily', label: t('automation.daily') },
                         { value: 'weekly', label: t('automation.weekly') },
                         { value: 'cron-lite', label: t('automation.cadence_interval') },
-                      ]}
-                      onChange={(v) => onDraftChange({ cadence: v as DraftState['cadence'] })}
-                      aria-label={t('automation.cadence')}
-                    />
+                      ]}><SelectTrigger className="w-full" aria-label={t('automation.cadence')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                        { value: 'daily', label: t('automation.daily') },
+                        { value: 'weekly', label: t('automation.weekly') },
+                        { value: 'cron-lite', label: t('automation.cadence_interval') },
+                      ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
                     {draft.cadence !== 'cron-lite' ? (
-                      <DomeInput
-                        label={t('automation.schedule_hour_label')}
-                        type="number"
-                        min={0}
-                        max={23}
-                        value={draft.hour}
-                        onChange={(e) => onDraftChange({ hour: parseInt(e.target.value) || 0 })}
-                        className="w-full"
-                        inputClassName="text-sm"
-                      />
+                      <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-16" className="text-xs">{t('automation.schedule_hour_label')}</FieldLabel><Input id="fld-input-16" className="text-sm" type="number" min={0} max={23} value={draft.hour} onChange={(e) => onDraftChange({ hour: parseInt(e.target.value) || 0 })} /></Field>
                     ) : (
-                      <DomeInput
-                        label={t('automation.interval_minutes_label')}
-                        type="number"
-                        min={1}
-                        value={draft.intervalMinutes}
-                        onChange={(e) => onDraftChange({ intervalMinutes: parseInt(e.target.value) || 60 })}
-                        className="w-full"
-                        inputClassName="text-sm"
-                      />
+                      <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-17" className="text-xs">{t('automation.interval_minutes_label')}</FieldLabel><Input id="fld-input-17" className="text-sm" type="number" min={1} value={draft.intervalMinutes} onChange={(e) => onDraftChange({ intervalMinutes: parseInt(e.target.value) || 60 })} /></Field>
                     )}
                     {draft.cadence === 'weekly' ? (
-                      <DomeSelectMenu
-                        label={t('automation.weekday_label')}
-                        value={String(draft.weekday)}
-                        options={(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
+                      <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.weekday_label')}</FieldLabel><Select value={String(draft.weekday) ?? null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ weekday: parseInt(v) }))(next); }} items={(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
                           (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
-                        )}
-                        onChange={(v) => onDraftChange({ weekday: parseInt(v) })}
-                        aria-label={t('automation.weekday_label')}
-                      />
+                        )}><SelectTrigger className="w-full" aria-label={t('automation.weekday_label')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{((['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
+                          (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
+                        )).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
                     ) : null}
                   </div>
                 ) : null}
@@ -355,14 +311,7 @@ export default function AutomationEditor({
             {/* Input prompt */}
             {showPromptAndOutput ? (
               <SectionCard icon={MessageSquareText} title={t('automation.base_prompt')}>
-                <DomeTextarea
-                  rows={5}
-                  value={draft.prompt}
-                  onChange={(e) => onDraftChange({ prompt: e.target.value })}
-                  placeholder={t('automation.base_prompt_placeholder')}
-                  className="w-full"
-                  textareaClassName="text-sm resize-y"
-                />
+                <Textarea className="min-h-24 resize-y w-full text-sm resize-y" rows={5} value={draft.prompt} onChange={(e) => onDraftChange({ prompt: e.target.value })} placeholder={t('automation.base_prompt_placeholder')} />
               </SectionCard>
             ) : null}
 
@@ -374,90 +323,66 @@ export default function AutomationEditor({
                 hint={t('automation.artifact_sink_hint')}
               >
                 <div className="flex flex-col gap-3">
-                  <DomeSelectMenu
-                    label={t('automation.output')}
-                    value={draft.outputMode}
-                    options={[
+                  <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.output')}</FieldLabel><Select value={draft.outputMode ?? null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ outputMode: v as AutomationOutputMode }))(next); }} items={[
                       { value: 'chat_only', label: t('automation.output_chat_only') },
                       { value: 'studio_output', label: t('automation.studio') },
                       { value: 'mixed', label: t('automation.mixed') },
-                    ]}
-                    onChange={(v) => onDraftChange({ outputMode: v as AutomationOutputMode })}
-                    aria-label={t('automation.output')}
-                  />
+                    ]}><SelectTrigger className="w-full" aria-label={t('automation.output')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                      { value: 'chat_only', label: t('automation.output_chat_only') },
+                      { value: 'studio_output', label: t('automation.studio') },
+                      { value: 'mixed', label: t('automation.mixed') },
+                    ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
 
                   {draft.artifactBindings.map((b, idx) => (
                     <div
                       key={b.id ?? `draft-binding-${idx}`}
                       className="flex flex-col gap-2.5 rounded-xl p-3"
-                      style={{ border: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
+                      style={{ border: '1px solid var(--border)', background: 'var(--background)' }}
                     >
-                      <DomeSelectMenu
-                        label={t('automation.artifact_select')}
-                        value={b.artifactResourceId || null}
-                        options={hubArtifacts.map((a) => ({ value: a.resourceId, label: a.title }))}
-                        onChange={(v) => updateBinding(idx, { artifactResourceId: v })}
-                        placeholder="—"
-                        aria-label={t('automation.artifact_select')}
-                      />
+                      <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.artifact_select')}</FieldLabel><Select value={b.artifactResourceId || null} onValueChange={(next) => { if (next != null) ((v) => updateBinding(idx, { artifactResourceId: v }))(next); }} items={hubArtifacts.map((a) => ({ value: a.resourceId, label: a.title }))}><SelectTrigger className="w-full" aria-label={t('automation.artifact_select')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{(hubArtifacts.map((a) => ({ value: a.resourceId, label: a.title }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
                       <div className="grid grid-cols-2 gap-2">
-                        <DomeInput
-                          label={t('automation.artifact_slot')}
-                          type="text"
-                          value={b.slot}
-                          onChange={(e) => updateBinding(idx, { slot: e.target.value })}
-                          className="w-full"
-                          inputClassName="text-sm"
-                        />
-                        <DomeSelectMenu
-                          label={t('automation.artifact_policy')}
-                          value={b.updatePolicy}
-                          options={[
+                        <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-18" className="text-xs">{t('automation.artifact_slot')}</FieldLabel><Input id="fld-input-18" className="text-sm" type="text" value={b.slot} onChange={(e) => updateBinding(idx, { slot: e.target.value })} /></Field>
+                        <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.artifact_policy')}</FieldLabel><Select value={b.updatePolicy ?? null} onValueChange={(next) => { if (next != null) ((v) => updateBinding(idx, { updatePolicy: v as AutomationBindingDraft['updatePolicy'] }))(next); }} items={[
                             { value: 'replace', label: t('automation.artifact_policy_replace') },
                             { value: 'merge_shallow', label: t('automation.artifact_policy_merge_shallow') },
                             { value: 'merge_deep', label: t('automation.artifact_policy_merge_deep') },
                             { value: 'append_array', label: t('automation.artifact_policy_append_array') },
-                          ]}
-                          onChange={(v) => updateBinding(idx, { updatePolicy: v as AutomationBindingDraft['updatePolicy'] })}
-                          aria-label={t('automation.artifact_policy')}
-                        />
+                          ]}><SelectTrigger className="w-full" aria-label={t('automation.artifact_policy')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                            { value: 'replace', label: t('automation.artifact_policy_replace') },
+                            { value: 'merge_shallow', label: t('automation.artifact_policy_merge_shallow') },
+                            { value: 'merge_deep', label: t('automation.artifact_policy_merge_deep') },
+                            { value: 'append_array', label: t('automation.artifact_policy_append_array') },
+                          ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
                       </div>
-                      <DomeSelectMenu
-                        label={t('automation.artifact_extract_mode')}
-                        value={b.extractMode}
-                        options={[
+                      <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.artifact_extract_mode')}</FieldLabel><Select value={b.extractMode ?? null} onValueChange={(next) => { if (next != null) ((v) => updateBinding(idx, { extractMode: v as AutomationBindingDraft['extractMode'] }))(next); }} items={[
                           { value: 'json_fence', label: t('automation.extract_json_fence') },
                           { value: 'full_output', label: t('automation.extract_full_output') },
-                        ]}
-                        onChange={(v) => updateBinding(idx, { extractMode: v as AutomationBindingDraft['extractMode'] })}
-                        aria-label={t('automation.artifact_extract_mode')}
-                      />
+                        ]}><SelectTrigger className="w-full" aria-label={t('automation.artifact_extract_mode')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                          { value: 'json_fence', label: t('automation.extract_json_fence') },
+                          { value: 'full_output', label: t('automation.extract_full_output') },
+                        ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs" style={{ color: 'var(--dome-text)' }}>
+                        <span className="text-xs text-foreground">
                           {t('automation.state_enabled')}
                         </span>
-                        <DomeToggle checked={b.enabled} onChange={(v) => updateBinding(idx, { enabled: v })} size="sm" />
-                        <DomeButton
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto text-[var(--dome-error)]"
-                          onClick={() =>
+                        <Switch checked={b.enabled} onCheckedChange={(v) => updateBinding(idx, { enabled: v })} size="sm" />
+                        <Button type="button"
+  variant="ghost"
+  className="ml-auto text-destructive"
+  onClick={() =>
                             onDraftChange({ artifactBindings: draft.artifactBindings.filter((_, i) => i !== idx) })
                           }
-                        >
+  size="sm">
                           {t('automation.artifact_remove_binding')}
-                        </DomeButton>
+                        </Button>
                       </div>
                     </div>
                   ))}
 
-                  <DomeButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-[var(--dome-border)]"
-                    onClick={() =>
+                  <Button type="button"
+  variant="outline"
+  className="w-full border-border"
+  onClick={() =>
                       onDraftChange({
                         artifactBindings: [
                           ...draft.artifactBindings,
@@ -472,9 +397,9 @@ export default function AutomationEditor({
                         ],
                       })
                     }
-                  >
+  size="sm">
                     {t('automation.artifact_add_binding')}
-                  </DomeButton>
+                  </Button>
                 </div>
               </SectionCard>
             ) : null}
@@ -484,20 +409,20 @@ export default function AutomationEditor({
           <aside className="flex min-w-0 flex-col gap-4 md:sticky md:top-0 md:self-start">
             <div
               className="flex flex-col gap-3 rounded-2xl p-4"
-              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('orchestration.automation_editor.summary_title')}
               </p>
 
-              <div className="flex flex-col gap-2.5 text-xs leading-snug" style={{ color: 'var(--dome-text)' }}>
+              <div className="flex flex-col gap-2.5 text-xs leading-snug text-foreground">
                 <div className="flex items-start gap-2">
                   {draft.targetType === 'agent' ? (
-                    <Bot className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+                    <HugeiconsIcon icon={BotIcon} className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
                   ) : draft.targetType === 'workflow' ? (
-                    <Workflow className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--info)' }} aria-hidden />
+                    <HugeiconsIcon icon={WorkflowIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--info)]" aria-hidden />
                   ) : (
-                    <Cable className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                    <HugeiconsIcon icon={CableIcon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   )}
                   <span>
                     {targetName
@@ -506,16 +431,16 @@ export default function AutomationEditor({
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <CalendarClock className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--warning)' }} aria-hidden />
+                  <HugeiconsIcon icon={CalendarClockIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--warning)]" aria-hidden />
                   <span>{triggerSentence}</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <MessageSquareText className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                  <HugeiconsIcon icon={MessageSquareTextIcon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   <span>{outputSentence}</span>
                 </div>
                 {activeBindings.length > 0 ? (
                   <div className="flex items-start gap-2">
-                    <Layers className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--success)' }} aria-hidden />
+                    <HugeiconsIcon icon={LayersIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
                     <span>
                       {t('orchestration.automation_editor.summary_bindings', { count: activeBindings.length })}
                     </span>
@@ -525,12 +450,12 @@ export default function AutomationEditor({
 
               <div
                 className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5"
-                style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+                style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
               >
-                <span className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+                <span className="text-xs font-medium text-foreground">
                   {draft.enabled ? t('automation.enabled_on_save') : t('automation.paused_on_save')}
                 </span>
-                <DomeToggle checked={draft.enabled} onChange={(v) => onDraftChange({ enabled: v })} size="sm" />
+                <Switch checked={draft.enabled} onCheckedChange={(v) => onDraftChange({ enabled: v })} size="sm" />
               </div>
             </div>
           </aside>

@@ -1,8 +1,30 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
-import { Menu } from '@mantine/core';
 import {
-  ChevronRight, ChevronLeft, Upload, FolderPlus, FolderSymlink, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Tag,
-} from 'lucide-react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  ArrowRight01Icon,
+  ArrowLeft01Icon,
+  Upload04Icon,
+  FolderAddIcon,
+  FolderExportIcon,
+  LinkSquare01Icon,
+  FileEditIcon,
+  Search01Icon,
+  Cancel01Icon,
+  Add01Icon,
+  MoreHorizontalIcon,
+  PaintBoardIcon,
+  LayoutGridIcon,
+  Menu01Icon,
+  Tag01Icon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useResources, type Resource } from '@/lib/hooks/useResources';
@@ -19,6 +41,18 @@ import {
 } from '@/components/workspace/sidebar/SidebarModals';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
+import { Button } from '@/components/ui/button';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
+import { Separator } from '@/components/ui/separator';
+import { Spinner } from '@/components/ui/spinner';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import '@/styles/folder-view.css';
 
 import { getFolderColor, resolveFolderTabView, FOLDER_COLOR_DEFAULT } from './folder-tab/folderTabShared';
@@ -232,14 +266,16 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
   const handleNavigateToFolder = useCallback(
     (id: string, title: string, color?: string) => {
-      navigateToFolder({ id, title, color });
+      // Only persist real hex colors on the tab; uncolored folders stay neutral.
+      const tabColor = color?.startsWith('#') ? color : undefined;
+      navigateToFolder({ id, title, color: tabColor });
     },
     [navigateToFolder],
   );
 
   const handleNavigateToProjectRoot = useCallback(() => {
     if (!effectiveProjectId) return;
-    handleNavigateToFolder(effectiveProjectId, projectRootLabel, 'var(--dome-accent)');
+    handleNavigateToFolder(effectiveProjectId, projectRootLabel, 'var(--primary)');
   }, [effectiveProjectId, projectRootLabel, handleNavigateToFolder]);
 
   useEffect(() => {
@@ -292,7 +328,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [folderId, getBreadcrumbPath, viewCtx.isProjectRoot],
   );
 
-  const folderColor = currentFolder ? getFolderColor(currentFolder) : 'var(--dome-accent)';
+  const folderColor = currentFolder ? getFolderColor(currentFolder) : 'var(--primary)';
   const folderColorHex = folderColor.startsWith('#') ? folderColor : null;
 
   const tabColorKey =
@@ -311,14 +347,14 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     setColorPickerPos(null);
   };
 
-  const handleCreateFolder = useCallback(async (name: string, color: string) => {
+  const handleCreateFolder = useCallback(async (name: string) => {
     await createResource({
       type: 'folder',
       title: name,
       project_id: effectiveProjectId,
       content: '',
       folder_id: createFolderParentId ?? listFolderId,
-      metadata: { color },
+      metadata: {},
     });
     setCreatingFolder(false);
     setCreateFolderParentId(null);
@@ -611,8 +647,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
-        <div className="size-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--dome-border)', borderTopColor: 'var(--dome-accent)' }} />
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <Spinner />
       </div>
     );
   }
@@ -658,34 +694,50 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
       {osDropActive && (
         <div className="dome-folder-view__drop-overlay" aria-hidden>
           <div className="dome-folder-view__drop-overlay-card">
-            <Upload className="size-6" aria-hidden />
+            <HugeiconsIcon icon={Upload04Icon} className="size-6" aria-hidden />
             <span>{t('folder.dropToImport', 'Suelta para importar aquí')}</span>
           </div>
         </div>
       )}
       <div className="dome-folder-view__toolbar">
         <div className="dome-folder-view__nav-controls">
-          <button
-            type="button"
-            className="dome-folder-view__nav-btn"
-            onClick={goBack}
-            disabled={!canGoBack}
-            aria-label={t('folder.navBack', 'Atrás')}
-            title={t('folder.navBack', 'Atrás')}
-          >
-            <ChevronLeft className="size-4" />
-          </button>
-          <button
-            type="button"
-            className="dome-folder-view__nav-btn"
-            onClick={goForward}
-            disabled={!canGoForward}
-            aria-label={t('folder.navForward', 'Adelante')}
-            title={t('folder.navForward', 'Adelante')}
-          >
-            <ChevronRight className="size-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={goBack}
+                  disabled={!canGoBack}
+                  aria-label={t('folder.navBack', 'Atrás')}
+                />
+              }
+            >
+              <HugeiconsIcon icon={ArrowLeft01Icon} />
+            </TooltipTrigger>
+            <TooltipContent>{t('folder.navBack', 'Atrás')}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={goForward}
+                  disabled={!canGoForward}
+                  aria-label={t('folder.navForward', 'Adelante')}
+                />
+              }
+            >
+              <HugeiconsIcon icon={ArrowRight01Icon} />
+            </TooltipTrigger>
+            <TooltipContent>{t('folder.navForward', 'Adelante')}</TooltipContent>
+          </Tooltip>
         </div>
+
+        <Separator orientation="vertical" className="h-5" />
 
         <nav className="dome-folder-view__breadcrumb" aria-label={t('folder.breadcrumb', 'Ruta')}>
           {viewCtx.isProjectRoot ? (
@@ -698,27 +750,34 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             </span>
           ) : (
             <>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="xs"
                 onClick={handleNavigateToProjectRoot}
-                className="shrink-0"
+                className="h-6 max-w-28 shrink-0 truncate px-1.5 text-muted-foreground"
                 title={projectRootLabel}
               >
                 {projectRootLabel}
-              </button>
+              </Button>
               {breadcrumb.map((folder) => (
                 <Fragment key={folder.id}>
-                  <ChevronRight className="size-3 shrink-0 opacity-50" />
-                  <button
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="size-3 shrink-0 text-muted-foreground/60" />
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="xs"
                     onClick={() => handleNavigateToFolder(folder.id, folder.title, getFolderColor(folder))}
+                    className="h-6 max-w-28 shrink truncate px-1.5 text-muted-foreground"
                     title={folder.title}
                   >
                     {folder.title}
-                  </button>
+                  </Button>
                 </Fragment>
               ))}
-              {breadcrumb.length > 0 && <ChevronRight className="size-3 shrink-0 opacity-50" />}
+              {breadcrumb.length > 0 && (
+                <HugeiconsIcon icon={ArrowRight01Icon} className="size-3 shrink-0 text-muted-foreground/60" />
+              )}
               <span className="dome-folder-view__breadcrumb-current" title={displayTitle} aria-current="page">
                 {displayTitle}
               </span>
@@ -727,80 +786,80 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         </nav>
 
         <div className="dome-folder-view__toolbar-end">
-          <fieldset
-            className="dome-folder-view__view-toggle border-0 p-0 m-0 min-w-0"
+          <ToggleGroup
+            value={[viewMode]}
+            onValueChange={(values) => {
+              const next = values[0];
+              if (next === 'grid' || next === 'list') setFolderViewMode(next);
+            }}
+            variant="outline"
+            size="sm"
+            spacing={0}
             aria-label={t('folder.viewMode', 'Modo de vista')}
           >
-            <button
-              type="button"
-              className={`dome-folder-view__view-toggle-btn${viewMode === 'grid' ? ' dome-folder-view__view-toggle-btn--active' : ''}`}
-              onClick={() => setFolderViewMode('grid')}
-              aria-label={t('folder.gridView', 'Vista de cuadrícula')}
-              aria-pressed={viewMode === 'grid'}
-              title={t('folder.gridView', 'Vista de cuadrícula')}
-            >
-              <LayoutGrid className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              className={`dome-folder-view__view-toggle-btn${viewMode === 'list' ? ' dome-folder-view__view-toggle-btn--active' : ''}`}
-              onClick={() => setFolderViewMode('list')}
-              aria-label={t('folder.listView', 'Vista de lista')}
-              aria-pressed={viewMode === 'list'}
-              title={t('folder.listView', 'Vista de lista')}
-            >
-              <List className="size-3.5" />
-            </button>
-          </fieldset>
+            <ToggleGroupItem value="grid" aria-label={t('folder.gridView', 'Vista de cuadrícula')}>
+              <HugeiconsIcon icon={LayoutGridIcon} />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label={t('folder.listView', 'Vista de lista')}>
+              <HugeiconsIcon icon={Menu01Icon} />
+            </ToggleGroupItem>
+          </ToggleGroup>
 
-          <Menu
-            withinPortal
-            position="bottom-end"
-            offset={4}
-            shadow="md"
-            classNames={{
-              dropdown: 'dome-folder-view__menu-dropdown',
-              item: 'dome-folder-view__menu-item',
-            }}
-          >
-            <Menu.Target>
-              <button
-                type="button"
-                className={`dome-folder-view__icon-btn${isTagFiltering ? ' dome-folder-view__icon-btn--active' : ''}`}
-                aria-label={t('folder.tagFilter', 'Filtrar por tag')}
-                title={activeTag ? activeTag.name : t('folder.tagFilter', 'Filtrar por tag')}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant={isTagFiltering ? 'secondary' : 'ghost'}
+                        size="icon-sm"
+                        aria-label={t('folder.tagFilter', 'Filtrar por tag')}
+                      />
+                    }
+                  />
+                }
               >
-                <Tag className="size-3.5" />
-              </button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item onClick={() => setTagFilterId(null)}>
-                {t('folder.tagFilterAll', 'Todos los tags')}
-              </Menu.Item>
-              {projectTags.length === 0 ? (
-                <Menu.Item disabled>{t('tags.no_tags', 'Sin tags')}</Menu.Item>
-              ) : (
-                projectTags.map((tag) => (
-                  <Menu.Item
-                    key={tag.id}
-                    onClick={() => setTagFilterId(tag.id)}
-                    style={tagFilterId === tag.id ? { fontWeight: 600 } : undefined}
-                  >
-                    {tag.name}
-                    <span style={{ marginLeft: 8, opacity: 0.6 }}>{tag.resource_count}</span>
-                  </Menu.Item>
-                ))
-              )}
-            </Menu.Dropdown>
-          </Menu>
+                <HugeiconsIcon icon={Tag01Icon} />
+              </TooltipTrigger>
+              <TooltipContent>
+                {activeTag ? activeTag.name : t('folder.tagFilter', 'Filtrar por tag')}
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="bottom" align="end" sideOffset={4} className="w-52">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setTagFilterId(null)}>
+                  {t('folder.tagFilterAll', 'Todos los tags')}
+                </DropdownMenuItem>
+                {projectTags.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    {t('tags.no_tags', 'Sin tags')}
+                  </DropdownMenuItem>
+                ) : (
+                  projectTags.map((tag) => (
+                    <DropdownMenuItem
+                      key={tag.id}
+                      className={cn(tagFilterId === tag.id && 'font-semibold')}
+                      onClick={() => setTagFilterId(tag.id)}
+                    >
+                      <span className="truncate">{tag.name}</span>
+                      <span className="ml-auto text-muted-foreground tabular-nums">{tag.resource_count}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {searchOpen ? (
-            <div className="dome-folder-view__search">
-              <Search className="dome-folder-view__search-icon size-3.5" aria-hidden />
-              <input
+            <InputGroup className="w-[min(240px,42vw)] min-w-36">
+              <InputGroupAddon align="inline-start">
+                <HugeiconsIcon icon={Search01Icon} />
+              </InputGroupAddon>
+              <InputGroupInput
                 ref={searchInputRef}
                 type="search"
-                className="dome-folder-view__search-input"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -809,108 +868,122 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button
-                type="button"
-                className="dome-folder-view__search-clear"
-                onClick={() => {
-                  if (searchQuery) {
-                    setSearchQuery('');
-                    searchInputRef.current?.focus();
-                  } else {
-                    closeSearch();
-                  }
-                }}
-                aria-label={t('folder.searchClear', 'Clear search')}
-              >
-                <X className="size-3" />
-              </button>
-            </div>
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
+                  onClick={() => {
+                    if (searchQuery) {
+                      setSearchQuery('');
+                      searchInputRef.current?.focus();
+                    } else {
+                      closeSearch();
+                    }
+                  }}
+                  aria-label={t('folder.searchClear', 'Clear search')}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
           ) : (
-            <button
-              type="button"
-              className="dome-folder-view__icon-btn"
-              onClick={openSearch}
-              aria-label={t('folder.searchAria', { shortcut: searchModHint })}
-              title={t('folder.searchPlaceholder', { shortcut: searchModHint })}
-            >
-              <Search className="size-3.5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={openSearch}
+                    aria-label={t('folder.searchAria', { shortcut: searchModHint })}
+                  />
+                }
+              >
+                <HugeiconsIcon icon={Search01Icon} />
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('folder.searchPlaceholder', { shortcut: searchModHint })}
+              </TooltipContent>
+            </Tooltip>
           )}
 
-          <Menu
-            withinPortal
-            position="bottom-end"
-            offset={4}
-            shadow="md"
-            classNames={{
-              dropdown: 'dome-folder-view__menu-dropdown',
-              item: 'dome-folder-view__menu-item',
-            }}
-          >
-            <Menu.Target>
-              <button
-                ref={folderMenuBtnRef}
-                type="button"
-                className="dome-folder-view__icon-btn"
-                aria-label={t('folder.folderMenu', 'Opciones de carpeta')}
-                title={t('folder.folderMenu', 'Opciones de carpeta')}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        ref={folderMenuBtnRef}
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('folder.folderMenu', 'Opciones de carpeta')}
+                      />
+                    }
+                  />
+                }
               >
-                <MoreHorizontal className="size-3.5" />
-              </button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {!viewCtx.isProjectRoot && currentFolder ? (
-                <Menu.Item
-                  leftSection={<Palette className="size-3.5" style={{ color: folderColor }} />}
-                  onClick={openFolderColorPicker}
-                >
-                  {t('folder.changeColor', 'Cambiar color')}
-                </Menu.Item>
-              ) : null}
-              <Menu.Item
-                leftSection={<FolderSymlink className="size-3.5" />}
-                onClick={() => void handleRevealCurrentFolder()}
-              >
-                {revealLabel}
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+                <HugeiconsIcon icon={MoreHorizontalIcon} />
+              </TooltipTrigger>
+              <TooltipContent>{t('folder.folderMenu', 'Opciones de carpeta')}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="bottom" align="end" sideOffset={4} className="w-52">
+              <DropdownMenuGroup>
+                {!viewCtx.isProjectRoot && currentFolder ? (
+                  <DropdownMenuItem onClick={openFolderColorPicker}>
+                    <HugeiconsIcon icon={PaintBoardIcon} data-icon="inline-start" />
+                    {t('folder.changeColor', 'Cambiar color')}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={() => void handleRevealCurrentFolder()}>
+                  <HugeiconsIcon icon={FolderExportIcon} data-icon="inline-start" />
+                  {revealLabel}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <Menu
-            withinPortal
-            position="bottom-end"
-            offset={4}
-            shadow="md"
-            classNames={{
-              dropdown: 'dome-folder-view__menu-dropdown',
-              item: 'dome-folder-view__menu-item',
-            }}
-          >
-            <Menu.Target>
-              <button
-                type="button"
-                className="dome-folder-view__add-btn"
-                aria-label={t('folder.addBtn', 'Añadir')}
-                title={t('folder.addBtn', 'Añadir')}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        aria-label={t('folder.addBtn', 'Añadir')}
+                      />
+                    }
+                  />
+                }
               >
-                <Plus className="size-4" strokeWidth={2.25} />
-              </button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item leftSection={<FolderPlus className="size-3.5" />} onClick={() => setCreatingFolder(true)}>
-                {t('folder.newFolderBtn')}
-              </Menu.Item>
-              <Menu.Item leftSection={<FileText className="size-3.5" />} onClick={handleNewNote}>
-                {t('toolbar.note', 'Nota')}
-              </Menu.Item>
-              <Menu.Item leftSection={<Upload className="size-3.5" />} onClick={handleUpload}>
-                {t('toolbar.import', 'Importar')}
-              </Menu.Item>
-              <Menu.Item leftSection={<Link2 className="size-3.5" />} onClick={() => setUrlModalOpen(true)}>
-                {t('toolbar.link', 'URL')}
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+                <HugeiconsIcon icon={Add01Icon} strokeWidth={2.25} />
+              </TooltipTrigger>
+              <TooltipContent>{t('folder.addBtn', 'Añadir')}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="bottom" align="end" sideOffset={4} className="w-48">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setCreatingFolder(true)}>
+                  <HugeiconsIcon icon={FolderAddIcon} data-icon="inline-start" />
+                  {t('folder.newFolderBtn')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleNewNote}>
+                  <HugeiconsIcon icon={FileEditIcon} data-icon="inline-start" />
+                  {t('toolbar.note', 'Nota')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleUpload}>
+                  <HugeiconsIcon icon={Upload04Icon} data-icon="inline-start" />
+                  {t('toolbar.import', 'Importar')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setUrlModalOpen(true)}>
+                  <HugeiconsIcon icon={LinkSquare01Icon} data-icon="inline-start" />
+                  {t('toolbar.link', 'URL')}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -1003,15 +1076,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               <div className="dome-folder-view__grid-header">
                 <span className="dome-folder-view__list-header-count">{statusLabel}</span>
               </div>
-              {(() => {
-                // Grid mode is format-aware: folders as compact tiles in their
-                // own row, files in a masonry flow where each card keeps its
-                // asset's aspect ratio. Indices stay aligned with
-                // `rowsToRender` (folders always come first) so search focus
-                // keeps working.
-                const folderEntries = rowsToRender.filter((e) => e.isFolder);
-                const fileEntries = rowsToRender.filter((e) => !e.isFolder);
-                const renderCard = ({ item, isFolder }: { item: Resource; isFolder: boolean }, idx: number) => (
+              <div className="dome-folder-view__grid">
+                {rowsToRender.map(({ item, isFolder }, idx) => (
                   <FolderCard
                     key={item.id}
                     item={item}
@@ -1036,31 +1102,17 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     searchQuery={isFiltering ? normalizedSearchQuery : undefined}
                     searchFocused={isFiltering && idx === searchFocusIndex}
                   />
-                );
-                return (
-                  <>
-                    {(folderEntries.length > 0 || creatingFolder) ? (
-                      <div className="dome-folder-view__grid dome-folder-view__grid--folders">
-                        {folderEntries.map((entry, i) => renderCard(entry, i))}
-                        {creatingFolder ? (
-                          <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
-                            <NewFolderInline
-                              variant="grid"
-                              onConfirm={handleCreateFolder}
-                              onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {fileEntries.length > 0 ? (
-                      <div className="dome-folder-view__grid dome-folder-view__grid--masonry">
-                        {fileEntries.map((entry, i) => renderCard(entry, folderEntries.length + i))}
-                      </div>
-                    ) : null}
-                  </>
-                );
-              })()}
+                ))}
+                {creatingFolder ? (
+                  <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
+                    <NewFolderInline
+                      variant="grid"
+                      onConfirm={handleCreateFolder}
+                      onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
+                    />
+                  </div>
+                ) : null}
+              </div>
             </>
           )
         ) : creatingFolder ? (

@@ -1,8 +1,13 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CodeIcon,
+  ExternalLinkIcon,
+  PanelRightIcon,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Code, ExternalLink, PanelRight } from 'lucide-react';
 import type { HtmlArtifactV } from '@/lib/chat/artifactSchemas';
-import DomeButton from '@/components/ui/DomeButton';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { buildDomeThemeStyleContent, useDomeThemeSnapshot } from '@/lib/chat/useDomeThemeSnapshot';
 import i18n from '@/lib/i18n';
@@ -179,45 +184,36 @@ export default function HtmlArtifactFrame({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        <DomeButton
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={() => {
+        <Button type="button"
+  variant="ghost"
+  onClick={() => {
             setShowSource((s) => !s);
           }}
-          className="gap-1"
-          leftIcon={<Code className="size-3" aria-hidden />}
-        >
+  className="gap-1"
+  size="xs">{<HugeiconsIcon icon={CodeIcon} className="size-3" aria-hidden />}
           {showSource ? t('chat.artifact_source_hide') : t('chat.artifact_source_show')}
-        </DomeButton>
-        <DomeButton
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={openInDomeTab}
-          className="gap-1"
-          leftIcon={<PanelRight className="size-3" aria-hidden />}
-        >
+        </Button>
+        <Button type="button"
+  variant="ghost"
+  onClick={openInDomeTab}
+  className="gap-1"
+  size="xs">{<HugeiconsIcon icon={PanelRightIcon} className="size-3" aria-hidden />}
           {t('chat.open_in_tab')}
-        </DomeButton>
+        </Button>
         {onOpenNewWindow && (
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => onOpenNewWindow(srcdoc)}
-            className="gap-1"
-            leftIcon={<ExternalLink className="size-3" aria-hidden />}
-          >
+          <Button type="button"
+  variant="ghost"
+  onClick={() => onOpenNewWindow(srcdoc)}
+  className="gap-1"
+  size="xs">{<HugeiconsIcon icon={ExternalLinkIcon} className="size-3" aria-hidden />}
             {t('chat.artifact_open_window')}
-          </DomeButton>
+          </Button>
         )}
       </div>
       <div
         style={{
           fontSize: 12,
-          color: 'var(--tertiary-text)',
+          color: 'var(--muted-foreground)',
           lineHeight: 1.4,
         }}
       >
@@ -237,7 +233,7 @@ export default function HtmlArtifactFrame({
           height,
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-md)',
-          background: 'var(--bg)',
+          background: 'var(--background)',
         }}
         {...(frameSource.src
           ? { src: frameSource.src }

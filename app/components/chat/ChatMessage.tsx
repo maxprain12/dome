@@ -1,13 +1,35 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
-import { Copy, Check, RefreshCw, ChevronRight, BookmarkPlus } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ArrowRight01Icon,
+  BookmarkPlusIcon,
+  CheckmarkCircle02Icon,
+  Copy01Icon,
+  RefreshIcon,
+} from '@hugeicons/core-free-icons';
 import ChatToolCard, { ChatToolCardGroup, SubagentToolSection, type ToolCallData } from './ChatToolCard';
-import ReadingIndicator from './ReadingIndicator';
+import { ChatStateMarker } from './ChatStateMarker';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
 import AgentRunTimeline from './AgentRunTimeline';
-import ManyMinimalStatusRow from '@/components/many/ManyMinimalStatusRow';
+import {
+  Attachment,
+  AttachmentContent,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTitle,
+} from '@/components/ui/attachment';
+import { Bubble, BubbleContent } from '@/components/ui/bubble';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
+import { MessageFooter } from '@/components/ui/message';
 import { cn } from '@/lib/utils';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -46,8 +68,35 @@ export interface ChatMessageData {
   pdfRegionMeta?: PdfRegionMeta;
   /** Structured image attachments for resolving dome-att:// placeholders */
   attachments?: StructuredMessageAttachments;
+  /** Pins that rode with this user turn (Many transcript chips). */
+  pinnedResources?: Array<{
+    id: string;
+    title: string;
+    type: string;
+    kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post';
+  }>;
   /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];
+}
+
+function toolBlockKey(block: ToolDisplayBlock, idx: number): string {
+  if (block.type === 'tool') return block.call.id;
+  if (block.type === 'tool-group') return `group:${block.name}:${idx}`;
+  return `subagent:${block.agentKey}:${idx}`;
+}
+
+function ToolDisplayBlockView({ block, surfaceVariant }: { block: ToolDisplayBlock; surfaceVariant: ChatSurfaceVariant }) {
+  if (block.type === 'tool') return <ChatToolCard toolCall={block.call} surfaceVariant={surfaceVariant} />;
+  if (block.type === 'tool-group') return <ChatToolCardGroup name={block.name} calls={block.calls} surfaceVariant={surfaceVariant} />;
+  return (
+    <SubagentToolSection agentKey={block.agentKey} agentLabel={block.agentLabel} surfaceVariant={surfaceVariant}>
+      {block.blocks.map((inner, innerIdx) => inner.type === 'tool' ? (
+        <ChatToolCard key={inner.call.id} toolCall={inner.call} surfaceVariant={surfaceVariant} />
+      ) : (
+        <ChatToolCardGroup key={`${inner.name}:${innerIdx}`} name={inner.name} calls={inner.calls} surfaceVariant={surfaceVariant} />
+      ))}
+    </SubagentToolSection>
+  );
 }
 
 /** Shared with ChatMessageGroup; `many` enables Many panel minimal skin */
@@ -227,39 +276,73 @@ export default function ChatMessage({
     [displayToolCalls, t],
   );
 
-  return (
-    <div className={`ai-message-item group relative ${className}`}>
-      <div className={`flex flex-col gap-2 ${isUser ? 'items-end' : 'items-start'}`}>
+  const streamingLabel = message.streamingLabel || t('chat.processing');
+  const streamingMarker =
+    message.isStreaming && !message.content ? <ChatStateMarker label={streamingLabel} /> : null;
 
-        {/* Thinking - styled as minimalist card (Assistant only) */}
-        {isAssistant && message.thinking && (
-          <div className="w-full min-w-0 max-w-full">
-            <button
-              type="button"
-              onClick={() => setThinkingExpanded(!thinkingExpanded)}
-              className="group flex items-center gap-2 py-1 px-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] cursor-pointer"
-            >
-              <div className="flex items-center justify-center size-5 rounded text-[var(--tertiary-text)] group-hover:text-[var(--secondary-text)]">
-                <ChevronRight className={`size-3.5 transition-transform ${thinkingExpanded ? 'rotate-90' : ''}`} />
+  const renderBubbleInner = () =>
+    message.content ? (
+      <>
+        <div className="min-w-0 w-full break-words [overflow-wrap:anywhere]">
+          {isUser && userVisualSegments && userVisualSegments.length > 0 ? (
+            <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {userVisualSegments
+                .filter((seg) => seg.type === 'text')
+                .map((seg) => (
+                  <span key={seg.reactKey}>{seg.type === 'text' ? seg.value : null}</span>
+                ))}
+            </span>
+          ) : !isUser ? (
+            assistantMarkdown ? (
+              <MarkdownRenderer
+                content={assistantMarkdown}
+                citationMap={message.citationMap}
+                onClickCitation={onClickCitation || handleOpenCitation}
+              />
+            ) : null
+          ) : (
+            <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {stripArtifactBlocks(message.content)}
+            </span>
+          )}
+        </div>
+        {message.isStreaming ? (
+          <span className="inline-block w-0.5 h-4 ml-0.5 bg-current animate-pulse motion-reduce:animate-none" aria-hidden />
+        ) : null}
+      </>
+    ) : null;
+
+
+    const userImageSegments =
+      isUser && userVisualSegments
+        ? userVisualSegments.filter((seg) => seg.type === 'image')
+        : [];
+
+    return (
+      <div className={cn('group flex min-w-0 w-full flex-col gap-2', className)}>
+        {isAssistant && message.thinking ? (
+          <Collapsible
+            open={thinkingExpanded}
+            onOpenChange={setThinkingExpanded}
+            className="w-full min-w-0 max-w-full"
+          >
+            <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-muted">
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                className={cn('text-muted-foreground transition-transform', thinkingExpanded && 'rotate-90')}
+              />
+              <span className="text-sm font-medium text-muted-foreground">{t('chat.reasoning')}</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-2 border-l border-border py-1 pl-4">
+              <div className="text-xs whitespace-pre-wrap break-words text-muted-foreground opacity-90">
+                {message.thinking}
               </div>
-              <span className="text-[13px] font-medium text-[var(--secondary-text)]">
-                {t('chat.reasoning')}
-              </span>
-            </button>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
 
-            {thinkingExpanded && (
-              <div className="mt-1 ml-2 pl-4 border-l border-[var(--border)] py-1 animate-in fade-in duration-200">
-                <div className="text-xs whitespace-pre-wrap break-words text-[var(--secondary-text)] opacity-90">
-                  {message.thinking}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tool calls — supervisor tools + nested subagent sections */}
         {toolDisplayBlocks.length > 0 ? (
-          <div className="w-full min-w-0 max-w-full space-y-1.5">
+          <div className="flex w-full min-w-0 max-w-full flex-col gap-1.5">
             {toolDisplayBlocks.map((block, idx) => (
               <ToolDisplayBlockView
                 key={toolBlockKey(block, idx)}
@@ -271,276 +354,102 @@ export default function ChatMessage({
         ) : null}
 
         {isAssistant && message.runSteps && message.runSteps.length > 0 ? (
-          <AgentRunTimeline
-            steps={message.runSteps}
-            className="max-w-full"
-            surfaceVariant={surfaceVariant}
-          />
+          <AgentRunTimeline steps={message.runSteps} className="max-w-full" surfaceVariant={surfaceVariant} />
         ) : null}
 
         {!isUser && message.agentLabel ? (
           <div className="w-full min-w-0 max-w-full px-2">
-            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--secondary-text)' }}>
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {message.agentLabel}
             </span>
           </div>
         ) : null}
 
-        {/* Message content bubble */}
-        {(message.content || message.isStreaming) && (
-          <div className={`flex items-start gap-2 w-full min-w-0 ${isUser ? 'justify-end' : 'justify-start'}`}>
-
-            {/* User: copy button on hover (left of bubble) */}
-            {isUser && (
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex size-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)]"
-                style={{ color: 'var(--tertiary-text)' }}
-                title={t('chat.copy_message')}
-                aria-label={t('chat.copy_message')}
-              >
-                {copied
-                  ? <Check className="size-3" style={{ color: 'var(--success)' }} />
-                  : <Copy className="size-3" />}
-              </button>
+        {userImageSegments.length > 0 ? (
+          <AttachmentGroup>
+            {userImageSegments.map((seg) =>
+              seg.type === 'image' ? (
+                <Attachment key={seg.reactKey} state="done" size="sm">
+                  <AttachmentMedia variant="image">
+                    <img src={seg.src} alt={seg.alt || t('chat.attachment_image_alt')} loading="lazy" />
+                  </AttachmentMedia>
+                  <AttachmentContent>
+                    <AttachmentTitle>{seg.alt || t('chat.attachment_image_alt')}</AttachmentTitle>
+                  </AttachmentContent>
+                </Attachment>
+              ) : null,
             )}
+          </AttachmentGroup>
+        ) : null}
 
-            <div
-              className={cn(
-                'relative min-w-0',
-                surfaceVariant === 'many'
-                  ? cn(
-                      'many-bubble-clean',
-                      isUser ? 'many-bubble-clean--user inline-block max-w-[88%]' : 'many-bubble-clean--assistant block w-full',
-                    )
-                  : cn(
-                      'text-[14px] leading-relaxed',
-                      isUser ? 'inline-block max-w-[88%]' : 'block w-full',
-                    ),
-              )}
-              style={
-                surfaceVariant === 'many'
-                  ? undefined
-                  : isUser
-                    ? {
-                        background: 'transparent',
-                        borderRight: '2px solid var(--border)',
-                        padding: '2px 14px 2px 0',
-                        color: 'var(--primary-text)',
-                      }
-                    : {
-                        background: 'transparent',
-                        borderLeft: '2px solid var(--border)',
-                        padding: '2px 0 2px 14px',
-                        color: 'var(--primary-text)',
-                      }
-              }
-            >
-              {/* Message text — segments interleaved: text | artifact | text | ... */}
-              {message.content ? (
-                <div className="min-w-0 w-full break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                  {isUser && userVisualSegments && userVisualSegments.length > 0 ? (
-                    <div className="flex flex-col gap-2 min-w-0 w-full">
-                      {userVisualSegments.map((seg) =>
-                        seg.type === 'text' ? (
-                          <span
-                            key={seg.reactKey}
-                            className="whitespace-pre-wrap break-words"
-                            style={{ overflowWrap: 'anywhere' }}
-                          >
-                            {seg.value}
-                          </span>
-                        ) : (
-                          <div key={seg.reactKey} className="min-w-0 max-w-full rounded-md overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]">
-                            <img
-                              src={seg.src}
-                              alt={seg.alt || t('chat.attachment_image_alt')}
-                              className="max-w-full max-h-64 w-auto object-contain block mx-auto"
-                              loading="lazy"
-                            />
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  ) : !isUser ? (
-                    assistantMarkdown ? (
-                      <MarkdownRenderer
-                        content={assistantMarkdown}
-                        citationMap={message.citationMap}
-                        onClickCitation={onClickCitation || handleOpenCitation}
-                      />
-                    ) : null
-                  ) : (
-                    <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
-                      {message.content ? stripArtifactBlocks(message.content) : ''}
-                    </span>
-                  )}
-                </div>
-              ) : message.isStreaming ? (
-                surfaceVariant === 'many' ? (
-                  <ManyMinimalStatusRow variant="dots" label={message.streamingLabel || t('chat.processing')} />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                    <span className="text-[13px] text-[var(--secondary-text)]">
-                      {message.streamingLabel || t('chat.processing')}
-                    </span>
-                  </div>
-                )
-              ) : null}
+        {streamingMarker}
 
-              {/* Streaming cursor */}
-              {message.isStreaming && message.content && (
-                <span className="inline-block w-0.5 h-4 ml-0.5 bg-current animate-pulse" aria-hidden />
-              )}
+        {message.content ? (
+          <Bubble variant={isUser ? 'default' : 'muted'} align={isUser ? 'end' : 'start'}>
+            <BubbleContent>{renderBubbleInner()}</BubbleContent>
+          </Bubble>
+        ) : null}
 
-              {/* User: timestamp shown below bubble on hover */}
-              {isUser && message.content && (
-                <div
-                  className="mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ fontSize: surfaceVariant === 'many' ? '11px' : '12px', color: 'var(--tertiary-text)' }}
-                >
-                  {formattedTime}
-                </div>
-              )}
-
-              {isAssistant && !message.isStreaming && message.pdfRegionMeta && (
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <button
-                    type="button"
-                    className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
-                    style={{
-                      background: 'var(--accent)',
-                      color: 'var(--base-text)',
-                    }}
-                    onClick={handlePdfRegionCloudHandoff}
-                  >
-                    {t('viewer.pdf_region_qa_continue_many')}
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
-                    style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
-                    onClick={() => handlePdfRegionCopyHandoff()}
-                  >
-                    {t('viewer.pdf_region_qa_copy_handoff')}
-                  </button>
-                </div>
-              )}
-
-              {/* Source references footer (assistant only) */}
-              {isAssistant && !message.isStreaming && sourceReferences.length > 0 && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                  <SourceReference
-                    sources={sourceReferences}
-                    onClickSource={(source) => {
-                      if (onClickCitation) { onClickCitation(source.number); return; }
-                      handleOpenCitation(source.number);
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Assistant actions */}
-              {isAssistant && !message.isStreaming && (
-                <div
-                  className="mt-2 pt-2 flex items-center gap-0.5 border-t"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                    style={{ color: 'var(--tertiary-text)' }}
-                    title={t('chat.copy_message')}
-                    aria-label={t('chat.copy_message')}
-                  >
-                    {copied ? <Check className="size-3" style={{ color: 'var(--success)' }} /> : <Copy className="size-3" />}
-                  </button>
-                  {onSaveAsNote && message.content ? (
-                    <button
-                      type="button"
-                      onClick={handleSaveAsNote}
-                      className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                      style={{ color: savedAsNote ? 'var(--success)' : 'var(--tertiary-text)' }}
-                      title={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
-                      aria-label={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
-                    >
-                      {savedAsNote ? <Check className="size-3" /> : <BookmarkPlus className="size-3" />}
-                    </button>
-                  ) : null}
-                  {onRegenerate ? (
-                    <button
-                      type="button"
-                      onClick={onRegenerate}
-                      className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                      style={{ color: 'var(--tertiary-text)' }}
-                      title={t('chat.regenerate')}
-                      aria-label={t('chat.regenerate')}
-                    >
-                      <RefreshCw className="size-3" />
-                    </button>
-                  ) : null}
-                  <span
-                    className={`ml-auto ${surfaceVariant === 'many' ? 'text-[9px] opacity-70' : 'text-[10px]'}`}
-                    style={{ color: 'var(--tertiary-text)' }}
-                  >
-                    {formattedTime}
-                  </span>
-                </div>
-              )}
-            </div>
+        {isAssistant && !message.isStreaming && message.pdfRegionMeta ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button type="button" size="xs" onClick={handlePdfRegionCloudHandoff}>
+              {t('viewer.pdf_region_qa_continue_many')}
+            </Button>
+            <Button type="button" size="xs" variant="outline" onClick={() => void handlePdfRegionCopyHandoff()}>
+              {t('viewer.pdf_region_qa_copy_handoff')}
+            </Button>
           </div>
-        )}
+        ) : null}
+
+        {isAssistant && !message.isStreaming && sourceReferences.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <Separator />
+            <SourceReference
+              sources={sourceReferences}
+              onClickSource={(source) => {
+                if (onClickCitation) {
+                  onClickCitation(source.number);
+                  return;
+                }
+                handleOpenCitation(source.number);
+              }}
+            />
+          </div>
+        ) : null}
+
+        {isUser && message.content ? (
+          <MessageFooter className="gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <Button type="button" size="icon-xs" variant="ghost" onClick={() => void handleCopy()} title={t('chat.copy_message')}>
+              <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
+            </Button>
+            <span className="text-xs tabular-nums text-muted-foreground">{formattedTime}</span>
+          </MessageFooter>
+        ) : null}
+
+        {isAssistant && !message.isStreaming ? (
+          <MessageFooter className="gap-0.5">
+            <Button type="button" size="icon-xs" variant="ghost" onClick={() => void handleCopy()} title={t('chat.copy_message')}>
+              <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
+            </Button>
+            {onSaveAsNote && message.content ? (
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                onClick={handleSaveAsNote}
+                title={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
+              >
+                <HugeiconsIcon icon={savedAsNote ? CheckmarkCircle02Icon : BookmarkPlusIcon} />
+              </Button>
+            ) : null}
+            {onRegenerate ? (
+              <Button type="button" size="icon-xs" variant="ghost" onClick={onRegenerate} title={t('chat.regenerate')}>
+                <HugeiconsIcon icon={RefreshIcon} />
+              </Button>
+            ) : null}
+            <span className="ml-auto text-xs tabular-nums text-muted-foreground">{formattedTime}</span>
+          </MessageFooter>
+        ) : null}
       </div>
-    </div>
-  );
-}
-
-function toolBlockKey(block: ToolDisplayBlock, idx: number): string {
-  if (block.type === 'tool') return block.call.id;
-  if (block.type === 'tool-group') return `group:${block.name}:${idx}`;
-  return `subagent:${block.agentKey}:${idx}`;
-}
-
-function ToolDisplayBlockView({
-  block,
-  surfaceVariant,
-}: {
-  block: ToolDisplayBlock;
-  surfaceVariant: 'default' | 'many';
-}) {
-  if (block.type === 'tool') {
-    return <ChatToolCard toolCall={block.call} surfaceVariant={surfaceVariant} />;
-  }
-  if (block.type === 'tool-group') {
-    return (
-      <ChatToolCardGroup
-        name={block.name}
-        calls={block.calls}
-        surfaceVariant={surfaceVariant}
-      />
     );
-  }
-  return (
-    <SubagentToolSection
-      agentKey={block.agentKey}
-      agentLabel={block.agentLabel}
-      surfaceVariant={surfaceVariant}
-    >
-      {block.blocks.map((inner, innerIdx) =>
-        inner.type === 'tool' ? (
-          <ChatToolCard key={inner.call.id} toolCall={inner.call} surfaceVariant={surfaceVariant} />
-        ) : (
-          <ChatToolCardGroup
-            key={`${inner.name}:${innerIdx}`}
-            name={inner.name}
-            calls={inner.calls}
-            surfaceVariant={surfaceVariant}
-          />
-        ),
-      )}
-    </SubagentToolSection>
-  );
 }

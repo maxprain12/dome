@@ -20,7 +20,7 @@ import { db } from '@/lib/db/client';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
 import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
-import ReadingIndicator from '@/components/chat/ReadingIndicator';
+import { ChatStateMarker } from '@/components/chat/ChatStateMarker';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
@@ -28,7 +28,10 @@ import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { UnifiedChatHeader } from '@/components/chat/UnifiedChatHeader';
 import { UnifiedChatEmptyState } from '@/components/chat/UnifiedChatEmptyState';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
-import { ChevronLeft } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { useTranslation } from 'react-i18next';
 import {
@@ -50,7 +53,6 @@ import {
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
-import { useChatAutoScroll } from '@/lib/chat/useChatAutoScroll';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 import ContextUsageIndicator from '@/components/many/ContextUsageIndicator';
 import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
@@ -97,6 +99,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [providerInfo, setProviderInfo] = useState('');
   const [providerId, setProviderId] = useState('');
   const supportsToolsRef = useRef(false);
@@ -107,8 +110,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
   const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
   const thinkingLabelIdxRef = useRef(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
 
@@ -291,12 +292,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
   });
 
-  const { scrollToBottom, resetScrollLock } = useChatAutoScroll(
-    messagesContainerRef,
-    messagesEndRef,
-    [messages, streamingMessage],
-    { isStreaming: Boolean(streamingMessage?.isStreaming || isLoading) },
-  );
 
   const buildSystemPrompt = useCallback(async () => {
     if (!agent) return '';
@@ -369,8 +364,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     abortControllerRef.current = controller;
 
     addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
-    scrollToBottom(true);
-    resetScrollLock();
 
     let fullResponse = '';
     let delegatedToRunEngine = false;
@@ -562,8 +555,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     toolDefs,
     activeToolIds,
     enabledMcpIds,
-    scrollToBottom,
-    resetScrollLock,
     currentSessionId,
     chatProjectId,
     applyRunSnapshot,
@@ -613,15 +604,14 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   }, [chatMessages, streamingMessage]);
 
   const handleClear = useCallback(() => {
-    if (window.confirm(t('chat.clear_confirm'))) {
-      clearMessages();
-      showToast('info', t('agent.chat_cleared'));
-    }
+    clearMessages();
+    setClearDialogOpen(false);
+    showToast('info', t('agent.chat_cleared'));
   }, [clearMessages, t]);
 
   if (!agent) {
     return (
-        <div className="flex items-center justify-center h-full" style={{ color: 'var(--secondary-text)' }}>
+        <div className="flex items-center justify-center h-full text-muted-foreground">
         {t('ui.loading')}
       </div>
     );
@@ -630,18 +620,20 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const agentAvatarSrc = agent ? `/agents/sprite_${agent.iconIndex}.png` : undefined;
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[var(--bg)]">
+    <>
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
       <UnifiedChatHeader
         startSlot={
           onBack ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={onBack}
-              className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)]"
               title={t('agent.back')}
             >
-              <ChevronLeft className="size-4" />
-            </button>
+              <HugeiconsIcon icon={ArrowLeft01Icon} />
+            </Button>
           ) : undefined
         }
         left={
@@ -658,19 +650,19 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           ) : null
         }
         actions={
-          <button
+          <Button
             type="button"
-            onClick={handleClear}
-            className="rounded-lg px-2.5 py-1.5 text-xs text-[var(--secondary-text)] transition-colors hover:bg-[var(--bg-hover)]"
+            variant="ghost"
+            size="sm"
+            onClick={() => setClearDialogOpen(true)}
             title={t('agent.clear_chat')}
           >
             {t('agent.clear_chat')}
-          </button>
+          </Button>
         }
       />
 
       <UnifiedChatMessageArea
-        ref={messagesContainerRef}
         className="p-4 flex flex-col gap-5"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
@@ -702,16 +694,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
                   alt=""
                   className="size-6 object-contain rounded"
                 />
-                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
-                  <ReadingIndicator className="opacity-60" style={{ color: 'var(--secondary-text)' }} />
-                  <span className="text-[13px]" style={{ color: 'var(--secondary-text)' }}>
-                    {t('chat.thinking')}
-                  </span>
-                </div>
+                <ChatStateMarker label={t('chat.thinking')} className="flex-1" />
               </div>
             ) : null}
             {error ? (
-              <p className="text-sm" style={{ color: 'var(--error)' }}>
+              <p className="text-sm text-destructive">
                 {error}
               </p>
             ) : null}
@@ -724,7 +711,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
             inline
           />
         ) : null}
-        <div ref={messagesEndRef} />
       </UnifiedChatMessageArea>
 
       {/* Live provider token usage (real billing, not the char/4 estimate) */}
@@ -766,5 +752,18 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         onSetActiveStickySkill={setActiveStickySkillId}
       />
     </div>
+    <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('agent.clear_chat')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('chat.clear_confirm')}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={handleClear}>{t('agent.clear_chat')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

@@ -108,6 +108,7 @@ const ALLOWED_CHANNELS = {
     'db:projects:create',
     'db:projects:getAll',
     'db:projects:getById',
+    'db:projects:update',
     'db:projects:setVaultRoot',
     'db:projects:getVaultRoot',
     'db:projects:getDeletionImpact',
@@ -230,6 +231,8 @@ const ALLOWED_CHANNELS = {
     'db:graph:searchNodes',
     // Database - Search
     'db:search:unified',
+    'db:search:reindexSources',
+    'db:search:recentSources',
     // Database - Settings
     'db:settings:get',
     'db:settings:set',
@@ -353,9 +356,12 @@ const ALLOWED_CHANNELS = {
     'domeauth:getSession',
     'domeauth:disconnect',
     'domeauth:getQuota',
+    'domeauth:nativeLogin',
+    'domeauth:sessionState',
     // Personality Loader
     'personality:get-prompt',
     'personality:get-context-files',
+    'personality:get-agent-memory-context',
     'personality:read-file',
     'personality:write-file',
     'personality:add-memory',
@@ -511,13 +517,11 @@ const ALLOWED_CHANNELS = {
     // Sync export/import
     'sync:export',
     'sync:import',
-    'cloudSync:getStatus',
-    'cloudSync:push',
-    'cloudSync:pull',
-    'cloudSync:startRevisionWatcher',
-    'cloudSync:stopRevisionWatcher',
-    'cloudSync:getSettings',
-    'cloudSync:setSettings',
+    'domainSync:getEntitlements',
+    'domainSync:getStatus',
+    'domainSync:setDomainEnabled',
+    'domainSync:syncNow',
+    'social:setCloudPublishing',
     // MCP
     'mcp:testConnection',
     'mcp:testServer',
@@ -552,6 +556,8 @@ const ALLOWED_CHANNELS = {
     'email:search',
     'email:send',
     'email:reply',
+    'email:sync:now',
+    'email:sync:status',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -627,9 +633,16 @@ const ALLOWED_CHANNELS = {
     'social:posts:update',
     'social:posts:delete',
     'social:posts:publish',
+    'social:posts:sync',
     'social:metrics:post',
     'social:metrics:refresh',
+    'social:metrics:refreshPost',
     'social:summary',
+    'social:workspace',
+    'social:campaigns:list',
+    'social:campaigns:create',
+    'social:campaigns:update',
+    'social:campaigns:archive',
     'social:growth',
     'social:reports:list',
     'social:reports:get',
@@ -640,6 +653,14 @@ const ALLOWED_CHANNELS = {
     'social:media:pick',
     'social:media:library',
     'social:media:preview',
+    'social:capabilities',
+    'social:drafts:list',
+    'social:drafts:create-from-match',
+    'social:drafts:send',
+    'social:drafts:dismiss',
+    'social:drafts:poll-now',
+    'social:live-reply-rules:get',
+    'social:live-reply-rules:set',
     // Artifact feeders (sandbox scripts → runtime data)
     'feeders:create',
     'feeders:get',
@@ -680,12 +701,22 @@ const ALLOWED_CHANNELS = {
     'github:releases:list',
     'github:image:resolve',
     'github:sync:now',
+    'github:sync:status',
+    'people:list',
+    'people:get',
+    'people:search',
+    'people:upsert',
+    'people:linkIdentity',
+    'people:upsertIdentity',
+    'people:syncGithub',
   ],
   // Canales para on/once (main → renderer)
   on: [
     // GitHub project sync (main → renderer broadcasts)
     'github:sync:status',
     'github:data:updated',
+    'email:sync:status',
+    'email:data:updated',
     'theme-changed',
     // System error notifications (main → toast in renderer)
     'system:error-notification',
@@ -782,8 +813,10 @@ const ALLOWED_CHANNELS = {
     // Social hub events
     'social:account-updated',
     'social:post-updated',
+    'social:posts-refresh',
     'social:metrics-updated',
     'social:report-updated',
+    'social:drafts-updated',
     // Feeder events
     'feeder:created',
     'feeder:updated',
@@ -797,10 +830,10 @@ const ALLOWED_CHANNELS = {
     'ppt-capture:render-slide',
     // In-app approval (HITL — main requests approval, renderer shows modal)
     'approval:requested',
-    'cloud-sync:revision',
-    'cloud-sync:pull-done',
-    'cloud-sync:pushed',
-    'cloud-sync:reindex-done',
+    'domain-sync:completed',
+    'domain-sync:progress',
+    'settings:cloud-updated',
+    'domeauth:sessionState',
   ],
   send: [
     'ppt-capture:ready',
@@ -992,24 +1025,25 @@ const electronHandler = {
     import: () => ipcRenderer.invoke('sync:import'),
   },
 
-  cloudSync: {
-    getStatus: () => ipcRenderer.invoke('cloudSync:getStatus'),
-    push: () => ipcRenderer.invoke('cloudSync:push'),
-    pull: () => ipcRenderer.invoke('cloudSync:pull'),
-    startRevisionWatcher: () => ipcRenderer.invoke('cloudSync:startRevisionWatcher'),
-    stopRevisionWatcher: () => ipcRenderer.invoke('cloudSync:stopRevisionWatcher'),
-    onRevision: (callback) => {
+  domainSync: {
+    getEntitlements: () => ipcRenderer.invoke('domainSync:getEntitlements'),
+    getStatus: () => ipcRenderer.invoke('domainSync:getStatus'),
+    setDomainEnabled: (args) => ipcRenderer.invoke('domainSync:setDomainEnabled', args),
+    syncNow: (args) => ipcRenderer.invoke('domainSync:syncNow', args),
+    onCompleted: (callback) => {
       const subscription = (_event, data) => callback(data);
-      ipcRenderer.on('cloud-sync:revision', subscription);
-      return () => ipcRenderer.removeListener('cloud-sync:revision', subscription);
+      ipcRenderer.on('domain-sync:completed', subscription);
+      return () => ipcRenderer.removeListener('domain-sync:completed', subscription);
     },
-    onPullDone: (callback) => {
+    onProgress: (callback) => {
       const subscription = (_event, data) => callback(data);
-      ipcRenderer.on('cloud-sync:pull-done', subscription);
-      return () => ipcRenderer.removeListener('cloud-sync:pull-done', subscription);
+      ipcRenderer.on('domain-sync:progress', subscription);
+      return () => ipcRenderer.removeListener('domain-sync:progress', subscription);
     },
-    getSettings: () => ipcRenderer.invoke('cloudSync:getSettings'),
-    setSettings: (partial) => ipcRenderer.invoke('cloudSync:setSettings', partial),
+  },
+
+  socialCloud: {
+    setCloudPublishing: (args) => ipcRenderer.invoke('social:setCloudPublishing', args),
   },
 
   // ============================================
@@ -1027,6 +1061,18 @@ const electronHandler = {
     search: (params) => ipcRenderer.invoke('email:search', params),
     send: (params) => ipcRenderer.invoke('email:send', params),
     reply: (params) => ipcRenderer.invoke('email:reply', params),
+    syncNow: (params) => ipcRenderer.invoke('email:sync:now', params),
+    syncStatus: (params) => ipcRenderer.invoke('email:sync:status', params),
+    onSyncStatus: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('email:sync:status', subscription);
+      return () => ipcRenderer.removeListener('email:sync:status', subscription);
+    },
+    onDataUpdated: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('email:data:updated', subscription);
+      return () => ipcRenderer.removeListener('email:data:updated', subscription);
+    },
   },
 
   // ============================================
@@ -1097,6 +1143,13 @@ const electronHandler = {
     getSession: () => ipcRenderer.invoke('domeauth:getSession'),
     disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
     getQuota: () => ipcRenderer.invoke('domeauth:getQuota'),
+    nativeLogin: (email, password, isRegister, name) =>
+      ipcRenderer.invoke('domeauth:nativeLogin', { email, password, isRegister, name }),
+    onSessionState: (callback) => {
+      const sub = (_event, state) => callback(state);
+      ipcRenderer.on('domeauth:sessionState', sub);
+      return () => ipcRenderer.removeListener('domeauth:sessionState', sub);
+    },
   },
 
   // ============================================
@@ -1158,6 +1211,19 @@ const electronHandler = {
   },
 
   // ============================================
+  // PEOPLE / IDENTITIES API (unified contacts)
+  // ============================================
+  people: {
+    list: (projectId) => ipcRenderer.invoke('people:list', projectId),
+    get: (id) => ipcRenderer.invoke('people:get', id),
+    search: (payload) => ipcRenderer.invoke('people:search', payload),
+    upsert: (payload) => ipcRenderer.invoke('people:upsert', payload),
+    linkIdentity: (payload) => ipcRenderer.invoke('people:linkIdentity', payload),
+    upsertIdentity: (payload) => ipcRenderer.invoke('people:upsertIdentity', payload),
+    syncGithub: (projectId) => ipcRenderer.invoke('people:syncGithub', projectId),
+  },
+
+  // ============================================
   // PLUGINS API
   // ============================================
   plugins: {
@@ -1199,6 +1265,7 @@ const electronHandler = {
       create: (project) => ipcRenderer.invoke('db:projects:create', project),
       getAll: () => ipcRenderer.invoke('db:projects:getAll'),
       getById: (id) => ipcRenderer.invoke('db:projects:getById', id),
+      update: (project) => ipcRenderer.invoke('db:projects:update', project),
       setVaultRoot: (args) => ipcRenderer.invoke('db:projects:setVaultRoot', args),
       getVaultRoot: (projectId) => ipcRenderer.invoke('db:projects:getVaultRoot', projectId),
       getDeletionImpact: (projectId) => ipcRenderer.invoke('db:projects:getDeletionImpact', projectId),
@@ -1316,6 +1383,9 @@ const electronHandler = {
     // Unified Search
     search: {
       unified: (query, projectId) => ipcRenderer.invoke('db:search:unified', query, projectId),
+      reindexSources: (projectId) => ipcRenderer.invoke('db:search:reindexSources', projectId),
+      recentSources: (projectId, limitPerKind) =>
+        ipcRenderer.invoke('db:search:recentSources', projectId, limitPerKind),
     },
 
     // Flashcards
@@ -1971,6 +2041,7 @@ const electronHandler = {
 
     /** SOUL / USER / MEMORY context files for harness assembly. */
     getContextFiles: () => ipcRenderer.invoke('personality:get-context-files'),
+    getAgentMemoryContext: (params) => ipcRenderer.invoke('personality:get-agent-memory-context', params || {}),
 
     // Read context file
     readFile: (filename) => ipcRenderer.invoke('personality:read-file', filename),
@@ -1985,7 +2056,8 @@ const electronHandler = {
     listFiles: () => ipcRenderer.invoke('personality:list-files'),
 
     // Remember a fact about the user in long-term memory
-    rememberFact: (key, value) => ipcRenderer.invoke('personality:remember-fact', { key, value }),
+    rememberFact: (key, value, domain) =>
+      ipcRenderer.invoke('personality:remember-fact', { key, value, domain }),
 
     openFolder: () => ipcRenderer.invoke('personality:open-folder'),
 

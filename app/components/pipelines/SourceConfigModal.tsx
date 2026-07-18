@@ -1,10 +1,22 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { CreateSourceInput, PipelineStage, SourceType } from '@/lib/pipelines/types';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import type { ReactNode } from 'react';
 interface Props {
   stages: PipelineStage[];
   onClose: () => void;
@@ -48,86 +60,64 @@ export default function SourceConfigModal({ stages, onClose, onCreate }: Props) 
     t(`pipelines.source_${s === 'internal_resources' ? 'internal' : s}`);
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={t('pipelines.add_source')}
-      size="md"
-      footer={
-        <>
-          <DomeButton variant="ghost" onClick={onClose}>
-            {t('pipelines.cancel')}
-          </DomeButton>
-          <DomeButton variant="primary" onClick={() => void save()} disabled={saving}>
-            {saving ? t('pipelines.saving') : t('pipelines.create')}
-          </DomeButton>
-        </>
-      }
-    >
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('pipelines.add_source')}</DialogTitle>
+          <DialogDescription>{t('pipelines.source_type')}</DialogDescription>
+        </DialogHeader>
       <div className="flex flex-col gap-3">
-        <DomeSelectMenu<SourceType>
-          label={t('pipelines.source_type')}
-          value={sourceType}
-          onChange={setSourceType}
-          options={SOURCE_TYPES.map((s) => ({ value: s, label: label(s) }))}
-        />
+        <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.source_type')}</FieldLabel><Select value={sourceType ?? null} onValueChange={(next) => { if (next != null) (setSourceType)(next); }} items={SOURCE_TYPES.map((s) => ({ value: s, label: label(s) }))}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{(SOURCE_TYPES.map((s) => ({ value: s, label: label(s) }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-            {t('pipelines.pipeline_name_placeholder')}
-          </span>
-          <input
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="source-name">{t('pipelines.pipeline_name_placeholder')}</Label>
+          <Input
+            id="source-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={label(sourceType)}
-            className="text-sm rounded-md px-2 py-1.5 outline-none"
-            style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
           />
-        </label>
+        </div>
 
         {stages.length > 0 && (
-          <DomeSelectMenu
-            label={t('pipelines.add_stage')}
-            value={targetStageId}
-            onChange={setTargetStageId}
-            options={stages.map((s) => ({ value: s.id, label: s.title }))}
-          />
+          <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.add_stage')}</FieldLabel><Select value={targetStageId ?? null} onValueChange={(next) => { if (next != null) (setTargetStageId)(next); }} items={stages.map((s) => ({ value: s.id, label: s.title }))}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{(stages.map((s) => ({ value: s.id, label: s.title }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
         )}
 
         {sourceType === 'excel' && (
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-              Excel resourceId
-            </span>
-            <input
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="excel-resource-id">Excel resourceId</Label>
+            <Input
+              id="excel-resource-id"
               value={resourceId}
               onChange={(e) => setResourceId(e.target.value)}
               placeholder="resource id"
-              className="text-sm rounded-md px-2 py-1.5 outline-none"
-              style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
             />
-          </label>
+          </div>
         )}
 
         {sourceType === 'prompt_mcp' && (
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-              {t('pipelines.base_prompt')}
-            </span>
-            <textarea
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="base-prompt">{t('pipelines.base_prompt')}</Label>
+            <Textarea
+              id="base-prompt"
               value={basePrompt}
               onChange={(e) => setBasePrompt(e.target.value)}
               rows={4}
               placeholder={t('pipelines.base_prompt_hint')}
-              className="text-sm rounded-md px-2 py-1.5 outline-none resize-y"
-              style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
             />
-            <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-              {t('pipelines.base_prompt_hint')}
-            </span>
-          </label>
+            <span className="text-[11px] text-muted-foreground">{t('pipelines.base_prompt_hint')}</span>
+          </div>
         )}
       </div>
-    </DomeModal>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            {t('pipelines.cancel')}
+          </Button>
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? t('pipelines.saving') : t('pipelines.create')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

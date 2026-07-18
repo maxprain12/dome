@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const database = require('../core/database.cjs');
 const { normalizeRemindersForStorage } = require('./calendar-reminders.cjs');
+const syncTombstone = require('../storage/sync-tombstone.cjs');
 
 const DEFAULT_REMINDER_MINUTES = 15;
 const MAX_TITLE_LENGTH = 200;
@@ -321,6 +322,18 @@ async function updateEvent(eventId, updates) {
     const now = Date.now();
     const cal = q.getCalendarCalendarById.get(existing.calendar_id);
 
+    // Merge metadata so callers can patch resourceIds without wiping
+    // provenance fields (source, entityId, pipelineId, …).
+    let metadataStr = existing.metadata;
+    if (updates.metadata !== undefined) {
+      const prev = safeJsonField(existing.metadata, {}) || {};
+      const incoming =
+        typeof updates.metadata === 'string'
+          ? (safeJsonField(updates.metadata, {}) || {})
+          : (updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {});
+      metadataStr = JSON.stringify({ ...prev, ...incoming });
+    }
+
     q.updateCalendarEvent.run(
       p.title ?? existing.title,
       p.description ?? existing.description,
@@ -331,9 +344,7 @@ async function updateEvent(eventId, updates) {
       p.all_day ?? existing.all_day,
       updates.status ?? existing.status,
       p.reminders ?? existing.reminders,
-      updates.metadata !== undefined
-        ? (typeof updates.metadata === 'string' ? updates.metadata : JSON.stringify(updates.metadata))
-        : existing.metadata,
+      metadataStr,
       existing.source,
       now,
       eventId
@@ -375,6 +386,16 @@ async function deleteEvent(eventId) {
 
     if (q.deleteCalendarNotificationsForEvent) {
       q.deleteCalendarNotificationsForEvent.run(eventId);
+    }
+    const db = database.getDB?.();
+    if (db) {
+      const links = db
+        .prepare('SELECT id FROM calendar_event_links WHERE event_id = ?')
+        .all(eventId);
+      for (const link of links) {
+        syncTombstone.recordTombstone(db, 'calendar_event_links', link.id);
+      }
+      syncTombstone.recordTombstone(db, 'calendar_events', eventId);
     }
     q.deleteCalendarEventLinksByEvent.run(eventId);
     q.deleteCalendarEvent.run(eventId);

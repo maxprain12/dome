@@ -137,6 +137,10 @@ class DatabaseClient {
     return this.db.projects.getById(id);
   }
 
+  async updateProject(project: Pick<Project, 'id' | 'name'> & Partial<Pick<Project, 'description'>>): Promise<DBResponse<Project>> {
+    return this.db.projects.update(project);
+  }
+
   async getProjectDeletionImpact(projectId: string): Promise<DBResponse<Record<string, number>>> {
     return this.db.projects.getDeletionImpact(projectId) as Promise<DBResponse<Record<string, number>>>;
   }

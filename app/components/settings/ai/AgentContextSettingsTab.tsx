@@ -1,36 +1,46 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, FolderOpen, RefreshCw, Loader2 } from 'lucide-react';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Alert02Icon,
+  CopyIcon,
+  FolderOpenIcon,
+  InformationCircleIcon,
+  RefreshIcon,
+} from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { SettingsGroup } from '../blocks';
 import { showToast } from '@/lib/store/useToastStore';
 import {
   loadPersonalityContextFiles,
   type PersonalityContextFiles,
 } from '@/lib/personality/contextFiles';
 
-type ContextDocId = 'SOUL' | 'USER' | 'MEMORY' | 'daily';
+type ContextDocId = 'SOUL' | 'USER' | 'MEMORY' | 'daily' | 'social' | 'email';
 type ViewMode = 'full' | 'agent';
 type EditMode = 'view' | 'edit';
 
 type DailyLog = { date: string; content: string };
 
-const CONTEXT_LIMITS: Record<'SOUL' | 'USER' | 'MEMORY', number> = {
+const CONTEXT_LIMITS: Record<'SOUL' | 'USER' | 'MEMORY' | 'social' | 'email', number> = {
   SOUL: 24_000,
   USER: 12_000,
   MEMORY: 16_000,
+  social: 8_000,
+  email: 8_000,
 };
 
 function filenameForDoc(doc: Exclude<ContextDocId, 'daily'>): string {
-  return `${doc === 'SOUL' ? 'SOUL' : doc === 'USER' ? 'USER' : 'MEMORY'}.md`;
+  if (doc === 'social' || doc === 'email') return `domains/${doc}.md`;
+  return `${doc}.md`;
 }
 
-function openAgentContextFolder() {
-  void window.electron?.personality?.openFolder?.();
-}
-
+/** SOUL/USER/MEMORY + daily-log editor for the agent's persistent context files. */
 export default function AgentContextSettingsTab() {
   const { t } = useTranslation();
   const [selectedDoc, setSelectedDoc] = useState<ContextDocId>('SOUL');
@@ -44,11 +54,15 @@ export default function AgentContextSettingsTab() {
   const [agentView, setAgentView] = useState<PersonalityContextFiles | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const [selectedDailyDate, setSelectedDailyDate] = useState<string | null>(null);
+  const [pendingDoc, setPendingDoc] = useState<ContextDocId | null>(null);
 
   const isDirty = editMode === 'edit' && draftContent !== savedContent;
 
   const displayedContent = useMemo(() => {
     if (selectedDoc === 'daily') return fullContent;
+    if (selectedDoc === 'social' || selectedDoc === 'email') {
+      return editMode === 'edit' ? draftContent : fullContent;
+    }
     if (viewMode === 'agent' && agentView) {
       if (selectedDoc === 'SOUL') return agentView.soul;
       if (selectedDoc === 'USER') return agentView.user;
@@ -82,7 +96,7 @@ export default function AgentContextSettingsTab() {
           const logs = await loadDailyLogs();
           const date = dailyDate ?? selectedDailyDate ?? logs[0]?.date ?? null;
           setSelectedDailyDate(date);
-          const text = date ? logs.find((d) => d.date === date)?.content ?? '' : '';
+          const text = date ? (logs.find((d) => d.date === date)?.content ?? '') : '';
           setFullContent(text);
           setDraftContent(text);
           setSavedContent(text);
@@ -117,14 +131,17 @@ export default function AgentContextSettingsTab() {
       await navigator.clipboard.writeText(displayedContent);
       showToast('info', t('settings.ai.context_copied'));
     } catch {
-      showToast('error', t('viewer.transcript_copy_failed'));
+      showToast('error', t('media.transcript_copy_failed'));
     }
   };
 
   const handleSelectDoc = (doc: ContextDocId) => {
-    if (isDirty && !window.confirm(t('settings.ai.context_unsaved_confirm'))) return;
+    if (isDirty) {
+      setPendingDoc(doc);
+      return;
+    }
     setEditMode('view');
-    if (doc !== 'daily') setViewMode('full');
+    if (doc === 'SOUL' || doc === 'USER' || doc === 'MEMORY') setViewMode('full');
     setSelectedDoc(doc);
   };
 
@@ -162,142 +179,184 @@ export default function AgentContextSettingsTab() {
     { value: 'SOUL' as const, label: t('settings.ai.context_doc_soul') },
     { value: 'USER' as const, label: t('settings.ai.context_doc_user') },
     { value: 'MEMORY' as const, label: t('settings.ai.context_doc_memory') },
+    { value: 'social' as const, label: t('settings.ai.context_doc_social') },
+    { value: 'email' as const, label: t('settings.ai.context_doc_email') },
     { value: 'daily' as const, label: t('settings.ai.context_doc_daily') },
   ];
 
   return (
-    <div className="space-y-4">
-      <DomeSubpageHeader>
-  <DomeSubpageHeader.Title>{t('settings.ai.tab_context')}</DomeSubpageHeader.Title>
-  <DomeSubpageHeader.Subtitle>{t('settings.ai.context_subtitle')}</DomeSubpageHeader.Subtitle>
-</DomeSubpageHeader>
+    <SettingsGroup
+      title={t('settings.ai.tab_context')}
+      description={t('settings.ai.context_subtitle')}
+      actions={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void window.electron?.personality?.openFolder?.()}
+          >
+            <HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />
+            {t('settings.ai.context_open_folder')}
+          </Button>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={handleRefresh} disabled={loading} aria-label={t('common.refresh')} title={t('common.refresh')}>
+            {loading ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} />}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4 px-4 py-4">
+        <Tabs value={selectedDoc} onValueChange={(v) => handleSelectDoc(v as ContextDocId)}>
+          <TabsList className="w-full">
+            {docOptions.map((opt) => (
+              <TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1">
+                <span className="truncate">{opt.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-      <div className="settings-action-row flex-wrap">
-        <DomeButton
-          variant="secondary"
-          size="sm"
-          onClick={openAgentContextFolder}
-          leftIcon={<FolderOpen size={14} />}
-        >
-          {t('settings.ai.context_open_folder')}
-        </DomeButton>
-        <DomeButton
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          leftIcon={loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          disabled={loading}
-        >
-          {t('common.refresh')}
-        </DomeButton>
+        {selectedDoc === 'daily' && dailyLogs.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {dailyLogs.map((log) => (
+              <Button
+                key={log.date}
+                type="button"
+                variant={selectedDailyDate === log.date ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedDailyDate(log.date)}
+              >
+                {log.date}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+
+        {selectedDoc === 'SOUL' || selectedDoc === 'USER' || selectedDoc === 'MEMORY' ? (
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="full">{t('settings.ai.context_view_full')}</TabsTrigger>
+              <TabsTrigger value="agent">{t('settings.ai.context_view_agent')}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          {viewMode === 'full' || selectedDoc === 'daily' || selectedDoc === 'social' || selectedDoc === 'email' ? (
+            <>
+              <Button
+                type="button"
+                variant={editMode === 'view' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setEditMode('view')}
+              >
+                {t('settings.ai.context_mode_view')}
+              </Button>
+              <Button
+                type="button"
+                variant={editMode === 'edit' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setEditMode('edit')}
+              >
+                {t('settings.ai.context_mode_edit')}
+              </Button>
+            </>
+          ) : null}
+          <Button type="button" variant="ghost" size="sm" onClick={() => void handleCopy()}>
+            <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
+            {t('common.copy')}
+          </Button>
+          {editMode === 'edit' &&
+          (viewMode === 'full' ||
+            selectedDoc === 'daily' ||
+            selectedDoc === 'social' ||
+            selectedDoc === 'email') ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!isDirty || saving}
+                onClick={() => void handleSave()}
+              >
+                {saving ? <Spinner data-icon="inline-start" /> : null}
+                {t('common.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!isDirty}
+                onClick={() => setDraftContent(savedContent)}
+              >
+                {t('settings.ai.context_discard')}
+              </Button>
+            </>
+          ) : null}
+        </div>
+
+        {viewMode === 'agent' &&
+        (selectedDoc === 'SOUL' || selectedDoc === 'USER' || selectedDoc === 'MEMORY') ? (
+          <Alert role="note">
+            <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
+            <AlertDescription className="text-xs">
+              {t('settings.ai.context_agent_view_hint')}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {overLimit ? (
+          <Alert role="note">
+            <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+            <AlertDescription className="text-xs">
+              {t('settings.ai.context_over_limit', {
+                limit: charLimit ?? 0,
+                count: draftContent.length,
+              })}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <Alert role="note">
+          <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
+          <AlertDescription className="text-xs">
+            {t('settings.ai.context_memory_toggle_hint')}
+          </AlertDescription>
+        </Alert>
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner />
+            {t('ui.loading')}
+          </div>
+        ) : editMode === 'edit' && (viewMode === 'full' || selectedDoc === 'daily') ? (
+          <Textarea
+            value={draftContent}
+            onChange={(e) => setDraftContent(e.target.value)}
+            className="min-h-[320px] w-full rounded-lg bg-background p-3 font-mono text-xs leading-relaxed"
+            spellCheck={false}
+            aria-label={t('settings.ai.tab_context')}
+          />
+        ) : (
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed">
+            {displayedContent || t('settings.ai.context_empty')}
+          </pre>
+        )}
       </div>
 
-      <DomeSegmentedControl
-        size="sm"
-        value={selectedDoc}
-        onChange={(v) => handleSelectDoc(v as ContextDocId)}
-        options={docOptions}
+      <ConfirmDialog
+        isOpen={pendingDoc !== null}
+        title={t('settings.ai.context_unsaved_confirm')}
+        message={t('settings.ai.context_unsaved_confirm')}
+        onConfirm={() => {
+          if (pendingDoc) {
+            setEditMode('view');
+            if (pendingDoc !== 'daily') setViewMode('full');
+            setSelectedDoc(pendingDoc);
+          }
+          setPendingDoc(null);
+        }}
+        onCancel={() => setPendingDoc(null)}
       />
-
-      {selectedDoc === 'daily' && dailyLogs.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {dailyLogs.map((log) => (
-            <DomeButton
-              key={log.date}
-              type="button"
-              size="sm"
-              variant={selectedDailyDate === log.date ? 'primary' : 'outline'}
-              onClick={() => setSelectedDailyDate(log.date)}
-            >
-              {log.date}
-            </DomeButton>
-          ))}
-        </div>
-      ) : null}
-
-      {selectedDoc !== 'daily' ? (
-        <DomeSegmentedControl
-          size="sm"
-          value={viewMode}
-          onChange={(v) => setViewMode(v as ViewMode)}
-          options={[
-            { value: 'full', label: t('settings.ai.context_view_full') },
-            { value: 'agent', label: t('settings.ai.context_view_agent') },
-          ]}
-        />
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2">
-        {viewMode === 'full' || selectedDoc === 'daily' ? (
-          <>
-            <DomeButton
-              type="button"
-              size="sm"
-              variant={editMode === 'view' ? 'primary' : 'outline'}
-              onClick={() => setEditMode('view')}
-            >
-              {t('settings.ai.context_mode_view')}
-            </DomeButton>
-            <DomeButton
-              type="button"
-              size="sm"
-              variant={editMode === 'edit' ? 'primary' : 'outline'}
-              onClick={() => setEditMode('edit')}
-            >
-              {t('settings.ai.context_mode_edit')}
-            </DomeButton>
-          </>
-        ) : null}
-        <DomeButton type="button" size="sm" variant="ghost" onClick={() => void handleCopy()} leftIcon={<Copy size={14} />}>
-          {t('common.copy')}
-        </DomeButton>
-        {editMode === 'edit' && (viewMode === 'full' || selectedDoc === 'daily') ? (
-          <>
-            <DomeButton type="button" size="sm" variant="primary" loading={saving} disabled={!isDirty} onClick={() => void handleSave()}>
-              {t('common.save')}
-            </DomeButton>
-            <DomeButton
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!isDirty}
-              onClick={() => setDraftContent(savedContent)}
-            >
-              {t('settings.ai.context_discard')}
-            </DomeButton>
-          </>
-        ) : null}
-      </div>
-
-      {viewMode === 'agent' && selectedDoc !== 'daily' ? (
-        <DomeCallout tone="info">{t('settings.ai.context_agent_view_hint')}</DomeCallout>
-      ) : null}
-
-      {overLimit ? (
-        <DomeCallout tone="warning">
-          {t('settings.ai.context_over_limit', { limit: charLimit ?? 0, count: draftContent.length })}
-        </DomeCallout>
-      ) : null}
-
-      <DomeCallout tone="info">{t('settings.ai.context_memory_toggle_hint')}</DomeCallout>
-
-      {loading ? (
-        <div className="flex items-center gap-2 text-sm text-[var(--secondary-text)]">
-          <Loader2 size={16} className="animate-spin" />
-          {t('ui.loading')}
-        </div>
-      ) : editMode === 'edit' && (viewMode === 'full' || selectedDoc === 'daily') ? (
-        <textarea
-          value={draftContent}
-          onChange={(e) => setDraftContent(e.target.value)}
-          className="w-full min-h-[320px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 font-mono text-xs leading-relaxed text-[var(--primary-text)]"
-          spellCheck={false}
-        />
-      ) : (
-        <pre className="max-h-[420px] overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-[var(--primary-text)]">
-          {displayedContent || t('settings.ai.context_empty')}
-        </pre>
-      )}
-    </div>
+    </SettingsGroup>
   );
 }

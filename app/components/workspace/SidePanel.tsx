@@ -1,5 +1,12 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Link02Icon,
+  Comment01Icon,
+  Cancel01Icon,
+  FolderOpenIcon,
+  File02Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Link2, MessageSquare, X, FolderOpen, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import PDFTab from './PDFTab';
@@ -17,13 +24,13 @@ const TAB_ORDER: TabType[] = ['relations', 'backlinks', 'workspace', 'pdf'];
 function tabIcon(id: TabType): React.ReactNode {
   switch (id) {
     case 'relations':
-      return <Link2 size={14} />;
+      return <HugeiconsIcon icon={Link02Icon} size={14} />;
     case 'backlinks':
-      return <MessageSquare size={14} />;
+      return <HugeiconsIcon icon={Comment01Icon} size={14} />;
     case 'workspace':
-      return <FolderOpen size={14} />;
+      return <HugeiconsIcon icon={FolderOpenIcon} size={14} />;
     case 'pdf':
-      return <FileText size={14} />;
+      return <HugeiconsIcon icon={File02Icon} size={14} />;
     default:
       return null;
   }
@@ -43,6 +50,7 @@ interface SidePanelProps {
   /** For notebooks: Python venv path and change handler */
   notebookVenvPath?: string;
   onNotebookVenvPathChange?: (path: string) => Promise<void>;
+  embedded?: boolean;
 }
 
 export default function SidePanel({
@@ -56,6 +64,7 @@ export default function SidePanel({
   onNotebookWorkspacePathChange,
   notebookVenvPath,
   onNotebookVenvPathChange,
+  embedded = false,
 }: SidePanelProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>(() =>
@@ -122,22 +131,22 @@ export default function SidePanel({
 
   return (
     <div
-      className="flex flex-col h-full border-l transition-all duration-300 ease-out shrink-0"
-      style={{
+      className={embedded ? 'flex h-full min-w-0 flex-col' : 'flex h-full shrink-0 flex-col border-l'}
+      style={embedded ? undefined : {
         width: 'min(30vw, 380px)',
         minWidth: '280px',
-        background: 'var(--dome-bg)',
-        borderColor: 'var(--dome-border)',
+        background: 'var(--background)',
+        borderColor: 'var(--border)',
       }}
     >
       <div
         className="flex flex-col gap-2 p-3 border-b shrink-0"
-        style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
       >
         <div className="flex items-center justify-between gap-2">
           <div
             className="flex rounded-lg p-0.5 gap-0.5 flex-1 min-w-0 overflow-x-auto"
-            style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             role="tablist"
             aria-label={t('workspace.side_panel_tabs_aria')}
           >
@@ -150,10 +159,10 @@ export default function SidePanel({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setActiveTab(tabId)}
-                  className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+                  className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   style={{
-                    background: active ? 'var(--dome-accent-bg)' : 'transparent',
-                    color: active ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+                    background: active ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent',
+                    color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
                   }}
                 >
                   {tabIcon(tabId)}
@@ -165,11 +174,10 @@ export default function SidePanel({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--dome-bg-hover)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--dome-text-muted)' }}
+            className="p-2 rounded-lg shrink-0 transition-[background-color,opacity,box-shadow] duration-200 hover:bg-accent opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 text-muted-foreground"
             aria-label={t('workspace.side_panel_close')}
           >
-            <X size={16} />
+            <HugeiconsIcon icon={Cancel01Icon} size={16} />
           </button>
         </div>
       </div>
@@ -232,8 +240,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
     return (
       <div className="flex items-center justify-center h-full">
         <div
-          className="animate-spin size-5 border-2 border-current border-t-transparent rounded-full"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="animate-spin size-5 border-2 border-current border-t-transparent rounded-full text-muted-foreground"
         />
       </div>
     );
@@ -241,38 +248,38 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
 
   return (
     <div className="p-4 h-full overflow-y-auto">
-      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>
+      <h3 className="text-sm font-medium mb-3 text-foreground">
         {t('workspace.backlinks_heading')}
       </h3>
       {backlinks.length === 0 ? (
         <div className="text-center py-8">
-          <MessageSquare size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--dome-text-muted)' }} />
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <HugeiconsIcon icon={Comment01Icon} size={32} className="mx-auto mb-3 opacity-30 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             {t('workspace.backlinks_empty')}
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-y-2">
           {backlinks.map((link) => (
             <button
               type="button"
               key={link.id}
-              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--dome-bg-hover)] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-accent w-full text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.source_id, link.source_type);
               }}
               aria-label={`Open ${link.source_title || 'Untitled'}`}
             >
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+              <p className="text-sm font-medium text-foreground">
                 {link.source_title || 'Untitled'}
               </p>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span
                   className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
                   style={{
-                    background: 'var(--dome-bg-hover)',
-                    color: 'var(--dome-text-muted)',
+                    background: 'var(--accent)',
+                    color: 'var(--muted-foreground)',
                   }}
                 >
                   {link.source_type}
@@ -281,8 +288,8 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium tabular-nums"
                     style={{
-                      background: 'var(--dome-bg-hover)',
-                      color: 'var(--dome-text-muted)',
+                      background: 'var(--accent)',
+                      color: 'var(--muted-foreground)',
                     }}
                   >
                     {t('workspace.backlink_similarity', { pct: Math.round(link.similarity * 100) })}
@@ -292,8 +299,8 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{
-                      background: 'var(--dome-accent-bg)',
-                      color: 'var(--dome-text)',
+                      background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                      color: 'var(--foreground)',
                     }}
                   >
                     {t(`workspace.backlink_relation_${link.label}`, { defaultValue: link.label.replace(/_/g, ' ') })}
@@ -302,8 +309,8 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{
-                      background: 'var(--dome-accent-bg)',
-                      color: 'var(--dome-text)',
+                      background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                      color: 'var(--foreground)',
                     }}
                   >
                     {t('workspace.backlink_relation_manual')}
@@ -312,8 +319,8 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{
-                      background: 'var(--dome-accent-bg)',
-                      color: 'var(--dome-text)',
+                      background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                      color: 'var(--foreground)',
                     }}
                   >
                     {t('workspace.backlink_relation_confirmed')}

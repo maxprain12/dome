@@ -109,17 +109,23 @@ const TOOL_HANDLER_MAP = {
   github_upcoming_milestones: 'githubUpcomingMilestones',
   github_list_milestones: 'githubListMilestones',
   github_list_issues: 'githubListIssues',
+  github_get_issue: 'githubGetIssue',
   github_create_issue: 'githubCreateIssue',
   github_update_issue: 'githubUpdateIssue',
   github_create_milestone: 'githubCreateMilestone',
   github_sync: 'githubSync',
+  people_get: 'peopleGet',
 
   // Social hub (LinkedIn / Instagram / X)
   social_accounts_list: 'socialAccountsList',
   social_post_draft: 'socialPostDraft',
   social_post_publish: 'socialPostPublish',
   social_posts_list: 'socialPostsList',
+  social_post_get: 'socialPostGet',
   social_metrics_summary: 'socialMetricsSummary',
+  social_campaigns_list: 'socialCampaignsList',
+  social_campaign_create: 'socialCampaignCreate',
+  social_growth: 'socialGrowth',
 
   // Entity creation
   agent_create: 'agentCreate',
@@ -556,6 +562,11 @@ function getAllToolDefinitions() {
             start_at: { type: 'string', description: 'Start time as ISO 8601 string, e.g. "2026-03-15T14:00:00" (required)' },
             end_at: { type: 'string', description: 'End time as ISO 8601 string (required)' },
             all_day: { type: 'boolean', description: 'True for all-day events' },
+            resource_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional Dome resource ids to link (stored as metadata.resourceIds).',
+            },
             reminders: {
               type: 'array',
               items: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] },
@@ -581,6 +592,11 @@ function getAllToolDefinitions() {
             start_at: { type: 'string', description: 'New start time as ISO 8601 string' },
             end_at: { type: 'string', description: 'New end time as ISO 8601 string' },
             all_day: { type: 'boolean' },
+            resource_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Replace linked Dome resource ids (metadata.resourceIds).',
+            },
             reminders: {
               type: 'array',
               items: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] },
@@ -737,11 +753,15 @@ function getAllToolDefinitions() {
       function: {
         name: 'email_read',
         description:
-          'Read the full body of one email by message id (from email_list or email_search). Returns plain-text body for analysis.',
+          'Read the full body of one email by message id (from email_list, email_search, or a pinned email). Returns plain-text body for analysis.',
         parameters: {
           type: 'object',
           properties: {
-            message_id: { type: 'string', description: 'Envelope/message id from list or search results.' },
+            message_id: {
+              type: 'string',
+              description:
+                'IMAP uid from email_list/email_search (`id` field), or a pinned email id. Dome cache ids (`emsg-…`) are accepted and resolved.',
+            },
             folder: { type: 'string', description: 'Folder the message is in. Defaults to INBOX.' },
           },
           required: ['message_id'],
@@ -838,9 +858,61 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'social_post_get',
+        description:
+          'Get one social post by id (sp-…). Use when mentioned-sources lists a social_post or the user refers to a pinned post. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            post_id: { type: 'string', description: 'Social post id (sp-…).' },
+          },
+          required: ['post_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'social_metrics_summary',
         description: 'Social analytics summary: totals, per-network breakdown and top posts. Source: Social hub.',
         parameters: { type: 'object', properties: { refresh: { type: 'boolean' } } },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_campaigns_list',
+        description: 'List soft social campaigns with post counts. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: { status: { type: 'string', enum: ['active', 'archived'] } },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_campaign_create',
+        description: 'Create a soft social campaign (name + optional goal). Does not publish. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            goal: { type: 'string' },
+          },
+          required: ['name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_growth',
+        description: 'Follower growth series per account. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: { days: { type: 'number' }, refresh: { type: 'boolean' } },
+        },
       },
     },
     {
@@ -897,6 +969,36 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'github_get_issue',
+        description:
+          'Get one GitHub issue by Dome issue id (ghi-…). Use when mentioned-sources lists an issue. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            issue_id: { type: 'string', description: 'Dome issue id from mentioned-sources or github_list_issues' },
+          },
+          required: ['issue_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_get',
+        description:
+          'Get one person by id (name, email, identities). Use when mentioned-people lists a person. Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            person_id: { type: 'string', description: 'Person id from mentioned-people' },
+          },
+          required: ['person_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'github_create_issue',
         description: 'Create a new GitHub issue in a synced repo. This writes to GitHub. Source: GitHub.',
         parameters: {
@@ -907,6 +1009,11 @@ function getAllToolDefinitions() {
             body: { type: 'string', description: 'Issue body (Markdown). Add a "due:YYYY-MM-DD" line to project it onto the calendar.' },
             milestone_number: { type: 'number', description: 'Optional milestone number to assign' },
             labels: { type: 'array', items: { type: 'string' }, description: 'Optional labels' },
+            assignees: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'GitHub logins to assign (from mentioned-people github identities; no @ prefix)',
+            },
           },
           required: ['repo_id', 'title'],
         },
@@ -1060,12 +1167,18 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'remember_fact',
-        description: 'Save a user fact to long-term memory (key/value).',
+        description:
+          'Save a durable user fact to long-term memory. Use domain=social|email for specialized packs; omit for general MEMORY.md.',
         parameters: {
           type: 'object',
           properties: {
             key: { type: 'string', description: 'Memory label, e.g. preferred_language' },
             value: { type: 'string', description: 'Fact to remember' },
+            domain: {
+              type: 'string',
+              description: 'general (default), social, or email',
+              enum: ['general', 'social', 'email'],
+            },
           },
           required: ['key', 'value'],
         },

@@ -1,4 +1,10 @@
 {
+  "greeting_name": "Hi, {{name}}",
+  "subtitle": "Pick up where you left off or start something new.",
+  "continue_activity": "Pick up where you left off",
+  "continue_activity_desc": "Your most recent work.",
+  "no_recent_activity": "No recent activity.",
+  "pending_today": "Due today",
   "greeting_morning": "Good morning",
   "greeting_afternoon": "Good afternoon",
   "greeting_evening": "Good evening",

@@ -1,36 +1,43 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import {
-  Bot,
-  Download,
-  GitBranch,
-  Loader2,
-  Pencil,
-  Plus,
-  Trash2,
-  Upload,
-  Workflow,
-  Zap,
-} from 'lucide-react';
+  BotIcon as BotIcon,
+  Download04Icon as DownloadIcon,
+  GitBranchIcon as GitBranchIcon,
+  Loading03Icon as Loader2Icon,
+  PencilIcon as PencilIcon,
+  PlusSignIcon as PlusIcon,
+  Delete02Icon as Trash2Icon,
+  Upload04Icon as UploadIcon,
+  WorkflowSquare01Icon as WorkflowIcon,
+  ZapIcon as ZapIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Input } from '@/components/ui/input';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
-import { listAutomations, listRuns } from '@/lib/automations/api';
+import { listRuns } from '@/lib/automations/api';
 import { HubWorkspaceProvider, type HubWorkspaceContextValue } from '@/lib/context/HubWorkspaceContext';
 import { PENDING_AUTOMATIONS_FILTER_KEY } from '@/lib/hub/hubStorageKeys';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
 import { useWorkflowLibrary } from '@/components/agent-canvas/useWorkflowLibrary';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
-import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
-import HubSearchField from '@/components/ui/HubSearchField';
-import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubHeader, HubPageHeader } from '@/components/hub';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Search01Icon } from '@hugeicons/core-free-icons';
+import { askStudioMany } from '@/components/studio-hub';
 import { useHubListLoader } from '@/lib/hub/useHubListLoader';
 import { HUB_RUNS_CHANGED } from '@/lib/hub/hubEvents';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
+import { Skeleton } from '@/components/ui/skeleton';
 function isToday(ts: number | null | undefined): boolean {
   if (!ts) return false;
   const d = new Date(ts);
@@ -57,7 +64,6 @@ export default function WorkflowsStudioView() {
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [folderFilter, setFolderFilter] = useState<string>('all');
   const [runsToday, setRunsToday] = useState<number | null>(null);
-  const [activeAutomations, setActiveAutomations] = useState<number | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -71,15 +77,9 @@ export default function WorkflowsStudioView() {
   const { workflows, folders, search, importingBundle, deletingId } = state;
 
   const fetchKpis = useCallback(async () => {
-    const [runs, automations] = await Promise.all([
-      listRuns({ limit: 100, projectId }).catch(() => []),
-      listAutomations({ projectId }).catch(() => []),
-    ]);
+    const runs = await listRuns({ limit: 100, projectId }).catch(() => []);
     setRunsToday(
       runs.filter((r) => r.ownerType === 'workflow' && isToday(r.updatedAt ?? r.startedAt)).length,
-    );
-    setActiveAutomations(
-      automations.filter((a) => a.targetType === 'workflow' && a.enabled).length,
     );
   }, [projectId]);
 
@@ -142,25 +142,22 @@ export default function WorkflowsStudioView() {
   if (activeWorkflowId != null) {
     return (
       <HubWorkspaceProvider value={hubWorkspace}>
-        <AgentCanvasView onBackToLibrary={() => setActiveWorkflowId(null)} />
+        <div key={`canvas-${activeWorkflowId}`} className="h-full studio-view-enter">
+          <AgentCanvasView onBackToLibrary={() => setActiveWorkflowId(null)} />
+        </div>
       </HubWorkspaceProvider>
     );
   }
 
-  const stats: OrchestrationStat[] = [
-    { label: t('orchestration.workflows.stat_workflows'), value: workflows.length, tone: 'info' },
-    { label: t('orchestration.workflows.stat_nodes'), value: totalNodes },
+  const stats: DomainStat[] = [
+    { id: 'stat_workflows', label: t('orchestration.workflows.stat_workflows'), value: workflows.length, tone: 'info' },
+    { id: 'stat_nodes', label: t('orchestration.workflows.stat_nodes'), value: totalNodes },
     {
+      id: 'stat_runs_today',
       label: t('orchestration.workflows.stat_runs_today'),
       value: runsToday ?? '—',
       tone: 'success',
       sub: t('orchestration.workflows.stat_runs_today_sub'),
-    },
-    {
-      label: t('orchestration.workflows.stat_active_automations'),
-      value: activeAutomations ?? '—',
-      tone: 'warning',
-      sub: t('orchestration.workflows.stat_active_automations_sub'),
     },
   ];
 
@@ -172,218 +169,242 @@ export default function WorkflowsStudioView() {
 
   return (
     <HubWorkspaceProvider value={hubWorkspace}>
-      <OrchestrationShell
-        section="workflows"
-        title={t('tabs.workflows')}
-        subtitle={t('automationHub.workflows_subtitle')}
-        icon={GitBranch}
-        stats={stats}
-        actions={
-          <>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              aria-label={t('hubExport.import_workflow')}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                if (file) void handleWorkflowImportFile(file);
-              }}
-            />
-            <DomeButton
-              variant="outline"
-              size="sm"
-              disabled={importingBundle}
-              onClick={() => importInputRef.current?.click()}
-              leftIcon={importingBundle ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-            >
-              {t('hubExport.import_workflow')}
-            </DomeButton>
-            <DomeButton
-              variant="primary"
-              size="sm"
-              onClick={newWorkflow}
-              className="!bg-[var(--dome-accent)]"
-              leftIcon={<Plus className="size-3.5" />}
-            >
-              {t('canvas.new_workflow')}
-            </DomeButton>
-          </>
-        }
-        toolbar={
-          <div className="flex items-center gap-3 flex-wrap">
-            <HubSearchField
-              value={search}
-              onChange={setSearch}
-              placeholder={t('canvas.search_workflows_placeholder')}
-              ariaLabel={t('canvas.search_workflows_placeholder')}
-            />
-            <DomeFilterChipGroup
-              dense
-              options={folderChips.map((c) => ({ value: c.value, label: c.label }))}
-              value={folderFilter}
-              onChange={setFolderFilter}
-            />
-          </div>
-        }
+      <div
+        key="library"
+        className="@container/workflows flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
       >
-        {loading ? (
-          <div className="p-6">
-            <DomeSkeletonGrid count={9} />
-          </div>
-        ) : workflows.length === 0 ? (
-          <div className="p-6">
-            <div
-              className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl px-8 py-10 text-center"
-              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-            >
-              <div
-                className="flex size-14 items-center justify-center rounded-2xl"
-                style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
-              >
-                <Workflow className="size-7" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {t('canvas.no_workflows_saved_title')}
-              </h2>
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('canvas.no_workflows_saved_desc')}
-              </p>
-              <DomeButton
-                variant="primary"
-                size="sm"
-                className="mt-2 !bg-[var(--dome-accent)]"
-                onClick={newWorkflow}
-                leftIcon={<Plus className="size-3.5" />}
-              >
-                {t('canvas.create_first_workflow')}
-              </DomeButton>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
-            {visibleWorkflows.map((wf) => {
-              const nodeCount = wf.nodes?.length ?? 0;
-              const agentNodes = (wf.nodes ?? []).filter((n) => n.type.includes('agent')).length;
-              return (
-                <div
-                  key={wf.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openWorkflow(wf)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openWorkflow(wf);
-                    }
+        <HubPageHeader className="flex flex-col gap-y-3">
+          <HubHeader
+            title={t('tabs.workflows')}
+            description={t('automationHub.workflows_subtitle')}
+            actions={
+              <>
+                <Input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  aria-label={t('hubExport.import_workflow')}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) void handleWorkflowImportFile(file);
                   }}
-                  className="group flex cursor-pointer flex-col gap-3 rounded-2xl p-4 text-left transition-all hover:-translate-y-0.5"
-                  style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+                />
+                <Button
+                  variant="outline"
+                  disabled={importingBundle}
+                  onClick={() => importInputRef.current?.click()}
+                  size="sm"
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="flex size-11 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
-                    >
-                      <Workflow className="size-5" strokeWidth={1.75} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
-                        {wf.name}
-                      </span>
-                      <p className="line-clamp-2 text-xs leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
-                        {wf.description || t('orchestration.workflows.no_description')}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                      style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
-                    >
-                      <GitBranch className="size-2.5" aria-hidden />
-                      {t('orchestration.workflows.nodes_count', { count: nodeCount })}
-                    </span>
-                    {agentNodes > 0 ? (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                        style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
-                      >
-                        <Bot className="size-2.5" aria-hidden />
-                        {t('orchestration.workflows.agents_count', { count: agentNodes })}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-auto flex items-center justify-between gap-2">
-                    <span className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-                      {formatDate(wf.updatedAt)}
-                    </span>
-                    <div
-                      className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      role="presentation"
-                    >
-                      <DomeButton
-                        variant="outline"
-                        size="xs"
-                        onClick={() => openWorkflow(wf)}
-                        leftIcon={<Pencil className="size-3" />}
-                      >
-                        {t('orchestration.workflows.open_canvas')}
-                      </DomeButton>
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('agents.automations')}
-                        aria-label={t('agents.automations')}
-                        onClick={() => openWorkflowAutomations(wf)}
-                      >
-                        <Zap className="size-3.5" style={{ color: 'var(--warning)' }} />
-                      </DomeButton>
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('hubExport.export_workflow')}
-                        aria-label={t('hubExport.export_workflow')}
-                        onClick={() => void handleExportWorkflow(wf)}
-                      >
-                        <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-                      </DomeButton>
-                      <DomeButton
-                        variant="ghost"
-                        size="xs"
-                        iconOnly
-                        title={t('common.delete')}
-                        aria-label={t('common.delete')}
-                        disabled={deletingId === wf.id}
-                        className="!text-[var(--error)] hover:!bg-[var(--error-bg)]"
-                        onClick={() => setConfirmDeleteId(wf.id)}
-                      >
-                        {deletingId === wf.id ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="size-3.5" />
-                        )}
-                      </DomeButton>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {q && visibleWorkflows.length === 0 ? (
-              <p className="col-span-full py-8 text-center text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('canvas.no_workflow_search_results')}
-              </p>
-            ) : null}
+                  {importingBundle ? (
+                    <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
+                  ) : (
+                    <HugeiconsIcon icon={UploadIcon} className="size-3.5" />
+                  )}
+                  {t('hubExport.import_workflow')}
+                </Button>
+                <Button onClick={newWorkflow} size="sm">
+                  <HugeiconsIcon icon={PlusIcon} className="size-3.5" />
+                  {t('canvas.new_workflow')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => askStudioMany(t('orchestration.agent_prompt_workflows'))}
+                >
+                  {t('orchestration.agent_ask_many')}
+                </Button>
+              </>
+            }
+          />
+          <DomainStatChips stats={stats} />
+          <div className="flex flex-wrap items-center gap-3">
+            <InputGroup className="h-8 max-w-xl">
+              <InputGroupAddon>
+                <HugeiconsIcon icon={Search01Icon} aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('canvas.search_workflows_placeholder')}
+                aria-label={t('canvas.search_workflows_placeholder')}
+              />
+            </InputGroup>
+            <ToggleGroup
+              value={[folderFilter]}
+              onValueChange={(values) => values[0] && setFolderFilter(values[0])}
+            >
+              {folderChips.map((chip) => (
+                <ToggleGroupItem key={chip.value} value={chip.value} size="sm">
+                  {chip.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
-        )}
+        </HubPageHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="p-6">
+              <output className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-36 w-full rounded-lg" />
+                ))}
+              </output>
+            </div>
+          ) : workflows.length === 0 ? (
+            <div className="flex flex-col gap-y-4 p-6">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Card size="sm" className="px-4 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t('orchestration.workflows.stat_workflows')}
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums text-info">0</p>
+                </Card>
+                <Card size="sm" className="px-4 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t('orchestration.workflows.stat_nodes')}
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums">0</p>
+                </Card>
+                <Card size="sm" className="px-4 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t('orchestration.workflows.stat_runs_today')}
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums text-success">{runsToday ?? 0}</p>
+                </Card>
+              </div>
+              <Card className="max-w-2xl gap-3 px-6 py-6">
+                <div className="flex size-12 items-center justify-center rounded-xl bg-info/10 text-info">
+                  <HugeiconsIcon icon={WorkflowIcon} className="size-6" strokeWidth={1.5} />
+                </div>
+                <h2 className="text-base font-semibold text-foreground">
+                  {t('canvas.no_workflows_saved_title')}
+                </h2>
+                <p className="text-sm text-muted-foreground">{t('canvas.no_workflows_saved_desc')}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={newWorkflow} size="sm">
+                    <HugeiconsIcon icon={PlusIcon} className="size-3.5" />
+                    {t('canvas.create_first_workflow')}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => askStudioMany(t('orchestration.agent_prompt_workflows'))}
+                  >
+                    {t('orchestration.agent_ask_many')}
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
+              {visibleWorkflows.map((wf) => {
+                const nodeCount = wf.nodes?.length ?? 0;
+                const agentNodes = (wf.nodes ?? []).filter((n) => n.type.includes('agent')).length;
+                return (
+                  <Card
+                    key={wf.id}
+                    size="sm"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openWorkflow(wf)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openWorkflow(wf);
+                      }
+                    }}
+                    className="group cursor-pointer text-left transition-[background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] hover:bg-accent/30"
+                  >
+                    <CardHeader className="flex flex-row items-start gap-3 gap-y-0">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-info/10 text-info">
+                        <HugeiconsIcon icon={WorkflowIcon} className="size-5" strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-foreground">
+                          {wf.name}
+                        </span>
+                        <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                          {wf.description || t('orchestration.workflows.no_description')}
+                        </p>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary" className="gap-1 font-normal">
+                        <HugeiconsIcon icon={GitBranchIcon} className="size-2.5" aria-hidden />
+                        {t('orchestration.workflows.nodes_count', { count: nodeCount })}
+                      </Badge>
+                      {agentNodes > 0 ? (
+                        <Badge variant="secondary" className="gap-1 font-normal">
+                          <HugeiconsIcon icon={BotIcon} className="size-2.5" aria-hidden />
+                          {t('orchestration.workflows.agents_count', { count: agentNodes })}
+                        </Badge>
+                      ) : null}
+                    </CardContent>
+                    <CardFooter className="justify-between gap-2">
+                      <span className="text-[11px] text-muted-foreground">
+                        {formatDate(wf.updatedAt)}
+                      </span>
+                      <div
+                        className="flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        role="presentation"
+                      >
+                        <Button variant="outline" onClick={() => openWorkflow(wf)} size="xs">
+                          <HugeiconsIcon icon={PencilIcon} className="size-3" />
+                          {t('orchestration.workflows.open_canvas')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          title={t('agents.automations')}
+                          aria-label={t('agents.automations')}
+                          onClick={() => openWorkflowAutomations(wf)}
+                          size="icon-xs"
+                        >
+                          <HugeiconsIcon icon={ZapIcon} className="size-3.5 text-warning" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          title={t('hubExport.export_workflow')}
+                          aria-label={t('hubExport.export_workflow')}
+                          onClick={() => void handleExportWorkflow(wf)}
+                          size="icon-xs"
+                        >
+                          <HugeiconsIcon icon={DownloadIcon} className="size-3.5 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          title={t('common.delete')}
+                          aria-label={t('common.delete')}
+                          disabled={deletingId === wf.id}
+                          className="text-destructive"
+                          onClick={() => setConfirmDeleteId(wf.id)}
+                          size="icon-xs"
+                        >
+                          {deletingId === wf.id ? (
+                            <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
+                          ) : (
+                            <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+              {q && visibleWorkflows.length === 0 ? (
+                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                  {t('canvas.no_workflow_search_results')}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
 
         <ConfirmDialog
           isOpen={confirmDeleteWf != null}
@@ -402,7 +423,7 @@ export default function WorkflowsStudioView() {
           }}
           onCancel={() => setConfirmDeleteId(null)}
         />
-      </OrchestrationShell>
+      </div>
     </HubWorkspaceProvider>
   );
 }

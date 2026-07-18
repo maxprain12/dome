@@ -10,9 +10,9 @@ export function statusLabel(status: string): string {
 /** Color de acento para badges / chips de estado de ejecución. */
 export function statusColor(status: string): string {
   if (status === 'completed') return 'var(--success)';
-  if (status === 'failed') return 'var(--error)';
-  if (status === 'running') return 'var(--accent)';
+  if (status === 'failed') return 'var(--destructive)';
+  if (status === 'running') return 'var(--primary)';
   if (status === 'queued' || status === 'waiting_approval') return 'var(--warning)';
-  if (status === 'cancelled') return 'var(--tertiary-text)';
-  return 'var(--secondary-text)';
+  if (status === 'cancelled') return 'var(--muted-foreground)';
+  return 'var(--muted-foreground)';
 }

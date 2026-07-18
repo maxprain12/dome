@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Maximize } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Maximize01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { notifications } from '@mantine/notifications';
+import { notifications } from '@/lib/notifications';
 import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { useSafeMediaSource } from '@/lib/hooks/useSafeMediaSource';
-import LoadingState from '@/components/ui/LoadingState';
-import ErrorState from '@/components/ui/ErrorState';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
+import ListState from '@/components/shared/ListState';
 import MediaControls from './shared/MediaControls';
 import SeekBar from './shared/SeekBar';
 import AnnotationInput from './shared/AnnotationInput';
@@ -18,6 +17,9 @@ import {
   getTranscriptionSegmentsForDisplay,
 } from '@/lib/utils/resource-metadata';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import type { ReactNode } from 'react';
 interface VideoPlayerProps {
   resource: Resource;
 }
@@ -311,7 +313,7 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
   }, [volume, handlePlayPause, handleSkip, handleVolumeChange, handleToggleMute, handleFullscreen]);
 
   if (error || sourceError) {
-    return <ErrorState error={error || sourceError || t('media.playback_failed_generic')} />;
+    return <ListState variant="error" errorMessage={error || sourceError || t('media.playback_failed_generic')} fullHeight />;
   }
 
   const mainLoading = isLoading || sourceLoading;
@@ -325,8 +327,7 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
   return (
     <div
       ref={containerRef}
-      className="flex h-full min-h-0 flex-col"
-      style={{ background: 'var(--dome-bg)' }}
+      className="flex h-full min-h-0 flex-col bg-background"
     >
       {!miniPlayerCollapsed && (
         <div
@@ -337,7 +338,7 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
           <div className="relative flex min-h-[140px] min-w-0 flex-1 items-center justify-center overflow-hidden">
             {mainLoading && !videoUrl ? (
               <div className="absolute inset-0 flex items-center justify-center">
-                <LoadingState message={t('media.loading_video')} />
+                <ListState variant="loading" loadingLabel={t('media.loading_video')} fullHeight />
               </div>
             ) : videoUrl ? (
               // User-imported video has no caption tracks; Dome offers
@@ -363,7 +364,7 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
           </div>
 
           <div
-            className={`shrink-0 space-y-2 px-3 py-2 transition-opacity duration-300 ${
+            className={`flex shrink-0 flex-col gap-2 px-3 py-2 transition-opacity duration-300 ${
               showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
             }`}
             style={{ background: 'rgba(0, 0, 0, 0.92)' }}
@@ -397,20 +398,21 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
                   />
                 </div>
 
-                <DomeSelectMenu
-                  value={String(playbackRate)}
-                  onChange={(v) => handlePlaybackRateChange(parseFloat(v))}
-                  aria-label="Playback speed"
-                  fullWidth={false}
-                  options={[
+                <Select value={String(playbackRate) ?? null} onValueChange={(next) => { if (next != null) ((v) => handlePlaybackRateChange(parseFloat(v)))(next); }} items={[
                     { value: '0.5', label: '0.5x' },
                     { value: '0.75', label: '0.75x' },
                     { value: '1', label: '1x' },
                     { value: '1.25', label: '1.25x' },
                     { value: '1.5', label: '1.5x' },
                     { value: '2', label: '2x' },
-                  ]}
-                />
+                  ]}><SelectTrigger className="w-fit" aria-label="Playback speed"><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                    { value: '0.5', label: '0.5x' },
+                    { value: '0.75', label: '0.75x' },
+                    { value: '1', label: '1x' },
+                    { value: '1.25', label: '1.25x' },
+                    { value: '1.5', label: '1.5x' },
+                    { value: '2', label: '2x' },
+                  ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
               </div>
 
               <div className="flex items-center gap-2">
@@ -426,15 +428,17 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
                   />
                 </div>
 
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={handleFullscreen}
-                  className="cursor-pointer rounded-md p-2 text-white transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-                  title="Fullscreen (F)"
-                  aria-label="Fullscreen"
+                  className="text-white hover:bg-white/10 hover:text-white"
+                  title={t('media.fullscreen', { defaultValue: 'Fullscreen (F)' })}
+                  aria-label={t('media.fullscreen', { defaultValue: 'Fullscreen' })}
                 >
-                  <Maximize size={20} />
-                </button>
+                  <HugeiconsIcon icon={Maximize01Icon} />
+                </Button>
               </div>
             </div>
 

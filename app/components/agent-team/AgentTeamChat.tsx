@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { Button } from '@/components/ui/button';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { Send, Square, PlusCircle, Plug2, Cpu } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { InformationCircleIcon, PlusSignCircleIcon } from '@hugeicons/core-free-icons';
 import type { AgentTeam, ManyAgent } from '@/types';
 import { getAgentTeamById } from '@/lib/agent-team/api';
 import { getManyAgentById } from '@/lib/agents/api';
@@ -17,18 +18,18 @@ import { UnifiedChatEmptyState } from '@/components/chat/UnifiedChatEmptyState';
 import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
-import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { buildCitationMap } from '@/lib/utils/citations';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import { collectTeamMcpServerIds } from '@/lib/ai/shared-capabilities';
 import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
 import type { MCPServerConfig } from '@/types';
 import { useTranslation } from 'react-i18next';
-import DomeToolbar from '@/components/ui/DomeToolbar';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import { DomeTextarea } from '@/components/ui/DomeInput';
+import Toolbar from '@/components/shared/Toolbar';
+import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
+import { Spinner } from '@/components/ui/spinner';
 interface AgentTeamChatProps {
   teamId: string;
 }
@@ -50,10 +51,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const isSubmittingRef = useRef(false);
   const dbSessionIdRef = useRef<string | null>(null);
   const streamIdRef = useRef<string | null>(null);
-  const [showCapabilities, setShowCapabilities] = useState(false);
-  const capabilitiesButtonRef = useRef<HTMLButtonElement>(null);
-  const capabilitiesDropdownRef = useRef<HTMLDivElement>(null);
-  const [capabilitiesDropdownRect, setCapabilitiesDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
+  const [disabledMcpIds, setDisabledMcpIds] = useState<Set<string>>(new Set());
   const currentAgentLabelRef = useRef<string | null>(null);
 
   const { setTeam: setStoreTeam, messages, addMessage, status, setStatus, setActiveAgentLabel, startNewChat, currentSessionId } =
@@ -90,43 +88,6 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingMessage, scrollToBottom]);
-
-  useEffect(() => {
-    if (!showCapabilities) {
-      setCapabilitiesDropdownRect(null);
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (
-        capabilitiesDropdownRef.current &&
-        !capabilitiesDropdownRef.current.contains(target) &&
-        capabilitiesButtonRef.current &&
-        !capabilitiesButtonRef.current.contains(target)
-      ) {
-        setShowCapabilities(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showCapabilities]);
-
-  useEffect(() => {
-    if (!showCapabilities || !capabilitiesButtonRef.current || typeof window === 'undefined') {
-      return;
-    }
-    const rect = capabilitiesButtonRef.current.getBoundingClientRect();
-    const estimatedHeight = 320;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const showAbove = spaceBelow < estimatedHeight && rect.top > spaceBelow;
-    setCapabilitiesDropdownRect({
-      top: showAbove ? rect.top - 6 : rect.bottom + 6,
-      left: rect.left,
-      above: showAbove,
-    });
-  }, [showCapabilities]);
 
   const handleSend = useCallback(async () => {
     const userMessage = input.trim();
@@ -202,7 +163,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
         decision?: string | null;
       }> = [];
       const configuredMcpServers: MCPServerConfig[] = teamMcpServerIds.length > 0
-        ? await loadMcpServersSetting()
+        ? (await loadMcpServersSetting()).filter((server) => !disabledMcpIds.has(server.name))
         : [];
 
       const unsubChunk = window.electron.ai.onStreamChunk((data) => {
@@ -311,7 +272,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           pathname,
           homeSidebarSection,
           teamToolIds: team.toolIds ?? [],
-          teamMcpServerIds: team.mcpServerIds ?? [],
+          teamMcpServerIds: teamMcpServerIds.filter((id) => !disabledMcpIds.has(id)),
           projectId: teamProjectId,
         });
       } catch (err) {
@@ -394,6 +355,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     homeSidebarSection,
     currentSessionId,
     teamMcpServerIds,
+    disabledMcpIds,
     teamProjectId,
   ]);
 
@@ -405,13 +367,6 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       }
     }
   }, [abortController]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
 
   const chatMessages = useMemo<ChatMessageData[]>(
     () =>
@@ -448,20 +403,19 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
 
   if (!team) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="size-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
-      <DomeToolbar dense className="!px-5 !py-3 !bg-[var(--dome-surface)] !border-[var(--dome-border)]">
-        <DomeToolbar.Leading>
+    <div className="flex flex-col h-full bg-background">
+      <Toolbar dense className="!px-5 !py-3 !bg-card !border-border">
+        <Toolbar.Leading>
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className="size-8 rounded-xl overflow-hidden shrink-0"
-              style={{ background: 'var(--dome-accent-bg)' }}
+              className="size-8 rounded-xl overflow-hidden shrink-0 bg-primary/10"
             >
               <img
                 src={`/agents/sprite_${team.iconIndex}.png`}
@@ -470,10 +424,10 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
+              <div className="text-sm font-semibold truncate text-foreground">
                 {team.name}
               </div>
-              <div className="flex flex-wrap items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                 {memberAgents.flatMap((a, i) => {
                   const chip = (
                     <span key={a.id} className="flex items-center gap-1">
@@ -488,28 +442,26 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               </div>
             </div>
           </div>
-        </DomeToolbar.Leading>
-        <DomeToolbar.Trailing>
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={startNewChat}
-            className="h-auto min-h-0 gap-1.5 px-2.5 py-1.5 text-xs text-[var(--dome-text-muted)] bg-[var(--dome-bg)] hover:bg-[var(--dome-bg-hover)]"
-            title="Nueva conversación"
-          >
-            <PlusCircle className="size-3.5" />
+        </Toolbar.Leading>
+        <Toolbar.Trailing>
+          <Button type="button"
+  variant="ghost"
+  onClick={startNewChat}
+  className="h-auto min-h-0 gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground bg-background hover:bg-accent"
+  title="Nueva conversación"
+  size="sm">
+            <HugeiconsIcon icon={PlusSignCircleIcon} />
             Nueva
-          </DomeButton>
-        </DomeToolbar.Trailing>
-      </DomeToolbar>
+          </Button>
+        </Toolbar.Trailing>
+      </Toolbar>
 
       {teamMcpServerIds.length > 0 ? (
         <div className="shrink-0 px-5 pt-2">
-          <DomeCallout tone="info" className="!py-2 !px-3 text-xs">
+          <Alert className="!py-2 !px-3 text-xs" role="note"><HugeiconsIcon icon={InformationCircleIcon} /><AlertDescription className="text-xs">
             Este equipo tiene MCP configurado. Abre el menú <strong>MCP</strong> junto al mensaje para ver herramientas
             disponibles.
-          </DomeCallout>
+          </AlertDescription></Alert>
         </div>
       ) : null}
 
@@ -527,7 +479,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             title={team.name}
             description={team.description || 'Equipo de agentes especializados'}
           >
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-xs text-muted-foreground">
               {memberAgents.length} agentes listos para colaborar
             </p>
           </UnifiedChatEmptyState>
@@ -543,29 +495,9 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
 
         {/* Status indicator */}
         {isLoading && (
-          <div className="flex items-center gap-3">
-            <div
-              className="size-7 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(99,102,241,0.12)' }}
-            >
-              <Cpu className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                <span
-                  className="size-1.5 rounded-full animate-bounce"
-                  style={{ background: 'var(--dome-accent)', animationDelay: '0ms' }}
-                />
-                <span
-                  className="size-1.5 rounded-full animate-bounce"
-                  style={{ background: 'var(--dome-accent)', animationDelay: '150ms' }}
-                />
-                <span
-                  className="size-1.5 rounded-full animate-bounce"
-                  style={{ background: 'var(--dome-accent)', animationDelay: '300ms' }}
-                />
-              </div>
-              <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <Marker role="status">
+            <MarkerIcon><Spinner /></MarkerIcon>
+            <MarkerContent className="shimmer">
                 {status === 'thinking'
                   ? t('agentTeam.status_thinking')
                   : status === 'delegating'
@@ -573,108 +505,32 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
                     : status === 'synthesizing'
                       ? t('agentTeam.status_synthesizing')
                       : t('chat.processing')}
-              </span>
-            </div>
-          </div>
+            </MarkerContent>
+          </Marker>
         )}
         <div ref={messagesEndRef} />
       </UnifiedChatMessageArea>
 
       {/* Input */}
-      <div
-        className="shrink-0 px-4 py-3"
-        style={{ borderTop: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
-      >
-        <div
-          className="flex flex-col rounded-lg px-3 py-2 transition-colors focus-within:border-[var(--dome-text-muted)]"
-          style={{
-            background: 'var(--dome-surface)',
-            border: '1px solid var(--dome-border)',
-          }}
-        >
-          <DomeTextarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Chatear con ${team.name}...`}
-            rows={1}
-            className="!gap-0 flex-1 min-w-0"
-            textareaClassName="resize-none outline-none bg-transparent border-0 shadow-none ring-0 focus:ring-0 !min-h-[40px] py-1 text-[14px] leading-relaxed text-[var(--dome-text)] max-h-[200px] overflow-y-auto"
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = 'auto';
-              el.style.height = Math.min(el.scrollHeight, 200) + 'px';
-            }}
-          />
-          <div className="flex items-center justify-between gap-2 mt-2">
-            <div className="flex items-center gap-2">
-              {teamMcpServerIds.length > 0 ? (
-                <div className="relative">
-                  <DomeButton
-                    ref={capabilitiesButtonRef}
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => setShowCapabilities(!showCapabilities)}
-                    className="!h-7 gap-1.5 px-2 text-[11px] font-medium"
-                    style={{
-                      background: showCapabilities ? 'var(--dome-accent-bg)' : undefined,
-                      color: showCapabilities ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                    }}
-                  >
-                    <Plug2 className="size-3.5" />
-                    MCP
-                  </DomeButton>
-                  {showCapabilities && capabilitiesDropdownRect && typeof document !== 'undefined' && createPortal(
-                    <div
-                      ref={capabilitiesDropdownRef}
-                      className="fixed min-w-[300px] max-h-[min(360px,60vh)] rounded-lg border shadow-lg py-2 overflow-y-auto"
-                      style={{
-                        top: capabilitiesDropdownRect.above ? undefined : capabilitiesDropdownRect.top,
-                        bottom: capabilitiesDropdownRect.above ? window.innerHeight - capabilitiesDropdownRect.top : undefined,
-                        left: capabilitiesDropdownRect.left,
-                        backgroundColor: 'var(--dome-surface)',
-                        borderColor: 'var(--dome-border)',
-                        zIndex: 600,
-                      }}
-                    >
-                      <div className="p-2 space-y-2">
-                        <DomeCallout tone="info" title="MCP y tools globales" className="!text-[10px]">
-                          Capacidades expuestas por los servidores MCP del equipo.
-                        </DomeCallout>
-                        <McpCapabilitiesSection serverIds={teamMcpServerIds} />
-                      </div>
-                    </div>,
-                    document.body
-                  )}
-                </div>
-              ) : null}
-            </div>
-            <DomeButton
-              type="button"
-              variant={isLoading ? 'outline' : 'primary'}
-              size="sm"
-              iconOnly
-              onClick={isLoading ? handleStop : handleSend}
-              disabled={!isLoading && !input.trim()}
-              className={
-                isLoading
-                  ? '!w-8 !h-8 !p-0 shrink-0 !text-[var(--error)] !border-[var(--error)] !bg-transparent'
-                  : !input.trim()
-                    ? '!w-8 !h-8 !p-0 shrink-0 !bg-transparent opacity-50'
-                    : '!w-8 !h-8 !p-0 shrink-0 !bg-[var(--dome-text)] !text-[var(--dome-bg)] border-0'
-              }
-              aria-label={isLoading ? t('canvas.stop') : t('chat.send')}
-            >
-              {isLoading ? <Square className="size-3.5" /> : <Send className="size-4" />}
-            </DomeButton>
-          </div>
-        </div>
-        <div className="flex justify-between items-center mt-2 px-1 text-[10px] opacity-50" style={{ color: 'var(--dome-text-muted)' }}>
-          <span>Agent Team Chat</span>
-          <span>Enter para enviar · Shift+Enter para nueva línea</span>
-        </div>
+      <div className="shrink-0 border-t bg-background px-4 py-3">
+        <UnifiedChatInput
+          mode="agent"
+          input={input}
+          setInput={setInput}
+          inputRef={inputRef}
+          isLoading={isLoading}
+          onSend={() => void handleSend()}
+          onAbort={handleStop}
+          placeholder={`Chatear con ${team.name}...`}
+          mcpServerIds={teamMcpServerIds}
+          disabledMcpIds={disabledMcpIds}
+          onToggleMcp={(id) => setDisabledMcpIds((current) => {
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+          })}
+          hasAgentFunctions={teamMcpServerIds.length > 0}
+        />
       </div>
     </div>
   );

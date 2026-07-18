@@ -15,6 +15,9 @@
 const fs = require('fs');
 const path = require('path');
 
+/** Keep in sync with electron/social/providers/linkedin.cjs LINKEDIN_VERSION. */
+const LINKEDIN_VERSION = '202601';
+
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.m4v']);
 
@@ -91,6 +94,7 @@ async function uploadLinkedInImage(accessToken, personUrn, source) {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
+      'LinkedIn-Version': LINKEDIN_VERSION,
     },
     body: JSON.stringify({
       registerUploadRequest: {

@@ -1,6 +1,10 @@
 
 import React, { useState } from 'react';
-import { Bookmark } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Bookmark01Icon } from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
+import { Spinner } from '@/components/ui/spinner';
 
 interface AnnotationInputProps {
   isOpen: boolean;
@@ -52,58 +56,39 @@ function AnnotationInputComponent({
 
   if (!isOpen) {
     return (
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={onRequestOpen}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors hover:bg-[var(--bg-tertiary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-        style={{
-          color: 'var(--secondary-text)',
-          border: '1px solid var(--border)',
-        }}
         aria-label={addNoteLabel}
         title={addNoteLabel}
       >
-        <Bookmark size={14} aria-hidden />
+        <HugeiconsIcon icon={Bookmark01Icon} data-icon="inline-start" />
         {addNoteLabel}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <InputGroup className="w-72">
       <label htmlFor="annotation-input-content" className="sr-only">
         Annotation note
       </label>
-      <input
+      <InputGroupInput
         id="annotation-input-content"
         type="text"
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder={placeholder}
-        className="px-2 py-1 text-sm rounded"
-        style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          color: 'var(--primary-text)',
-          width: '180px',
-        }}
         onKeyDown={handleKeyDown}
         disabled={isSaving}
       />
-      <button
-        type="button"
-        onClick={() => void handleSave()}
-        disabled={isSaving || !content.trim()}
-        className="px-2 py-1 text-sm rounded transition-opacity cursor-pointer"
-        style={{
-          background: 'var(--accent)',
-          color: 'var(--base-text)',
-          opacity: isSaving || !content.trim() ? 0.5 : 1,
-        }}
-      >
-        {isSaving ? 'Saving...' : 'Save'}
-      </button>
-    </div>
+      <InputGroupAddon align="inline-end">
+        <InputGroupButton onClick={() => void handleSave()} disabled={isSaving || !content.trim()}>
+          {isSaving ? <Spinner /> : 'Save'}
+        </InputGroupButton>
+      </InputGroupAddon>
+    </InputGroup>
   );
 }
 

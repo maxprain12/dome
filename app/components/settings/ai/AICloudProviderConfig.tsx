@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Alert02Icon, EyeIcon, EyeOffIcon, RefreshIcon } from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import { PROVIDERS, getDefaultModelId, type AIProviderType } from '@/lib/ai/models';
 import { useProviderModels } from '@/lib/ai/useProviderModels';
 import ModelSelector from '../ModelSelector';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeCard from '@/components/ui/DomeCard';
-import { DomeInput } from '@/components/ui/DomeInput';
+import { cn } from '@/lib/utils';
 
 export interface AICloudProviderConfigProps {
   provider: AIProviderType;
@@ -17,11 +21,12 @@ export interface AICloudProviderConfigProps {
   onModelChange: (value: string) => void;
   customModel: boolean;
   onCustomModelChange: (value: boolean) => void;
-  /** Onboarding: simpler model selector without full descriptions */
+  /** Onboarding: simpler model selector without full descriptions. */
   compact?: boolean;
   wrapInCard?: boolean;
 }
 
+/** API key + model choice for a cloud provider (used by Settings → AI and onboarding). */
 export default function AICloudProviderConfig({
   provider,
   apiKey,
@@ -44,96 +49,106 @@ export default function AICloudProviderConfig({
     canRefresh: canRefreshProviderModels,
   } = useProviderModels({ provider, apiKey });
 
-  const content = (
-    <>
-      <div>
-        <label htmlFor="ai-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
-          API Key
-        </label>
-        <div className="relative w-full">
-          <DomeInput
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-4',
+        wrapInCard && 'rounded-xl border bg-card p-4',
+      )}
+    >
+      <Field>
+        <FieldLabel htmlFor="ai-api-key">API Key</FieldLabel>
+        <InputGroup>
+          <InputGroupInput
             id="ai-api-key"
             type={showApiKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
             placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || t('onboarding.enter_api_key')}
-            inputClassName="pr-10"
-            className="w-full [&_input]:pr-10"
           />
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="xs"
-            iconOnly
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-[var(--dome-text-muted)]"
-            onClick={() => setShowApiKey((v) => !v)}
-            aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
-          >
-            {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-          </DomeButton>
-        </div>
-        {PROVIDERS[provider]?.docsUrl && (
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+          <InputGroupAddon align="inline-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
+              onClick={() => setShowApiKey((v) => !v)}
+              aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+            >
+              <HugeiconsIcon icon={showApiKey ? EyeOffIcon : EyeIcon} />
+            </Button>
+          </InputGroupAddon>
+        </InputGroup>
+        {PROVIDERS[provider]?.docsUrl ? (
+          <p className="text-[11px] text-muted-foreground">
             {t('settings.ai.free_key_at')}{' '}
             <a
               href={PROVIDERS[provider].docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:opacity-80"
-              style={{ color: 'var(--dome-accent)' }}
+              className="text-primary underline hover:opacity-80"
             >
               {PROVIDERS[provider].docsUrl.replace('https://', '')}
             </a>
           </p>
-        )}
-      </div>
+        ) : null}
+      </Field>
 
       {providerModelsLoading ? (
-        <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-          <Loader2 className="size-3.5 animate-spin shrink-0" aria-hidden /> {t('settings.ai.models_loading')}
+        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Spinner /> {t('settings.ai.models_loading')}
         </p>
       ) : null}
       {providerModelsError && !providerModelsLoading ? (
-        <DomeCallout tone="warning">{providerModelsError}</DomeCallout>
+        <Alert role="note">
+          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+          <AlertDescription className="text-xs">{providerModelsError}</AlertDescription>
+        </Alert>
       ) : null}
 
-      {currentProviderModels.length > 0 && (
+      {currentProviderModels.length > 0 ? (
         <div>
-          <div className="flex items-center justify-between mb-1.5 gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {t('settings.ai.model')}
             </span>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1">
               {canRefreshProviderModels ? (
-                <DomeButton
+                <Button
                   type="button"
                   variant="ghost"
                   size="xs"
                   onClick={() => void refreshProviderModels()}
                   disabled={providerModelsLoading || !apiKey.trim()}
-                  leftIcon={<RefreshCw className={`size-3 ${providerModelsLoading ? 'animate-spin' : ''}`} aria-hidden />}
                 >
+                  <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
                   {t('settings.ai.refresh')}
-                </DomeButton>
+                </Button>
               ) : null}
-              <DomeButton type="button" variant="ghost" size="xs" onClick={() => onCustomModelChange(!customModel)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => onCustomModelChange(!customModel)}
+              >
                 {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
-              </DomeButton>
+              </Button>
             </div>
           </div>
           {customModel ? (
-            <DomeInput
+            <Input
               value={model}
               onChange={(e) => onModelChange(e.target.value)}
               placeholder={getDefaultModelId(provider)}
               autoComplete="off"
+              aria-label={t('settings.ai.model')}
             />
           ) : (
             <ModelSelector
               models={currentProviderModels}
               selectedModelId={model}
               onChange={onModelChange}
-              showBadges={true}
+              showBadges
               showDescription={!compact}
               showContextWindow={!compact}
               searchable={currentProviderModels.length > 5}
@@ -145,13 +160,7 @@ export default function AICloudProviderConfig({
             />
           )}
         </div>
-      )}
-    </>
+      ) : null}
+    </div>
   );
-
-  if (!wrapInCard) {
-    return <div className="space-y-4">{content}</div>;
-  }
-
-  return <DomeCard className="space-y-4">{content}</DomeCard>;
 }

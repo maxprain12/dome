@@ -1,4 +1,10 @@
 {
+  "greeting_name": "Hola, {{name}}",
+  "subtitle": "Continúa donde lo dejaste o inicia algo nuevo.",
+  "continue_activity": "Sigue donde lo dejaste",
+  "continue_activity_desc": "Tu trabajo más reciente.",
+  "no_recent_activity": "Sin actividad reciente.",
+  "pending_today": "Para hoy",
   "greeting_morning": "Buenos días",
   "greeting_afternoon": "Buenas tardes",
   "greeting_evening": "Buenas noches",

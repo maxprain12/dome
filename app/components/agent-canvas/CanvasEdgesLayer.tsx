@@ -58,7 +58,7 @@ export default function CanvasEdgesLayer({
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <path d="M0,0 L0,6 L9,3 z" fill="var(--dome-text-muted)" opacity="0.55" />
+          <path d="M0,0 L0,6 L9,3 z" fill="var(--muted-foreground)" opacity="0.55" />
         </marker>
       </defs>
       <g className="wf-edges-group">

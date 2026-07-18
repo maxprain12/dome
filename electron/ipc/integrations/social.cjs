@@ -6,6 +6,7 @@ const { z } = require('zod');
 
 const { getSocialService } = require('../../social/social-service.cjs');
 const socialCalendarBridge = require('../../social/social-calendar-bridge.cjs');
+const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
 
 const ProviderSchema = z.enum(['linkedin', 'instagram', 'x']);
 const ProviderConfigSchema = z.object({
@@ -48,6 +49,7 @@ const PostCreateSchema = z.object({
   linkUrl: z.string().url().optional().nullable(),
   topics: z.array(z.string().max(80)).max(20).default([]),
   campaign: z.string().max(200).optional().nullable(),
+  campaignId: z.string().min(1).optional().nullable(),
   scheduledAt: z.number().int().positive().optional().nullable(),
   groupId: z.string().optional().nullable(),
 });
@@ -60,13 +62,31 @@ const PostUpdateSchema = z.object({
     linkUrl: z.string().url().nullable().optional(),
     topics: z.array(z.string().max(80)).max(20).optional(),
     campaign: z.string().max(200).nullable().optional(),
+    campaignId: z.string().min(1).nullable().optional(),
     scheduledAt: z.number().int().positive().nullable().optional(),
     status: z.enum(['draft', 'scheduled']).optional(),
   }),
 });
+const CampaignCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  goal: z.string().max(2000).optional().nullable(),
+});
+const CampaignUpdateSchema = z.object({
+  campaignId: z.string().min(1),
+  patch: z.object({
+    name: z.string().min(1).max(200).optional(),
+    goal: z.string().max(2000).nullable().optional(),
+    status: z.enum(['active', 'archived']).optional(),
+  }),
+});
+const CampaignIdSchema = z.object({ campaignId: z.string().min(1) });
 const PostListSchema = z.object({
   status: z.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']).optional().nullable(),
   limit: z.number().int().positive().max(500).optional(),
+});
+const FeedSyncSchema = z.object({
+  accountId: z.string().min(1).optional().nullable(),
+  limit: z.number().int().positive().max(50).optional(),
 });
 const GrowthQuerySchema = z.object({
   days: z.number().int().min(7).max(365).optional(),
@@ -150,25 +170,50 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   }));
 
   // Posts
-  ipcMain.handle('social:posts:list', wrap(PostListSchema, ({ status, limit }) =>
-    service.store.listPosts({ status: status || null, limit: limit || 100 })
-  ));
+  ipcMain.handle('social:posts:list', wrap(PostListSchema, ({ status, limit }) => {
+    const metricByPost = new Map(service.store.listLatestMetrics().map((m) => [m.postId, m]));
+    return service.store.listPosts({ status: status || null, limit: limit || 100 }).map((post) => ({
+      ...post,
+      metrics: metricByPost.get(post.id) || null,
+    }));
+  }));
   ipcMain.handle('social:posts:get', wrap(PostIdSchema, ({ postId }) => {
     const post = service.store.getPost(postId);
     if (!post) throw new Error('Post not found');
     return post;
   }));
-  ipcMain.handle('social:posts:create', wrap(PostCreateSchema, (input) => {
+  ipcMain.handle('social:posts:create', wrap(PostCreateSchema, async (input) => {
     const post = service.store.createPost(input);
-    windowManager.broadcast?.('social:post-updated', post);
-    void socialCalendarBridge.syncPostEvent(post);
-    return post;
+    if (
+      post.accountId
+      && service.store.isAccountCloudPublishing(post.accountId)
+      && (post.status === 'scheduled' || post.scheduledAt)
+    ) {
+      await socialCloudAdapter
+        .syncPostMediaStorage({ database, windowManager }, service.store, post.id)
+        .catch((err) => console.warn('[Social] cloud media sync:', err?.message || err));
+    }
+    const latest = service.store.getPost(post.id);
+    windowManager.broadcast?.('social:post-updated', latest);
+    void socialCalendarBridge.syncPostEvent(latest);
+    return latest;
   }));
-  ipcMain.handle('social:posts:update', wrap(PostUpdateSchema, ({ postId, patch }) => {
+  ipcMain.handle('social:posts:update', wrap(PostUpdateSchema, async ({ postId, patch }) => {
     const post = service.store.updatePost(postId, patch);
-    windowManager.broadcast?.('social:post-updated', post);
-    void socialCalendarBridge.syncPostEvent(post);
-    return post;
+    const accountId = patch.accountId ?? post.accountId;
+    if (
+      accountId
+      && service.store.isAccountCloudPublishing(accountId)
+      && (post.status === 'scheduled' || post.scheduledAt)
+    ) {
+      await socialCloudAdapter
+        .syncPostMediaStorage({ database, windowManager }, service.store, postId)
+        .catch((err) => console.warn('[Social] cloud media sync:', err?.message || err));
+    }
+    const latest = service.store.getPost(postId);
+    windowManager.broadcast?.('social:post-updated', latest);
+    void socialCalendarBridge.syncPostEvent(latest);
+    return latest;
   }));
   ipcMain.handle('social:posts:delete', wrap(PostIdSchema, ({ postId }) => {
     service.store.deletePost(postId);
@@ -177,6 +222,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     return { deleted: true };
   }));
   ipcMain.handle('social:posts:publish', wrap(PostIdSchema, ({ postId }) => service.publishPost(postId)));
+  ipcMain.handle('social:posts:sync', wrap(FeedSyncSchema, ({ accountId, limit }) =>
+    service.syncPlatformFeed({ accountId: accountId || null, limit: limit || 25 }),
+  ));
 
   // Media pickers — local files (native dialog) and vault image/video resources
   ipcMain.handle('social:media:pick', wrap(null, async () => {
@@ -262,10 +310,32 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     return { dataUrl: `data:${mime};base64,${fs.readFileSync(resolved).toString('base64')}` };
   }));
 
+  // Campaigns (plan 025)
+  ipcMain.handle('social:campaigns:list', wrap(null, () => service.store.listCampaigns()));
+  ipcMain.handle('social:campaigns:create', wrap(CampaignCreateSchema, ({ name, goal }) => {
+    const campaign = service.store.createCampaign({ name, goal: goal || null });
+    windowManager.broadcast?.('social:posts-refresh', { reason: 'campaign' });
+    return campaign;
+  }));
+  ipcMain.handle('social:campaigns:update', wrap(CampaignUpdateSchema, ({ campaignId, patch }) => {
+    const campaign = service.store.updateCampaign(campaignId, patch);
+    windowManager.broadcast?.('social:posts-refresh', { reason: 'campaign' });
+    return campaign;
+  }));
+  ipcMain.handle('social:campaigns:archive', wrap(CampaignIdSchema, ({ campaignId }) => {
+    const campaign = service.store.archiveCampaign(campaignId);
+    windowManager.broadcast?.('social:posts-refresh', { reason: 'campaign' });
+    return campaign;
+  }));
+
   // Metrics & dashboard
   ipcMain.handle('social:metrics:post', wrap(PostIdSchema, ({ postId }) => service.store.listMetricsForPost(postId)));
   ipcMain.handle('social:metrics:refresh', wrap(null, () => service.refreshAllMetrics()));
+  ipcMain.handle('social:metrics:refreshPost', wrap(PostIdSchema, ({ postId }) =>
+    service.refreshPostMetrics(postId)
+  ));
   ipcMain.handle('social:summary', wrap(null, () => service.getSummary()));
+  ipcMain.handle('social:workspace', wrap(null, () => service.getWorkspace()));
   ipcMain.handle('social:growth', wrap(GrowthQuerySchema, ({ days }) => service.getGrowth({ days: days || 90 })));
 
   // AI growth reports
@@ -290,6 +360,69 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   }));
   ipcMain.handle('social:reports:config:get', wrap(null, () => service.store.getReportConfig()));
   ipcMain.handle('social:reports:config:set', wrap(ReportConfigSchema, (input) => service.store.setReportConfig(input)));
+
+  // Plan 014/018 — drafts + cold DM + capability matrix
+  ipcMain.handle('social:capabilities', wrap(null, () => service.getIntegrationCapabilities()));
+  ipcMain.handle('social:drafts:list', wrap(null, () => ({ drafts: service.store.listReplyDrafts() })));
+  ipcMain.handle(
+    'social:drafts:create-from-match',
+    wrap(
+      z.object({
+        hashtag: z.string().min(1),
+        commentText: z.string().min(1),
+        replyTemplate: z.string().optional(),
+        provider: ProviderSchema.optional(),
+        accountId: z.string().optional(),
+        postId: z.string().optional(),
+        externalCommentId: z.string().optional(),
+        commentAuthor: z.string().optional(),
+        commentAuthorExternalId: z.string().optional(),
+        linkUrl: z.string().url().optional().nullable(),
+        mode: z.enum(['live', 'draft_only']).optional(),
+      }),
+      (input) => service.createDraftFromMatchedComment({
+        ...input,
+        mode: input.mode || 'live',
+      }),
+    ),
+  );
+  ipcMain.handle(
+    'social:drafts:send',
+    wrap(z.object({ draftId: z.string().min(1) }), ({ draftId }) => service.sendReplyDraft(draftId)),
+  );
+  ipcMain.handle(
+    'social:drafts:dismiss',
+    wrap(z.object({ draftId: z.string().min(1) }), ({ draftId }) => {
+      const result = service.store.dismissReplyDraft(draftId);
+      windowManager.broadcast?.('social:drafts-updated', { id: draftId, deleted: true });
+      return result;
+    }),
+  );
+  ipcMain.handle('social:drafts:poll-now', wrap(null, () => service.pollCommentsAndAutoReply()));
+  ipcMain.handle(
+    'social:live-reply-rules:get',
+    wrap(null, () => ({ rules: service.store.getLiveReplyRules() })),
+  );
+  ipcMain.handle(
+    'social:live-reply-rules:set',
+    wrap(
+      z.object({
+        rules: z.array(
+          z.object({
+            id: z.string().min(1),
+            enabled: z.boolean().optional(),
+            mode: z.enum(['live', 'draft_only']).optional(),
+            hashtag: z.string().min(1),
+            replyTemplate: z.string().optional(),
+            linkUrl: z.string().optional().nullable(),
+            accountIds: z.array(z.string()).nullable().optional(),
+            postIds: z.array(z.string()).nullable().optional(),
+          }),
+        ),
+      }),
+      ({ rules }) => ({ rules: service.store.setLiveReplyRules(rules) }),
+    ),
+  );
 
   service.startScheduler();
   // Backfill calendar events for already-scheduled posts (boot catch-up).

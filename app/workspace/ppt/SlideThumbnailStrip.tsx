@@ -1,7 +1,11 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+} from '@hugeicons/core-free-icons';
 import React, { useCallback, useEffect, useRef, type CSSProperties } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import './slide-thumbnail-strip.css';
 
 // Must match PptViewer's internal resolution
@@ -92,7 +96,7 @@ function ThumbnailCell({
       style={{
         width: THUMB_W,
         height: THUMB_H,
-        background: 'var(--bg-secondary)',
+        background: 'var(--card)',
         position: 'relative',
         overflow: 'hidden',
         flexShrink: 0,
@@ -125,7 +129,7 @@ function ThumbnailCell({
       >
         <span
           style={{
-            color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.4)',
+            color: isActive ? 'var(--primary)' : 'rgba(255,255,255,0.4)',
             fontSize: 12,
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
@@ -185,7 +189,7 @@ function SlideThumbnailStripComponent({
           className="ppt-thumb-collapse-btn"
           aria-label={collapsed ? 'Expandir miniaturas' : 'Colapsar miniaturas'}
         >
-          {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+          {collapsed ? <HugeiconsIcon icon={PanelLeftOpenIcon} size={13} /> : <HugeiconsIcon icon={PanelLeftCloseIcon} size={13} />}
         </button>
       )}
 
@@ -203,7 +207,7 @@ function SlideThumbnailStripComponent({
               data-slide-index={i}
               ref={isActive ? scrollActiveThumbRef : undefined}
               onClick={() => handleSelect(i)}
-              className={`ppt-thumb-select-btn focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1${collapsed ? ' is-collapsed' : ' is-expanded'}`}
+              className={`ppt-thumb-select-btn focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1${collapsed ? ' is-collapsed' : ' is-expanded'}`}
               aria-label={`Slide ${i + 1}`}
               aria-pressed={isActive}
             >
@@ -222,7 +226,7 @@ function SlideThumbnailStripComponent({
                 >
                   <span
                     style={{
-                      color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.35)',
+                      color: isActive ? 'var(--primary)' : 'rgba(255,255,255,0.35)',
                       fontSize: 12,
                       fontWeight: 700,
                       fontVariantNumeric: 'tabular-nums',
@@ -239,7 +243,7 @@ function SlideThumbnailStripComponent({
                     borderRadius: 4,
                     overflow: 'hidden',
                     border: isActive
-                      ? '2px solid var(--accent)'
+                      ? '2px solid var(--primary)'
                       : '2px solid rgba(255,255,255,0.07)',
                     boxShadow: isActive
                       ? '0 0 0 1px rgba(123,118,208,0.2), 0 4px 16px rgba(0,0,0,0.45)'
@@ -251,7 +255,7 @@ function SlideThumbnailStripComponent({
                   <div
                     style={{
                       height: 3,
-                      background: isActive ? 'var(--accent)' : 'transparent',
+                      background: isActive ? 'var(--primary)' : 'transparent',
                       transition: 'background 150ms ease',
                       flexShrink: 0,
                     }}

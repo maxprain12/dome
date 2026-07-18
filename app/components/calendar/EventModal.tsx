@@ -1,30 +1,118 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ExternalLink, Tag, GitBranch, CircleDot, CheckCircle2,
-  Rocket, Milestone, Github, Pencil, MapPin, Clock, Workflow,
-} from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeDatePicker } from '@/components/ui/DomeDatePicker';
-import { DomeDateTimePicker } from '@/components/ui/DomeDateTimePicker';
+  Add01Icon,
+  Cancel01Icon,
+  ExternalLinkIcon,
+  Tag01Icon,
+  GitBranchIcon,
+  CircleDotIcon,
+  CheckmarkCircle02Icon,
+  RocketIcon,
+  Flag02Icon,
+  GithubIcon,
+  PencilEdit02Icon,
+  MapPinIcon,
+  Clock01Icon,
+  WorkflowSquare01Icon,
+  Share08Icon,
+  Calendar03Icon,
+} from '@hugeicons/core-free-icons';
+import { DatePicker } from '@/components/shared/DatePicker';
+import { DateTimePicker } from '@/components/shared/DateTimePicker';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
+import ResourcePickerModal from '@/components/editor/ResourcePickerModal';
+import { EventColorPill, EventDetailChrome } from '@/components/calendar/EventDetailChrome';
+import { MarkdownBody } from '@/components/shared/MarkdownBody';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { pipelinesClient } from '@/lib/pipelines/client';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
+import { showToast } from '@/lib/store/useToastStore';
 import type { PipelineItem } from '@/lib/pipelines/types';
+import type { Resource } from '@/types';
+import { cn } from '@/lib/utils';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+
+function resourceIdsFromMeta(meta: Record<string, unknown> | undefined): string[] {
+  const raw = meta?.resourceIds;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+function isSocialEvent(event: CalendarEvent | null | undefined): boolean {
+  return event?.metadata?.source === 'social';
+}
 
 const GITHUB_CALENDAR_ID = 'github-dome';
 
+/** Round minutes down to a 5-minute step (matches DateTimePicker options). */
+function snapMinutes(d: Date): Date {
+  const next = new Date(d);
+  next.setMinutes(Math.floor(next.getMinutes() / 5) * 5, 0, 0);
+  return next;
+}
+
 function toLocalISO(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
+  const snapped = snapMinutes(d);
+  const y = snapped.getFullYear();
+  const m = String(snapped.getMonth() + 1).padStart(2, '0');
+  const day = String(snapped.getDate()).padStart(2, '0');
+  const h = String(snapped.getHours()).padStart(2, '0');
+  const min = String(snapped.getMinutes()).padStart(2, '0');
   return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+/** Parse `yyyy-MM-ddTHH:mm` as local wall time → ISO UTC (avoids Invalid Date / TZ quirks). */
+function localDateTimeToIso(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) {
+    const fallback = new Date(value);
+    if (Number.isNaN(fallback.getTime())) {
+      throw new Error(`Invalid datetime: ${value}`);
+    }
+    return fallback.toISOString();
+  }
+  const y = Number(match[1]);
+  const mo = Number(match[2]);
+  const d = Number(match[3]);
+  const h = Number(match[4]);
+  const mi = Number(match[5]);
+  return new Date(y, mo - 1, d, h, mi, 0, 0).toISOString();
+}
+
+function localDateTimeMs(value: string): number {
+  return new Date(localDateTimeToIso(value)).getTime();
+}
+
+/** Default timed slot when opening “new event” from a calendar day (midnight). */
+function defaultTimedRangeFromDay(day: Date): { start: string; end: string } {
+  const start = new Date(day);
+  if (start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0) {
+    start.setHours(9, 0, 0, 0);
+  }
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  return { start: toLocalISO(start), end: toLocalISO(end) };
 }
 
 function isGithubCalendarEvent(event: CalendarEvent | null | undefined): boolean {
@@ -87,30 +175,97 @@ function formatEventWhen(event: CalendarEvent, locale: string): string {
   return start.toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' });
 }
 
-interface MetaRowProps {
-  label: string;
-  children: React.ReactNode;
-}
-function MetaRow({ label, children }: MetaRowProps) {
-  return (
-    <>
-      <dt
-        className="text-[11px] font-medium uppercase tracking-wide pt-1.5"
-        style={{ color: 'var(--dome-text-muted)' }}
-      >
-        {label}
-      </dt>
-      <dd className="text-sm pt-1.5 min-w-0" style={{ color: 'var(--dome-text)' }}>
-        {children}
-      </dd>
-    </>
-  );
-}
-
 interface PipelineDetail {
   item: PipelineItem;
   stageTitle: string | null;
   pipelineName: string | null;
+}
+
+/** Delete button with shadcn AlertDialog confirmation (replaces window.confirm). */
+function DeleteEventAction({
+  deleting,
+  onConfirm,
+}: {
+  deleting: boolean;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button variant="ghost" size="sm" className="mr-auto text-destructive" loading={deleting}>
+            {t('common.delete')}
+          </Button>
+        }
+      />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('common.delete')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('calendarPage.delete_event_confirm')}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{t('common.delete')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function LinkedResourcesSection({
+  resourceIds,
+  titles,
+  editable,
+  onOpen,
+  onRemove,
+  onAdd,
+}: {
+  resourceIds: string[];
+  titles: Record<string, string>;
+  editable?: boolean;
+  onOpen: (id: string) => void;
+  onRemove?: (id: string) => void;
+  onAdd?: () => void;
+}) {
+  const { t } = useTranslation();
+  if (resourceIds.length === 0 && !editable) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {t('calendarPage.linked_resources')}
+      </span>
+      {resourceIds.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t('calendarPage.linked_resources_empty')}</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {resourceIds.map((id) => (
+            <Badge key={id} variant="secondary" className="gap-1 pr-1 font-normal">
+              <button type="button" className="truncate max-w-40 text-left" onClick={() => onOpen(id)}>
+                {titles[id] ?? id.slice(0, 8)}
+              </button>
+              {onRemove ? (
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:bg-muted"
+                  aria-label={t('common.remove')}
+                  onClick={() => onRemove(id)}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                </button>
+              ) : null}
+            </Badge>
+          ))}
+        </div>
+      )}
+      {onAdd ? (
+        <Button type="button" variant="outline" size="sm" className="self-start" onClick={onAdd}>
+          <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+          {t('calendarPage.link_resource')}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 /** Read-only detail view for a local (or pipeline-sourced) calendar event. */
@@ -118,12 +273,18 @@ function LocalEventDetail({
   event,
   locale,
   pipeline,
+  linkedTitles,
   onOpenPipeline,
+  onOpenSocial,
+  onOpenResource,
 }: {
   event: CalendarEvent;
   locale: string;
   pipeline: PipelineDetail | null;
+  linkedTitles: Record<string, string>;
   onOpenPipeline: () => void;
+  onOpenSocial: () => void;
+  onOpenResource: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const todos = Array.isArray(pipeline?.item.data?.todos)
@@ -132,96 +293,94 @@ function LocalEventDetail({
   const todoDone = todos.filter((td) => td?.done).length;
   const dataText =
     pipeline && typeof pipeline.item.data?.text === 'string' ? pipeline.item.data.text.trim() : '';
+  const linkedIds = resourceIdsFromMeta(event.metadata);
+  const social = isSocialEvent(event);
 
   return (
     <div className="flex flex-col gap-4">
-      {pipeline && (
-        <div
-          className="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[11px] font-medium"
-          style={{ background: 'var(--accent)', color: 'var(--dome-on-accent, var(--base-text))' }}
-        >
-          <Workflow size={12} />
-          {pipeline.pipelineName ? `${pipeline.pipelineName}` : t('tabs.pipelines')}
-        </div>
-      )}
-
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0">
-        <MetaRow label={t('calendarPage.when', { defaultValue: 'When' })}>
-          <span className="inline-flex items-center gap-1.5">
-            <Clock size={13} style={{ color: 'var(--dome-text-muted)' }} />
-            {formatEventWhen(event, locale)}
-          </span>
-        </MetaRow>
-        {event.location ? (
-          <MetaRow label={t('calendarPage.location', { defaultValue: 'Location' })}>
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin size={13} style={{ color: 'var(--dome-text-muted)' }} />
-              {event.location}
-            </span>
-          </MetaRow>
+      <div className="flex flex-wrap gap-1.5">
+        {event.all_day ? (
+          <Badge variant="outline" className="font-normal">{t('calendarPage.all_day')}</Badge>
         ) : null}
         {pipeline?.stageTitle ? (
-          <MetaRow label={t('pipelines.stage_agent', { defaultValue: 'Stage' })}>
-            {pipeline.stageTitle}
-          </MetaRow>
+          <Badge variant="secondary" className="font-normal">{pipeline.stageTitle}</Badge>
         ) : null}
         {pipeline ? (
-          <MetaRow label={t('calendarPage.status', { defaultValue: 'Status' })}>
+          <Badge variant="outline" className="font-normal">
             {t(`pipelines.status_${pipeline.item.execStatus}`, { defaultValue: pipeline.item.execStatus })}
-          </MetaRow>
+          </Badge>
         ) : null}
         {pipeline && todos.length > 0 ? (
-          <MetaRow label={t('pipelines.field_todos')}>
+          <Badge variant="outline" className="font-normal">
             {t('pipelines.todos_progress', { done: todoDone, total: todos.length })}
-          </MetaRow>
+          </Badge>
         ) : null}
-      </dl>
+        {event.location ? (
+          <Badge variant="secondary" className="max-w-full gap-1 font-normal">
+            <HugeiconsIcon icon={MapPinIcon} className="size-3" />
+            <span className="truncate">{event.location}</span>
+          </Badge>
+        ) : null}
+      </div>
+
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <HugeiconsIcon icon={Clock01Icon} className="size-3.5 shrink-0" />
+        {formatEventWhen(event, locale)}
+      </p>
 
       {dataText ? (
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('pipelines.field_description')}
           </span>
-          <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--dome-text)' }}>
-            {dataText}
-          </p>
+          <MarkdownBody
+            content={dataText}
+            className="max-h-[min(40vh,320px)] overflow-y-auto"
+          />
         </div>
       ) : event.description ? (
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('calendarPage.description', { defaultValue: 'Description' })}
           </span>
-          <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--dome-text)' }}>
-            {event.description}
-          </p>
+          <MarkdownBody
+            content={event.description}
+            className="max-h-[min(40vh,320px)] overflow-y-auto"
+          />
         </div>
       ) : null}
 
       {pipeline?.item.lastOutput ? (
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('pipelines.history')}
           </span>
-          <p
-            className="text-xs whitespace-pre-wrap max-h-32 overflow-y-auto rounded-md px-2 py-1.5"
-            style={{ color: 'var(--dome-text-muted)', background: 'var(--bg)', border: '1px solid var(--border)' }}
-          >
+          <p className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md border bg-background px-2 py-1.5 text-xs text-muted-foreground">
             {pipeline.item.lastOutput.slice(0, 600)}
           </p>
         </div>
       ) : null}
 
-      {pipeline ? (
-        <button
-          type="button"
-          onClick={onOpenPipeline}
-          className="inline-flex items-center gap-1.5 self-start text-sm font-medium"
-          style={{ color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-        >
-          <ExternalLink size={14} />
-          {t('pipelines.open_in_pipelines', { defaultValue: 'Open in Pipelines' })}
-        </button>
-      ) : null}
+      <LinkedResourcesSection
+        resourceIds={linkedIds}
+        titles={linkedTitles}
+        onOpen={onOpenResource}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        {pipeline ? (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={onOpenPipeline}>
+            <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
+            {t('pipelines.open_in_pipelines', { defaultValue: 'Open in Pipelines' })}
+          </Button>
+        ) : null}
+        {social ? (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={onOpenSocial}>
+            <HugeiconsIcon icon={Share08Icon} className="size-3.5" />
+            {t('calendarPage.open_in_social')}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -240,18 +399,16 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
   const typeBadge = (() => {
     if (!entityType) return null;
     if (entityType === 'release') {
-      return { icon: <Rocket size={11} />, label: t('github.calendar_type_release'), tone: 'accent' as const };
+      return { icon: <HugeiconsIcon icon={RocketIcon} />, label: t('github.calendar_type_release'), tone: 'accent' as const };
     }
     if (entityType === 'milestone') {
-      return { icon: <Milestone size={11} />, label: t('github.calendar_type_milestone'), tone: 'neutral' as const };
+      return { icon: <HugeiconsIcon icon={Flag02Icon} />, label: t('github.calendar_type_milestone'), tone: 'neutral' as const };
     }
-    return { icon: <CircleDot size={11} />, label: t('github.calendar_type_issue'), tone: 'neutral' as const };
+    return { icon: <HugeiconsIcon icon={CircleDotIcon} />, label: t('github.calendar_type_issue'), tone: 'neutral' as const };
   })();
 
   const dateLabel = formatEventWhen(event, i18n.language);
   const showBody = entityType !== 'milestone'; // milestone already shows a rich dl below
-  const dlBg = 'var(--dome-bg)';
-  const dlBorder = '1px solid var(--dome-border)';
 
   // Repo label fallback: when the metadata is from an older sync (no repoFullName)
   // we still try to surface something useful so the header strip never collapses.
@@ -278,157 +435,114 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
   const releaseMinimalRow =
     entityType === 'release' && !markdownBody && (meta.tagName || meta.publishedAt != null);
 
+  const githubAccent = event.calendar_color ?? 'var(--primary)';
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Header strip: type badge + repo + date */}
-      <div
-        className="flex flex-col gap-2 rounded-lg px-3 py-3"
-        style={{ background: dlBg, border: dlBorder }}
-      >
-        <div className="flex items-center gap-2 flex-wrap">
-          {typeBadge && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium"
-              style={{
-                background: typeBadge.tone === 'accent'
-                  ? 'color-mix(in srgb, var(--dome-accent) 14%, transparent)'
-                  : 'var(--dome-bg-hover)',
-                color: typeBadge.tone === 'accent' ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                border: typeBadge.tone === 'accent'
-                  ? '1px solid color-mix(in srgb, var(--dome-accent) 28%, transparent)'
-                  : '1px solid var(--dome-border)',
-              }}
-            >
-              {typeBadge.icon}
-              {typeBadge.label}
-            </span>
-          )}
-          <span
-            className="inline-flex items-center gap-1 text-[12px]"
-            style={{ color: 'var(--dome-text)' }}
-            title={meta.repoFullName || repoFallback || undefined}
+      <div className="flex flex-wrap gap-1.5">
+        {typeBadge ? (
+          <EventColorPill color={typeBadge.tone === 'accent' ? githubAccent : undefined}>
+            {typeBadge.icon}
+            <span className="truncate">{typeBadge.label}</span>
+          </EventColorPill>
+        ) : null}
+        {(meta.repoFullName || repoFallback) ? (
+          <Badge variant="secondary" className="h-auto max-w-full gap-1 overflow-visible py-0.5 font-normal leading-none [&_svg]:size-2.5">
+            <HugeiconsIcon icon={GithubIcon} />
+            <span className="truncate">{meta.repoFullName || repoFallback}</span>
+          </Badge>
+        ) : null}
+        {event.all_day ? (
+          <Badge variant="outline" className="h-auto overflow-visible py-0.5 font-normal leading-none">
+            {t('calendarPage.all_day')}
+          </Badge>
+        ) : null}
+        {meta.tagName ? (
+          <Badge variant="outline" className="h-auto max-w-full gap-1 overflow-visible py-0.5 font-mono font-normal leading-none [&_svg]:size-2.5">
+            <HugeiconsIcon icon={Tag01Icon} />
+            <span className="truncate">{meta.tagName}</span>
+          </Badge>
+        ) : null}
+        {meta.issueNumber != null ? (
+          <Badge variant="outline" className="h-auto overflow-visible py-0.5 font-mono font-normal leading-none">
+            #{meta.issueNumber}
+          </Badge>
+        ) : null}
+        {meta.issueState ? (
+          <Badge
+            variant={meta.issueState === 'closed' ? 'secondary' : 'outline'}
+            className={cn(
+              'h-auto gap-1 overflow-visible py-0.5 font-normal leading-none [&_svg]:size-2.5',
+              meta.issueState !== 'closed' && 'text-(--success)',
+            )}
           >
-            <Github size={12} style={{ color: 'var(--dome-text-muted)' }} />
-            <span className="font-medium">{meta.repoFullName || repoFallback}</span>
-          </span>
-        </div>
-        <span className="text-xs inline-flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-          {dateLabel}
-          {event.all_day ? <span>· {t('calendarPage.all_day')}</span> : null}
-        </span>
+            {meta.issueState === 'closed' ? (
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} />
+            ) : (
+              <HugeiconsIcon icon={CircleDotIcon} />
+            )}
+            {meta.issueState === 'closed'
+              ? t('github.calendar_issue_state_closed')
+              : t('github.calendar_issue_state_open')}
+          </Badge>
+        ) : null}
+        {meta.milestoneState ? (
+          <Badge
+            variant={meta.milestoneState === 'closed' ? 'secondary' : 'outline'}
+            className={cn(
+              'h-auto gap-1 overflow-visible py-0.5 font-normal leading-none [&_svg]:size-2.5',
+              meta.milestoneState === 'closed' && 'text-(--success)',
+            )}
+          >
+            {meta.milestoneState === 'closed' ? (
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} />
+            ) : (
+              <HugeiconsIcon icon={CircleDotIcon} />
+            )}
+            {meta.milestoneState === 'closed'
+              ? t('github.calendar_completed')
+              : t('github.calendar_pending')}
+          </Badge>
+        ) : null}
       </div>
 
-      {/* Entity-specific fields */}
-      {entityType === 'milestone' ? (
-        <dl
-          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg px-3 py-1"
-          style={{ background: dlBg, border: dlBorder }}
-        >
-          {meta.milestoneTitle ? (
-            <MetaRow label={t('github.calendar_milestone')}>{meta.milestoneTitle}</MetaRow>
-          ) : null}
-          <MetaRow label={t('github.calendar_state')}>
-            <span
-              className="inline-flex items-center gap-1"
-              style={{ color: meta.milestoneState === 'closed' ? 'var(--success)' : 'var(--dome-text)' }}
-            >
-              {meta.milestoneState === 'closed' ? <CheckCircle2 size={13} /> : <CircleDot size={13} />}
-              {meta.milestoneState === 'closed' ? t('github.calendar_completed') : t('github.calendar_pending')}
-            </span>
-          </MetaRow>
-        </dl>
+      <p className="text-xs text-muted-foreground">{dateLabel}</p>
+
+      {entityType === 'milestone' && meta.milestoneTitle ? (
+        <p className="text-sm font-medium">{meta.milestoneTitle}</p>
       ) : null}
 
-      {entityType === 'release' ? (
-        <dl
-          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg px-3 py-1"
-          style={{ background: dlBg, border: dlBorder }}
-        >
-          {meta.tagName ? (
-            <MetaRow label={t('github.calendar_release_tag')}>
-              <span className="inline-flex items-center gap-1 font-mono text-[13px]" style={{ color: 'var(--dome-accent)' }}>
-                <Tag size={12} /> {meta.tagName}
-              </span>
-            </MetaRow>
-          ) : null}
-          {meta.releaseName && meta.releaseName !== meta.tagName ? (
-            <MetaRow label={t('github.calendar_release_name')}>{meta.releaseName}</MetaRow>
-          ) : null}
-        </dl>
+      {entityType === 'release' && meta.releaseName && meta.releaseName !== meta.tagName ? (
+        <p className="text-sm">{meta.releaseName}</p>
       ) : null}
 
-      {entityType === 'issue' ? (
-        <dl
-          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg px-3 py-1"
-          style={{ background: dlBg, border: dlBorder }}
-        >
-          {meta.issueNumber != null ? (
-            <MetaRow label={t('github.calendar_issue_number')}>
-              <span className="font-mono text-[13px]">#{meta.issueNumber}</span>
-            </MetaRow>
-          ) : null}
-          {meta.issueTitle ? (
-            <MetaRow label={t('github.calendar_issue_title')}>{meta.issueTitle}</MetaRow>
-          ) : null}
-          {meta.issueState ? (
-            <MetaRow label={t('github.calendar_state')}>
-              <span
-                className="inline-flex items-center gap-1"
-                style={{
-                  color: meta.issueState === 'closed' ? 'var(--dome-text-muted)' : 'var(--success)',
-                }}
-              >
-                {meta.issueState === 'closed' ? <CheckCircle2 size={13} /> : <CircleDot size={13} />}
-                {meta.issueState === 'closed' ? t('github.calendar_issue_state_closed') : t('github.calendar_issue_state_open')}
-              </span>
-            </MetaRow>
-          ) : null}
-        </dl>
+      {entityType === 'issue' && meta.issueTitle ? (
+        <p className="text-sm font-medium">{meta.issueTitle}</p>
       ) : null}
 
-      {/* Minimal info row for releases without a body (legacy sync).
-          Surfaces tag + published date as plain text so the modal is useful
-          even before the next sync overwrites the event with a full body. */}
-      {releaseMinimalRow ? (
-        <div
-          className="text-xs flex flex-col gap-1 rounded-lg px-3 py-2"
-          style={{ background: dlBg, border: dlBorder, color: 'var(--dome-text-muted)' }}
-        >
-          {meta.tagName ? (
-            <span className="inline-flex items-center gap-1">
-              <Tag size={11} />
-              <span className="font-mono" style={{ color: 'var(--dome-accent)' }}>{meta.tagName}</span>
-            </span>
-          ) : null}
-          {meta.publishedAt != null ? (
-            <span>
-              {t('github.calendar_release_published', {
-                defaultValue: 'Published',
-              })}
-              : {new Date(meta.publishedAt).toLocaleString(i18n.language)}
-            </span>
-          ) : null}
-          {githubUrl ? (
-            <a href={githubUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">
-              <ExternalLink size={11} /> {githubUrl}
-            </a>
-          ) : null}
-        </div>
+      {releaseMinimalRow && meta.publishedAt != null ? (
+        <p className="text-xs text-muted-foreground">
+          {t('github.calendar_release_published', { defaultValue: 'Published' })}
+          : {new Date(meta.publishedAt).toLocaleString(i18n.language)}
+        </p>
       ) : null}
 
       {/* Source URL (legacy / non-classified events) */}
       {showBody && !meta.repoFullName && githubUrl && entityType !== 'release' ? (
-        <p className="text-xs flex items-center gap-1" style={{ color: 'var(--dome-text-muted)' }}>
-          <GitBranch size={11} />
+        <p className="text-xs flex items-center gap-1 text-muted-foreground">
+          <HugeiconsIcon icon={GitBranchIcon} className="size-3" />
           <a href={githubUrl} target="_blank" rel="noreferrer" className="underline">
             {githubUrl}
           </a>
         </p>
       ) : null}
 
-      {/* Description body */}
+      {/* Description body — typed markdown surface (release notes, issue body). */}
       {markdownBody ? (
-        <GithubMarkdownBody content={markdownBody} className="text-sm max-h-[min(50vh,420px)] overflow-y-auto" />
+        <GithubMarkdownBody
+          content={markdownBody}
+          className="max-h-[min(40vh,360px)] overflow-y-auto"
+        />
       ) : null}
     </div>
   );
@@ -445,301 +559,9 @@ interface EventModalProps {
     start_at: string;
     end_at: string;
     all_day: boolean;
+    metadata?: Record<string, unknown>;
   }) => Promise<void>;
   onDelete?: (eventId: string) => Promise<void>;
-}
-
-function githubEventUrlOf(event: CalendarEvent | null | undefined): string | null {
-  return event ? githubEventUrl(event) : null;
-}
-
-function initialStartAtFor(event: CalendarEvent | null | undefined, initialDate?: Date): string {
-  if (event) {
-    return toLocalISO(new Date(event.start_at));
-  }
-  return toLocalISO(initialDate ?? new Date());
-}
-
-function initialEndAtFor(event: CalendarEvent | null | undefined, initialDate?: Date): string {
-  if (event) {
-    return toLocalISO(new Date(event.end_at));
-  }
-  if (initialDate) {
-    return toLocalISO(new Date(initialDate.getTime() + 60 * 60 * 1000));
-  }
-  const d = new Date();
-  d.setHours(d.getHours() + 1);
-  return toLocalISO(d);
-}
-
-interface GithubEventModalProps {
-  event: CalendarEvent;
-  githubUrl: string | null;
-  onClose: () => void;
-}
-
-function GithubEventModal({ event, githubUrl, onClose }: GithubEventModalProps) {
-  const { t } = useTranslation();
-
-  return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={event.title}
-      size="lg"
-      headerActions={
-        githubUrl ? (
-          <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
-            <ExternalLink size={16} />
-          </a>
-        ) : null
-      }
-      footer={
-        <div className="flex items-center justify-end w-full">
-          {githubUrl ? (
-            <a
-              href={githubUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm inline-flex items-center gap-1.5 mr-auto"
-              style={{ color: 'var(--dome-accent)' }}
-            >
-              <ExternalLink size={14} />
-              {t('github.calendar_view_on_github')}
-            </a>
-          ) : null}
-          <button type="button" onClick={onClose} className="h-pill-btn primary">
-            {t('common.close', { defaultValue: 'Cerrar' })}
-          </button>
-        </div>
-      }
-    >
-      <GithubEventBody event={event} githubUrl={githubUrl} />
-    </DomeModal>
-  );
-}
-
-interface ReadOnlyEventModalProps {
-  event: CalendarEvent;
-  pipelineInfo: PipelineDetail | null;
-  onClose: () => void;
-  onDelete?: (eventId: string) => Promise<void>;
-  onDeleteClick: () => void;
-  onEdit: () => void;
-  onOpenPipeline: () => void;
-  deleting: boolean;
-}
-
-function ReadOnlyEventModal({
-  event,
-  pipelineInfo,
-  onClose,
-  onDelete,
-  onDeleteClick,
-  onEdit,
-  onOpenPipeline,
-  deleting,
-}: ReadOnlyEventModalProps) {
-  const { t, i18n } = useTranslation();
-
-  return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={event.title}
-      size="md"
-      footer={
-        <>
-          {onDelete ? (
-            <DomeButton
-              variant="ghost"
-              size="sm"
-              onClick={() => onDeleteClick()}
-              loading={deleting}
-              style={{ color: 'var(--home-rose)' }}
-            >
-              {t('common.delete')}
-            </DomeButton>
-          ) : null}
-          <div style={{ flex: 1 }} />
-          <DomeButton variant="outline" size="sm" onClick={onEdit} leftIcon={<Pencil className="size-4" />}>
-            {t('common.edit', { defaultValue: 'Edit' })}
-          </DomeButton>
-          <DomeButton variant="primary" size="sm" onClick={onClose}>
-            {t('common.close', { defaultValue: 'Close' })}
-          </DomeButton>
-        </>
-      }
-    >
-      <LocalEventDetail
-        event={event}
-        locale={i18n.language}
-        pipeline={pipelineInfo}
-        onOpenPipeline={onOpenPipeline}
-      />
-    </DomeModal>
-  );
-}
-
-interface EventFormModalProps {
-  event?: CalendarEvent | null;
-  title: string;
-  description: string;
-  location: string;
-  startAt: string;
-  endAt: string;
-  allDay: boolean;
-  saving: boolean;
-  deleting: boolean;
-  onClose: () => void;
-  onDelete?: (eventId: string) => Promise<void>;
-  onDeleteClick: () => void;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  setTitle: React.Dispatch<React.SetStateAction<string>>;
-  setDescription: React.Dispatch<React.SetStateAction<string>>;
-  setLocation: React.Dispatch<React.SetStateAction<string>>;
-  setStartAt: React.Dispatch<React.SetStateAction<string>>;
-  setEndAt: React.Dispatch<React.SetStateAction<string>>;
-  setAllDay: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-function EventFormModal({
-  event,
-  title,
-  description,
-  location,
-  startAt,
-  endAt,
-  allDay,
-  saving,
-  deleting,
-  onClose,
-  onDelete,
-  onDeleteClick,
-  onSubmit,
-  setTitle,
-  setDescription,
-  setLocation,
-  setStartAt,
-  setEndAt,
-  setAllDay,
-}: EventFormModalProps) {
-  const { t } = useTranslation();
-
-  return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
-      size="md"
-      footer={
-        <>
-          {event && onDelete ? (
-            <button
-              type="button"
-              onClick={() => void onDeleteClick()}
-              disabled={deleting}
-              className="h-pill-btn mr-auto"
-              style={{ color: 'var(--home-rose)' }}
-            >
-              {deleting ? t('calendarPage.deleting') : t('common.delete')}
-            </button>
-          ) : null}
-          <button type="button" onClick={onClose} className="h-pill-btn">
-            {t('common.cancel')}
-          </button>
-          <button type="submit" form="event-modal-form" disabled={saving || !title.trim()} className="h-pill-btn primary">
-            {saving ? t('common.saving') : t('common.save')}
-          </button>
-        </>
-      }
-    >
-      <form id="event-modal-form" onSubmit={onSubmit} className="c-calendar-modal-form">
-          <div>
-            <label htmlFor="event-modal-title-input" className="c-calendar-modal-label">
-              {t('common.name')}
-            </label>
-            <input
-              id="event-modal-title-input"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="c-calendar-modal-field"
-              placeholder={t('calendarPage.event_title_placeholder')}
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="event-modal-location" className="c-calendar-modal-label">
-              {t('common.location')}
-            </label>
-            <input
-              id="event-modal-location"
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="c-calendar-modal-field"
-              placeholder={t('calendarPage.event_location_placeholder')}
-            />
-          </div>
-
-          <label className="c-calendar-modal-check">
-            <input type="checkbox" id="allDay" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
-            {t('calendarPage.all_day')}
-          </label>
-
-          {!allDay ? (
-            <>
-              <DomeDateTimePicker
-                id="event-modal-start-dt"
-                label={t('calendarPage.event_start')}
-                value={startAt}
-                onChange={setStartAt}
-              />
-              <DomeDateTimePicker
-                id="event-modal-end-dt"
-                label={t('calendarPage.event_end')}
-                value={endAt}
-                onChange={setEndAt}
-              />
-            </>
-          ) : (
-            <>
-              <DomeDatePicker
-                id="event-modal-start-date"
-                label={t('calendarPage.start_date')}
-                value={startAt.slice(0, 10)}
-                onChange={(d) => setStartAt(`${d}T00:00`)}
-                clearable={false}
-              />
-              <DomeDatePicker
-                id="event-modal-end-date"
-                label={t('calendarPage.end_date')}
-                value={endAt.slice(0, 10)}
-                onChange={(d) => setEndAt(`${d}T23:59`)}
-                clearable={false}
-              />
-            </>
-          )}
-
-          <div>
-            <label htmlFor="event-modal-description" className="c-calendar-modal-label">
-              {t('common.description')}
-            </label>
-            <textarea
-              id="event-modal-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="c-calendar-modal-field resize-none"
-              placeholder={t('calendarPage.event_notes_placeholder')}
-            />
-          </div>
-
-      </form>
-    </DomeModal>
-  );
 }
 
 export default function EventModal({
@@ -749,15 +571,22 @@ export default function EventModal({
   onSave,
   onDelete,
 }: EventModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const githubEvent = isGithubCalendarEvent(event);
-  const githubUrl = githubEventUrlOf(event);
+  const githubUrl = event ? githubEventUrl(event) : null;
   const pipelineItemId = pipelineItemIdOf(event);
   const openPipelinesTab = useTabStore((s) => s.openPipelinesTab);
+  const openSocialTab = useTabStore((s) => s.openSocialTab);
+  const openResourceTab = useTabStore((s) => s.openResourceTab);
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   // Existing events open in a read-only detail view; new events go straight to
   // the edit form.
   const [editing, setEditing] = useState(!event);
   const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
+  const [resourceIds, setResourceIds] = useState(() => resourceIdsFromMeta(event?.metadata));
+  const [linkedTitles, setLinkedTitles] = useState<Record<string, string>>({});
+  const [linkedTypes, setLinkedTypes] = useState<Record<string, string>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
   const prevPipelineItemIdRef = useRef(pipelineItemId);
   if (pipelineItemId !== prevPipelineItemIdRef.current) {
     prevPipelineItemIdRef.current = pipelineItemId;
@@ -782,29 +611,116 @@ export default function EventModal({
     };
   }, [pipelineItemId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadTitles = async () => {
+      if (resourceIds.length === 0) {
+        setLinkedTitles({});
+        setLinkedTypes({});
+        return;
+      }
+      const api = window.electron?.db?.resources;
+      if (!api?.getById) return;
+      const nextTitles: Record<string, string> = {};
+      const nextTypes: Record<string, string> = {};
+      await Promise.all(
+        resourceIds.map(async (id) => {
+          try {
+            const res = await api.getById(id);
+            if (res?.success && res.data) {
+              if (res.data.title) nextTitles[id] = String(res.data.title);
+              if (res.data.type) nextTypes[id] = String(res.data.type);
+            }
+          } catch {
+            /* ignore */
+          }
+        }),
+      );
+      if (!cancelled) {
+        setLinkedTitles(nextTitles);
+        setLinkedTypes(nextTypes);
+      }
+    };
+    void loadTitles();
+    return () => {
+      cancelled = true;
+    };
+  }, [resourceIds]);
+
+  const openLinkedResource = useCallback(
+    (id: string) => {
+      const title = linkedTitles[id] ?? t('workspace.untitled');
+      const type = linkedTypes[id] ?? 'file';
+      openResourceTab(id, type, title, projectId);
+      onClose();
+    },
+    [linkedTitles, linkedTypes, onClose, openResourceTab, projectId, t],
+  );
+
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
   const [location, setLocation] = useState(event?.location ?? '');
-  const [startAt, setStartAt] = useState(initialStartAtFor(event, initialDate));
-  const [endAt, setEndAt] = useState(initialEndAtFor(event, initialDate));
+  const [startAt, setStartAt] = useState(() => {
+    if (event) return toLocalISO(new Date(event.start_at));
+    if (initialDate) return defaultTimedRangeFromDay(initialDate).start;
+    return toLocalISO(new Date());
+  });
+  const [endAt, setEndAt] = useState(() => {
+    if (event) return toLocalISO(new Date(event.end_at));
+    if (initialDate) return defaultTimedRangeFromDay(initialDate).end;
+    return toLocalISO(new Date(Date.now() + 60 * 60 * 1000));
+  });
   const [allDay, setAllDay] = useState(event?.all_day ?? false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const updateStartAt = (next: string) => {
+    setStartAt(next);
+    try {
+      const startMs = localDateTimeMs(next);
+      const endMs = localDateTimeMs(endAt);
+      if (endMs <= startMs) {
+        setEndAt(toLocalISO(new Date(startMs + 60 * 60 * 1000)));
+      }
+    } catch {
+      /* ignore parse while typing */
+    }
+  };
+
+  const updateEndAt = (next: string) => {
+    setEndAt(next);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
     try {
+      let startIso: string;
+      let endIso: string;
+      if (allDay) {
+        startIso = localDateTimeToIso(`${startAt.slice(0, 10)}T00:00`);
+        endIso = localDateTimeToIso(`${endAt.slice(0, 10)}T23:59`);
+      } else {
+        startIso = localDateTimeToIso(startAt);
+        endIso = localDateTimeToIso(endAt);
+        if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+          endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
+        }
+      }
       await onSave({
         title: title.trim(),
         description: description.trim() || undefined,
         location: location.trim() || undefined,
-        start_at: new Date(startAt).toISOString(),
-        end_at: new Date(endAt).toISOString(),
+        start_at: startIso,
+        end_at: endIso,
         all_day: allDay,
+        metadata: { resourceIds },
       });
       onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast('error', message);
     } finally {
       setSaving(false);
     }
@@ -812,7 +728,6 @@ export default function EventModal({
 
   const handleDelete = async () => {
     if (!event || !onDelete) return;
-    if (!confirm(t('calendarPage.delete_event_confirm'))) return;
     setDeleting(true);
     try {
       await onDelete(event.id);
@@ -822,51 +737,256 @@ export default function EventModal({
     }
   };
 
+  const accent = event?.calendar_color ?? 'var(--primary)';
+
   if (githubEvent && event) {
-    return <GithubEventModal event={event} githubUrl={githubUrl} onClose={onClose} />;
+    return (
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={event.calendar_title ?? 'GitHub'}
+        title={event.title}
+        description={formatEventWhen(event, i18n.language)}
+        icon={<HugeiconsIcon icon={GithubIcon} />}
+        footer={
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            {githubUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void window.electron?.invoke?.('open-external-url', githubUrl);
+                }}
+              >
+                <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
+                {t('github.calendar_view_on_github')}
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" onClick={onClose}>
+              {t('common.close', { defaultValue: 'Cerrar' })}
+            </Button>
+          </div>
+        }
+      >
+        <GithubEventBody event={event} githubUrl={githubUrl} />
+      </EventDetailChrome>
+    );
   }
 
   // Read-only detail view for existing (non-GitHub) events. "Edit" switches to
   // the form; pipeline-sourced events show extended, relevant info.
   if (event && !editing) {
+    const accentLabel =
+      event.calendar_title
+      ?? (pipelineInfo
+        ? (pipelineInfo.pipelineName ?? t('tabs.pipelines'))
+        : isSocialEvent(event)
+          ? t('tabs.social')
+          : 'Local');
+    const headerIcon = pipelineInfo
+      ? <HugeiconsIcon icon={WorkflowSquare01Icon} />
+      : isSocialEvent(event)
+        ? <HugeiconsIcon icon={Share08Icon} />
+        : <HugeiconsIcon icon={Calendar03Icon} />;
+
     return (
-      <ReadOnlyEventModal
-        event={event}
-        pipelineInfo={pipelineInfo}
+      <EventDetailChrome
         onClose={onClose}
-        onDelete={onDelete}
-        onDeleteClick={handleDelete}
-        onEdit={() => setEditing(true)}
-        onOpenPipeline={() => {
-          openPipelinesTab();
-          onClose();
-        }}
-        deleting={deleting}
-      />
+        accent={accent}
+        accentLabel={accentLabel}
+        title={event.title}
+        description={formatEventWhen(event, i18n.language)}
+        icon={headerIcon}
+        footer={
+          <>
+            {onDelete ? (
+              <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditing(true)} size="sm">
+                <HugeiconsIcon icon={PencilEdit02Icon} className="size-4" />
+                {t('common.edit', { defaultValue: 'Edit' })}
+              </Button>
+              <Button onClick={onClose} size="sm">
+                {t('common.close', { defaultValue: 'Close' })}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <LocalEventDetail
+          event={event}
+          locale={i18n.language}
+          pipeline={pipelineInfo}
+          linkedTitles={linkedTitles}
+          onOpenPipeline={() => {
+            openPipelinesTab();
+            onClose();
+          }}
+          onOpenSocial={() => {
+            openSocialTab();
+            onClose();
+          }}
+          onOpenResource={openLinkedResource}
+        />
+      </EventDetailChrome>
     );
   }
 
   return (
-    <EventFormModal
-      event={event}
-      title={title}
-      description={description}
-      location={location}
-      startAt={startAt}
-      endAt={endAt}
-      allDay={allDay}
-      saving={saving}
-      deleting={deleting}
-      onClose={onClose}
-      onDelete={onDelete}
-      onDeleteClick={handleDelete}
-      onSubmit={handleSubmit}
-      setTitle={setTitle}
-      setDescription={setDescription}
-      setLocation={setLocation}
-      setStartAt={setStartAt}
-      setEndAt={setEndAt}
-      setAllDay={setAllDay}
-    />
+    <>
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={
+          event?.calendar_title
+          ?? (event ? 'Local' : t('calendarPage.new_event_short'))
+        }
+        title={event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
+        description={event ? formatEventWhen(event, i18n.language) : undefined}
+        icon={<HugeiconsIcon icon={Calendar03Icon} />}
+        badges={
+          allDay ? (
+            <Badge variant="outline" className="font-normal">
+              {t('calendarPage.all_day')}
+            </Badge>
+          ) : undefined
+        }
+        footer={
+          <>
+            {event && onDelete ? (
+              <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                form="event-modal-form"
+                size="sm"
+                disabled={saving || !title.trim()}
+                loading={saving}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <form id="event-modal-form" onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-4">
+          <Field className="min-w-0 gap-1.5">
+            <FieldLabel htmlFor="event-modal-title-input" className="text-xs">
+              {t('common.name')}
+            </FieldLabel>
+            <Input
+              id="event-modal-title-input"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t('calendarPage.event_title_placeholder')}
+              required
+              className="min-w-0"
+            />
+          </Field>
+
+          <Field className="min-w-0 gap-1.5">
+            <FieldLabel htmlFor="event-modal-location" className="text-xs">
+              {t('common.location')}
+            </FieldLabel>
+            <Input
+              id="event-modal-location"
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={t('calendarPage.event_location_placeholder')}
+              className="min-w-0"
+            />
+          </Field>
+
+          <FieldLabel className="flex items-center gap-2 text-sm font-normal">
+            <Checkbox
+              checked={allDay}
+              onCheckedChange={(checked) => setAllDay(checked === true)}
+            />
+            {t('calendarPage.all_day')}
+          </FieldLabel>
+
+          {!allDay ? (
+            <>
+              <DateTimePicker
+                id="event-modal-start-dt"
+                label={t('calendarPage.event_start')}
+                value={startAt}
+                onChange={updateStartAt}
+              />
+              <DateTimePicker
+                id="event-modal-end-dt"
+                label={t('calendarPage.event_end')}
+                value={endAt}
+                onChange={updateEndAt}
+              />
+            </>
+          ) : (
+            <>
+              <DatePicker
+                id="event-modal-start-date"
+                label={t('calendarPage.start_date')}
+                value={startAt.slice(0, 10)}
+                onChange={(d) => setStartAt(`${d}T00:00`)}
+                clearable={false}
+              />
+              <DatePicker
+                id="event-modal-end-date"
+                label={t('calendarPage.end_date')}
+                value={endAt.slice(0, 10)}
+                onChange={(d) => setEndAt(`${d}T23:59`)}
+                clearable={false}
+              />
+            </>
+          )}
+
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="event-modal-description" className="text-xs">
+              {t('common.description')}
+            </FieldLabel>
+            <Textarea
+              id="event-modal-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="resize-none"
+              placeholder={t('calendarPage.event_notes_placeholder')}
+            />
+          </Field>
+
+          <LinkedResourcesSection
+            resourceIds={resourceIds}
+            titles={linkedTitles}
+            editable
+            onOpen={openLinkedResource}
+            onRemove={(id) => setResourceIds((prev) => prev.filter((x) => x !== id))}
+            onAdd={() => setPickerOpen(true)}
+          />
+        </form>
+      </EventDetailChrome>
+      <ResourcePickerModal
+        opened={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        projectId={projectId}
+        title={t('calendarPage.link_resource')}
+        onSelect={(resource: Resource) => {
+          setResourceIds((prev) => (prev.includes(resource.id) ? prev : [...prev, resource.id]));
+          setLinkedTitles((prev) => ({ ...prev, [resource.id]: resource.title }));
+          setLinkedTypes((prev) => ({ ...prev, [resource.id]: resource.type }));
+          setPickerOpen(false);
+        }}
+      />
+    </>
   );
 }

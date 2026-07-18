@@ -2689,12 +2689,17 @@ async function getToolDefinition(toolName) {
 // Memory / Personality Tools
 // =============================================================================
 
-async function rememberFact(key, value) {
+async function rememberFact(key, value, domain = 'general') {
   const personalityLoader = require('../personality/personality-loader.cjs');
-  personalityLoader.updateLongTermMemory(key, value);
-  personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
+  const normalizedDomain = String(domain || 'general').toLowerCase();
+  if (normalizedDomain === 'social' || normalizedDomain === 'email') {
+    personalityLoader.updateDomainMemory(normalizedDomain, key, value);
+  } else {
+    personalityLoader.updateLongTermMemory(key, value);
+  }
+  personalityLoader.addMemoryEntry(`**${key}** (${normalizedDomain}): ${value}`);
 
-  return { success: true, message: `Remembered: ${key}` };
+  return { success: true, message: `Remembered: ${key}`, domain: normalizedDomain };
 }
 
 // =============================================================================
@@ -3008,9 +3013,20 @@ async function calendarGetUpcoming({ window_minutes, limit } = {}) {
  * Create a new calendar event.
  * @param {Object} data - Event fields: title, description, location, start_at, end_at, all_day, reminders
  */
+function attachResourceIdsMetadata(payload = {}) {
+  const { resource_ids: resourceIds, ...rest } = payload;
+  if (!Array.isArray(resourceIds)) return rest;
+  const ids = resourceIds.filter((id) => typeof id === 'string' && id.length > 0);
+  const prevMeta =
+    rest.metadata && typeof rest.metadata === 'object' && !Array.isArray(rest.metadata)
+      ? rest.metadata
+      : {};
+  return { ...rest, metadata: { ...prevMeta, resourceIds: ids } };
+}
+
 async function calendarCreateEvent(data = {}) {
   try {
-    const result = await calendarService.createEvent(data);
+    const result = await calendarService.createEvent(attachResourceIdsMetadata(data));
     if (result.success && result.event && windowManagerRef) {
       windowManagerRef.broadcast('calendar:eventCreated', result.event);
     }
@@ -3027,7 +3043,7 @@ async function calendarCreateEvent(data = {}) {
 async function calendarUpdateEvent({ event_id, ...updates } = {}) {
   try {
     if (!event_id) return { success: false, error: 'event_id is required' };
-    const result = await calendarService.updateEvent(event_id, updates);
+    const result = await calendarService.updateEvent(event_id, attachResourceIdsMetadata(updates));
     if (result.success && result.event && windowManagerRef) {
       windowManagerRef.broadcast('calendar:eventUpdated', result.event);
     }
@@ -3269,11 +3285,63 @@ async function socialPostsList({ status, limit } = {}) {
   }
 }
 
+async function socialPostGet({ post_id, postId } = {}) {
+  try {
+    const id = post_id || postId;
+    if (!id) return { success: false, error: 'post_id is required.' };
+    const service = socialService();
+    const post = service.store.getPost(id);
+    if (!post) return { success: false, error: `Social post not found: ${id}` };
+    const metrics = post.status === 'published' ? service.store.getLatestMetric(post.id) : null;
+    return { success: true, source: 'social', post: { ...post, metrics } };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function socialMetricsSummary({ refresh = false } = {}) {
   try {
     const service = socialService();
     if (refresh) await service.refreshAllMetrics();
     return { success: true, source: 'social', summary: service.getSummary() };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialCampaignsList({ status } = {}) {
+  try {
+    const campaigns = socialService().store.listCampaigns({
+      status: status === 'active' || status === 'archived' ? status : null,
+    });
+    return { success: true, source: 'social', campaigns };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialCampaignCreate({ name, goal } = {}) {
+  try {
+    if (!name || !String(name).trim()) return { success: false, error: 'name is required' };
+    const campaign = socialService().store.createCampaign({
+      name: String(name).trim(),
+      goal: goal != null ? String(goal) : null,
+    });
+    return { success: true, source: 'social', campaign };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialGrowth({ days = 90, refresh = false } = {}) {
+  try {
+    const service = socialService();
+    if (refresh) await service.refreshAllMetrics();
+    return {
+      success: true,
+      source: 'social',
+      ...service.getGrowth({ days: Math.min(Math.max(Number(days) || 90, 7), 365) }),
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -3394,10 +3462,61 @@ async function githubListIssues({ repo_id, state = 'all' } = {}) {
   }
 }
 
-async function githubCreateIssue({ repo_id, title, body, milestone_number, labels } = {}) {
+async function githubGetIssue({ issue_id, issueId } = {}) {
+  try {
+    const id = issue_id || issueId;
+    if (!id) return { success: false, error: 'issue_id is required' };
+    const issue = githubStore().getIssue(id);
+    if (!issue) return { success: false, error: `Issue not found: ${id}` };
+    const repo = githubStore().getRepo(issue.repo_id);
+    return {
+      success: true,
+      source: 'github',
+      issue: {
+        id: issue.id,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        milestone_number: issue.milestone_number,
+        labels: ghParseArr(issue.labels),
+        assignees: ghParseArr(issue.assignees),
+        due_date: issue.due_date,
+        url: issue.html_url,
+        repo_id: issue.repo_id,
+        full_name: repo?.full_name || null,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleGet({ person_id, personId } = {}) {
+  try {
+    const id = person_id || personId;
+    if (!id) return { success: false, error: 'person_id is required' };
+    const peopleStore = require('../people/people-store.cjs');
+    const person = peopleStore.getPerson(id);
+    if (!person) return { success: false, error: `Person not found: ${id}` };
+    return { success: true, source: 'people', person };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubCreateIssue({ repo_id, title, body, milestone_number, labels, assignees } = {}) {
   try {
     if (!repo_id || !title) return { success: false, error: 'repo_id and title are required' };
-    const issue = await githubSyncService().createIssue(repo_id, { title, body, milestoneNumber: milestone_number, labels });
+    const issue = await githubSyncService().createIssue(repo_id, {
+      title,
+      body,
+      milestoneNumber: milestone_number,
+      labels,
+      assignees: Array.isArray(assignees)
+        ? assignees.map((a) => String(a || '').replace(/^@/, '').trim()).filter(Boolean)
+        : undefined,
+    });
     return { success: true, source: 'github', issue };
   } catch (err) {
     return { success: false, error: err.message };
@@ -3605,8 +3724,9 @@ async function emailReadMessage({ message_id, folder } = {}, toolContext) {
     const bodyPayload = agentEmailBodyPayload(res.message);
     return {
       status: 'success',
-      message_id: String(message_id),
-      folder: folder || 'INBOX',
+      // Prefer resolved IMAP uid (pins/search may pass Dome emsg-… ids).
+      message_id: res.messageId != null ? String(res.messageId) : String(message_id),
+      folder: res.folder || folder || 'INBOX',
       ...bodyPayload,
     };
   } catch (err) {
@@ -5048,15 +5168,21 @@ module.exports = {
   githubListMilestones,
   githubUpcomingMilestones,
   githubListIssues,
+  githubGetIssue,
   githubCreateIssue,
   githubUpdateIssue,
   githubCreateMilestone,
   githubSync,
+  peopleGet,
   socialAccountsList,
   socialPostDraft,
   socialPostPublish,
   socialPostsList,
+  socialPostGet,
   socialMetricsSummary,
+  socialCampaignsList,
+  socialCampaignCreate,
+  socialGrowth,
 
   // Entity creation
   agentCreate,

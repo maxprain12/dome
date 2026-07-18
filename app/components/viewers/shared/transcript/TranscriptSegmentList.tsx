@@ -36,7 +36,7 @@ function HighlightedText({ text, query, stableKey }: { text: string; query: stri
           <mark
             key={k}
             className="rounded px-0.5"
-            style={{ background: 'color-mix(in srgb, var(--dome-accent) 35%, transparent)' }}
+            style={{ background: 'color-mix(in srgb, var(--primary) 35%, transparent)' }}
           >
             {part}
           </mark>
@@ -76,7 +76,7 @@ export default function TranscriptSegmentList({
   if (!visible.length) {
     if (segments.length && q) {
       return (
-        <p className="py-6 text-center text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="py-6 text-center text-sm text-muted-foreground">
           {t('media.transcript_search_no_results')}
         </p>
       );
@@ -98,10 +98,10 @@ export default function TranscriptSegmentList({
               type="button"
               ref={setRef(rowRefs, seg.id)}
               onClick={() => onSeek(seg.startTime)}
-              className="group relative w-full rounded-xl px-4 py-3 text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
+              className="group relative w-full rounded-xl px-4 py-3 text-left transition-colors hover:bg-accent"
               style={{
                 background: isActive ? colors.activeBg : 'transparent',
-                color: 'var(--dome-text)',
+                color: 'var(--foreground)',
               }}
             >
               {isActive && (
@@ -172,10 +172,10 @@ export default function TranscriptSegmentList({
                   type="button"
                   ref={setRef(rowRefs, seg.id)}
                   onClick={() => onSeek(seg.startTime)}
-                  className="group relative w-full rounded-xl px-4 py-2 text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
+                  className="group relative w-full rounded-xl px-4 py-2 text-left transition-colors hover:bg-accent"
                   style={{
                     background: isActive ? colors.activeBg : 'transparent',
-                    color: 'var(--dome-text)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   {isActive && (

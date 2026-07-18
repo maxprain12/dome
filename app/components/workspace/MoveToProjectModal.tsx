@@ -1,14 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import type { Project } from '@/types';
 import type { Resource } from '@/lib/hooks/useResources';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 export interface MoveToProjectModalProps {
   opened: boolean;
   onClose: () => void;
@@ -17,6 +18,31 @@ export interface MoveToProjectModalProps {
   /** Mapa id→recurso para filtrar raíces; si falta se carga con getAll al abrir */
   resourcesById?: Map<string, Resource>;
   onCompleted?: () => void;
+}
+
+function ProjectPickButton({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'w-full rounded-lg border p-3 text-left transition-colors',
+        selected
+          ? 'border-2 border-primary bg-accent'
+          : 'border border-border bg-card',
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 export default function MoveToProjectModal({
@@ -142,81 +168,49 @@ export default function MoveToProjectModal({
   }, [pickedId, roots, onClose, onCompleted, t]);
 
   return (
-    <DomeModal
-      open={opened}
-      onClose={onClose}
-      title={t('moveProject.title')}
-      size="md"
-      footer={
-        <>
-          <DomeButton variant="secondary" onClick={onClose} disabled={submitting}>
-            {t('common.cancel')}
-          </DomeButton>
-          <DomeButton
-            variant="primary"
-            onClick={() => void handleMove()}
-            loading={submitting}
-            disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}
-          >
-            {t('moveProject.confirm')}
-          </DomeButton>
-        </>
-      }
-    >
-      <Stack gap="md">
-        <Text size="sm" c="dimmed">
-          {t('moveProject.description')}
-        </Text>
-        <Text size="sm" fw={500}>
-          {t('moveProject.itemsCount', { count: roots.length })}
-        </Text>
+    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('moveProject.title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">{t('moveProject.description')}</p>
+        <p className="text-sm font-medium">{t('moveProject.itemsCount', { count: roots.length })}</p>
 
         {loading ? (
-          <Text size="sm">{t('common.loading')}</Text>
+          <p className="text-sm">{t('common.loading')}</p>
         ) : eligibleProjects.length === 0 ? (
-          <Text size="sm" c="orange">
-            {t('moveProject.noTargets')}
-          </Text>
+          <p className="text-sm text-orange-600">{t('moveProject.noTargets')}</p>
         ) : (
-          <ScrollArea.Autosize mah={280}>
-            <Stack gap={4}>
+          <ScrollArea className="max-h-[280px]">
+            <div className="flex flex-col gap-1 pr-2">
               {eligibleProjects.map((p) => (
-                <UnstyledButton
+                <ProjectPickButton
                   key={p.id}
-                  type="button"
+                  selected={pickedId === p.id}
                   onClick={() => setPickedId(p.id)}
-                  p="sm"
-                  style={{
-                    borderRadius: 8,
-                    border:
-                      pickedId === p.id
-                        ? '2px solid var(--dome-accent)'
-                        : '1px solid var(--dome-border)',
-                    background: pickedId === p.id ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
-                    textAlign: 'left',
-                  }}
                 >
-                  <Text size="sm" fw={500}>
-                    {p.name}
-                  </Text>
+                  <p className="text-sm font-medium">{p.name}</p>
                   {p.description ? (
-                    <Text size="xs" c="dimmed" lineClamp={2}>
-                      {p.description}
-                    </Text>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
                   ) : null}
-                </UnstyledButton>
+                </ProjectPickButton>
               ))}
-            </Stack>
-          </ScrollArea.Autosize>
+            </div>
+          </ScrollArea>
         )}
 
         {error ? (
-          <Text size="sm" c="red">
-            {error}
-          </Text>
+          <p className="text-sm text-destructive">{error}</p>
         ) : null}
-
-      </Stack>
-    </DomeModal>
+      </div>
+    </div><DialogFooter className="border-t px-4 py-3">{<>
+          <Button variant="secondary"
+  onClick={onClose}
+  disabled={submitting}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={() => void handleMove()}
+  loading={submitting}
+  disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}>
+            {t('moveProject.confirm')}
+          </Button>
+        </>}</DialogFooter></DialogContent></Dialog>
   );
 }

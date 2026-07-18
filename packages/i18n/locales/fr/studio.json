@@ -1,4 +1,6 @@
 {
+  "faq_title": "Questions fréquentes",
+  "faq_question_count": "{{count}} questions",
   "filter_rows_label": "Filtrer les lignes",
   "filter_rows_placeholder": "Filtrer les lignes...",
   "no_matching_rows": "Aucune ligne correspondante",

@@ -5,11 +5,11 @@
 
 import { CONTENT_PINK, FOLDER_COLOR_DEFAULT } from '@/lib/ui/palettes';
 import type { Resource } from '@/lib/hooks/useResources';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
 
 export function getFolderColor(folder: Resource): string {
   const meta = folder.metadata as { color?: string } | undefined;
-  return meta?.color ?? 'var(--dome-text-muted)';
+  return meta?.color ?? 'var(--muted-foreground)';
 }
 
 /**
@@ -49,7 +49,7 @@ export function resolveFolderTabView(
 
 export function ResourceTypeIcon({ type, name, className }: { type: string; name?: string; className?: string }) {
   return (
-    <DomeResourceIcon
+    <ResourceIcon
       type={type}
       name={name}
       size={16}
@@ -63,11 +63,12 @@ export const TYPE_LABELS: Record<string, string> = {
   note: 'Nota', notebook: 'Cuaderno', url: 'URL',
   pdf: 'PDF', image: 'Imagen', video: 'Video',
   audio: 'Audio', document: 'Documento', ppt: 'Presentación',
+  excel: 'Excel', csv: 'CSV', xlsx: 'Excel', docx: 'Documento',
 };
 
 export const TYPE_COLORS: Record<string, string> = {
-  note: 'var(--accent)', notebook: 'var(--accent)', url: 'var(--success)',
-  pdf: 'var(--error)', image: 'var(--warning)', video: CONTENT_PINK, audio: 'var(--accent)', ppt: 'var(--warning)',
+  note: 'var(--primary)', notebook: 'var(--primary)', url: 'var(--success)',
+  pdf: 'var(--destructive)', image: 'var(--warning)', video: CONTENT_PINK, audio: 'var(--primary)', ppt: 'var(--warning)',
 };
 
 // ─── ColorPickerPopover ───────────────────────────────────────────────────────

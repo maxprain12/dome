@@ -85,3 +85,5 @@ ds-bundle/
 .design-sync/node_modules
 .design-sync/app-styles.css
 .design-sync/stubs/i18n-es.json
+supabase/
+test-results/

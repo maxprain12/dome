@@ -1,14 +1,10 @@
 /** Sidebar "add resource" menu + relative-time helper (03/T02 — from UnifiedSidebar.tsx). */
 
-import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, NotebookPen, Link, Upload, Cloud, Layers } from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { CloudIcon, File02Icon, Layers01Icon, Link01Icon, NoteEditIcon, Upload04Icon } from '@hugeicons/core-free-icons';
 
-const ADD_RESOURCE_MENU_ITEM_STYLE: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-  textAlign: 'left', padding: '7px 12px', fontSize: 12.5,
-  color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer',
-};
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export interface AddResourceMenuProps {
   x: number;
@@ -24,52 +20,32 @@ export interface AddResourceMenuProps {
 
 export default function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile, onImportFromCloud, onCreateArtifact }: AddResourceMenuProps) {
   const { t } = useTranslation();
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handle = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose(); };
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('mousedown', handle);
-    document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('mousedown', handle); document.removeEventListener('keydown', handleKey); };
-  }, [onClose]);
-
   const ITEMS = [
-    { icon: <FileText className="size-3.5" strokeWidth={1.75} />, label: t('toolbar.note'), action: onCreateNote },
-    { icon: <NotebookPen className="size-3.5" strokeWidth={1.75} />, label: 'Notebook', action: onCreateNotebook },
-    { icon: <Layers className="size-3.5" strokeWidth={1.75} />, label: t('artifacts.new_artifact'), action: onCreateArtifact },
-    { icon: <Link className="size-3.5" strokeWidth={1.75} />, label: 'URL / Artículo', action: onAddUrl },
-    { icon: <Upload className="size-3.5" strokeWidth={1.75} />, label: 'Importar fichero', action: onImportFile },
-    { icon: <Cloud className="size-3.5" strokeWidth={1.75} />, label: 'Importar desde Cloud', action: onImportFromCloud },
+    { icon: File02Icon, label: t('toolbar.note'), action: onCreateNote },
+    { icon: NoteEditIcon, label: 'Notebook', action: onCreateNotebook },
+    { icon: Layers01Icon, label: t('artifacts.new_artifact'), action: onCreateArtifact },
+    { icon: Link01Icon, label: 'URL / Artículo', action: onAddUrl },
+    { icon: Upload04Icon, label: 'Importar fichero', action: onImportFile },
+    { icon: CloudIcon, label: 'Importar desde Cloud', action: onImportFromCloud },
   ];
 
   return (
-    <div
-      ref={menuRef}
-      className="fixed z-[var(--z-popover)] rounded-lg shadow-xl border overflow-hidden"
-      style={{
-        left: Math.min(x, window.innerWidth - 200),
-        top: Math.min(y, window.innerHeight - 160),
-        minWidth: 170,
-        background: 'var(--dome-surface)',
-        borderColor: 'var(--dome-border)',
-        padding: '4px 0',
-      }}
-    >
+    <DropdownMenu open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DropdownMenuTrigger render={<span className="fixed size-px" style={{ left: x, top: y }} aria-hidden />} />
+      <DropdownMenuContent align="start" side="bottom" sideOffset={0} className="min-w-[170px]">
+      <DropdownMenuGroup>
       {ITEMS.map((item) => (
-        <button
-          type="button"
+        <DropdownMenuItem
           key={item.label}
-          style={ADD_RESOURCE_MENU_ITEM_STYLE}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           onClick={() => { item.action(); onClose(); }}
         >
-          <span style={{ color: 'var(--dome-text-muted)' }}>{item.icon}</span>
+          <HugeiconsIcon icon={item.icon as IconSvgElement} className="text-muted-foreground" />
           <span>{item.label}</span>
-        </button>
+        </DropdownMenuItem>
       ))}
-    </div>
+      </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

@@ -55,13 +55,14 @@ const artifactsHandlers = require('./agents/artifacts.cjs');
 const feedersHandlers = require('./integrations/feeders.cjs');
 const socialHandlers = require('./integrations/social.cjs');
 const approvalHandlers = require('./agents/approval.cjs');
-const cloudSyncHandlers = require('./sync/cloud-sync.cjs');
+const domainSyncHandlers = require('./sync/domain-sync.cjs');
 const threadsHandlers = require('./agents/threads.cjs');
 const learnHandlers = require('./learn/learn.cjs');
 const quizHandlers = require('./learn/quiz.cjs');
 const minimaxFilesHandlers = require('./media/minimax-files.cjs');
 const copilotHandlers = require('./integrations/copilot.cjs');
 const githubHandlers = require('./integrations/github.cjs');
+const peopleHandlers = require('./integrations/people.cjs');
 
 let _ipcRegistered = false;
 
@@ -179,14 +180,14 @@ function registerAll(deps) {
   feedersHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
-  cloudSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  domainSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   threadsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   learnHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   quizHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   minimaxFilesHandlers.register({ ipcMain: secureIpcMain, validateSender });
   copilotHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   githubHandlers.register({ ipcMain: secureIpcMain, windowManager });
-
+  peopleHandlers.register({ ipcMain: secureIpcMain, windowManager });
 }
 
 module.exports = { registerAll };

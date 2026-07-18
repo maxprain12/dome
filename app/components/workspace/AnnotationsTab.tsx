@@ -1,10 +1,17 @@
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Delete02Icon,
+  Loading03Icon,
+  Comment01Icon,
+  File02Icon,
+  Clock01Icon,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useState } from 'react';
-import { Trash2, Loader2, MessageSquare, FileText, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInteractions, type ParsedInteraction } from '@/lib/hooks/useInteractions';
 import { formatRelativeDate } from '@/lib/utils';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 interface AnnotationsTabProps {
   resourceId: string;
@@ -58,7 +65,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="size-6 animate-spin" style={{ color: 'var(--accent)' }} />
+        <HugeiconsIcon icon={Loading03Icon} className="size-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -66,7 +73,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <p className="text-sm text-[var(--error)]">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       </div>
     );
   }
@@ -74,24 +81,23 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+      <div className="p-3 border-b border-border">
+        <p className="text-sm text-muted-foreground">
           Annotations are created by selecting text in PDFs or marking timestamps in videos.
         </p>
       </div>
 
       {/* Annotations List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-y-3">
         {annotations.length === 0 ? (
           <div className="text-center py-8">
-            <MessageSquare
-              className="size-10 mx-auto mb-3"
-              style={{ color: 'var(--tertiary)' }}
+            <HugeiconsIcon icon={Comment01Icon}
+              className="size-10 mx-auto mb-3 text-muted-foreground"
             />
-            <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm text-muted-foreground">
               No annotations yet
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--tertiary)' }}>
+            <p className="text-xs mt-1 text-muted-foreground">
               Select text in the PDF or click a timestamp in a video to create an annotation
             </p>
           </div>
@@ -101,7 +107,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
               key={annotation.id}
               className="p-3 rounded-lg group"
               style={{
-                background: 'var(--bg-secondary)',
+                background: 'var(--card)',
                 border: '1px solid var(--border)',
               }}
             >
@@ -110,11 +116,11 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                 <div
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2"
                   style={{
-                    background: 'var(--accent)',
-                    color: 'var(--base-text)',
+                    background: 'var(--primary)',
+                    color: 'var(--primary-foreground)',
                   }}
                 >
-                  <FileText size={12} />
+                  <HugeiconsIcon icon={File02Icon} size={12} />
                   {getAnnotationPositionLabel(annotation)}
                 </div>
               )}
@@ -125,8 +131,8 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                   className="p-2 rounded mb-2 text-sm italic"
                   style={{
                     background: 'rgba(14, 165, 233, 0.1)',
-                    borderLeft: '3px solid var(--accent)',
-                    color: 'var(--secondary)',
+                    borderLeft: '3px solid var(--primary)',
+                    color: 'var(--muted-foreground)',
                   }}
                 >
                   "{getAnnotationSelectedText(annotation)}"
@@ -136,8 +142,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
               {/* Annotation content (user's note) */}
               {annotation.content && (
                 <p
-                  className="text-sm whitespace-pre-wrap"
-                  style={{ color: 'var(--primary-text)' }}
+                  className="text-sm whitespace-pre-wrap text-foreground"
                 >
                   {annotation.content}
                 </p>
@@ -145,28 +150,27 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
 
               {/* Footer */}
               <div
-                className="flex items-center justify-between mt-2 pt-2 border-t"
-                style={{ borderColor: 'var(--border)' }}
+                className="flex items-center justify-between mt-2 pt-2 border-t border-border"
               >
-                <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--tertiary)' }}>
-                  <Clock size={12} />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <HugeiconsIcon icon={Clock01Icon} size={12} />
                   {formatAnnotationDate(annotation.created_at)}
                 </div>
                 <button
                   type="button"
                   onClick={() => handleDelete(annotation.id)}
-                  className="p-2.5 min-h-[44px] min-w-[44px] rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-[var(--bg-tertiary)]"
-                  style={{ color: 'var(--secondary)' }}
+                  className="p-2.5 min-h-[44px] min-w-[44px] rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted"
+                  style={{ color: 'var(--muted-foreground)' }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.color = 'var(--error)';
+                      e.currentTarget.style.color = 'var(--destructive)';
                     }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--secondary)';
+                    e.currentTarget.style.color = 'var(--muted-foreground)';
                   }}
                   title="Delete annotation"
                   aria-label="Delete annotation"
                 >
-                  <Trash2 size={14} />
+                  <HugeiconsIcon icon={Delete02Icon} size={14} />
                 </button>
               </div>
             </div>

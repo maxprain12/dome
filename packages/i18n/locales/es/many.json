@@ -48,6 +48,9 @@
   "hitl_continue": "Continuar",
   "hitl_multi_hint": "Confirma cada comando y pulsa Continuar.",
   "hitl_confirm_title": "Confirma esta acción",
+  "action_suggestion_label": "Acción sugerida",
+  "action_suggestion_confirm": "Confirmar",
+  "action_suggestion_dismiss": "Descartar",
   "hitl_run_paused": "Run pausado",
   "hitl_waiting": "Esperando confirmación",
   "hitl_waiting_detail": "el run continúa cuando apruebes",
@@ -91,5 +94,8 @@
   "composer_keyboard_hint": "Enter para enviar · Shift+Enter para nueva línea",
   "error_report": "Informar",
   "error_copied": "Detalles del error copiados",
-  "view_section": "Vista"
+  "view_section": "Vista",
+  "context_title": "Contexto",
+  "context_empty": "Sin contexto activo",
+  "context_pin_hint": "Fija recursos con @ en el redactor para incluirlos siempre."
 }

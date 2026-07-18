@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, CalendarClock, Loader2, Wrench, Activity as ActivityIcon } from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Activity01Icon, CalendarClockIcon, ExternalLinkIcon, Loading03Icon, Wrench01Icon } from '@hugeicons/core-free-icons';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { PipelineItemEvent } from '@/lib/pipelines/types';
+import { cn } from '@/lib/utils';
+import { typesetDocsClass } from '@/lib/typeset';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 
 interface RunStep {
   id: string;
@@ -41,9 +44,7 @@ interface Props {
 }
 
 /**
- * Read-only summary of a Many-generated card report: the report itself
- * (markdown) plus a combined timeline of the run's steps and the card's
- * activity, with backlinks to the persisted report and the calendar event.
+ * Read-only summary of a Many-generated card report (inline detail panel).
  */
 export default function RunSummaryModal({
   runId,
@@ -87,8 +88,6 @@ export default function RunSummaryModal({
 
   const reportMd = run?.outputText ?? '';
 
-  // "Ambos combinados": merge the run's tool steps with the card activity into
-  // one chronological timeline.
   const timeline = useMemo<TimelineEntry[]>(() => {
     const stepEntries: TimelineEntry[] = (run?.steps ?? []).map((s) => ({
       id: `step-${s.id}`,
@@ -108,101 +107,88 @@ export default function RunSummaryModal({
   }, [run?.steps, events]);
 
   return (
-    <DomeModal
-      open
+    <InlineDetailCard
       onClose={onClose}
       title={cardTitle}
-      subtitle={t('pipelines.run_summary')}
-      size="lg"
+      description={t('pipelines.run_summary')}
+      containerName="pipeline-run-summary"
       footer={
         <>
-          {hasCalendar && onOpenCalendar && (
-            <DomeButton variant="ghost" size="sm" onClick={onOpenCalendar} leftIcon={<CalendarClock className="size-4" />}>
+          {hasCalendar && onOpenCalendar ? (
+            <Button variant="ghost" onClick={onOpenCalendar} size="sm">
+              <HugeiconsIcon icon={CalendarClockIcon} className="size-4" />
               {t('pipelines.open_calendar_event')}
-            </DomeButton>
-          )}
-          <div style={{ flex: 1 }} />
-          {resourceId && onOpenReport && (
-            <DomeButton
+            </Button>
+          ) : null}
+          <div className="flex-1" />
+          {resourceId && onOpenReport ? (
+            <Button
               variant="outline"
-              size="sm"
               onClick={() => onOpenReport(resourceId, reportTitle ?? cardTitle)}
-              leftIcon={<ExternalLink className="size-4" />}
+              size="sm"
             >
+              <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" />
               {t('pipelines.open_in_editor')}
-            </DomeButton>
-          )}
-          <DomeButton variant="primary" size="sm" onClick={onClose}>
-            {t('pipelines.cancel')}
-          </DomeButton>
+            </Button>
+          ) : null}
+          <Button onClick={onClose} size="sm">
+            {t('pipelines.close')}
+          </Button>
         </>
       }
     >
-      <div className="flex flex-col gap-4">
-        {/* Report */}
-        <section className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-            {t('pipelines.report_section')}
-          </span>
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{t('pipelines.report_section')}</p>
           {loading && !reportMd ? (
-            <div className="flex items-center gap-2 py-3 text-sm" style={{ color: 'var(--tertiary-text)' }}>
-              <Loader2 className="animate-spin" size={16} />
+            <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+              <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
               {t('pipelines.report_generating')}
             </div>
           ) : reportMd ? (
-            <div
-              className="rounded-md px-3 py-2 max-h-72 overflow-y-auto text-sm"
-              style={{ background: 'var(--bg)', color: 'var(--secondary-text)', border: '1px solid var(--border)' }}
-            >
+            <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-72 overflow-y-auto text-foreground')}>
               <MarkdownRenderer content={reportMd} />
             </div>
           ) : (
-            <span className="text-sm py-2" style={{ color: 'var(--tertiary-text)' }}>
-              {t('pipelines.no_history')}
-            </span>
+            <p className="py-2 text-sm text-muted-foreground">{t('pipelines.no_history')}</p>
           )}
-        </section>
+        </div>
 
-        {/* Combined timeline: run steps + card activity */}
-        <section className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-            {t('pipelines.steps_section')}
-          </span>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{t('pipelines.steps_section')}</p>
           <div className="flex flex-col gap-1.5">
-            {timeline.length === 0 && (
-              <span className="text-sm py-1" style={{ color: 'var(--tertiary-text)' }}>
-                {t('pipelines.activity_empty')}
-              </span>
-            )}
+            {timeline.length === 0 ? (
+              <p className="py-1 text-sm text-muted-foreground">{t('pipelines.activity_empty')}</p>
+            ) : null}
             {timeline.map((entry) => (
               <div
                 key={entry.id}
-                className="flex items-start gap-2 rounded-md px-2 py-1.5"
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+                className="flex items-start gap-2 rounded-lg border border-border bg-background px-2.5 py-2"
               >
                 {entry.kind === 'step' ? (
-                  <Wrench size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
+                  <HugeiconsIcon icon={Wrench01Icon} size={14} className="mt-0.5 shrink-0 text-primary" />
                 ) : (
-                  <ActivityIcon size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--tertiary-text)' }} />
+                  <HugeiconsIcon icon={Activity01Icon} size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
                 )}
-                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                  <span className="text-sm truncate" style={{ color: 'var(--primary-text)' }}>
-                    {entry.label}
-                  </span>
-                  {entry.body && (
-                    <span className="text-[11px] whitespace-pre-wrap" style={{ color: 'var(--tertiary-text)' }}>
+                <div className="min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-sm text-foreground">{entry.label}</span>
+                  {entry.body ? (
+                    <span className="whitespace-pre-wrap text-[11px] text-muted-foreground">
                       {entry.body}
                     </span>
-                  )}
+                  ) : null}
                 </div>
-                <span className="text-[11px] shrink-0" style={{ color: 'var(--tertiary-text)' }}>
-                  {new Date(entry.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {new Date(entry.at).toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </span>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       </div>
-    </DomeModal>
+    </InlineDetailCard>
   );
 }

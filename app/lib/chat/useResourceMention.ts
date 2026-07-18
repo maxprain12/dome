@@ -1,24 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  mentionInsertionText,
+  mergeMentionResults,
+  personToMentionItem,
+  resourceToMentionItem,
+  sourceHitToMentionItem,
+  type MentionItem,
+} from '@/lib/chat/mentionItems';
 
-export interface MentionResource {
-  id: string;
-  title: string;
-  type: string;
-}
+/** @deprecated Prefer MentionItem — kept as alias for existing imports. */
+export type MentionResource = MentionItem;
 
 export interface UseResourceMentionOptions {
   input: string;
   setInput: React.Dispatch<React.SetStateAction<string>>;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
-  onPinResource: (resource: MentionResource) => void;
+  onPinResource: (resource: MentionItem) => void;
   /** When false, @ detection is disabled (legacy input). */
   enabled?: boolean;
   /** Scope list/search to the active project. */
   projectId?: string | null;
 }
 
-function filterResourcesByQuery(resources: MentionResource[], query: string): MentionResource[] {
+function filterResourcesByQuery(resources: MentionItem[], query: string): MentionItem[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return resources;
   return resources.filter((resource) => {
@@ -30,52 +35,74 @@ function filterResourcesByQuery(resources: MentionResource[], query: string): Me
 
 function mapDbResources(
   rows: Array<{ id: string; title: string; type: string }>,
-): MentionResource[] {
+): MentionItem[] {
   return rows
-    .filter((row) => row.type !== 'folder')
-    .map((row) => ({
-      id: row.id,
-      title: row.title || 'Untitled',
-      type: row.type,
-    }));
+    .map((row) => resourceToMentionItem(row))
+    .filter((item): item is MentionItem => item != null);
 }
 
-type DbResourcesApi = Window['electron']['db']['resources'];
+async function loadPeopleMentions(
+  projectId: string,
+  query: string,
+): Promise<MentionItem[]> {
+  const peopleApi = typeof window !== 'undefined' ? window.electron?.people : null;
+  if (!peopleApi) return [];
 
-async function fetchMentionList(
-  dbResources: DbResourcesApi | undefined,
-  scopedProjectId: string,
-  limit: number,
-): Promise<MentionResource[]> {
-  if (!dbResources?.listLight) return [];
-  const listResult = await dbResources.listLight(limit, scopedProjectId);
-  if (listResult?.success && Array.isArray(listResult.data)) {
-    return mapDbResources(listResult.data);
+  try {
+    const trimmed = query.trim().replace(/^@/, '');
+    if (trimmed.length === 0) {
+      const listResult = await peopleApi.list(projectId);
+      const people = listResult?.success ? listResult.data?.people : null;
+      if (!Array.isArray(people)) return [];
+      return people.slice(0, 12).map(personToMentionItem);
+    }
+
+    const searchResult = await peopleApi.search({
+      projectId,
+      query: trimmed,
+      limit: 12,
+    });
+    const people = searchResult?.success ? searchResult.data?.people : null;
+    if (!Array.isArray(people)) return [];
+    return people.map(personToMentionItem);
+  } catch {
+    return [];
   }
-  return [];
 }
 
-async function fetchMentionSearch(
-  dbResources: DbResourcesApi | undefined,
-  trimmed: string,
-  scopedProjectId: string,
-): Promise<MentionResource[]> {
-  if (!dbResources?.searchForMention) return [];
-  const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
-  const fromSearch: MentionResource[] =
-    searchResult?.success && Array.isArray(searchResult.data)
-      ? mapDbResources(searchResult.data)
-      : [];
-  if (fromSearch.length > 0) return fromSearch;
-  // Search returned nothing usable — broaden with listLight(50) and filter client-side.
-  const fallback = await fetchMentionList(dbResources, scopedProjectId, 50);
-  return filterResourcesByQuery(fallback, trimmed);
+async function loadSourceMentions(
+  projectId: string,
+  query: string,
+): Promise<MentionItem[]> {
+  const searchApi = typeof window !== 'undefined' ? window.electron?.db?.search : null;
+  if (!searchApi) return [];
+
+  try {
+    const trimmed = query.trim().replace(/^@/, '');
+    if (trimmed.length === 0) {
+      if (!searchApi.recentSources) return [];
+      const recent = await searchApi.recentSources(projectId, 5);
+      const hits = recent?.success ? recent.data : null;
+      if (!Array.isArray(hits)) return [];
+      return hits
+        .filter((hit) => hit.kind !== 'person') // people come from people:list
+        .map((hit) => sourceHitToMentionItem(hit));
+    }
+
+    if (!searchApi.unified) return [];
+    const result = await searchApi.unified(trimmed, projectId);
+    const hits = result?.success ? result.data?.sources : null;
+    if (!Array.isArray(hits)) return [];
+    return hits
+      .filter((hit) => hit.kind !== 'person')
+      .map((hit) => sourceHitToMentionItem(hit));
+  } catch {
+    return [];
+  }
 }
 
 /**
- * @-mention picker for workspace resources.
- * Uses the same db IPC as the sidebar/editor (`listLight`, `searchForMention`) —
- * not ai.tools.resourceList, which can fail on corrupt metadata JSON.
+ * Unified @-mention picker: people, tasks/mail/posts, then workspace resources.
  */
 export function useResourceMention({
   input,
@@ -88,7 +115,7 @@ export function useResourceMention({
 }: UseResourceMentionOptions) {
   const [mentionActive, setMentionActive] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
-  const [mentionResources, setMentionResources] = useState<MentionResource[]>([]);
+  const [mentionResources, setMentionResources] = useState<MentionItem[]>([]);
   const [mentionSelectedIdx, setMentionSelectedIdx] = useState(0);
   const [mentionRect, setMentionRect] = useState<{ top: number; left: number } | null>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
@@ -97,17 +124,40 @@ export function useResourceMention({
     async (query: string) => {
       const electron = typeof window !== 'undefined' ? window.electron : null;
       const dbResources = electron?.db?.resources;
-      if (!dbResources?.listLight || !dbResources?.searchForMention) return;
-
       const scopedProjectId = projectId || 'default';
       const trimmed = query.trim();
 
       try {
-        const resources =
-          trimmed.length === 0
-            ? await fetchMentionList(dbResources, scopedProjectId, 25)
-            : await fetchMentionSearch(dbResources, trimmed, scopedProjectId);
-        setMentionResources(resources);
+        const peoplePromise = loadPeopleMentions(scopedProjectId, trimmed);
+        const sourcesPromise = loadSourceMentions(scopedProjectId, trimmed);
+        let resources: MentionItem[] = [];
+
+        if (dbResources?.listLight && dbResources?.searchForMention) {
+          if (trimmed.length === 0) {
+            const listResult = await dbResources.listLight(25, scopedProjectId);
+            if (listResult?.success && Array.isArray(listResult.data)) {
+              resources = mapDbResources(listResult.data);
+            }
+          } else {
+            const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
+            if (searchResult?.success && Array.isArray(searchResult.data)) {
+              resources = mapDbResources(searchResult.data);
+            }
+
+            if (resources.length === 0) {
+              const listResult = await dbResources.listLight(50, scopedProjectId);
+              if (listResult?.success && Array.isArray(listResult.data)) {
+                resources = filterResourcesByQuery(mapDbResources(listResult.data), trimmed);
+              }
+            }
+          }
+        }
+
+        const [people, sources] = await Promise.all([peoplePromise, sourcesPromise]);
+        const issues = sources.filter((s) => s.kind === 'issue');
+        const emails = sources.filter((s) => s.kind === 'email');
+        const posts = sources.filter((s) => s.kind === 'social_post');
+        setMentionResources(mergeMentionResults([people, issues, emails, posts, resources], 30));
         setMentionSelectedIdx(0);
       } catch {
         setMentionResources([]);
@@ -117,12 +167,13 @@ export function useResourceMention({
   );
 
   const selectMentionResource = useCallback(
-    (resource: MentionResource) => {
+    (resource: MentionItem) => {
       const cursor = inputRef.current?.selectionStart ?? input.length;
       const textUpToCursor = input.slice(0, cursor);
       const atIdx = textUpToCursor.lastIndexOf('@');
       if (atIdx !== -1) {
-        const insertion = `@${resource.title} `;
+        // Consume `@query`; chip-only kinds insert nothing — pin carries context.
+        const insertion = mentionInsertionText(resource);
         const newInput = input.slice(0, atIdx) + insertion + input.slice(cursor);
         setInput(newInput);
         const pos = atIdx + insertion.length;
@@ -242,6 +293,7 @@ export function useResourceMention({
     mentionQuery,
     mentionResources,
     mentionSelectedIdx,
+    setMentionSelectedIdx,
     mentionRect,
     mentionDropdownRef,
     selectMentionResource,

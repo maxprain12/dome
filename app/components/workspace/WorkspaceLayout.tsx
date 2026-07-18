@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AlertCircleIcon, Loading03Icon } from '@hugeicons/core-free-icons';
 import WorkspaceHeader from './WorkspaceHeader';
-import SidePanel from './SidePanel';
-import SourcesPanel from './SourcesPanel';
-import StudioPanel from './StudioPanel';
+import WorkspaceInspector, { type WorkspaceInspectorTab } from './WorkspaceInspector';
 import StudioOutputViewer from './StudioOutputViewer';
 import MetadataModal from './MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -11,6 +11,9 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { type Resource } from '@/types';
 import { mergeResourceOnBroadcast } from '@/lib/utils/resource-metadata';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
 const VideoPlayer = lazy(() => import('../viewers/VideoPlayer'));
@@ -47,8 +50,8 @@ function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource
     case 'ppt':
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <Loader2 className="size-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <HugeiconsIcon icon={Loading03Icon} className="mb-4 size-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
             Abriendo presentación...
           </p>
         </div>
@@ -78,8 +81,8 @@ function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource
 
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <Loader2 className="size-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <HugeiconsIcon icon={Loading03Icon} className="mb-4 size-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
             Redirecting to {resource.type} viewer...
           </p>
         </div>
@@ -99,11 +102,11 @@ function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource
       }
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
-          <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
+          <HugeiconsIcon icon={AlertCircleIcon} className="mb-4 size-12 text-muted-foreground" />
+          <p className="text-lg font-medium text-foreground">
             Unsupported file type
           </p>
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-sm text-muted-foreground">
             This resource type ({resource.type}) cannot be previewed in the workspace.
           </p>
         </div>
@@ -112,11 +115,11 @@ function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource
     default:
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
-          <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
+          <HugeiconsIcon icon={AlertCircleIcon} className="mb-4 size-12 text-muted-foreground" />
+          <p className="text-lg font-medium text-foreground">
             Unsupported file type
           </p>
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-sm text-muted-foreground">
             This resource type ({resource.type}) cannot be previewed in the workspace.
           </p>
         </div>
@@ -129,12 +132,14 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<WorkspaceInspectorTab>('details');
   const [showMetadata, setShowMetadata] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setContext = useManyStore((s) => s.setContext);
+  const isNarrow = useIsMobile();
   const prevContextKeyRef = useRef<string | null>(null);
 
   // Load resource data
@@ -217,7 +222,41 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   }, [resource]);
 
   const handleToggleSidePanel = useCallback(() => {
-    setSidePanelOpen((prev) => !prev);
+    setSidePanelOpen((prev) => {
+      const next = !prev;
+      if (next) setInspectorTab('relations');
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!sourcesPanelOpen) return;
+    setInspectorTab('sources');
+    setSidePanelOpen(false);
+    if (useAppStore.getState().studioPanelOpen) {
+      useAppStore.setState({ studioPanelOpen: false });
+    }
+  }, [sourcesPanelOpen]);
+
+  useEffect(() => {
+    if (!studioPanelOpen) return;
+    setInspectorTab('outputs');
+    setSidePanelOpen(false);
+    useAppStore.getState().setSourcesPanelOpen(false);
+  }, [studioPanelOpen]);
+
+  const inspectorOpen = sidePanelOpen || sourcesPanelOpen || studioPanelOpen;
+  const closeInspector = useCallback(() => {
+    setSidePanelOpen(false);
+    useAppStore.getState().setSourcesPanelOpen(false);
+    useAppStore.setState({ studioPanelOpen: false });
+  }, []);
+
+  const selectInspectorTab = useCallback((tab: WorkspaceInspectorTab) => {
+    setInspectorTab(tab);
+    setSidePanelOpen(tab === 'details' || tab === 'relations');
+    useAppStore.getState().setSourcesPanelOpen(tab === 'sources');
+    useAppStore.setState({ studioPanelOpen: tab === 'outputs' });
   }, []);
 
   const handleShowMetadata = useCallback(() => {
@@ -270,7 +309,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+            <HugeiconsIcon icon={Loading03Icon} className="size-8 animate-spin text-primary" />
           </div>
         }
       >
@@ -282,15 +321,11 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   if (isLoading) {
     return (
       <div
-        className="flex items-center justify-center min-h-full animate-in"
-        style={{ background: 'var(--dome-bg)' }}
+        className="flex items-center justify-center min-h-full animate-in fade-in bg-background"
       >
-        <div className="flex flex-col items-center gap-5 animate-slide-up">
-          <Loader2
-            className="size-10 animate-spin"
-            style={{ color: 'var(--dome-accent)' }}
-          />
-          <p className="text-sm font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="flex flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <HugeiconsIcon icon={Loading03Icon} className="size-10 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground">
             Loading workspace...
           </p>
         </div>
@@ -301,31 +336,30 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   if (error || !resource) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-full p-8 animate-in"
-        style={{ background: 'var(--dome-bg)' }}
+        className="flex flex-col items-center justify-center min-h-full p-8 animate-in fade-in bg-background"
       >
-        <div className="flex flex-col items-center gap-5 animate-slide-up">
-          <AlertCircle className="size-16 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-          <h1 className="text-xl font-display font-semibold text-center" style={{ color: 'var(--dome-text)' }}>
+        <div className="flex flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <HugeiconsIcon icon={AlertCircleIcon} className="size-16 shrink-0 text-muted-foreground" />
+          <h1 className="text-xl font-display font-semibold text-center text-foreground">
             Failed to load resource
           </h1>
-          <p className="text-sm text-center mb-6 max-w-md" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-sm text-center mb-6 max-w-md text-muted-foreground">
             {error ?? 'The requested resource could not be found.'}
           </p>
-          <button
+          <Button
             type="button"
             onClick={() => { if (typeof window !== 'undefined') window.close(); }}
-            className="btn btn-primary"
+            
           >
             Close Window
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <WorkspaceHeader
         resource={resource}
@@ -335,45 +369,48 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         mediaFocusMode={resource.type === 'audio' || resource.type === 'video'}
       />
 
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Sources Panel */}
-        {sourcesPanelOpen && resource && (
-          <SourcesPanel
-            key={resource.project_id}
-            resourceId={resourceId}
-            projectId={resource.project_id}
-          />
-        )}
+      {/* Main Content + a single contextual inspector */}
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanel id="workspace-viewer" minSize={420}>
+          <div className="relative h-full overflow-hidden">
+            {renderViewer()}
+            {activeStudioOutput ? (
+              <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} />
+            ) : null}
+          </div>
+        </ResizablePanel>
 
-        {/* Viewer */}
-        <div className="flex-1 overflow-hidden relative">
-          {renderViewer()}
+        {inspectorOpen && !isNarrow ? (
+          <>
+            <ResizableHandle aria-label="Redimensionar inspector" />
+            <ResizablePanel id="workspace-inspector" defaultSize={360} minSize={300} maxSize={520} groupResizeBehavior="preserve-pixel-size">
+              <WorkspaceInspector
+                resource={resource}
+                activeTab={inspectorTab}
+                onActiveTabChange={selectInspectorTab}
+                onClose={closeInspector}
+                onEditMetadata={handleShowMetadata}
+              />
+            </ResizablePanel>
+          </>
+        ) : null}
+      </ResizablePanelGroup>
 
-          {/* Studio Output Viewer Overlay */}
-          {activeStudioOutput && (
-            <StudioOutputViewer
-              output={activeStudioOutput}
-              onClose={() => setActiveStudioOutput(null)}
+      {isNarrow ? (
+        <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open) closeInspector(); }}>
+          <SheetContent side="right" showCloseButton={false} className="w-[min(92vw,28rem)] p-0">
+            <SheetTitle className="sr-only">Inspector</SheetTitle>
+            <SheetDescription className="sr-only">{resource.title}</SheetDescription>
+            <WorkspaceInspector
+              resource={resource}
+              activeTab={inspectorTab}
+              onActiveTabChange={selectInspectorTab}
+              onClose={closeInspector}
+              onEditMetadata={handleShowMetadata}
             />
-          )}
-        </div>
-
-        {/* Side Panel */}
-        <SidePanel
-          key={resourceId}
-          resourceId={resourceId}
-          resource={resource}
-          isOpen={sidePanelOpen}
-          onClose={() => setSidePanelOpen(false)}
-        />
-
-        {/* Studio Panel */}
-        {studioPanelOpen && resource && (
-          <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
-        )}
-
-      </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
 
       {/* Metadata Modal */}
       <MetadataModal

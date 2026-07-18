@@ -1,5 +1,9 @@
-import { Flame } from 'lucide-react';
+import { FlameIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { useLearnStreak } from '@/lib/hooks/useLearnStreak';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { buildLearnDeckItems } from '@/lib/learn/deckItems';
@@ -8,63 +12,56 @@ import { showToast } from '@/lib/store/useToastStore';
 export default function LearnStreakStrip() {
   const { t } = useTranslation();
   const { streak } = useLearnStreak();
-  const decks = useLearnStore((s) => s.decks);
-  const studioOutputs = useLearnStore((s) => s.studioOutputs);
-  const deckStats = useLearnStore((s) => s.deckStats);
-  const startStudy = useLearnStore((s) => s.startStudy);
-
+  const { decks, studioOutputs, deckStats, startStudy } = useLearnStore();
   const streakDays = streak?.streakDays ?? 0;
   const dueToday = streak?.dueToday ?? 0;
-  const days = streak?.days ?? [];
 
   const handleReview = () => {
-    const items = buildLearnDeckItems(decks, studioOutputs, deckStats);
-    const withDue = items.filter((i) => i.kind === 'flashcard_deck' && (i.dueCount ?? 0) > 0);
-    const firstDue = withDue[0];
-    if (firstDue) {
-      void startStudy(firstDue.id);
-      return;
-    }
-
-    const recentDeck = items
-      .filter((i) => i.kind === 'flashcard_deck')
-      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
-    if (recentDeck) {
-      void startStudy(recentDeck.id);
-      return;
-    }
-
-    showToast('info', t('learn.nothing_to_review', 'Nothing to review right now.'));
+    const items = buildLearnDeckItems(decks, studioOutputs, deckStats).filter(
+      (item) => item.kind === 'flashcard_deck',
+    );
+    const target =
+      items.find((item) => (item.dueCount ?? 0) > 0) ??
+      items.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
+    if (target) void startStudy(target.id);
+    else showToast('info', t('learn.nothing_to_review', 'Nothing to review right now.'));
   };
 
   return (
-    <div className="lr-streak lr-streak-strip">
-      <div className="lr-streak-icon">
-        <Flame size={18} aria-hidden />
-      </div>
-      <div className="lr-streak-text">
-        <div className="lr-streak-title">
-          {t('learn.streak_title', { days: streakDays, due: dueToday })}
+    <Card size="sm">
+      <div className="flex flex-col gap-3 px-(--card-spacing) @[32rem]/learn:flex-row @[32rem]/learn:items-start @[32rem]/learn:justify-between">
+        <div className="flex flex-col min-w-0 gap-y-1">
+          <CardTitle className="flex min-w-0 items-center gap-2 text-balance">
+            <HugeiconsIcon icon={FlameIcon} className="size-4 shrink-0" />
+            <span className="min-w-0">
+              {t('learn.streak_title', { days: streakDays, due: dueToday })}
+            </span>
+          </CardTitle>
+          <CardDescription className="text-pretty">
+            {dueToday > 0
+              ? t('learn.streak_due_sub', { count: dueToday })
+              : t('learn.streak_clear_sub')}
+          </CardDescription>
         </div>
-        <div className="lr-streak-sub">
-          {dueToday > 0
-            ? t('learn.streak_due_sub', { count: dueToday })
-            : t('learn.streak_clear_sub')}
-        </div>
-      </div>
-      <div className="lr-streak-days" aria-hidden>
-        {days.map((d, i) => (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <div
-            key={`${d.label}-${i}`}
-            className={`lr-streak-day${d.done ? ' done' : ''}${d.today ? ' today' : ''}`}
+            className="hidden gap-1 @[40rem]/learn:flex"
+            aria-label={t('learn.kpi_streak')}
           >
-            {d.label}
+            {(streak?.days ?? []).map((day, index) => (
+              <Badge
+                key={`${day.label}-${index}`}
+                variant={day.today ? 'default' : day.done ? 'secondary' : 'outline'}
+              >
+                {day.label}
+              </Badge>
+            ))}
           </div>
-        ))}
+          <Button type="button" size="sm" onClick={handleReview}>
+            {t('learn.streak_review')}
+          </Button>
+        </div>
       </div>
-      <button type="button" className="lr-btn lr-btn-primary lr-btn-sm" onClick={handleReview}>
-        {t('learn.streak_review')}
-      </button>
-    </div>
+    </Card>
   );
 }

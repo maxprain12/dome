@@ -1,11 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Add01Icon, Delete02Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { showToast } from '@/lib/store/useToastStore';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { FlashcardDeck } from '@/types';
 
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 interface DeckEditorProps {
   onClose: () => void;
 }
@@ -25,6 +34,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
   const [cards, setCards] = useState<EditableCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<number | null>(null);
 
   useEffect(() => {
     const loadDeckData = async () => {
@@ -70,7 +80,6 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
     const card = cards[index];
     if (!card) return;
     if (card.id && !card.isNew) {
-      if (!confirm(t('flashcard.delete_card_confirm', 'Delete this card?'))) return;
       try {
         await window.electron.db.flashcards.deleteCard(card.id);
       } catch (error) {
@@ -80,6 +89,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
       }
     }
     setCards((prev) => prev.filter((_, i) => i !== index));
+    setPendingRemove(null);
   };
 
   const handleCardChange = (index: number, field: keyof EditableCard, value: string) => {
@@ -151,128 +161,87 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
 
   if (isLoading) {
     return (
-      <div className="lr-scrim" role="presentation">
-        <dialog open className="lr-modal m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-busy="true" aria-label={t('flashcard.edit_deck', 'Edit deck')}>
-          <div className="lr-modal-body" style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-            <Loader2 className="lr-spin" size={28} aria-label={t('ui.loading', 'Loading')} />
-          </div>
-        </dialog>
-      </div>
+      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+        <DialogContent aria-busy="true"><DialogHeader><DialogTitle>{t('flashcard.edit_deck', 'Edit deck')}</DialogTitle><DialogDescription>{t('ui.loading', 'Loading')}</DialogDescription></DialogHeader><div className="flex justify-center py-12"><Spinner aria-label={t('ui.loading', 'Loading')} /></div>
+        </DialogContent>
+      </Dialog>
     );
   }
 
   return (
-    <div className="lr-scrim" role="presentation">
-      <dialog open className="lr-modal lg m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-labelledby="deck-editor-heading" onCancel={(e) => { e.preventDefault(); onClose(); }}>
-        <div className="lr-modal-hd">
-          <div className="lr-modal-hd-text">
-            <h2 id="deck-editor-heading">{t('flashcard.edit_deck', 'Edit deck')}</h2>
-            <p>{t('flashcard.edit_deck_hint', 'Update the title, description and cards.')}</p>
-          </div>
-          <button type="button" className="lr-modal-hd-x" onClick={onClose} aria-label={t('ui.close', 'Close')}>
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="lr-modal-body">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-hidden sm:max-w-3xl">
+        <DialogHeader><DialogTitle>{t('flashcard.edit_deck', 'Edit deck')}</DialogTitle><DialogDescription>{t('flashcard.edit_deck_hint', 'Update the title, description and cards.')}</DialogDescription></DialogHeader>
+        <div className="flex min-h-0 flex-col gap-5 overflow-y-auto pr-1">
           {deck && (
-            <>
-              <div className="lr-field">
-                <label className="lr-field-label" htmlFor="deck-editor-title">
-                  {t('flashcard.deck_title', 'Title')}
-                </label>
-                <input
+            <FieldGroup>
+              <Field><FieldLabel htmlFor="deck-editor-title">{t('flashcard.deck_title', 'Title')}</FieldLabel><Input
                   id="deck-editor-title"
                   type="text"
-                  className="lr-input"
                   value={deck.title}
                   onChange={(e) => setDeck({ ...deck, title: e.target.value })}
                   placeholder={t('flashcard.deck_title_placeholder', 'e.g. Cell biology')}
-                />
-              </div>
-
-              <div className="lr-field">
-                <label className="lr-field-label" htmlFor="deck-editor-description">
-                  {t('flashcard.deck_description', 'Description')}
-                </label>
-                <textarea
+                /></Field>
+              <Field><FieldLabel htmlFor="deck-editor-description">{t('flashcard.deck_description', 'Description')}</FieldLabel><Textarea
                   id="deck-editor-description"
-                  className="lr-textarea"
                   rows={2}
                   value={deck.description || ''}
                   onChange={(e) => setDeck({ ...deck, description: e.target.value })}
-                />
-              </div>
-            </>
+                /></Field>
+            </FieldGroup>
           )}
 
-          <div className="lr-deck-edit-cards">
-            <h3 className="lr-field-label">
+          <section className="flex flex-col gap-3">
+            <h3 className="text-sm font-medium">
               {t('flashcard.cards', 'Cards')} ({cards.length})
             </h3>
 
             {cards.map((card, index) => (
-              <div key={card.id ?? `new-${index}`} className="lr-deck-edit-card">
-                <div className="lr-deck-edit-card-fields">
-                  <input
+              <Card key={card.id ?? `new-${index}`} size="sm"><CardHeader><CardTitle>{t('flashcard.card_number', 'Card {{number}}', { number: index + 1 })}</CardTitle><Button type="button" variant="ghost" size="icon-sm" className="ml-auto" onClick={() => setPendingRemove(index)} aria-label={t('flashcard.delete_card', 'Delete card')}><HugeiconsIcon icon={Delete02Icon} /></Button></CardHeader><CardContent className="grid gap-3 md:grid-cols-[1fr_1fr_140px]">
+                  <Input
                     type="text"
-                    className="lr-input"
                     value={card.question}
                     onChange={(e) => handleCardChange(index, 'question', e.target.value)}
                     placeholder={t('flashcard.question', 'Question')}
                     aria-label={t('flashcard.question', 'Question')}
                   />
-                  <input
+                  <Input
                     type="text"
-                    className="lr-input"
                     value={card.answer}
                     onChange={(e) => handleCardChange(index, 'answer', e.target.value)}
                     placeholder={t('flashcard.answer', 'Answer')}
                     aria-label={t('flashcard.answer', 'Answer')}
                   />
-                </div>
-                <DomeSelectMenu
-                  className="lr-deck-edit-difficulty"
-                  value={card.difficulty}
-                  onChange={(v) => handleCardChange(index, 'difficulty', v)}
-                  aria-label={t('flashcard.difficulty', 'Difficulty')}
-                  options={[
+                <Select value={card.difficulty ?? null} onValueChange={(next) => { if (next != null) ((v) => handleCardChange(index, 'difficulty', v))(next); }} items={[
                     { value: 'easy', label: t('flashcard.easy', 'Easy') },
                     { value: 'medium', label: t('flashcard.medium', 'Medium') },
                     { value: 'hard', label: t('flashcard.difficult', 'Hard') },
-                  ]}
-                />
-                <button
-                  type="button"
-                  className="lr-btn lr-btn-ghost lr-deck-edit-remove"
-                  onClick={() => void handleRemoveCard(index)}
-                  aria-label={t('flashcard.delete_card', 'Delete card')}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
+                  ]}><SelectTrigger className="w-full" aria-label={t('flashcard.difficulty', 'Difficulty')}><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{([
+                    { value: 'easy', label: t('flashcard.easy', 'Easy') },
+                    { value: 'medium', label: t('flashcard.medium', 'Medium') },
+                    { value: 'hard', label: t('flashcard.difficult', 'Hard') },
+                  ]).map((opt) => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectGroup></SelectContent></Select>
+              </CardContent></Card>
             ))}
 
-            <button type="button" className="lr-deck-edit-add" onClick={handleAddCard}>
-              <Plus size={15} />
+            <Button type="button" variant="outline" onClick={handleAddCard}>
+              <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
               {t('flashcard.add_card', 'Add card')}
-            </button>
-          </div>
+            </Button>
+          </section>
         </div>
 
-        <div className="lr-modal-ft">
-          <div className="lr-modal-ft-left" />
-          <div className="lr-modal-ft-right">
-            <button type="button" className="lr-btn" onClick={onClose} disabled={isSaving}>
+        <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
               {t('learn.cancel', 'Cancel')}
-            </button>
-            <button type="button" className="lr-btn lr-btn-primary" onClick={() => void handleSave()} disabled={isSaving}>
-              {isSaving && <Loader2 size={15} className="lr-spin" />}
+            </Button>
+            <Button type="button" onClick={() => void handleSave()} disabled={isSaving}>
+              {isSaving ? <Spinner data-icon="inline-start" /> : null}
               {t('flashcard.save_changes', 'Save changes')}
-            </button>
-          </div>
-        </div>
-      </dialog>
-    </div>
+            </Button>
+        </DialogFooter>
+        <AlertDialog open={pendingRemove != null} onOpenChange={(open) => { if (!open) setPendingRemove(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t('flashcard.delete_card_confirm', 'Delete this card?')}</AlertDialogTitle><AlertDialogDescription>{pendingRemove != null ? cards[pendingRemove]?.question : ''}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => pendingRemove != null && void handleRemoveCard(pendingRemove)}>{t('ui.delete', 'Delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

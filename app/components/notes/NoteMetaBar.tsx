@@ -1,4 +1,10 @@
-import { Clock, Edit, History as HistoryIcon, Link2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Clock01Icon,
+  PencilEdit02Icon,
+  HistoryIcon,
+  Link02Icon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 
 export interface TagRowItem {
@@ -34,17 +40,17 @@ export default function NoteMetaBar({
     <div className="note-doc-meta-stack" aria-live="polite">
       <div className="note-doc-meta note-doc-meta--primary">
         <span className="note-meta-chip">
-          <Edit size={11} strokeWidth={2} />
+          <HugeiconsIcon icon={PencilEdit02Icon} size={11} strokeWidth={2} />
           {wordCount <= 1
             ? t('notes.meta_words_one', { count: wordCount })
             : t('notes.meta_words_other', { count: wordCount })}
         </span>
         <span className="note-meta-chip">
-          <Clock size={11} strokeWidth={2} />~{t('notes.meta_read', { minutes: mins })}
+          <HugeiconsIcon icon={Clock01Icon} size={11} strokeWidth={2} />~{t('notes.meta_read', { minutes: mins })}
         </span>
         {editedRelative ? (
           <span className="note-meta-chip">
-            <HistoryIcon size={11} strokeWidth={2} />
+            <HugeiconsIcon icon={HistoryIcon} size={11} strokeWidth={2} />
             {t('notes.meta_edited', { relative: editedRelative })}
           </span>
         ) : null}
@@ -75,7 +81,7 @@ export default function NoteMetaBar({
       {backlinksCount > 0 ? (
         <div className="note-doc-meta note-doc-meta--secondary">
           <span className="note-meta-chip backlinks-chip">
-            <Link2 size={11} strokeWidth={2} />
+            <HugeiconsIcon icon={Link02Icon} size={11} strokeWidth={2} />
             {backlinksCount === 1
               ? t('notes.backlinks_one', { count: backlinksCount })
               : t('notes.backlinks_other', { count: backlinksCount })}

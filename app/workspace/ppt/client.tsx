@@ -1,8 +1,12 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { startTransition } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
@@ -184,7 +188,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   if (loading) {
     return (
-      <div className="flex flex-1 min-h-0 w-full items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+      <div className="flex flex-1 min-h-0 w-full items-center justify-center bg-card">
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Loading presentation...</div>
       </div>
     );
@@ -192,8 +196,8 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   if (error || !resource) {
     return (
-      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
-        <div style={{ color: 'var(--error)' }}>{error || 'Presentation not found'}</div>
+      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center gap-4 bg-background">
+        <div className="text-destructive">{error || 'Presentation not found'}</div>
       </div>
     );
   }
@@ -203,7 +207,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
       className="flex flex-col min-h-0 w-full"
       style={{
         flex: 1,
-        backgroundColor: 'var(--bg)',
+        backgroundColor: 'var(--background)',
         overflow: 'hidden',
       }}
     >
@@ -227,7 +231,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
           <div
             ref={slidesContainerRef}
             className="flex-1 flex min-h-0 slides-presentation-container"
-            style={{ overflow: 'hidden', background: 'var(--bg-secondary)' }}
+            style={{ overflow: 'hidden', background: 'var(--card)' }}
           >
             {/* Thumbnail strip */}
             {slideCount > 0 && (
@@ -273,7 +277,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                       style={{ color: 'rgba(255,255,255,0.85)' }}
                       aria-label="Diapositiva anterior"
                     >
-                      <ChevronLeft size={17} />
+                      <HugeiconsIcon icon={ChevronLeftIcon} size={17} />
                     </button>
 
                     <span
@@ -291,7 +295,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                       style={{ color: 'rgba(255,255,255,0.85)' }}
                       aria-label="Diapositiva siguiente"
                     >
-                      <ChevronRight size={17} />
+                      <HugeiconsIcon icon={ChevronRightIcon} size={17} />
                     </button>
                   </div>
                 )}

@@ -14,7 +14,8 @@ export const initialPaletteUiState: PaletteUiState = {
   inputsExpanded: true,
   outputsExpanded: true,
   systemAgentsExpanded: true,
-  agentsExpanded: true,
+  // Collapsed by default — empty “my agents” used to dominate the palette height.
+  agentsExpanded: false,
 };
 
 export function paletteUiReducer(state: PaletteUiState, action: PaletteUiAction): PaletteUiState {

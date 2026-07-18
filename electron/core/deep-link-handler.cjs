@@ -28,10 +28,10 @@ async function handleDomeUrl(url, deps) {
 
   // Dome provider: connect (dashboard-initiated) vs OAuth callback (desktop-initiated)
   if (url.startsWith('dome://dome-auth/connect')) {
-    return domeOauth.handleConnectCallback(url, deps.database);
+    return domeOauth.handleConnectCallback(url, deps.database, deps.windowManager);
   }
   if (url.startsWith('dome://dome-auth/')) {
-    return domeOauth.handleOAuthCallback(url, deps.database);
+    return domeOauth.handleOAuthCallback(url, deps.database, deps.windowManager);
   }
 
   // Google Calendar OAuth callback

@@ -1,5 +1,8 @@
 {
   "title": "Configurações",
+  "back_to_app": "Voltar à aplicação",
+  "search": "Pesquisar configuração…",
+  "search_empty": "Nenhuma configuração encontrada.",
   "tabs": {
     "general": "Geral",
     "appearance": "Aparência",
@@ -20,6 +23,10 @@
     "social": "Social"
   },
   "groups": {
+    "account": "Conta",
+    "appearance_language": "Aparência e idioma",
+    "automation_extensions": "Automação e extensões",
+    "data_privacy": "Dados e privacidade",
     "preferences": "Preferências",
     "ai": "IA",
     "ai_voice": "IA & Voz",
@@ -129,6 +136,8 @@
     "context_doc_soul": "SOUL",
     "context_doc_user": "USER",
     "context_doc_memory": "MEMORY",
+    "context_doc_social": "Social",
+    "context_doc_email": "Email",
     "context_doc_daily": "Logs recentes",
     "context_view_full": "Ficheiro completo",
     "context_view_agent": "Como o agente vê",
@@ -305,7 +314,15 @@
       "add_by_id_hint": "Para modelos que não aparecem no catálogo. O ID é adicionado ao seletor de imediato.",
       "add_by_id_placeholder": "Id do modelo (ex. gpt-4.1)",
       "custom_model_badge": "Modelo personalizado"
-    }
+    },
+    "dome_login_email": "E-mail",
+    "dome_login_password": "Senha",
+    "dome_login_submit": "Entrar",
+    "dome_login_via_dashboard": "Ou conectar via dashboard",
+    "dome_login_ok": "Sessão do Dome conectada.",
+    "dome_login_failed": "Falha ao iniciar sessão.",
+    "dome_login_invalid_credentials": "E-mail ou senha incorretos.",
+    "dome_login_network_error": "Não foi possível contactar o servidor do Dome. Tente novamente."
   },
   "transcription": {
     "title": "Transcrição de voz",
@@ -391,6 +408,34 @@
     "perm_open_prefs": "Abrir Preferências do Sistema",
     "perm_screen_restart_hint": "Após conceder Gravação de tela, reinicie o Dome para que a mudança tenha efeito.",
     "perm_os_managed": "As permissões são gerenciadas pelo sistema operacional."
+  },
+  "domain_sync": {
+    "title": "Sincronização por domínio",
+    "description": "Mantém todo o seu Dome sincronizado com o Dome Cloud — biblioteca, ficheiros, conversas, agentes, learn, social, pipelines e calendário. Requer subscrição Dome ativa.",
+    "subtitle": "Sincronize o seu conteúdo entre dispositivos com a sua subscrição Dome.",
+    "connected_to_dome": "Ligado ao Dome",
+    "disconnected_from_dome": "Desligado do Dome",
+    "connect_error": "Não foi possível ligar",
+    "not_connected": "Não ligado",
+    "oauth_pkce": "Autorizar via OAuth PKCE",
+    "connection": "Ligação",
+    "active": "Ativa",
+    "last_sync": "Última sincronização",
+    "social": "Hub social",
+    "pipelines": "Quadro pipelines",
+    "calendar": "Calendário",
+    "sync_now": "Sincronizar agora",
+    "sync_ok": "Sincronizado",
+    "sync_error": "Falha na sincronização",
+    "library": "Biblioteca (projetos, notas, artifacts)",
+    "files": "Ficheiros (vault)",
+    "conversations": "Conversas (chats + Many)",
+    "agents": "Agentes e workflows",
+    "learn": "Learn (flashcards e estudo)",
+    "settings_domain": "Preferências",
+    "first_sync": "A restaurar o seu Dome… ({{domain}})",
+    "first_sync_files": "A transferir ficheiros…",
+    "first_sync_done": "Restauro concluído"
   },
   "indexing": {
     "title": "Indexação",
@@ -628,6 +673,7 @@
     "subtitle": "Conecte o Google Drive para explorar e importar arquivos diretamente no Dome.",
     "loading_accounts": "Carregando contas...",
     "section_connected": "Contas conectadas",
+    "connected": "Ligado",
     "section_add": "Adicionar outra conta",
     "section_connect": "Conectar conta na nuvem",
     "disconnect": "Desconectar",

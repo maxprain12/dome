@@ -11,19 +11,19 @@
 }
 
 .playground-toggle-btn.is-hint {
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .playground-toggle-btn.is-solution {
-  color: var(--secondary-text);
+  color: var(--muted-foreground);
 }
 
 .playground-solution-pre {
   margin-top: 6px;
   font-size: 12px;
   white-space: pre-wrap;
-  color: var(--primary-text);
-  background: var(--bg-secondary);
+  color: var(--foreground);
+  background: var(--card);
   border: 1px solid var(--border);
   padding: 8px;
   border-radius: var(--radius-md);

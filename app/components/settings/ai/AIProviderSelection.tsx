@@ -1,15 +1,20 @@
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, HardDrive, KeyRound, Lock, Settings2, Sparkles, Zap } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  HardDriveIcon,
+  Key01Icon,
+  LockIcon,
+  Settings01Icon,
+  SparklesIcon,
+  ZapIcon,
+} from '@hugeicons/core-free-icons';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
-import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
-import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import { cn } from '@/lib/utils';
-// Self-contained: own the provider-card styles so the grid renders correctly in any
-// consumer (settings, onboarding, …), not just where AISettingsPanel imports the CSS.
-import '@/styles/ai-settings.css';
+import ProviderBrandIcon from './ProviderBrandIcon';
 
 const EMPTY_CONFIGURED_PROVIDERS: Record<string, boolean> = {};
 
@@ -17,44 +22,102 @@ export interface AIProviderSelectionProps {
   provider: AIProviderType;
   onProviderChange: (provider: AIProviderType) => void;
   showSectionLabel?: boolean;
-  /** When false, no card appears selected (e.g. onboarding skip) */
   highlightSelection?: boolean;
-  /** provider → tiene API key guardada (badge + orden: configurados primero) */
   configuredProviders?: Record<string, boolean>;
-  /** Opens the visible-models modal for a provider (gear icon). */
   onConfigureModels?: (provider: AIProviderType) => void;
+  hideDomeProvider?: boolean;
 }
 
-function ProviderCardCheck() {
-  return (
-    <CheckCircle2
-      aria-hidden
-      className="ai-provider-card__check"
-    />
-  );
+interface ProviderChoiceProps {
+  value: AIProviderType;
+  name: string;
+  description: string;
+  badge?: string;
+  configured?: boolean;
+  disabled?: boolean;
+  local?: boolean;
+  featured?: boolean;
+  onConfigure?: () => void;
+  configureLabel?: string;
 }
 
-function ConfiguratorGear({
-  provider,
-  onConfigureModels,
-  label,
-}: {
-  provider: AIProviderType;
-  onConfigureModels: (p: AIProviderType) => void;
-  label: string;
-}) {
+/** One selectable provider card: brand mark, name, status badges, gear to curate models. */
+function ProviderChoice({
+  value,
+  name,
+  description,
+  badge,
+  configured,
+  disabled,
+  local,
+  featured,
+  onConfigure,
+  configureLabel,
+}: ProviderChoiceProps) {
+  const { t } = useTranslation();
   return (
-    <button
-      type="button"
-      className="ai-provider-card__gear"
-      aria-label={label}
-      onClick={(e) => {
-        e.stopPropagation();
-        onConfigureModels(provider);
-      }}
-    >
-      <Settings2 className="size-3" aria-hidden />
-    </button>
+    <div className="relative min-w-0">
+      <ToggleGroupItem
+        value={value}
+        variant="outline"
+        disabled={disabled}
+        aria-label={name}
+        className="h-auto min-h-28 w-full flex-col items-stretch justify-start gap-3 rounded-xl p-3 pr-11 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/5"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <ProviderBrandIcon provider={value} size={17} />
+          </span>
+          <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+          {badge ? <Badge variant={featured ? 'default' : 'secondary'}>{badge}</Badge> : null}
+        </span>
+        <span className="whitespace-normal text-xs font-normal text-muted-foreground">
+          {description}
+        </span>
+        <span className="flex flex-wrap items-center gap-1.5">
+          {local ? (
+            <Badge variant="outline">
+              <HugeiconsIcon icon={HardDriveIcon} data-icon="inline-start" />
+              {t('onboarding.offline')}
+            </Badge>
+          ) : configured ? (
+            <Badge variant="secondary">
+              <HugeiconsIcon icon={Key01Icon} data-icon="inline-start" />
+              {t('settings.ai.key_saved')}
+            </Badge>
+          ) : featured ? (
+            <>
+              <Badge variant="outline">
+                <HugeiconsIcon icon={LockIcon} data-icon="inline-start" />
+                {t('settings.ai.private')}
+              </Badge>
+              <Badge variant="outline">
+                <HugeiconsIcon icon={ZapIcon} data-icon="inline-start" />
+                {t('settings.ai.fast')}
+              </Badge>
+            </>
+          ) : (
+            <Badge variant="outline">
+              <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+              {t('settings.ai.api_key_required')}
+            </Badge>
+          )}
+        </span>
+      </ToggleGroupItem>
+      {onConfigure ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="absolute right-2 top-2"
+          aria-label={configureLabel}
+          title={configureLabel}
+          onClick={onConfigure}
+        >
+          <HugeiconsIcon icon={Settings01Icon} />
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -65,160 +128,92 @@ export default function AIProviderSelection({
   highlightSelection = true,
   configuredProviders = EMPTY_CONFIGURED_PROVIDERS,
   onConfigureModels,
+  hideDomeProvider = false,
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
-  const activeProvider = highlightSelection ? provider : null;
-
-  const cloudOptions = AI_PROVIDER_OPTIONS.filter((o) => o.value !== 'dome' && o.value !== 'ollama');
-  const configured = cloudOptions.filter((o) => configuredProviders[o.value]);
-  const available = cloudOptions.filter((o) => !configuredProviders[o.value]);
-  const hasGroups = configured.length > 0 && available.length > 0;
+  const cloudOptions = AI_PROVIDER_OPTIONS.filter(
+    (option) => option.value !== 'dome' && option.value !== 'ollama',
+  );
+  const configured = cloudOptions.filter((option) => configuredProviders[option.value]);
+  const available = cloudOptions.filter((option) => !configuredProviders[option.value]);
+  const groups =
+    configured.length > 0 && available.length > 0
+      ? [
+          { key: 'configured', label: t('settings.ai.providers_configured'), options: configured },
+          { key: 'available', label: t('settings.ai.providers_available'), options: available },
+        ]
+      : [{ key: 'all', label: null, options: cloudOptions }];
 
   return (
-    // Establish the `ai-settings` container context here so the provider grid's
-    // container queries resolve even when there's no AISettingsPanel ancestor.
-    <div className="ai-provider-selection">
+    <section className="flex flex-col gap-3" aria-labelledby="ai-provider-title">
       {showSectionLabel ? (
-        <DomeSectionLabel className="ai-settings__section-label">
+        <h2
+          id="ai-provider-title"
+          className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
           {t('settings.ai.provider')}
-        </DomeSectionLabel>
+        </h2>
       ) : null}
+      <ToggleGroup
+        value={highlightSelection ? [provider] : []}
+        onValueChange={(values) => values[0] && onProviderChange(values[0] as AIProviderType)}
+        className="flex w-full flex-col items-stretch gap-4"
+      >
+        {DOME_PROVIDER_ENABLED && !hideDomeProvider ? (
+          <ProviderChoice
+            value="dome"
+            name={PROVIDERS.dome.name}
+            description={`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
+            badge={t('settings.ai.recommended')}
+            featured
+          />
+        ) : null}
 
-      <div className="space-y-2">
-        {DOME_PROVIDER_ENABLED && (
-          <button
-            type="button"
-            onClick={() => onProviderChange('dome')}
-            aria-pressed={activeProvider === 'dome'}
-            className={cn(
-              'ai-provider-card ai-provider-card--featured',
-            )}
-          >
-            <div className="ai-provider-card__head">
-              <div className="ai-provider-card__icon">
-                <ProviderBrandIcon provider="dome" size={16} />
-              </div>
-              <span className="ai-provider-card__name">{PROVIDERS.dome.name}</span>
-              <span className="ai-provider-card__badge">{t('settings.ai.recommended')}</span>
-              <ProviderCardCheck />
-            </div>
-            <p className="ai-provider-card__desc">
-              {`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
-            </p>
-            <div className="ai-provider-card__foot">
-              <span className="ai-provider-card__chip">
-                <Lock className="size-2.5" aria-hidden />
-                {t('settings.ai.private')}
-              </span>
-              <span className="ai-provider-card__chip">
-                <Zap className="size-2.5" aria-hidden />
-                {t('settings.ai.fast')}
-              </span>
-            </div>
-          </button>
-        )}
-
-        {(hasGroups
-          ? [
-              { key: 'configured', label: t('settings.ai.providers_configured'), options: configured },
-              { key: 'available', label: t('settings.ai.providers_available'), options: available },
-            ]
-          : [{ key: 'all', label: null, options: cloudOptions }]
-        ).map((group) =>
-          group.options.length === 0 ? null : (
-            <div key={group.key} className="ai-settings__section">
+        {groups.map((group) =>
+          group.options.length > 0 ? (
+            <div key={group.key} className="flex flex-col gap-2">
               {group.label ? (
-                <DomeSectionLabel className="ai-settings__section-label">{group.label}</DomeSectionLabel>
+                <h3 className="text-xs font-medium text-muted-foreground">{group.label}</h3>
               ) : null}
-              <div className="ai-provider-grid">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {group.options.map((option) => {
-                  const isSelected = activeProvider === option.value;
-                  const hasKey = Boolean(configuredProviders[option.value]);
-                  const showGear =
+                  const canConfigure =
                     isVisibleModelsConfigurable(option.value) && Boolean(onConfigureModels);
                   return (
-                    <button
+                    <ProviderChoice
                       key={option.value}
-                      type="button"
-                      onClick={() => !option.disabled && onProviderChange(option.value)}
+                      value={option.value}
+                      name={option.label}
+                      description={
+                        configuredProviders[option.value]
+                          ? t('settings.ai.key_saved')
+                          : t('settings.ai.api_key_required')
+                      }
+                      badge={option.badge}
+                      configured={Boolean(configuredProviders[option.value])}
                       disabled={option.disabled}
-                      aria-pressed={isSelected}
-                      className="ai-provider-card"
-                    >
-                      <div className="ai-provider-card__head">
-                        <div className="ai-provider-card__icon">
-                          <ProviderBrandIcon provider={option.value} size={16} />
-                        </div>
-                        <span className="ai-provider-card__name">{option.label}</span>
-                        {option.badge ? (
-                          <span className="ai-provider-card__badge">{option.badge}</span>
-                        ) : null}
-                        <ProviderCardCheck />
-                      </div>
-                      <p className="ai-provider-card__desc">
-                        {hasKey ? t('settings.ai.key_saved') : t('settings.ai.api_key_required')}
-                      </p>
-                      <div className="ai-provider-card__foot">
-                        <span
-                          className={cn(
-                            'ai-provider-card__status',
-                            hasKey && 'ai-provider-card__status--ok',
-                          )}
-                        >
-                          {hasKey ? (
-                            <KeyRound className="size-2.5 shrink-0" aria-hidden />
-                          ) : (
-                            <Sparkles className="size-2.5 shrink-0" aria-hidden />
-                          )}
-                          {hasKey ? t('settings.ai.key_saved') : t('settings.ai.api_key_required')}
-                        </span>
-                        {showGear && onConfigureModels ? (
-                          <ConfiguratorGear
-                            provider={option.value}
-                            onConfigureModels={onConfigureModels}
-                            label={t('settings.ai.visible_models.gear_label', { provider: option.label })}
-                          />
-                        ) : null}
-                      </div>
-                    </button>
+                      onConfigure={
+                        canConfigure ? () => onConfigureModels?.(option.value) : undefined
+                      }
+                      configureLabel={t('settings.ai.visible_models.gear_label', {
+                        provider: option.label,
+                      })}
+                    />
                   );
                 })}
               </div>
             </div>
-          ),
+          ) : null,
         )}
 
-        {(() => {
-          const ollamaOption = AI_PROVIDER_OPTIONS.find((o) => o.value === 'ollama');
-          if (!ollamaOption) return null;
-          const isSelected = activeProvider === 'ollama';
-          return (
-            <button
-              type="button"
-              aria-label={ollamaOption.label}
-              onClick={() => onProviderChange('ollama')}
-              aria-pressed={isSelected}
-              className="ai-provider-card ai-provider-card--local"
-            >
-              <div className="ai-provider-card__head">
-                <div className="ai-provider-card__icon">
-                  <ProviderBrandIcon provider="ollama" size={16} />
-                </div>
-                <span className="ai-provider-card__name">{ollamaOption.label}</span>
-                <span className="ai-provider-card__badge">{t('settings.ai.local_badge')}</span>
-                <ProviderCardCheck />
-              </div>
-              <p className="ai-provider-card__desc">{t('settings.ai.private_local')}</p>
-              <div className="ai-provider-card__foot">
-                <span className="ai-provider-card__chip">
-                  <HardDrive className="size-2.5" aria-hidden />
-                  {t('onboarding.offline')}
-                </span>
-              </div>
-            </button>
-          );
-        })()}
-      </div>
-    </div>
+        <ProviderChoice
+          value="ollama"
+          name={AI_PROVIDER_OPTIONS.find((option) => option.value === 'ollama')?.label ?? 'Ollama'}
+          description={t('settings.ai.private_local')}
+          badge={t('settings.ai.local_badge')}
+          local
+        />
+      </ToggleGroup>
+    </section>
   );
 }

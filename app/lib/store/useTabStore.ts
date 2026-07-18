@@ -719,6 +719,9 @@ export const useTabStore = create<TabStore>((set, get) => {
       const existing = get().tabs.find((t) => t.id === tabId);
       if (existing) {
         get().activateTab(tabId);
+        if (color && existing.color !== color) {
+          get().updateTab(tabId, { color });
+        }
         return;
       }
       get().openTab({

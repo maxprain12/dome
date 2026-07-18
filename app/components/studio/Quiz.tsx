@@ -1,6 +1,17 @@
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckmarkCircle02Icon,
+  CancelCircleIcon,
+  ArrowRight02Icon,
+  RotateLeft01Icon,
+  Cancel01Icon,
+  AlertCircleIcon,
+  ShuffleIcon,
+  BubbleChatIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X, AlertCircle, Shuffle, MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { useTranslation } from 'react-i18next';
 import { normalizeQuizData } from '@/lib/studio/normalizeQuizContent';
@@ -39,7 +50,7 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
   const color =
-    score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--error)';
+    score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--destructive)';
 
   return (
     <svg width={size} height={size} className="mx-auto mb-4" aria-hidden>
@@ -48,7 +59,7 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--bg-tertiary)"
+        stroke="var(--muted)"
         strokeWidth={stroke}
       />
       <circle
@@ -69,10 +80,10 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
         y="50%"
         dominantBaseline="middle"
         textAnchor="middle"
-        fill="var(--primary-text)"
+        fill="var(--foreground)"
         fontSize={28}
         fontWeight={700}
-        fontFamily="Georgia, 'Times New Roman', serif"
+        fontFamily="var(--font-sans)"
       >
         {score}%
       </text>
@@ -302,26 +313,26 @@ export default function Quiz({
 
   const frameClass = learnMode ? 'lr-frame lr-quiz' : '';
   const headerClass = learnMode ? 'lr-quiz-hd' : 'flex items-center justify-between px-4 py-3 border-b';
-  const optionClass = learnMode ? 'lr-quiz-opt' : 'flex items-center gap-3 p-4 rounded-lg text-left transition-all duration-150';
+  const optionClass = learnMode ? 'lr-quiz-opt' : 'flex items-center gap-3 p-4 rounded-lg text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150';
 
   if (data.questions.length === 0) {
     return (
-      <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--bg)' }}>
+      <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
         <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+          <h3 className="text-sm font-semibold text-foreground">
             {title || t('quiz.title')}
           </h3>
           {onClose && (
-            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
+            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
           )}
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8">
-          <AlertCircle className="size-12 mb-4" style={{ color: 'var(--tertiary-text)' }} />
-          <p className="text-lg font-medium" style={{ color: 'var(--primary-text)' }}>
+          <HugeiconsIcon icon={AlertCircleIcon} className="size-12 mb-4 text-muted-foreground" />
+          <p className="text-lg font-medium text-foreground">
             {t('studio.quiz_data_corrupted')}
           </p>
           {onClose && (
-            <button type="button" onClick={onClose} className="btn btn-secondary mt-6">{t('quiz.close')}</button>
+            <Button type="button" onClick={onClose} variant="secondary" className="mt-6">{t('quiz.close')}</Button>
           )}
         </div>
       </div>
@@ -334,13 +345,13 @@ export default function Quiz({
     const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
     const missedCount = totalQuestions - correctCount;
     return (
-      <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--bg)' }}>
+      <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
         <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+          <h3 className="text-sm font-semibold text-foreground">
             {title || t('quiz.title')} — {t('quiz.results')}
           </h3>
           {onClose && (
-            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
+            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
           )}
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-8">
@@ -348,28 +359,28 @@ export default function Quiz({
             {learnMode ? (
               <ScoreRing score={score} />
             ) : (
-              <div className="text-6xl font-bold mb-2" style={{ color: score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--error)' }}>
+              <div className="text-6xl font-bold mb-2" style={{ color: score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--destructive)' }}>
                 {score}%
               </div>
             )}
-            <div className="text-lg font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
+            <div className="text-lg font-medium mb-1 text-foreground">
               {score >= 70 ? t('quiz.great_job') : score >= 40 ? t('quiz.good_effort') : t('quiz.keep_studying')}
             </div>
-            <div className="text-sm mb-6" style={{ color: 'var(--secondary-text)' }}>
+            <div className="text-sm mb-6 text-muted-foreground">
               {t('quiz.correct_count', { correct: correctCount, total: totalQuestions })}
             </div>
             {learnMode && questionResults.length > 0 && (
-              <div className="lr-quiz-breakdown text-left mb-6 space-y-2">
+              <div className="lr-quiz-breakdown text-left mb-6 flex flex-col gap-y-2">
                 {questionResults.map((r, i) => {
                   const q = data.questions.find((qq) => qq.id === r.questionId);
                   return (
                     <div key={r.questionId} className="flex items-start gap-2 text-sm">
                       {r.correct ? (
-                        <CheckCircle2 size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} className="shrink-0 mt-0.5 text-[var(--success)]" />
                       ) : (
-                        <XCircle size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
+                        <HugeiconsIcon icon={CancelCircleIcon} size={16} className="shrink-0 mt-0.5 text-destructive" />
                       )}
-                      <span style={{ color: 'var(--secondary-text)' }}>
+                      <span className="text-muted-foreground">
                         {i + 1}. {q?.question?.slice(0, 80) ?? r.questionId}
                         {q?.question && q.question.length > 80 ? '…' : ''}
                       </span>
@@ -379,29 +390,29 @@ export default function Quiz({
               </div>
             )}
             <div className="flex flex-wrap gap-3 justify-center">
-              <button type="button" onClick={() => handleRestart()} className="btn btn-secondary flex items-center gap-2">
-                <RotateCcw size={16} /> {t('quiz.try_again')}
-              </button>
+              <Button type="button" onClick={() => handleRestart()} variant="secondary" className="flex items-center gap-2">
+                <HugeiconsIcon icon={RotateLeft01Icon} size={16} /> {t('quiz.try_again')}
+              </Button>
               {learnMode && missedCount > 0 && (
-                <button
+                <Button
                   type="button"
                   onClick={() => handleRestart({ onlyMissed: true })}
-                  className="btn btn-secondary flex items-center gap-2"
+                  variant="secondary" className="flex items-center gap-2"
                 >
                   {t('learn.quiz_retry_missed', { count: missedCount })}
-                </button>
+                </Button>
               )}
               {learnMode && (
-                <button
+                <Button
                   type="button"
                   onClick={() => handleRestart({ shuffle: true })}
-                  className="btn btn-ghost flex items-center gap-2"
+                  variant="ghost" className="flex items-center gap-2"
                 >
-                  <Shuffle size={16} /> {t('quiz.shuffle', { defaultValue: 'Shuffle' })}
-                </button>
+                  <HugeiconsIcon icon={ShuffleIcon} size={16} /> {t('quiz.shuffle', { defaultValue: 'Shuffle' })}
+                </Button>
               )}
               {onClose && (
-                <button type="button" onClick={onClose} className="btn btn-ghost">{t('quiz.close')}</button>
+                <Button type="button" onClick={onClose} variant="ghost">{t('quiz.close')}</Button>
               )}
             </div>
           </div>
@@ -413,17 +424,17 @@ export default function Quiz({
   if (!currentQuestion) return null;
 
   return (
-    <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--bg)' }}>
+    <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
       <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+          <h3 className="text-sm font-semibold text-foreground">
             {title || t('quiz.title')}
           </h3>
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-secondary)', color: 'var(--secondary-text)' }}>
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--card)', color: 'var(--muted-foreground)' }}>
             {currentIndex + 1} / {totalQuestions}
           </span>
           {learnMode && (
-            <span className="lr-quiz-timer text-xs tabular-nums" style={{ color: 'var(--tertiary-text)' }}>
+            <span className="lr-quiz-timer text-xs tabular-nums text-muted-foreground">
               {Math.floor(elapsedSec / 60)}:{String(elapsedSec % 60).padStart(2, '0')}
             </span>
           )}
@@ -431,33 +442,33 @@ export default function Quiz({
         <div className="flex items-center gap-2">
           {learnMode && showExplanation && (
             <button type="button" onClick={askMany} className="lr-btn lr-btn-ghost flex items-center gap-1 text-xs">
-              <MessageCircle size={14} /> {t('learn.quiz_ask_many')}
+              <HugeiconsIcon icon={BubbleChatIcon} size={14} /> {t('learn.quiz_ask_many')}
             </button>
           )}
           {onClose && (
-            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
+            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
           )}
         </div>
       </div>
 
-      <div className="h-1" style={{ background: 'var(--bg-tertiary)' }}>
+      <div className="h-1 bg-muted">
         <div
-          className="h-full transition-all duration-300"
+          className="h-full origin-left transition-transform duration-150 ease-[var(--ease-out)] motion-reduce:transition-none"
           style={{
-            width: `${((currentIndex + (showExplanation ? 1 : 0)) / totalQuestions) * 100}%`,
-            background: 'var(--dome-accent)',
+            transform: `scaleX(${(currentIndex + (showExplanation ? 1 : 0)) / totalQuestions})`,
+            background: 'var(--primary)',
           }}
         />
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto">
-          <h2 className={`mb-6 ${learnMode ? 'lr-quiz-q' : 'text-lg font-medium'}`} style={{ color: 'var(--primary-text)' }}>
+          <h2 className={`mb-6 ${learnMode ? 'lr-quiz-q' : 'text-lg font-medium'}`} style={{ color: 'var(--foreground)' }}>
             {currentQuestion.question}
           </h2>
 
           {currentQuestion.source_citation?.passage && learnMode && (
-            <p className="lr-quiz-cite text-xs mb-4 italic" style={{ color: 'var(--tertiary-text)' }}>
+            <p className="lr-quiz-cite text-xs mb-4 italic text-muted-foreground">
               {t('learn.quiz_source_from', {
                 source: currentQuestion.source_citation.passage.slice(0, 120),
               })}
@@ -478,22 +489,22 @@ export default function Quiz({
                     onClick={() => handleSelectAnswer(idx)}
                     className={optionClass}
                     style={{
-                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent)' : 'var(--border)'}`,
-                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'var(--error-bg)' : isSelected ? 'var(--dome-accent-bg)' : 'var(--bg-secondary)',
+                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--destructive)' : isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : isSelected ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--card)',
                       cursor: showExplanation ? 'default' : 'pointer',
                     }}
                   >
                     <span className="size-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                       style={{
-                        background: isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent)' : 'var(--bg-tertiary)',
-                        color: (isCorrect || isWrong || isSelected) ? 'var(--base-text)' : 'var(--secondary-text)',
+                        background: isCorrect ? 'var(--success)' : isWrong ? 'var(--destructive)' : isSelected ? 'var(--primary)' : 'var(--muted)',
+                        color: (isCorrect || isWrong || isSelected) ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                       }}
                     >
                       {String.fromCharCode(65 + idx)}
                     </span>
-                    <span className="text-sm" style={{ color: 'var(--primary-text)' }}>{option}</span>
-                    {isCorrect && <CheckCircle2 size={18} className="ml-auto shrink-0" style={{ color: 'var(--success)' }} />}
-                    {isWrong && <XCircle size={18} className="ml-auto shrink-0" style={{ color: 'var(--error)' }} />}
+                    <span className="text-sm text-foreground">{option}</span>
+                    {isCorrect && <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} className="ml-auto shrink-0 text-[var(--success)]" />}
+                    {isWrong && <HugeiconsIcon icon={CancelCircleIcon} size={18} className="ml-auto shrink-0 text-destructive" />}
                   </button>
                 );
               })}
@@ -512,11 +523,11 @@ export default function Quiz({
                     type="button"
                     key={option}
                     onClick={() => handleSelectAnswer(idx)}
-                    className="flex-1 p-4 rounded-lg text-center text-sm font-medium transition-all"
+                    className="flex-1 p-4 rounded-lg text-center text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                     style={{
-                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent)' : 'var(--border)'}`,
-                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'var(--error-bg)' : isSelected ? 'var(--dome-accent-bg)' : 'var(--bg-secondary)',
-                      color: 'var(--primary-text)',
+                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--destructive)' : isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : isSelected ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--card)',
+                      color: 'var(--foreground)',
                       cursor: showExplanation ? 'default' : 'pointer',
                     }}
                   >
@@ -528,37 +539,35 @@ export default function Quiz({
           )}
 
           {showExplanation && currentQuestion.explanation && (
-            <div className={`mt-3 p-3 rounded-lg ${learnMode ? 'lr-quiz-explain' : ''} bg-[var(--bg-tertiary)] border border-[var(--dome-border)]`}>
-              <div className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--dome-text)' }}>{t('quiz.explanation')}</div>
-              <div className="prose prose-sm max-w-none" style={{ color: 'var(--dome-text)' }}>
-                <MarkdownRenderer content={currentQuestion.explanation} />
-              </div>
+            <div className={`mt-3 p-3 rounded-lg ${learnMode ? 'lr-quiz-explain' : ''} bg-muted border border-border`}>
+              <div className="text-xs font-semibold uppercase mb-2 text-foreground">{t('quiz.explanation')}</div>
+              <MarkdownRenderer content={currentQuestion.explanation} />
             </div>
           )}
         </div>
       </div>
 
-      <div className="px-6 py-4 border-t flex justify-between gap-3" style={{ borderColor: 'var(--border)' }}>
+      <div className="px-6 py-4 border-t flex justify-between gap-3 border-border">
         {learnMode && !showExplanation && (
-          <button type="button" onClick={handleSkip} className="btn btn-ghost text-sm">
+          <Button type="button" onClick={handleSkip} variant="ghost" className="text-sm">
             {t('learn.quiz_skip')}
-          </button>
+          </Button>
         )}
         <div className="flex justify-end gap-3 ml-auto">
           {!showExplanation ? (
-            <button
+            <Button
               type="button"
               onClick={handleSubmit}
               disabled={selectedAnswer === null}
-              className="btn btn-primary"
+              
               style={{ opacity: selectedAnswer === null ? 0.5 : 1 }}
             >
               {t('quiz.check_answer')}
-            </button>
+            </Button>
           ) : (
-            <button type="button" onClick={handleNext} className="btn btn-primary flex items-center gap-2">
-              {currentIndex < totalQuestions - 1 ? <>{t('quiz.next')} <ArrowRight size={16} /></> : t('quiz.see_results')}
-            </button>
+            <Button type="button" onClick={handleNext} className="flex items-center gap-2">
+              {currentIndex < totalQuestions - 1 ? <>{t('quiz.next')} <HugeiconsIcon icon={ArrowRight02Icon} size={16} /></> : t('quiz.see_results')}
+            </Button>
           )}
         </div>
       </div>

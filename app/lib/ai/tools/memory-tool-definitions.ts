@@ -35,12 +35,18 @@ export function memoryToolDefinitions(): MemoryToolDefinition[] {
       type: 'function',
       function: {
         name: 'remember_fact',
-        description: 'Save a user fact to long-term memory (key/value).',
+        description:
+          'Save a durable user fact to long-term memory. Use domain=social|email for specialized packs; omit for general MEMORY.md.',
         parameters: {
           type: 'object',
           properties: {
             key: { type: 'string', description: 'Memory label, e.g. preferred_language' },
             value: { type: 'string', description: 'Fact to remember' },
+            domain: {
+              type: 'string',
+              description: 'general (default), social, or email',
+              enum: ['general', 'social', 'email'],
+            },
           },
           required: ['key', 'value'],
         },

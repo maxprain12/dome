@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Popover } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   buildContextSegments,
   contextUsagePercent,
@@ -12,18 +12,19 @@ import {
   type ContextSegmentId,
   type LiveTokenUsage,
 } from '@/lib/chat/contextUsage';
+import { cn } from '@/lib/utils';
 
-interface Props {
+interface ContextUsageIndicatorProps {
   breakdown: BudgetBreakdown;
   liveUsage?: LiveTokenUsage | null;
   budgetCapApprox?: number;
-  /** Compact trigger for header; popup variant for composer row */
   variant?: 'header' | 'inline';
   className?: string;
 }
 
-function ContextDonut({ percent, size = 14 }: { percent: number; size?: number }) {
-  const stroke = 2;
+/** Tiny arc gauge — fills clockwise with usage. */
+function ContextGauge({ percent, size = 14 }: { percent: number; size?: number }) {
+  const stroke = 2.5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const filled = (Math.min(100, Math.max(0, percent)) / 100) * circumference;
@@ -35,33 +36,40 @@ function ContextDonut({ percent, size = 14 }: { percent: number; size?: number }
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--bg-tertiary)"
         strokeWidth={stroke}
+        className="stroke-border"
       />
       <circle
         cx={size / 2}
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="var(--primary-text)"
         strokeWidth={stroke}
-        strokeDasharray={`${filled} ${circumference - filled}`}
         strokeLinecap="round"
+        strokeDasharray={`${filled} ${circumference - filled}`}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        className={cn(
+          'transition-[stroke-dasharray] motion-reduce:transition-none',
+          percent >= 85 ? 'stroke-destructive' : 'stroke-primary',
+        )}
       />
     </svg>
   );
 }
 
+/**
+ * Context budget gauge. Trigger = arc + percentage; popover = segmented usage
+ * bar with a legend of every prompt section (system, tools, history…).
+ */
 export default function ContextUsageIndicator({
   breakdown,
   liveUsage = null,
   budgetCapApprox = 200_000,
   variant = 'header',
   className,
-}: Props) {
+}: ContextUsageIndicatorProps) {
   const { t } = useTranslation();
-  const [opened, { open, close, toggle }] = useDisclosure(false);
+  const [opened, setOpened] = useState(false);
   const [hoveredId, setHoveredId] = useState<ContextSegmentId | null>(null);
 
   const cap = Number.isFinite(budgetCapApprox) && budgetCapApprox > 0 ? budgetCapApprox : 200_000;
@@ -70,51 +78,30 @@ export default function ContextUsageIndicator({
   const segments = useMemo(() => buildContextSegments(breakdown, t), [breakdown, t]);
 
   return (
-    <Popover
-      opened={opened}
-      onChange={(next) => (next ? open() : close())}
-      position="bottom-end"
-      offset={8}
-      width={320}
-      shadow="md"
-      radius="md"
-      withinPortal
-    >
-      <Popover.Target>
-        <button
-          type="button"
-          className={
-            className ??
-            (variant === 'header'
-              ? 'many-context-trigger many-context-trigger--header'
-              : 'many-context-trigger many-context-trigger--inline')
-          }
-          onClick={toggle}
-          title={t('many.context_usage_hint')}
-          aria-label={t('many.context_usage_title')}
-          aria-expanded={opened}
-        >
-          <ContextDonut percent={percent} size={variant === 'header' ? 14 : 16} />
-          <span className="many-context-trigger__pct tabular-nums">{percent}%</span>
-        </button>
-      </Popover.Target>
-
-      <Popover.Dropdown className="many-context-popup p-0">
-        <div className="many-context-popup__header">
-          <span className="many-context-popup__title">{t('many.context_usage_title')}</span>
-          <button
+    <Popover open={opened} onOpenChange={setOpened}>
+      <PopoverTrigger
+        render={
+          <Button
             type="button"
-            className="many-icon-btn"
-            onClick={close}
-            aria-label={t('many.context_usage_close')}
-          >
-            <X size={14} />
-          </button>
-        </div>
+            variant="ghost"
+            size={variant === 'inline' ? 'sm' : 'xs'}
+            className={cn('gap-1.5 text-muted-foreground', className)}
+            title={t('many.context_usage_hint')}
+            aria-label={t('many.context_usage_title')}
+            aria-expanded={opened}
+          />
+        }
+      >
+        <ContextGauge percent={percent} size={variant === 'inline' ? 16 : 13} />
+        <span className="text-[11px] tabular-nums">{percent}%</span>
+      </PopoverTrigger>
 
-        <div className="many-context-popup__summary">
-          <span>{t('many.context_usage_full', { percent })}</span>
-          <span className="tabular-nums">
+      <PopoverContent side="top" align="end" className="w-80 p-0">
+        <div className="flex items-baseline justify-between px-3.5 pb-1 pt-3">
+          <span className="text-sm font-semibold tracking-tight">
+            {t('many.context_usage_title')}
+          </span>
+          <span className="text-xs tabular-nums text-muted-foreground">
             {t('many.context_usage_tokens', {
               used: formatContextTokens(used),
               cap: formatContextTokens(cap),
@@ -122,40 +109,46 @@ export default function ContextUsageIndicator({
           </span>
         </div>
 
-        <div className="many-context-popup__bar" aria-hidden>
-          {segments.map((seg) => (
-            <span
-              key={seg.id}
-              className="many-context-popup__bar-seg"
-              style={{
-                width: `${Math.min(100, (seg.tokens / cap) * 100)}%`,
-                background: seg.color,
-                opacity: hoveredId && hoveredId !== seg.id ? 0.35 : 1,
-              }}
-            />
-          ))}
+        <div className="px-3.5 py-2">
+          <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+            {segments.map((seg) => (
+              <span
+                key={seg.id}
+                className="h-full transition-opacity"
+                style={{
+                  width: `${Math.min(100, (seg.tokens / cap) * 100)}%`,
+                  background: seg.color,
+                  opacity: hoveredId && hoveredId !== seg.id ? 0.3 : 1,
+                }}
+              />
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t('many.context_usage_full', { percent })}
+          </p>
         </div>
 
-        <ul className="many-context-popup__list">
+        <ul className="flex flex-col gap-0.5 px-2 pb-2">
           {segments.map((seg) => (
             <li
               key={seg.id}
-              className="many-context-popup__row"
-              data-active={hoveredId === seg.id || undefined}
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-muted/50"
               onMouseEnter={() => setHoveredId(seg.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              <span className="many-context-popup__swatch" style={{ background: seg.color }} />
-              <span className="many-context-popup__label">{seg.label}</span>
-              <span className="many-context-popup__value tabular-nums">
+              <span className="size-2 shrink-0 rounded-full" style={{ background: seg.color }} />
+              <span className="min-w-0 flex-1 truncate">{seg.label}</span>
+              <Badge variant="outline" className="shrink-0 border-transparent px-0 font-normal tabular-nums text-muted-foreground">
                 {formatContextTokens(seg.tokens)}
-              </span>
+              </Badge>
             </li>
           ))}
         </ul>
 
-        <p className="many-context-popup__footnote">{t('many.context_usage_footnote')}</p>
-      </Popover.Dropdown>
+        <p className="border-t px-3.5 py-2 text-[11px] leading-snug text-muted-foreground">
+          {t('many.context_usage_footnote')}
+        </p>
+      </PopoverContent>
     </Popover>
   );
 }

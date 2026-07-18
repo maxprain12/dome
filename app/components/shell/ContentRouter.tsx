@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import HubListState from '@/components/ui/HubListState';
-import DomeButton from '@/components/ui/DomeButton';
+import ListState from '@/components/shared/ListState';
 import { useTabStore, HOME_TAB_ID, type DomeTab } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useManyStore } from '@/lib/store/useManyStore';
@@ -50,11 +50,10 @@ function Loading() {
   const { t } = useTranslation();
   return (
     <div
-      className="flex flex-1 items-center justify-center h-full min-h-[120px]"
-      style={{ background: 'var(--dome-bg)' }}
+      className="flex flex-1 items-center justify-center h-full min-h-[120px] bg-background"
       data-tab-loading
     >
-      <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
+      <ListState variant="loading" loadingLabel={t('common.loading')} compact />
     </div>
   );
 }
@@ -72,20 +71,18 @@ function LoadingWithTimeout() {
 
   if (timedOut) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 h-full min-h-[120px] px-6 text-center" style={{ background: 'var(--dome-bg)' }}>
-        <HubListState
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 h-full min-h-[120px] px-6 text-center bg-background">
+        <ListState
           variant="empty"
           title={t('common.loading_timeout_title')}
           description={t('common.loading_timeout_message')}
           compact
         />
-        <DomeButton
-          variant="secondary"
-          size="sm"
-          onClick={() => useTabStore.getState().activateTab(HOME_TAB_ID)}
-        >
+        <Button variant="secondary"
+  onClick={() => useTabStore.getState().activateTab(HOME_TAB_ID)}
+  size="sm">
           {t('common.go_home')}
-        </DomeButton>
+        </Button>
       </div>
     );
   }
@@ -104,18 +101,16 @@ function SuspenseWithTimeout({ children }: { children: ReactNode }) {
 function TabErrorHomeAction({ tabId }: { tabId: string }) {
   const { t } = useTranslation();
   return (
-    <DomeButton
-      type="button"
-      variant="secondary"
-      size="sm"
-      onClick={() => {
+    <Button type="button"
+  variant="secondary"
+  onClick={() => {
         const store = useTabStore.getState();
         store.activateTab(HOME_TAB_ID);
         if (tabId !== HOME_TAB_ID) store.closeTab(tabId);
       }}
-    >
+  size="sm">
       {t('common.go_home')}
-    </DomeButton>
+    </Button>
   );
 }
 
@@ -143,8 +138,8 @@ function TabBoundary({ tab, children }: { tab: DomeTab; children: ReactNode }) {
 function NoResource() {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-1 items-center justify-center h-full min-h-[120px]" style={{ background: 'var(--dome-bg)' }}>
-      <HubListState variant="empty" title={t('common.noResourceSelected')} compact />
+    <div className="flex flex-1 items-center justify-center h-full min-h-[120px] bg-background">
+      <ListState variant="empty" title={t('common.noResourceSelected')} compact />
     </div>
   );
 }
@@ -224,7 +219,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <ProjectsPage />
             </div>
           </Suspense>
@@ -301,7 +296,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-w-0 w-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-w-0 w-full overflow-auto bg-background">
               <SettingsPage />
             </div>
           </Suspense>
@@ -312,7 +307,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full overflow-auto bg-background">
               <CalendarPage />
             </div>
           </Suspense>
@@ -323,7 +318,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <GitHubView />
             </div>
           </Suspense>
@@ -334,7 +329,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <SuspenseWithTimeout>
-            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <EmailView />
             </div>
           </SuspenseWithTimeout>
@@ -345,7 +340,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <SuspenseWithTimeout>
-            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full overflow-hidden bg-background">
               <SocialHubView />
             </div>
           </SuspenseWithTimeout>
@@ -363,7 +358,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full overflow-auto bg-background">
               <LearnPage />
             </div>
           </Suspense>
@@ -374,7 +369,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full overflow-auto bg-background">
               <LearnTabShell initialSection="all" />
             </div>
           </Suspense>
@@ -385,7 +380,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full overflow-auto bg-background">
               <LearnTabShell initialSection="decks" />
             </div>
           </Suspense>
@@ -396,7 +391,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <LegacyTagsWorkspace />
             </div>
           </Suspense>
@@ -407,7 +402,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full overflow-auto bg-background">
               <MarketplacePage />
             </div>
           </Suspense>
@@ -418,7 +413,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <PipelinesBoard />
             </div>
           </Suspense>
@@ -429,7 +424,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <AgentsStudioView />
             </div>
           </Suspense>
@@ -440,7 +435,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <WorkflowsStudioView />
             </div>
           </Suspense>
@@ -451,7 +446,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <AutomationsStudioView />
             </div>
           </Suspense>
@@ -462,7 +457,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
               <RunsStudioView />
             </div>
           </Suspense>
@@ -482,7 +477,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <TranscriptionsListPage />
             </div>
           </Suspense>
@@ -493,7 +488,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return renderWithResource(tab, (resourceId) => (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <TranscriptionDetailPage noteId={resourceId} />
             </div>
           </Suspense>
@@ -504,7 +499,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <TabBoundary tab={tab}>
           <Suspense fallback={<Loading />}>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <SemanticGraphView focusResourceId={tab.resourceId} />
             </div>
           </Suspense>
@@ -588,8 +583,7 @@ export default function ContentRouter() {
 
   return (
     <div
-      className="relative flex flex-col flex-1 min-h-0 overflow-hidden"
-      style={{ background: 'var(--dome-surface)' }}
+      className="relative flex flex-col flex-1 min-h-0 overflow-hidden bg-card"
     >
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;

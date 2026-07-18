@@ -1,19 +1,24 @@
+import { Input } from '@/components/ui/input';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ExternalLink, MessageSquare, Save, Pencil, Send, X,
-  CircleDot, CheckCircle2, Calendar, Target, Milestone,
-  AtSign, Hash, UserPlus, User, Activity,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Activity01Icon, AtSignIcon, Calendar03Icon, Cancel01Icon, CheckmarkCircle02Icon, CircleDotIcon, Comment01Icon, ExternalLinkIcon, Flag02Icon, HashIcon, PencilIcon, SaveIcon, SentIcon, Tag01Icon, Target02Icon, UserAdd01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import IssueTimeline from '@/components/github/IssueTimeline';
 import MentionTextarea, { type Mentionable } from '@/components/github/MentionTextarea';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
+import { Badge } from '@/components/ui/badge';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import type { ReactNode } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 function formatCommentDate(ts: number | null): string {
   if (!ts) return '';
   return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -34,7 +39,7 @@ function IssueCommentCard({ comment }: { comment: GitHubIssueCommentRow }) {
   return (
     <article
       className="rounded-lg px-3 py-3 flex flex-col gap-2"
-      style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+      style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -43,30 +48,30 @@ function IssueCommentCard({ comment }: { comment: GitHubIssueCommentRow }) {
               src={comment.user_avatar}
               alt=""
               className="size-6 rounded-full shrink-0"
-              style={{ border: '1px solid var(--dome-border)' }}
+              style={{ border: '1px solid var(--border)' }}
             />
           ) : null}
-          <span className="text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
+          <span className="text-sm font-medium truncate text-foreground">
             {comment.user || t('github.anonymous_user')}
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {comment.created_at ? (
-            <time className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }} dateTime={new Date(comment.created_at).toISOString()}>
+            <time className="text-[11px] text-muted-foreground" dateTime={new Date(comment.created_at).toISOString()}>
               {formatCommentDate(comment.created_at)}
             </time>
           ) : null}
           {comment.html_url ? (
-            <a href={comment.html_url} target="_blank" rel="noreferrer" title={t('github.open_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
-              <ExternalLink size={13} />
+            <a href={comment.html_url} target="_blank" rel="noreferrer" title={t('github.open_on_github')} className="text-muted-foreground">
+              <HugeiconsIcon icon={ExternalLinkIcon} size={13} />
             </a>
           ) : null}
         </div>
       </div>
       {comment.body.trim() ? (
-        <GithubMarkdownBody content={comment.body} className="text-sm" />
+        <GithubMarkdownBody content={comment.body} />
       ) : (
-        <p className="text-sm italic" style={{ color: 'var(--dome-text-muted)' }}>{t('github.empty_comment')}</p>
+        <p className="text-sm italic text-muted-foreground">{t('github.empty_comment')}</p>
       )}
     </article>
   );
@@ -84,10 +89,10 @@ function AssigneeAvatar({ login, avatarUrl, size = 22, onRemove }: AssigneeAvata
     <span
       className="inline-flex items-center gap-1 rounded-full pl-0.5 pr-2 shrink-0"
       style={{
-        background: 'var(--dome-bg-hover)',
-        border: '1px solid var(--dome-border)',
+        background: 'var(--accent)',
+        border: '1px solid var(--border)',
         height: size + 6,
-        color: 'var(--dome-text)',
+        color: 'var(--foreground)',
       }}
       title={onRemove ? `@${login}` : undefined}
     >
@@ -96,7 +101,7 @@ function AssigneeAvatar({ login, avatarUrl, size = 22, onRemove }: AssigneeAvata
           src={avatarUrl}
           alt=""
           className="rounded-full shrink-0"
-          style={{ width: size, height: size, border: '1px solid var(--dome-border)' }}
+          style={{ width: size, height: size, border: '1px solid var(--border)' }}
         />
       ) : (
         <span
@@ -104,8 +109,8 @@ function AssigneeAvatar({ login, avatarUrl, size = 22, onRemove }: AssigneeAvata
           style={{
             width: size,
             height: size,
-            background: 'var(--dome-bg)',
-            color: 'var(--dome-text-muted)',
+            background: 'var(--background)',
+            color: 'var(--muted-foreground)',
             fontSize: size * 0.45,
           }}
         >
@@ -114,7 +119,7 @@ function AssigneeAvatar({ login, avatarUrl, size = 22, onRemove }: AssigneeAvata
       )}
       <span className="text-xs font-medium truncate max-w-[120px]">{login}</span>
       {onRemove && (
-        <button
+        <Button
           type="button"
           onClick={onRemove}
           aria-label={`@${login}`}
@@ -124,12 +129,12 @@ function AssigneeAvatar({ login, avatarUrl, size = 22, onRemove }: AssigneeAvata
             height: 14,
             background: 'transparent',
             border: 'none',
-            color: 'var(--dome-text-muted)',
+            color: 'var(--muted-foreground)',
             cursor: 'pointer',
           }}
         >
-          <X size={10} />
-        </button>
+          <HugeiconsIcon icon={Cancel01Icon} size={10} />
+        </Button>
       )}
     </span>
   );
@@ -167,7 +172,6 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const [apiMentionables, setApiMentionables] = useState<Mentionable[]>([]);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const [assigneePickerQuery, setAssigneePickerQuery] = useState('');
-  const assigneePickerRef = useRef<HTMLInputElement>(null);
 
   const loadComments = useCallback(async () => {
     setCommentsLoading(true);
@@ -202,7 +206,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     prevIssueIdRef.current = issueId;
     if (initial) {
       setTitle(initial.title);
-      setBody('');
+      setBody(initial.body ?? '');
       setState(initial.state);
       setMilestoneChoice(initial.milestone_number != null ? String(initial.milestone_number) : 'none');
       setAssignees(parseAssignees(initial.assignees));
@@ -267,11 +271,6 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     return [...byLogin.values()].sort((a, b) => a.login.localeCompare(b.login));
   }, [apiMentionables, comments, timeline]);
 
-  const openAssigneePicker = () => {
-    setAssigneePickerOpen(true);
-    requestAnimationFrame(() => assigneePickerRef.current?.focus());
-  };
-
   const featuredLogins = useMemo(() => {
     const set = new Set<string>();
     for (const a of assignees) set.add(a.toLowerCase());
@@ -297,7 +296,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   if (!initial) return null;
 
   const labels = parseLabels(initial.labels);
-  const stateLabel = initial.state === 'open' ? t('github.state_open') : t('github.state_closed');
+  const stateLabel = initial.state === 'open' ? t('github.dash_filter_open') : t('github.dash_filter_done');
   const milestone = initial.milestone_number != null
     ? milestones.find((m) => m.number === initial.milestone_number)
     : null;
@@ -348,111 +347,80 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const headerActions = (
     <div className="flex items-center gap-1.5">
       {initial.html_url && (
-        <DomeButton
-          iconOnly
-          variant="ghost"
-          size="sm"
-          aria-label={t('github.open_on_github')}
-          onClick={() => window.open(initial.html_url!, '_blank', 'noreferrer')}
-        >
-          <ExternalLink size={14} />
-        </DomeButton>
+        <Button variant="ghost"
+  aria-label={t('github.open_on_github')}
+  onClick={() => window.open(initial.html_url!, '_blank', 'noreferrer')}
+  size="icon-sm">
+          <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
+        </Button>
       )}
-      <DomeButton
-        variant="outline"
-        size="sm"
-        onClick={toggleState}
-        leftIcon={initial.state === 'open' ? <CheckCircle2 size={13} /> : <CircleDot size={13} />}
-      >
-        {initial.state === 'open' ? t('github.close') : t('github.reopen')}
-      </DomeButton>
+      <Button variant="outline"
+  onClick={toggleState}
+  size="sm">{initial.state === 'open' ? <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} /> : <HugeiconsIcon icon={CircleDotIcon} size={13} />}
+        {initial.state === 'open' ? t('github.dash_mark_done') : t('github.dash_reopen')}
+      </Button>
       {!editing && (
-        <DomeButton
-          variant="primary"
-          size="sm"
-          leftIcon={<Pencil size={13} />}
-          onClick={() => setEditing(true)}
-        >
+        <Button onClick={() => setEditing(true)}
+  size="sm">{<HugeiconsIcon icon={PencilIcon} size={13} />}
           {t('github.edit')}
-        </DomeButton>
+        </Button>
       )}
     </div>
   );
 
   const footer = editing ? (
     <div className="flex items-center justify-end gap-2 w-full">
-      <DomeButton variant="outline" size="sm" onClick={() => setEditing(false)} leftIcon={<X size={13} />}>
+      <Button variant="outline"
+  onClick={() => setEditing(false)}
+  size="sm">{<HugeiconsIcon icon={Cancel01Icon} size={13} />}
         {t('github.cancel')}
-      </DomeButton>
-      <DomeButton
-        variant="primary"
-        size="sm"
-        loading={saving}
-        onClick={() => void save()}
-        leftIcon={<Save size={13} />}
-      >
-        {t('github.save_sync')}
-      </DomeButton>
+      </Button>
+      <Button disabled={saving}
+  onClick={() => void save()}
+  size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
+        {t('github.dash_save')}
+      </Button>
     </div>
   ) : (
     <div className="flex items-center justify-end gap-2 w-full">
-      <DomeButton
-        variant="primary"
-        size="sm"
-        loading={postingComment}
-        disabled={!newComment.trim()}
-        onClick={() => void postComment()}
-        leftIcon={<Send size={13} />}
-      >
+      <Button disabled={!newComment.trim() || postingComment}
+  onClick={() => void postComment()}
+  size="sm">{postingComment ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />}
         {t('github.post_comment')}
-      </DomeButton>
+      </Button>
     </div>
   );
 
   return (
-    <DomeModal
-      open
+    <InlineDetailCard
       onClose={onClose}
-      size="lg"
-      title={t('github.issue_title', { number: initial.number })}
-      headerActions={headerActions}
+      containerName="issue-card"
+      title={t('github.dash_task_title', { number: initial.number })}
+      icon={<HugeiconsIcon icon={CircleDotIcon} />}
+      badges={<div className="flex flex-wrap items-center gap-1.5">{headerActions}</div>}
       footer={footer}
+      className="h-full rounded-none border-0 ring-0 md:rounded-lg md:ring-1"
     >
       {editing ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="issue-edit-title"
-              className="text-[11px] font-medium uppercase tracking-wide"
-              style={{ color: 'var(--dome-text-muted)' }}
-            >
-              {t('github.minimal_quick_title_label')}
-            </label>
-            <input
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="issue-edit-title">{t('github.minimal_quick_title_label')}</FieldLabel>
+            <Input
               id="issue-edit-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-base font-semibold rounded-md px-2.5 py-1.5 outline-none"
-              style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+              className="text-base font-semibold"
             />
-          </div>
+          </Field>
 
           <div className="flex flex-wrap items-start gap-3">
-            <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-              <label
-                htmlFor="issue-edit-milestone"
-                className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1"
-                style={{ color: 'var(--dome-text-muted)' }}
-              >
-                <Milestone size={11} />
-                {t('github.milestone')}
-              </label>
-              <DomeSelectMenu
-                value={milestoneChoice}
-                onChange={setMilestoneChoice}
-                aria-label={t('github.milestone')}
-                options={[
-                  { value: 'none', label: t('github.no_milestone_label') },
+            <Field className="min-w-0 flex-1">
+              <FieldLabel htmlFor="issue-edit-milestone" className="inline-flex items-center gap-1">
+                <HugeiconsIcon icon={Flag02Icon} size={11} />
+                {t('github.dash_objective')}
+              </FieldLabel>
+              <Select value={milestoneChoice ?? null} onValueChange={(next) => { if (next != null) (setMilestoneChoice)(next); }} items={[
+                  { value: 'none', label: t('github.dash_no_objective') },
                   ...(() => {
                     const opts: { value: string; label: string }[] = [];
                     for (const m of milestones) {
@@ -461,39 +429,39 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     }
                     return opts;
                   })(),
-                ]}
-              />
-            </div>
+                ]}><SelectTrigger id="issue-edit-milestone" className="w-full" aria-label={t('github.dash_objective')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+                  { value: 'none', label: t('github.dash_no_objective') },
+                  ...(() => {
+                    const opts: { value: string; label: string }[] = [];
+                    for (const m of milestones) {
+                      if (m.state !== 'open') continue;
+                      opts.push({ value: String(m.number), label: m.title });
+                    }
+                    return opts;
+                  })(),
+                ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
+            </Field>
 
-            <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-              <label
-                htmlFor="issue-edit-state"
-                className="text-[11px] font-medium uppercase tracking-wide"
-                style={{ color: 'var(--dome-text-muted)' }}
-              >
+            <Field className="min-w-0 flex-1">
+              <FieldLabel htmlFor="issue-edit-state">
                 {t('github.state_open')} / {t('github.state_closed')}
-              </label>
-              <DomeSelectMenu<'open' | 'closed'>
-                value={state}
-                onChange={setState}
-                aria-label={`${t('github.state_open')} / ${t('github.state_closed')}`}
-                options={[
+              </FieldLabel>
+              <Select value={state ?? null} onValueChange={(next) => { if (next != null) (setState)(next); }} items={[
                   { value: 'open', label: t('github.state_open') },
                   { value: 'closed', label: t('github.state_closed') },
-                ]}
-              />
-            </div>
+                ]}><SelectTrigger id="issue-edit-state" className="w-full" aria-label={`${t('github.state_open')} / ${t('github.state_closed')}`}><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+                  { value: 'open', label: t('github.state_open') },
+                  { value: 'closed', label: t('github.state_closed') },
+                ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
+            </Field>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span
-              className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1"
-              style={{ color: 'var(--dome-text-muted)' }}
-            >
-              <UserPlus size={11} />
+          <Field>
+            <FieldLabel className="inline-flex items-center gap-1">
+              <HugeiconsIcon icon={UserAdd01Icon} size={11} />
               {t('github.assignees')}
-            </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            </FieldLabel>
+            <div className="flex flex-wrap items-center gap-1.5">
               {assignees.map((login) => {
                 const u = mentionables.find((m) => m.login === login);
                 return (
@@ -505,97 +473,51 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                   />
                 );
               })}
-              {!assigneePickerOpen ? (
-                <button
-                  type="button"
-                  onClick={openAssigneePicker}
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 shrink-0"
-                  style={{
-                    height: 28,
-                    background: 'transparent',
-                    border: '1px dashed var(--dome-border)',
-                    color: 'var(--dome-text-muted)',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                  }}
-                >
-                  <AtSign size={12} />
+              <Popover open={assigneePickerOpen} onOpenChange={(open) => { setAssigneePickerOpen(open); if (!open) setAssigneePickerQuery(''); }}>
+                <PopoverTrigger render={<Button type="button" variant="outline" size="xs" className="shrink-0 rounded-full border-dashed" />}>
+                  <HugeiconsIcon icon={AtSignIcon} size={12} />
                   {t('github.add_assignee')}
-                </button>
-              ) : (
-                <div className="relative flex-1 min-w-[180px]">
-                  <input
-                    ref={assigneePickerRef}
-                    type="text"
-                    value={assigneePickerQuery}
-                    onChange={(e) => setAssigneePickerQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setAssigneePickerOpen(false);
-                        setAssigneePickerQuery('');
-                      }
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => {
-                        setAssigneePickerOpen(false);
-                        setAssigneePickerQuery('');
-                      }, 120);
-                    }}
-                    placeholder={t('github.add_assignee_hint')}
-                    aria-label={t('github.add_assignee')}
-                    className="w-full rounded-md px-2 py-1 text-xs outline-none"
-                    style={{
-                      background: 'var(--dome-bg)',
-                      border: '1px solid var(--dome-border)',
-                      color: 'var(--dome-text)',
-                      height: 28,
-                    }}
-                  />
-                  {assigneeSuggestions.length > 0 && (
-                    <ul
-                      className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-md py-1 shadow-lg"
-                      style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-                    >
-                      {assigneeSuggestions.map((u) => (
-                        <li key={u.login}>
-                          <button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-64 gap-0 overflow-hidden p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      value={assigneePickerQuery}
+                      onValueChange={setAssigneePickerQuery}
+                      placeholder={t('github.add_assignee_hint')}
+                      aria-label={t('github.add_assignee')}
+                    />
+                    <CommandList>
+                      <CommandEmpty>{t('github.add_assignee_hint')}</CommandEmpty>
+                      <CommandGroup>
+                        {assigneeSuggestions.map((u) => (
+                          <CommandItem
+                            key={u.login}
+                            value={u.login}
+                            onSelect={() => {
                               setAssignees((prev) => [...prev, u.login]);
                               setAssigneePickerQuery('');
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
-                            style={{ color: 'var(--dome-text)' }}
                           >
                             {u.avatar_url ? (
-                              <img src={u.avatar_url} alt="" className="size-5 rounded-full shrink-0" />
+                              <img src={u.avatar_url} alt="" className="size-5 shrink-0 rounded-full" />
                             ) : (
-                              <span
-                                className="size-5 rounded-full inline-flex items-center justify-center text-[10px] font-semibold shrink-0"
-                                style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
-                              >
+                              <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-muted-foreground">
                                 {u.login.slice(0, 1).toUpperCase()}
                               </span>
                             )}
                             <span className="truncate">@{u.login}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <span
-              className="text-[11px] font-medium uppercase tracking-wide"
-              style={{ color: 'var(--dome-text-muted)' }}
-            >
-              {t('github.minimal_quick_body_label')}
-            </span>
+          <Field>
+            <FieldLabel>{t('github.minimal_quick_body_label')}</FieldLabel>
             <MentionTextarea
               value={body}
               onChange={setBody}
@@ -603,75 +525,53 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               featuredLogins={featuredLogins}
               rows={10}
               placeholder={t('github.minimal_quick_body_placeholder')}
-              className="text-sm rounded-md px-2 py-1.5 outline-none resize-y font-mono w-full"
-              style={{
-                background: 'var(--dome-bg)',
-                color: 'var(--dome-text)',
-                border: '1px solid var(--dome-border)',
-                minHeight: 160,
-              }}
+              className="min-h-40 w-full resize-y font-mono text-sm"
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
       ) : (
-        <div className="flex flex-col gap-4 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4">
           {/* Header: title + status + open button */}
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold leading-tight" style={{ color: 'var(--dome-text)' }}>
+            <h2 className="text-lg font-semibold leading-tight text-foreground">
               {initial.title}
             </h2>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  background: initial.state === 'open'
-                    ? 'color-mix(in srgb, var(--success) 14%, transparent)'
-                    : 'var(--dome-bg-hover)',
-                  color: initial.state === 'open' ? 'var(--success)' : 'var(--dome-text-muted)',
-                  border: '1px solid color-mix(in srgb, var(--success) 28%, transparent)',
-                }}
-              >
-                {initial.state === 'open' ? <CircleDot size={11} /> : <CheckCircle2 size={11} />}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={initial.state === 'open' ? 'secondary' : 'outline'} className="gap-1">
+                {initial.state === 'open' ? <HugeiconsIcon icon={CircleDotIcon} size={11} /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} size={11} />}
                 {stateLabel}
-              </span>
-              <span
-                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  background: 'var(--dome-bg-hover)',
-                  color: 'var(--dome-text-muted)',
-                  border: '1px solid var(--dome-border)',
-                }}
-              >
-                <Hash size={11} />
+              </Badge>
+              <Badge variant="outline" className="gap-1">
+                <HugeiconsIcon icon={HashIcon} size={11} />
                 {initial.number}
-              </span>
+              </Badge>
             </div>
           </div>
 
           {/* Meta grid */}
           <div
             className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg p-3"
-            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
           >
             <div className="flex items-start gap-2 min-w-0">
-              <Target size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} />
+              <HugeiconsIcon icon={Target02Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
-                <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('github.milestone')}
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {t('github.dash_objective')}
                 </span>
-                <span className="text-sm truncate" style={{ color: milestone ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
-                  {milestone ? milestone.title : t('github.no_milestone_label')}
+                <span className="text-sm truncate" style={{ color: milestone ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
+                  {milestone ? milestone.title : t('github.dash_no_objective')}
                 </span>
               </div>
             </div>
 
             <div className="flex items-start gap-2 min-w-0">
-              <Calendar size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} />
+              <HugeiconsIcon icon={Calendar03Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
-                <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   {t('github.calendar_due_date')}
                 </span>
-                <span className="text-sm truncate" style={{ color: initial.due_date ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                <span className="text-sm truncate" style={{ color: initial.due_date ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
                   {initial.due_date
                     ? t('github.due_on', { date: new Date(initial.due_date).toLocaleDateString() })
                     : t('github.no_due_date')}
@@ -680,9 +580,9 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
             </div>
 
             <div className="flex items-start gap-2 min-w-0 sm:col-span-2">
-              <AtSign size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} />
+              <HugeiconsIcon icon={AtSignIcon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
               <div className="flex flex-col min-w-0 gap-1">
-                <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   {t('github.assignees')}
                 </span>
                 {initialAssignees.length > 0 ? (
@@ -693,7 +593,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     })}
                   </div>
                 ) : (
-                  <span className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+                  <span className="text-sm text-muted-foreground">
                     {t('github.no_assignees')}
                   </span>
                 )}
@@ -702,24 +602,16 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
             {labels.length > 0 && (
               <div className="flex items-start gap-2 min-w-0 sm:col-span-2">
-                <User size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                <HugeiconsIcon icon={Tag01Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
                 <div className="flex flex-col min-w-0 gap-1">
-                  <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     {t('github.labels')}
                   </span>
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-1">
                     {labels.map((l) => (
-                      <span
-                        key={l}
-                        className="text-[11px] px-2 py-0.5 rounded-full"
-                        style={{
-                          background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
-                          color: 'var(--dome-accent)',
-                          border: '1px solid color-mix(in srgb, var(--dome-accent) 24%, transparent)',
-                        }}
-                      >
+                      <Badge key={l} variant="secondary">
                         {l}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -729,86 +621,53 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
           {/* Body */}
           {body.trim() ? (
-            <GithubMarkdownBody content={body} className="text-sm" />
+            <GithubMarkdownBody content={body} />
           ) : (
-            <p className="text-sm italic" style={{ color: 'var(--dome-text-muted)' }}>{t('github.no_description')}</p>
+            <p className="text-sm italic text-muted-foreground">{t('github.no_description')}</p>
           )}
 
           {/* Tabs: Comments / Activity */}
-          <section className="flex flex-col gap-4 pt-4 mt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-            <div
-              role="tablist"
-              aria-label="Issue activity"
-              className="flex items-end gap-4"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'comments'}
-                onClick={() => setTab('comments')}
-                className="inline-flex items-center gap-1.5 pb-1.5 text-sm font-medium transition-colors"
-                style={{
-                  color: tab === 'comments' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: tab === 'comments' ? '2px solid var(--dome-accent)' : '2px solid transparent',
-                  marginBottom: '-1px',
-                  cursor: 'pointer',
-                }}
-              >
-                <MessageSquare size={13} />
+          <Tabs value={tab} onValueChange={(value) => setTab(value as 'comments' | 'timeline')} className="flex flex-col gap-4 border-t border-border pt-4 mt-2">
+            <TabsList aria-label="Issue activity" variant="line">
+              <TabsTrigger value="comments">
+                <HugeiconsIcon icon={Comment01Icon} size={13} />
                 {t('github.tab_comments')}
                 {comments.length > 0 && (
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded-full ml-0.5"
                     style={{
-                      background: tab === 'comments' ? 'var(--dome-bg-hover)' : 'var(--dome-bg)',
-                      color: 'var(--dome-text-muted)',
+                      background: tab === 'comments' ? 'var(--accent)' : 'var(--background)',
+                      color: 'var(--muted-foreground)',
                     }}
                   >
                     {comments.length}
                   </span>
                 )}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'timeline'}
-                onClick={() => setTab('timeline')}
-                className="inline-flex items-center gap-1.5 pb-1.5 text-sm font-medium transition-colors"
-                style={{
-                  color: tab === 'timeline' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: tab === 'timeline' ? '2px solid var(--dome-accent)' : '2px solid transparent',
-                  marginBottom: '-1px',
-                  cursor: 'pointer',
-                }}
-              >
-                <Activity size={13} />
+              </TabsTrigger>
+              <TabsTrigger value="timeline">
+                <HugeiconsIcon icon={Activity01Icon} size={13} />
                 {t('github.tab_timeline')}
                 {timeline.length > 0 && (
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded-full ml-0.5"
                     style={{
-                      background: tab === 'timeline' ? 'var(--dome-bg-hover)' : 'var(--dome-bg)',
-                      color: 'var(--dome-text-muted)',
+                      background: tab === 'timeline' ? 'var(--accent)' : 'var(--background)',
+                      color: 'var(--muted-foreground)',
                     }}
                   >
                     {timeline.length}
                   </span>
                 )}
-              </button>
-            </div>
+              </TabsTrigger>
+            </TabsList>
 
-            {tab === 'comments' ? (
-              <div className="flex flex-col gap-3">
+            <TabsContent value="comments" className="flex flex-col gap-3">
                 {commentsLoading ? (
-                  <p className="text-sm italic px-1" style={{ color: 'var(--dome-text-muted)' }}>{t('github.loading_comments')}</p>
+                  <p className="text-sm italic px-1 text-muted-foreground">{t('github.loading_comments')}</p>
                 ) : commentsError && comments.length === 0 ? (
-                  <p className="text-sm px-1" style={{ color: 'var(--error)' }}>{commentsError}</p>
+                  <p className="text-sm px-1 text-destructive">{commentsError}</p>
                 ) : comments.length === 0 ? (
-                  <p className="text-sm italic px-1" style={{ color: 'var(--dome-text-muted)' }}>{t('github.no_comments_yet')}</p>
+                  <p className="text-sm italic px-1 text-muted-foreground">{t('github.no_comments_yet')}</p>
                 ) : (
                   <div className="flex flex-col gap-2.5">
                     {comments.map((c) => (
@@ -818,11 +677,11 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                 )}
 
                 {commentsError && comments.length > 0 ? (
-                  <p className="text-xs px-1" style={{ color: 'var(--error)' }}>{commentsError}</p>
+                  <p className="text-xs px-1 text-destructive">{commentsError}</p>
                 ) : null}
 
                 <label className="flex flex-col gap-1.5 pt-1">
-                  <span className="text-xs font-medium px-1" style={{ color: 'var(--dome-text-muted)' }}>{t('github.new_comment')}</span>
+                  <span className="text-xs font-medium px-1 text-muted-foreground">{t('github.new_comment')}</span>
                   <MentionTextarea
                     value={newComment}
                     onChange={setNewComment}
@@ -831,16 +690,14 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     rows={4}
                     placeholder={t('github.comment_placeholder')}
                     className="text-sm rounded px-2 py-1.5 outline-none resize-none w-full"
-                    style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+                    style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
                   />
                 </label>
-              </div>
-            ) : (
-              <IssueTimeline events={timeline} />
-            )}
-          </section>
+            </TabsContent>
+            <TabsContent value="timeline"><IssueTimeline events={timeline} /></TabsContent>
+          </Tabs>
         </div>
       )}
-    </DomeModal>
+    </InlineDetailCard>
   );
 }

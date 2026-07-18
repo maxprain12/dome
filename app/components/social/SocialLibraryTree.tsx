@@ -1,5 +1,7 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Film, Folder, FolderOpen, Image as ImageIcon } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckIcon, ChevronDownIcon, Film01Icon, Folder01Icon, FolderOpenIcon, Image01Icon } from '@hugeicons/core-free-icons';
 import type { SocialLibraryItem } from './socialTypes';
 
 interface DirNode {
@@ -59,26 +61,26 @@ function DirRows({ node, expanded, onToggle, onPick, selectedIds }: RowsProps) {
         const isOpen = expanded.has(dir.path);
         return (
           <div key={dir.path} style={{ minWidth: 0 }}>
-            <button
+            <Button
               type="button"
               onClick={() => onToggle(dir.path)}
-              className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-xs hover:bg-[var(--dome-bg-hover)] rounded"
-              style={{ color: 'var(--dome-text-secondary)', minWidth: 0 }}
+              className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-xs hover:bg-accent rounded"
+              style={{ color: 'var(--muted-foreground)', minWidth: 0 }}
             >
-              <ChevronDown
+              <HugeiconsIcon icon={ChevronDownIcon}
                 className={`size-3 shrink-0 transition-transform ${isOpen ? '' : '-rotate-90'}`}
                 strokeWidth={2.5}
               />
               {isOpen
-                ? <FolderOpen className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} strokeWidth={1.75} />
-                : <Folder className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} strokeWidth={1.75} />}
+                ? <HugeiconsIcon icon={FolderOpenIcon} className="size-3.5 shrink-0 text-primary" strokeWidth={1.75} />
+                : <HugeiconsIcon icon={Folder01Icon} className="size-3.5 shrink-0 text-primary" strokeWidth={1.75} />}
               <span className="truncate font-medium">{dir.name}</span>
-              <span className="ml-auto shrink-0 text-[10px] tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
+              <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
                 {dir.count}
               </span>
-            </button>
+            </Button>
             {isOpen && (
-              <div style={{ borderLeft: '1px solid var(--dome-border)', marginLeft: 13, minWidth: 0 }}>
+              <div style={{ borderLeft: '1px solid var(--border)', marginLeft: 13, minWidth: 0 }}>
                 <DirRows
                   node={dir}
                   expanded={expanded}
@@ -94,22 +96,27 @@ function DirRows({ node, expanded, onToggle, onPick, selectedIds }: RowsProps) {
       {node.items.map((item) => {
         const isSelected = selectedIds.has(item.resourceId);
         return (
-          <button
+          <Button
             key={item.resourceId}
             type="button"
+            variant="ghost"
             onClick={() => onPick(item)}
-            className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-xs hover:bg-[var(--dome-bg-hover)] rounded"
-            style={{ color: 'var(--dome-text)', opacity: isSelected ? 0.55 : 1, minWidth: 0 }}
+            data-active={isSelected ? 'true' : undefined}
+            className={
+              isSelected
+                ? 'flex w-full min-w-0 items-center gap-1.5 rounded-xl border border-primary bg-brand-mint px-2 py-1 text-left text-xs text-foreground'
+                : 'flex w-full min-w-0 items-center gap-1.5 rounded-xl border border-transparent px-2 py-1 text-left text-xs text-foreground hover:bg-brand-mint/55'
+            }
           >
             <span className="size-3 shrink-0" aria-hidden />
             {item.type === 'video'
-              ? <Film className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-              : <ImageIcon className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
+              ? <HugeiconsIcon icon={Film01Icon} className="size-3.5 shrink-0 text-primary" />
+              : <HugeiconsIcon icon={Image01Icon} className="size-3.5 shrink-0 text-primary" />}
             <span className="truncate">{item.title}</span>
             {isSelected && (
-              <Check className="ml-auto size-3 shrink-0" style={{ color: 'var(--dome-accent)' }} strokeWidth={2.5} />
+              <HugeiconsIcon icon={CheckIcon} className="ml-auto size-3 shrink-0 text-primary" strokeWidth={2.5} />
             )}
-          </button>
+          </Button>
         );
       })}
     </>

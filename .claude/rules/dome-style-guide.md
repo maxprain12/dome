@@ -9,7 +9,7 @@
 - **Frontend**: **Vite 7 + React 18 + React Router 7** (SPA cliente, entrada `app/main.tsx` — NO Next.js)
 - **Desktop**: Electron 41
 - **Base de Datos**: SQLite vía **`better-sqlite3`** (solo en main) + índice semántico (embeddings Nomic, `resource_chunks`)
-- **Estilos**: Tailwind CSS + CSS Variables + Mantine UI
+- **Estilos**: Tailwind CSS + CSS Variables + shadcn/ui (Base UI). Ver `.claude/sops/shadcn-ui.md`.
 - **Editor**: Tiptap
 - **Estado**: Zustand + Jotai
 - **Lenguaje**: TypeScript (strict + `verbatimModuleSyntax: true`)
@@ -251,6 +251,16 @@ pnpm run test:db          # Probar bases de datos
 pnpm run clean            # Limpiar build artifacts y user data
 ```
 
+## Ciclo de vida de componentes — sin código residual (OBLIGATORIO)
+
+Al reemplazar o reescribir un componente:
+
+1. **Nunca** nombres versionados: nada de `FooV2`, `FooNew`, `FooRedesign`. El reemplazo hereda el nombre original.
+2. **Borrar antes de recrear**: migra TODOS los consumidores, **elimina el archivo antiguo en el mismo cambio** y solo entonces existe la nueva implementación bajo el nombre original. Nunca conviven ambos.
+3. **Sin alias deprecados**: no dejar `/** @deprecated */ export const Viejo = Nuevo` ni archivos de re-export "para migración incremental".
+4. **Sin variantes muertas**: si un valor de prop (p. ej. `variant="legacy"`) no tiene llamadores, borra la prop y sus ramas.
+5. **Popups flotantes = primitivos shadcn**: menús, selectores y paneles anclados usan `Popover`/`DropdownMenu` de `app/components/ui/` — nunca `createPortal` + tracking manual de rect/click-outside, ni una tarjeta propia dentro de un `*Content` neutralizado con `bg-transparent border-0 shadow-none` (las clases base `w-(--anchor-width)`/`overflow-x-hidden` la recortan al ancho del trigger). Excepción: pickers anclados al caret (@ / # / /).
+
 ## Recordatorios
 
 1. **Siempre** usar CSS Variables para colores
@@ -261,6 +271,7 @@ pnpm run clean            # Limpiar build artifacts y user data
 6. **Loguear** errores con `console.error`
 7. **2 espacios** de indentación
 8. **pnpm** como único gestor de paquetes; lockfile `pnpm-lock.yaml`
+9. **Sin código residual**: ver «Ciclo de vida de componentes» — borra el componente viejo antes de crear el nuevo, sin nombres `V2`
 
 ## Prioridades de Desarrollo
 

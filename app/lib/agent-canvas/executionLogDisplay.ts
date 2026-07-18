@@ -51,17 +51,17 @@ export function getExecutionStatusPresentation(
   const isRunning = displayStatus === 'running';
   const isDone = displayStatus === 'done';
   const isError = displayStatus === 'error';
-  let statusColor = 'var(--dome-text-muted)';
+  let statusColor = 'var(--muted-foreground)';
   let statusLabelKey: StatusPresentation['statusLabelKey'] = 'canvas.exec_status_idle';
 
   if (isRunning) {
-    statusColor = 'var(--dome-accent)';
+    statusColor = 'var(--primary)';
     statusLabelKey = 'canvas.exec_status_running';
   } else if (isDone) {
     statusColor = 'var(--success)';
     statusLabelKey = 'canvas.exec_status_done';
   } else if (isError) {
-    statusColor = 'var(--error)';
+    statusColor = 'var(--destructive)';
     statusLabelKey = 'canvas.exec_status_error';
   }
 

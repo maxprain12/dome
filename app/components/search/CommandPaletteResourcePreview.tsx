@@ -1,12 +1,22 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Folder, Loader2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Folder01Icon,
+  Mail01Icon,
+  Share08Icon,
+  Task01Icon,
+  UserIcon,
+} from '@hugeicons/core-free-icons';
+import { typesetDocsClass } from '@/lib/typeset';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/types';
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
 import { loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { formatDistanceToNow } from '@/lib/utils';
+import { Spinner } from '@/components/ui/spinner';
+import { metaString, type PalettePreviewTarget, type SourceHitRow } from './commandPaletteTypes';
 
 const CACHE_MAX = 30;
 const MARKDOWN_MAX = 2000;
@@ -124,21 +134,92 @@ function highlight(text: string, query: string): ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
+function SourceHitPreview({ hit, query }: { hit: SourceHitRow; query: string }) {
+  const { t } = useTranslation();
+  const icon =
+    hit.kind === 'issue'
+      ? Task01Icon
+      : hit.kind === 'email'
+        ? Mail01Icon
+        : hit.kind === 'person'
+          ? UserIcon
+          : Share08Icon;
+
+  const state = metaString(hit.meta, 'state');
+  const repo = metaString(hit.meta, 'fullName');
+  const folder = metaString(hit.meta, 'folder');
+  const provider = metaString(hit.meta, 'provider');
+  const number = hit.meta?.number;
+
+  const metaLine = (() => {
+    if (hit.kind === 'issue') {
+      const stateLabel =
+        state === 'closed' ? t('command.find_preview_state_closed') : t('command.find_preview_state_open');
+      const num = typeof number === 'number' ? `#${number}` : null;
+      return [stateLabel, repo, num].filter(Boolean).join(' · ');
+    }
+    if (hit.kind === 'email') {
+      return folder ? t('command.find_email_folder', { folder }) : t('command.find_email_fallback');
+    }
+    if (hit.kind === 'social_post') {
+      return [provider, metaString(hit.meta, 'status')].filter(Boolean).join(' · ') || t('command.social_posts');
+    }
+    return t('command.people');
+  })();
+
+  const body = hit.snippet?.trim() || null;
+
+  return (
+    <div className="dome-cmdk-preview flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border px-3.5 py-2.5">
+        <div className="flex items-center gap-2">
+          <HugeiconsIcon icon={icon} className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
+            {hit.title}
+          </span>
+        </div>
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          <span className="truncate">{metaLine}</span>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3">
+        {body ? (
+          <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
+            {highlight(contextAround(body, query.trim()), query.trim())}
+          </p>
+        ) : (
+          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
+            {t('command.preview_empty')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
-  resourceId: string;
+  target: PalettePreviewTarget;
   query: string;
 }
 
 /**
- * Right-hand preview pane of the command palette: shows where the selected
- * result lives and enough of its content to verify it's the right document.
+ * Right-hand preview pane of the command palette: resource content or
+ * source-hit metadata (task / mail / person / post).
  */
-export default function CommandPaletteResourcePreview({ resourceId, query }: Props) {
+export default function CommandPaletteResourcePreview({ target, query }: Props) {
   const { t } = useTranslation();
-  const [preview, setPreview] = useState<PreviewData | null>(() => cache.get(resourceId) ?? null);
-  const [loading, setLoading] = useState(!cache.has(resourceId));
+  const resourceId = target.kind === 'resource' ? target.resourceId : null;
+  const [preview, setPreview] = useState<PreviewData | null>(() =>
+    resourceId ? (cache.get(resourceId) ?? null) : null,
+  );
+  const [loading, setLoading] = useState(Boolean(resourceId && !cache.has(resourceId)));
 
   useEffect(() => {
+    if (!resourceId) {
+      setPreview(null);
+      setLoading(false);
+      return;
+    }
     const cached = cache.get(resourceId);
     if (cached) {
       setPreview(cached);
@@ -147,7 +228,6 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
     }
     let cancelled = false;
     setLoading(true);
-    // Small debounce so arrowing through results doesn't fire an IPC per row.
     const timer = window.setTimeout(async () => {
       try {
         const data = await fetchPreview(resourceId);
@@ -164,7 +244,6 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
     };
   }, [resourceId]);
 
-  // Highlighted match context (verification aid), independent of the render mode.
   const matchContext = useMemo(() => {
     if (!preview || !query.trim()) return null;
     const source = preview.markdown ?? preview.text ?? '';
@@ -172,17 +251,21 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
     return contextAround(source, query.trim());
   }, [preview, query]);
 
+  if (target.kind === 'source') {
+    return <SourceHitPreview hit={target.hit} query={query} />;
+  }
+
   if (loading && !preview) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+        <Spinner className="size-4 text-muted-foreground" />
       </div>
     );
   }
 
   if (!preview) {
     return (
-      <div className="flex h-full items-center justify-center px-4 text-center text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
         {t('command.preview_empty')}
       </div>
     );
@@ -190,20 +273,19 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
 
   return (
     <div className="dome-cmdk-preview flex h-full min-h-0 flex-col">
-      {/* Header: title + location */}
-      <div className="shrink-0 border-b px-3.5 py-2.5" style={{ borderColor: 'var(--dome-border)' }}>
+      <div className="shrink-0 border-b border-border px-3.5 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
-            <DomeResourceIcon type={preview.type} name={preview.title} size={15} strokeWidth={1.5} />
+          <span className="shrink-0 text-muted-foreground">
+            <ResourceIcon type={preview.type} name={preview.title} size={15} strokeWidth={1.5} />
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
             {preview.title}
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           {preview.folderPath ? (
             <>
-              <Folder className="size-3 shrink-0" strokeWidth={1.75} />
+              <HugeiconsIcon icon={Folder01Icon} className="size-3 shrink-0" />
               <span className="truncate">{preview.folderPath}</span>
             </>
           ) : null}
@@ -213,24 +295,15 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
         </div>
       </div>
 
-      {/* Match context strip: the exact place the query appears. */}
       {matchContext ? (
-        <div
-          className="shrink-0 border-b px-3.5 py-2 text-[11px] leading-relaxed"
-          style={{
-            borderColor: 'var(--dome-border)',
-            background: 'color-mix(in srgb, var(--dome-accent) 5%, transparent)',
-            color: 'var(--dome-text-secondary)',
-          }}
-        >
+        <div className="shrink-0 border-b bg-primary/5 px-3.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
           <span className="line-clamp-4">{highlight(matchContext, query.trim())}</span>
         </div>
       ) : null}
 
-      {/* Body */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {preview.markdown ? (
-          <div className="dome-cmdk-md px-3.5 py-3">
+          <div className={typesetDocsClass('px-3.5 py-3')}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}
@@ -243,11 +316,11 @@ export default function CommandPaletteResourcePreview({ resourceId, query }: Pro
         ) : preview.imageUrl ? (
           <img src={preview.imageUrl} alt="" className="block w-full object-contain" draggable={false} />
         ) : preview.text ? (
-          <p className="whitespace-pre-wrap px-3.5 py-3 text-[11px] leading-relaxed" style={{ color: 'var(--dome-text-secondary)' }}>
+          <p className="whitespace-pre-wrap px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground">
             {highlight(contextAround(preview.text, query.trim()), query.trim())}
           </p>
         ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
             {t('command.preview_empty')}
           </div>
         )}

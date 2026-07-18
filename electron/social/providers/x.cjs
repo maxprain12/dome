@@ -14,6 +14,7 @@ const TOKEN_URL = 'https://api.x.com/2/oauth2/token';
 const database = require('../../core/database.cjs');
 const fileStorage = require('../../storage/file-storage.cjs');
 const { resolveMediaItems, uploadXMedia } = require('../social-media.cjs');
+const { normalizeComment } = require('../social-messaging.cjs');
 
 async function xFetch(accessToken, path, options = {}) {
   const res = await fetch(path.startsWith('http') ? path : `${API}${path}`, {
@@ -190,6 +191,104 @@ async function fetchAccountMetrics(store, account) {
   };
 }
 
+/**
+ * List recent tweets already on X for this account.
+ */
+async function listRecentPosts(store, account, { limit = 25 } = {}) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const userId = account.external_id || account.externalId;
+  if (!userId) throw new Error('X account missing external id');
+  const capped = Math.min(Math.max(Number(limit) || 25, 5), 50);
+  const handle = String(account.handle || '').replace(/^@/, '');
+  const data = await xFetch(
+    accessToken,
+    `/users/${encodeURIComponent(userId)}/tweets` +
+      `?max_results=${capped}&exclude=retweets,replies` +
+      `&tweet.fields=created_at,public_metrics,text`,
+  );
+  const posts = (data?.data || []).map((t) => {
+    const m = t.public_metrics || {};
+    const publishedAt = t.created_at ? Date.parse(t.created_at) : null;
+    return {
+      externalPostId: String(t.id),
+      body: t.text || '',
+      externalUrl: handle ? `https://x.com/${handle}/status/${t.id}` : null,
+      publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
+      metrics: {
+        impressions: m.impression_count ?? null,
+        likes: m.like_count ?? null,
+        comments: m.reply_count ?? null,
+        shares: (m.retweet_count ?? 0) + (m.quote_count ?? 0),
+        saves: m.bookmark_count ?? null,
+        raw: m,
+      },
+    };
+  });
+  return { posts };
+}
+
+/**
+ * Replies in the conversation of a root tweet (best-effort via recent search).
+ */
+async function listComments(store, { accountId, externalPostId, cursor } = {}) {
+  if (!externalPostId) return { comments: [] };
+  const accessToken = await ensureAccessToken(store, accountId);
+  const query = encodeURIComponent(`conversation_id:${externalPostId} is:reply`);
+  let path =
+    `/tweets/search/recent?query=${query}&max_results=50` +
+    `&tweet.fields=created_at,author_id,conversation_id,text` +
+    `&expansions=author_id&user.fields=name,username`;
+  if (cursor) path += `&next_token=${encodeURIComponent(cursor)}`;
+  let data;
+  try {
+    data = await xFetch(accessToken, path);
+  } catch (err) {
+    // Free tier often lacks search — fall back to empty rather than crashing the poller.
+    console.warn('[Social][X] listComments search failed:', err.message);
+    return { comments: [] };
+  }
+  const users = new Map((data?.includes?.users || []).map((u) => [u.id, u]));
+  const comments = (data?.data || [])
+    .filter((t) => String(t.id) !== String(externalPostId))
+    .map((t) => {
+      const u = users.get(t.author_id);
+      return normalizeComment({
+        id: t.id,
+        text: t.text,
+        authorName: u?.name || u?.username || null,
+        authorExternalId: t.author_id || null,
+        createdAt: t.created_at,
+      });
+    });
+  return {
+    comments,
+    nextCursor: data?.meta?.next_token || undefined,
+  };
+}
+
+/**
+ * Cold DM to an X user id.
+ */
+async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
+  if (!recipientExternalId) throw new Error('X DM requires recipientExternalId.');
+  if (!String(text || '').trim()) throw new Error('X DM text is empty.');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const result = await xFetch(
+    accessToken,
+    `/dm_conversations/with/${encodeURIComponent(recipientExternalId)}/messages`,
+    {
+      method: 'POST',
+      body: { text: String(text).slice(0, 10000) },
+    },
+  );
+  const externalMessageId =
+    result?.data?.dm_event_id || result?.data?.id || result?.dm_event_id || null;
+  if (!externalMessageId) {
+    throw new Error('X DM response missing event id — check dm.write scope and API access tier.');
+  }
+  return { externalMessageId: String(externalMessageId) };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken: null, // X user-context tokens cannot be hand-issued; use OAuth
@@ -197,6 +296,9 @@ module.exports = {
   publishPost,
   fetchPostMetrics,
   fetchAccountMetrics,
+  listRecentPosts,
+  listComments,
+  sendDm,
   supportsManualToken: false,
   requiresMedia: false,
 };

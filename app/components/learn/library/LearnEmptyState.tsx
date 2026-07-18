@@ -1,5 +1,15 @@
-import { Sparkles, Upload } from 'lucide-react';
+import { SparklesIcon, Upload04Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
@@ -12,69 +22,58 @@ export default function LearnEmptyState() {
   const handleUploadPdf = async () => {
     const projectId = currentProject?.id;
     if (!projectId) {
-      showToast('error', t('learn.generate_need_project', 'Select or open a project with documents first.'));
-      return;
+      return showToast(
+        'error',
+        t('learn.generate_need_project', 'Select or open a project with documents first.'),
+      );
     }
     if (!window.electron?.selectFile || !window.electron?.resource?.import) {
-      showToast('error', t('errors.database_unavailable', 'Database not available'));
-      return;
+      return showToast('error', t('errors.database_unavailable', 'Database not available'));
     }
     const paths = await window.electron.selectFile({
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
       properties: ['openFile'],
     });
-    const filePath = paths?.[0];
-    if (!filePath) return;
-    const result = await window.electron.resource.import(filePath, projectId, 'pdf');
-    if (result.success) {
-      showToast('success', t('learn.pdf_imported', 'PDF imported'));
-      const resourceId =
-        (result.data as { id?: string } | undefined)?.id ??
-        (result.data as { resource?: { id?: string } } | undefined)?.resource?.id;
-      openGenerateWizard({
-        step: 1,
-        type: 'flashcards',
-        sourceIds: resourceId ? [resourceId] : [],
-      });
-    } else {
-      showToast('error', result.error ?? t('learn.import_failed', 'Import failed'));
+    if (!paths?.[0]) return;
+    const result = await window.electron.resource.import(paths[0], projectId, 'pdf');
+    if (!result.success) {
+      return showToast('error', result.error ?? t('learn.import_failed', 'Import failed'));
     }
+    showToast('success', t('learn.pdf_imported', 'PDF imported'));
+    const resourceId =
+      (result.data as { id?: string } | undefined)?.id ??
+      (result.data as { resource?: { id?: string } } | undefined)?.resource?.id;
+    openGenerateWizard({
+      step: 1,
+      type: 'flashcards',
+      sourceIds: resourceId ? [resourceId] : [],
+    });
   };
 
   return (
-    <div className="lr-empty">
-      <div className="lr-empty-art">
-        <Sparkles size={36} aria-hidden />
-      </div>
-      <h2>{t('learn.empty_title', 'Start building your study library')}</h2>
-      <p>
-        {t(
-          'learn.empty_sub',
-          'Generate from your notes or import a PDF to create flashcards and other study content.',
-        )}
-      </p>
-      <div className="lr-empty-prompts">
-        <button type="button" className="lr-empty-prompt" onClick={() => openGenerateWizard()}>
-          <span className="lr-empty-prompt-icon">
-            <Sparkles size={14} aria-hidden />
-          </span>
-          <span className="lr-empty-prompt-title">
-            {t('learn.empty_generate_title', 'Generate from note')}
-          </span>
-          <span className="lr-empty-prompt-sub">
-            {t('learn.empty_generate_sub', 'Mind maps, quizzes, guides, and more from your sources.')}
-          </span>
-        </button>
-        <button type="button" className="lr-empty-prompt" onClick={() => void handleUploadPdf()}>
-          <span className="lr-empty-prompt-icon">
-            <Upload size={14} aria-hidden />
-          </span>
-          <span className="lr-empty-prompt-title">{t('learn.empty_upload_title', 'Upload PDF')}</span>
-          <span className="lr-empty-prompt-sub">
-            {t('learn.empty_upload_sub', 'Import a document, then generate study content from it.')}
-          </span>
-        </button>
-      </div>
-    </div>
+    <Empty className="flex-none py-10 @[36rem]/learn:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <HugeiconsIcon icon={SparklesIcon} />
+        </EmptyMedia>
+        <EmptyTitle>{t('learn.empty_title', 'Start building your study library')}</EmptyTitle>
+        <EmptyDescription>
+          {t(
+            'learn.empty_sub',
+            'Generate from your notes or import a PDF to create flashcards and other study content.',
+          )}
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="flex-row flex-wrap justify-center">
+        <Button type="button" onClick={() => openGenerateWizard()}>
+          <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+          {t('learn.empty_generate_title', 'Generate from note')}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => void handleUploadPdf()}>
+          <HugeiconsIcon icon={Upload04Icon} data-icon="inline-start" />
+          {t('learn.empty_upload_title', 'Upload PDF')}
+        </Button>
+      </EmptyContent>
+    </Empty>
   );
 }

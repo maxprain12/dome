@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { type Resource } from '@/types';
-import LoadingState from '@/components/ui/LoadingState';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
+import { useTranslation } from 'react-i18next';
 
 interface SheetData {
   name: string;
@@ -126,6 +126,7 @@ function applyRowEdit(sheet: SheetData, row: number, col: number, value: string)
 }
 
 function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
+  const { t } = useTranslation();
   const [sheets, setSheets] = useState<SheetData[]>([]);
   const [activeSheet, setActiveSheet] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -377,15 +378,15 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
   }, [currentSheet]);
 
   if (isLoading) {
-    return <LoadingState message="Loading spreadsheet..." />;
+    return <ListState variant="loading" loadingLabel={t('viewer.loading_spreadsheet')} fullHeight />;
   }
 
   if (error) {
-    return <ErrorState error={error} />;
+    return <ListState variant="error" errorMessage={error} fullHeight />;
   }
 
   if (!currentSheet || currentSheet.data.length === 0) {
-    return <ErrorState error="The spreadsheet is empty" />;
+    return <ListState variant="error" errorMessage="The spreadsheet is empty" fullHeight />;
   }
 
   const isEditing = (row: number, col: number) =>
@@ -500,25 +501,25 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        .spreadsheet-viewer{display:flex;flex-direction:column;width:100%;height:100%;background:var(--bg);overflow:hidden}
-        .spreadsheet-edit-hint{flex-shrink:0;padding:6px 16px;font-size:12px;color:var(--tertiary-text);background:var(--bg-secondary);border-bottom:1px solid var(--border)}
-        .spreadsheet-csv-hint{flex-shrink:0;padding:6px 16px;font-size:12px;color:var(--tertiary-text);background:var(--bg-secondary);border-bottom:1px solid var(--border)}
-        .spreadsheet-save-error{flex-shrink:0;padding:8px 16px;font-size:12px;color:var(--error);background:var(--error-bg)}
-        .sheet-tabs{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg-secondary);flex-shrink:0;overflow-x:auto}
-        .sheet-tab{padding:10px 20px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--secondary-text);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--transition-fast);white-space:nowrap}
-        .sheet-tab:hover{color:var(--primary-text);background:var(--bg-hover)}
-        .sheet-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .spreadsheet-viewer{display:flex;flex-direction:column;width:100%;height:100%;background:var(--background);overflow:hidden}
+        .spreadsheet-edit-hint{flex-shrink:0;padding:6px 16px;font-size:12px;color:var(--muted-foreground);background:var(--card);border-bottom:1px solid var(--border)}
+        .spreadsheet-csv-hint{flex-shrink:0;padding:6px 16px;font-size:12px;color:var(--muted-foreground);background:var(--card);border-bottom:1px solid var(--border)}
+        .spreadsheet-save-error{flex-shrink:0;padding:8px 16px;font-size:12px;color:var(--destructive);background:color-mix(in srgb, var(--destructive) 12%, transparent)}
+        .sheet-tabs{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0;overflow-x:auto}
+        .sheet-tab{padding:10px 20px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;border-bottom:2px solid transparent;transition:color var(--transition-fast),background-color var(--transition-fast),border-color var(--transition-fast);white-space:nowrap}
+        .sheet-tab:hover{color:var(--foreground);background:var(--accent)}
+        .sheet-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
         .table-container{flex:1;overflow:auto;padding:0}
         .spreadsheet-viewer table{width:max-content;min-width:100%;border-collapse:collapse;font-size:13px}
         .spreadsheet-viewer thead{position:sticky;top:0;z-index:10}
-        .spreadsheet-viewer th{background:var(--bg-tertiary);color:var(--primary-text);font-weight:600;padding:8px 16px;text-align:left;border:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+        .spreadsheet-viewer th{background:var(--muted);color:var(--foreground);font-weight:600;padding:8px 16px;text-align:left;border:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
         .spreadsheet-viewer th.editable{cursor:cell}
-        .spreadsheet-viewer td{padding:6px 16px;color:var(--secondary-text);border:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+        .spreadsheet-viewer td{padding:6px 16px;color:var(--muted-foreground);border:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
         .spreadsheet-viewer td.editable{cursor:cell}
-        .spreadsheet-viewer tbody tr:nth-child(even) td{background:var(--bg-secondary)}
-        .spreadsheet-viewer tbody tr:hover td{background:var(--bg-hover)}
-        .spreadsheet-viewer .cell-input{width:100%;min-width:60px;padding:4px 8px;margin:-4px -8px;border:1px solid var(--accent);border-radius:4px;background:var(--bg);color:var(--primary-text);font:inherit;outline:none;box-shadow:0 0 0 2px var(--accent)}
-        .spreadsheet-viewer .row-number{color:var(--tertiary-text);background:var(--bg-tertiary)!important;font-size:11px;text-align:center;padding:6px 10px;font-weight:500;min-width:40px;position:sticky;left:0;z-index:5}
+        .spreadsheet-viewer tbody tr:nth-child(even) td{background:var(--card)}
+        .spreadsheet-viewer tbody tr:hover td{background:var(--accent)}
+        .spreadsheet-viewer .cell-input{width:100%;min-width:60px;padding:4px 8px;margin:-4px -8px;border:1px solid var(--primary);border-radius:4px;background:var(--background);color:var(--foreground);font:inherit;outline:none;box-shadow:0 0 0 2px var(--primary)}
+        .spreadsheet-viewer .row-number{color:var(--muted-foreground);background:var(--muted)!important;font-size:11px;text-align:center;padding:6px 10px;font-weight:500;min-width:40px;position:sticky;left:0;z-index:5}
         .spreadsheet-viewer thead .row-number{z-index:15}
       `,
         }}

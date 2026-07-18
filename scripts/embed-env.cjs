@@ -7,6 +7,8 @@
  * Env vars read: DOME_GOOGLE_DRIVE_CLIENT_ID, DOME_GOOGLE_DRIVE_CLIENT_SECRET,
  *               DOME_PROVIDER_URL (optional; empty → runtime uses packaged https://provider.dome.app),
  *               DOME_GITHUB_CLIENT_ID (GitHub OAuth App client id for project sync; public, safe to bake),
+ *               SUPABASE_URL, SUPABASE_ANON_KEY (onboarding native login; anon key is public by
+ *                 design — dome-provider's own web bundle already ships it — safe to bake),
  *               SENTRY_DSN (main-process Sentry DSN; public by design, ships in clients).
  *                 Falls back to VITE_SENTRY_DSN so a single secret can drive both
  *                 the renderer (Vite inlines VITE_SENTRY_DSN) and the main process.
@@ -24,6 +26,8 @@ const credentials = {
   DOME_GOOGLE_CALENDAR_CLIENT_SECRET: process.env.DOME_GOOGLE_CALENDAR_CLIENT_SECRET || '',
   DOME_PROVIDER_URL: (process.env.DOME_PROVIDER_URL || '').trim(),
   DOME_GITHUB_CLIENT_ID: process.env.DOME_GITHUB_CLIENT_ID || '',
+  SUPABASE_URL: (process.env.SUPABASE_URL || '').trim(),
+  SUPABASE_ANON_KEY: (process.env.SUPABASE_ANON_KEY || '').trim(),
   SENTRY_DSN: (process.env.SENTRY_DSN || process.env.VITE_SENTRY_DSN || '').trim(),
 };
 

@@ -1,5 +1,4 @@
 {
-  "sections_nav": "Sections d'orchestration",
   "filter_all": "Tous",
   "filter_ungrouped": "Sans dossier",
   "explore_marketplace": "Explorer le Marketplace",
@@ -8,8 +7,6 @@
     "stat_favorites": "Favoris",
     "stat_runs_today": "Exécutions aujourd'hui",
     "stat_runs_today_sub": "Exécutions d'agents sur 24 h",
-    "stat_active_automations": "Automatisations",
-    "stat_active_automations_sub": "Règles actives ciblant des agents",
     "new_agent": "Nouvel agent",
     "chat_action": "Discuter",
     "duplicate": "Dupliquer",
@@ -25,8 +22,6 @@
     "stat_nodes": "Nœuds totaux",
     "stat_runs_today": "Exécutions aujourd'hui",
     "stat_runs_today_sub": "Exécutions de workflows sur 24 h",
-    "stat_active_automations": "Automatisations",
-    "stat_active_automations_sub": "Règles actives ciblant des workflows",
     "no_description": "Sans description",
     "nodes_count_one": "{{count}} nœud",
     "nodes_count_other": "{{count}} nœuds",
@@ -101,5 +96,14 @@
     "stat_tokens_hint": "Tokens d'entrée / de sortie",
     "stat_cost": "Coût est.",
     "stat_model": "Modèle"
-  }
+  },
+  "agent_search": "Rechercher agents, workflows, automatisations, exécutions…",
+  "runs_search": "Rechercher par automatisation, cible ou id…",
+  "agent_ask_many": "Demander à Many",
+  "agent_queue_runs": "Exécutions d’automatisations",
+  "agent_prompt_runs": "Examine mes exécutions d’automatisations : échecs, goulots et 3 actions concrètes.",
+  "agent_prompt_automations": "Examine mes automatisations : lesquelles activer, corriger les échecs, proposer une règle utile.",
+  "agent_prompt_agents": "Examine ma bibliothèque d'agents et propose des améliorations ou un nouvel agent.",
+  "agent_prompt_workflows": "Examine mes workflows et propose le suivant ou des améliorations canvas.",
+  "agent_prompt_pipelines": "Examine mes pipelines et propose des étapes, un triage ou des automatisations."
 }

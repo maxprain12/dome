@@ -1,8 +1,9 @@
 # GitHub Project Sync
 
 Bidirectional sync between GitHub and Dome for project tracking: milestones,
-issues, branches and releases shown in a Kanban + Gantt tab, with dated entities
-projected onto the Dome calendar.
+issues, branches and releases. The Seguimiento tab shows a single non-technical
+**dashboard** (objectives + tasks), with dated entities projected onto the Dome
+calendar.
 
 Opens as a tab (`TabType 'github'`) from the left sidebar — not a new window.
 
@@ -68,12 +69,14 @@ All channels whitelisted in `electron/preload.cjs` and exposed under
 
 ## Renderer (`app/components/github/`)
 
-`GitHubView` (container; repo selector + view tabs + sync) → `GitHubConnect`
-(device flow), `KanbanBoard` (columns = milestones, cards = issues, move = reassign
-milestone / toggle state), `GanttChart` (CSS timeline of milestones),
-`IssueDetailPanel` (inline edit → push), `GitHubSettings` (repo selection,
+`GitHubView` (HubHeader + repo picker + sync + settings) → `GitHubConnect`
+(device flow), `TrackingDashboard` (stats, quick-create, filters, objective
+sections with local pagination), `IssueDetailPanel` / `MilestoneDetailModal` as
+**inline side Card** (master–detail; no Sheet overlay — see
+`.claude/sops/inline-detail-surfaces.md`), `GitHubSettings` (repo selection,
 disconnect). State in `app/lib/store/useGitHubStore.ts`, IPC wrapper in
-`app/lib/github/client.ts`.
+`app/lib/github/client.ts`. UI copy uses `github.dash_*` (objective / task
+language, not Kanban/Gantt jargon).
 
 ## Schema (migration 43)
 
@@ -83,14 +86,9 @@ disconnect). State in `app/lib/store/useGitHubStore.ts`, IPC wrapper in
 
 ## Known follow-ups
 
-- Full i18n: UI strings are Spanish literals; needs `github.*` keys in
-  `app/lib/i18n.ts` for en/fr/pt.
 - IPC channel naming follows the `path.join(':')` convention (e.g.
   `github:issues:listComments`, `github:milestones:create`) so that the dev
   browser IPC shim can resolve channels by the same access path used at
   runtime.
-- Brand-new milestones/issues can already be created from the Minimal tracker
-  via the quick-create form (with optional milestone selection or inline
-  milestone creation).
-- Drag-and-drop on the Kanban reassigns the milestone of a card by dropping
-  it on another column.
+- Brand-new milestones/issues can be created from the dashboard quick-create
+  form (optional objective selection or inline objective creation).

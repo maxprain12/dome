@@ -1,6 +1,10 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Link02Icon,
+  Share08Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link2, Share2 } from 'lucide-react';
 import MentionHeaderInput from './MentionHeaderInput';
 import RelationChip from './RelationChip';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -145,8 +149,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
     return (
       <div className="flex items-center justify-center h-full">
         <div
-          className="animate-spin size-5 border-2 border-current border-t-transparent rounded-full"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="animate-spin size-5 border-2 border-current border-t-transparent rounded-full text-muted-foreground"
         />
       </div>
     );
@@ -157,28 +160,28 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-4 border-b shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
+      <div className="p-4 border-b shrink-0 border-border">
         <button
           type="button"
           className="mb-3 w-full flex items-center justify-center gap-2 text-xs font-medium py-2 px-3 rounded-lg border transition-colors"
           style={{
-            borderColor: 'var(--dome-border)',
-            background: 'var(--dome-surface)',
-            color: 'var(--dome-text)',
+            borderColor: 'var(--border)',
+            background: 'var(--card)',
+            color: 'var(--foreground)',
           }}
           onClick={() => openSemanticGraphTab(resourceId)}
         >
-          <Share2 size={14} />
+          <HugeiconsIcon icon={Share08Icon} size={14} />
           {t('workspace.relations_open_graph')}
         </button>
         <MentionHeaderInput resourceId={resourceId} onLinked={loadAll} onTagged={loadAll} />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-y-6">
         {empty ? (
           <div className="text-center py-8">
-            <Link2 size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--dome-text-muted)' }} />
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            <HugeiconsIcon icon={Link02Icon} size={32} className="mx-auto mb-3 opacity-30 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
               {t('workspace.relations_empty')}
             </p>
           </div>
@@ -186,10 +189,10 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
 
         {tags.length > 0 ? (
           <section>
-            <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+            <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
               {t('workspace.relations_tags')}
             </h4>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-y-2">
               {tags.map((tag) => (
                 <RelationChip
                   key={tag.id}
@@ -206,10 +209,10 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
 
         {mentionRows.length > 0 ? (
           <section>
-            <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+            <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
               {t('workspace.relations_mentions')}
             </h4>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-y-2">
               {mentionRows.map((row) => (
                 <RelationChip
                   key={row.id}
@@ -229,10 +232,10 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
 
         {webRows.length > 0 ? (
           <section>
-            <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+            <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
               {t('workspace.relations_web_links')}
             </h4>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-y-2">
               {webRows.map((row) => (
                 <RelationChip
                   key={row.id}

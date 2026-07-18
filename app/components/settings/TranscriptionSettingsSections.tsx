@@ -1,19 +1,41 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  SecurityBlockIcon,
+  SecurityCheckIcon,
+  SecurityIcon,
+  ShieldEnergyIcon,
+} from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { SettingsGroup, SettingsRow } from './blocks';
 import { showToast } from '@/lib/store/useToastStore';
 import type { ModelDefinition } from '@/lib/ai/models';
-import type { ReactNode } from 'react';
-import DomeCard from '@/components/ui/DomeCard';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeCheckbox from '@/components/ui/DomeCheckbox';
-import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
-import { DomeSelect } from '@/components/ui/DomeSelect';
 import ModelSelector from './ModelSelector';
-
-function SectionHeading({ children }: { children: ReactNode }) {
-  return <p className="mb-2 text-sm font-medium text-[var(--dome-text)]">{children}</p>;
-}
+import { cn } from '@/lib/utils';
 
 type PermStatus = 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown';
 
@@ -27,53 +49,84 @@ export interface TranscriptionSettingsSectionsHandle {
   save: () => Promise<boolean>;
 }
 
-interface PermissionRowProps {
+function PermissionRow({
+  label,
+  status,
+  onRequest,
+  onOpenPrefs,
+  loading,
+}: {
   label: string;
   status: PermStatus;
   onRequest: () => Promise<void>;
   onOpenPrefs?: () => void;
   loading: boolean;
-  t: (key: string) => string;
-}
-
-function PermissionRow({ label, status, onRequest, onOpenPrefs, loading, t }: PermissionRowProps) {
-  const statusConfig: Record<PermStatus, { icon: React.ReactNode; color: string; text: string }> = {
-    granted: { icon: <ShieldCheck className="size-4" />, color: 'var(--success)', text: t('settings.transcription.perm_granted') },
-    denied: { icon: <ShieldOff className="size-4" />, color: 'var(--error)', text: t('settings.transcription.perm_denied') },
-    'not-determined': { icon: <ShieldQuestion className="size-4" />, color: 'var(--warning)', text: t('settings.transcription.perm_not_determined') },
-    restricted: { icon: <ShieldAlert className="size-4" />, color: 'var(--error)', text: t('settings.transcription.perm_restricted') },
-    unknown: { icon: <ShieldQuestion className="size-4" />, color: 'var(--dome-text-muted,var(--tertiary-text))', text: '—' },
+}) {
+  const { t } = useTranslation();
+  const statusConfig: Record<
+    PermStatus,
+    { icon: typeof SecurityIcon; className: string; text: string }
+  > = {
+    granted: {
+      icon: SecurityCheckIcon,
+      className: 'text-success',
+      text: t('settings.transcription.perm_granted'),
+    },
+    denied: {
+      icon: SecurityBlockIcon,
+      className: 'text-destructive',
+      text: t('settings.transcription.perm_denied'),
+    },
+    'not-determined': {
+      icon: SecurityIcon,
+      className: 'text-warning',
+      text: t('settings.transcription.perm_not_determined'),
+    },
+    restricted: {
+      icon: ShieldEnergyIcon,
+      className: 'text-destructive',
+      text: t('settings.transcription.perm_restricted'),
+    },
+    unknown: { icon: SecurityIcon, className: 'text-muted-foreground', text: '—' },
   };
   const cfg = statusConfig[status];
 
   return (
-    <div className="settings-toggle-row">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="shrink-0" style={{ color: cfg.color }}>
-          {cfg.icon}
+    <SettingsRow
+      title={
+        <span className="flex items-center gap-2">
+          <HugeiconsIcon icon={cfg.icon} className={cn('shrink-0', cfg.className)} />
+          {label}
         </span>
-        <div className="min-w-0">
-          <span className="text-sm font-medium block truncate text-[var(--dome-text,var(--primary-text))]">
-            {label}
-          </span>
-          <span className="text-[11px]" style={{ color: cfg.color }}>
-            {cfg.text}
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {status === 'denied' && onOpenPrefs && (
-          <DomeButton type="button" variant="outline" size="xs" onClick={onOpenPrefs} className="!text-[var(--error)] !border-[var(--error)]">
-            {t('settings.transcription.perm_open_prefs')}
-          </DomeButton>
-        )}
-        {(status === 'not-determined' || status === 'unknown') && (
-          <DomeButton type="button" variant="outline" size="xs" loading={loading} onClick={() => void onRequest()}>
-            {t('settings.transcription.perm_request')}
-          </DomeButton>
-        )}
-      </div>
-    </div>
+      }
+      description={<span className={cfg.className}>{cfg.text}</span>}
+      control={
+        <>
+          {status === 'denied' && onOpenPrefs ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              className="text-destructive"
+              onClick={onOpenPrefs}
+            >
+              {t('settings.transcription.perm_open_prefs')}
+            </Button>
+          ) : null}
+          {status === 'not-determined' || status === 'unknown' ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              disabled={loading}
+              onClick={() => void onRequest()}
+            >
+              {t('settings.transcription.perm_request')}
+            </Button>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 
@@ -84,6 +137,7 @@ interface TranscriptionSettingsSectionsProps {
   embedded?: boolean;
 }
 
+/** Voice/transcription pipeline settings; exposes an imperative `save()` for the AI panel. */
 const TranscriptionSettingsSections = forwardRef<
   TranscriptionSettingsSectionsHandle,
   TranscriptionSettingsSectionsProps
@@ -129,9 +183,7 @@ const TranscriptionSettingsSections = forwardRef<
     const res = await window.electron.transcription.getSettings();
     if (res.success && res.data) {
       const p = String(res.data.sttProvider || '');
-      if (p === 'local-gemma') {
-        setSttProvider('openai');
-      } else if (p === 'groq' || p === 'openai' || p === 'custom') {
+      if (p === 'groq' || p === 'openai' || p === 'custom') {
         setSttProvider(p as SttProvider);
       } else {
         setSttProvider('openai');
@@ -161,34 +213,37 @@ const TranscriptionSettingsSections = forwardRef<
     void loadPermissions();
   }, [load, loadPermissions]);
 
-  const persist = useCallback(async (patch: {
-    sttProvider?: SttProvider;
-    model?: string;
-    language?: string | null;
-    globalShortcut?: string;
-    apiBaseUrl?: string;
-    prompt?: string;
-    pauseThresholdSec?: number | null;
-    dedicatedOpenaiKey?: string;
-    groqApiKey?: string;
-    globalShortcutEnabled?: boolean;
-    summaryModel?: string;
-    autoSummary?: boolean;
-    chunkSec?: number;
-    liveTranscriptDefault?: boolean;
-  }) => {
-    if (!window.electron?.transcription?.setSettings) return false;
-    setSaved(false);
-    await window.electron.transcription.setSettings(patch);
-    setSaved(true);
-    void load();
-    setDedicatedKey('');
-    setGroqKey('');
-    if (!embedded) {
-      setTimeout(() => setSaved(false), 2000);
-    }
-    return true;
-  }, [embedded, load]);
+  const persist = useCallback(
+    async (patch: {
+      sttProvider?: SttProvider;
+      model?: string;
+      language?: string | null;
+      globalShortcut?: string;
+      apiBaseUrl?: string;
+      prompt?: string;
+      pauseThresholdSec?: number | null;
+      dedicatedOpenaiKey?: string;
+      groqApiKey?: string;
+      globalShortcutEnabled?: boolean;
+      summaryModel?: string;
+      autoSummary?: boolean;
+      chunkSec?: number;
+      liveTranscriptDefault?: boolean;
+    }) => {
+      if (!window.electron?.transcription?.setSettings) return false;
+      setSaved(false);
+      await window.electron.transcription.setSettings(patch);
+      setSaved(true);
+      void load();
+      setDedicatedKey('');
+      setGroqKey('');
+      if (!embedded) {
+        setTimeout(() => setSaved(false), 2000);
+      }
+      return true;
+    },
+    [embedded, load],
+  );
 
   const handleSave = useCallback(async () => {
     return persist({
@@ -225,9 +280,7 @@ const TranscriptionSettingsSections = forwardRef<
     liveTranscriptDefault,
   ]);
 
-  useImperativeHandle(ref, () => ({
-    save: handleSave,
-  }), [handleSave]);
+  useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave]);
 
   const handleClearDedicatedKey = async () => {
     await persist({ dedicatedOpenaiKey: '' });
@@ -254,298 +307,381 @@ const TranscriptionSettingsSections = forwardRef<
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <SectionHeading>{t('settings.transcription.section_permissions')}</SectionHeading>
-        <DomeCard>
-          {!isMac ? (
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.transcription.perm_os_managed')}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <PermissionRow
-                label={t('settings.transcription.perm_mic')}
-                status={micPerm}
-                onRequest={async () => {
-                  setPermLoading(true);
-                  try {
-                    await window.electron?.transcription?.requestMic?.();
-                    await loadPermissions();
-                  } finally {
-                    setPermLoading(false);
-                  }
-                }}
-                loading={permLoading}
-                t={t}
-              />
-              <PermissionRow
-                label={t('settings.transcription.perm_screen')}
-                status={screenPerm}
-                onRequest={async () => {
-                  setPermLoading(true);
-                  try {
-                    await window.electron?.transcription?.requestScreen?.();
-                    await loadPermissions();
-                  } finally {
-                    setPermLoading(false);
-                  }
-                }}
-                onOpenPrefs={() =>
-                  window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture').catch((err) => {
+    <div className="flex flex-col gap-6">
+      <SettingsGroup title={t('settings.transcription.section_permissions')}>
+        {!isMac ? (
+          <p className="px-4 py-3 text-xs text-muted-foreground">
+            {t('settings.transcription.perm_os_managed')}
+          </p>
+        ) : (
+          <>
+            <PermissionRow
+              label={t('settings.transcription.perm_mic')}
+              status={micPerm}
+              loading={permLoading}
+              onRequest={async () => {
+                setPermLoading(true);
+                try {
+                  await window.electron?.transcription?.requestMic?.();
+                  await loadPermissions();
+                } finally {
+                  setPermLoading(false);
+                }
+              }}
+            />
+            <PermissionRow
+              label={t('settings.transcription.perm_screen')}
+              status={screenPerm}
+              loading={permLoading}
+              onRequest={async () => {
+                setPermLoading(true);
+                try {
+                  await window.electron?.transcription?.requestScreen?.();
+                  await loadPermissions();
+                } finally {
+                  setPermLoading(false);
+                }
+              }}
+              onOpenPrefs={() =>
+                window.electron
+                  ?.invoke?.(
+                    'open-external-url',
+                    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+                  )
+                  .catch((err) => {
                     console.error('[TranscriptionSettings] Failed to open system preferences:', err);
                   })
-                }
-                loading={permLoading}
-                t={t}
-              />
-              {screenPerm === 'granted' && (
-                <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('settings.transcription.perm_screen_restart_hint')}
-                </p>
-              )}
-            </div>
-          )}
-        </DomeCard>
-      </div>
+              }
+            />
+            {screenPerm === 'granted' ? (
+              <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground">
+                {t('settings.transcription.perm_screen_restart_hint')}
+              </p>
+            ) : null}
+          </>
+        )}
+      </SettingsGroup>
 
-      <div>
-        <SectionHeading>{t('settings.transcription.section_quick_start')}</SectionHeading>
-        <DomeCard className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <DomeButton type="button" variant="outline" size="sm" onClick={applyGroqPreset}>
+      <SettingsGroup
+        title={t('settings.transcription.section_quick_start')}
+        actions={
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={applyGroqPreset}>
               {t('settings.transcription.preset_groq')}
-            </DomeButton>
-            <DomeButton type="button" variant="outline" size="sm" onClick={applyOpenaiPreset}>
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={applyOpenaiPreset}>
               {t('settings.transcription.preset_openai')}
-            </DomeButton>
-          </div>
-          <DomeSelect
-            className="max-w-md"
-            label={t('settings.transcription.stt_provider')}
-            value={sttProvider}
-            onChange={(e) => setSttProvider(e.target.value as SttProvider)}
-          >
-            <option value="groq">{t('settings.transcription.stt_provider_groq')}</option>
-            <option value="openai">{t('settings.transcription.stt_provider_openai')}</option>
-            <option value="custom">{t('settings.transcription.stt_provider_custom')}</option>
-          </DomeSelect>
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4 px-4 py-4">
+          <Field className="max-w-md">
+            <FieldLabel>{t('settings.transcription.stt_provider')}</FieldLabel>
+            <Select value={sttProvider} onValueChange={(next) => setSttProvider(next as SttProvider)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="groq">{t('settings.transcription.stt_provider_groq')}</SelectItem>
+                  <SelectItem value="openai">
+                    {t('settings.transcription.stt_provider_openai')}
+                  </SelectItem>
+                  <SelectItem value="custom">
+                    {t('settings.transcription.stt_provider_custom')}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
 
-          {sttProvider === 'groq' ? (
-            <DomeSelect
-              label={t('settings.transcription.model')}
+          <Field>
+            <FieldLabel>{t('settings.transcription.model')}</FieldLabel>
+            <Select
               value={model}
-              onChange={(e) => setModel(e.target.value)}
+              onValueChange={(next) => {
+                if (next != null) setModel(next);
+              }}
             >
-              <option value={MODEL_GROQ_TURBO}>{t('settings.transcription.model_option_groq_turbo')}</option>
-              <option value={MODEL_GROQ_LARGE}>{t('settings.transcription.model_option_groq_large')}</option>
-            </DomeSelect>
-          ) : (
-            <DomeSelect
-              label={t('settings.transcription.model')}
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-            >
-              <option value="whisper-1">{t('settings.transcription.model_option_whisper1')}</option>
-              <option value="gpt-4o-transcribe">{t('settings.transcription.model_option_gpt4o_transcribe')}</option>
-              <option value="gpt-4o-mini-transcribe">{t('settings.transcription.model_option_gpt4o_mini_transcribe')}</option>
-              <option value="gpt-4o-transcribe-diarize">{t('settings.transcription.model_option_gpt4o_transcribe_diarize')}</option>
-              <option value={MODEL_GROQ_TURBO}>whisper-large-v3-turbo</option>
-              <option value={MODEL_GROQ_LARGE}>whisper-large-v3</option>
-            </DomeSelect>
-          )}
-          <DomeInput
-            label={t('settings.transcription.language')}
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            placeholder={t('settings.transcription.language_placeholder')}
-          />
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {sttProvider === 'groq' ? (
+                    <>
+                      <SelectItem value={MODEL_GROQ_TURBO}>
+                        {t('settings.transcription.model_option_groq_turbo')}
+                      </SelectItem>
+                      <SelectItem value={MODEL_GROQ_LARGE}>
+                        {t('settings.transcription.model_option_groq_large')}
+                      </SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="whisper-1">
+                        {t('settings.transcription.model_option_whisper1')}
+                      </SelectItem>
+                      <SelectItem value="gpt-4o-transcribe">
+                        {t('settings.transcription.model_option_gpt4o_transcribe')}
+                      </SelectItem>
+                      <SelectItem value="gpt-4o-mini-transcribe">
+                        {t('settings.transcription.model_option_gpt4o_mini_transcribe')}
+                      </SelectItem>
+                      <SelectItem value="gpt-4o-transcribe-diarize">
+                        {t('settings.transcription.model_option_gpt4o_transcribe_diarize')}
+                      </SelectItem>
+                      <SelectItem value={MODEL_GROQ_TURBO}>whisper-large-v3-turbo</SelectItem>
+                      <SelectItem value={MODEL_GROQ_LARGE}>whisper-large-v3</SelectItem>
+                    </>
+                  )}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="tr-language">{t('settings.transcription.language')}</FieldLabel>
+            <Input
+              id="tr-language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder={t('settings.transcription.language_placeholder')}
+            />
+          </Field>
           {sttProvider === 'groq' && !hasGroqKey ? (
-            <p className="text-[11px] text-[var(--dome-accent)]">{t('settings.transcription.groq_key_hint_quick')}</p>
+            <p className="text-[11px] text-primary">
+              {t('settings.transcription.groq_key_hint_quick')}
+            </p>
           ) : null}
-        </DomeCard>
-      </div>
+        </div>
+      </SettingsGroup>
 
-      <div>
-        <SectionHeading>{t('settings.transcription.section_shortcuts_global')}</SectionHeading>
-        <DomeCard className="space-y-3">
-          <DomeCheckbox
-            label={t('settings.transcription.shortcut_enable_dictation')}
-            checked={transcriptionShortcutEnabled}
-            onChange={(e) => setTranscriptionShortcutEnabled(e.target.checked)}
-          />
-          <p className="text-[10px] text-[var(--dome-text-muted)]">{t('settings.transcription.shortcut_dictation_hint')}</p>
-          <DomeInput
+      <SettingsGroup title={t('settings.transcription.section_shortcuts_global')}>
+        <SettingsRow
+          title={t('settings.transcription.shortcut_enable_dictation')}
+          description={t('settings.transcription.shortcut_dictation_hint')}
+          control={
+            <Switch
+              checked={transcriptionShortcutEnabled}
+              onCheckedChange={(v) => setTranscriptionShortcutEnabled(v === true)}
+              aria-label={t('settings.transcription.shortcut_enable_dictation')}
+            />
+          }
+        >
+          <Input
             value={globalShortcut}
             onChange={(e) => setGlobalShortcut(e.target.value)}
             disabled={!transcriptionShortcutEnabled}
             placeholder="CommandOrControl+Shift+D"
+            aria-label={t('settings.transcription.shortcut_enable_dictation')}
           />
-        </DomeCard>
-      </div>
+        </SettingsRow>
+      </SettingsGroup>
 
-      <div>
-        <SectionHeading>{t('settings.transcription.section_meetings_output')}</SectionHeading>
-        <DomeCard className="space-y-3">
-          <DomeInput
-            label={t('settings.transcription.pause_threshold')}
-            hint={t('settings.transcription.pause_help')}
-            type="number"
-            min={0.4}
-            max={8}
-            step={0.05}
-            className="max-w-[140px]"
-            value={pauseThresholdSec}
-            onChange={(e) => setPauseThresholdSec(e.target.value)}
-          />
-        </DomeCard>
-      </div>
+      <SettingsGroup title={t('settings.transcription.section_meetings_output')}>
+        <SettingsRow
+          title={t('settings.transcription.pause_threshold')}
+          description={t('settings.transcription.pause_help')}
+          htmlFor="tr-pause-threshold"
+          control={
+            <Input
+              id="tr-pause-threshold"
+              type="number"
+              min={0.4}
+              max={8}
+              step={0.05}
+              value={pauseThresholdSec}
+              onChange={(e) => setPauseThresholdSec(e.target.value)}
+              className="w-28"
+            />
+          }
+        />
+      </SettingsGroup>
 
-      <div>
-        <SectionHeading>{t('settings.transcription.section_calls_ai')}</SectionHeading>
-        <DomeCard className="space-y-3">
-          <DomeCheckbox
-            label={t('settings.transcription.call_live_transcript_default')}
-            checked={liveTranscriptDefault}
-            onChange={(e) => setLiveTranscriptDefault(e.target.checked)}
-          />
-          <DomeSelect
-            className="max-w-[200px]"
-            label={t('settings.transcription.call_chunk_length')}
-            hint={t('settings.transcription.call_chunk_help')}
-            value={chunkSec}
-            onChange={(e) => setChunkSec(e.target.value)}
-          >
-            <option value="2">2</option>
-            <option value="4">4</option>
-            <option value="8">8</option>
-            <option value="15">15</option>
-            <option value="30">30</option>
-          </DomeSelect>
+      <SettingsGroup title={t('settings.transcription.section_calls_ai')}>
+        <SettingsRow
+          title={t('settings.transcription.call_live_transcript_default')}
+          control={
+            <Switch
+              checked={liveTranscriptDefault}
+              onCheckedChange={(v) => setLiveTranscriptDefault(v === true)}
+              aria-label={t('settings.transcription.call_live_transcript_default')}
+            />
+          }
+        />
+        <SettingsRow
+          title={t('settings.transcription.call_chunk_length')}
+          description={t('settings.transcription.call_chunk_help')}
+          control={
+            <Select
+              value={chunkSec}
+              onValueChange={(next) => {
+                if (next != null) setChunkSec(next);
+              }}
+            >
+              <SelectTrigger className="w-24" aria-label={t('settings.transcription.call_chunk_length')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {['2', '4', '8', '15', '30'].map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow title={t('settings.transcription.call_summary_model')}>
+          {summaryModels.length > 0 ? (
+            <ModelSelector
+              models={summaryModels}
+              selectedModelId={summaryModel}
+              onChange={setSummaryModel}
+              showBadges={false}
+              showDescription={false}
+              showContextWindow={false}
+              searchable={summaryModels.length > 5}
+              placeholder={t('settings.transcription.call_summary_model_placeholder')}
+              disabled={summaryModelsLoading}
+              providerType="cloud"
+            />
+          ) : (
+            <Input
+              value={summaryModel}
+              onChange={(e) => setSummaryModel(e.target.value)}
+              placeholder={t('settings.transcription.call_summary_model_placeholder')}
+              aria-label={t('settings.transcription.call_summary_model')}
+            />
+          )}
+        </SettingsRow>
+        <SettingsRow
+          title={t('settings.transcription.call_auto_summary')}
+          control={
+            <Switch
+              checked={autoSummary}
+              onCheckedChange={(v) => setAutoSummary(v === true)}
+              aria-label={t('settings.transcription.call_auto_summary')}
+            />
+          }
+        />
+      </SettingsGroup>
 
-          <div>
-            <span className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
-              {t('settings.transcription.call_summary_model')}
-            </span>
-            {summaryModels.length > 0 ? (
-              <ModelSelector
-                models={summaryModels}
-                selectedModelId={summaryModel}
-                onChange={setSummaryModel}
-                showBadges={false}
-                showDescription={false}
-                showContextWindow={false}
-                searchable={summaryModels.length > 5}
-                placeholder={t('settings.transcription.call_summary_model_placeholder')}
-                disabled={summaryModelsLoading}
-                providerType="cloud"
-              />
-            ) : (
-              <DomeInput
-                value={summaryModel}
-                onChange={(e) => setSummaryModel(e.target.value)}
-                placeholder={t('settings.transcription.call_summary_model_placeholder')}
-              />
-            )}
-          </div>
-          <DomeCheckbox
-            label={t('settings.transcription.call_auto_summary')}
-            checked={autoSummary}
-            onChange={(e) => setAutoSummary(e.target.checked)}
-          />
-        </DomeCard>
-      </div>
-
-      <div>
-        <DomeButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="mb-2 !px-0 !text-[var(--dome-accent,var(--accent))]"
-          onClick={() => setShowAdvanced((v) => !v)}
-        >
-          {showAdvanced ? t('settings.transcription.advanced_hide') : t('settings.transcription.advanced_show')}
-        </DomeButton>
-        {showAdvanced ? (
-          <div className="space-y-4 border-l-2 border-[var(--dome-border)] pl-3">
-            {sttProvider === 'groq' ? (
-              <DomeCard className="space-y-2">
-                <SectionHeading>{t('settings.transcription.section_groq_key')}</SectionHeading>
-                <DomeInput
-                  type="password"
-                  label={t('settings.transcription.groq_key_help')}
-                  value={groqKey}
-                  onChange={(e) => setGroqKey(e.target.value)}
-                  placeholder={t('settings.transcription.groq_key_placeholder')}
-                  autoComplete="off"
-                  hint={hasGroqKey ? t('settings.transcription.groq_key_saved') : undefined}
-                />
-                {hasGroqKey && (
-                  <DomeButton
+      <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+        <CollapsibleTrigger className="cursor-pointer text-sm font-medium text-primary">
+          {showAdvanced
+            ? t('settings.transcription.advanced_hide')
+            : t('settings.transcription.advanced_show')}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3 flex flex-col gap-4 border-l-2 pl-3">
+          {sttProvider === 'groq' ? (
+            <SettingsGroup title={t('settings.transcription.section_groq_key')}>
+              <div className="flex flex-col gap-2 px-4 py-4">
+                <Field>
+                  <FieldLabel htmlFor="tr-groq-key">
+                    {t('settings.transcription.groq_key_help')}
+                  </FieldLabel>
+                  <Input
+                    id="tr-groq-key"
+                    type="password"
+                    value={groqKey}
+                    onChange={(e) => setGroqKey(e.target.value)}
+                    placeholder={t('settings.transcription.groq_key_placeholder')}
+                    autoComplete="off"
+                  />
+                  {hasGroqKey ? (
+                    <FieldDescription>
+                      {t('settings.transcription.groq_key_saved')}
+                    </FieldDescription>
+                  ) : null}
+                </Field>
+                {hasGroqKey ? (
+                  <Button
                     type="button"
                     variant="ghost"
                     size="xs"
-                    className="mt-2 !px-0"
+                    className="self-start"
                     onClick={() => void handleClearGroqKey()}
                   >
                     {t('settings.transcription.clear_groq_key')}
-                  </DomeButton>
-                )}
-              </DomeCard>
-            ) : null}
+                  </Button>
+                ) : null}
+              </div>
+            </SettingsGroup>
+          ) : null}
 
-            <DomeCard className="space-y-2">
-              <SectionHeading>{t('settings.transcription.section_key')}</SectionHeading>
-              <DomeInput
-                type="password"
-                label={t('settings.transcription.key_help')}
-                value={dedicatedKey}
-                onChange={(e) => setDedicatedKey(e.target.value)}
-                placeholder={t('settings.transcription.key_placeholder')}
-                autoComplete="off"
-                hint={hasDedicatedKey ? t('settings.transcription.key_saved') : undefined}
-              />
-              {hasDedicatedKey && (
-                <DomeButton
+          <SettingsGroup title={t('settings.transcription.section_key')}>
+            <div className="flex flex-col gap-2 px-4 py-4">
+              <Field>
+                <FieldLabel htmlFor="tr-dedicated-key">
+                  {t('settings.transcription.key_help')}
+                </FieldLabel>
+                <Input
+                  id="tr-dedicated-key"
+                  type="password"
+                  value={dedicatedKey}
+                  onChange={(e) => setDedicatedKey(e.target.value)}
+                  placeholder={t('settings.transcription.key_placeholder')}
+                  autoComplete="off"
+                />
+                {hasDedicatedKey ? (
+                  <FieldDescription>{t('settings.transcription.key_saved')}</FieldDescription>
+                ) : null}
+              </Field>
+              {hasDedicatedKey ? (
+                <Button
                   type="button"
                   variant="ghost"
                   size="xs"
-                  className="mt-2 !px-0"
+                  className="self-start"
                   onClick={() => void handleClearDedicatedKey()}
                 >
                   {t('settings.transcription.clear_key')}
-                </DomeButton>
-              )}
-            </DomeCard>
+                </Button>
+              ) : null}
+            </div>
+          </SettingsGroup>
 
-            <DomeCard className="space-y-3">
-              <SectionHeading>{t('settings.transcription.section_api_prompt')}</SectionHeading>
-              <DomeInput
-                label={t('settings.transcription.api_base_url')}
-                hint={t('settings.transcription.api_base_url_help')}
-                value={apiBaseUrl}
-                onChange={(e) => setApiBaseUrl(e.target.value)}
-                placeholder={t('settings.transcription.api_base_url_placeholder')}
-                autoComplete="off"
-              />
-              <DomeTextarea
-                label={t('settings.transcription.prompt')}
-                hint={t('settings.transcription.prompt_help')}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={3}
-                textareaClassName="min-h-[72px]"
-                placeholder={t('settings.transcription.prompt_placeholder')}
-              />
-            </DomeCard>
-          </div>
-        ) : null}
-      </div>
+          <SettingsGroup title={t('settings.transcription.section_api_prompt')}>
+            <div className="flex flex-col gap-4 px-4 py-4">
+              <Field>
+                <FieldLabel htmlFor="tr-api-base-url">
+                  {t('settings.transcription.api_base_url')}
+                </FieldLabel>
+                <Input
+                  id="tr-api-base-url"
+                  value={apiBaseUrl}
+                  onChange={(e) => setApiBaseUrl(e.target.value)}
+                  placeholder={t('settings.transcription.api_base_url_placeholder')}
+                  autoComplete="off"
+                />
+                <FieldDescription>{t('settings.transcription.api_base_url_help')}</FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="tr-prompt">{t('settings.transcription.prompt')}</FieldLabel>
+                <Textarea
+                  id="tr-prompt"
+                  className="min-h-[72px] resize-y"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={3}
+                  placeholder={t('settings.transcription.prompt_placeholder')}
+                />
+                <FieldDescription>{t('settings.transcription.prompt_help')}</FieldDescription>
+              </Field>
+            </div>
+          </SettingsGroup>
+        </CollapsibleContent>
+      </Collapsible>
 
       {!embedded ? (
-        <DomeButton type="button" variant="primary" onClick={() => void handleSave()}>
+        <Button type="button" className="self-start" onClick={() => void handleSave()}>
           {saved ? t('settings.transcription.saved') : t('settings.transcription.save')}
-        </DomeButton>
+        </Button>
       ) : null}
     </div>
   );
