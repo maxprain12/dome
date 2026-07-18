@@ -66,7 +66,7 @@ export default function AccountStep({ onComplete, onValidationChange, onSubViewC
     onSubViewChange?.(subView);
   }, [subView, onSubViewChange]);
 
-  const handleNextRef = useRef<() => void>(() => {});
+  const handleNextRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const handleNext = useCallback(async () => {
     if (subView === 'choice') {
