@@ -1,0 +1,24 @@
+{
+  "id": "behavior.tool_error_recovery",
+  "category": "behavior",
+  "tool": "resource_get",
+  "mode": "direct",
+  "prompt": "Intenta leer una sola vez el recurso inexistente missing-self-harness-fixture. Si falla, explica brevemente el error y detente sin repetir la misma llamada.",
+  "expected_tools": ["resource_get"],
+  "forbidden_tools": ["shell_exec", "glob", "file_read", "file_write", "resource_search", "resource_create"],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": { "min_length": 10 },
+  "behavior": {
+    "max_tool_calls": 1,
+    "max_attempts_per_tool": 1,
+    "max_turns": 3,
+    "require_tool_result": true,
+    "require_text_after_last_tool": true
+  },
+  "judge_criteria": "Debe intentar resource_get una sola vez y explicar el fallo sin entrar en un bucle.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

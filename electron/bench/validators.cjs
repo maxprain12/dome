@@ -65,6 +65,8 @@ function validateStructural({
   toolsCalled = [],
   finalText = '',
   outputShape = null,
+  behavior = null,
+  chunks = [],
 }) {
   const called = new Set(toolsCalled);
   const missing = expectedTools.filter((t) => !called.has(t));
@@ -94,7 +96,56 @@ function validateStructural({
     return shapeFailure;
   }
 
+  const behaviorFailure = validateBehavior(behavior, chunks);
+  if (behaviorFailure) return behaviorFailure;
+
   return { pass: true, layer: 'structural' };
+}
+
+function uniqueToolCalls(chunks) {
+  const seen = new Set();
+  const calls = [];
+  for (const chunk of chunks || []) {
+    if (chunk.type !== 'tool_call') continue;
+    const name = chunk.toolCall?.name || chunk.name;
+    if (!name) continue;
+    const id = chunk.toolCall?.id || chunk.toolCallId || `${name}:${JSON.stringify(chunk.toolCall?.arguments || '')}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    calls.push({ id, name });
+  }
+  return calls;
+}
+
+function validateBehavior(behavior, chunks) {
+  if (!behavior) return null;
+  const calls = uniqueToolCalls(chunks);
+  if (behavior.max_tool_calls != null && calls.length > behavior.max_tool_calls) {
+    return { pass: false, layer: 'structural', reason: `Behavior exceeded max tool calls (${calls.length} > ${behavior.max_tool_calls})` };
+  }
+  if (behavior.max_attempts_per_tool != null) {
+    const counts = new Map();
+    for (const call of calls) counts.set(call.name, (counts.get(call.name) || 0) + 1);
+    const excessive = [...counts.entries()].find(([, count]) => count > behavior.max_attempts_per_tool);
+    if (excessive) {
+      return { pass: false, layer: 'structural', reason: `Behavior repeated tool ${excessive[0]} ${excessive[1]} times` };
+    }
+  }
+  if (behavior.max_turns != null) {
+    const turns = (chunks || []).filter((chunk) => chunk.type === 'harness' && chunk.event === 'turn_start').length;
+    if (turns > behavior.max_turns) {
+      return { pass: false, layer: 'structural', reason: `Behavior exceeded max turns (${turns} > ${behavior.max_turns})` };
+    }
+  }
+  if (behavior.require_tool_result && !(chunks || []).some((chunk) => chunk.type === 'tool_result')) {
+    return { pass: false, layer: 'structural', reason: 'Behavior finalized without a tool result' };
+  }
+  if (behavior.require_text_after_last_tool) {
+    const lastTool = (chunks || []).findLastIndex((chunk) => chunk.type === 'tool_result');
+    const hasLaterText = lastTool >= 0 && (chunks || []).slice(lastTool + 1).some((chunk) => chunk.type === 'text' && String(chunk.text || '').trim());
+    if (!hasLaterText) return { pass: false, layer: 'structural', reason: 'Behavior produced no final text after the last tool result' };
+  }
+  return null;
 }
 
 function deriveOutcome(execution, structural, judge, optional, execFailed) {
@@ -122,4 +173,5 @@ module.exports = {
   validateExecution,
   validateStructural,
   deriveOutcome,
+  validateBehavior,
 };

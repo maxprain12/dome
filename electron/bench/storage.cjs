@@ -11,8 +11,8 @@ function formatRunId(date = new Date()) {
   return date.toISOString().replace(/:/g, '-').replace(/\.\d{3}Z$/, 'Z');
 }
 
-function createRunDir(runId) {
-  const dir = path.join(getRepoRoot(), 'docs/bench/runs', runId);
+function createRunDir(runId, outputRoot = null) {
+  const dir = outputRoot ? path.resolve(outputRoot, runId) : path.join(getRepoRoot(), 'docs/bench/runs', runId);
   fs.mkdirSync(path.join(dir, 'cases'), { recursive: true });
   return dir;
 }

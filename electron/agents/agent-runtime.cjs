@@ -114,6 +114,7 @@ function usageToLegacyChunk(usage) {
     inputTokens: usage.input ?? 0,
     outputTokens: usage.output ?? 0,
     totalTokens: usage.totalTokens ?? (usage.input ?? 0) + (usage.output ?? 0),
+    costUsd: usage.cost?.total ?? null,
   };
 }
 

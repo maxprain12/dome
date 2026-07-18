@@ -1,0 +1,24 @@
+{
+  "id": "behavior.bounded_tool_use",
+  "category": "behavior",
+  "tool": "get_current_project",
+  "mode": "direct",
+  "prompt": "Identifica el proyecto activo y responde sin repetir acciones ya completadas.",
+  "expected_tools": ["get_current_project"],
+  "forbidden_tools": ["shell_exec", "glob", "file_read", "file_write", "project_list"],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": { "min_length": 20 },
+  "behavior": {
+    "max_tool_calls": 2,
+    "max_attempts_per_tool": 1,
+    "max_turns": 3,
+    "require_tool_result": true,
+    "require_text_after_last_tool": true
+  },
+  "judge_criteria": "Debe consultar una vez el proyecto activo y finalizar con una respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

@@ -5,6 +5,7 @@
  */
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 const { loadDotenv } = require('./load-env.cjs');
 loadDotenv();
@@ -40,6 +41,15 @@ const runEngine = require('../agents/run-engine.cjs');
 
 async function main() {
   const args = parseBenchArgs(process.argv.slice(2));
+  const experimentManifest = args.experimentManifest
+    ? JSON.parse(fs.readFileSync(path.resolve(args.experimentManifest), 'utf8'))
+    : null;
+  const caseIds = args.casesFile
+    ? JSON.parse(fs.readFileSync(path.resolve(args.casesFile), 'utf8'))
+    : null;
+  if (caseIds && !Array.isArray(caseIds)) {
+    throw new Error('--cases-file must contain a JSON array of case ids');
+  }
   console.log('[Bench] userData:', benchUserData);
   console.log('[Bench] provider:', args.provider, 'model:', args.model);
 
@@ -65,6 +75,7 @@ async function main() {
     grep: args.grep,
     categories: args.categories,
     caseId: args.caseId,
+    caseIds,
     modeFilter: args.mode === 'both' ? null : args.mode,
   });
   cases = expandCasesForMode(cases, args.mode);
@@ -85,8 +96,8 @@ async function main() {
 
   console.log(`[Bench] Running ${cases.length} case(s)...`);
 
-  const runId = formatRunId();
-  const runDir = createRunDir(runId);
+  const runId = args.runId || formatRunId();
+  const runDir = createRunDir(runId, args.outputDir);
   const { PROMPT_VERSION } = require('./bench-prompt.cjs');
   const manifest = {
     runId,
@@ -102,6 +113,8 @@ async function main() {
     gitSha: tryGitSha(),
     promptVersion: PROMPT_VERSION,
     caseCount: cases.length,
+    experimentId: experimentManifest?.id || null,
+    experimentManifestHash: experimentManifest?.manifestHash || null,
   };
   writeManifest(runDir, manifest);
 
