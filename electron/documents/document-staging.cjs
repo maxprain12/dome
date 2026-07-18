@@ -100,9 +100,9 @@ async function validateStaging(stagingId, type) {
   if (!stagingPath) return { ok: false, error: 'Staging file not found' };
 
   try {
-    if (type === 'excel') return validateExcelStaging(stagingPath);
-    if (type === 'document') return validateDocumentStaging(stagingPath);
-    if (type === 'ppt') return validatePptStaging(stagingPath);
+    if (type === 'excel') return await validateExcelStaging(stagingPath);
+    if (type === 'document') return await validateDocumentStaging(stagingPath);
+    if (type === 'ppt') return await validatePptStaging(stagingPath);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err?.message || 'Validation failed' };

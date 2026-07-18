@@ -72,7 +72,7 @@ function formulaResultToPrimitive(r) {
   if (r == null) return '';
   if (isPrimitiveValue(r) || r instanceof Date) return r;
   // Formula error objects like { error: '#REF!' }
-  if (typeof r === 'object' && r !== null && r.error) return r.error;
+  if (typeof r === 'object' && r.error) return r.error;
   return '';
 }
 
@@ -151,7 +151,6 @@ function worksheetToAoa(worksheet, opts = {}) {
  */
 function serializeCellForJson(v) {
   if (v instanceof Date) return v.toISOString();
-  if (v === null || v === undefined) return '';
   return v;
 }
 

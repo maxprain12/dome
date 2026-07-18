@@ -237,7 +237,7 @@ function mapMessageRow(row) {
     to,
     cc,
     date: row.date_ms != null ? new Date(row.date_ms).toISOString() : null,
-    flags: Array.isArray(flags) ? flags : flags,
+    flags,
     snippet: row.snippet,
     has_attachments: Boolean(row.has_attachments),
     message_id: row.message_id,

@@ -32,7 +32,6 @@ const STATIC_MODEL_INPUT = {
   'kimi-k2.5': ['text', 'image'],
   'kimi-k2.6': ['text', 'image'],
   'kimi-k2.7-code': ['text'],
-  'minimax-m3': ['text', 'image'],
   'qwen3.6-plus': ['text', 'image'],
   'qwen3.7-plus': ['text', 'image'],
   'mimo-v2.5': ['text', 'image'],
