@@ -72,6 +72,272 @@ const DELETE_IMPACT_ORDER = [
   'workflowFolders',
 ] as const;
 
+type KbOverride = 'inherit' | 'enabled' | 'disabled';
+
+async function loadKbOverridesForProjects(projects: Project[]): Promise<Record<string, KbOverride>> {
+  if (!window.electron?.kbllm?.getProjectOverride) return {};
+  const overrides: Record<string, KbOverride> = {};
+  for (const project of projects) {
+    try {
+      const result = await window.electron.kbllm.getProjectOverride(project.id);
+      const raw =
+        result &&
+        typeof result === 'object' &&
+        'success' in result &&
+        result.success &&
+        result.data &&
+        typeof result.data === 'object' &&
+        'override' in result.data
+          ? (result.data as { override?: string }).override
+          : 'inherit';
+      overrides[project.id] = raw === 'enabled' || raw === 'disabled' ? raw : 'inherit';
+    } catch {
+      overrides[project.id] = 'inherit';
+    }
+  }
+  return overrides;
+}
+
+async function getStudioCountForProject(projectId: string): Promise<number> {
+  if (!window.electron?.db?.studio?.getByProject) return 0;
+  const studioResult = await window.electron.db.studio.getByProject(projectId);
+  return studioResult?.success && Array.isArray(studioResult.data) ? studioResult.data.length : 0;
+}
+
+async function getDueFlashcardCount(
+  projectId: string,
+  decks: Array<{ project_id: string; id: string }>,
+): Promise<number> {
+  const scopedDecks = decks.filter((deck) => deck.project_id === projectId);
+  if (!window.electron?.db?.flashcards?.getStats || scopedDecks.length === 0) return 0;
+  const deckStats = await Promise.all(
+    scopedDecks.map((deck) => window.electron.db.flashcards.getStats(deck.id)),
+  );
+  return deckStats.reduce((sum, result) => {
+    if (!result?.success || !result.data) return sum;
+    return sum + Number(result.data.due_cards || 0) + Number(result.data.new_cards || 0);
+  }, 0);
+}
+
+async function resolveDefaultProjectAfterDelete(): Promise<Project | null> {
+  const projectsResult = await db.getProjects();
+  return projectsResult.data?.find((project) => project.id === 'default') ?? null;
+}
+
+type CreateProjectDialogProps = {
+  open: boolean;
+  creating: boolean;
+  name: string;
+  description: string;
+  vaultRoot: string;
+  onOpenChange: (open: boolean) => void;
+  onNameChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onVaultRootChange: (value: string) => void;
+  onReset: () => void;
+  onSubmit: () => void;
+};
+
+function CreateProjectDialog({
+  open,
+  creating,
+  name,
+  description,
+  vaultRoot,
+  onOpenChange,
+  onNameChange,
+  onDescriptionChange,
+  onVaultRootChange,
+  onReset,
+  onSubmit,
+}: CreateProjectDialogProps) {
+  const { t } = useTranslation();
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onReset(); else onOpenChange(true); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('projects.new_project')}</DialogTitle>
+          <DialogDescription>{t('projects.new_project_desc')}</DialogDescription>
+        </DialogHeader>
+        <form className="contents" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="new-project-name">{t('projects.project_name')}</FieldLabel>
+              <Input id="new-project-name" value={name} onChange={(event) => onNameChange(event.target.value)} placeholder={t('projects.project_name_placeholder')} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-project-description">{t('projects.brief_description')}</FieldLabel>
+              <Textarea id="new-project-description" value={description} onChange={(event) => onDescriptionChange(event.target.value)} placeholder={t('projects.brief_description_placeholder')} />
+            </Field>
+            <Field>
+              <FieldLabel>{t('projects.vault_folder_label')}</FieldLabel>
+              <FieldDescription className="truncate">{vaultRoot || t('projects.vault_default_hint')}</FieldDescription>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={async () => { const dir = await window.electron?.selectFolder?.(); if (dir) onVaultRootChange(dir); }}>
+                  <HugeiconsIcon icon={Folder01Icon} data-icon="inline-start" />
+                  {vaultRoot ? t('projects.vault_change_folder') : t('projects.choose_vault_folder')}
+                </Button>
+                {vaultRoot ? <Button type="button" variant="ghost" onClick={() => onVaultRootChange('')}>{t('projects.vault_use_default')}</Button> : null}
+              </div>
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onReset}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={creating} disabled={!name.trim()}>{t('projects.create_project')}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type EditProjectDialogProps = {
+  target: Project | null;
+  name: string;
+  description: string;
+  submitting: boolean;
+  onClose: () => void;
+  onNameChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onSubmit: () => void;
+};
+
+function EditProjectDialog({
+  target,
+  name,
+  description,
+  submitting,
+  onClose,
+  onNameChange,
+  onDescriptionChange,
+  onSubmit,
+}: EditProjectDialogProps) {
+  const { t } = useTranslation();
+
+  return (
+    <Dialog open={Boolean(target)} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('common.edit', 'Editar')} {target?.name}</DialogTitle>
+          <DialogDescription>{t('projects.new_project_desc')}</DialogDescription>
+        </DialogHeader>
+        <form className="contents" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="edit-project-name">{t('projects.project_name')}</FieldLabel>
+              <Input id="edit-project-name" value={name} onChange={(event) => onNameChange(event.target.value)} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-project-description">{t('projects.brief_description')}</FieldLabel>
+              <Textarea id="edit-project-description" value={description} onChange={(event) => onDescriptionChange(event.target.value)} />
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={submitting} disabled={!name.trim()}>{t('common.save', 'Guardar')}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type DeleteProjectDialogProps = {
+  target: Project | null;
+  confirmName: string;
+  impact: Record<string, number> | null;
+  impactLoading: boolean;
+  submitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirmNameChange: (value: string) => void;
+  onDelete: () => void;
+};
+
+function DeleteProjectDialog({
+  target,
+  confirmName,
+  impact,
+  impactLoading,
+  submitting,
+  onOpenChange,
+  onConfirmNameChange,
+  onDelete,
+}: DeleteProjectDialogProps) {
+  const { t } = useTranslation();
+
+  return (
+    <AlertDialog open={Boolean(target)} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('projects.delete_critical_title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('projects.delete_critical_warning')} <strong>{target?.name}</strong></AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="rounded-2xl border border-dashed p-3 text-sm text-muted-foreground">
+          {impactLoading ? <Skeleton className="h-16" /> : (
+            <ul className="flex flex-col gap-1">
+              {DELETE_IMPACT_ORDER.map((key) => {
+                const count = impact?.[key] ?? 0;
+                return count > 0 ? <li key={key}>{t(`projects.delete_impact_${key}` as 'projects.delete_impact_resources')}: <span className="tabular-nums">{count}</span></li> : null;
+              })}
+            </ul>
+          )}
+        </div>
+        <Field data-invalid={Boolean(confirmName && confirmName !== target?.name)}>
+          <FieldLabel htmlFor="delete-project-confirm-input">{t('projects.delete_confirm_prompt')}</FieldLabel>
+          <Input id="delete-project-confirm-input" value={confirmName} onChange={(event) => onConfirmNameChange(event.target.value)} placeholder={t('projects.delete_confirm_placeholder')} autoComplete="off" />
+          {confirmName && confirmName !== target?.name ? <FieldDescription>{t('projects.delete_confirm_mismatch')}</FieldDescription> : null}
+        </Field>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={submitting}>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" loading={submitting} disabled={impactLoading || confirmName !== target?.name} onClick={onDelete}>
+            {t('projects.delete_execute')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+type BulkDeleteProjectsDialogProps = {
+  open: boolean;
+  projects: Project[];
+  selectedIds: Set<string>;
+  submitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDelete: () => void;
+};
+
+function BulkDeleteProjectsDialog({
+  open,
+  projects,
+  selectedIds,
+  submitting,
+  onOpenChange,
+  onDelete,
+}: BulkDeleteProjectsDialogProps) {
+  const { t } = useTranslation();
+  const selectedProjects = projects.filter((project) => selectedIds.has(project.id) && project.id !== 'default');
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('projects.delete_critical_title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('projects.delete_critical_warning')}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+          {selectedProjects.map((project) => <Badge key={project.id} variant="outline">{project.name}</Badge>)}
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={submitting}>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" loading={submitting} onClick={onDelete}>{t('projects.delete_execute')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function ProjectsDashboard({
   currentProject,
   onSelectProject,
@@ -129,43 +395,14 @@ export default function ProjectsDashboard({
       const nextResources = resourcesResult?.success && resourcesResult.data ? resourcesResult.data : [];
       setProjects(nextProjects);
       setResources(nextResources);
-
-      if (window.electron?.kbllm?.getProjectOverride) {
-        const ov: Record<string, 'inherit' | 'enabled' | 'disabled'> = {};
-        for (const p of nextProjects) {
-          try {
-            const r = await window.electron.kbllm.getProjectOverride(p.id);
-            const o = r && typeof r === 'object' && 'success' in r && r.success && r.data && typeof r.data === 'object' && 'override' in r.data
-              ? (r.data as { override?: string }).override
-              : 'inherit';
-            ov[p.id] = o === 'enabled' || o === 'disabled' ? o : 'inherit';
-          } catch {
-            ov[p.id] = 'inherit';
-          }
-        }
-        setKbOverrides(ov);
-      }
+      setKbOverrides(await loadKbOverridesForProjects(nextProjects));
 
       const scopedResources = nextResources.filter((resource: Resource) => resource.project_id === scopedProjectId);
-
-      let studioCount = 0;
-      if (window.electron?.db?.studio?.getByProject) {
-        const studioResult = await window.electron.db.studio.getByProject(scopedProjectId);
-        studioCount = studioResult?.success && Array.isArray(studioResult.data) ? studioResult.data.length : 0;
-      }
-
-      let dueFlashcards = 0;
       const decks = decksResult?.success && Array.isArray(decksResult.data) ? decksResult.data : [];
-      const scopedDecks = decks.filter((deck: { project_id: string }) => deck.project_id === scopedProjectId);
-      if (window.electron?.db?.flashcards?.getStats) {
-        const deckStats = await Promise.all(
-          scopedDecks.map((deck: { id: string }) => window.electron.db.flashcards.getStats(deck.id)),
-        );
-        dueFlashcards = deckStats.reduce((sum, result) => {
-          if (!result?.success || !result.data) return sum;
-          return sum + Number(result.data.due_cards || 0) + Number(result.data.new_cards || 0);
-        }, 0);
-      }
+      const [studioCount, dueFlashcards] = await Promise.all([
+        getStudioCountForProject(scopedProjectId),
+        getDueFlashcardCount(scopedProjectId, decks),
+      ]);
 
       const recentChats = chatsResult.success && Array.isArray(chatsResult.data) ? chatsResult.data.length : 0;
       const upcomingEvents = eventsResult?.success && Array.isArray(eventsResult.events) ? eventsResult.events.length : 0;
@@ -241,9 +478,7 @@ export default function ProjectsDashboard({
       setDeleteImpact(null);
       await loadProjects();
       if (currentProject?.id === deletedId) {
-        const pr = await db.getProjects();
-        const dome = pr.data?.find((p) => p.id === 'default') ?? null;
-        onSelectProject(dome);
+        onSelectProject(await resolveDefaultProjectAfterDelete());
       }
     } finally {
       setDeleteSubmitting(false);
@@ -273,9 +508,7 @@ export default function ProjectsDashboard({
       setBulkDeleteOpen(false);
       await loadProjects();
       if (currentWasDeleted) {
-        const pr = await db.getProjects();
-        const dome = pr.data?.find((p) => p.id === 'default') ?? null;
-        onSelectProject(dome);
+        onSelectProject(await resolveDefaultProjectAfterDelete());
       }
     } finally {
       setBulkDeleteSubmitting(false);
@@ -527,112 +760,50 @@ export default function ProjectsDashboard({
         </div>
       </main>
 
-      <Dialog open={showCreateForm} onOpenChange={(open) => { if (!open) resetCreateForm(); else setShowCreateForm(true); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('projects.new_project')}</DialogTitle>
-            <DialogDescription>{t('projects.new_project_desc')}</DialogDescription>
-          </DialogHeader>
-          <form className="contents" onSubmit={(event) => { event.preventDefault(); void handleCreateProject(); }}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="new-project-name">{t('projects.project_name')}</FieldLabel>
-                <Input id="new-project-name" value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder={t('projects.project_name_placeholder')} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="new-project-description">{t('projects.brief_description')}</FieldLabel>
-                <Textarea id="new-project-description" value={newProjectDescription} onChange={(event) => setNewProjectDescription(event.target.value)} placeholder={t('projects.brief_description_placeholder')} />
-              </Field>
-              <Field>
-                <FieldLabel>{t('projects.vault_folder_label')}</FieldLabel>
-                <FieldDescription className="truncate">{newProjectVaultRoot || t('projects.vault_default_hint')}</FieldDescription>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" onClick={async () => { const dir = await window.electron?.selectFolder?.(); if (dir) setNewProjectVaultRoot(dir); }}>
-                    <HugeiconsIcon icon={Folder01Icon} data-icon="inline-start" />
-                    {newProjectVaultRoot ? t('projects.vault_change_folder') : t('projects.choose_vault_folder')}
-                  </Button>
-                  {newProjectVaultRoot ? <Button type="button" variant="ghost" onClick={() => setNewProjectVaultRoot('')}>{t('projects.vault_use_default')}</Button> : null}
-                </div>
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={resetCreateForm}>{t('common.cancel')}</Button>
-              <Button type="submit" loading={creating} disabled={!newProjectName.trim()}>{t('projects.create_project')}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreateProjectDialog
+        open={showCreateForm}
+        creating={creating}
+        name={newProjectName}
+        description={newProjectDescription}
+        vaultRoot={newProjectVaultRoot}
+        onOpenChange={setShowCreateForm}
+        onNameChange={setNewProjectName}
+        onDescriptionChange={setNewProjectDescription}
+        onVaultRootChange={setNewProjectVaultRoot}
+        onReset={resetCreateForm}
+        onSubmit={() => { void handleCreateProject(); }}
+      />
 
-      <Dialog open={Boolean(editTarget)} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('common.edit', 'Editar')} {editTarget?.name}</DialogTitle>
-            <DialogDescription>{t('projects.new_project_desc')}</DialogDescription>
-          </DialogHeader>
-          <form className="contents" onSubmit={(event) => { event.preventDefault(); void handleEditProject(); }}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="edit-project-name">{t('projects.project_name')}</FieldLabel>
-                <Input id="edit-project-name" value={editProjectName} onChange={(event) => setEditProjectName(event.target.value)} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="edit-project-description">{t('projects.brief_description')}</FieldLabel>
-                <Textarea id="edit-project-description" value={editProjectDescription} onChange={(event) => setEditProjectDescription(event.target.value)} />
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
-              <Button type="submit" loading={editSubmitting} disabled={!editProjectName.trim()}>{t('common.save', 'Guardar')}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <EditProjectDialog
+        target={editTarget}
+        name={editProjectName}
+        description={editProjectDescription}
+        submitting={editSubmitting}
+        onClose={() => setEditTarget(null)}
+        onNameChange={setEditProjectName}
+        onDescriptionChange={setEditProjectDescription}
+        onSubmit={() => { void handleEditProject(); }}
+      />
 
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('projects.delete_critical_title')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('projects.delete_critical_warning')} <strong>{deleteTarget?.name}</strong></AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="rounded-2xl border border-dashed p-3 text-sm text-muted-foreground">
-            {deleteImpactLoading ? <Skeleton className="h-16" /> : (
-              <ul className="flex flex-col gap-1">
-                {DELETE_IMPACT_ORDER.map((key) => {
-                  const count = deleteImpact?.[key] ?? 0;
-                  return count > 0 ? <li key={key}>{t(`projects.delete_impact_${key}` as 'projects.delete_impact_resources')}: <span className="tabular-nums">{count}</span></li> : null;
-                })}
-              </ul>
-            )}
-          </div>
-          <Field data-invalid={Boolean(deleteConfirmName && deleteConfirmName !== deleteTarget?.name)}>
-            <FieldLabel htmlFor="delete-project-confirm-input">{t('projects.delete_confirm_prompt')}</FieldLabel>
-            <Input id="delete-project-confirm-input" value={deleteConfirmName} onChange={(event) => setDeleteConfirmName(event.target.value)} placeholder={t('projects.delete_confirm_placeholder')} autoComplete="off" />
-            {deleteConfirmName && deleteConfirmName !== deleteTarget?.name ? <FieldDescription>{t('projects.delete_confirm_mismatch')}</FieldDescription> : null}
-          </Field>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteSubmitting}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" loading={deleteSubmitting} disabled={deleteImpactLoading || deleteConfirmName !== deleteTarget?.name} onClick={() => void executeDeleteProject()}>
-              {t('projects.delete_execute')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteProjectDialog
+        target={deleteTarget}
+        confirmName={deleteConfirmName}
+        impact={deleteImpact}
+        impactLoading={deleteImpactLoading}
+        submitting={deleteSubmitting}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirmNameChange={setDeleteConfirmName}
+        onDelete={() => { void executeDeleteProject(); }}
+      />
 
-      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('projects.delete_critical_title')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('projects.delete_critical_warning')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
-            {projects.filter((project) => selectedIds.has(project.id) && project.id !== 'default').map((project) => <Badge key={project.id} variant="outline">{project.name}</Badge>)}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkDeleteSubmitting}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" loading={bulkDeleteSubmitting} onClick={() => void executeBulkDelete()}>{t('projects.delete_execute')}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <BulkDeleteProjectsDialog
+        open={bulkDeleteOpen}
+        projects={projects}
+        selectedIds={selectedIds}
+        submitting={bulkDeleteSubmitting}
+        onOpenChange={setBulkDeleteOpen}
+        onDelete={() => { void executeBulkDelete(); }}
+      />
     </>
   );
 }
