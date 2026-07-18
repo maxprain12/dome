@@ -486,7 +486,7 @@ async function transcribeFilePath(inputAbsolutePath, options) {
           text: s.text,
           speakerId: s.speaker,
         }));
-        const speakerIds = [...new Set(segments.map((s) => s.speakerId))].sort();
+        const speakerIds = [...new Set(segments.map((s) => s.speakerId))].sort((a, b) => a.localeCompare(b));
         speakers = {};
         speakerIds.forEach((id, i) => { speakers[id] = { label: `Speaker ${i + 1}` }; });
         diarization = 'real';

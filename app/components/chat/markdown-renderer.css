@@ -3,7 +3,6 @@
   align-items: center;
   gap: 3px;
   color: var(--primary);
-  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   background: color-mix(in srgb, var(--primary) 10%, transparent);
@@ -12,6 +11,7 @@
   padding: 1px 6px 1px 4px;
   font: inherit;
   font-size: 0.95em;
+  font-weight: 500;
 }
 
 .md-dome-link-icon {
