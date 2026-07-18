@@ -66,13 +66,14 @@ function installIpcCapture() {
 
 function sendJson(res, status, body) {
   let payload;
+  let responseStatus = status;
   try {
     payload = JSON.stringify(body);
   } catch {
     payload = JSON.stringify({ ok: false, error: 'Result is not JSON-serializable' });
-    status = 200;
+    responseStatus = 200;
   }
-  res.writeHead(status, {
+  res.writeHead(responseStatus, {
     'Content-Type': 'application/json',
     // Dev-only, localhost: allow the Vite-served renderer to call cross-origin.
     'Access-Control-Allow-Origin': '*',
