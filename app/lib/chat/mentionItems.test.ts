@@ -78,7 +78,7 @@ describe('sourceHitToMentionItem', () => {
     const item = sourceHitToMentionItem({
       kind: 'issue',
       id: 'iss-1',
-      title: '#450 Mejoras',
+      title: 'Issue 450 Mejoras',
       meta: { state: 'open', fullName: 'acme/dome' },
     });
     expect(item.kind).toBe('issue');

@@ -36,7 +36,8 @@ function walk(dir, out = []) {
     if (entry.isDirectory()) {
       if (entry.name === 'vendor') continue;
       walk(full, out);
-    } else if (/\.(tsx?|css|scss)$/.test(entry.name)) {
+    } else if (/\.(tsx?|css|scss)$/.test(entry.name) && !/\.test\.[jt]sx?$/.test(entry.name)) {
+      // Skip unit tests — `#450` issue titles etc. are not palette colors.
       out.push(full);
     }
   }
