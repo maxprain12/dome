@@ -56,6 +56,9 @@ release/
 # Agent benchmark runs (local traces)
 docs/bench/runs/
 
+# Self-Harness local experiments, traces, and temporary state
+.dome-self-harness/
+
 # Local reference repos (pi) and long-running task spec
 /pi/
 /longrunning-task/

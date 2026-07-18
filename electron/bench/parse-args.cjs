@@ -11,6 +11,10 @@ const VALUE_ARG_HANDLERS = new Map([
   ['--case', (args, value) => { args.caseId = value; }],
   ['--concurrency', (args, value) => { args.concurrency = Math.max(1, Number(value) || 1); }],
   ['--timeout-ms', (args, value) => { args.timeoutMs = Math.max(5000, Number(value) || 60000); }],
+  ['--cases-file', (args, value) => { args.casesFile = value; }],
+  ['--output-dir', (args, value) => { args.outputDir = value; }],
+  ['--run-id', (args, value) => { args.runId = value; }],
+  ['--experiment-manifest', (args, value) => { args.experimentManifest = value; }],
 ]);
 
 const BOOLEAN_ARG_PROPERTIES = new Map([
@@ -39,6 +43,10 @@ function parseBenchArgs(argv = process.argv.slice(2)) {
     seedOnly: false,
     dryRun: false,
     compare: false,
+    casesFile: null,
+    outputDir: null,
+    runId: null,
+    experimentManifest: null,
   };
 
   for (let i = 0; i < argv.length; i++) {

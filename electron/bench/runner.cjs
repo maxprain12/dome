@@ -43,7 +43,7 @@ function caseMatchesGrep(c, grep) {
   return caseMatchesPart(c, g);
 }
 
-function loadCaseFiles({ grep, caseId, modeFilter, categories }) {
+function loadCaseFiles({ grep, caseId, modeFilter, categories, caseIds }) {
   if (!fs.existsSync(CASES_DIR)) return [];
 
   const files = [];
@@ -62,6 +62,10 @@ function loadCaseFiles({ grep, caseId, modeFilter, categories }) {
   });
 
   if (caseId) cases = cases.filter((c) => c.id === caseId);
+  if (caseIds?.length) {
+    const selected = new Set(caseIds);
+    cases = cases.filter((c) => selected.has(c.id));
+  }
   if (categories?.length) {
     const cats = new Set(categories.map((x) => String(x).toLowerCase().trim()).filter(Boolean));
     cases = cases.filter((c) => cats.has((c.category || '').toLowerCase()));
@@ -119,6 +123,7 @@ function extractUsage(chunks) {
         inputTokens: (usage?.inputTokens || 0) + (c.usage.inputTokens || 0),
         outputTokens: (usage?.outputTokens || 0) + (c.usage.outputTokens || 0),
         totalTokens: (usage?.totalTokens || 0) + (c.usage.totalTokens || 0),
+        costUsd: (usage?.costUsd || 0) + (c.usage.costUsd || 0),
       };
     }
   }
@@ -317,6 +322,8 @@ async function runSingleCase(caseDef, opts) {
     toolsCalled,
     finalText,
     outputShape: caseDef.output_shape || null,
+    behavior: caseDef.behavior || null,
+    chunks,
   });
 
   let judge = { skipped: true };
@@ -358,6 +365,7 @@ async function runSingleCase(caseDef, opts) {
     finalText: finalText.slice(0, 50000),
     toolsCalled,
     expectedTools: caseDef.expected_tools || [],
+    behavior: caseDef.behavior || null,
     usage,
     error,
     validation: { execution, structural, judge },

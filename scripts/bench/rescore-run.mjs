@@ -71,6 +71,8 @@ function main() {
       forbiddenTools: def.forbidden_tools || [],
       toolsCalled,
       finalText: r.finalText || '',
+      behavior: r.behavior || null,
+      chunks: r.chunks || [],
       outputShape: def.output_shape || null,
     });
     let judge = r.validation?.judge || { skipped: true };

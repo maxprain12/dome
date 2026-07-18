@@ -1,0 +1,24 @@
+{
+  "id": "behavior.verify_before_finalize",
+  "category": "behavior",
+  "tool": "resource_get",
+  "mode": "direct",
+  "prompt": "Lee bench-note-thermo, confirma el dato principal observado y solo después finaliza.",
+  "expected_tools": ["resource_get"],
+  "forbidden_tools": ["shell_exec", "glob", "file_read", "file_write", "resource_search", "resource_create"],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": ["bench-note-thermo"],
+  "output_shape": { "min_length": 20 },
+  "behavior": {
+    "max_tool_calls": 2,
+    "max_attempts_per_tool": 1,
+    "max_turns": 3,
+    "require_tool_result": true,
+    "require_text_after_last_tool": true
+  },
+  "judge_criteria": "Debe basar la respuesta final en el resultado real de resource_get.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}
