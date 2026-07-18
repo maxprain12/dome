@@ -52,6 +52,8 @@ function PaginationLink({
       className={cn(className)}
       nativeButton={false}
       render={
+        // Content is provided via Button children; Base UI merges them into the anchor.
+        // eslint-disable-next-line jsx-a11y/anchor-has-content -- shadcn PaginationLink
         <a
           aria-current={isActive ? "page" : undefined}
           data-slot="pagination-link"

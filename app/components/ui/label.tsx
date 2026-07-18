@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils"
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
+    // Callers associate via `htmlFor` / wrapping; the primitive itself has no control.
+    // eslint-disable-next-line jsx-a11y/label-has-associated-control -- shadcn Label primitive
     <label
       data-slot="label"
       className={cn(

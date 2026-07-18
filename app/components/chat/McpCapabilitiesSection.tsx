@@ -169,51 +169,47 @@ export default function McpCapabilitiesSection({
                   {tools.map((tool) => {
                     const toolId = tool.id || tool.name;
                     return (
-                      <label
+                      <div
                         key={toolId}
-                        className="block cursor-pointer"
+                        className="flex items-start justify-between gap-2.5 rounded-xl border border-transparent bg-muted p-2.5 transition-colors hover:border-border"
                       >
-                        <div
-                          className="flex items-start justify-between gap-2.5 rounded-xl border border-transparent bg-muted p-2.5 transition-colors hover:border-border"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div
-                              className="truncate text-[12px] font-medium text-foreground"
-                              title={tool.name}
-                            >
-                              {tool.name}
-                            </div>
-                            {tool.description ? (
-                              <p
-                                className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground"
-                                title={tool.description}
-                              >
-                                {tool.description}
-                              </p>
-                            ) : null}
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="truncate text-[12px] font-medium text-foreground"
+                            title={tool.name}
+                          >
+                            {tool.name}
                           </div>
-                          <Checkbox
-                            className="mt-0.5 shrink-0"
-                            aria-label={tool.name}
-                            checked={tool.enabled !== false}
-                            disabled={isSaving}
-                            onCheckedChange={(checked) =>
-                              persistServers(
-                                servers.map((currentServer) =>
-                                  currentServer.name === server.name
-                                    ? toggleGlobalMcpTool(
-                                        currentServer,
-                                        toolId,
-                                        checked === true
-                                      )
-                                    : currentServer
-                                ),
-                                server.name
-                              )
-                            }
-                          />
+                          {tool.description ? (
+                            <p
+                              className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground"
+                              title={tool.description}
+                            >
+                              {tool.description}
+                            </p>
+                          ) : null}
                         </div>
-                      </label>
+                        <Checkbox
+                          className="mt-0.5 shrink-0"
+                          aria-label={tool.name}
+                          checked={tool.enabled !== false}
+                          disabled={isSaving}
+                          onCheckedChange={(checked) =>
+                            persistServers(
+                              servers.map((currentServer) =>
+                                currentServer.name === server.name
+                                  ? toggleGlobalMcpTool(
+                                      currentServer,
+                                      toolId,
+                                      checked === true
+                                    )
+                                  : currentServer
+                              ),
+                              server.name
+                            )
+                          }
+                        />
+                      </div>
                     );
                   })}
                 </div>

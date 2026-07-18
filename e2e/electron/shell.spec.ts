@@ -20,8 +20,9 @@ test('boots the isolated shell without exposing the user profile', async () => {
     const window = await app.firstWindow();
     await window.waitForLoadState('domcontentloaded');
     await expect(window.locator('#root')).toBeVisible();
-    await expect(window.getByRole('button', { name: /barra lateral/i })).toBeVisible();
-    await expect(window.getByRole('button', { name: 'Command' })).toBeVisible();
+    // i18n default may be es ("barra lateral") or en ("sidebar") depending on profile/locale.
+    await expect(window.getByRole('button', { name: /sidebar|barra lateral/i })).toBeVisible();
+    await expect(window.getByRole('button', { name: /command|comando/i })).toBeVisible();
 
     const chrome = await window.evaluate(() => {
       const header = document.querySelector<HTMLElement>('.dome-shell-header');

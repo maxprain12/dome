@@ -214,7 +214,6 @@ export function MailComposePanel({
                   ) : null}
                 </div>
                 <Input
-                  autoFocus
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   placeholder={t('email.to_placeholder')}
@@ -290,7 +289,6 @@ export function MailComposePanel({
           <Field className="flex min-h-0 flex-1 flex-col gap-1.5">
             <FieldLabel>{t('email.body')}</FieldLabel>
             <Textarea
-              autoFocus={mode === 'reply'}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder={t('email.body')}

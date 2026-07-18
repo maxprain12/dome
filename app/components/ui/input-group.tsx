@@ -49,6 +49,8 @@ function InputGroupAddon({
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
   return (
+    // Click-to-focus the sibling control is a mouse convenience; keyboard users tab to the input.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- shadcn InputGroup addon
     <div
       role="group"
       data-slot="input-group-addon"

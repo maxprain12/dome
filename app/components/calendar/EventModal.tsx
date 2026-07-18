@@ -755,7 +755,9 @@ export default function EventModal({
                 type="button"
                 variant="outline"
                 size="sm"
-                render={<a href={githubUrl} target="_blank" rel="noreferrer" />}
+                onClick={() => {
+                  void window.electron?.invoke?.('open-external-url', githubUrl);
+                }}
               >
                 <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
                 {t('github.calendar_view_on_github')}
