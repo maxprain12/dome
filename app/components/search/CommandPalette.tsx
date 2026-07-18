@@ -28,11 +28,15 @@ import { Command, CommandInput } from '@/components/ui/command';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
@@ -607,12 +611,12 @@ export default function CommandPalette() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addUrlOpen} onOpenChange={setAddUrlOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('command.add_url')}</DialogTitle>
-            <DialogDescription>{t('command.please_enter_url')}</DialogDescription>
-          </DialogHeader>
+      <AppModal open={addUrlOpen} onOpenChange={setAddUrlOpen}>
+        <AppModalContent size="md">
+          <AppModalHeader
+            title={t('command.add_url')}
+            description={t('command.please_enter_url')}
+          />
           <form
             className="contents"
             onSubmit={(event) => {
@@ -620,28 +624,30 @@ export default function CommandPalette() {
               void createUrlResource();
             }}
           >
-            <Field>
-              <FieldLabel htmlFor="command-add-url">URL</FieldLabel>
-              <Input
-                id="command-add-url"
-                type="url"
-                value={urlValue}
-                onChange={(event) => setUrlValue(event.target.value)}
-                placeholder="https://example.com"
-              />
-              <FieldDescription>{t('command.add_url')}</FieldDescription>
-            </Field>
-            <DialogFooter>
+            <AppModalBody>
+              <Field>
+                <FieldLabel htmlFor="command-add-url">URL</FieldLabel>
+                <Input
+                  id="command-add-url"
+                  type="url"
+                  value={urlValue}
+                  onChange={(event) => setUrlValue(event.target.value)}
+                  placeholder="https://example.com"
+                />
+                <FieldDescription>{t('command.add_url')}</FieldDescription>
+              </Field>
+            </AppModalBody>
+            <AppModalFooter>
               <Button type="button" variant="outline" onClick={() => setAddUrlOpen(false)}>
                 {t('common.cancel')}
               </Button>
               <Button type="submit" loading={urlSubmitting} disabled={!urlValue.trim()}>
                 {t('command.add_url')}
               </Button>
-            </DialogFooter>
+            </AppModalFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </AppModalContent>
+      </AppModal>
     </>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -14,10 +13,15 @@ import {
 } from '@hugeicons/core-free-icons';
 import { type Resource } from '@/types';
 import { formatDateFull, getResourceTypeLabel } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
-
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Input } from '@/components/ui/input';
+
 interface MetadataModalProps {
   resource: Resource;
   isOpen: boolean;
@@ -50,7 +54,6 @@ export default function MetadataModal({
   onClose,
   onSave,
 }: MetadataModalProps) {
-  const { t } = useTranslation();
   const [title, setTitle] = useState(resource.title);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -96,120 +99,123 @@ export default function MetadataModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">Resource Info</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <div className="flex flex-col gap-y-4">
-          <div>
-            <label htmlFor="metadata-title" className="block text-xs font-medium mb-1.5 text-muted-foreground">
-              Title
-            </label>
-            <Input
-              id="metadata-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <HugeiconsIcon icon={File02Icon} size={16} className="text-muted-foreground" />
+    <AppModal
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <AppModalContent size="md">
+        <AppModalHeader title="Resource Info" />
+        <AppModalBody>
+          <div className="flex flex-col gap-y-4">
             <div>
-              <p className="text-xs text-muted-foreground">
-                Type
-              </p>
-              <p className="text-sm font-medium text-foreground">
-                {getResourceTypeLabel(resource.type)}
-              </p>
+              <label htmlFor="metadata-title" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Title
+              </label>
+              <Input
+                id="metadata-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
-          </div>
 
-          {resource.file_size ? (
-            <div className="flex items-center gap-3">
-              <HugeiconsIcon icon={HardDriveIcon} size={16} className="text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  File Size
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {formatMetadataFileSize(resource.file_size)}
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          {resource.file_hash ? (
-            <div className="flex items-center gap-3">
-              <HugeiconsIcon icon={HashIcon} size={16} className="text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Hash
-                </p>
-                <p
-                  className="text-sm font-mono text-foreground"
-                >
-                  {resource.file_hash}
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          {resource.original_filename ? (
             <div className="flex items-center gap-3">
               <HugeiconsIcon icon={File02Icon} size={16} className="text-muted-foreground" />
               <div>
-                <p className="text-xs text-muted-foreground">
-                  Original Filename
-                </p>
-                <p className="text-sm text-foreground">
-                  {resource.original_filename}
+                <p className="text-xs text-muted-foreground">Type</p>
+                <p className="text-sm font-medium text-foreground">
+                  {getResourceTypeLabel(resource.type)}
                 </p>
               </div>
             </div>
-          ) : null}
 
-          <div className="flex items-center gap-3">
-            <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Created
-              </p>
-              <p className="text-sm text-foreground">
-                {formatMetadataDate(resource.created_at)}
-              </p>
+            {resource.file_size ? (
+              <div className="flex items-center gap-3">
+                <HugeiconsIcon icon={HardDriveIcon} size={16} className="text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">File Size</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {formatMetadataFileSize(resource.file_size)}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {resource.file_hash ? (
+              <div className="flex items-center gap-3">
+                <HugeiconsIcon icon={HashIcon} size={16} className="text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Hash</p>
+                  <p className="font-mono text-sm text-foreground">{resource.file_hash}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {resource.original_filename ? (
+              <div className="flex items-center gap-3">
+                <HugeiconsIcon icon={File02Icon} size={16} className="text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Original Filename</p>
+                  <p className="text-sm text-foreground">{resource.original_filename}</p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-3">
+              <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Created</p>
+                <p className="text-sm text-foreground">{formatMetadataDate(resource.created_at)}</p>
+              </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Modified</p>
+                <p className="text-sm text-foreground">{formatMetadataDate(resource.updated_at)}</p>
+              </div>
+            </div>
+
+            {resource.internal_path || resource.file_path ? (
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void handleOpenFile().catch(() => {});
+                  }}
+                  variant="outline"
+                  className="flex items-center gap-1.5"
+                >
+                  <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
+                  Open with default app
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void handleShowInFolder().catch(() => {});
+                  }}
+                  variant="outline"
+                  className="flex items-center gap-1.5"
+                >
+                  <HugeiconsIcon icon={FolderOpenIcon} size={14} />
+                  Show in Finder
+                </Button>
+              </div>
+            ) : null}
           </div>
-
-          <div className="flex items-center gap-3">
-            <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Modified
-              </p>
-              <p className="text-sm text-foreground">
-                {formatMetadataDate(resource.updated_at)}
-              </p>
-            </div>
-          </div>
-
-          {(resource.internal_path || resource.file_path) ? (
-            <div className="flex gap-2 pt-2">
-              <Button type="button" onClick={handleOpenFile} variant="secondary" className="flex items-center gap-1.5">
-                <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
-                Open with default app
-              </Button>
-              <Button type="button" onClick={handleShowInFolder} variant="secondary" className="flex items-center gap-1.5">
-                <HugeiconsIcon icon={FolderOpenIcon} size={14} />
-                Show in Finder
-              </Button>
-            </div>
-          ) : null}
-      </div>
-    </div><DialogFooter className="border-t px-4 py-3">{<>
-          <Button type="button" onClick={onClose} variant="ghost">
+        </AppModalBody>
+        <AppModalFooter>
+          <Button type="button" onClick={onClose} variant="outline">
             Cancel
           </Button>
           <Button
             type="button"
-            onClick={handleSave}
+            onClick={() => {
+              void handleSave().catch(() => {});
+            }}
             disabled={isSaving || title === resource.title}
             className="flex items-center gap-1.5"
           >
@@ -220,6 +226,8 @@ export default function MetadataModal({
             )}
             Save Changes
           </Button>
-        </>}</DialogFooter></DialogContent></Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

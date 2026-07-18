@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PencilIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
@@ -109,9 +115,10 @@ export default function DeckQuestionsTab({
       </ItemGroup>
 
       {editingId ? (
-        <Dialog open onOpenChange={(open) => { if (!open) setEditingId(null); }}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{t('learn.edit_question', 'Edit question')}</DialogTitle><DialogDescription>{t('learn.edit_question_description', 'Update the study content without changing its review history.')}</DialogDescription></DialogHeader>
+        <AppModal open onOpenChange={(open) => { if (!open) setEditingId(null); }}>
+          <AppModalContent size="sm">
+            <AppModalHeader title={t('learn.edit_question', 'Edit question')} description={t('learn.edit_question_description', 'Update the study content without changing its review history.')} />
+            <AppModalBody>
             <FieldGroup>
               <Field><FieldLabel htmlFor="learn-question">{t('flashcard.question', 'Question')}</FieldLabel><Textarea id="learn-question"
                   value={draftQuestion}
@@ -124,7 +131,8 @@ export default function DeckQuestionsTab({
                   /></Field>
               ) : null}
             </FieldGroup>
-            <DialogFooter>
+            </AppModalBody>
+            <AppModalFooter>
                 <Button type="button" variant="outline" onClick={() => setEditingId(null)}>
                   {t('learn.cancel', 'Cancel')}
                 </Button>
@@ -135,9 +143,9 @@ export default function DeckQuestionsTab({
                 >
                   {saving ? <Spinner data-icon="inline-start" /> : null}{t('ui.save', 'Save')}
                 </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </AppModalFooter>
+          </AppModalContent>
+        </AppModal>
       ) : null}
     </div>
   );

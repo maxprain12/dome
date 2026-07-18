@@ -21,17 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectG
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,6 +71,7 @@ export default function StageConfigModal({
   const [extraAgents, setExtraAgents] = useState<ExecutorOption[]>([]);
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
   const macroScrollRef = useRef<HTMLDivElement>(null);
   useHorizontalScroll(macroScrollRef);
@@ -182,6 +173,7 @@ export default function StageConfigModal({
   }
 
   return (
+    <>
     <InlineDetailCard
       onClose={onClose}
       title={t('pipelines.configure')}
@@ -189,22 +181,14 @@ export default function StageConfigModal({
       containerName="pipeline-stage"
       footer={
         <>
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" />}>
-              <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
-              {t('pipelines.delete')}
-            </AlertDialogTrigger>
-            <AlertDialogContent size="sm">
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
-                <AlertDialogDescription>{stage.title}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+            {t('pipelines.delete')}
+          </Button>
           <div className="flex-1" />
           <Button onClick={() => void save()} disabled={saving}>
             {saving ? t('pipelines.saving') : t('pipelines.save')}
@@ -343,5 +327,19 @@ export default function StageConfigModal({
         </Field>
       </div>
     </InlineDetailCard>
+    <ConfirmDialog
+      isOpen={confirmDelete}
+      title={t('pipelines.delete')}
+      message={stage.title}
+      confirmLabel={t('pipelines.delete')}
+      cancelLabel={t('pipelines.cancel')}
+      variant="danger"
+      onConfirm={() => {
+        void onDelete();
+        setConfirmDelete(false);
+      }}
+      onCancel={() => setConfirmDelete(false)}
+    />
+    </>
   );
 }

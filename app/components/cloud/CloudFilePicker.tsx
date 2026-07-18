@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -176,9 +182,13 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
   };
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="flex h-[min(80vh,560px)] max-w-3xl flex-col overflow-hidden">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><HugeiconsIcon icon={CloudIcon} />{t('cloud.import_title', 'Import from Cloud')}</DialogTitle><DialogDescription>{t('cloud.import_description', 'Browse a connected account and import compatible documents into Dome.')}</DialogDescription></DialogHeader>
+    <AppModal open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <AppModalContent size="xl" className="h-[min(80vh,560px)] sm:max-w-3xl">
+        <AppModalHeader
+          title={t('cloud.import_title', 'Import from Cloud')}
+          description={t('cloud.import_description', 'Browse a connected account and import compatible documents into Dome.')}
+        />
+        <AppModalBody className="flex flex-col gap-0 p-0">
 
         {/* Account selector (if multiple) */}
         {accounts.length > 1 && (
@@ -318,22 +328,20 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                 </ItemGroup>
               )}
             </div>
-
-            {/* Footer */}
-            <DialogFooter className="items-center sm:justify-between">
-              <span className="text-xs text-muted-foreground">
-                {selectedAccount.email} · {files.filter((f) => !f.isFolder).length} archivos
-              </span>
-              <Button type="button"
-  variant="secondary"
-  onClick={onClose}
-  size="sm">
-                Cerrar
-              </Button>
-            </DialogFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+        </AppModalBody>
+        <AppModalFooter className="sm:justify-between">
+          <span className="text-xs text-muted-foreground">
+            {selectedAccount
+              ? `${selectedAccount.email} · ${files.filter((f) => !f.isFolder).length} archivos`
+              : null}
+          </span>
+          <Button type="button" variant="outline" onClick={onClose} size="sm">
+            Cerrar
+          </Button>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

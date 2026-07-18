@@ -19,7 +19,13 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { type Resource } from '@/types';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 function getTypeIcon(type: string, size = 14) {
   const props = { size, className: 'shrink-0' };
   switch (type) {
@@ -339,8 +345,12 @@ export default function GenerateSourceModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{titleOverride ??
-        t('studio.generate_title', { tileTitle })}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    <AppModal open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <AppModalContent size="xl">
+        <AppModalHeader
+          title={titleOverride ?? t('studio.generate_title', { tileTitle })}
+        />
+        <AppModalBody>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           {descriptionOverride ??
@@ -380,11 +390,13 @@ export default function GenerateSourceModal({
           )}
         </div>
       </div>
-    </div><DialogFooter className="border-t px-4 py-3">{<>
+        </AppModalBody>
+        <AppModalFooter>
           <Button
             type="button"
             onClick={onClose}
-            variant="ghost" className="min-h-[44px] px-4"
+            variant="outline"
+            className="min-h-[44px] px-4"
           >
             {t('common.cancel')}
           </Button>
@@ -396,6 +408,8 @@ export default function GenerateSourceModal({
           >
             {t('learn.generate')}
           </Button>
-        </>}</DialogFooter></DialogContent></Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

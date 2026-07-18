@@ -4,13 +4,12 @@ import { useTranslation } from 'react-i18next';
 import type { CreateSourceInput, PipelineStage, SourceType } from '@/lib/pipelines/types';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -60,12 +59,10 @@ export default function SourceConfigModal({ stages, onClose, onCreate }: Props) 
     t(`pipelines.source_${s === 'internal_resources' ? 'internal' : s}`);
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('pipelines.add_source')}</DialogTitle>
-          <DialogDescription>{t('pipelines.source_type')}</DialogDescription>
-        </DialogHeader>
+    <AppModal open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <AppModalContent size="sm">
+        <AppModalHeader title={t('pipelines.add_source')} description={t('pipelines.source_type')} />
+        <AppModalBody>
       <div className="flex flex-col gap-3">
         <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.source_type')}</FieldLabel><Select value={sourceType ?? null} onValueChange={(next) => { if (next != null) (setSourceType)(next); }} items={SOURCE_TYPES.map((s) => ({ value: s, label: label(s) }))}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{(SOURCE_TYPES.map((s) => ({ value: s, label: label(s) }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
 
@@ -109,15 +106,16 @@ export default function SourceConfigModal({ stages, onClose, onCreate }: Props) 
           </div>
         )}
       </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
+        </AppModalBody>
+        <AppModalFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('pipelines.cancel')}
           </Button>
           <Button onClick={() => void save()} disabled={saving}>
             {saving ? t('pipelines.saving') : t('pipelines.create')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }

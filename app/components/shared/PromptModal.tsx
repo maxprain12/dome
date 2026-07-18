@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { SentIcon } from '@hugeicons/core-free-icons';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
 
@@ -36,43 +36,39 @@ export default function PromptModal() {
   };
 
   return (
-    <Dialog
+    <AppModal
       open={isOpen}
       onOpenChange={(open) => {
         if (!open) handleCancel();
       }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('promptModal.input')}</DialogTitle>
-        </DialogHeader>
-        <form id="prompt-modal-form" onSubmit={onSubmit}>
-          <Field>
-          <FieldLabel htmlFor="prompt-modal-input">
-            {message}
-          </FieldLabel>
-          <Input
-            id="prompt-modal-input"
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={t('promptModal.typeHere')}
-          />
-          </Field>
+      <AppModalContent size="md">
+        <AppModalHeader title={t('promptModal.input')} />
+        <form id="prompt-modal-form" onSubmit={onSubmit} className="contents">
+          <AppModalBody>
+            <Field>
+              <FieldLabel htmlFor="prompt-modal-input">{message}</FieldLabel>
+              <Input
+                id="prompt-modal-input"
+                ref={inputRef}
+                type="text"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={t('promptModal.typeHere')}
+              />
+            </Field>
+          </AppModalBody>
+          <AppModalFooter>
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              {t('promptModal.cancel')}
+            </Button>
+            <Button type="submit" form="prompt-modal-form">
+              <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />
+              {t('promptModal.accept')}
+            </Button>
+          </AppModalFooter>
         </form>
-        <DialogFooter>
-          <Button type="button"
-  variant="secondary"
-  onClick={handleCancel}>
-            {t('promptModal.cancel')}
-          </Button>
-          <Button type="submit"
-  form="prompt-modal-form"><HugeiconsIcon icon={SentIcon} data-icon="inline-start" />
-            {t('promptModal.accept')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AppModalContent>
+    </AppModal>
   );
 }

@@ -7,10 +7,16 @@ import { showToast } from '@/lib/store/useToastStore';
 import type { FlashcardDeck } from '@/types';
 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -161,18 +167,28 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
 
   if (isLoading) {
     return (
-      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent aria-busy="true"><DialogHeader><DialogTitle>{t('flashcard.edit_deck', 'Edit deck')}</DialogTitle><DialogDescription>{t('ui.loading', 'Loading')}</DialogDescription></DialogHeader><div className="flex justify-center py-12"><Spinner aria-label={t('ui.loading', 'Loading')} /></div>
-        </DialogContent>
-      </Dialog>
+      <AppModal open onOpenChange={(open) => { if (!open) onClose(); }}>
+        <AppModalContent size="xl" aria-busy>
+          <AppModalHeader title={t('flashcard.edit_deck', 'Edit deck')} description={t('ui.loading', 'Loading')} />
+          <AppModalBody>
+            <div className="flex justify-center py-12">
+              <Spinner aria-label={t('ui.loading', 'Loading')} />
+            </div>
+          </AppModalBody>
+        </AppModalContent>
+      </AppModal>
     );
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-hidden sm:max-w-3xl">
-        <DialogHeader><DialogTitle>{t('flashcard.edit_deck', 'Edit deck')}</DialogTitle><DialogDescription>{t('flashcard.edit_deck_hint', 'Update the title, description and cards.')}</DialogDescription></DialogHeader>
-        <div className="flex min-h-0 flex-col gap-5 overflow-y-auto pr-1">
+    <AppModal open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <AppModalContent size="xl" className="max-h-[85vh] sm:max-w-3xl">
+        <AppModalHeader
+          title={t('flashcard.edit_deck', 'Edit deck')}
+          description={t('flashcard.edit_deck_hint', 'Update the title, description and cards.')}
+        />
+        <AppModalBody>
+        <div className="flex min-h-0 flex-col gap-5 pr-1">
           {deck && (
             <FieldGroup>
               <Field><FieldLabel htmlFor="deck-editor-title">{t('flashcard.deck_title', 'Title')}</FieldLabel><Input
@@ -230,8 +246,9 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
             </Button>
           </section>
         </div>
+        </AppModalBody>
 
-        <DialogFooter>
+        <AppModalFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
               {t('learn.cancel', 'Cancel')}
             </Button>
@@ -239,9 +256,18 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
               {isSaving ? <Spinner data-icon="inline-start" /> : null}
               {t('flashcard.save_changes', 'Save changes')}
             </Button>
-        </DialogFooter>
-        <AlertDialog open={pendingRemove != null} onOpenChange={(open) => { if (!open) setPendingRemove(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t('flashcard.delete_card_confirm', 'Delete this card?')}</AlertDialogTitle><AlertDialogDescription>{pendingRemove != null ? cards[pendingRemove]?.question : ''}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => pendingRemove != null && void handleRemoveCard(pendingRemove)}>{t('ui.delete', 'Delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      </DialogContent>
-    </Dialog>
+        </AppModalFooter>
+        <ConfirmDialog
+          isOpen={pendingRemove != null}
+          title={t('flashcard.delete_card_confirm', 'Delete this card?')}
+          message={pendingRemove != null ? (cards[pendingRemove]?.question ?? '') : ''}
+          confirmLabel={t('ui.delete', 'Delete')}
+          cancelLabel={t('common.cancel', 'Cancel')}
+          variant="danger"
+          onConfirm={() => { if (pendingRemove != null) void handleRemoveCard(pendingRemove); }}
+          onCancel={() => setPendingRemove(null)}
+        />
+      </AppModalContent>
+    </AppModal>
   );
 }

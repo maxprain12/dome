@@ -8,17 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { SocialReport, SocialReportConfig } from '@/components/social/socialTypes';
 
@@ -185,6 +175,7 @@ function ReportRow({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const chevronIcon = open ? ChevronDownIcon : ChevronRightIcon;
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
@@ -225,24 +216,26 @@ function ReportRow({
           </span>
           <HugeiconsIcon icon={chevronIcon} className="size-4 shrink-0 text-muted-foreground" />
         </Button>
-        <AlertDialog>
-          <AlertDialogTrigger render={<Button type="button" size="icon-xs" variant="ghost" className="shrink-0" />}>
-            <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
-            <span className="sr-only">{t('social.hub.delete')}</span>
-          </AlertDialogTrigger>
-          <AlertDialogContent size="sm">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t('social.hub.delete')}</AlertDialogTitle>
-              <AlertDialogDescription>{report.title || t('social.reports.untitled')}</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={onDelete}>
-                {t('social.hub.delete')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          className="shrink-0"
+          onClick={() => setConfirmOpen(true)}
+        >
+          <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
+          <span className="sr-only">{t('social.hub.delete')}</span>
+        </Button>
+        <ConfirmDialog
+          isOpen={confirmOpen}
+          title={t('social.hub.delete')}
+          message={report.title || t('social.reports.untitled')}
+          confirmLabel={t('social.hub.delete')}
+          cancelLabel={t('common.cancel')}
+          variant="danger"
+          onConfirm={onDelete}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </div>
       {open && (
         <div className="border-t px-4 pb-4">

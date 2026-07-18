@@ -5,12 +5,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 import { Spinner } from '@/components/ui/spinner';
 import type { DomePluginInfo } from '@/types/plugin';
 import { permissionForPluginMethod } from '@/components/plugins/pluginPermissions';
@@ -177,37 +176,35 @@ export default function PluginRuntimeDialog({ plugin, onClose }: PluginRuntimeDi
   }, [permissions]);
 
   return (
-    <Dialog
+    <AppModal
       open
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
     >
-      <DialogContent className="flex h-[85vh] max-h-[min(90vh,640px)] flex-col overflow-hidden sm:max-w-6xl">
-        <DialogHeader className="shrink-0">
-          <DialogTitle className="truncate">{plugin.name}</DialogTitle>
-          <DialogDescription className="truncate">
-            {plugin.author} · v{plugin.version} · {entry}
-          </DialogDescription>
-          <div className="flex flex-wrap items-center gap-1">
-            {plugin.permissions?.map((permission) => (
-              <Badge key={permission} variant="outline">
-                {permission}
-              </Badge>
-            ))}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setReloadKey((value) => value + 1)}
-              title="Recargar plugin"
-              aria-label="Recargar plugin"
-            >
-              <HugeiconsIcon icon={RefreshIcon} />
-            </Button>
-          </div>
-        </DialogHeader>
-        <div className="min-h-0 flex-1">
+      <AppModalContent size="xl" className="h-[85vh] sm:max-w-6xl">
+        <AppModalHeader
+          title={plugin.name}
+          description={`${plugin.author} · v${plugin.version} · ${entry}`}
+        />
+        <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-4 pb-3">
+          {plugin.permissions?.map((permission) => (
+            <Badge key={permission} variant="outline">
+              {permission}
+            </Badge>
+          ))}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setReloadKey((value) => value + 1)}
+            title="Recargar plugin"
+            aria-label="Recargar plugin"
+          >
+            <HugeiconsIcon icon={RefreshIcon} />
+          </Button>
+        </div>
+        <AppModalBody className="min-h-0 flex-1">
           <div className="relative h-full min-h-[60vh] overflow-hidden rounded-xl border bg-background">
             {loading ? (
               <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -232,8 +229,8 @@ export default function PluginRuntimeDialog({ plugin, onClose }: PluginRuntimeDi
               />
             )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </AppModalBody>
+      </AppModalContent>
+    </AppModal>
   );
 }

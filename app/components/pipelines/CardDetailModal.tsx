@@ -22,17 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger , DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import type { ReactNode } from 'react';
 interface TodoItem {
   id: string;
@@ -222,6 +212,7 @@ export default function CardDetailModal({
   const [launching, setLaunching] = useState(false);
   const [tab, setTab] = useState<DetailTab>('details');
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [events, setEvents] = useState<PipelineItemEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsReloadKey, setEventsReloadKey] = useState(0);
@@ -468,28 +459,15 @@ export default function CardDetailModal({
 
   const footer = editing ? (
     <div className="flex w-full flex-wrap items-center gap-2">
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" />
-          }
-        >
-          <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
-          {t('pipelines.delete')}
-        </AlertDialogTrigger>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
-            <AlertDialogDescription>{item.title}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
-              {t('pipelines.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+        onClick={() => setConfirmDelete(true)}
+      >
+        <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+        {t('pipelines.delete')}
+      </Button>
       <div className="min-w-2 flex-1" />
       <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
         {t('pipelines.cancel')}
@@ -532,28 +510,15 @@ export default function CardDetailModal({
     </div>
   ) : (
     <div className="flex w-full flex-wrap items-center gap-2">
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" />
-          }
-        >
-          <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
-          {t('pipelines.delete')}
-        </AlertDialogTrigger>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
-            <AlertDialogDescription>{item.title}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
-              {t('pipelines.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+        onClick={() => setConfirmDelete(true)}
+      >
+        <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+        {t('pipelines.delete')}
+      </Button>
       <div className="min-w-2 flex-1" />
       <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
         <HugeiconsIcon icon={PencilIcon} data-icon="inline-start" />
@@ -914,14 +879,29 @@ export default function CardDetailModal({
   }
 
   return (
-    <InlineDetailCard
-      onClose={onClose}
-      title={headerTitle}
-      badges={badgeLabel ? <ColorPill>{badgeLabel}</ColorPill> : undefined}
-      footer={footer}
-      containerName="pipeline-card"
-    >
-      {body}
-    </InlineDetailCard>
+    <>
+      <InlineDetailCard
+        onClose={onClose}
+        title={headerTitle}
+        badges={badgeLabel ? <ColorPill>{badgeLabel}</ColorPill> : undefined}
+        footer={footer}
+        containerName="pipeline-card"
+      >
+        {body}
+      </InlineDetailCard>
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        title={t('pipelines.delete')}
+        message={item.title}
+        confirmLabel={t('pipelines.delete')}
+        cancelLabel={t('pipelines.cancel')}
+        variant="danger"
+        onConfirm={() => {
+          void onDelete();
+          setConfirmDelete(false);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    </>
   );
 }

@@ -4,16 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import { useTranslation } from 'react-i18next';
@@ -302,22 +293,16 @@ export function MailComposePanel({
         </div>
       </InlineDetailCard>
 
-      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('email.compose')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('common.unsaved_changes')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={onClose}>
-              {t('common.discard')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={confirmDiscard}
+        title={t('email.compose')}
+        message={t('common.unsaved_changes')}
+        confirmLabel={t('common.discard')}
+        cancelLabel={t('common.cancel')}
+        variant="danger"
+        onConfirm={onClose}
+        onCancel={() => setConfirmDiscard(false)}
+      />
     </>
   );
 }

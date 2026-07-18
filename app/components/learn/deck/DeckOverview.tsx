@@ -20,7 +20,7 @@ import TableView from '../table/TableView';
 import type { DeckSettings } from './DeckSettingsTab';
 import { computeQuizDeckStats } from '@/lib/learn/quizStats';
 import { flashcardStudyableCount, resolveFlashDeckId } from '@/lib/learn/deckItems';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 export default function DeckOverview() {
   const { t } = useTranslation();
@@ -299,7 +299,16 @@ export default function DeckOverview() {
           onDelete={handleDelete}
         />
       ) : null}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{isFlashDeck ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}</AlertDialogTitle><AlertDialogDescription>{title}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={confirmDelete}>{t('ui.delete', 'Delete')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <ConfirmDialog
+        isOpen={deleteOpen}
+        title={isFlashDeck ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}
+        message={title}
+        confirmLabel={t('ui.delete', 'Delete')}
+        cancelLabel={t('common.cancel', 'Cancel')}
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

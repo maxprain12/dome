@@ -10,7 +10,13 @@ import { Button } from '@/components/ui/button';
 import type { FeederRecord } from '@/lib/feeders/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalContent,
+  AppModalFooter,
+  AppModalHeader,
+} from '@/components/shared/AppModal';
 type Props = {
   feeder: FeederRecord | null;
   opened: boolean;
@@ -26,7 +32,10 @@ export default function FeederApprovalModal({ feeder, opened, onClose, onApprove
   const secretRefs = (feeder.envSecretRefs ?? []).filter((r) => r?.envName && r?.secretName);
 
   return (
-    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('feeders.approve_title', { name: feeder.name })}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    <AppModal open={opened} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <AppModalContent size="xl">
+        <AppModalHeader title={t('feeders.approve_title', { name: feeder.name })} />
+        <AppModalBody>
       <div className="flex flex-col gap-4">
         {/* Metadata pills */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -86,13 +95,17 @@ export default function FeederApprovalModal({ feeder, opened, onClose, onApprove
           </pre>
         </div>
       </div>
-    </div><DialogFooter className="border-t px-4 py-3">{<>
-          <Button variant="ghost" onClick={onClose}>
+        </AppModalBody>
+        <AppModalFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={onApprove} loading={approving}>{<HugeiconsIcon icon={SecurityCheckIcon} className="size-4" />}
+          <Button onClick={onApprove} loading={approving}>
+            <HugeiconsIcon icon={SecurityCheckIcon} className="size-4" />
             {t('feeders.approve_action')}
           </Button>
-        </>}</DialogFooter></DialogContent></Dialog>
+        </AppModalFooter>
+      </AppModalContent>
+    </AppModal>
   );
 }
