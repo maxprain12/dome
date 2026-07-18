@@ -193,7 +193,7 @@ jobs:
           cache: pnpm
 
       - name: Cache electron-builder
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/electron-builder
           key: linux-eb-${{ hashFiles('pnpm-lock.yaml') }}
@@ -201,7 +201,7 @@ jobs:
             linux-eb-
 
       - name: Cache Electron download
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/electron
           key: linux-electron-${{ hashFiles('pnpm-lock.yaml') }}
@@ -209,7 +209,7 @@ jobs:
             linux-electron-
 
       - name: Cache Flatpak runtimes
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/flatpak
           key: linux-flatpak-2408-v1
