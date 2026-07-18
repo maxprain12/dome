@@ -34,6 +34,19 @@ export const DEPENDENCY_INSTALL_ARGS = Object.freeze([
   '--ignore-scripts',
 ]);
 
+export const RUNTIME_PREPARATION_COMMANDS = Object.freeze([
+  Object.freeze({
+    name: 'rebuild:electron',
+    command: 'pnpm',
+    args: Object.freeze(['rebuild', 'electron']),
+  }),
+  Object.freeze({
+    name: 'rebuild:natives',
+    command: 'pnpm',
+    args: Object.freeze(['run', 'rebuild:natives']),
+  }),
+]);
+
 export function createWorktree({ baseSha, experimentId, label, patches = [] }) {
   const parent = ensureDir(path.join(os.tmpdir(), 'dome-self-harness-worktrees'));
   const worktree = fs.mkdtempSync(path.join(parent, `${sanitizeSlug(experimentId)}-${sanitizeSlug(label)}-`));
@@ -71,17 +84,25 @@ export function applyPatch(worktree, patch) {
 }
 
 export async function prepareDependencies(worktree, timeoutMs) {
-  return runProcess('pnpm', DEPENDENCY_INSTALL_ARGS, {
+  const results = [];
+  const install = await runProcess('pnpm', DEPENDENCY_INSTALL_ARGS, {
     cwd: worktree,
     timeoutMs,
   });
+  results.push({ name: 'install', ...install });
+  if (install.code !== 0) return results;
+
+  for (const step of RUNTIME_PREPARATION_COMMANDS) {
+    const result = await runProcess(step.command, step.args, { cwd: worktree, timeoutMs });
+    results.push({ name: step.name, ...result });
+    if (result.code !== 0) break;
+  }
+  return results;
 }
 
 export async function runStaticGates(worktree, { timeoutMs, gates = DEFAULT_GATES } = {}) {
-  const results = [];
-  const install = await prepareDependencies(worktree, timeoutMs);
-  results.push({ name: 'install', ...install });
-  if (install.code !== 0) return results;
+  const results = await prepareDependencies(worktree, timeoutMs);
+  if (!gatesPassed(results)) return results;
 
   const buildPackages = await runProcess('pnpm', ['run', 'build:packages'], { cwd: worktree, timeoutMs });
   results.push({ name: 'build:packages', ...buildPackages });
