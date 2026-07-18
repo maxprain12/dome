@@ -34,7 +34,13 @@ export function formatDistanceToNow(timestamp: number): string {
   return 'hace un momento';
 }
 
-// Compact time distance format (e.g., "now", "3m", "2h", "5d")
+/**
+ * Compact relative time for tight UI (cards, rows, chips).
+ * Always short enough to sit beside a badge without clipping the row.
+ * Pair with a longer `title` tooltip (e.g. date-fns `formatDistanceToNow`).
+ *
+ * @see `.claude/sops/text-containment.md`
+ */
 export function formatShortDistance(timestamp: number): string {
   if (!timestamp || !isFinite(timestamp)) return '—';
   const diff = Date.now() - timestamp;
@@ -42,12 +48,21 @@ export function formatShortDistance(timestamp: number): string {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (minutes < 1) return 'now';
-  if (minutes < 60) return `${minutes}m`;
-  if (hours < 24) return `${hours}h`;
-  if (days < 7) return `${days}d`;
-  if (days < 30) return `${Math.floor(days / 7)}w`;
-  return `${Math.floor(days / 30)}mo`;
+  if (minutes < 1) return 'ahora';
+  if (minutes < 60) return `${minutes} min`;
+  if (hours < 24) return `${hours} h`;
+  if (days < 7) return `${days} d`;
+  if (days < 30) return `${Math.floor(days / 7)} sem`;
+  if (days < 365) return `${Math.floor(days / 30)} mes`;
+  return `${Math.floor(days / 365)} a`;
+}
+
+/** Short label + full tooltip string for relative timestamps in dense UI. */
+export function formatRelativePair(timestamp: number): { short: string; full: string } {
+  return {
+    short: formatShortDistance(timestamp),
+    full: formatDistanceToNow(timestamp),
+  };
 }
 
 // Formatear fecha completa

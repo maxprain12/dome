@@ -193,5 +193,7 @@
   "viewer_corrupt_title": "This content couldn't be displayed",
   "viewer_corrupt_sub": "The generated content seems incomplete or invalid. Try generating it again.",
   "viewer_empty_title": "Nothing to show yet",
-  "viewer_empty_sub": "This item has no content yet."
+  "viewer_empty_sub": "This item has no content yet.",
+  "agent_ask_many": "Ask Many",
+  "agent_prompt": "Help me plan my study session: which decks to review, what to generate next, and a short practice plan."
 }

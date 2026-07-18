@@ -18,6 +18,38 @@
   --typeset-flow: 1em;
 }
 
+/* Compact scale for modals, detail panels, description fields.
+   Applied via MarkdownBody (see .claude/sops/markdown-surfaces.md). */
+.typeset-compact {
+  --typeset-size: 13px;
+  --typeset-leading: 1.6;
+  --typeset-flow: 0.7em;
+}
+
+.typeset-compact.typeset {
+  /* Override typeset’s 1.125× bump so compact stays dense in modals. */
+  font-size: var(--typeset-size);
+}
+
+.markdown-body .typeset :where(h1) {
+  font-size: 1.35em;
+}
+
+.markdown-body .typeset :where(h2) {
+  font-size: 1.15em;
+}
+
+.markdown-body .typeset :where(pre) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.markdown-body .typeset :where(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md, 6px);
+}
+
 .dome-fs-card__md-thumb.typeset-docs {
   --typeset-size: 10px;
   --typeset-leading: 1.5;

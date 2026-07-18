@@ -103,7 +103,7 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !isGenerating) handleClose(); }}>
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden">
+      <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-hidden sm:max-w-3xl">
         <DialogHeader>
             <DialogTitle>{t('learn.generate_title', 'Generate content')}</DialogTitle>
             <DialogDescription>{wizardHint}</DialogDescription>

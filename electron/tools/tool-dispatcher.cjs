@@ -110,6 +110,32 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
         if (!rid) {
           result = { success: false, error: 'id is required. Check the Pinned Context Resources list in the system prompt.' };
         } else if (pinnedIds.length > 0 && !pinnedIds.includes(rid)) {
+          // Social pins use sp-* ids and are never in pinnedResourceIds (library-only).
+          if (String(rid).startsWith('sp-')) {
+            try {
+              const database = require('../core/database.cjs');
+              const windowManager = require('../core/window-manager.cjs');
+              const { getSocialService } = require('../social/social-service.cjs');
+              const post = getSocialService(database, windowManager).store.getPost(rid);
+              if (post) {
+                result = {
+                  success: true,
+                  id: post.id,
+                  type: 'social_post',
+                  title: [post.provider, post.status].filter(Boolean).join(' · ') || post.id,
+                  content: post.body || '',
+                  meta: {
+                    provider: post.provider,
+                    status: post.status,
+                    campaign: post.campaign,
+                  },
+                };
+                break;
+              }
+            } catch (err) {
+              console.warn('[tool-dispatcher] social getPost for pinned id failed:', err?.message || err);
+            }
+          }
           result = { success: false, error: `Resource ${rid} is not pinned. Use resource_get for arbitrary resources.` };
         } else {
           result = await getAiToolsHandler().resourceGet(rid, { includeContent: true, maxContentLength: 5000 });

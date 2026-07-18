@@ -113,7 +113,7 @@ export default function SocialHubView() {
     await load();
   };
 
-  /** Pull posts that already exist on IG / X / LinkedIn org into the hub. */
+  /** Pull posts that already exist on IG / X / LinkedIn into the hub. */
   const syncPlatformFeed = async () => {
     setRefreshing(true);
     setError(null);
@@ -122,7 +122,16 @@ export default function SocialHubView() {
       limit: 25,
     });
     setRefreshing(false);
-    if (!res?.success) setError(res?.error || 'Error');
+    if (!res?.success) {
+      setError(res?.error || 'Error');
+    } else {
+      const accounts = (res.data as { accounts?: Array<{ skipped?: string | null }> } | undefined)
+        ?.accounts;
+      const memberSkip = accounts?.some((a) => a.skipped === 'linkedin_member');
+      if (memberSkip && (res.data as { imported?: number })?.imported === 0) {
+        setError(t('social.hub.sync_linkedin_member_limited'));
+      }
+    }
     await load();
   };
 
@@ -171,7 +180,8 @@ export default function SocialHubView() {
       if (post) {
         many.addPinnedResource({
           id: post.id,
-          title: post.body?.trim()?.slice(0, 80) || t('social.hub.no_text'),
+          // Label normalized in store (provider · campaign/status) — never post body.
+          title: post.campaign?.trim() || post.status || t('social.hub.no_text'),
           type: 'social_post',
           kind: 'social_post',
           meta: {

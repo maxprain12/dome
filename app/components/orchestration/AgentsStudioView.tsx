@@ -44,7 +44,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Search01Icon } from '@hugeicons/core-free-icons';
-import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
+import { StudioHubShell, askStudioMany, type StudioStat } from '@/components/studio-hub';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -131,20 +131,17 @@ export default function AgentsStudioView() {
     });
   }, [agents, folderFilter, q]);
 
-  const stats: OrchestrationStat[] = [
-    { label: t('orchestration.agents.stat_agents'), value: agents.length, tone: 'accent' },
-    {
-      label: t('orchestration.agents.stat_favorites'),
+  const stats: StudioStat[] = [
+    { id: 'stat_agents', label: t('orchestration.agents.stat_agents'), value: agents.length, tone: 'accent' },
+    { id: 'stat_favorites', label: t('orchestration.agents.stat_favorites'),
       value: agents.filter((a) => a.favorite).length,
     },
-    {
-      label: t('orchestration.agents.stat_runs_today'),
+    { id: 'stat_runs_today', label: t('orchestration.agents.stat_runs_today'),
       value: runsToday ?? '—',
       tone: 'success',
       sub: t('orchestration.agents.stat_runs_today_sub'),
     },
-    {
-      label: t('orchestration.agents.stat_active_automations'),
+    { id: 'stat_active_automations', label: t('orchestration.agents.stat_active_automations'),
       value: activeAutomations ?? '—',
       tone: 'warning',
       sub: t('orchestration.agents.stat_active_automations_sub'),
@@ -281,10 +278,10 @@ export default function AgentsStudioView() {
   ];
 
   return (
-    <OrchestrationShell
+    <StudioHubShell
       section="agents"
       title={t('tabs.agents')}
-      subtitle={t('automationHub.agents_subtitle')}
+      description={t('automationHub.agents_subtitle')}
       stats={stats}
       actions={
         <>
@@ -304,6 +301,14 @@ export default function AgentsStudioView() {
           </Button>
           <Button onClick={() => setMode({ kind: 'new' })} className="!bg-primary" size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
             {t('orchestration.agents.new_agent')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => askStudioMany(t('orchestration.agent_prompt_agents'))}
+          >
+            {t('orchestration.agent_ask_many')}
           </Button>
         </>
       }
@@ -529,6 +534,6 @@ export default function AgentsStudioView() {
         onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
-    </OrchestrationShell>
+    </StudioHubShell>
   );
 }

@@ -67,7 +67,7 @@ function IssueCommentCard({ comment }: { comment: GitHubIssueCommentRow }) {
         </div>
       </div>
       {comment.body.trim() ? (
-        <GithubMarkdownBody content={comment.body} className="text-sm" />
+        <GithubMarkdownBody content={comment.body} />
       ) : (
         <p className="text-sm italic text-muted-foreground">{t('github.empty_comment')}</p>
       )}
@@ -694,7 +694,10 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
           {/* Body */}
           {body.trim() ? (
-            <GithubMarkdownBody content={body} className="text-sm" />
+            <GithubMarkdownBody
+              content={body}
+              className="max-h-[min(50vh,480px)] overflow-y-auto"
+            />
           ) : (
             <p className="text-sm italic text-muted-foreground">{t('github.no_description')}</p>
           )}

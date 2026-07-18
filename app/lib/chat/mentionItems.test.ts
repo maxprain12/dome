@@ -35,25 +35,22 @@ describe('mergeMentionResults', () => {
 });
 
 describe('mentionInsertionText', () => {
-  it('serializes person as markdown person: link', () => {
+  it('inserts nothing for chip-only kinds (pin carries context)', () => {
     expect(
       mentionInsertionText({ kind: 'person', id: 'abc', title: 'maxprain', type: 'person' }),
-    ).toBe('[@maxprain](person:abc) ');
-  });
-
-  it('serializes issue/email/social with typed links', () => {
+    ).toBe('');
     expect(
       mentionInsertionText({ kind: 'issue', id: 'iss-1', title: '#1 Fix', type: 'issue' }),
-    ).toBe('[@#1 Fix](issue:iss-1) ');
+    ).toBe('');
     expect(
       mentionInsertionText({ kind: 'email', id: 'em-1', title: 'Hello', type: 'email' }),
-    ).toBe('[@Hello](email:em-1) ');
+    ).toBe('');
     expect(
       mentionInsertionText({ kind: 'social_post', id: 's1', title: 'Post', type: 'social_post' }),
-    ).toBe('[@Post](social:s1) ');
+    ).toBe('');
   });
 
-  it('keeps plain @title for resources', () => {
+  it('keeps plain @title for library resources', () => {
     expect(
       mentionInsertionText({ kind: 'resource', id: 'r1', title: 'Thesis', type: 'pdf' }),
     ).toBe('@Thesis ');
@@ -86,6 +83,18 @@ describe('sourceHitToMentionItem', () => {
     });
     expect(item.kind).toBe('issue');
     expect(item.subtitle).toContain('acme/dome');
+  });
+
+  it('uses short social labels instead of body text', () => {
+    const item = sourceHitToMentionItem({
+      kind: 'social_post',
+      id: 'sp-1',
+      title: 'En Dome solo hay un paso manual para crear una feature: escribir el prompt',
+      snippet: 'body preview…',
+      meta: { provider: 'linkedin', status: 'draft', campaign: null },
+    });
+    expect(item.title).toBe('LinkedIn · draft');
+    expect(mentionInsertionText(item)).toBe('');
   });
 });
 

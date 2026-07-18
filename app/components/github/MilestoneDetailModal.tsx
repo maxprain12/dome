@@ -12,6 +12,7 @@ import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
 import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
+import { MarkdownBody } from '@/components/shared/MarkdownBody';
 import { IssueLabelPills } from './IssueLabelPills';
 
 type MilestoneFull = GitHubMilestoneRow & { description?: string | null };
@@ -305,13 +306,18 @@ export default function MilestoneDetailModal({
             </div>
           </div>
 
-          <div>
-            <h3 className="text-[11px] font-medium uppercase tracking-wide mb-1.5 text-muted-foreground">
+          <div className="min-w-0">
+            <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {t('github.new_milestone_description_label')}
             </h3>
-            <p className="text-sm whitespace-pre-wrap" style={{ color: description.trim() ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
-              {description.trim() || t('github.no_description')}
-            </p>
+            {description.trim() ? (
+              <MarkdownBody
+                content={description}
+                className="max-h-48 overflow-y-auto"
+              />
+            ) : (
+              <p className="text-sm italic text-muted-foreground">{t('github.no_description')}</p>
+            )}
           </div>
 
           <div>

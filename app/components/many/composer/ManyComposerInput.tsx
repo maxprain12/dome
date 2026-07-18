@@ -1,11 +1,19 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   buildComposerHighlightSpans,
   buildComposerMirrorHtml,
   type ComposerTokenTooltip,
 } from '@/lib/chat/composerInlineHighlight';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 export interface ManyComposerInputProps {
@@ -29,22 +37,42 @@ export interface ManyComposerInputProps {
  * over a mirror div that paints @doc, /skill and #mcp tokens, plus hover
  * tooltips for each token.
  *
- * Mirror + textarea must share the same box model (padding, font, line-height)
- * or the caret drifts relative to the painted glyphs.
+ * Uses a plain <textarea> (not the shared shadcn Textarea) so
+ * `field-sizing-content` / `min-h-16` cannot inflate an empty island.
+ * Empty → exact `rows * lineHeight`; with text → scrollHeight clamped.
  */
 
 const FIELD_BASE =
   'box-border m-0 block w-full resize-none border-0 bg-transparent p-0 font-sans text-sm font-normal not-italic leading-5 tracking-normal [tab-size:8] whitespace-pre-wrap break-words [overflow-wrap:anywhere]';
 
-const FIELD_RESET =
-  'min-h-0 rounded-none px-0 py-0 shadow-none ring-0 outline-none focus-visible:border-0 focus-visible:ring-0 md:text-sm field-sizing-fixed';
-
+const LINE_HEIGHT_PX = 20; // leading-5
 const MAX_INPUT_HEIGHT = 180;
 
 function syncMirrorScroll(textarea: HTMLTextAreaElement, mirror: HTMLDivElement | null) {
   if (!mirror) return;
   mirror.scrollTop = textarea.scrollTop;
   mirror.scrollLeft = textarea.scrollLeft;
+}
+
+function applyComposerHeight(el: HTMLTextAreaElement, height: number) {
+  el.style.setProperty('field-sizing', 'fixed');
+  el.style.minHeight = `${height}px`;
+  el.style.height = `${height}px`;
+  el.style.maxHeight = `${MAX_INPUT_HEIGHT}px`;
+  el.style.overflowY = height >= MAX_INPUT_HEIGHT ? 'auto' : 'hidden';
+}
+
+function measureComposerHeight(el: HTMLTextAreaElement, rows: number, value: string): number {
+  const minH = Math.max(rows, 1) * LINE_HEIGHT_PX;
+  // Empty must stay compact — never size to a wrapping placeholder.
+  if (!value || value.length === 0) return minH;
+
+  el.style.setProperty('field-sizing', 'fixed');
+  el.style.minHeight = '0px';
+  el.style.height = '0px';
+  el.style.overflowY = 'hidden';
+  const contentH = el.scrollHeight;
+  return Math.min(Math.max(contentH, minH), MAX_INPUT_HEIGHT);
 }
 
 export default memo(function ManyComposerInput({
@@ -63,6 +91,7 @@ export default memo(function ManyComposerInput({
   className,
 }: ManyComposerInputProps) {
   const mirrorRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
@@ -77,21 +106,32 @@ export default memo(function ManyComposerInput({
 
   const mirrorHtml = useMemo(() => buildComposerMirrorHtml(value, spans), [value, spans]);
 
-  const autoGrow = useCallback((el: HTMLTextAreaElement) => {
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`;
-  }, []);
-
-  useEffect(() => {
+  const autoGrow = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
-    autoGrow(el);
+    const next = measureComposerHeight(el, rows, value);
+    applyComposerHeight(el, next);
     const mirror = mirrorRef.current;
     if (mirror) {
-      mirror.style.height = el.style.height;
+      mirror.style.height = `${next}px`;
       syncMirrorScroll(el, mirror);
     }
-  }, [value, inputRef, autoGrow]);
+  }, [inputRef, rows, value]);
+
+  useLayoutEffect(() => {
+    autoGrow();
+  }, [autoGrow]);
+
+  // Width changes (panel resize) can alter wrap metrics for multi-line content.
+  useLayoutEffect(() => {
+    const node = wrapRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      autoGrow();
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [autoGrow]);
 
   const clearTooltip = useCallback(() => setTooltip(null), []);
 
@@ -130,9 +170,12 @@ export default memo(function ManyComposerInput({
     [tokenTooltips],
   );
 
+  const minH = Math.max(rows, 1) * LINE_HEIGHT_PX;
+
   return (
     <div
-      className="relative min-w-0"
+      ref={wrapRef}
+      className="relative min-w-0 max-h-[180px]"
       onMouseMove={handlePointerMove}
       onMouseLeave={clearTooltip}
     >
@@ -146,7 +189,7 @@ export default memo(function ManyComposerInput({
         )}
         dangerouslySetInnerHTML={{ __html: mirrorHtml }}
       />
-      <Textarea
+      <textarea
         ref={inputRef}
         value={value}
         onChange={onChange}
@@ -158,12 +201,21 @@ export default memo(function ManyComposerInput({
         disabled={disabled}
         rows={rows}
         data-slot="input-group-control"
+        style={
+          {
+            fieldSizing: 'fixed',
+            height: minH,
+            minHeight: minH,
+            maxHeight: MAX_INPUT_HEIGHT,
+            overflowY: 'hidden',
+          } as CSSProperties
+        }
         className={cn(
           FIELD_BASE,
-          FIELD_RESET,
           className,
-          'relative z-1 text-transparent caret-foreground [-webkit-text-fill-color:transparent] disabled:opacity-50',
+          'relative z-1 min-h-0 text-transparent caret-foreground outline-none [-webkit-text-fill-color:transparent]',
           'placeholder:text-muted-foreground placeholder:[-webkit-text-fill-color:var(--muted-foreground)] placeholder:opacity-100',
+          'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       />
       {tooltip && typeof document !== 'undefined'

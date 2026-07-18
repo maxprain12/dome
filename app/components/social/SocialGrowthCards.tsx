@@ -100,6 +100,16 @@ export default function SocialGrowthCards({
                       : `${delta > 0 ? '+' : ''}${Intl.NumberFormat().format(delta)}`}
                   </span>
                 </span>
+                {acc.latest.following != null ? (
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'member'
+                      ? t('social.hub.growth_connections', {
+                          defaultValue: 'conexiones',
+                        })
+                      : t('social.hub.growth_following')}
+                    : {Intl.NumberFormat().format(acc.latest.following)}
+                  </span>
+                ) : null}
                 {acc.latest.postsCount != null ? (
                   <span className="text-[11px] text-muted-foreground tabular-nums">
                     {t('social.hub.growth_posts')}: {Intl.NumberFormat().format(acc.latest.postsCount)}

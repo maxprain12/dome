@@ -7,6 +7,7 @@ import { githubListReposDefinition } from '../domains/github/github_list_repos/d
 import { githubUpcomingMilestonesDefinition } from '../domains/github/github_upcoming_milestones/definition.js';
 import { githubListMilestonesDefinition } from '../domains/github/github_list_milestones/definition.js';
 import { githubListIssuesDefinition } from '../domains/github/github_list_issues/definition.js';
+import { githubGetIssueDefinition } from '../domains/github/github_get_issue/definition.js';
 import { githubCreateIssueDefinition } from '../domains/github/github_create_issue/definition.js';
 import { githubUpdateIssueDefinition } from '../domains/github/github_update_issue/definition.js';
 import { githubCreateMilestoneDefinition } from '../domains/github/github_create_milestone/definition.js';
@@ -17,6 +18,7 @@ export const GITHUB_TOOL_NAMES = [
   'github_upcoming_milestones',
   'github_list_milestones',
   'github_list_issues',
+  'github_get_issue',
   'github_create_issue',
   'github_update_issue',
   'github_create_milestone',
@@ -31,6 +33,7 @@ export function githubToolDefinitions(): ToolDefinition[] {
     githubUpcomingMilestonesDefinition,
     githubListMilestonesDefinition,
     githubListIssuesDefinition,
+    githubGetIssueDefinition,
     githubCreateIssueDefinition,
     githubUpdateIssueDefinition,
     githubCreateMilestoneDefinition,

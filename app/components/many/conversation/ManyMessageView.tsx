@@ -28,11 +28,13 @@ import ChatToolCard, { ChatToolCardGroup, SubagentToolSection } from '@/componen
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import SourceReference from '@/components/chat/SourceReference';
 import ManyActionSuggestion from '@/components/many/conversation/ManyActionSuggestion';
+import { PinnedResourceChipList } from '@/components/many/PinnedResourceChipList';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
 import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { buildToolDisplayBlocks, type ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
+import { stripPinnedMentionTokens } from '@/lib/chat/pinLabels';
 import { extractActionSuggestions } from '@/lib/many/actionSuggestions';
 import { extractCitationNumbers } from '@/lib/utils/citations';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
@@ -174,7 +176,15 @@ export default function ManyMessageView({
 
   const userVisualSegments = useMemo(() => {
     if (!isUser || !message.content) return null;
-    const parsed = parseUserMessageVisualSegments(message.content, message.attachments?.images);
+    const displayContent = stripPinnedMentionTokens(
+      message.content,
+      message.pinnedResources ?? [],
+    );
+    if (!displayContent.trim() && (message.pinnedResources?.length ?? 0) > 0) {
+      // Pins are rendered as chips; nothing left to show in the bubble.
+      return [];
+    }
+    const parsed = parseUserMessageVisualSegments(displayContent, message.attachments?.images);
     const counts = new Map<string, number>();
     return parsed.map((seg) => {
       const payload = seg.type === 'text' ? `text:${seg.value}` : `img:${seg.src}:${seg.alt ?? ''}`;
@@ -183,7 +193,7 @@ export default function ManyMessageView({
       counts.set(h, ord);
       return { ...seg, reactKey: `${message.id}:uv:${h}:${ord}` };
     });
-  }, [isUser, message.content, message.attachments?.images, message.id]);
+  }, [isUser, message.content, message.attachments?.images, message.pinnedResources, message.id]);
 
   const assistantMarkdown = useMemo(() => {
     if (!message.content || isUser) return '';
@@ -222,8 +232,23 @@ export default function ManyMessageView({
 
   // ── User turn ──────────────────────────────────────────────────────────────
   if (isUser) {
+    const pinned = message.pinnedResources ?? [];
+    const userText =
+      userVisualSegments && userVisualSegments.length > 0
+        ? userVisualSegments
+            .filter((seg) => seg.type === 'text')
+            .map((seg) => (seg.type === 'text' ? seg.value : ''))
+            .join('')
+        : message.content
+          ? stripPinnedMentionTokens(stripArtifactBlocks(message.content), pinned)
+          : '';
+    const hasBody = Boolean(userText.trim());
     return (
       <div className={cn('group/turn flex min-w-0 flex-col items-end gap-1.5', className)}>
+        {pinned.length > 0 ? (
+          <PinnedResourceChipList resources={pinned} align="end" className="max-w-[88%]" />
+        ) : null}
+
         {userImageSegments.length > 0 ? (
           <AttachmentGroup className="justify-end">
             {userImageSegments.map((seg) =>
@@ -241,32 +266,29 @@ export default function ManyMessageView({
           </AttachmentGroup>
         ) : null}
 
-        {message.content ? (
+        {hasBody ? (
           <Bubble variant="secondary" align="end" className="max-w-[88%]">
             <BubbleContent>
               <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                {userVisualSegments && userVisualSegments.length > 0
-                  ? userVisualSegments
-                      .filter((seg) => seg.type === 'text')
-                      .map((seg) => (seg.type === 'text' ? seg.value : ''))
-                      .join('')
-                  : stripArtifactBlocks(message.content)}
+                {userText}
               </span>
             </BubbleContent>
           </Bubble>
         ) : null}
 
-        {message.content ? (
+        {hasBody || pinned.length > 0 || userImageSegments.length > 0 ? (
           <MessageFooter className="gap-1 opacity-0 transition-opacity group-hover/turn:opacity-100 motion-reduce:transition-none">
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              onClick={() => void handleCopy()}
-              title={t('chat.copy_message')}
-            >
-              <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
-            </Button>
+            {hasBody ? (
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                onClick={() => void handleCopy()}
+                title={t('chat.copy_message')}
+              >
+                <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
+              </Button>
+            ) : null}
             <span className="text-xs tabular-nums text-muted-foreground">{formattedTime}</span>
           </MessageFooter>
         ) : null}

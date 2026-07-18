@@ -200,15 +200,13 @@ export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessag
 
     if (msg.role === 'user') {
       const ts = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
-      const text = extractTextFromContent(msg.content);
-      if (text.trim()) {
-        out.push({
-          id: `msg-${ts}-${out.length}`,
-          role: 'user',
-          content: text,
-          timestamp: ts,
-        });
-      }
+      // Keep empty user turns (chip-only pins) so JSONL↔local counts stay aligned.
+      out.push({
+        id: `msg-${ts}-${out.length}`,
+        role: 'user',
+        content: extractTextFromContent(msg.content),
+        timestamp: ts,
+      });
       index += 1;
       continue;
     }

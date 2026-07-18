@@ -41,7 +41,7 @@ import { useDomeSession } from '@/lib/hooks/useDomeSession';
 // ---------------------------------------------------------------------------
 
 // Subcomponentes extraídos (03/T02) — misma UI, archivos en ./sidebar/.
-import { pickFolderColor, parseMeta } from './sidebar/sidebarHelpers';
+import { parseMeta } from './sidebar/sidebarHelpers';
 import FileTree from './sidebar/SidebarFileTree';
 import { NewFolderModal, UrlInputModal } from './sidebar/SidebarModals';
 import AddResourceMenu from './sidebar/AddResourceMenu';
@@ -367,7 +367,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
       title: name,
       folder_id: null,
       project_id: getDefaultProjectId(),
-      metadata: { color: pickFolderColor() },
+      metadata: {},
       created_at: now,
       updated_at: now,
     });

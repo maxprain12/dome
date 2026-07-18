@@ -132,5 +132,7 @@
   "saved": "Guardado",
   "save_now": "Guardar agora (⌘S)",
   "open_vault_folder": "Abrir pasta do workspace",
-  "search_workspace": "Buscar no workspace"
+  "search_workspace": "Buscar no workspace",
+  "ask_many": "Perguntar ao Many",
+  "ask_many_prompt": "Ajude-me com este recurso «{{title}}»: resuma, sugira ações e próximos passos no Dome."
 }

@@ -29,6 +29,7 @@ import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { type Resource } from '@/types';
 import './workspace-header.css';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { askStudioMany } from '@/components/studio-hub';
 
 interface EditableTitle {
   value: string;
@@ -343,6 +344,27 @@ export default function WorkspaceHeader({
           label={t('workspace.sidePanel')}
           active={sidePanelOpen}
           onClick={onToggleSidePanel}
+        />
+        <HeaderIconBtn
+          icon={<HugeiconsIcon icon={SparklesIcon} size={14} strokeWidth={2} />}
+          label={t('workspace.ask_many', 'Ask Many')}
+          active={false}
+          activeColor="var(--primary)"
+          onClick={() =>
+            askStudioMany(
+              t('workspace.ask_many_prompt', {
+                title: resource.title || resource.id,
+                defaultValue:
+                  'Ayúdame con este recurso «{{title}}»: resume, sugiere acciones y siguientes pasos en Dome.',
+              }),
+              {
+                id: resource.id,
+                title: resource.title || resource.id,
+                type: resource.type,
+                kind: 'resource',
+              },
+            )
+          }
         />
 
         {/* Note-only actions: split reference + popout. Grouped after a

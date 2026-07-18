@@ -170,9 +170,13 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   }));
 
   // Posts
-  ipcMain.handle('social:posts:list', wrap(PostListSchema, ({ status, limit }) =>
-    service.store.listPosts({ status: status || null, limit: limit || 100 })
-  ));
+  ipcMain.handle('social:posts:list', wrap(PostListSchema, ({ status, limit }) => {
+    const metricByPost = new Map(service.store.listLatestMetrics().map((m) => [m.postId, m]));
+    return service.store.listPosts({ status: status || null, limit: limit || 100 }).map((post) => ({
+      ...post,
+      metrics: metricByPost.get(post.id) || null,
+    }));
+  }));
   ipcMain.handle('social:posts:get', wrap(PostIdSchema, ({ postId }) => {
     const post = service.store.getPost(postId);
     if (!post) throw new Error('Post not found');
@@ -327,6 +331,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   // Metrics & dashboard
   ipcMain.handle('social:metrics:post', wrap(PostIdSchema, ({ postId }) => service.store.listMetricsForPost(postId)));
   ipcMain.handle('social:metrics:refresh', wrap(null, () => service.refreshAllMetrics()));
+  ipcMain.handle('social:metrics:refreshPost', wrap(PostIdSchema, ({ postId }) =>
+    service.refreshPostMetrics(postId)
+  ));
   ipcMain.handle('social:summary', wrap(null, () => service.getSummary()));
   ipcMain.handle('social:workspace', wrap(null, () => service.getWorkspace()));
   ipcMain.handle('social:growth', wrap(GrowthQuerySchema, ({ days }) => service.getGrowth({ days: days || 90 })));

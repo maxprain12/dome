@@ -16,6 +16,7 @@ import StageConfigModal from './StageConfigModal';
 import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
+import { StudioHubShell, askStudioMany } from '@/components/studio-hub';
 
 import {
   Dialog,
@@ -178,10 +179,30 @@ export default function PipelinesBoard() {
     );
   }
 
+  const detailOpen = Boolean(liveOpenItem || liveConfigStage);
+
   return (
-    <div className="flex flex-col h-full min-h-0 min-w-0">
-      {/* Header toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0 border-border">
+    <StudioHubShell
+      section="pipelines"
+      title={t('pipelines.title')}
+      description={t('pipelines.dashboard_title')}
+      layout="split"
+      compact={detailOpen}
+      actions={
+        <>
+          <SectionGuideHelp sectionKey="pipelines" />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => askStudioMany(t('orchestration.agent_prompt_pipelines'))}
+          >
+            {t('orchestration.agent_ask_many')}
+          </Button>
+        </>
+      }
+      toolbar={
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant={showDashboard ? 'secondary' : 'outline'}
           size="sm"
@@ -191,8 +212,6 @@ export default function PipelinesBoard() {
           <HugeiconsIcon icon={DashboardSquare01Icon} data-icon="inline-start" />
           {t('pipelines.overview')}
         </Button>
-
-        <SectionGuideHelp sectionKey="pipelines" />
 
         {renaming ? (
           <div className="flex items-center gap-1.5">
@@ -281,9 +300,9 @@ export default function PipelinesBoard() {
             {t('pipelines.data_sources')}
           </Button>
         )}
-
       </div>
-
+      }
+    >
       {/* Body: dashboard overview or the active board */}
       {showDashboard ? (
         <PipelinesDashboard
@@ -298,7 +317,7 @@ export default function PipelinesBoard() {
           <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
         </div>
       ) : (
-        <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
+        <div className="relative flex flex-1 min-w-0 min-h-0 overflow-hidden">
           {sourcesOpen && (
             <DataSourcePanel
               sources={sources}
@@ -319,51 +338,59 @@ export default function PipelinesBoard() {
                 items={itemsByStage(stage.id)}
                 onDropItem={(itemId) => void moveItem(itemId, stage.id)}
                 onAddCard={(title) => void createItem({ stageId: stage.id, title })}
-                onOpenItem={(item) => setOpenItem(item)}
+                onOpenItem={(item) => {
+                  setConfigStage(null);
+                  setOpenItem(item);
+                }}
                 onRunItem={(item) => void runItem(item.id)}
                 onResolveItem={(item) => void resolveItem(item.id)}
-                onConfigure={() => setConfigStage(stage)}
+                onConfigure={() => {
+                  setOpenItem(null);
+                  setConfigStage(stage);
+                }}
               />
             ))}
             <NewStageColumn onCreate={(data) => createStage(data)} />
           </div>
+          {liveOpenItem || liveConfigStage ? (
+            <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-80 md:shrink-0 lg:w-[28rem]">
+              {liveOpenItem ? (
+                <CardDetailModal
+                  item={liveOpenItem}
+                  stage={stages.find((s) => s.id === liveOpenItem.stageId)}
+                  pipelineName={pipelines.find((p) => p.id === liveOpenItem.pipelineId)?.name}
+                  agents={agents}
+                  onClose={() => setOpenItem(null)}
+                  onSave={(patch) => updateItem({ id: liveOpenItem.id, ...patch })}
+                  onDelete={async () => {
+                    await deleteItem(liveOpenItem.id);
+                    setOpenItem(null);
+                  }}
+                  onRun={() => runItem(liveOpenItem.id)}
+                />
+              ) : null}
+              {liveConfigStage && !liveOpenItem ? (
+                <StageConfigModal
+                  stage={liveConfigStage}
+                  agents={agents}
+                  workflows={workflows}
+                  projectId={projectId}
+                  onClose={() => setConfigStage(null)}
+                  onSave={(patch) => updateStage({ id: liveConfigStage.id, ...patch })}
+                  onDelete={async () => {
+                    await deleteStage(liveConfigStage.id);
+                    setConfigStage(null);
+                  }}
+                  onExecutorsChanged={() => void loadExecutors()}
+                  onCreateWorkflow={() => {
+                    setConfigStage(null);
+                    openWorkflowsTab();
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
-      )}
-
-      {liveOpenItem && (
-        <CardDetailModal
-          item={liveOpenItem}
-          stage={stages.find((s) => s.id === liveOpenItem.stageId)}
-          pipelineName={pipelines.find((p) => p.id === liveOpenItem.pipelineId)?.name}
-          agents={agents}
-          onClose={() => setOpenItem(null)}
-          onSave={(patch) => updateItem({ id: liveOpenItem.id, ...patch })}
-          onDelete={async () => {
-            await deleteItem(liveOpenItem.id);
-            setOpenItem(null);
-          }}
-          onRun={() => runItem(liveOpenItem.id)}
-        />
-      )}
-
-      {liveConfigStage && (
-        <StageConfigModal
-          stage={liveConfigStage}
-          agents={agents}
-          workflows={workflows}
-          projectId={projectId}
-          onClose={() => setConfigStage(null)}
-          onSave={(patch) => updateStage({ id: liveConfigStage.id, ...patch })}
-          onDelete={async () => {
-            await deleteStage(liveConfigStage.id);
-            setConfigStage(null);
-          }}
-          onExecutorsChanged={() => void loadExecutors()}
-          onCreateWorkflow={() => {
-            setConfigStage(null);
-            openWorkflowsTab();
-          }}
-        />
       )}
 
       <AlertDialog open={confirmDelete && Boolean(activePipeline)} onOpenChange={setConfirmDelete}>
@@ -406,6 +433,6 @@ export default function PipelinesBoard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </StudioHubShell>
   );
 }

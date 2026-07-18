@@ -101,5 +101,13 @@
     "stat_tokens_hint": "Input / output tokens",
     "stat_cost": "Est. cost",
     "stat_model": "Model"
-  }
+  },
+  "agent_search": "Search agents, workflows, automations, runs…",
+  "agent_ask_many": "Ask Many",
+  "agent_queue_runs": "Recent runs",
+  "agent_prompt_runs": "Review my recent runs: highlight failures, bottlenecks, and 3 concrete next actions.",
+  "agent_prompt_automations": "Review my automations: suggest which to enable, fix failing ones, and propose one new useful rule.",
+  "agent_prompt_agents": "Review my agents library and propose improvements or a new agent for a recurring task.",
+  "agent_prompt_workflows": "Review my workflows and suggest a practical next workflow or canvas improvements.",
+  "agent_prompt_pipelines": "Review my pipelines boards and suggest stages, card triage, or automation hooks."
 }

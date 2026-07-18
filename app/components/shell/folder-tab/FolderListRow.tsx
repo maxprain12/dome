@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDistanceToNow } from 'date-fns';
 import { CheckIcon, Folder01Icon, MoreVerticalIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SafeText } from '@/components/shared/SafeText';
 import type { Resource } from '@/lib/hooks/useResources';
+import { formatRelativePair } from '@/lib/utils/formatting';
 import ColorPickerPopover from './ColorPickerPopover';
 import { getFolderColor, ResourceTypeIcon, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ResourceContextMenuItems from './ResourceContextMenuItems';
@@ -98,9 +99,13 @@ export default function FolderListRow({
   const folderColor = isFolder ? getFolderColor(item) : undefined;
   const typeColor = isFolder ? (folderColor ?? 'var(--primary)') : 'var(--muted-foreground)';
   const typeLabel = isFolder ? t('folder.typeFolder', 'Carpeta') : (TYPE_LABELS[item.type] ?? item.type);
-  const timeAgo = item.updated_at
-    ? formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })
-    : '—';
+  const timePair = item.updated_at
+    ? formatRelativePair(
+      typeof item.updated_at === 'number'
+        ? item.updated_at
+        : new Date(item.updated_at).getTime(),
+    )
+    : { short: '—', full: '—' };
 
   const commitRename = () => {
     const trimmed = renameValue.trim();
@@ -196,9 +201,12 @@ export default function FolderListRow({
                 }
                 onOpen();
               }}
-              className={`dome-fs-tree-name truncate${isFolder ? ' dome-fs-tree-name--folder' : ''}`}
+              className={`dome-fs-tree-name min-w-0${isFolder ? ' dome-fs-tree-name--folder' : ''}`}
+              title={displayTitle}
             >
-              {searchQuery ? highlightName(displayTitle, searchQuery) : displayTitle}
+              <SafeText className="block" title={displayTitle}>
+                {searchQuery ? highlightName(displayTitle, searchQuery) : displayTitle}
+              </SafeText>
             </Button>
             <span className="dome-folder-view__type-badge" title={typeLabel}>
               {typeLabel}
@@ -207,9 +215,12 @@ export default function FolderListRow({
         )}
       </div>
 
-      <span className="dome-fs-tree-row__modified tabular-nums">
-        {timeAgo}
-      </span>
+      <SafeText
+        className="dome-fs-tree-row__modified tabular-nums"
+        title={timePair.full}
+      >
+        {timePair.short}
+      </SafeText>
 
       <div className="dome-fs-tree-row__actions">
         {(hovered || menuOpen) && !renaming ? (

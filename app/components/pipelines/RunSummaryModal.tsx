@@ -7,15 +7,7 @@ import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { PipelineItemEvent } from '@/lib/pipelines/types';
 import { cn } from '@/lib/utils';
 import { typesetDocsClass } from '@/lib/typeset';
-import {
-  DetailSheet,
-  DetailSheetBody,
-  DetailSheetContent,
-  DetailSheetFooter,
-  DetailSheetHeader,
-  DetailSheetPanel,
-  DetailSheetSection,
-} from '@/components/shared/DetailSheet';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 
 interface RunStep {
   id: string;
@@ -52,9 +44,7 @@ interface Props {
 }
 
 /**
- * Read-only summary of a Many-generated card report: the report itself
- * (markdown) plus a combined timeline of the run's steps and the card's
- * activity, with backlinks to the persisted report and the calendar event.
+ * Read-only summary of a Many-generated card report (inline detail panel).
  */
 export default function RunSummaryModal({
   runId,
@@ -117,64 +107,13 @@ export default function RunSummaryModal({
   }, [run?.steps, events]);
 
   return (
-    <DetailSheet open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DetailSheetContent size="lg">
-        <DetailSheetHeader title={cardTitle} description={t('pipelines.run_summary')} />
-        <DetailSheetBody>
-          <div className="flex flex-col gap-5">
-            <DetailSheetSection label={t('pipelines.report_section')}>
-              {loading && !reportMd ? (
-                <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                  <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
-                  {t('pipelines.report_generating')}
-                </div>
-              ) : reportMd ? (
-                <DetailSheetPanel
-                  className={cn(typesetDocsClass, 'max-h-72 overflow-y-auto text-foreground')}
-                >
-                  <MarkdownRenderer content={reportMd} />
-                </DetailSheetPanel>
-              ) : (
-                <p className="py-2 text-sm text-muted-foreground">{t('pipelines.no_history')}</p>
-              )}
-            </DetailSheetSection>
-
-            <DetailSheetSection label={t('pipelines.steps_section')}>
-              <div className="flex flex-col gap-1.5">
-                {timeline.length === 0 ? (
-                  <p className="py-1 text-sm text-muted-foreground">{t('pipelines.activity_empty')}</p>
-                ) : null}
-                {timeline.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-start gap-2 rounded-lg border border-border bg-background px-2.5 py-2"
-                  >
-                    {entry.kind === 'step' ? (
-                      <HugeiconsIcon icon={Wrench01Icon} size={14} className="mt-0.5 shrink-0 text-primary" />
-                    ) : (
-                      <HugeiconsIcon icon={Activity01Icon} size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
-                    )}
-                    <div className="min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm text-foreground">{entry.label}</span>
-                      {entry.body ? (
-                        <span className="whitespace-pre-wrap text-[11px] text-muted-foreground">
-                          {entry.body}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {new Date(entry.at).toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </DetailSheetSection>
-          </div>
-        </DetailSheetBody>
-        <DetailSheetFooter>
+    <InlineDetailCard
+      onClose={onClose}
+      title={cardTitle}
+      description={t('pipelines.run_summary')}
+      containerName="pipeline-run-summary"
+      footer={
+        <>
           {hasCalendar && onOpenCalendar ? (
             <Button variant="ghost" onClick={onOpenCalendar} size="sm">
               <HugeiconsIcon icon={CalendarClockIcon} className="size-4" />
@@ -195,8 +134,61 @@ export default function RunSummaryModal({
           <Button onClick={onClose} size="sm">
             {t('pipelines.close')}
           </Button>
-        </DetailSheetFooter>
-      </DetailSheetContent>
-    </DetailSheet>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{t('pipelines.report_section')}</p>
+          {loading && !reportMd ? (
+            <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+              <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+              {t('pipelines.report_generating')}
+            </div>
+          ) : reportMd ? (
+            <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-72 overflow-y-auto text-foreground')}>
+              <MarkdownRenderer content={reportMd} />
+            </div>
+          ) : (
+            <p className="py-2 text-sm text-muted-foreground">{t('pipelines.no_history')}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{t('pipelines.steps_section')}</p>
+          <div className="flex flex-col gap-1.5">
+            {timeline.length === 0 ? (
+              <p className="py-1 text-sm text-muted-foreground">{t('pipelines.activity_empty')}</p>
+            ) : null}
+            {timeline.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-start gap-2 rounded-lg border border-border bg-background px-2.5 py-2"
+              >
+                {entry.kind === 'step' ? (
+                  <HugeiconsIcon icon={Wrench01Icon} size={14} className="mt-0.5 shrink-0 text-primary" />
+                ) : (
+                  <HugeiconsIcon icon={Activity01Icon} size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+                )}
+                <div className="min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-sm text-foreground">{entry.label}</span>
+                  {entry.body ? (
+                    <span className="whitespace-pre-wrap text-[11px] text-muted-foreground">
+                      {entry.body}
+                    </span>
+                  ) : null}
+                </div>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {new Date(entry.at).toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </InlineDetailCard>
   );
 }

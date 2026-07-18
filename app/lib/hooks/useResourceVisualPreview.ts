@@ -436,6 +436,8 @@ export function useResourceVisualPreview(
       observerRef.current = null;
       setEl(node);
       if (!node || !enabled || kind === 'none') return;
+      // Nested scroll containers (folder list) can report 0×0 on the first
+      // paint — still kick off the fetch next frame if the card is on-screen.
       if (typeof IntersectionObserver === 'undefined' || isElementInViewport(node)) {
         setVisible(true);
         return;
@@ -455,6 +457,14 @@ export function useResourceVisualPreview(
       );
       observer.observe(node);
       observerRef.current = observer;
+      // Fallback: if layout settles into view without an IO callback, fetch anyway.
+      requestAnimationFrame(() => {
+        if (observerRef.current && isElementInViewport(node)) {
+          setVisible(true);
+          observer.disconnect();
+          observerRef.current = null;
+        }
+      });
     },
     [enabled, kind, rootMargin],
   );
@@ -474,28 +484,46 @@ export function useResourceVisualPreview(
     if (!enabled || !resource || kind === 'none' || !visible) return;
 
     let cancelled = false;
-    setPreview((prev) => (prev.loading ? prev : { ...prev, loading: true }));
 
     const run = async () => {
+      // Keep the target kind while loading so consumers can show the right skeleton.
+      setPreview((prev) => ({ ...prev, kind, loading: true, failed: false }));
+
       if (kind === 'pdf') {
         const dataUrl = await fetchPdfPreview(resource.id);
         if (cancelled) return;
-        setPreview({ ...EMPTY_PREVIEW, kind: 'pdf', pdfDataUrl: dataUrl, failed: dataUrl == null });
+        setPreview({
+          ...EMPTY_PREVIEW,
+          kind: 'pdf',
+          pdfDataUrl: dataUrl,
+          failed: dataUrl == null,
+          loading: false,
+        });
       } else if (kind === 'artifact') {
         const artifact = await fetchArtifactPreview(resource.id);
         if (cancelled) return;
-        setPreview({ ...EMPTY_PREVIEW, kind: 'artifact', artifact, failed: artifact == null });
+        setPreview({
+          ...EMPTY_PREVIEW,
+          kind: 'artifact',
+          artifact,
+          failed: artifact == null,
+          loading: false,
+        });
       } else {
-        // image / text — lazily fetch content + thumbnail.
+        // image / text — lazily fetch content + thumbnail + note markdown.
         const detail = await fetchResourceDetail(resource.id);
         if (cancelled) return;
+        const hasVisual = Boolean(
+          detail?.imageUrl || detail?.snippet || detail?.markdown,
+        );
         setPreview({
           ...EMPTY_PREVIEW,
           kind,
           imageUrl: detail?.imageUrl ?? null,
           snippet: detail?.snippet ?? null,
           markdown: detail?.markdown ?? null,
-          failed: detail == null || (!detail.imageUrl && !detail.snippet),
+          failed: detail == null || !hasVisual,
+          loading: false,
         });
       }
     };

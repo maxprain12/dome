@@ -93,6 +93,31 @@ export function createSocialPostsListTool(): AnyAgentTool {
   };
 }
 
+export function createSocialPostGetTool(): AnyAgentTool {
+  return {
+    label: 'Get social post',
+    name: 'social_post_get',
+    description:
+      'Get one social post by id (sp-…). Call this when Source / mentioned-sources lists a social_post, ' +
+      'or the user refers to a pinned post chip. Returns full body, provider, status, campaign, media and metrics. ' +
+      'Do not claim there is no post if a social_post id is in context — fetch it with this tool. Source: Social hub.',
+    parameters: Type.Object({
+      post_id: Type.String({
+        description: 'Social post id (e.g. sp-… from mentioned-sources).',
+      }),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const postId = readStringParam(args as Record<string, unknown>, 'post_id');
+      if (!postId) return jsonResult({ success: false, error: 'post_id is required.' });
+      const res = await window.electron.invoke('social:posts:get', { postId });
+      if (!res?.success) return ipcError(res, 'Failed to get post.');
+      return jsonResult({ success: true, source: 'social', post: res.data });
+    },
+  };
+}
+
 export function createSocialMetricsSummaryTool(): AnyAgentTool {
   return {
     label: 'Social metrics summary',
@@ -282,6 +307,7 @@ export function createSocialTools(): AnyAgentTool[] {
   return [
     createSocialAccountsListTool(),
     createSocialPostsListTool(),
+    createSocialPostGetTool(),
     createSocialMetricsSummaryTool(),
     createSocialPostDraftTool(),
     createSocialPostPublishTool(),

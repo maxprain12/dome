@@ -3,6 +3,7 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { InstagramIcon, Linkedin01Icon, TwitterIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import type { SocialPost, SocialProvider } from '@/components/social/socialTypes';
+import { SocialPostMetrics } from '@/components/social/SocialPostMetrics';
 import { formatSocialWhen, postSnippet } from '@/lib/social/socialQueues';
 import { cn } from '@/lib/utils';
 
@@ -49,20 +50,25 @@ export function SocialPostRow({
           ) : null}
         </span>
         {!compact ? (
-          <span className="flex min-w-0 flex-wrap items-center gap-1 overflow-hidden">
-            <Badge variant="secondary" className="h-auto shrink-0 py-0.5 leading-none">
-              {t(`social.hub.status_${post.status}`)}
-            </Badge>
-            {post.campaign ? (
-              <Badge
-                variant="outline"
-                className="h-auto max-w-[10rem] shrink truncate py-0.5 leading-none"
-              >
-                {post.campaign}
+          <span className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+            <span className="flex min-w-0 flex-wrap items-center gap-1">
+              <Badge variant="secondary" className="h-auto shrink-0 py-0.5 leading-none">
+                {t(`social.hub.status_${post.status}`)}
               </Badge>
-            ) : null}
+              {post.campaign ? (
+                <Badge
+                  variant="outline"
+                  className="h-auto max-w-[10rem] shrink truncate py-0.5 leading-none"
+                >
+                  {post.campaign}
+                </Badge>
+              ) : null}
+            </span>
+            <SocialPostMetrics metrics={post.metrics} dense />
           </span>
-        ) : null}
+        ) : (
+          <SocialPostMetrics metrics={post.metrics} dense />
+        )}
       </span>
     </button>
   );

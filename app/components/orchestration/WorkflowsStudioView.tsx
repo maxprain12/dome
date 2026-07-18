@@ -29,7 +29,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Search01Icon } from '@hugeicons/core-free-icons';
-import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
+import { StudioHubShell, askStudioMany, type StudioStat } from '@/components/studio-hub';
 import { useHubListLoader } from '@/lib/hub/useHubListLoader';
 import { HUB_RUNS_CHANGED } from '@/lib/hub/hubEvents';
 
@@ -150,17 +150,15 @@ export default function WorkflowsStudioView() {
     );
   }
 
-  const stats: OrchestrationStat[] = [
-    { label: t('orchestration.workflows.stat_workflows'), value: workflows.length, tone: 'info' },
-    { label: t('orchestration.workflows.stat_nodes'), value: totalNodes },
-    {
-      label: t('orchestration.workflows.stat_runs_today'),
+  const stats: StudioStat[] = [
+    { id: 'stat_workflows', label: t('orchestration.workflows.stat_workflows'), value: workflows.length, tone: 'info' },
+    { id: 'stat_nodes', label: t('orchestration.workflows.stat_nodes'), value: totalNodes },
+    { id: 'stat_runs_today', label: t('orchestration.workflows.stat_runs_today'),
       value: runsToday ?? '—',
       tone: 'success',
       sub: t('orchestration.workflows.stat_runs_today_sub'),
     },
-    {
-      label: t('orchestration.workflows.stat_active_automations'),
+    { id: 'stat_active_automations', label: t('orchestration.workflows.stat_active_automations'),
       value: activeAutomations ?? '—',
       tone: 'warning',
       sub: t('orchestration.workflows.stat_active_automations_sub'),
@@ -175,10 +173,10 @@ export default function WorkflowsStudioView() {
 
   return (
     <HubWorkspaceProvider value={hubWorkspace}>
-      <OrchestrationShell
+      <StudioHubShell
         section="workflows"
         title={t('tabs.workflows')}
-        subtitle={t('automationHub.workflows_subtitle')}
+        description={t('automationHub.workflows_subtitle')}
         stats={stats}
         actions={
           <>
@@ -204,6 +202,14 @@ export default function WorkflowsStudioView() {
   className="!bg-primary"
   size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
               {t('canvas.new_workflow')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => askStudioMany(t('orchestration.agent_prompt_workflows'))}
+            >
+              {t('orchestration.agent_ask_many')}
             </Button>
           </>
         }
@@ -380,7 +386,7 @@ export default function WorkflowsStudioView() {
           }}
           onCancel={() => setConfirmDeleteId(null)}
         />
-      </OrchestrationShell>
+      </StudioHubShell>
     </HubWorkspaceProvider>
   );
 }

@@ -26,6 +26,7 @@ import { DateTimePicker } from '@/components/shared/DateTimePicker';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import ResourcePickerModal from '@/components/editor/ResourcePickerModal';
 import { EventColorPill, EventDetailChrome } from '@/components/calendar/EventDetailChrome';
+import { MarkdownBody } from '@/components/shared/MarkdownBody';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 import { pipelinesClient } from '@/lib/pipelines/client';
@@ -328,22 +329,24 @@ function LocalEventDetail({
       </p>
 
       {dataText ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('pipelines.field_description')}
           </span>
-          <p className="text-sm whitespace-pre-wrap text-foreground">
-            {dataText}
-          </p>
+          <MarkdownBody
+            content={dataText}
+            className="max-h-[min(40vh,320px)] overflow-y-auto"
+          />
         </div>
       ) : event.description ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('calendarPage.description', { defaultValue: 'Description' })}
           </span>
-          <p className="text-sm whitespace-pre-wrap text-foreground">
-            {event.description}
-          </p>
+          <MarkdownBody
+            content={event.description}
+            className="max-h-[min(40vh,320px)] overflow-y-auto"
+          />
         </div>
       ) : null}
 
@@ -534,11 +537,11 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
         </p>
       ) : null}
 
-      {/* Description body */}
+      {/* Description body — typed markdown surface (release notes, issue body). */}
       {markdownBody ? (
         <GithubMarkdownBody
           content={markdownBody}
-          className="min-w-0 max-h-[min(40vh,360px)] overflow-x-hidden overflow-y-auto break-words text-sm [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_img]:max-w-full"
+          className="max-h-[min(40vh,360px)] overflow-y-auto"
         />
       ) : null}
     </div>
@@ -573,7 +576,6 @@ export default function EventModal({
   const githubUrl = event ? githubEventUrl(event) : null;
   const pipelineItemId = pipelineItemIdOf(event);
   const openPipelinesTab = useTabStore((s) => s.openPipelinesTab);
-  const openGitHubTab = useTabStore((s) => s.openGitHubTab);
   const openSocialTab = useTabStore((s) => s.openSocialTab);
   const openResourceTab = useTabStore((s) => s.openResourceTab);
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
@@ -747,36 +749,22 @@ export default function EventModal({
         description={formatEventWhen(event, i18n.language)}
         icon={<HugeiconsIcon icon={GithubIcon} />}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                openGitHubTab();
-                onClose();
-              }}
-            >
-              <HugeiconsIcon icon={GithubIcon} className="size-3.5" />
-              {t('calendarPage.open_in_github')}
-            </Button>
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-              {githubUrl ? (
-                <a
-                  href={githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-primary"
-                >
-                  <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
-                  {t('github.calendar_view_on_github')}
-                </a>
-              ) : null}
-              <Button type="button" size="sm" onClick={onClose}>
-                {t('common.close', { defaultValue: 'Cerrar' })}
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            {githubUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                render={<a href={githubUrl} target="_blank" rel="noreferrer" />}
+              >
+                <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
+                {t('github.calendar_view_on_github')}
               </Button>
-            </div>
-          </>
+            ) : null}
+            <Button type="button" size="sm" onClick={onClose}>
+              {t('common.close', { defaultValue: 'Cerrar' })}
+            </Button>
+          </div>
         }
       >
         <GithubEventBody event={event} githubUrl={githubUrl} />

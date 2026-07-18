@@ -419,6 +419,7 @@ export function useManyRunLifecycle({
           thinking: m.thinking,
           pdfRegionMeta: m.pdfRegionMeta,
           attachments: m.attachments,
+          pinnedResources: m.pinnedResources,
         };
       }),
     [messages],

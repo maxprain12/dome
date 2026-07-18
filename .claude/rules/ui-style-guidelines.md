@@ -105,6 +105,18 @@ Los valores hex por tema viven en `app/globals.css` (`:root` y `[data-theme="dar
 
 ---
 
+## Text containment (no escaped / clipped copy)
+
+Dense UI (folder cards, list rows, chips, toolbars) must keep labels inside their box. Full checklist and helpers: [`.claude/sops/text-containment.md`](../sops/text-containment.md).
+
+- Flex/grid text nodes need `min-w-0` up the parent chain.
+- Prefer `SafeText` / `MetaLine` (`app/components/shared/SafeText.tsx`) with a `title` tooltip for the full string.
+- Card timestamps: visible `formatShortDistance` / `formatRelativePair` — never long phrases like “hace menos de un minuto” / “less than a minute ago” as the only visible meta.
+
+## Markdown descriptions
+
+Read-only descriptions, release notes, and issue bodies: use **`MarkdownBody`** (`app/components/shared/MarkdownBody.tsx`), not `whitespace-pre-wrap` plain text. GitHub-synced bodies: `GithubMarkdownBody` (proxy de imágenes). SOP: [`.claude/sops/markdown-surfaces.md`](../sops/markdown-surfaces.md).
+
 ## Typography
 
 ### Font Stack

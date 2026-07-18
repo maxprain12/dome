@@ -56,7 +56,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
-import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
+import { StudioHubShell, askStudioMany, type StudioStat } from '@/components/studio-hub';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -247,20 +247,17 @@ export default function AutomationsStudioView() {
     return result;
   }, [automations, filter, q]);
 
-  const stats: OrchestrationStat[] = [
-    { label: t('orchestration.automations.stat_total'), value: automations.length, tone: 'warning' },
-    {
-      label: t('orchestration.automations.stat_active'),
+  const stats: StudioStat[] = [
+    { id: 'stat_total', label: t('orchestration.automations.stat_total'), value: automations.length, tone: 'warning' },
+    { id: 'stat_active', label: t('orchestration.automations.stat_active'),
       value: automations.filter((a) => a.enabled).length,
       tone: 'success',
     },
-    {
-      label: t('orchestration.automations.stat_scheduled'),
+    { id: 'stat_scheduled', label: t('orchestration.automations.stat_scheduled'),
       value: automations.filter((a) => a.triggerType === 'schedule' && a.enabled).length,
       sub: t('orchestration.automations.stat_scheduled_sub'),
     },
-    {
-      label: t('orchestration.automations.stat_failing'),
+    { id: 'stat_failing', label: t('orchestration.automations.stat_failing'),
       value: automations.filter((a) => a.lastRunStatus === 'failed').length,
       tone: 'error',
       sub: t('orchestration.automations.stat_failing_sub'),
@@ -492,10 +489,10 @@ export default function AutomationsStudioView() {
   }
 
   return (
-    <OrchestrationShell
+    <StudioHubShell
       section="automations"
       title={t('tabs.automations')}
-      subtitle={t('automationHub.automations_subtitle')}
+      description={t('automationHub.automations_subtitle')}
       stats={stats}
       actions={
         <>
@@ -518,6 +515,14 @@ export default function AutomationsStudioView() {
   className="!bg-primary"
   size="sm">{<HugeiconsIcon icon={PlusIcon} className="size-3.5" />}
             {t('automation.button_new')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => askStudioMany(t('orchestration.agent_prompt_automations'))}
+          >
+            {t('orchestration.agent_ask_many')}
           </Button>
         </>
       }
@@ -680,6 +685,6 @@ export default function AutomationsStudioView() {
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
-    </OrchestrationShell>
+    </StudioHubShell>
   );
 }

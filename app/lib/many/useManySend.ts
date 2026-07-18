@@ -42,6 +42,7 @@ import {
   type SessionRunPhase,
 } from '@/lib/store/useManyStore';
 import type { DomeTab } from '@/lib/store/useTabStore';
+import { hydratePinnedContext } from '@/lib/many/hydratePinnedContext';
 
 type Updater<T> = T | ((prev: T) => T);
 
@@ -250,7 +251,18 @@ export function useManySend(options: UseManySendOptions) {
   const handleSend = useCallback(
     async (messageOverride?: string, sendOptions?: ManySendOptions) => {
       const textPart = (messageOverride ?? input).trim();
-      if ((!textPart && chatAttachments.length === 0) || isSubmittingRef.current) return;
+      const pinSnapshot = pinnedResources.map((r) => ({
+        id: r.id,
+        title: r.title,
+        type: r.type,
+        kind: r.kind ?? ('resource' as const),
+      }));
+      if (
+        (!textPart && chatAttachments.length === 0 && pinSnapshot.length === 0) ||
+        isSubmittingRef.current
+      ) {
+        return;
+      }
 
       const preparedAttachments = await prepareVideoAttachmentsForRun(chatAttachments);
       const userRunMessage = buildUserRunMessage(
@@ -262,7 +274,7 @@ export function useManySend(options: UseManySendOptions) {
       const hasAttachments =
         (userRunMessage.attachments?.images?.length ?? 0) > 0 ||
         (userRunMessage.attachments?.videos?.length ?? 0) > 0;
-      if (!userMessage && !hasAttachments) return;
+      if (!userMessage && !hasAttachments && pinSnapshot.length === 0) return;
 
       if (pdfRegionStreamingMessage?.isStreaming) return;
 
@@ -292,7 +304,12 @@ export function useManySend(options: UseManySendOptions) {
       setCompactionNotice(null);
       abortControllerRef.current = null;
 
-      addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
+      addMessage({
+        role: 'user',
+        content: userMessage,
+        attachments: userRunMessage.attachments,
+        ...(pinSnapshot.length > 0 ? { pinnedResources: pinSnapshot } : {}),
+      });
       if (currentSessionId) {
         activeRunSessionIdRef.current = currentSessionId;
         setSessionRunState(currentSessionId, 'thinking');
@@ -365,14 +382,11 @@ export function useManySend(options: UseManySendOptions) {
             ? activeShellTab.type
             : activeShellTab?.splitResource?.resourceType;
 
-        const pinnedPeople = pinnedResources.filter((r) => r.kind === 'person');
-        const pinnedSources = pinnedResources.filter(
-          (r): r is typeof r & { kind: 'issue' | 'email' | 'social_post' } =>
-            r.kind === 'issue' || r.kind === 'email' || r.kind === 'social_post',
-        );
-        const pinnedDocs = pinnedResources.filter(
-          (r) => r.kind !== 'person' && r.kind !== 'issue' && r.kind !== 'email' && r.kind !== 'social_post',
-        );
+        // Prefetch bodies/excerpts for chip-only pins (email / issue / social / person / docs).
+        const hydrated = await hydratePinnedContext(pinnedResources);
+        const pinnedPeople = hydrated.people;
+        const enrichedSources = hydrated.sources;
+        const pinnedDocs = hydrated.docs;
 
         const toolIdsForMemory = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
         let memoryForPrompt = memoryEnabled && userMemory ? userMemory : undefined;
@@ -411,13 +425,18 @@ export function useManySend(options: UseManySendOptions) {
                 }))
               : undefined,
           pinnedSources:
-            pinnedSources.length > 0
-              ? pinnedSources.map((src) => ({
-                  kind: src.kind,
-                  id: src.id,
-                  title: src.title,
-                  meta: src.meta ?? null,
-                }))
+            enrichedSources.length > 0
+              ? enrichedSources
+                  .filter(
+                    (src): src is typeof src & { kind: 'issue' | 'email' | 'social_post' } =>
+                      src.kind === 'issue' || src.kind === 'email' || src.kind === 'social_post',
+                  )
+                  .map((src) => ({
+                    kind: src.kind,
+                    id: src.id,
+                    title: src.title,
+                    meta: src.meta ?? null,
+                  }))
               : undefined,
           pinnedResources:
             pinnedDocs.length > 0
@@ -489,10 +508,22 @@ export function useManySend(options: UseManySendOptions) {
         });
         manySkillState.setPendingOneShotSkill(null);
 
+        const userText =
+          userMessage.trim() ||
+          (pinSnapshot.length > 0 ? 'Analyze the pinned context.' : '');
+        const agentUserContent = [userText, ...hydrated.agentBlocks]
+          .filter((part) => part && String(part).trim())
+          .join('\n\n');
+
+        const runUserMessage: ChatRunMessage = {
+          ...userRunMessage,
+          content: agentUserContent || userRunMessage.content,
+        };
+
         const runMessages = [
           { role: 'system', content: unifiedSystemPrompt },
           ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-          userRunMessage as ChatRunMessage,
+          runUserMessage,
         ];
 
         setStreamingMessage({
@@ -554,9 +585,7 @@ export function useManySend(options: UseManySendOptions) {
           autoSpeak: sendOptions?.autoSpeak ? true : undefined,
           voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : undefined,
           pinnedResourceIds:
-            pinnedResources.filter((r) => r.kind !== 'person').length > 0
-              ? pinnedResources.filter((r) => r.kind !== 'person').map((r) => r.id)
-              : undefined,
+            pinnedDocs.length > 0 ? pinnedDocs.map((r) => r.id) : undefined,
           userMemory: memoryEnabled && userMemory ? userMemory : undefined,
         });
         delegatedToRunEngine = true;

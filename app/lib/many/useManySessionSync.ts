@@ -10,6 +10,7 @@ import {
   fetchManyMessagesFromThread,
   refreshManySessionFromThread,
 } from '@/lib/chat/manyThreadBridge';
+import { mergeManySessionMessages } from '@/lib/chat/mergeManySessionMessages';
 import { syncManyActiveRunIndicators } from '@/lib/chat/syncManyActiveRunIndicators';
 import { syncManyDeletedIdsFromDb } from '@/lib/store/manySessionStorage';
 
@@ -108,21 +109,26 @@ export function useManySessionSync({ chatProjectId, showHistory }: UseManySessio
           continue;
         }
 
-        const localMessages = useManyStore.getState().messages;
+        const store = useManyStore.getState();
+        // Don't clobber an in-flight turn with a partial JSONL snapshot.
+        if (store.activeRunBySessionId[sessionId]) return;
+
+        const localMessages = store.messages;
         if (localMessages.length > threadMessages.length) return;
 
-        const localSession = useManyStore.getState().sessions.find((s) => s.id === sessionId);
-        const firstUser = threadMessages.find((m) => m.role === 'user')?.content ?? '';
+        const merged = mergeManySessionMessages(localMessages, threadMessages);
+        const localSession = store.sessions.find((s) => s.id === sessionId);
+        const firstUser = merged.find((m) => m.role === 'user')?.content ?? '';
         hydrateSession({
           id: sessionId,
           title: deriveManySessionTitle({
             storedTitle: localSession?.title,
-            messages: threadMessages,
+            messages: merged,
             firstUser,
           }),
-          messages: threadMessages,
-          createdAt: localSession?.createdAt ?? threadMessages[0]?.timestamp ?? Date.now(),
-          updatedAt: threadMessages[threadMessages.length - 1]?.timestamp ?? localSession?.updatedAt,
+          messages: merged,
+          createdAt: localSession?.createdAt ?? merged[0]?.timestamp ?? Date.now(),
+          updatedAt: merged[merged.length - 1]?.timestamp ?? localSession?.updatedAt,
           pinned: localSession?.pinned,
         } satisfies ManyChatSession);
         return;

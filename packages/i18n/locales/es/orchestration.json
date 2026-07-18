@@ -101,5 +101,13 @@
     "stat_tokens_hint": "Tokens de entrada / salida",
     "stat_cost": "Coste est.",
     "stat_model": "Modelo"
-  }
+  },
+  "agent_search": "Buscar agentes, workflows, automatizaciones, ejecuciones…",
+  "agent_ask_many": "Preguntar a Many",
+  "agent_queue_runs": "Ejecuciones recientes",
+  "agent_prompt_runs": "Revisa mis ejecuciones recientes: fallos, cuellos de botella y 3 acciones concretas.",
+  "agent_prompt_automations": "Revisa mis automatizaciones: cuáles activar, fallos a corregir y una regla nueva útil.",
+  "agent_prompt_agents": "Revisa mi biblioteca de agentes y propón mejoras o un agente nuevo para una tarea habitual.",
+  "agent_prompt_workflows": "Revisa mis workflows y sugiere el siguiente o mejoras en el canvas.",
+  "agent_prompt_pipelines": "Revisa mis pipelines y sugiere etapas, triaje de tarjetas o enganches de automatización."
 }

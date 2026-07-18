@@ -85,7 +85,7 @@ export default function LearnLibrary() {
 
   if (allItems.length === 0) {
     return (
-      <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
+      <div className="@container/learn flex h-full min-w-0 flex-col gap-4 overflow-y-auto p-4 @[36rem]/learn:p-5">
         <LearnHeader />
         <LearnKpiStrip />
         <LearnStreakStrip />
@@ -109,12 +109,12 @@ export default function LearnLibrary() {
     const filterLabel = activeSection !== 'all' ? sectionLabels[activeSection] : null;
 
     return (
-      <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
+      <div className="@container/learn flex h-full min-w-0 flex-col gap-4 overflow-y-auto p-4 @[36rem]/learn:p-5">
         <LearnHeader />
         <LearnKpiStrip />
         <LearnStreakStrip />
         <LearnFilterBar />
-        <Empty className="py-16"><EmptyHeader><EmptyTitle>
+        <Empty className="flex-none py-10 @[36rem]/learn:py-16"><EmptyHeader><EmptyTitle>
             {searchQuery.trim()
               ? t('learn.filter_no_search', 'No results for your search')
               : t('learn.filter_no_section', 'No {{section}} yet', {
@@ -158,7 +158,7 @@ export default function LearnLibrary() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
+    <div className="@container/learn flex h-full min-w-0 flex-col gap-4 overflow-y-auto p-4 @[36rem]/learn:p-5">
       <LearnHeader />
       <LearnKpiStrip />
       <LearnStreakStrip />

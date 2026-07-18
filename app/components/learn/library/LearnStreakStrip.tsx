@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { useLearnStreak } from '@/lib/hooks/useLearnStreak';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { buildLearnDeckItems } from '@/lib/learn/deckItems';
@@ -17,18 +17,51 @@ export default function LearnStreakStrip() {
   const dueToday = streak?.dueToday ?? 0;
 
   const handleReview = () => {
-    const items = buildLearnDeckItems(decks, studioOutputs, deckStats).filter((item) => item.kind === 'flashcard_deck');
-    const target = items.find((item) => (item.dueCount ?? 0) > 0) ?? items.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
+    const items = buildLearnDeckItems(decks, studioOutputs, deckStats).filter(
+      (item) => item.kind === 'flashcard_deck',
+    );
+    const target =
+      items.find((item) => (item.dueCount ?? 0) > 0) ??
+      items.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
     if (target) void startStudy(target.id);
     else showToast('info', t('learn.nothing_to_review', 'Nothing to review right now.'));
   };
 
-  return <Card size="sm"><CardHeader>
-    <CardTitle className="flex items-center gap-2"><HugeiconsIcon icon={FlameIcon} />{t('learn.streak_title', { days: streakDays, due: dueToday })}</CardTitle>
-    <CardDescription>{dueToday > 0 ? t('learn.streak_due_sub', { count: dueToday }) : t('learn.streak_clear_sub')}</CardDescription>
-    <CardAction className="flex items-center gap-2">
-      <div className="hidden gap-1 md:flex" aria-label={t('learn.kpi_streak')}>{(streak?.days ?? []).map((day, index) => <Badge key={`${day.label}-${index}`} variant={day.today ? 'default' : day.done ? 'secondary' : 'outline'}>{day.label}</Badge>)}</div>
-      <Button type="button" size="sm" onClick={handleReview}>{t('learn.streak_review')}</Button>
-    </CardAction>
-  </CardHeader></Card>;
+  return (
+    <Card size="sm">
+      <div className="flex flex-col gap-3 px-(--card-spacing) @[32rem]/learn:flex-row @[32rem]/learn:items-start @[32rem]/learn:justify-between">
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="flex min-w-0 items-center gap-2 text-balance">
+            <HugeiconsIcon icon={FlameIcon} className="size-4 shrink-0" />
+            <span className="min-w-0">
+              {t('learn.streak_title', { days: streakDays, due: dueToday })}
+            </span>
+          </CardTitle>
+          <CardDescription className="text-pretty">
+            {dueToday > 0
+              ? t('learn.streak_due_sub', { count: dueToday })
+              : t('learn.streak_clear_sub')}
+          </CardDescription>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div
+            className="hidden gap-1 @[40rem]/learn:flex"
+            aria-label={t('learn.kpi_streak')}
+          >
+            {(streak?.days ?? []).map((day, index) => (
+              <Badge
+                key={`${day.label}-${index}`}
+                variant={day.today ? 'default' : day.done ? 'secondary' : 'outline'}
+              >
+                {day.label}
+              </Badge>
+            ))}
+          </div>
+          <Button type="button" size="sm" onClick={handleReview}>
+            {t('learn.streak_review')}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
 }

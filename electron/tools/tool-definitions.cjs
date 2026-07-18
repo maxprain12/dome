@@ -109,16 +109,19 @@ const TOOL_HANDLER_MAP = {
   github_upcoming_milestones: 'githubUpcomingMilestones',
   github_list_milestones: 'githubListMilestones',
   github_list_issues: 'githubListIssues',
+  github_get_issue: 'githubGetIssue',
   github_create_issue: 'githubCreateIssue',
   github_update_issue: 'githubUpdateIssue',
   github_create_milestone: 'githubCreateMilestone',
   github_sync: 'githubSync',
+  people_get: 'peopleGet',
 
   // Social hub (LinkedIn / Instagram / X)
   social_accounts_list: 'socialAccountsList',
   social_post_draft: 'socialPostDraft',
   social_post_publish: 'socialPostPublish',
   social_posts_list: 'socialPostsList',
+  social_post_get: 'socialPostGet',
   social_metrics_summary: 'socialMetricsSummary',
   social_campaigns_list: 'socialCampaignsList',
   social_campaign_create: 'socialCampaignCreate',
@@ -855,6 +858,21 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'social_post_get',
+        description:
+          'Get one social post by id (sp-…). Use when mentioned-sources lists a social_post or the user refers to a pinned post. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            post_id: { type: 'string', description: 'Social post id (sp-…).' },
+          },
+          required: ['post_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'social_metrics_summary',
         description: 'Social analytics summary: totals, per-network breakdown and top posts. Source: Social hub.',
         parameters: { type: 'object', properties: { refresh: { type: 'boolean' } } },
@@ -945,6 +963,36 @@ function getAllToolDefinitions() {
             state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Filter by state (default all)' },
           },
           required: ['repo_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_get_issue',
+        description:
+          'Get one GitHub issue by Dome issue id (ghi-…). Use when mentioned-sources lists an issue. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            issue_id: { type: 'string', description: 'Dome issue id from mentioned-sources or github_list_issues' },
+          },
+          required: ['issue_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_get',
+        description:
+          'Get one person by id (name, email, identities). Use when mentioned-people lists a person. Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            person_id: { type: 'string', description: 'Person id from mentioned-people' },
+          },
+          required: ['person_id'],
         },
       },
     },

@@ -2,6 +2,9 @@
  * Codex hub chrome — shared visual language for Settings, Email, GitHub,
  * Social, Marketplace, and future hubs.
  *
+ * Studio surfaces (Pipelines / Agents / Workflows / Automations / Runs) use
+ * `app/components/studio-hub/` (StudioHubShell + master-detail) on top of these.
+ *
  * When to use what:
  * - HubShell: optional left rail + scrollable main (settings-style frames).
  * - HubHeader / HubSearch: page title row and search field (header or rail).

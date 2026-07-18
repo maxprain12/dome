@@ -1,13 +1,24 @@
-/** Grid card for a folder or resource inside FolderTabView. Shows thumbnail + content snippet. */
+/** Grid card for a folder or resource inside FolderTabView. */
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDistanceToNow } from 'date-fns';
-import { CheckIcon, FileEditIcon, Folder01Icon, MoreVerticalIcon, PlayIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import {
+  CheckIcon,
+  FileEditIcon,
+  Folder01Icon,
+  MoreVerticalIcon,
+  PlayIcon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { MetaLine, SafeText } from '@/components/shared/SafeText';
 import { typesetDocsClass } from '@/lib/typeset';
+import { cn } from '@/lib/utils';
+import { formatRelativePair } from '@/lib/utils/formatting';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -20,13 +31,10 @@ import ColorPickerPopover from './ColorPickerPopover';
 import ResourceContextMenuItems from './ResourceContextMenuItems';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-const SNIPPET_MAX = 180;
+const SNIPPET_MAX = 280;
+const MARKDOWN_PREVIEW_MAX = 1500;
+const SHEET_TYPES = new Set(['excel', 'csv', 'xlsx', 'xls']);
 
-/**
- * Build the srcdoc for an artifact preview thumbnail: inject the storage shim
- * and the artifact's `DOME_DATA` so the template renders its real content, then
- * the template HTML. Rendered in a sandboxed, non-interactive scaled iframe.
- */
 function buildArtifactThumbSrcDoc(template: string, data: Record<string, unknown> | null): string {
   const dataJson = JSON.stringify(data ?? {}).replace(/</g, '\\u003c');
   const inject =
@@ -39,11 +47,8 @@ function buildArtifactThumbSrcDoc(template: string, data: Record<string, unknown
   return inject + template;
 }
 
-/** Non-interactive, scaled-down live render of a persisted artifact. */
 function ArtifactThumb({ template, data }: { template: string; data: Record<string, unknown> | null }) {
   const srcDoc = useMemo(() => buildArtifactThumbSrcDoc(template, data), [template, data]);
-  // Served frame URL: srcdoc would inherit the strict renderer CSP and block
-  // the preview's inline scripts in packaged builds (issue 465).
   const frameSource = useArtifactFrameSrc(srcDoc);
   return (
     <iframe
@@ -65,7 +70,6 @@ function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** Recover readable text from a note's stored content, which may be Tiptap JSON. */
 function plainTextFromContent(content: string): string {
   const trimmed = content.trim();
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -84,7 +88,7 @@ function plainTextFromContent(content: string): string {
       const text = parts.join('').replace(/\s+/g, ' ').trim();
       if (text) return text;
     } catch {
-      /* not JSON — fall through to stripHtml */
+      /* fall through */
     }
   }
   return stripHtml(content);
@@ -92,54 +96,233 @@ function plainTextFromContent(content: string): string {
 
 function pickSnippet(item: Resource): string {
   const meta = (item.metadata ?? {}) as Record<string, unknown>;
-  const candidates: Array<unknown> = [
-    meta.snippet,
-    meta.summary,
-    meta.description,
-    meta.excerpt,
-    meta.preview_text,
-  ];
-  for (const c of candidates) {
+  for (const key of ['snippet', 'summary', 'description', 'excerpt', 'preview_text'] as const) {
+    const c = meta[key];
     if (typeof c === 'string' && c.trim()) return c.trim();
   }
-  // Prefer the plain-text cache (Markdown vault); never show raw Tiptap JSON.
   if (typeof item.content_text === 'string' && item.content_text.trim()) {
     return item.content_text.trim().slice(0, SNIPPET_MAX);
   }
-  const content = item.content;
-  if (typeof content === 'string' && content.trim()) {
-    const text = plainTextFromContent(content);
+  if (typeof item.content === 'string' && item.content.trim()) {
+    const text = plainTextFromContent(item.content);
     if (text) return text.slice(0, SNIPPET_MAX);
   }
   return '';
 }
 
-const MARKDOWN_PREVIEW_MAX = 1500;
-
-/** Raw Markdown from the eager list payload (vault notes store Markdown in
- *  `content`); Tiptap JSON / HTML fall back to the plain-text snippet. */
+/** Best-effort Markdown for the card: vault body, plain content, or Tiptap text. */
 function pickMarkdown(item: Resource): string | null {
   const content = item.content;
-  if (typeof content !== 'string') return null;
-  const trimmed = content.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<')) return null;
-  return trimmed.slice(0, MARKDOWN_PREVIEW_MAX);
+  if (typeof content === 'string' && content.trim()) {
+    const trimmed = content.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.startsWith('<')) {
+      return trimmed.slice(0, MARKDOWN_PREVIEW_MAX);
+    }
+    if (trimmed.startsWith('{')) {
+      const text = plainTextFromContent(trimmed);
+      if (text) return text.slice(0, MARKDOWN_PREVIEW_MAX);
+    }
+  }
+  if (typeof item.content_text === 'string' && item.content_text.trim()) {
+    return item.content_text.trim().slice(0, MARKDOWN_PREVIEW_MAX);
+  }
+  return null;
 }
 
-/** Non-interactive rendered Markdown for the card cover (links/images inert). */
-function NoteMarkdownThumb({ markdown }: { markdown: string }) {
+function normalizeCardTitle(value: string): string {
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/[.…]+$/u, '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Drop a leading heading/line that repeats the card title so the preview
+ * doesn't paint the same long name twice (footer + body).
+ */
+function stripLeadingTitleFromMarkdown(markdown: string, title: string): string {
+  const normalizedTitle = normalizeCardTitle(title);
+  if (!normalizedTitle || !markdown.trim()) return markdown;
+
+  const headingMatch = markdown.match(/^\s{0,3}#{1,6}\s+(.+?)(?:\n+|$)/u);
+  if (headingMatch) {
+    const heading = normalizeCardTitle(headingMatch[1] ?? '');
+    if (heading && (heading === normalizedTitle || heading.startsWith(`${normalizedTitle} `))) {
+      return markdown.slice(headingMatch[0].length).trimStart();
+    }
+  }
+
+  const lineMatch = markdown.match(/^\s*(.+?)(?:\n+|$)/u);
+  if (lineMatch) {
+    const line = normalizeCardTitle(lineMatch[1] ?? '');
+    if (line && line === normalizedTitle) {
+      return markdown.slice(lineMatch[0].length).trimStart();
+    }
+  }
+
+  return markdown;
+}
+
+function NoteMarkdownThumb({ markdown, title }: { markdown: string; title: string }) {
+  const body = useMemo(
+    () => stripLeadingTitleFromMarkdown(markdown, title),
+    [markdown, title],
+  );
+  if (!body) {
+    return (
+      <div className="dome-fs-card__note-thumb dome-fs-card__note-thumb--empty" aria-hidden>
+        <HugeiconsIcon icon={FileEditIcon} strokeWidth={1.25} />
+      </div>
+    );
+  }
   return (
     <div className={typesetDocsClass('dome-fs-card__md-thumb')} aria-hidden>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children }) => <span>{children}</span>,
-          img: () => null,
-        }}
-      >
-        {markdown}
-      </ReactMarkdown>
+      <div className="dome-fs-card__md-thumb-inner">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({ children }) => <span className="dome-fs-card__md-link">{children}</span>,
+            img: () => null,
+          }}
+        >
+          {body}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
+}
+
+function PdfPageThumb({ dataUrl }: { dataUrl: string }) {
+  return (
+    <div className="dome-fs-card__pdf-thumb" aria-hidden>
+      <img
+        src={dataUrl}
+        alt=""
+        className="dome-fs-card__pdf-thumb-img"
+        draggable={false}
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
+function PreviewLoading() {
+  return (
+    <div className="dome-fs-card__cover-loading" aria-hidden>
+      <Spinner className="size-5 text-muted-foreground" />
+    </div>
+  );
+}
+
+type SheetPreview = {
+  sheet: string | null;
+  headers: string[];
+  rows: string[][];
+};
+
+/** Turn a spreadsheet text dump into a small table preview. */
+function parseSpreadsheetSnippet(snippet: string): SheetPreview | null {
+  const trimmed = snippet.trim();
+  if (!trimmed) return null;
+
+  const sheetMatch = trimmed.match(/^\[Sheet:\s*([^\]]+)\]\s*/i);
+  const body = (sheetMatch ? trimmed.slice(sheetMatch[0].length) : trimmed).trim();
+  if (!body) return null;
+
+  let lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    // Flattened dumps: "headers 1,row… 2,row…"
+    lines = body.split(/\s+(?=\d+,)/).map((l) => l.trim()).filter(Boolean);
+  }
+  if (lines.length === 0) return null;
+
+  const splitCells = (line: string) =>
+    line.split(',').map((c) => c.trim()).slice(0, 4);
+
+  const headers = splitCells(lines[0]).slice(0, 3);
+  if (headers.length === 0) return null;
+
+  const rows = lines.slice(1, 4).map((line) => {
+    const cells = splitCells(line);
+    // Drop leading numeric index column when headers don't look like an ID list
+    if (cells.length > headers.length && /^\d+$/.test(cells[0] ?? '')) {
+      return cells.slice(1, headers.length + 1);
+    }
+    return cells.slice(0, headers.length);
+  }).filter((r) => r.some(Boolean));
+
+  return {
+    sheet: sheetMatch?.[1]?.trim() ?? null,
+    headers,
+    rows,
+  };
+}
+
+function SpreadsheetThumb({ snippet }: { snippet: string }) {
+  const parsed = useMemo(() => parseSpreadsheetSnippet(snippet), [snippet]);
+  if (!parsed) {
+    return (
+      <div className="dome-fs-card__sheet dome-fs-card__sheet--empty" aria-hidden>
+        <span className="dome-fs-card__sheet-label">Excel</span>
+      </div>
+    );
+  }
+  return (
+    <div className="dome-fs-card__sheet" aria-hidden>
+      {parsed.sheet ? (
+        <div className="dome-fs-card__sheet-tab">{parsed.sheet}</div>
+      ) : null}
+      <table className="dome-fs-card__sheet-table">
+        <thead>
+          <tr>
+            {parsed.headers.map((h) => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {parsed.rows.map((row, i) => (
+            <tr key={i}>
+              {parsed.headers.map((_, j) => (
+                <td key={j}>{row[j] ?? ''}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function NoteTextThumb({ text, searchQuery }: { text: string; searchQuery?: string }) {
+  return (
+    <p className="dome-fs-card__note-thumb" aria-hidden>
+      {searchQuery ? highlightSnippet(text, searchQuery) : text}
+    </p>
+  );
+}
+
+function TypeIconThumb({
+  item,
+  accent,
+}: {
+  item: Resource;
+  accent?: string;
+}) {
+  return (
+    <div
+      className="dome-fs-card__type-thumb"
+      style={accent ? { color: accent } : undefined}
+      aria-hidden
+    >
+      <div className="dome-fs-card__type-thumb-glyph">
+        {item.type === 'note' || item.type === 'notebook' ? (
+          <HugeiconsIcon icon={FileEditIcon} strokeWidth={1.25} />
+        ) : (
+          <ResourceIcon type={item.type} name={item.title} size={32} strokeWidth={1.25} />
+        )}
+      </div>
     </div>
   );
 }
@@ -147,13 +330,8 @@ function NoteMarkdownThumb({ markdown }: { markdown: string }) {
 function pickThumbnail(item: Resource): string | null {
   if (item.thumbnail_data) return item.thumbnail_data;
   const meta = (item.metadata ?? {}) as Record<string, unknown>;
-  const candidates: Array<unknown> = [
-    meta.preview_image,
-    meta.thumbnail,
-    meta.og_image,
-    meta.cover,
-  ];
-  for (const c of candidates) {
+  for (const key of ['preview_image', 'thumbnail', 'og_image', 'cover'] as const) {
+    const c = meta[key];
     if (typeof c === 'string' && c.trim()) return c.trim();
   }
   if (item.type === 'image' && item.file_path) return item.file_path;
@@ -203,22 +381,25 @@ interface FolderCardProps {
 
 type TranslateFn = ReturnType<typeof useTranslation>['t'];
 
-/** All render-ready values derived from the resource + lazy visual preview. */
 interface CardPresentation {
   folderColor: string | undefined;
   typeColor: string;
   typeLabel: string;
-  timeAgo: string;
+  timeAgoShort: string;
+  timeAgoFull: string;
   coverImage: string | null;
   isPdfCover: boolean;
+  pdfDataUrl: string | null;
   artifactTemplate: string | null;
   snippet: string;
-  coverShowsSnippet: boolean;
   noteMarkdown: string | null;
   displayTitle: string;
   isMediaCard: boolean;
-  isDocCard: boolean;
   isVideoCard: boolean;
+  isSheetCard: boolean;
+  isNoteCard: boolean;
+  isPdfCard: boolean;
+  hasCustomFolderColor: boolean;
 }
 
 function deriveCardPresentation(
@@ -229,21 +410,25 @@ function deriveCardPresentation(
   t: TranslateFn,
 ): CardPresentation {
   const folderColor = isFolder ? getFolderColor(item) : undefined;
-  const typeColor = isFolder ? (folderColor ?? 'var(--primary)') : 'var(--muted-foreground)';
-  const typeLabel = isFolder ? t('folder.typeFolder', 'Carpeta') : (TYPE_LABELS[item.type] ?? item.type);
-  const timeAgo = item.updated_at
-    ? formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })
-    : '—';
+  const typeColor = isFolder ? (folderColor ?? 'var(--muted-foreground)') : 'var(--muted-foreground)';
+  const typeLabel = isFolder
+    ? t('folder.typeFolder', 'Carpeta')
+    : (TYPE_LABELS[item.type] ?? item.type);
+  const timePair = item.updated_at
+    ? formatRelativePair(
+      typeof item.updated_at === 'number'
+        ? item.updated_at
+        : new Date(item.updated_at).getTime(),
+    )
+    : { short: '—', full: '—' };
 
   const eagerThumbnail = isFolder ? null : pickThumbnail(item);
-  const lazyImage = !isFolder
-    ? (visual.imageUrl || (visual.kind === 'pdf' ? visual.pdfDataUrl : null))
-    : null;
-  const coverImage = eagerThumbnail || lazyImage;
-  const isPdfCover = !eagerThumbnail && visual.kind === 'pdf' && !!visual.pdfDataUrl;
+  const isPdfCard = !isFolder && (
+    item.type === 'pdf' || visual.kind === 'pdf' || /\.pdf$/i.test(item.title ?? '')
+  );
+  const pdfDataUrl = isPdfCard ? visual.pdfDataUrl : null;
+  const coverImage = eagerThumbnail || visual.imageUrl || null;
 
-  // Artifacts render a real visual thumbnail (the template in a scaled iframe)
-  // rather than a code/text excerpt.
   const artifactTemplate = !isFolder && visual.kind === 'artifact' && !visual.failed
     ? (visual.artifact?.template ?? null)
     : null;
@@ -253,59 +438,43 @@ function deriveCardPresentation(
     ? ''
     : (visual.snippet ?? (visual.kind === 'artifact' ? visual.artifact?.snippet ?? '' : ''));
   const snippet = eagerSnippet || lazySnippet;
-  // When there is no cover image and no artifact thumbnail, a text excerpt
-  // becomes the cover preview; avoid duplicating it in the body in that case.
-  const coverShowsSnippet = !isFolder && !coverImage && !artifactTemplate && !!snippet;
-  // Rendered-Markdown cover for notes (falls back to plain text while
-  // searching so match highlighting keeps working).
-  const noteMarkdown = coverShowsSnippet && !searchQuery
-    ? (pickMarkdown(item) ?? visual.markdown)
-    : null;
 
-  const displayTitle = item.title || t('folder.untitled');
+  const isSheetCard = !isFolder && (
+    SHEET_TYPES.has(item.type)
+    || /\.(xlsx?|csv)$/i.test(item.title ?? '')
+    || /^\[Sheet:/i.test(snippet)
+  );
+  const isNoteCard = !isFolder && (item.type === 'note' || item.type === 'notebook');
 
-  // Format-aware card shape: media keeps the asset's own aspect ratio,
-  // documents render as a portrait "page", folders are compact tiles.
-  const isMediaCard = !isFolder && (item.type === 'image' || item.type === 'video');
-  const isDocCard = !isFolder && !isMediaCard && (item.type === 'pdf' || coverShowsSnippet);
-  const isVideoCard = !isFolder && item.type === 'video';
+  // Prefer lazy vault markdown, then eager content / content_text, then snippet.
+  const noteMarkdown = isNoteCard && !searchQuery
+    ? (visual.markdown?.trim() || pickMarkdown(item) || (snippet ? snippet.slice(0, MARKDOWN_PREVIEW_MAX) : null))
+    : isNoteCard && searchQuery && snippet
+      ? snippet
+      : null;
 
   return {
     folderColor,
     typeColor,
     typeLabel,
-    timeAgo,
+    timeAgoShort: timePair.short,
+    timeAgoFull: timePair.full,
     coverImage,
-    isPdfCover,
+    isPdfCover: Boolean(pdfDataUrl),
+    pdfDataUrl,
     artifactTemplate,
     snippet,
-    coverShowsSnippet,
     noteMarkdown,
-    displayTitle,
-    isMediaCard,
-    isDocCard,
-    isVideoCard,
+    displayTitle: item.title || t('folder.untitled'),
+    isMediaCard: !isFolder && (item.type === 'image' || item.type === 'video'),
+    isVideoCard: !isFolder && item.type === 'video',
+    isSheetCard,
+    isNoteCard,
+    isPdfCard,
+    hasCustomFolderColor: Boolean(folderColor && folderColor.startsWith('#')),
   };
 }
 
-function buildCardClass(
-  p: CardPresentation,
-  flags: { isFolderCard: boolean; searchFocused?: boolean; selected: boolean; menuOpen: boolean; isLast: boolean },
-): string {
-  return [
-    'dome-fs-card',
-    flags.isFolderCard ? 'dome-fs-card--folder' : '',
-    p.isMediaCard ? 'dome-fs-card--media' : '',
-    p.isDocCard ? 'dome-fs-card--doc' : '',
-    p.artifactTemplate ? 'dome-fs-card--artifact-card' : '',
-    flags.searchFocused ? 'dome-fs-card--focused' : '',
-    flags.selected ? 'dome-fs-card--selected' : '',
-    flags.menuOpen ? 'dome-fs-card--menu-open' : '',
-    flags.isLast ? 'dome-fs-card--last' : '',
-  ].filter(Boolean).join(' ');
-}
-
-/** Cover preview by priority: folder icon → artifact → image → Markdown → snippet → fallback icon. */
 function CoverPreviewContent({
   item,
   isFolderCard,
@@ -321,7 +490,8 @@ function CoverPreviewContent({
 }) {
   if (isFolderCard) {
     return (
-      <HugeiconsIcon icon={Folder01Icon}
+      <HugeiconsIcon
+        icon={Folder01Icon}
         className="dome-fs-card__cover-icon"
         style={{ color: p.typeColor }}
         strokeWidth={1.25}
@@ -331,96 +501,96 @@ function CoverPreviewContent({
   if (p.artifactTemplate) {
     return <ArtifactThumb template={p.artifactTemplate} data={visual.artifact?.data ?? null} />;
   }
+  // PDF first-page render (lazy IPC) — prefer over generic icon.
+  if (p.pdfDataUrl) {
+    return <PdfPageThumb dataUrl={p.pdfDataUrl} />;
+  }
+  if (p.isPdfCard && visual.loading) {
+    return <PreviewLoading />;
+  }
   if (p.coverImage) {
-    // Real <img> so the asset's intrinsic aspect ratio drives the card
-    // height (masonry layout); PDF pages pin to the top like a document.
     return (
       <img
         src={p.coverImage}
         alt=""
-        className={`dome-fs-card__cover-img${p.isPdfCover ? ' dome-fs-card__cover-img--page' : ''}`}
+        className="dome-fs-card__cover-img"
         draggable={false}
         loading="lazy"
       />
     );
   }
-  if (p.noteMarkdown) {
-    return <NoteMarkdownThumb markdown={p.noteMarkdown} />;
+  if (p.isSheetCard && p.snippet) {
+    return <SpreadsheetThumb snippet={p.snippet} />;
   }
-  if (p.coverShowsSnippet) {
-    return (
-      <p className="dome-fs-card__cover-snippet">
-        {searchQuery ? highlightSnippet(p.snippet, searchQuery) : p.snippet}
-      </p>
-    );
+  if (p.isNoteCard) {
+    if (p.noteMarkdown) {
+      return searchQuery
+        ? <NoteTextThumb text={p.noteMarkdown} searchQuery={searchQuery} />
+        : <NoteMarkdownThumb markdown={p.noteMarkdown} title={p.displayTitle} />;
+    }
+    if (visual.loading) return <PreviewLoading />;
+  }
+  if (p.snippet && !p.isSheetCard) {
+    return <NoteTextThumb text={p.snippet} searchQuery={searchQuery} />;
   }
   if (visual.loading) {
-    return (
-      <div className="dome-fs-card__cover-fallback" style={{ color: p.typeColor }} aria-hidden>
-        <ResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
-      </div>
-    );
+    return <PreviewLoading />;
   }
+  return <TypeIconThumb item={item} accent={p.typeColor} />;
+}
+
+function ResourceCaption({
+  p,
+  searchQuery,
+}: {
+  p: CardPresentation;
+  searchQuery?: string;
+}) {
   return (
-    <div className="dome-fs-card__cover-fallback" style={{ color: p.typeColor }}>
-      {item.type === 'note' || item.type === 'notebook' ? (
-        <HugeiconsIcon icon={FileEditIcon} className="size-7" strokeWidth={1.25} />
-      ) : (
-        <ResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
-      )}
+    <div className="dome-fs-card__caption">
+      {/* Single line in overlay captions — long names get ellipsis + title tooltip. */}
+      <SafeText as="h3" lines={1} className="dome-fs-card__title" title={p.displayTitle}>
+        {searchQuery ? highlightSnippet(p.displayTitle, searchQuery) : p.displayTitle}
+      </SafeText>
+      <MetaLine
+        className="dome-fs-card__meta"
+        leading={(
+          <Badge variant="secondary" className="max-w-full truncate" title={p.typeLabel}>
+            {p.typeLabel}
+          </Badge>
+        )}
+        trailing={p.timeAgoShort}
+        trailingTitle={p.timeAgoFull}
+      />
     </div>
   );
 }
 
-function CardCover({
-  item,
-  isFolderCard,
-  p,
-  visual,
-  searchQuery,
+function CardChrome({
   showSelectionChrome,
   selected,
   renaming,
   hovered,
   menuOpen,
-  previewRef,
   menuBtnRef,
-  onActivate,
   onToggleSelect,
   onShowMenu,
   onToggleMenu,
   t,
 }: {
-  item: Resource;
-  isFolderCard: boolean;
-  p: CardPresentation;
-  visual: ResourceVisualPreview;
-  searchQuery?: string;
   showSelectionChrome: boolean;
   selected: boolean;
   renaming: boolean;
   hovered: boolean;
   menuOpen: boolean;
-  previewRef: (node: Element | null) => void;
   menuBtnRef: React.RefObject<HTMLButtonElement>;
-  onActivate: (e: React.MouseEvent) => void;
   onToggleSelect: (e: React.MouseEvent) => void;
   onShowMenu: (pos: { top: number; right: number }) => void;
   onToggleMenu: () => void;
   t: TranslateFn;
 }) {
   return (
-    // Cover is a mouse-only convenience target; the body below is the
-    // keyboard-accessible button (role=button + tabIndex + onKeyDown).
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-    <div
-      ref={previewRef as unknown as React.Ref<HTMLDivElement>}
-      className={`dome-fs-card__cover cursor-pointer${p.artifactTemplate ? ' dome-fs-card__cover--artifact' : ''}`}
-      onClick={onActivate}
-      style={isFolderCard
-        ? { background: `color-mix(in srgb, ${p.typeColor} 12%, var(--card))` }
-        : undefined}
-    >
+    <>
       {showSelectionChrome ? (
         <span className="dome-fs-card__select">
           <Input
@@ -434,24 +604,12 @@ function CardCover({
         </span>
       ) : null}
 
-      <CoverPreviewContent
-        item={item}
-        isFolderCard={isFolderCard}
-        p={p}
-        visual={visual}
-        searchQuery={searchQuery}
-      />
-
-      {p.isVideoCard ? (
-        <span className="dome-fs-card__play-badge" aria-hidden>
-          <HugeiconsIcon icon={PlayIcon} className="size-4" fill="currentColor" strokeWidth={0} />
-        </span>
-      ) : null}
-
       {(hovered || menuOpen) && !renaming ? (
         <Button
           ref={menuBtnRef}
           type="button"
+          variant="secondary"
+          size="icon-xs"
           onClick={(e) => {
             e.stopPropagation();
             if (!menuOpen && menuBtnRef.current) {
@@ -464,14 +622,14 @@ function CardCover({
           aria-label={t('folder.rowActions', 'Acciones')}
           title={t('folder.rowActions', 'Acciones')}
         >
-          <HugeiconsIcon icon={MoreVerticalIcon} className="size-3.5" />
+          <HugeiconsIcon icon={MoreVerticalIcon} />
         </Button>
       ) : null}
-    </div>
+    </>
   );
 }
 
-function CardBody({
+function FolderFooter({
   renaming,
   renameRef,
   renameValue,
@@ -479,7 +637,6 @@ function CardBody({
   onCommitRename,
   onCancelRename,
   onActivate,
-  isFolderCard,
   p,
   searchQuery,
   t,
@@ -491,14 +648,13 @@ function CardBody({
   onCommitRename: () => void;
   onCancelRename: () => void;
   onActivate: (e: React.MouseEvent) => void;
-  isFolderCard: boolean;
   p: CardPresentation;
   searchQuery?: string;
   t: TranslateFn;
 }) {
   if (renaming) {
     return (
-      <div className="dome-fs-card__body">
+      <div className="dome-fs-card__footer">
         <div className="dome-fs-card__rename">
           <Input
             ref={renameRef}
@@ -511,40 +667,40 @@ function CardBody({
             }}
             onClick={(e) => e.stopPropagation()}
             aria-label={t('ui.rename', 'Rename')}
-            className="dome-fs-tree-row__rename-input"
+            className="h-7"
           />
-          <Button type="button" onClick={(e) => { e.stopPropagation(); onCommitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
-            <HugeiconsIcon icon={CheckIcon} className="size-3.5" />
+          <Button type="button" variant="ghost" size="icon-xs" onClick={(e) => { e.stopPropagation(); onCommitRename(); }} aria-label={t('ui.create')}>
+            <HugeiconsIcon icon={CheckIcon} />
           </Button>
-          <Button type="button" onClick={(e) => { e.stopPropagation(); onCancelRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
-            <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+          <Button type="button" variant="ghost" size="icon-xs" onClick={(e) => { e.stopPropagation(); onCancelRename(); }} aria-label={t('ui.cancel')}>
+            <HugeiconsIcon icon={Cancel01Icon} />
           </Button>
         </div>
       </div>
     );
   }
+
   return (
-    <Button
+    <button
       type="button"
-      className="dome-fs-card__body"
+      className="dome-fs-card__footer"
       onClick={onActivate}
       aria-label={p.displayTitle}
     >
-      <h3 className="dome-fs-card__title" title={p.displayTitle}>
+      <SafeText as="h3" lines={2} className="dome-fs-card__title" title={p.displayTitle}>
         {searchQuery ? highlightSnippet(p.displayTitle, searchQuery) : p.displayTitle}
-      </h3>
-
-      {!isFolderCard && p.snippet && !p.coverShowsSnippet && !p.artifactTemplate ? (
-        <p className="dome-fs-card__snippet">
-          {searchQuery ? highlightSnippet(p.snippet, searchQuery) : p.snippet}
-        </p>
-      ) : null}
-
-      <div className="dome-fs-card__meta">
-        <span className="dome-fs-card__type-badge" title={p.typeLabel}>{p.typeLabel}</span>
-        <span className="dome-fs-card__modified">{p.timeAgo}</span>
-      </div>
-    </Button>
+      </SafeText>
+      <MetaLine
+        className="dome-fs-card__meta"
+        leading={(
+          <Badge variant="secondary" className="max-w-full truncate" title={p.typeLabel}>
+            {p.typeLabel}
+          </Badge>
+        )}
+        trailing={p.timeAgoShort}
+        trailingTitle={p.timeAgoFull}
+      />
+    </button>
   );
 }
 
@@ -584,36 +740,40 @@ function CardMenuLayers({
 }) {
   return (
     <>
-      {/* Rendered via portal to `document.body`: the card is a containing block
-          for fixed-position descendants (it has `container-type` + `overflow:
-          hidden` + a hover `transform`), which would otherwise clip and
-          mis-position this menu. */}
       {menuOpen && menuPos ? (
-            <DropdownMenu open onOpenChange={(open) => { if (!open) onDismissMenu(); }}>
-              <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, right: menuPos.right }} aria-hidden />} />
-              <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="dome-folder-view__row-menu">
-              <ResourceContextMenuItems
-                resource={item}
-                options={{
-                  isFolder: isFolderCard,
-                  isNote: item.type === 'note',
-                  canOpenInSplit: Boolean(actions.onOpenInSplit),
-                }}
-                actions={{
-                  onRename: startRenaming,
-                  onOpenInSplit: actions.onOpenInSplit,
-                  onOpenInWindow: actions.onOpenInWindow,
-                  onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
-                  onMoveToFolder: actions.onMoveToFolder,
-                  onMoveToProject: actions.onMoveToProject,
-                  onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
-                  onDelete: actions.onDelete,
-                }}
-                onDismiss={onDismissMenu}
+        <DropdownMenu open onOpenChange={(open) => { if (!open) onDismissMenu(); }}>
+          <DropdownMenuTrigger
+            render={
+              <span
+                className="fixed size-px"
+                style={{ top: menuPos.top, right: menuPos.right }}
+                aria-hidden
               />
-              </DropdownMenuContent>
-            </DropdownMenu>
-        ) : null}
+            }
+          />
+          <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="dome-folder-view__row-menu">
+            <ResourceContextMenuItems
+              resource={item}
+              options={{
+                isFolder: isFolderCard,
+                isNote: item.type === 'note',
+                canOpenInSplit: Boolean(actions.onOpenInSplit),
+              }}
+              actions={{
+                onRename: startRenaming,
+                onOpenInSplit: actions.onOpenInSplit,
+                onOpenInWindow: actions.onOpenInWindow,
+                onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
+                onMoveToFolder: actions.onMoveToFolder,
+                onMoveToProject: actions.onMoveToProject,
+                onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
+                onDelete: actions.onDelete,
+              }}
+              onDismiss={onDismissMenu}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
 
       {colorPickerPos && actions.onChangeColor ? (
         <ColorPickerPopover
@@ -670,11 +830,7 @@ function FolderCardImpl({
     requestAnimationFrame(() => renameRef.current?.focus());
   };
 
-  // Lazy content preview (PDF first page, artifact mini-visual, image thumbnail
-  // or text snippet) — the lightweight list payload omits content/thumbnails,
-  // so they are fetched per-card on demand via this hook.
   const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
-
   const isFolderCard = isFolder;
   const p = deriveCardPresentation(item, isFolder, visual, searchQuery, t);
 
@@ -684,9 +840,6 @@ function FolderCardImpl({
     setRenaming(false);
   };
 
-  // Single open/select handler shared by the whole card (cover + body) so a
-  // click anywhere opens the resource — not only on the title/snippet area.
-  // Interactive children (menu button, checkbox, rename input) stop propagation.
   const handleCardActivate = (e: React.MouseEvent) => {
     if (renaming) return;
     if (e.metaKey || e.ctrlKey) {
@@ -709,12 +862,57 @@ function FolderCardImpl({
     setColorPickerPos({ top, left });
   };
 
-  const cardClass = buildCardClass(p, { isFolderCard, searchFocused, selected, menuOpen, isLast });
+  const chrome = (
+    <CardChrome
+      showSelectionChrome={showSelectionChrome}
+      selected={selected}
+      renaming={renaming}
+      hovered={hovered}
+      menuOpen={menuOpen}
+      menuBtnRef={menuBtnRef}
+      onToggleSelect={onToggleSelect}
+      onShowMenu={setMenuPos}
+      onToggleMenu={() => setMenuOpen((v) => !v)}
+      t={t}
+    />
+  );
+
+  // Notes / artifacts: preview + footer (titles can be long — never overlay).
+  // Media / PDF / sheets keep the compact overlay caption.
+  const useStackedMeta = isFolderCard || p.isNoteCard || Boolean(p.artifactTemplate);
+
+  const stackedFooter = (
+    <FolderFooter
+      renaming={renaming}
+      renameRef={renameRef}
+      renameValue={renameValue}
+      onRenameValueChange={setRenameValue}
+      onCommitRename={commitRename}
+      onCancelRename={() => setRenaming(false)}
+      onActivate={handleCardActivate}
+      p={p}
+      searchQuery={searchQuery}
+      t={t}
+    />
+  );
 
   return (
     <div
       ref={cardRef}
-      className={cardClass}
+      className={cn(
+        'dome-fs-card',
+        isFolderCard ? 'dome-fs-card--folder' : 'dome-fs-card--resource',
+        useStackedMeta && !isFolderCard && 'dome-fs-card--stacked',
+        p.isMediaCard && 'dome-fs-card--media',
+        p.isSheetCard && 'dome-fs-card--sheet',
+        p.isNoteCard && 'dome-fs-card--note',
+        p.isPdfCard && 'dome-fs-card--pdf',
+        p.artifactTemplate && 'dome-fs-card--artifact-card',
+        searchFocused && 'dome-fs-card--focused',
+        selected && 'dome-fs-card--selected',
+        menuOpen && 'dome-fs-card--menu-open',
+        isLast && 'dome-fs-card--last',
+      )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onContextMenu={(e) => {
@@ -724,39 +922,88 @@ function FolderCardImpl({
         setMenuOpen(true);
       }}
     >
-      <CardCover
-        item={item}
-        isFolderCard={isFolderCard}
-        p={p}
-        visual={visual}
-        searchQuery={searchQuery}
-        showSelectionChrome={showSelectionChrome}
-        selected={selected}
-        renaming={renaming}
-        hovered={hovered}
-        menuOpen={menuOpen}
-        previewRef={previewRef}
-        menuBtnRef={menuBtnRef}
-        onActivate={handleCardActivate}
-        onToggleSelect={onToggleSelect}
-        onShowMenu={setMenuPos}
-        onToggleMenu={() => setMenuOpen((v) => !v)}
-        t={t}
-      />
-
-      <CardBody
-        renaming={renaming}
-        renameRef={renameRef}
-        renameValue={renameValue}
-        onRenameValueChange={setRenameValue}
-        onCommitRename={commitRename}
-        onCancelRename={() => setRenaming(false)}
-        onActivate={handleCardActivate}
-        isFolderCard={isFolderCard}
-        p={p}
-        searchQuery={searchQuery}
-        t={t}
-      />
+      {isFolderCard ? (
+        <>
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+          <div
+            className="dome-fs-card__cover dome-fs-card__cover--folder cursor-pointer"
+            onClick={handleCardActivate}
+            style={p.hasCustomFolderColor
+              ? { background: `color-mix(in srgb, ${p.typeColor} 14%, var(--card))` }
+              : undefined}
+          >
+            {chrome}
+            <CoverPreviewContent
+              item={item}
+              isFolderCard
+              p={p}
+              visual={visual}
+              searchQuery={searchQuery}
+            />
+          </div>
+          {stackedFooter}
+        </>
+      ) : renaming ? (
+        stackedFooter
+      ) : useStackedMeta ? (
+        <>
+          <div
+            ref={previewRef as unknown as React.Ref<HTMLDivElement>}
+            className="dome-fs-card__surface"
+          >
+            <button
+              type="button"
+              className={cn(
+                'dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked',
+                p.artifactTemplate && 'dome-fs-card__cover--artifact',
+              )}
+              onClick={handleCardActivate}
+              aria-label={p.displayTitle}
+            >
+              {chrome}
+              <CoverPreviewContent
+                item={item}
+                isFolderCard={false}
+                p={p}
+                visual={visual}
+                searchQuery={searchQuery}
+              />
+            </button>
+          </div>
+          {stackedFooter}
+        </>
+      ) : (
+        <div
+          ref={previewRef as unknown as React.Ref<HTMLDivElement>}
+          className="dome-fs-card__surface"
+        >
+          <button
+            type="button"
+            className={cn(
+              'dome-fs-card__cover dome-fs-card__cover--resource',
+              p.artifactTemplate && 'dome-fs-card__cover--artifact',
+            )}
+            onClick={handleCardActivate}
+            aria-label={p.displayTitle}
+          >
+            {chrome}
+            <CoverPreviewContent
+              item={item}
+              isFolderCard={false}
+              p={p}
+              visual={visual}
+              searchQuery={searchQuery}
+            />
+            {p.isVideoCard ? (
+              <span className="dome-fs-card__play-badge" aria-hidden>
+                <HugeiconsIcon icon={PlayIcon} fill="currentColor" strokeWidth={0} />
+              </span>
+            ) : null}
+            <div className="dome-fs-card__scrim" aria-hidden />
+            <ResourceCaption p={p} searchQuery={searchQuery} />
+          </button>
+        </div>
+      )}
 
       <CardMenuLayers
         item={item}

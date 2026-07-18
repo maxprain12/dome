@@ -193,5 +193,7 @@
   "viewer_corrupt_title": "Não foi possível exibir este conteúdo",
   "viewer_corrupt_sub": "O conteúdo gerado parece incompleto ou inválido. Tente gerá-lo novamente.",
   "viewer_empty_title": "Nada para mostrar ainda",
-  "viewer_empty_sub": "Este item ainda não tem conteúdo."
+  "viewer_empty_sub": "Este item ainda não tem conteúdo.",
+  "agent_ask_many": "Perguntar ao Many",
+  "agent_prompt": "Ajude-me a planejar o estudo: quais decks revisar, o que gerar e um plano curto."
 }

@@ -25,6 +25,15 @@
   "agent_action_draft": "Draft a post",
   "agent_action_analytics": "Analytics",
   "agent_ask_many": "Ask Many",
+  "metrics": {
+    "title": "Post metrics",
+    "pending": "No metrics yet — sync the feed or refresh metrics.",
+    "likes": "likes",
+    "comments": "comments",
+    "shares": "reposts",
+    "saves": "saves",
+    "impressions": "impressions"
+  },
   "agent_queue_count": "{{count}} items",
   "agent_queue_attention": "Needs attention",
   "agent_queue_scheduled": "Coming up",
@@ -81,8 +90,8 @@
     "status_error": "Connection error",
     "status_expired": "Token expired — reconnect",
     "hint_linkedin": "LinkedIn: enable \"Sign In with LinkedIn using OpenID Connect\" and \"Share on LinkedIn\" in your app. For company pages, also enable \"Company pages\" below and add the \"Community Management API\" product. Register the redirect URI above. Tokens last ~60 days.",
-    "linkedin_org_enabled": "Company pages",
-    "linkedin_org_hint": "Manage LinkedIn company pages you administer (not just your personal profile). Requires the \"Community Management API\" product on your developer app. After enabling, save and reconnect so the token includes organization scopes.",
+    "linkedin_org_enabled": "Community Management (pages + personal analytics)",
+    "linkedin_org_hint": "Enable the \"Community Management API\" product on your LinkedIn app. Unlocks company pages you administer, personal follower/connection counts, and metrics for posts published from Dome. Then save and reconnect LinkedIn. LinkedIn still blocks listing personal post history (closed r_member_social scope).",
     "linkedin_sync_orgs": "Discover company pages",
     "linkedin_sync_orgs_busy": "Searching…",
     "account_kind_member": "Personal profile",
@@ -163,8 +172,10 @@
     "growth_followers": "followers",
     "growth_following": "Following",
     "growth_posts": "Posts",
-    "growth_unavailable_linkedin_member": "LinkedIn does not expose follower counts for personal profiles on the standard API tier. Enable company pages in Settings to track page followers.",
-    "growth_pending": "No snapshots yet — metrics are captured automatically every few hours, or press \"Refresh metrics\"."
+    "growth_unavailable_linkedin_member": "No personal-profile metrics yet. In Settings → Social enable Community Management, save, and reconnect LinkedIn (r_member_profileAnalytics / r_1st_connections_size).",
+    "sync_linkedin_member_limited": "LinkedIn blocks importing personal post history (closed API). With Community Management you still get followers/connections and metrics for posts published from Dome. Reconnect after enabling it in Settings.",
+    "growth_pending": "No snapshots yet — metrics are captured automatically every few hours, or press \"Refresh metrics\".",
+    "growth_connections": "connections"
   },
   "composer": {
     "title": "New post",

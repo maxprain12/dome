@@ -118,7 +118,10 @@ export function createEmailReadTool(): AnyAgentTool {
   return {
     label: 'Read email',
     name: 'email_read',
-    description: 'Read the full content of a single email message by its id.',
+    description:
+      'Read the full content of a single email message by its id (IMAP uid). ' +
+      'Call this when mentioned-sources lists an email or the user refers to a pinned mail. ' +
+      'Pass folder from meta when available (e.g. INBOX).',
     parameters: EmailReadSchema,
     execute: async (_toolCallId, args) => {
       try {

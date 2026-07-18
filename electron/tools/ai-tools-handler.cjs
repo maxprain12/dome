@@ -3285,6 +3285,20 @@ async function socialPostsList({ status, limit } = {}) {
   }
 }
 
+async function socialPostGet({ post_id, postId } = {}) {
+  try {
+    const id = post_id || postId;
+    if (!id) return { success: false, error: 'post_id is required.' };
+    const service = socialService();
+    const post = service.store.getPost(id);
+    if (!post) return { success: false, error: `Social post not found: ${id}` };
+    const metrics = post.status === 'published' ? service.store.getLatestMetric(post.id) : null;
+    return { success: true, source: 'social', post: { ...post, metrics } };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function socialMetricsSummary({ refresh = false } = {}) {
   try {
     const service = socialService();
@@ -3443,6 +3457,49 @@ async function githubListIssues({ repo_id, state = 'all' } = {}) {
         url: i.html_url,
       })),
     };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubGetIssue({ issue_id, issueId } = {}) {
+  try {
+    const id = issue_id || issueId;
+    if (!id) return { success: false, error: 'issue_id is required' };
+    const issue = githubStore().getIssue(id);
+    if (!issue) return { success: false, error: `Issue not found: ${id}` };
+    const repo = githubStore().getRepo(issue.repo_id);
+    return {
+      success: true,
+      source: 'github',
+      issue: {
+        id: issue.id,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        milestone_number: issue.milestone_number,
+        labels: ghParseArr(issue.labels),
+        assignees: ghParseArr(issue.assignees),
+        due_date: issue.due_date,
+        url: issue.html_url,
+        repo_id: issue.repo_id,
+        full_name: repo?.full_name || null,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleGet({ person_id, personId } = {}) {
+  try {
+    const id = person_id || personId;
+    if (!id) return { success: false, error: 'person_id is required' };
+    const peopleStore = require('../people/people-store.cjs');
+    const person = peopleStore.getPerson(id);
+    if (!person) return { success: false, error: `Person not found: ${id}` };
+    return { success: true, source: 'people', person };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -5104,14 +5161,17 @@ module.exports = {
   githubListMilestones,
   githubUpcomingMilestones,
   githubListIssues,
+  githubGetIssue,
   githubCreateIssue,
   githubUpdateIssue,
   githubCreateMilestone,
   githubSync,
+  peopleGet,
   socialAccountsList,
   socialPostDraft,
   socialPostPublish,
   socialPostsList,
+  socialPostGet,
   socialMetricsSummary,
   socialCampaignsList,
   socialCampaignCreate,

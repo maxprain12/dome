@@ -636,6 +636,7 @@ const ALLOWED_CHANNELS = {
     'social:posts:sync',
     'social:metrics:post',
     'social:metrics:refresh',
+    'social:metrics:refreshPost',
     'social:summary',
     'social:workspace',
     'social:campaigns:list',

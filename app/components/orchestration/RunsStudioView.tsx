@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import {
-  Activity01Icon as ActivityIcon,
   BotIcon as BotIcon,
   Clock01Icon as ClockIcon,
   Loading03Icon as Loader2Icon,
@@ -31,10 +30,11 @@ import { PENDING_RUN_ID_KEY } from '@/lib/hub/hubStorageKeys';
 import { formatHubDate } from '@/components/hub/runs/runPresentation';
 import RunDetailView from './RunDetailView';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import OrchestrationShell, { type OrchestrationStat } from './OrchestrationShell';
-
-import { Skeleton } from '@/components/ui/skeleton';
+import { StudioHubBody, StudioHubShell, StudioQueue, askStudioMany } from '@/components/studio-hub';
+import type { StudioStat } from '@/components/studio-hub';
+import ListState from '@/components/shared/ListState';
 import RunStatusBadge from '@/components/automations/RunStatusBadge';
+import { cn } from '@/lib/utils';
 
 const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
   <HugeiconsIcon icon={BotIcon} {...props} />
@@ -45,6 +45,7 @@ const Workflow = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'
 const Sparkles = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
   <HugeiconsIcon icon={SparklesIcon} {...props} />
 );
+
 type OwnerFilter = 'all' | 'agent' | 'workflow' | 'many';
 type StatusFilter = 'all' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -101,7 +102,7 @@ function mergeRunIntoSelected(prev: PersistentRun | null, run: PersistentRun): P
     : prev;
 }
 
-/** Runs section — redesigned execution monitor with live KPIs and status rails. */
+/** Runs hub — agentic list + inline detail (StudioHubShell). */
 export default function RunsStudioView() {
   const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
@@ -109,6 +110,7 @@ export default function RunsStudioView() {
   const [allRuns, setAllRuns] = useState<PersistentRun[]>([]);
   const [selectedRun, setSelectedRun] = useState<PersistentRun | null>(null);
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -130,7 +132,6 @@ export default function RunsStudioView() {
     eventName: HUB_RUNS_CHANGED,
   });
 
-  // Deep link: an automation "run now" stores the run id before opening this tab.
   useEffect(() => {
     if (pendingRunHandledRef.current) return;
     let pendingRunId: string | null = null;
@@ -168,7 +169,6 @@ export default function RunsStudioView() {
     }, 150);
   }, []);
 
-  // Live updates: merge run/step events into the list and the open detail.
   useEffect(() => {
     const unsubUpdated = onRunUpdated(({ run }) => {
       setAllRuns((prev) => mergeRunIntoList(prev, run));
@@ -203,8 +203,17 @@ export default function RunsStudioView() {
         statusFilter === 'running' ? ACTIVE_STATUSES.has(r.status) : r.status === statusFilter,
       );
     }
+    const q = query.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (r) =>
+          (r.title || '').toLowerCase().includes(q) ||
+          r.id.toLowerCase().includes(q) ||
+          (r.ownerType || '').toLowerCase().includes(q),
+      );
+    }
     return result;
-  }, [allRuns, ownerFilter, statusFilter]);
+  }, [allRuns, ownerFilter, statusFilter, query]);
 
   const metrics = useMemo(() => {
     const todayRuns = allRuns.filter((r) => isToday(r.updatedAt ?? r.startedAt));
@@ -215,31 +224,34 @@ export default function RunsStudioView() {
     return { totalToday: todayRuns.length, running, completed, failed, successRate };
   }, [allRuns]);
 
-  const stats: OrchestrationStat[] = [
-    { label: t('runLog.metrics_total_today'), value: metrics.totalToday, tone: 'success' },
+  const stats: StudioStat[] = [
     {
+      id: 'today',
+      label: t('runLog.metrics_total_today'),
+      value: metrics.totalToday,
+      tone: 'success',
+    },
+    {
+      id: 'running',
       label: t('orchestration.runs.stat_running'),
       value: metrics.running,
       tone: metrics.running > 0 ? 'info' : 'default',
-      sub:
-        metrics.running > 0
-          ? t('runLog.metrics_in_progress', { count: metrics.running })
-          : t('runLog.metrics_in_progress_zero'),
+      active: statusFilter === 'running',
+      onClick: () => setStatusFilter((s) => (s === 'running' ? 'all' : 'running')),
     },
     {
+      id: 'success',
       label: t('orchestration.runs.stat_success_rate'),
       value: `${metrics.successRate}%`,
       tone: metrics.successRate >= 80 ? 'success' : 'warning',
-      sub: t('runLog.metrics_success_rate', { rate: metrics.successRate }),
     },
     {
+      id: 'failed',
       label: t('runLog.metrics_failed'),
       value: metrics.failed,
       tone: metrics.failed > 0 ? 'error' : 'default',
-      sub:
-        metrics.failed === 0
-          ? t('runLog.metrics_no_errors_today')
-          : t('runLog.metrics_errors_today', { count: metrics.failed }),
+      active: statusFilter === 'failed',
+      onClick: () => setStatusFilter((s) => (s === 'failed' ? 'all' : 'failed')),
     },
   ];
 
@@ -286,19 +298,7 @@ export default function RunsStudioView() {
     }
   };
 
-  if (selectedRun) {
-    return (
-      <RunDetailView
-        run={selectedRun}
-        onBack={() => setSelectedRun(null)}
-        onStop={ACTIVE_STATUSES.has(selectedRun.status) ? () => void handleStop(selectedRun.id) : undefined}
-        onDelete={() => void handleDelete(selectedRun.id)}
-        stopping={stoppingId === selectedRun.id}
-        deleting={deletingId === selectedRun.id}
-      />
-    );
-  }
-
+  const detailOpen = selectedRun != null;
   const ownerOptions: Array<{ value: OwnerFilter; label: string }> = [
     { value: 'all', label: t('runLog.filter_owner_all') },
     { value: 'agent', label: t('runLog.filter_owner_agent') },
@@ -314,185 +314,217 @@ export default function RunsStudioView() {
   ];
 
   return (
-    <OrchestrationShell
+    <StudioHubShell
       section="runs"
       title={t('tabs.runs')}
-      subtitle={t('automationHub.runs_subtitle')}
+      description={t('automationHub.runs_subtitle')}
+      layout="split"
+      compact={detailOpen}
+      search={{
+        value: query,
+        onChange: setQuery,
+        placeholder: t('orchestration.agent_search'),
+      }}
       stats={stats}
+      actions={
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() =>
+            askStudioMany(
+              t('orchestration.agent_prompt_runs'),
+              selectedRun
+                ? {
+                    id: selectedRun.id,
+                    title: selectedRun.title || selectedRun.id,
+                    type: 'run',
+                    meta: { status: selectedRun.status, ownerType: selectedRun.ownerType },
+                  }
+                : null,
+            )
+          }
+        >
+          {t('orchestration.agent_ask_many')}
+        </Button>
+      }
       toolbar={
-        <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              {t('runLog.filter_group_type')}
-            </span>
-            <ToggleGroup value={[ownerFilter]} onValueChange={(values) => values[0] && setOwnerFilter(values[0] as OwnerFilter)}>
-              {ownerOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} size="sm">{option.label}</ToggleGroupItem>)}
-            </ToggleGroup>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              {t('runLog.filter_group_status')}
-            </span>
-            <ToggleGroup value={[statusFilter]} onValueChange={(values) => values[0] && setStatusFilter(values[0] as StatusFilter)}>
-              {statusOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value} size="sm">{option.label}</ToggleGroupItem>)}
-            </ToggleGroup>
-          </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <ToggleGroup
+            value={[ownerFilter]}
+            onValueChange={(values) => values[0] && setOwnerFilter(values[0] as OwnerFilter)}
+          >
+            {ownerOptions.map((option) => (
+              <ToggleGroupItem key={option.value} value={option.value} size="sm">
+                {option.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <ToggleGroup
+            value={[statusFilter]}
+            onValueChange={(values) => values[0] && setStatusFilter(values[0] as StatusFilter)}
+          >
+            {statusOptions.map((option) => (
+              <ToggleGroupItem key={option.value} value={option.value} size="sm">
+                {option.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
       }
     >
-      {loading ? (
-        <div className="p-6">
-          <output className="flex w-full max-w-full flex-col gap-3" aria-live="polite">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
-            ))}
-          </output>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="p-6">
-          <div
-            className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl px-8 py-10 text-center"
-            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-          >
-            <div
-              className="flex size-14 items-center justify-center rounded-2xl"
-              style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
-            >
-              <HugeiconsIcon icon={ActivityIcon} className="size-7" strokeWidth={1.5} />
-            </div>
-            <h2 className="text-base font-semibold text-foreground">
-              {t('runLog.empty_runs')}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t('runLog.empty_runs_hint')}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <ul className="m-0 flex list-none flex-col gap-2.5 p-6">
-          {filtered.map((run) => {
-            const progress = getRunProgress(run);
-            const active = ACTIVE_STATUSES.has(run.status);
-            const progressPercent =
-              progress?.mode === 'determinate'
-                ? (progress.percent ?? 0)
-                : run.status === 'completed'
-                  ? 100
-                  : 0;
-            const duration = formatDuration(run);
-            const OwnerIcon = run.ownerType === 'agent' ? Bot : run.ownerType === 'many' ? Sparkles : Workflow;
-            const ownerLabel =
-              run.ownerType === 'agent'
-                ? t('runLog.filter_owner_agent')
-                : run.ownerType === 'many'
-                  ? t('runLog.filter_owner_many')
-                  : t('runLog.filter_owner_workflow');
-            return (
-              <li key={run.id}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => void handleSelectRun(run)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      void handleSelectRun(run);
+      <StudioHubBody
+        detailOpen={detailOpen}
+        master={
+          loading ? (
+            <ListState variant="loading" />
+          ) : (
+            <StudioQueue
+              label={t('orchestration.agent_queue_runs')}
+              empty={
+                filtered.length === 0
+                  ? {
+                      title: t('runLog.empty_runs'),
+                      description: t('runLog.empty_runs_hint'),
+                      action: (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => askStudioMany(t('orchestration.agent_prompt_runs'))}
+                        >
+                          {t('orchestration.agent_ask_many')}
+                        </Button>
+                      ),
                     }
-                  }}
-                  className="relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-2xl py-3 pl-5 pr-4 transition-colors hover:bg-accent"
-                  style={{
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    opacity: loadingDetail === run.id ? 0.6 : 1,
-                  }}
-                >
-                  {/* Status rail */}
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 left-0 w-1"
-                    style={{ background: runStatusColor(run.status) }}
-                  />
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
+                  : undefined
+              }
+            >
+              {filtered.map((run) => {
+                const progress = getRunProgress(run);
+                const active = ACTIVE_STATUSES.has(run.status);
+                const progressPercent =
+                  progress?.mode === 'determinate'
+                    ? (progress.percent ?? 0)
+                    : run.status === 'completed'
+                      ? 100
+                      : 0;
+                const duration = formatDuration(run);
+                const OwnerIcon =
+                  run.ownerType === 'agent' ? Bot : run.ownerType === 'many' ? Sparkles : Workflow;
+                const ownerLabel =
+                  run.ownerType === 'agent'
+                    ? t('runLog.filter_owner_agent')
+                    : run.ownerType === 'many'
+                      ? t('runLog.filter_owner_many')
+                      : t('runLog.filter_owner_workflow');
+                return (
+                  <button
+                    key={run.id}
+                    type="button"
+                    onClick={() => void handleSelectRun(run)}
+                    className={cn(
+                      'relative flex w-full items-start gap-2 rounded-md px-1.5 py-1.5 text-left',
+                      selectedRun?.id === run.id ? 'bg-accent' : 'hover:bg-accent',
+                      loadingDetail === run.id && 'opacity-60',
+                    )}
                   >
-                    <OwnerIcon className="size-4" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className="min-w-0 truncate text-sm font-semibold text-foreground"
-                        title={run.title || run.id}
-                      >
-                        {run.title || run.id}
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-1 left-0 w-0.5 rounded-full"
+                      style={{ background: runStatusColor(run.status) }}
+                    />
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <OwnerIcon className="size-3.5" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                          {run.title || run.id}
+                        </span>
+                        <RunStatusBadge status={run.status} />
                       </span>
-                      <RunStatusBadge status={run.status} />
-                    </div>
-                    <div
-                      className="mt-0.5 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-muted-foreground"
-                    >
-                      <span>{ownerLabel}</span>
-                      <span className="inline-flex items-center gap-1">
-                        <HugeiconsIcon icon={ClockIcon} className="size-3" aria-hidden />
-                        {formatHubDate(run.updatedAt, t('runLog.never'))}
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <span>{ownerLabel}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <HugeiconsIcon icon={ClockIcon} className="size-3" />
+                          {formatHubDate(run.updatedAt, t('runLog.never'))}
+                        </span>
+                        {duration ? <span>{duration}</span> : null}
                       </span>
-                      {duration ? <span>{t('orchestration.runs.duration', { duration })}</span> : null}
-                      {run.steps?.length ? (
-                        <span>
-                          {run.steps.length === 1
-                            ? t('runLog.step_singular')
-                            : t('runLog.step_plural', { count: run.steps.length })}
+                      {(active || progressPercent > 0) && progressPercent < 100 ? (
+                        <span className="mt-0.5 h-1 w-full max-w-xs overflow-hidden rounded-full bg-muted">
+                          <span
+                            className="block h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, Math.max(active && progressPercent === 0 ? 8 : progressPercent, 0))}%`,
+                              background: runStatusColor(run.status),
+                            }}
+                          />
                         </span>
                       ) : null}
-                    </div>
-                    {(active || progressPercent > 0) && progressPercent < 100 ? (
-                      <div
-                        className="mt-1.5 h-1 w-full max-w-xs overflow-hidden rounded-full bg-accent"
-                        aria-hidden
+                    </span>
+                    <span
+                      className="flex shrink-0 items-center gap-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      role="presentation"
+                    >
+                      {active ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title={t('orchestration.runs.stop')}
+                          disabled={stoppingId === run.id}
+                          onClick={() => void handleStop(run.id)}
+                        >
+                          {stoppingId === run.id ? (
+                            <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
+                          ) : (
+                            <HugeiconsIcon icon={SquareIcon} className="size-3.5 text-warning" />
+                          )}
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="text-destructive"
+                        title={t('runLog.delete_run_aria')}
+                        disabled={deletingId === run.id}
+                        onClick={() => void handleDelete(run.id)}
                       >
-                        <div
-                          className="h-full rounded-full transition-transform duration-200 ease-[var(--ease-out)]"
-                          style={{
-                            width: `${Math.min(100, Math.max(active && progressPercent === 0 ? 8 : progressPercent, 0))}%`,
-                            background: runStatusColor(run.status),
-                          }}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                  <div
-                    className="flex shrink-0 items-center gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    role="presentation"
-                  >
-                    {active ? (
-                      <Button variant="ghost" title={t('orchestration.runs.stop')} aria-label={t('orchestration.runs.stop')} disabled={stoppingId === run.id} onClick={() => void handleStop(run.id)} size="icon-xs">
-                        {stoppingId === run.id ? (
-                          <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin text-muted-foreground" />
+                        {deletingId === run.id ? (
+                          <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
                         ) : (
-                          <HugeiconsIcon icon={SquareIcon} className="size-3.5 text-[var(--warning)]" />
+                          <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
                         )}
                       </Button>
-                    ) : null}
-                    <Button variant="ghost" title={t('runLog.delete_run_aria')} aria-label={t('runLog.delete_run_aria')} disabled={deletingId === run.id} className="!text-destructive hover:!bg-[color-mix(in srgb, var(--destructive) 12%, transparent)] disabled:!opacity-50" onClick={() => void handleDelete(run.id)} size="icon-xs">
-                      {deletingId === run.id ? (
-                        <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin text-muted-foreground" />
-                      ) : (
-                        <HugeiconsIcon icon={Trash2Icon} className="size-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </OrchestrationShell>
+                    </span>
+                  </button>
+                );
+              })}
+            </StudioQueue>
+          )
+        }
+        detail={
+          selectedRun ? (
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <RunDetailView
+                run={selectedRun}
+                onBack={() => setSelectedRun(null)}
+                onStop={
+                  ACTIVE_STATUSES.has(selectedRun.status)
+                    ? () => void handleStop(selectedRun.id)
+                    : undefined
+                }
+                onDelete={() => void handleDelete(selectedRun.id)}
+                stopping={stoppingId === selectedRun.id}
+                deleting={deletingId === selectedRun.id}
+              />
+            </div>
+          ) : null
+        }
+      />
+    </StudioHubShell>
   );
 }

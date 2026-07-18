@@ -172,6 +172,7 @@ export function useResourceMention({
       const textUpToCursor = input.slice(0, cursor);
       const atIdx = textUpToCursor.lastIndexOf('@');
       if (atIdx !== -1) {
+        // Consume `@query`; chip-only kinds insert nothing — pin carries context.
         const insertion = mentionInsertionText(resource);
         const newInput = input.slice(0, atIdx) + insertion + input.slice(cursor);
         setInput(newInput);

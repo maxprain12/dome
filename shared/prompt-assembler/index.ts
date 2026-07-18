@@ -189,11 +189,31 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
           src.kind === 'email' && typeof src.meta?.folder === 'string'
             ? ` folder=${src.meta.folder}`
             : '';
-        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}`;
+        const provider =
+          src.kind === 'social_post' && typeof src.meta?.provider === 'string'
+            ? ` provider=${src.meta.provider}`
+            : '';
+        const status =
+          src.kind === 'social_post' && typeof src.meta?.status === 'string'
+            ? ` status=${src.meta.status}`
+            : '';
+        const body =
+          typeof src.meta?.body === 'string' && src.meta.body.trim()
+            ? `\n  body: ${src.meta.body.trim().slice(0, 2000)}`
+            : '';
+        const toolHint =
+          src.kind === 'social_post'
+            ? ' → social_post_get'
+            : src.kind === 'email'
+              ? ' → email_read'
+              : src.kind === 'issue'
+                ? ' → github_get_issue'
+                : '';
+        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
       })
       .join('\n');
     blocks.push(
-      `**mentioned-sources** — ${opts.pinnedSources.length} item(s). Prefer domain tools (GitHub issues / email / social) with these ids; do not invent ids.\n${lines}`,
+      `**mentioned-sources** — ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.\n${lines}`,
     );
   }
 

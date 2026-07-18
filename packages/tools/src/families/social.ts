@@ -7,6 +7,7 @@ import { socialAccountsListDefinition } from '../domains/social/social_accounts_
 import { socialPostDraftDefinition } from '../domains/social/social_post_draft/definition.js';
 import { socialPostPublishDefinition } from '../domains/social/social_post_publish/definition.js';
 import { socialPostsListDefinition } from '../domains/social/social_posts_list/definition.js';
+import { socialPostGetDefinition } from '../domains/social/social_post_get/definition.js';
 import { socialMetricsSummaryDefinition } from '../domains/social/social_metrics_summary/definition.js';
 import { socialCampaignsListDefinition } from '../domains/social/social_campaigns_list/definition.js';
 import { socialCampaignCreateDefinition } from '../domains/social/social_campaign_create/definition.js';
@@ -17,6 +18,7 @@ export const SOCIAL_TOOL_NAMES = [
   'social_post_draft',
   'social_post_publish',
   'social_posts_list',
+  'social_post_get',
   'social_metrics_summary',
   'social_campaigns_list',
   'social_campaign_create',
@@ -31,6 +33,7 @@ export function socialToolDefinitions(): ToolDefinition[] {
     socialPostDraftDefinition,
     socialPostPublishDefinition,
     socialPostsListDefinition,
+    socialPostGetDefinition,
     socialMetricsSummaryDefinition,
     socialCampaignsListDefinition,
     socialCampaignCreateDefinition,

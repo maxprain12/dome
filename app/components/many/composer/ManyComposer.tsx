@@ -342,9 +342,10 @@ const ManyComposer = memo(function ManyComposer({
       mention.updateFromText(val, cursor);
       slash.updateFromText(val, cursor);
       hash.updateFromText(val, cursor);
-      // Only drop pins when the user removes an @mention that was already in the text.
-      // Chip-only pins (e.g. email "Ask Many") must survive typing complementary text.
+      // Library-resource pins mirror `@title` in the text. Chip-only pins
+      // (person / issue / email / social) are removed only via the chip ×.
       for (const pin of pinnedResources) {
+        if (pin.kind && pin.kind !== 'resource') continue;
         const token = `@${pin.title}`;
         if (previous.includes(token) && !val.includes(token)) {
           removePinnedResource(pin.id);
@@ -488,7 +489,8 @@ const ManyComposer = memo(function ManyComposer({
         <InputGroup
           data-disabled={isLoading ? true : undefined}
           className={cn(
-            'h-auto w-full min-w-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow]',
+            // shrink-0: never let the flex column stretch the island to fill leftover panel height
+            'h-auto max-h-[min(50vh,22rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow]',
             'has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/30',
             isDragging && 'border-primary/50 bg-primary/5',
             isWelcome && 'rounded-3xl shadow-md',
@@ -508,7 +510,7 @@ const ManyComposer = memo(function ManyComposer({
             </InputGroupAddon>
           ) : null}
 
-          <div className={cn('min-w-0 w-full px-3 pb-1 pt-3', isWelcome && 'px-4 pt-4')}>
+          <div className={cn('min-w-0 w-full px-3 pb-0.5 pt-2.5', isWelcome && 'px-4 pt-3')}>
             <ManyComposerInput
               value={input}
               onChange={handleChange}
@@ -531,13 +533,12 @@ const ManyComposer = memo(function ManyComposer({
               skillLabels={skillHighlightLabels}
               fileNames={fileHighlightNames}
               tokenTooltips={tokenTooltips}
-              className={isWelcome ? 'min-h-16 max-h-[200px]' : 'min-h-6 max-h-[200px]'}
             />
           </div>
 
           <InputGroupAddon
             align="block-end"
-            className="justify-between gap-2 border-0 px-2 pb-2 pt-1"
+            className="shrink-0 justify-between gap-2 border-0 px-2 pb-2 pt-0.5"
           >
             <div className="flex min-w-0 items-center gap-1">
               <ManyCapabilitiesMenu

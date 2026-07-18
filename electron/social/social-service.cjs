@@ -344,7 +344,11 @@ function createSocialService(database, windowManager) {
     const summary = getSummary();
     const growth = getGrowth({ days: 90 });
     const campaigns = store.listCampaigns({ status: 'active' });
-    const posts = store.listPosts({ limit: 200 });
+    const metricByPost = new Map(store.listLatestMetrics().map((m) => [m.postId, m]));
+    const posts = store.listPosts({ limit: 200 }).map((post) => ({
+      ...post,
+      metrics: metricByPost.get(post.id) || null,
+    }));
     const replyDrafts = store.listReplyDrafts();
     const pendingStatuses = new Set(['pending', 'draft', 'draft_only', '']);
     const replyDraftsPending = replyDrafts.filter((d) => pendingStatuses.has(String(d.status || ''))).length;

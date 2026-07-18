@@ -14,13 +14,43 @@ export default function LearnKpiStrip() {
   const { t } = useTranslation();
   const { kpis } = useLearnKpis();
   const metrics = [
-    { label: t('learn.kpi_due_today'), value: kpis?.dueToday ?? 0, detail: t('learn.kpi_to_review', 'to review') },
-    { label: t('learn.kpi_mastery'), value: `${kpis?.masteryGlobal ?? 0}%`, detail: t('learn.kpi_mastery_sub', 'cards memorized') },
-    { label: t('learn.kpi_streak'), value: kpis?.streakDays ?? 0, detail: t('learn.kpi_longest_streak', { count: kpis?.longestStreak ?? kpis?.streakDays ?? 0 }) },
-    { label: t('learn.kpi_time_today'), value: formatDuration(kpis?.timeTodayMs ?? 0), detail: t('learn.kpi_time_goal', { goal: formatDuration(kpis?.timeTodayGoalMs ?? 20 * 60 * 1000) }) },
+    {
+      label: t('learn.kpi_due_today'),
+      value: kpis?.dueToday ?? 0,
+      detail: t('learn.kpi_to_review', 'to review'),
+    },
+    {
+      label: t('learn.kpi_mastery'),
+      value: `${kpis?.masteryGlobal ?? 0}%`,
+      detail: t('learn.kpi_mastery_sub', 'cards memorized'),
+    },
+    {
+      label: t('learn.kpi_streak'),
+      value: kpis?.streakDays ?? 0,
+      detail: t('learn.kpi_longest_streak', {
+        count: kpis?.longestStreak ?? kpis?.streakDays ?? 0,
+      }),
+    },
+    {
+      label: t('learn.kpi_time_today'),
+      value: formatDuration(kpis?.timeTodayMs ?? 0),
+      detail: t('learn.kpi_time_goal', {
+        goal: formatDuration(kpis?.timeTodayGoalMs ?? 20 * 60 * 1000),
+      }),
+    },
   ];
 
-  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map((metric) => (
-    <Card key={metric.label} size="sm"><CardHeader><CardDescription>{metric.label}</CardDescription><CardTitle className="text-2xl tabular-nums">{metric.value}</CardTitle><CardDescription>{metric.detail}</CardDescription></CardHeader></Card>
-  ))}</div>;
+  return (
+    <div className="grid grid-cols-2 gap-3 @[40rem]/learn:grid-cols-4">
+      {metrics.map((metric) => (
+        <Card key={metric.label} size="sm">
+          <CardHeader>
+            <CardDescription>{metric.label}</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{metric.value}</CardTitle>
+            <CardDescription className="line-clamp-2">{metric.detail}</CardDescription>
+          </CardHeader>
+        </Card>
+      ))}
+    </div>
+  );
 }

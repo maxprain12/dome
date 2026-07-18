@@ -267,6 +267,7 @@ async function fetchAccountMetrics(store, account) {
 
 /**
  * List recent media already published on Instagram (not created in Dome).
+ * Enriches each item with insights (views/reach/saved/shares) when available.
  * @returns {{ posts: Array<{ externalPostId, body, externalUrl, publishedAt, metrics }> }}
  */
 async function listRecentPosts(store, account, { limit = 25 } = {}) {
@@ -281,20 +282,38 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
       limit: capped,
     },
   });
-  const posts = (data?.data || []).map((m) => {
+  const media = data?.data || [];
+  const posts = [];
+  for (const m of media) {
     const publishedAt = m.timestamp ? Date.parse(m.timestamp) : null;
-    return {
+    let insights = {};
+    try {
+      const insightData = await igFetch(`/${m.id}/insights`, {
+        accessToken,
+        params: { metric: 'views,reach,saved,shares,total_interactions' },
+      });
+      for (const item of insightData?.data || []) {
+        insights[item.name] = item.values?.[0]?.value ?? null;
+      }
+    } catch {
+      /* insights often missing for stories / some media types */
+    }
+    posts.push({
       externalPostId: String(m.id),
       body: m.caption || '',
       externalUrl: m.permalink || null,
       publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
       metrics: {
+        impressions: insights.views ?? insights.reach ?? null,
         likes: m.like_count ?? null,
         comments: m.comments_count ?? null,
-        raw: { media_type: m.media_type },
+        shares: insights.shares ?? null,
+        saves: insights.saved ?? null,
+        clicks: insights.total_interactions ?? null,
+        raw: { media_type: m.media_type, insights },
       },
-    };
-  });
+    });
+  }
   return { posts };
 }
 

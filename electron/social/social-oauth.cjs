@@ -21,11 +21,16 @@ const { shell } = require('electron');
 
 const FLOW_TIMEOUT_MS = 5 * 60 * 1000;
 
-// LinkedIn organization scopes need the "Community Management API" product on
-// the developer app; requesting them without it makes LinkedIn reject the
-// authorization, so they are opt-in (Settings → Social → LinkedIn).
+// LinkedIn Community Management API scopes are opt-in (Settings → Social →
+// LinkedIn → company pages). Without that product, LinkedIn rejects the
+// authorization if these scopes are requested.
+// Includes member analytics (followers / post stats / connection count) plus
+// organization page management. Listing historical personal posts still needs
+// r_member_social, which LinkedIn keeps closed — we do not request it.
 const LINKEDIN_BASE_SCOPES = 'openid profile w_member_social';
-const LINKEDIN_ORG_SCOPES = 'w_organization_social r_organization_social rw_organization_admin';
+const LINKEDIN_CMA_SCOPES =
+  'r_basicprofile r_1st_connections_size r_member_profileAnalytics r_member_postAnalytics ' +
+  'w_organization_social r_organization_social rw_organization_admin';
 
 const IG_BASE_SCOPES =
   'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights';
@@ -59,7 +64,7 @@ const AUTH_ENDPOINTS = {
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
     scopes: (store) => (store?.getLinkedInOrgEnabled?.()
-      ? `${LINKEDIN_BASE_SCOPES} ${LINKEDIN_ORG_SCOPES}`
+      ? `${LINKEDIN_BASE_SCOPES} ${LINKEDIN_CMA_SCOPES}`
       : LINKEDIN_BASE_SCOPES),
     pkce: false,
   },

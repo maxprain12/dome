@@ -68,6 +68,13 @@ export interface ChatMessageData {
   pdfRegionMeta?: PdfRegionMeta;
   /** Structured image attachments for resolving dome-att:// placeholders */
   attachments?: StructuredMessageAttachments;
+  /** Pins that rode with this user turn (Many transcript chips). */
+  pinnedResources?: Array<{
+    id: string;
+    title: string;
+    type: string;
+    kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post';
+  }>;
   /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];
 }

@@ -253,6 +253,29 @@ export function createGithubCreateMilestoneTool(): AnyAgentTool {
   };
 }
 
+export function createGithubGetIssueTool(): AnyAgentTool {
+  return {
+    label: 'Get GitHub issue',
+    name: 'github_get_issue',
+    description:
+      'Get one GitHub issue by Dome issue id (ghi-…). Call this when mentioned-sources lists an issue ' +
+      'or the user refers to a pinned task. Returns title, body, state, labels, assignees, url. Source: GitHub.',
+    parameters: Type.Object({
+      issue_id: Type.String({
+        description: 'Dome issue id from mentioned-sources or github_list_issues.',
+      }),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const issueId = readStringParam(args as Record<string, unknown>, 'issue_id', { required: true });
+      const res = await githubClient.issues.get(issueId!);
+      if (!res.success) return jsonResult({ success: false, error: res.error });
+      return jsonResult({ success: true, source: 'github', issue: res.issue });
+    },
+  };
+}
+
 export function createGithubUpdateIssueTool(): AnyAgentTool {
   return {
     label: 'Update GitHub issue',
@@ -307,6 +330,7 @@ export function createGithubTools(): AnyAgentTool[] {
     createGithubListReposTool(),
     createGithubListMilestonesTool(),
     createGithubListIssuesTool(),
+    createGithubGetIssueTool(),
     createGithubCreateIssueTool(),
     createGithubCreateMilestoneTool(),
     createGithubUpdateIssueTool(),

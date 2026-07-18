@@ -170,7 +170,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden">
+      <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-hidden sm:max-w-3xl">
         <DialogHeader><DialogTitle>{t('flashcard.edit_deck', 'Edit deck')}</DialogTitle><DialogDescription>{t('flashcard.edit_deck_hint', 'Update the title, description and cards.')}</DialogDescription></DialogHeader>
         <div className="flex min-h-0 flex-col gap-5 overflow-y-auto pr-1">
           {deck && (

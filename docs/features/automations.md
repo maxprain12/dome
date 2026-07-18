@@ -201,7 +201,7 @@ Los resultados de ejecución se gestionan via `runs:*` (ver [runs.md](./runs.md)
 | ----------------- | ----------------------------- | ----------------------------------- |
 | `AutomationsView` | `app/components/automations/` | Lista y gestión de automatizaciones |
 | `AutomationForm`  | `app/components/automations/` | Crear/editar automatización         |
-| `RunLogView`      | `app/components/automations/` | Ver historial de ejecuciones        |
+| `RunsStudioView`  | `app/components/orchestration/` | Historial de ejecuciones (Studio hub) |
 
 
 ---

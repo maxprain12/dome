@@ -6,6 +6,7 @@ import {
   Calendar03Icon,
   Home01Icon,
   Task01Icon,
+  FolderKanbanIcon,
   Layers01Icon,
   Link02Icon,
   Mail01Icon,
@@ -27,6 +28,7 @@ interface BuildNavOptions {
   openCalendarTab: () => void;
   openGitHubTab: () => void;
   openEmailTab: () => void;
+  openPipelinesTab: () => void;
   openAgentsTab: () => void;
   openWorkflowsTab: () => void;
   openAutomationsTab: () => void;
@@ -54,6 +56,7 @@ export function buildNavigationDestinations(opts: BuildNavOptions): PaletteRow[]
     { key: 'calendar', row: wrap('calendar', opts.t('workspace.calendar'), Calendar03Icon, opts.openCalendarTab) },
     { key: 'github', row: wrap('github', opts.t('github.tab_title'), Task01Icon, opts.openGitHubTab) },
     { key: 'email', row: wrap('email', opts.t('email.tab_title'), Mail01Icon, opts.openEmailTab) },
+    { key: 'pipelines', row: wrap('pipelines', opts.t('tabs.pipelines'), FolderKanbanIcon, opts.openPipelinesTab) },
     { key: 'agents', row: wrap('agents', opts.t('automationHub.tab_agents'), BotIcon, opts.openAgentsTab) },
     { key: 'workflows', row: wrap('workflows', opts.t('automationHub.tab_workflows'), WorkflowSquare01Icon, opts.openWorkflowsTab) },
     { key: 'automations', row: wrap('automations', opts.t('automationHub.tab_automations'), ZapIcon, opts.openAutomationsTab) },

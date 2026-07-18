@@ -63,6 +63,7 @@ export const TYPE_LABELS: Record<string, string> = {
   note: 'Nota', notebook: 'Cuaderno', url: 'URL',
   pdf: 'PDF', image: 'Imagen', video: 'Video',
   audio: 'Audio', document: 'Documento', ppt: 'Presentación',
+  excel: 'Excel', csv: 'CSV', xlsx: 'Excel', docx: 'Documento',
 };
 
 export const TYPE_COLORS: Record<string, string> = {

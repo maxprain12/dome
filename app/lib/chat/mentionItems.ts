@@ -2,6 +2,14 @@
  * Unified @-mention ranking helpers (people → tasks/mail/posts → resources).
  */
 
+import {
+  formatEmailPinLabel,
+  formatIssuePinLabel,
+  formatPersonPinLabel,
+  formatResourcePinLabel,
+  formatSocialPostPinLabel,
+} from '@/lib/chat/pinLabels';
+
 export type MentionIdentity = {
   source: string;
   externalId: string;
@@ -60,7 +68,7 @@ export function personToMentionItem(person: {
   return {
     kind: 'person',
     id: person.id,
-    title: person.displayName || person.primaryEmail || 'Person',
+    title: formatPersonPinLabel(person.displayName, person.primaryEmail),
     type: 'person',
     identities,
     subtitle: formatIdentitySubtitle(identities),
@@ -76,7 +84,7 @@ export function resourceToMentionItem(row: {
   return {
     kind: 'resource',
     id: row.id,
-    title: row.title || 'Untitled',
+    title: formatResourcePinLabel(row.title),
     type: row.type,
     subtitle: row.type,
   };
@@ -94,7 +102,7 @@ export function sourceHitToMentionItem(hit: {
     return {
       kind: 'person',
       id: hit.id,
-      title: hit.title,
+      title: formatPersonPinLabel(hit.title),
       type: 'person',
       identities,
       subtitle: formatIdentitySubtitle(identities) || hit.snippet || 'person',
@@ -107,7 +115,7 @@ export function sourceHitToMentionItem(hit: {
     return {
       kind: 'issue',
       id: hit.id,
-      title: hit.title,
+      title: formatIssuePinLabel(hit.title),
       type: 'issue',
       subtitle: [state, repo].filter(Boolean).join(' · ') || 'task',
       meta: hit.meta ?? null,
@@ -118,19 +126,32 @@ export function sourceHitToMentionItem(hit: {
     return {
       kind: 'email',
       id: hit.id,
-      title: hit.title,
+      title: formatEmailPinLabel(hit.title),
       type: 'email',
       subtitle: folder || hit.snippet || 'mail',
       meta: hit.meta ?? null,
     };
   }
-  const provider = typeof hit.meta?.provider === 'string' ? hit.meta.provider : undefined;
+  const provider = typeof hit.meta?.provider === 'string' ? hit.meta.provider : null;
+  const status = typeof hit.meta?.status === 'string' ? hit.meta.status : null;
+  const campaign =
+    typeof hit.meta?.campaign === 'string'
+      ? hit.meta.campaign
+      : typeof hit.meta?.campaignName === 'string'
+        ? hit.meta.campaignName
+        : null;
+  const title = formatSocialPostPinLabel({
+    provider,
+    status,
+    campaign,
+    fallbackTitle: hit.title,
+  });
   return {
     kind: 'social_post',
     id: hit.id,
-    title: hit.title,
+    title,
     type: 'social_post',
-    subtitle: provider || hit.snippet || 'post',
+    subtitle: hit.snippet || provider || 'post',
     meta: hit.meta ?? null,
   };
 }
@@ -156,18 +177,18 @@ export function mergeMentionResults(
   return out;
 }
 
-/** Serialize a mention into the composer text at the caret. */
+/**
+ * Text inserted at the caret when picking an @ mention.
+ * People / tasks / mail / social are chip-only (pin + context) — no raw
+ * `[@label](scheme:id)` in the composer. Library resources keep a short `@title`.
+ */
 export function mentionInsertionText(item: MentionItem): string {
-  const label = item.title.replace(/[\[\]]/g, '');
   switch (item.kind) {
     case 'person':
-      return `[@${label}](person:${item.id}) `;
     case 'issue':
-      return `[@${label}](issue:${item.id}) `;
     case 'email':
-      return `[@${label}](email:${item.id}) `;
     case 'social_post':
-      return `[@${label}](social:${item.id}) `;
+      return '';
     case 'resource':
       return `@${item.title} `;
     default: {
@@ -175,4 +196,9 @@ export function mentionInsertionText(item: MentionItem): string {
       return _exhaustive;
     }
   }
+}
+
+/** True when the mention is represented only by a pin chip (not composer text). */
+export function isChipOnlyMention(kind: MentionItemKind): boolean {
+  return kind === 'person' || kind === 'issue' || kind === 'email' || kind === 'social_post';
 }

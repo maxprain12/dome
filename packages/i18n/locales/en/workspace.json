@@ -132,5 +132,7 @@
   "saved": "Saved",
   "save_now": "Save now (⌘S)",
   "open_vault_folder": "Open workspace folder",
-  "search_workspace": "Search in workspace"
+  "search_workspace": "Search in workspace",
+  "ask_many": "Ask Many",
+  "ask_many_prompt": "Help me with this resource \"{{title}}\": summarize, suggest actions, and next steps in Dome."
 }

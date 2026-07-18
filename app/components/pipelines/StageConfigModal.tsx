@@ -16,13 +16,7 @@ import type { ExecutionPolicy, PipelineStage, StageDeliverable } from '@/lib/pip
 import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
 import type { ManyAgent } from '@/types';
 
-import {
-  DetailSheet,
-  DetailSheetBody,
-  DetailSheetContent,
-  DetailSheetFooter,
-  DetailSheetHeader,
-} from '@/components/shared/DetailSheet';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -168,30 +162,56 @@ export default function StageConfigModal({
 
   if (creatingAgent) {
     return (
-      <DetailSheet open onOpenChange={(next) => { if (!next) setCreatingAgent(false); }}>
-        <DetailSheetContent size="xl" className="h-[85vh] max-h-[85vh]">
-          <DetailSheetHeader title={t('agents.new_agent')} />
-          <DetailSheetBody className="min-h-0 flex-1">
-            <div className="h-full min-h-0">
-              <Suspense fallback={null}>
-                <AgentOnboarding
-                  projectId={projectId}
-                  onComplete={handleAgentCreated}
-                  onCancel={() => setCreatingAgent(false)}
-                />
-              </Suspense>
-            </div>
-          </DetailSheetBody>
-        </DetailSheetContent>
-      </DetailSheet>
+      <InlineDetailCard
+        onClose={() => setCreatingAgent(false)}
+        title={t('agents.new_agent')}
+        containerName="pipeline-stage-agent"
+        className="h-full min-h-0"
+      >
+        <div className="h-full min-h-0">
+          <Suspense fallback={null}>
+            <AgentOnboarding
+              projectId={projectId}
+              onComplete={handleAgentCreated}
+              onCancel={() => setCreatingAgent(false)}
+            />
+          </Suspense>
+        </div>
+      </InlineDetailCard>
     );
   }
 
   return (
-    <DetailSheet open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DetailSheetContent size="lg">
-        <DetailSheetHeader title={t('pipelines.configure')} description={stage.title || undefined} />
-        <DetailSheetBody>
+    <InlineDetailCard
+      onClose={onClose}
+      title={t('pipelines.configure')}
+      description={stage.title || undefined}
+      containerName="pipeline-stage"
+      footer={
+        <>
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" />}>
+              <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+              {t('pipelines.delete')}
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
+                <AlertDialogDescription>{stage.title}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <div className="flex-1" />
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? t('pipelines.saving') : t('pipelines.save')}
+          </Button>
+        </>
+      }
+    >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="stage-title">{t('pipelines.stage_title_placeholder')}</Label>
@@ -322,30 +342,6 @@ export default function StageConfigModal({
           <FieldLabel htmlFor="terminal-stage">{t('pipelines.terminal_stage')}</FieldLabel>
         </Field>
       </div>
-        </DetailSheetBody>
-        <DetailSheetFooter>
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" />}>
-              <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
-              {t('pipelines.delete')}
-            </AlertDialogTrigger>
-            <AlertDialogContent size="sm">
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
-                <AlertDialogDescription>{stage.title}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <div className="flex-1" />
-          <Button onClick={() => void save()} disabled={saving}>
-            {saving ? t('pipelines.saving') : t('pipelines.save')}
-          </Button>
-        </DetailSheetFooter>
-      </DetailSheetContent>
-    </DetailSheet>
+    </InlineDetailCard>
   );
 }

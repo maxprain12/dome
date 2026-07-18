@@ -21,7 +21,7 @@ import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import { useAppStore } from '@/lib/store/useAppStore';
 
 import ResourceIcon from '@/components/shared/ResourceIcon';
-import { pickFolderColor, parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
+import { parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
 import ContextMenu from './SidebarContextMenu';
 import { BulkDeleteConfirmModal, DeleteConfirmModal, NewFolderModal } from './SidebarModals';
 
@@ -436,7 +436,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
       title: name,
       folder_id: parentId,
       project_id: (resources[0]?.project_id) || 'default',
-      metadata: { color: pickFolderColor() },
+      metadata: {},
       created_at: now,
       updated_at: now,
     });

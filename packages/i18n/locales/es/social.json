@@ -25,6 +25,15 @@
   "agent_action_draft": "Redactar post",
   "agent_action_analytics": "Analítica",
   "agent_ask_many": "Preguntar a Many",
+  "metrics": {
+    "title": "Métricas del post",
+    "pending": "Sin métricas aún — sincroniza el feed o pulsa Actualizar métricas.",
+    "likes": "likes",
+    "comments": "comentarios",
+    "shares": "reposts",
+    "saves": "guardados",
+    "impressions": "impresiones"
+  },
   "agent_queue_count": "{{count}} elementos",
   "agent_queue_attention": "Por atender",
   "agent_queue_scheduled": "Próximos",
@@ -81,8 +90,8 @@
     "status_error": "Error de conexión",
     "status_expired": "Token caducado — reconecta",
     "hint_linkedin": "LinkedIn: activa \"Sign In with LinkedIn using OpenID Connect\" y \"Share on LinkedIn\" en tu app. Para páginas de empresa, activa también \"Páginas de empresa\" abajo y añade el producto \"Community Management API\". Registra la redirect URI de arriba. Los tokens duran ~60 días.",
-    "linkedin_org_enabled": "Páginas de empresa",
-    "linkedin_org_hint": "Gestiona las páginas de empresa de LinkedIn que administras (no solo tu perfil personal). Requiere el producto \"Community Management API\" en tu app de desarrollador. Tras activarlo, guarda y reconecta para que el token incluya los scopes de organización.",
+    "linkedin_org_enabled": "Community Management (páginas + analítica personal)",
+    "linkedin_org_hint": "Activa el producto \"Community Management API\" en tu app de LinkedIn. Incluye: páginas de empresa que administras, seguidores/conexiones del perfil personal y métricas de posts publicados desde Dome. Luego guarda y reconecta LinkedIn. LinkedIn no permite listar el historial de posts personales (scope r_member_social cerrado).",
     "linkedin_sync_orgs": "Buscar páginas de empresa",
     "linkedin_sync_orgs_busy": "Buscando…",
     "account_kind_member": "Perfil personal",
@@ -163,8 +172,10 @@
     "growth_followers": "seguidores",
     "growth_following": "Siguiendo",
     "growth_posts": "Publicaciones",
-    "growth_unavailable_linkedin_member": "LinkedIn no expone el número de seguidores de perfiles personales en el tier estándar de su API. Activa páginas de empresa en Ajustes para ver seguidores de la página.",
-    "growth_pending": "Aún sin capturas — las métricas se toman automáticamente cada pocas horas, o pulsa «Actualizar métricas»."
+    "growth_unavailable_linkedin_member": "Sin métricas del perfil personal. En Ajustes → Social activa Community Management, guarda y reconecta LinkedIn (scopes r_member_profileAnalytics / r_1st_connections_size).",
+    "sync_linkedin_member_limited": "LinkedIn no deja importar el historial de posts del perfil personal (API cerrada). Con Community Management sí puedes ver seguidores/conexiones y métricas de posts publicados desde Dome. Reconecta tras activarlo en Ajustes.",
+    "growth_pending": "Aún sin capturas — las métricas se toman automáticamente cada pocas horas, o pulsa «Actualizar métricas».",
+    "growth_connections": "conexiones"
   },
   "composer": {
     "title": "Nueva publicación",

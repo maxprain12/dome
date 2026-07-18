@@ -428,6 +428,30 @@ function indexEmailMessages(accountId = null) {
   return n;
 }
 
+const SOCIAL_PROVIDER_LABEL = {
+  linkedin: 'LinkedIn',
+  instagram: 'Instagram',
+  x: 'X',
+  twitter: 'X',
+};
+
+/** Short pin/search title — never the post body (body stays in `body` / snippet). */
+function socialPostIndexTitle(row) {
+  const key = String(row.provider || '').toLowerCase();
+  const provider = SOCIAL_PROVIDER_LABEL[key] || row.provider || 'Social';
+  const campaign = String(row.campaign || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 28);
+  if (campaign) return `${provider} · ${campaign}`;
+  const status = String(row.status || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 20);
+  if (status) return `${provider} · ${status}`;
+  return `${provider} · post`;
+}
+
 function indexSocialPosts() {
   let rows = [];
   try {
@@ -449,12 +473,13 @@ function indexSocialPosts() {
       kind: 'social_post',
       sourceId: row.id,
       projectId: 'default',
-      title: String(row.body || '').slice(0, 80) || `Post ${row.id}`,
+      title: socialPostIndexTitle(row),
       body: [row.body, row.topics, row.link_url].filter(Boolean).join('\n'),
       meta: {
         provider: row.provider,
         status: row.status,
         accountId: row.account_id,
+        campaign: row.campaign || null,
       },
     });
     n += 1;
@@ -638,7 +663,7 @@ function searchSocialDirect(rawTerms, _projectId = null, limit = DOMAIN_CAP) {
     return [pat, pat, pat];
   });
   // No project filter — social_posts/accounts have no project_id.
-  const sql = `SELECT p.id AS source_id, p.body, p.topics, p.provider, p.status, p.account_id
+  const sql = `SELECT p.id AS source_id, p.body, p.topics, p.provider, p.status, p.account_id, p.campaign
              FROM social_posts p
              WHERE ${termClauses}
              ORDER BY p.updated_at DESC LIMIT ?`;
@@ -652,12 +677,13 @@ function searchSocialDirect(rawTerms, _projectId = null, limit = DOMAIN_CAP) {
         id: row.source_id,
         docId: docId('social_post', row.source_id),
         projectId: 'default',
-        title: String(row.body || '').slice(0, 80) || `Post ${row.source_id}`,
-        snippet: String(row.topics || '').slice(0, 120),
+        title: socialPostIndexTitle(row),
+        snippet: String(row.body || row.topics || '').replace(/\s+/g, ' ').trim().slice(0, 120),
         meta: {
           provider: row.provider,
           status: row.status,
           accountId: row.account_id,
+          campaign: row.campaign || null,
         },
       }));
   } catch (err) {

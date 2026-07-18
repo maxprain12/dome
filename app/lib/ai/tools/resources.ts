@@ -678,7 +678,9 @@ export function createResourceGetPinnedTool(): AnyAgentTool {
   return {
     label: 'Get pinned resource',
     name: 'resource_get_pinned',
-    description: 'Get content of a user-pinned context resource by ID.',
+    description:
+      'Get content of a user-pinned library resource by ID. Call this when pinned-resources ' +
+      'lists a document id before answering about its contents.',
     parameters: Type.Object({
       id: Type.String({ description: 'Pinned resource ID from context' }),
     }),

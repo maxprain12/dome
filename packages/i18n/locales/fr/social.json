@@ -25,6 +25,15 @@
   "agent_action_draft": "Rédiger un post",
   "agent_action_analytics": "Analytique",
   "agent_ask_many": "Demander à Many",
+  "metrics": {
+    "title": "Métriques du post",
+    "pending": "Pas encore de métriques — synchronisez le fil ou actualisez les métriques.",
+    "likes": "likes",
+    "comments": "commentaires",
+    "shares": "reposts",
+    "saves": "enregistrements",
+    "impressions": "impressions"
+  },
   "agent_queue_count": "{{count}} éléments",
   "agent_queue_attention": "À traiter",
   "agent_queue_scheduled": "À venir",
@@ -81,8 +90,8 @@
     "status_error": "Erreur de connexion",
     "status_expired": "Token expiré — reconnectez-vous",
     "hint_linkedin": "LinkedIn : activez « Sign In with LinkedIn using OpenID Connect » et « Share on LinkedIn » dans votre app. Pour les pages entreprise, activez aussi « Pages entreprise » ci-dessous et ajoutez le produit « Community Management API ». Enregistrez la redirect URI ci-dessus. Les tokens durent ~60 jours.",
-    "linkedin_org_enabled": "Pages entreprise",
-    "linkedin_org_hint": "Gérez les pages entreprise LinkedIn que vous administrez (pas seulement votre profil personnel). Nécessite le produit « Community Management API » sur votre app développeur. Après activation, enregistrez et reconnectez pour inclure les scopes organisation.",
+    "linkedin_org_enabled": "Community Management (pages + analytique perso)",
+    "linkedin_org_hint": "Activez le produit « Community Management API » sur votre app LinkedIn. Débloque pages entreprise, abonnés/connexions du profil perso et métriques des posts publiés depuis Dome. Puis enregistrez et reconnectez. LinkedIn bloque toujours l’historique des posts personnels (scope r_member_social fermé).",
     "linkedin_sync_orgs": "Découvrir les pages entreprise",
     "linkedin_sync_orgs_busy": "Recherche…",
     "account_kind_member": "Profil personnel",
@@ -163,8 +172,10 @@
     "growth_followers": "abonnés",
     "growth_following": "Abonnements",
     "growth_posts": "Publications",
-    "growth_unavailable_linkedin_member": "LinkedIn n'expose pas le nombre d'abonnés des profils personnels sur le palier standard de son API. Activez les pages entreprise dans les Réglages pour suivre les abonnés de la page.",
-    "growth_pending": "Pas encore de relevés — les métriques sont capturées automatiquement toutes les quelques heures, ou cliquez sur « Actualiser les métriques »."
+    "growth_unavailable_linkedin_member": "Pas encore de métriques du profil perso. Dans Réglages → Social activez Community Management, enregistrez et reconnectez LinkedIn.",
+    "sync_linkedin_member_limited": "LinkedIn bloque l’import de l’historique des posts personnels (API fermée). Avec Community Management vous obtenez abonnés/connexions et métriques des posts publiés depuis Dome. Reconnectez après activation.",
+    "growth_pending": "Pas encore de relevés — les métriques sont capturées automatiquement toutes les quelques heures, ou cliquez sur « Actualiser les métriques ».",
+    "growth_connections": "connexions"
   },
   "composer": {
     "title": "Nouvelle publication",

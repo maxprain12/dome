@@ -171,7 +171,7 @@ dome/
 │   │   ├── agent-canvas/       # Visual workflow canvas (D3)
 │   │   ├── agent-team/         # Multi-agent team chat
 │   │   ├── automations/        # Automation rules and run logs UI
-│   │   ├── orchestration/      # Agents/Workflows/Automations/Runs studio tabs (OrchestrationShell)
+│   │   ├── orchestration/      # Agents/Workflows/Automations/Runs studio tabs (StudioHubShell)
 │   │   ├── social/             # Social hub (LinkedIn/Instagram/X): composer, growth cards, AI reports
 │   │   ├── cloud/              # Cloud storage file picker
 │   │   ├── marketplace/        # Plugin marketplace UI
@@ -239,7 +239,7 @@ const result = await window.electron.invoke('ai:chat', { provider, model, messag
 
 ### Automations & Run Engine
 
-`electron/agents/automation-service.cjs` manages scheduled/triggered automation rules. `electron/agents/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/automations/RunLogView.tsx` via `runs` IPC domain.
+`electron/agents/automation-service.cjs` manages scheduled/triggered automation rules. `electron/agents/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/orchestration/RunsStudioView.tsx` via `runs` IPC domain.
 
 After a run completes, `electron/artifacts/artifact-sink.cjs` checks for automation→artifact bindings (`automation_artifact_bindings` table) and applies them: it extracts JSON from the run output and merges it into the target artifact's `state.data`, then broadcasts `artifact:updated` via `windowManager`.
 
