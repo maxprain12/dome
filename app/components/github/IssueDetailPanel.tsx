@@ -221,7 +221,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
+    (async () => {
       const res = await githubClient.issues.get(issueId);
       if (cancelled || !res.success || !res.issue) return;
       setTitle(res.issue.title);
@@ -240,14 +240,15 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const commentsLoadKey = `${issueId}:${editing}`;
   if (!editing && commentsLoadKey !== prevCommentsLoadKeyRef.current) {
     prevCommentsLoadKeyRef.current = commentsLoadKey;
-    void loadComments();
-    void loadTimeline();
+    loadComments();
+    loadTimeline();
   }
 
   const prevMentionablesIssueIdRef = useRef(issueId);
   if (issueId !== prevMentionablesIssueIdRef.current) {
     prevMentionablesIssueIdRef.current = issueId;
-    void (async () => {
+
+    (async () => {
       const res = await githubClient.issues.listMentionables(issueId);
       setApiMentionables(res.success ? res.users ?? [] : []);
     })();
@@ -376,7 +377,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
         {t('github.cancel')}
       </Button>
       <Button disabled={saving}
-  onClick={() => void save()}
+  onClick={() => save()}
   size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
         {t('github.dash_save')}
       </Button>
@@ -384,7 +385,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   ) : (
     <div className="flex items-center justify-end gap-2 w-full">
       <Button disabled={!newComment.trim() || postingComment}
-  onClick={() => void postComment()}
+  onClick={() => postComment()}
   size="sm">{postingComment ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />}
         {t('github.post_comment')}
       </Button>

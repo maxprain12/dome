@@ -118,13 +118,13 @@ function QuickAdd({
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      void submit();
+      submit();
     }
   };
 
   return (
     <Card className="gap-0 py-0 shadow-none">
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 p-3">
+      <form onSubmit={(e) => submit(e)} className="flex flex-col gap-3 p-3">
         <div className="flex min-w-0 items-center gap-2">
           <HugeiconsIcon icon={PlusSignIcon} className="size-3.5 shrink-0 text-muted-foreground" />
           <Input
@@ -369,7 +369,7 @@ export default function TrackingDashboard({
                   issues={list}
                   onOpenObjective={() => onOpenMilestone(m.id)}
                   onOpenIssue={onOpenIssue}
-                  onToggleDone={(issue) => void toggleDone(issue)}
+                  onToggleDone={(issue) => toggleDone(issue)}
                 />
               );
             })
@@ -383,7 +383,7 @@ export default function TrackingDashboard({
             totalLabel={String(sections.inbox.length)}
             issues={sections.inbox}
             onOpenIssue={onOpenIssue}
-            onToggleDone={(issue) => void toggleDone(issue)}
+            onToggleDone={(issue) => toggleDone(issue)}
           />
         ) : null}
 
@@ -394,7 +394,7 @@ export default function TrackingDashboard({
             totalLabel={String(listIssues.length)}
             issues={listIssues}
             onOpenIssue={onOpenIssue}
-            onToggleDone={(issue) => void toggleDone(issue)}
+            onToggleDone={(issue) => toggleDone(issue)}
           />
         ) : null}
 
