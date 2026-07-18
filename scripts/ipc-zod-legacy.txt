@@ -29,6 +29,7 @@ migration.cjs
 notebook.cjs
 ollama.cjs
 pdf-render.cjs
+people.cjs
 personality.cjs
 pipelines.cjs
 plugins.cjs
