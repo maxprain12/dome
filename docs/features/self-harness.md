@@ -23,6 +23,8 @@ Candidates run in detached temporary worktrees with isolated `DOME_PROFILE` and 
 
 Worktree dependency installation uses the frozen lockfile and prefers the local pnpm store. If an exact locked tarball is absent, pnpm may fetch it from the configured registry; this avoids making a warm Jenkins cache a hidden prerequisite while preserving deterministic dependency versions.
 
+General dependency lifecycle scripts remain disabled. The controller explicitly materializes the locked Electron binary and then runs Dome's trusted `rebuild:natives` command so `better-sqlite3` and the other approved native runtimes match Electron's ABI before any benchmark starts.
+
 ## Promotion rule
 
 A candidate is accepted only when it improves at least one split without reducing pass count on either held-in or held-out. Errors and timeouts may not increase, no security violation is allowed, and total tokens and p95 duration may grow by at most 20%.

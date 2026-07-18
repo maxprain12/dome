@@ -6,7 +6,7 @@ import { isEditablePath, repoRead, validatePatch } from '../policy.mjs';
 import { createStratifiedSplit } from '../split.mjs';
 import { REPO_ROOT } from '../constants.mjs';
 import { SELF_HARNESS_SCHEMAS } from '../schema-catalog.mjs';
-import { DEPENDENCY_INSTALL_ARGS } from '../execution.mjs';
+import { DEPENDENCY_INSTALL_ARGS, RUNTIME_PREPARATION_COMMANDS } from '../execution.mjs';
 import { describeGateFailure } from '../controller.mjs';
 
 const validPatch = `diff --git a/electron/agents/agent-runtime.cjs b/electron/agents/agent-runtime.cjs
@@ -107,6 +107,16 @@ test('worktree install prefers cache but can fetch a missing locked tarball', ()
   assert.equal(DEPENDENCY_INSTALL_ARGS.includes('--frozen-lockfile'), true);
   assert.equal(DEPENDENCY_INSTALL_ARGS.includes('--prefer-offline'), true);
   assert.equal(DEPENDENCY_INSTALL_ARGS.includes('--offline'), false);
+});
+
+test('worktree preparation materializes Electron and its native ABI dependencies', () => {
+  assert.deepEqual(
+    RUNTIME_PREPARATION_COMMANDS.map(({ name, args }) => ({ name, args: [...args] })),
+    [
+      { name: 'rebuild:electron', args: ['rebuild', 'electron'] },
+      { name: 'rebuild:natives', args: ['run', 'rebuild:natives'] },
+    ],
+  );
 });
 
 test('static gate failures include the failing command output', () => {
