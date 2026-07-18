@@ -1,6 +1,7 @@
 /** Unified filesystem list row for folders and files in FolderTabView. */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { CheckIcon, Folder01Icon, MoreVerticalIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -245,32 +246,50 @@ export default function FolderListRow({
         )}
       </div>
 
-      {menuOpen && menuPos ? (
+      {menuOpen && menuPos
+        ? createPortal(
             <DropdownMenu open onOpenChange={(open) => { if (!open) setMenuOpen(false); }}>
-              <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, right: menuPos.right }} aria-hidden />} />
-              <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="dome-folder-view__row-menu">
-              <ResourceContextMenuItems
-                resource={item}
-                options={{
-                  isFolder,
-                  isNote: item.type === 'note',
-                  canOpenInSplit: Boolean(onOpenInSplit),
-                }}
-                actions={{
-                  onRename: startRenaming,
-                  onOpenInSplit,
-                  onOpenInWindow,
-                  onChangeColor: isFolder && onChangeColor ? openColorPicker : undefined,
-                  onMoveToFolder,
-                  onMoveToProject,
-                  onNewSubfolder: isFolder ? onNewSubfolder : undefined,
-                  onDelete,
-                }}
-                onDismiss={() => setMenuOpen(false)}
+              <DropdownMenuTrigger
+                nativeButton={false}
+                render={
+                  <span
+                    className="pointer-events-none fixed size-px"
+                    style={{ top: menuPos.top, right: menuPos.right }}
+                    aria-hidden
+                  />
+                }
               />
+              <DropdownMenuContent
+                align="end"
+                side="bottom"
+                sideOffset={0}
+                positionMethod="fixed"
+                className="dome-folder-view__row-menu w-auto"
+              >
+                <ResourceContextMenuItems
+                  resource={item}
+                  options={{
+                    isFolder,
+                    isNote: item.type === 'note',
+                    canOpenInSplit: Boolean(onOpenInSplit),
+                  }}
+                  actions={{
+                    onRename: startRenaming,
+                    onOpenInSplit,
+                    onOpenInWindow,
+                    onChangeColor: isFolder && onChangeColor ? openColorPicker : undefined,
+                    onMoveToFolder,
+                    onMoveToProject,
+                    onNewSubfolder: isFolder ? onNewSubfolder : undefined,
+                    onDelete,
+                  }}
+                  onDismiss={() => setMenuOpen(false)}
+                />
               </DropdownMenuContent>
-            </DropdownMenu>
-        ) : null}
+            </DropdownMenu>,
+            document.body,
+          )
+        : null}
 
       {colorPickerPos && onChangeColor ? (
         <ColorPickerPopover

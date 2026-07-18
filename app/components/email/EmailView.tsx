@@ -27,9 +27,7 @@ import {
   SentIcon,
   StarIcon,
 } from '@hugeicons/core-free-icons';
-import { HubHeader } from '@/components/hub/HubHeader';
-import { HubSearch } from '@/components/hub/HubSearch';
-import { HubSurface } from '@/components/hub/HubBlocks';
+import { HubHeader, HubPageHeader, HubSearch, HubSurface } from '@/components/hub';
 import ListState from '@/components/shared/ListState';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -43,6 +41,7 @@ import {
   type MailFilter,
 } from '@/lib/email/mailQueues';
 import { invokeWithTimeout } from '@/lib/utils/ipcTimeout';
+import { cn } from '@/lib/utils';
 import type { EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import { MailDashboard } from '@/components/email/MailDashboard';
 import { MailDetailPanel } from '@/components/email/MailDetailPanel';
@@ -556,7 +555,7 @@ export default function EmailView() {
 
   return (
     <div className="@container/email flex h-full min-h-0 flex-col text-foreground">
-      <div className="flex shrink-0 flex-col gap-3 border-b bg-card px-4 py-3">
+      <HubPageHeader>
         <HubHeader
           title={t('email.tab_title')}
           description={syncDescription}
@@ -646,11 +645,17 @@ export default function EmailView() {
             clearLabel={t('common.cancel')}
           />
         </div>
-      </div>
+      </HubPageHeader>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Must be a flex column so MailDashboard's flex-1/min-h-0 can bound the list scroll. */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className={cn(
+            'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+            // Give the compose pane room: collapse list on narrow, shrink on md+.
+            composing && 'hidden min-[720px]:flex min-[720px]:max-w-[42%] min-[1100px]:max-w-none',
+          )}
+        >
           <MailDashboard
             inbox={inbox}
             sent={sent}
@@ -665,19 +670,19 @@ export default function EmailView() {
                 filter === 'recent_sent' || (sentFolderName != null && sentIds.has(env.id));
               void openMessage(env, openInSent ? sentFolderName ?? undefined : undefined);
             }}
-            onCompose={() => {
-              setSelected(null);
-              setMessage(null);
-              setComposing({ mode: 'new' });
-            }}
-            onAskManyTriage={() => askManyAbout(null, t('email.agent_prompt_triage'))}
-            onAskManySummarize={() => askManyAbout(null, t('email.agent_prompt_summarize'))}
             resultCount={matchedCount}
           />
         </div>
 
         {detailOpen ? (
-          <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background studio-view-enter md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">
+          <div
+            className={cn(
+              'flex h-full min-h-0 w-full flex-col border-l bg-background studio-view-enter',
+              composing
+                ? 'absolute inset-0 z-10 min-[720px]:static min-[720px]:inset-auto min-[720px]:z-auto min-[720px]:min-w-0 min-[720px]:flex-1 min-[720px]:max-w-2xl'
+                : 'absolute inset-0 z-10 md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]',
+            )}
+          >
             {composing ? (
               <MailComposePanel
                 mode={composing.mode}

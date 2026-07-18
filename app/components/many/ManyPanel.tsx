@@ -467,7 +467,7 @@ export default function ManyPanel({
           onClear={handleClear}
           canClear={messages.length > 0}
           onClose={onClose}
-          showClose={!isFullscreen || isPopout}
+          showClose={!isFullscreen}
           isPopout={isPopout}
           showFullscreenToggle={!isPopout}
           isFullscreenActive={isFullscreen}

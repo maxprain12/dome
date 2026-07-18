@@ -44,7 +44,7 @@ export default function LearnDeckCard({ item, onOpen, onEdit, onDelete }: LearnD
       </DropdownMenuGroup></DropdownMenuContent></DropdownMenu></CardAction> : null}
     </CardHeader>
     <CardContent className="flex flex-col gap-3">
-      <Badge variant="secondary" className="w-fit"><HugeiconsIcon icon={TYPE_ICONS[item.type]} />{typeLabels[item.type]}</Badge>
+      <Badge variant="lime" className="w-fit"><HugeiconsIcon icon={TYPE_ICONS[item.type]} />{typeLabels[item.type]}</Badge>
       {item.type === 'flashcards' ? <Progress value={Math.min(100, mastery)} aria-label={t('learn.kpi_mastery')} /> : null}
     </CardContent>
     <CardFooter className="justify-between"><span className="text-xs text-muted-foreground">{item.type === 'flashcards' ? ((item.dueCount ?? 0) > 0 ? t('learn.due_count', '{{count}} due', { count: item.dueCount }) : t('learn.up_to_date', 'Up to date')) : item.glyph}</span><Button type="button" variant="outline" size="sm" onClick={onOpen}>{t('learn.open_item', 'Open')}</Button></CardFooter>

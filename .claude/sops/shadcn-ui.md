@@ -125,8 +125,13 @@ El `Toaster` de shadcn usa `data-theme` en `<html>` (no `next-themes`).
 
 ## Theming
 
-- **Fuente de verdad de color:** variables Dome en `app/globals.css` (`:root[data-theme="light"]` / `dark`).
-- shadcn añade imports al inicio de `globals.css`:
+- **Fuente de verdad de color:** tokens shadcn en `app/globals.css` (`:root` / `.dark`). Estado extra (`--success`, sombras) en `:root[data-theme="light|dark"]`.
+- Marca Dome: `--primary` forest, `--primary-hover`, `--brand-lime|mint|lavender`. Ver `.claude/rules/new-color-palette.md`.
+- Variantes custom (no pisar con `shadcn add --overwrite` sin diff):
+  - `Button`: pill; `soft`; `secondary`/`outline` = outline forest
+  - `Badge`: `lime` \| `mint` \| `lavender`
+  - `Card`: `variant` `default` \| `lime` \| `lavender` \| `brand`
+- shadcn imports al inicio de `globals.css`:
 
   ```css
   @import "tw-animate-css";
@@ -134,7 +139,7 @@ El `Toaster` de shadcn usa `data-theme` en `<html>` (no `next-themes`).
   @import "@fontsource-variable/inter";
   ```
 
-- Tema de la app: `data-theme="light|dark"` en `<html>` (ver `ThemeProvider`).
+- Tema de la app: `data-theme="light|dark"` + clase `.dark` en `<html>` (ver `ThemeProvider`).
 - No hardcodear hex en componentes; `pnpm run check:design-system` lo verifica en CI.
 
 ---

@@ -5,18 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Cancel01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import type { ExecutionPolicy } from '@/lib/pipelines/types';
-
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup } from '@/components/ui/select';
 import { Field, FieldLabel } from '@/components/ui/field';
-import type { ReactNode } from 'react';
+
 interface Props {
   onCreate: (data: { title: string; executionPolicy: ExecutionPolicy }) => Promise<void> | void;
 }
 
 /**
  * Always-last column. Collapsed to a "+ Add stage" button; opens to a compact
- * inline form (title + execution policy). Agent assignment is configured later
- * from the stage's settings drawer. Not a drop target.
+ * inline form. Not a drop target.
  */
 export default function NewStageColumn({ onCreate }: Props) {
   const { t } = useTranslation();
@@ -43,26 +41,30 @@ export default function NewStageColumn({ onCreate }: Props) {
     }
   };
 
+  const policyItems = [
+    { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
+    { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
+    { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
+  ];
+
   if (!open) {
     return (
       <Button
         type="button"
+        variant="outline"
         onClick={() => setOpen(true)}
-        className="flex flex-col items-center justify-center gap-1.5 rounded-lg shrink-0 w-72 self-start min-h-[120px] transition-colors"
-        style={{ background: 'transparent', border: '1px dashed var(--border)', color: 'var(--muted-foreground)', cursor: 'pointer' }}
+        className="h-11 w-11 shrink-0 self-start border-dashed sm:h-auto sm:min-h-0 sm:w-[17.5rem] sm:flex-col sm:gap-1.5 sm:px-3 sm:py-5"
         title={t('pipelines.add_stage')}
         aria-label={t('pipelines.add_stage')}
       >
-        <HugeiconsIcon icon={PlusSignIcon} size={18} />
-        <span className="text-sm font-medium text-foreground">
-          {t('pipelines.add_stage')}
-        </span>
+        <HugeiconsIcon icon={PlusSignIcon} className="size-4" />
+        <span className="hidden text-sm font-medium sm:inline">{t('pipelines.add_stage')}</span>
       </Button>
     );
   }
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- onKeyDown only handles Escape (cancel shortcut).
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape cancels the form.
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -74,21 +76,13 @@ export default function NewStageColumn({ onCreate }: Props) {
           reset();
         }
       }}
-      className="flex flex-col rounded-lg shrink-0 w-72 self-start"
-      style={{ background: 'var(--card)', border: '1px solid var(--primary)', boxShadow: '0 0 0 1px var(--primary) inset' }}
+      className="flex w-[17.5rem] shrink-0 flex-col self-start overflow-hidden rounded-xl border border-primary bg-card"
       aria-label={t('pipelines.add_stage')}
     >
-      <div className="px-3 py-2 border-b flex items-center justify-between gap-1 border-border">
-        <span className="font-semibold text-sm text-foreground">
-          {t('pipelines.add_stage')}
-        </span>
-        <Button
-          type="button"
-          onClick={reset}
-          aria-label={t('pipelines.cancel')}
-          style={{ background: 'transparent', border: 'none', color: 'var(--muted-foreground)', cursor: 'pointer', padding: 2 }}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} size={13} />
+      <div className="flex items-center justify-between gap-1 border-b border-border px-2.5 py-2">
+        <span className="text-sm font-semibold text-foreground">{t('pipelines.add_stage')}</span>
+        <Button type="button" variant="ghost" size="icon-xs" onClick={reset} aria-label={t('pipelines.cancel')}>
+          <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
       </div>
 
@@ -100,42 +94,37 @@ export default function NewStageColumn({ onCreate }: Props) {
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t('pipelines.stage_title_placeholder')}
           aria-label={t('pipelines.stage_title_placeholder')}
-          className="text-sm rounded-md px-2 py-1 outline-none"
-          style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
         />
-        <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.execution_policy')}</FieldLabel><Select value={policy ?? null} onValueChange={(next) => { if (next != null) (setPolicy)(next); }} items={[
-            { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
-            { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
-            { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
-          ]}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
-            { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
-            { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
-            { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
-          ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
+        <Field className="gap-1.5">
+          <FieldLabel className="text-xs">{t('pipelines.execution_policy')}</FieldLabel>
+          <Select
+            value={policy}
+            onValueChange={(next) => {
+              if (next != null) setPolicy(next as ExecutionPolicy);
+            }}
+            items={policyItems}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {policyItems.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
 
         <div className="flex items-center justify-end gap-1.5 pt-1">
-          <Button
-            type="button"
-            onClick={reset}
-            disabled={submitting}
-            className="text-xs px-2.5 py-1 rounded-md"
-            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted-foreground)', cursor: 'pointer' }}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={reset} disabled={submitting}>
             {t('pipelines.cancel')}
           </Button>
-          <Button
-            type="submit"
-            disabled={submitting || !title.trim()}
-            className="text-xs px-2.5 py-1 rounded-md inline-flex items-center gap-1"
-            style={{
-              background: 'var(--primary)',
-              color: 'var(--primary-foreground)',
-              border: 'none',
-              cursor: submitting || !title.trim() ? 'not-allowed' : 'pointer',
-              opacity: submitting || !title.trim() ? 0.6 : 1,
-            }}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} size={12} />
+          <Button type="submit" size="sm" disabled={submitting || !title.trim()}>
+            <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
             {submitting ? t('pipelines.creating') : t('pipelines.create')}
           </Button>
         </div>

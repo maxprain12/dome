@@ -33,6 +33,7 @@ import {
   type SocialFilter,
   type SocialReplyDraft,
 } from '@/lib/social/socialQueues';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { SocialStats } from './SocialStats';
 import { SocialCampaignSection, SocialQueueSection } from './SocialQueueSection';
 import { cn } from '@/lib/utils';
@@ -170,14 +171,18 @@ export function SocialDashboard({
                 </Button>
               ) : (
                 <>
-                  <Button
+                  <button
                     type="button"
-                    size="xs"
-                    variant={focusAccountId == null ? 'secondary' : 'ghost'}
+                    data-active={focusAccountId == null ? 'true' : undefined}
+                    className={selectionSurfaceClass(
+                      focusAccountId == null,
+                      'inline-flex h-7 items-center px-2.5 text-xs',
+                      { shape: 'chip' },
+                    )}
                     onClick={() => onFocusAccount(null)}
                   >
                     {t('social.agent_presence_all')}
-                  </Button>
+                  </button>
                   {accounts.map((acc) => {
                     const icon =
                       acc.provider === 'linkedin' && acc.accountKind === 'organization'
@@ -185,21 +190,23 @@ export function SocialDashboard({
                         : PROVIDER_ICONS[acc.provider];
                     const active = focusAccountId === acc.id;
                     return (
-                      <Button
+                      <button
                         key={acc.id}
                         type="button"
-                        size="xs"
-                        variant={active ? 'secondary' : 'outline'}
+                        data-active={active ? 'true' : undefined}
                         className={cn(
-                          'max-w-[12rem]',
+                          selectionSurfaceClass(active, 'inline-flex h-7 max-w-[12rem] items-center gap-1 px-2.5 text-xs', {
+                            shape: 'chip',
+                          }),
+                          !active && 'border-border',
                           acc.status !== 'active' && 'border-destructive/40 text-destructive',
                         )}
                         title={`${acc.provider} · ${accountLabel(acc)}`}
                         onClick={() => onFocusAccount(active ? null : acc.id)}
                       >
-                        <HugeiconsIcon icon={icon} data-icon="inline-start" />
+                        <HugeiconsIcon icon={icon} className="size-3.5 shrink-0" />
                         <span className="truncate">{accountLabel(acc)}</span>
-                      </Button>
+                      </button>
                     );
                   })}
                 </>
@@ -255,28 +262,36 @@ export function SocialDashboard({
         ) : (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-1">
-              <Button
+              <button
                 type="button"
-                size="xs"
-                variant={focusAccountId == null ? 'secondary' : 'ghost'}
+                data-active={focusAccountId == null ? 'true' : undefined}
+                className={selectionSurfaceClass(
+                  focusAccountId == null,
+                  'inline-flex h-7 items-center px-2.5 text-xs',
+                  { shape: 'chip' },
+                )}
                 onClick={() => onFocusAccount(null)}
               >
                 {t('social.agent_presence_all')}
-              </Button>
-              {accounts.map((acc) => (
-                <Button
-                  key={acc.id}
-                  type="button"
-                  size="xs"
-                  variant={focusAccountId === acc.id ? 'secondary' : 'ghost'}
-                  className="max-w-[8rem]"
-                  onClick={() =>
-                    onFocusAccount(focusAccountId === acc.id ? null : acc.id)
-                  }
-                >
-                  <span className="truncate">{accountLabel(acc)}</span>
-                </Button>
-              ))}
+              </button>
+              {accounts.map((acc) => {
+                const active = focusAccountId === acc.id;
+                return (
+                  <button
+                    key={acc.id}
+                    type="button"
+                    data-active={active ? 'true' : undefined}
+                    className={selectionSurfaceClass(
+                      active,
+                      'inline-flex h-7 max-w-[8rem] items-center px-2.5 text-xs',
+                      { shape: 'chip' },
+                    )}
+                    onClick={() => onFocusAccount(active ? null : acc.id)}
+                  >
+                    <span className="truncate">{accountLabel(acc)}</span>
+                  </button>
+                );
+              })}
             </div>
             <SocialStats
               drafts={stats.drafts}

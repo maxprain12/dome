@@ -5,7 +5,7 @@ import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
 import { getRunUsageFromRunMetadata } from '@/lib/automations/run-cost';
 import { getRunProgress } from '@/lib/automations/run-progress';
-import type { PersistentRun } from '@/lib/automations/api';
+import { isAutomationLinkedRun, type PersistentRun } from '@/lib/automations/api';
 import { formatIntToken } from './runPresentation';
 import { RunOverviewStatRow } from './RunStepBits';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -20,6 +20,24 @@ interface RunRightOverviewProps {
   modelId?: string;
 }
 
+function targetLabel(run: PersistentRun, t: (key: string) => string): string | null {
+  if (!isAutomationLinkedRun(run)) return null;
+  switch (run.ownerType) {
+    case 'agent':
+      return t('runLog.detail_target_agent');
+    case 'workflow':
+      return t('runLog.detail_target_workflow');
+    case 'many':
+      return t('runLog.detail_target_many');
+    case 'automation':
+      return null;
+    default: {
+      const _exhaustive: never = run.ownerType;
+      return _exhaustive;
+    }
+  }
+}
+
 export default function RunRightOverview({
   run,
   ownerKindLabel,
@@ -32,6 +50,7 @@ export default function RunRightOverview({
   const { t, i18n } = useTranslation();
   const panelClass =
     'min-w-0 rounded-md border border-border bg-card px-3 py-2.5';
+  const runTarget = targetLabel(run, t);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
       <section className={panelClass}>
@@ -40,6 +59,9 @@ export default function RunRightOverview({
         </h3>
         <div className="min-w-0 divide-y divide-border">
           <RunOverviewStatRow label={t('runLog.detail_owner')} value={ownerKindLabel} />
+          {runTarget ? (
+            <RunOverviewStatRow label={t('runLog.detail_target')} value={runTarget} />
+          ) : null}
           {providerLabel || modelId ? (
             <RunOverviewStatRow
               label={t('runLog.detail_provider_model')}

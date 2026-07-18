@@ -98,9 +98,10 @@
     "stat_model": "Modèle"
   },
   "agent_search": "Rechercher agents, workflows, automatisations, exécutions…",
+  "runs_search": "Rechercher par automatisation, cible ou id…",
   "agent_ask_many": "Demander à Many",
-  "agent_queue_runs": "Exécutions récentes",
-  "agent_prompt_runs": "Examine mes exécutions récentes : échecs, goulots et 3 actions concrètes.",
+  "agent_queue_runs": "Exécutions d’automatisations",
+  "agent_prompt_runs": "Examine mes exécutions d’automatisations : échecs, goulots et 3 actions concrètes.",
   "agent_prompt_automations": "Examine mes automatisations : lesquelles activer, corriger les échecs, proposer une règle utile.",
   "agent_prompt_agents": "Examine ma bibliothèque d'agents et propose des améliorations ou un nouvel agent.",
   "agent_prompt_workflows": "Examine mes workflows et propose le suivant ou des améliorations canvas.",

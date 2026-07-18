@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
 import type { SocialCampaign, SocialPost } from '@/components/social/socialTypes';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import type { SocialQueueId } from '@/lib/social/socialQueues';
 import { SocialPostRow } from './SocialPostRow';
 
@@ -183,11 +184,11 @@ export function SocialCampaignSection({
             return (
               <div
                 key={c.id}
-                className={
-                  active
-                    ? 'flex items-center gap-2 rounded-md bg-accent px-2 py-1.5'
-                    : 'flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent'
-                }
+                data-active={active ? 'true' : undefined}
+                className={selectionSurfaceClass(
+                  active,
+                  'flex items-center gap-2 px-2 py-1.5',
+                )}
               >
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 /** Grid card for a folder or resource inside FolderTabView. */
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   CheckIcon,
@@ -740,40 +741,50 @@ function CardMenuLayers({
 }) {
   return (
     <>
-      {menuOpen && menuPos ? (
-        <DropdownMenu open onOpenChange={(open) => { if (!open) onDismissMenu(); }}>
-          <DropdownMenuTrigger
-            render={
-              <span
-                className="fixed size-px"
-                style={{ top: menuPos.top, right: menuPos.right }}
-                aria-hidden
+      {menuOpen && menuPos
+        ? createPortal(
+            <DropdownMenu open onOpenChange={(open) => { if (!open) onDismissMenu(); }}>
+              <DropdownMenuTrigger
+                nativeButton={false}
+                render={
+                  <span
+                    className="pointer-events-none fixed size-px"
+                    style={{ top: menuPos.top, right: menuPos.right }}
+                    aria-hidden
+                  />
+                }
               />
-            }
-          />
-          <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="dome-folder-view__row-menu">
-            <ResourceContextMenuItems
-              resource={item}
-              options={{
-                isFolder: isFolderCard,
-                isNote: item.type === 'note',
-                canOpenInSplit: Boolean(actions.onOpenInSplit),
-              }}
-              actions={{
-                onRename: startRenaming,
-                onOpenInSplit: actions.onOpenInSplit,
-                onOpenInWindow: actions.onOpenInWindow,
-                onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
-                onMoveToFolder: actions.onMoveToFolder,
-                onMoveToProject: actions.onMoveToProject,
-                onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
-                onDelete: actions.onDelete,
-              }}
-              onDismiss={onDismissMenu}
-            />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
+              <DropdownMenuContent
+                align="end"
+                side="bottom"
+                sideOffset={0}
+                positionMethod="fixed"
+                className="dome-folder-view__row-menu w-auto"
+              >
+                <ResourceContextMenuItems
+                  resource={item}
+                  options={{
+                    isFolder: isFolderCard,
+                    isNote: item.type === 'note',
+                    canOpenInSplit: Boolean(actions.onOpenInSplit),
+                  }}
+                  actions={{
+                    onRename: startRenaming,
+                    onOpenInSplit: actions.onOpenInSplit,
+                    onOpenInWindow: actions.onOpenInWindow,
+                    onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
+                    onMoveToFolder: actions.onMoveToFolder,
+                    onMoveToProject: actions.onMoveToProject,
+                    onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
+                    onDelete: actions.onDelete,
+                  }}
+                  onDismiss={onDismissMenu}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>,
+            document.body,
+          )
+        : null}
 
       {colorPickerPos && actions.onChangeColor ? (
         <ColorPickerPopover

@@ -98,9 +98,10 @@
     "stat_model": "Modelo"
   },
   "agent_search": "Buscar agentes, workflows, automatizaciones, ejecuciones…",
+  "runs_search": "Buscar por automatización, destino o id…",
   "agent_ask_many": "Preguntar a Many",
-  "agent_queue_runs": "Ejecuciones recientes",
-  "agent_prompt_runs": "Revisa mis ejecuciones recientes: fallos, cuellos de botella y 3 acciones concretas.",
+  "agent_queue_runs": "Ejecuciones de automatizaciones",
+  "agent_prompt_runs": "Revisa mis ejecuciones de automatizaciones: fallos, cuellos de botella y 3 acciones concretas.",
   "agent_prompt_automations": "Revisa mis automatizaciones: cuáles activar, fallos a corregir y una regla nueva útil.",
   "agent_prompt_agents": "Revisa mi biblioteca de agentes y propón mejoras o un agente nuevo para una tarea habitual.",
   "agent_prompt_workflows": "Revisa mis workflows y sugiere el siguiente o mejoras en el canvas.",

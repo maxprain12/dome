@@ -474,6 +474,19 @@ function buildQueries(db) {
       ORDER BY updated_at DESC
       LIMIT ?
     `),
+    /** Runs triggered by an automation (automation_id set), any target type. */
+    getLatestLinkedAutomationRuns: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE automation_id IS NOT NULL
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    getLatestLinkedAutomationRunsByProject: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE project_id = ? AND automation_id IS NOT NULL
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
     deleteAutomationRun: db.prepare('DELETE FROM automation_runs WHERE id = ?'),
 
     createAutomationRunStep: db.prepare(`

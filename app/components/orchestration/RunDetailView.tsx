@@ -9,6 +9,7 @@ import {
   SquareIcon as SquareIcon,
   Delete02Icon as Trash2Icon,
   WorkflowSquare01Icon as WorkflowIcon,
+  ZapIcon as ZapIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
@@ -19,7 +20,7 @@ import {
   getRunUsageFromRunMetadata,
 } from '@/lib/automations/run-cost';
 import { getRunProgress } from '@/lib/automations/run-progress';
-import type { PersistentRun } from '@/lib/automations/api';
+import { isAutomationLinkedRun, type PersistentRun } from '@/lib/automations/api';
 import { cn } from '@/lib/utils';
 import ListState from '@/components/shared/ListState';
 import {
@@ -50,6 +51,9 @@ const Sparkles = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'
 const Workflow = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
   <HugeiconsIcon icon={WorkflowIcon} {...props} />
 );
+const Zap = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
+  <HugeiconsIcon icon={ZapIcon} {...props} />
+);
 interface RunDetailViewProps {
   run: PersistentRun;
   onBack: () => void;
@@ -61,19 +65,33 @@ interface RunDetailViewProps {
 
 function HeaderStat({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div
-      className="min-w-0 rounded-xl px-3 py-2"
-      style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-      title={title}
-    >
+    <div className="min-w-0 rounded-xl border border-border bg-card px-3 py-2" title={title}>
       <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className="truncate text-sm font-semibold tabular-nums text-foreground">
-        {value}
-      </div>
+      <div className="truncate text-sm font-semibold tabular-nums text-foreground">{value}</div>
     </div>
   );
+}
+
+function ownerPresentation(run: PersistentRun, t: (key: string) => string) {
+  if (isAutomationLinkedRun(run)) {
+    return { Icon: Zap, label: t('runLog.detail_owner_automation') };
+  }
+  switch (run.ownerType) {
+    case 'agent':
+      return { Icon: Bot, label: t('runLog.detail_owner_agent') };
+    case 'workflow':
+      return { Icon: Workflow, label: t('runLog.detail_owner_workflow') };
+    case 'many':
+      return { Icon: Sparkles, label: t('runLog.detail_owner_other') };
+    case 'automation':
+      return { Icon: Zap, label: t('runLog.detail_owner_automation') };
+    default: {
+      const _exhaustive: never = run.ownerType;
+      return _exhaustive;
+    }
+  }
 }
 
 /**
@@ -115,13 +133,7 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
   const costUsd = useMemo(() => estimateRunCostUsd(modelId, meta.usage), [modelId, meta]);
   const costLabel = formatUsdEstimate(costUsd, i18n.language);
 
-  const OwnerIcon = run.ownerType === 'agent' ? Bot : run.ownerType === 'many' ? Sparkles : Workflow;
-  const ownerKindLabel =
-    run.ownerType === 'agent'
-      ? t('runLog.detail_owner_agent')
-      : run.ownerType === 'workflow'
-        ? t('runLog.detail_owner_workflow')
-        : t('runLog.detail_owner_other');
+  const { Icon: OwnerIcon, label: ownerKindLabel } = ownerPresentation(run, t);
 
   const selectedStep = useMemo(
     () => sortedSteps.find((s) => s.id === selectedStepId) ?? null,
@@ -187,24 +199,23 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       {/* Hero header */}
-      <header className="shrink-0 px-5 pt-3 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
+      <header className="shrink-0 border-b border-border bg-muted/40 px-4 pt-3 pb-3 sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Button type="button"
-  variant="ghost"
-  onClick={onBack}
-  aria-label={t('common.back')}
-  size="icon-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              aria-label={t('common.back')}
+              size="icon-sm"
+            >
               <HugeiconsIcon icon={ArrowLeftIcon} className="size-4" />
             </Button>
-            <div
-              className="flex size-9 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
-            >
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-mint text-primary">
               <OwnerIcon className="size-5" strokeWidth={1.75} />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="min-w-0 break-words text-base font-semibold leading-tight text-foreground">
                   {run.title || run.id}
                 </h1>
@@ -212,8 +223,24 @@ export default function RunDetailView({ run, onBack, onStop, onDelete, stopping,
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {ownerKindLabel}
-                <span aria-hidden className="px-1">·</span>
-                <span className="font-mono break-all">{run.id}</span>
+                {isAutomationLinkedRun(run) && run.ownerType !== 'automation' ? (
+                  <>
+                    <span aria-hidden className="px-1">
+                      ·
+                    </span>
+                    <span>
+                      {run.ownerType === 'agent'
+                        ? t('runLog.detail_target_agent')
+                        : run.ownerType === 'workflow'
+                          ? t('runLog.detail_target_workflow')
+                          : t('runLog.detail_target_many')}
+                    </span>
+                  </>
+                ) : null}
+                <span aria-hidden className="px-1">
+                  ·
+                </span>
+                <span className="break-all font-mono">{run.id}</span>
               </p>
             </div>
           </div>

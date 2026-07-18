@@ -7,7 +7,6 @@ import {
   GithubIcon,
   RefreshIcon,
   Settings01Icon,
-  Task01Icon,
 } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
@@ -19,8 +18,7 @@ import IssueDetailPanel from './IssueDetailPanel';
 import MilestoneDetailModal from './MilestoneDetailModal';
 import GitHubSettings from './GitHubSettings';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
-import { HubHeader } from '@/components/hub/HubHeader';
-import { HubSearch } from '@/components/hub/HubSearch';
+import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -121,7 +119,7 @@ export default function GitHubView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col text-foreground">
-      <div className="flex shrink-0 flex-col gap-3 border-b bg-card px-4 py-3">
+      <HubPageHeader>
         <HubHeader
           title={t('github.tab_title')}
           description={syncDescription}
@@ -131,7 +129,7 @@ export default function GitHubView() {
               {syncStatus === 'error' ? (
                 <Badge variant="destructive">{t('github.sync_badge_error')}</Badge>
               ) : isSyncing ? (
-                <Badge variant="secondary">{t('github.sync_badge_syncing')}</Badge>
+                <Badge variant="mint">{t('github.sync_badge_syncing')}</Badge>
               ) : null}
               <SectionGuideHelp sectionKey="github" />
               <Button type="button" variant="outline" size="sm" disabled={isSyncing} onClick={handleSyncClick}>
@@ -156,73 +154,72 @@ export default function GitHubView() {
           }
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15">
-            <HugeiconsIcon icon={Task01Icon} className="size-4 text-primary" strokeWidth={2} />
-          </div>
-          <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-w-0 max-w-xs flex-1 justify-between gap-1.5 sm:max-w-sm"
-                  aria-label={t('github.tab_title')}
-                />
-              }
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="truncate">
-                  {selectedRepo?.full_name ??
-                    (selectedRepos.length === 0
-                      ? t('github.select_repos_in_settings')
-                      : t('github.tab_title'))}
+        <div className="@container/github-toolbar flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1">
+            <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-w-0 max-w-[14rem] justify-between gap-1.5 @[36rem]/github-toolbar:max-w-xs"
+                    aria-label={t('github.tab_title')}
+                  />
+                }
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="truncate">
+                    {selectedRepo?.full_name ??
+                      (selectedRepos.length === 0
+                        ? t('github.select_repos_in_settings')
+                        : t('github.tab_title'))}
+                  </span>
                 </span>
-              </span>
-              <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-64 gap-0 overflow-hidden p-0">
-              <Command>
-                <CommandInput placeholder={t('github.tab_title')} />
-                <CommandList>
-                  <CommandEmpty>{t('github.select_repos_in_settings')}</CommandEmpty>
-                  <CommandGroup>
-                    {selectedRepos.map((r) => (
-                      <CommandItem
-                        key={r.id}
-                        value={r.full_name}
-                        onSelect={() => {
-                          void selectRepo(r.id);
-                          setRepoPickerOpen(false);
-                        }}
-                      >
-                        <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                        <span className="truncate">{r.full_name}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label={t('github.open_repo_on_github')}
-            disabled={!selectedRepo?.html_url}
-            onClick={() => {
-              if (selectedRepo?.html_url) window.open(selectedRepo.html_url, '_blank', 'noreferrer');
-            }}
-          >
-            <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
-          </Button>
+                <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-64 gap-0 overflow-hidden p-0">
+                <Command>
+                  <CommandInput placeholder={t('github.tab_title')} />
+                  <CommandList>
+                    <CommandEmpty>{t('github.select_repos_in_settings')}</CommandEmpty>
+                    <CommandGroup>
+                      {selectedRepos.map((r) => (
+                        <CommandItem
+                          key={r.id}
+                          value={r.full_name}
+                          onSelect={() => {
+                            void selectRepo(r.id);
+                            setRepoPickerOpen(false);
+                          }}
+                        >
+                          <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                          <span className="truncate">{r.full_name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={t('github.open_repo_on_github')}
+              disabled={!selectedRepo?.html_url}
+              onClick={() => {
+                if (selectedRepo?.html_url) window.open(selectedRepo.html_url, '_blank', 'noreferrer');
+              }}
+            >
+              <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
+            </Button>
+          </div>
 
           {!settingsOpen ? (
             <HubSearch
-              className="min-w-[12rem] flex-1"
+              className="min-w-0 flex-1 basis-[12rem]"
               value={query}
               onChange={setQuery}
               placeholder={t('github.dash_search')}
@@ -231,7 +228,7 @@ export default function GitHubView() {
             />
           ) : null}
         </div>
-      </div>
+      </HubPageHeader>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

@@ -1,6 +1,7 @@
 /** Sidebar resource/folder context menu — shared items with folder tab view. */
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Resource } from '@/lib/hooks/useResources';
 import { FOLDER_COLOR_DEFAULT } from '@/lib/ui/palettes';
 import ColorPickerPopover from '@/components/shell/folder-tab/ColorPickerPopover';
@@ -73,31 +74,48 @@ export default function ContextMenu({
 
   if (typeof document === 'undefined') return null;
 
-  return (
+  // Portal the cursor anchor to `document.body` so `position: fixed` is viewport-relative
+  // (sidebar ancestors with overflow/transform would otherwise skew the anchor).
+  return createPortal(
     <>
       {state.visible && !colorPickerPos ? (
         <DropdownMenu open onOpenChange={(open) => { if (!open) onClose(); }}>
-          <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: state.y, left: state.x }} aria-hidden />} />
-          <DropdownMenuContent align="start" side="bottom" sideOffset={0} className="dome-folder-view__row-menu p-1.5">
-          <ResourceContextMenuItems
-            resource={r}
-            options={{
-              isFolder,
-              isNote: r.type === 'note',
-              canOpenInSplit,
-            }}
-            actions={{
-              onRename: () => onRename(r),
-              onOpenInSplit: onOpenInSplit ? () => onOpenInSplit(r) : undefined,
-              onOpenInWindow: onOpenInWindow ? () => onOpenInWindow(r) : undefined,
-              onChangeColor: isFolder ? openColorPicker : undefined,
-              onMoveToFolder: () => onMove(r),
-              onMoveToProject: () => onMoveToProject(r),
-              onNewSubfolder: isFolder ? () => onNewFolder(r.id) : undefined,
-              onDelete: () => onDelete(r),
-            }}
-            onDismiss={onClose}
+          <DropdownMenuTrigger
+            nativeButton={false}
+            render={
+              <span
+                className="pointer-events-none fixed size-px"
+                style={{ top: state.y, left: state.x }}
+                aria-hidden
+              />
+            }
           />
+          <DropdownMenuContent
+            align="start"
+            side="bottom"
+            sideOffset={0}
+            positionMethod="fixed"
+            className="dome-folder-view__row-menu w-auto p-1.5"
+          >
+            <ResourceContextMenuItems
+              resource={r}
+              options={{
+                isFolder,
+                isNote: r.type === 'note',
+                canOpenInSplit,
+              }}
+              actions={{
+                onRename: () => onRename(r),
+                onOpenInSplit: onOpenInSplit ? () => onOpenInSplit(r) : undefined,
+                onOpenInWindow: onOpenInWindow ? () => onOpenInWindow(r) : undefined,
+                onChangeColor: isFolder ? openColorPicker : undefined,
+                onMoveToFolder: () => onMove(r),
+                onMoveToProject: () => onMoveToProject(r),
+                onNewSubfolder: isFolder ? () => onNewFolder(r.id) : undefined,
+                onDelete: () => onDelete(r),
+              }}
+              onDismiss={onClose}
+            />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
@@ -110,6 +128,7 @@ export default function ContextMenu({
           onClose={() => setColorPickerPos(null)}
         />
       ) : null}
-    </>
+    </>,
+    document.body,
   );
 }

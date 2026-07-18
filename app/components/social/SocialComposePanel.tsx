@@ -435,10 +435,10 @@ export default function SocialComposePanel({
                   key={p}
                   type="button"
                   size="sm"
-                  variant={active ? 'default' : 'outline'}
+                  variant={active ? 'soft' : 'outline'}
                   onClick={() => toggleProvider(p)}
                   disabled={isEditing && p !== editingPost?.provider}
-                  className="text-xs"
+                  className={active ? 'border border-primary text-xs' : 'text-xs'}
                   title={hasAccount ? PROVIDER_LABELS[p] : t('social.composer.no_account', { provider: PROVIDER_LABELS[p] })}
                 >
                   <HugeiconsIcon icon={icon} className="size-3.5" />
@@ -461,10 +461,10 @@ export default function SocialComposePanel({
                       key={acc.id}
                       type="button"
                       size="sm"
-                      variant={active ? 'default' : 'outline'}
+                      variant={active ? 'soft' : 'outline'}
                       onClick={() => setLinkedInAccountId(acc.id)}
                       disabled={isEditing}
-                      className="text-xs"
+                      className={active ? 'border border-primary text-xs' : 'text-xs'}
                     >
                       {isOrg ? <HugeiconsIcon icon={Building2Icon} className="size-3.5" /> : <HugeiconsIcon icon={Linkedin01Icon} className="size-3.5" />}
                       <span className="max-w-[180px] truncate">{acc.displayName || acc.handle || acc.id}</span>

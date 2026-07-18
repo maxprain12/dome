@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import {
   buildMailQueues,
@@ -23,9 +22,6 @@ export function MailDashboard({
   onFilter,
   selectedId,
   onOpen,
-  onCompose,
-  onAskManyTriage,
-  onAskManySummarize,
   resultCount,
 }: {
   inbox: MailEnvelope[];
@@ -37,9 +33,6 @@ export function MailDashboard({
   onFilter: (f: MailFilter) => void;
   selectedId?: string | null;
   onOpen: (env: MailEnvelope) => void;
-  onCompose: () => void;
-  onAskManyTriage: () => void;
-  onAskManySummarize: () => void;
   resultCount?: number | null;
 }) {
   const { t } = useTranslation();
@@ -137,25 +130,6 @@ export function MailDashboard({
           activeFilter={filter}
           onFilter={onFilter}
         />
-
-        {/* Redactar stays in HubHeader — avoid a third copy when the column is tight. */}
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="secondary" onClick={onAskManyTriage}>
-            {t('email.agent_action_triage')}
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onAskManySummarize}>
-            {t('email.agent_action_summarize')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="hidden @[36rem]/mail-dash:inline-flex"
-            onClick={onCompose}
-          >
-            {t('email.compose')}
-          </Button>
-        </div>
 
         {query.trim() ? (
           <p className="px-1 text-xs text-muted-foreground">

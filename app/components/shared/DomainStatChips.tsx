@@ -53,10 +53,10 @@ export function DomainStatChips({
           </>
         );
         const cls = cn(
-          'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs',
-          'transition-[background-color,border-color,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)]',
-          stat.active ? 'border-primary/40 bg-primary/10' : 'border-border bg-muted/40',
-          stat.onClick && 'hover:bg-accent active:scale-[0.97]',
+          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs',
+          'transition-[background-color,border-color,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none motion-reduce:active:scale-100',
+          stat.active ? 'border-primary bg-brand-mint' : 'border-border bg-muted/40',
+          stat.onClick && 'hover:bg-brand-mint/70 active:scale-[0.97]',
         );
         if (stat.onClick) {
           return (

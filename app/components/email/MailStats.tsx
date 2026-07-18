@@ -57,8 +57,9 @@ export function MailStats({
               className="min-w-0 text-left"
             >
               <Card
+                variant={active ? 'lime' : 'default'}
                 className={cn(
-                  'gap-0 py-0 shadow-none transition-[background-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)]',
+                  'gap-0 py-0 shadow-none transition-[background-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none',
                   active && 'ring-2 ring-primary/40',
                 )}
               >

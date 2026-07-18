@@ -84,7 +84,7 @@ export function InlineDetailCard({
       <CardHeader className={cn('shrink-0 gap-2 border-b px-3 py-3', `@[280px]/${cq}:px-4`)}>
         <div className={cn('flex min-w-0 items-start gap-2 pr-1', `@[280px]/${cq}:gap-2.5`)}>
           {icon ? (
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-3.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-mint text-primary [&_svg]:size-3.5">
               {icon}
             </span>
           ) : null}

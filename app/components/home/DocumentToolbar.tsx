@@ -135,8 +135,8 @@ function ToolbarButton({
       className={`
         flex items-center gap-2 h-8 px-3 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow]
         ${variant === 'primary'
-          ? 'bg-primary text-white hover:bg-[color-mix(in oklch, var(--primary) 85%, var(--background))] hover:text-white shadow-sm hover:shadow'
-          : 'text-muted-foreground hover:text-foreground hover:bg-[var(--card)] border border-transparent hover:border-border'
+          ? 'bg-primary text-primary-foreground hover:bg-primary-hover shadow-sm hover:shadow'
+          : 'text-muted-foreground hover:text-foreground hover:bg-card border border-transparent hover:border-border'
         }
       `}
       aria-label={label}

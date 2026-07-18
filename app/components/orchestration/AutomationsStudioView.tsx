@@ -58,7 +58,7 @@ import { Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import { askStudioMany } from '@/components/studio-hub';
 import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
-import { HubHeader } from '@/components/hub/HubHeader';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -502,7 +502,7 @@ export default function AutomationsStudioView() {
       key="library"
       className="@container/automations flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
     >
-      <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+      <HubPageHeader className="space-y-3">
         <HubHeader
           title={t('tabs.automations')}
           description={t('automationHub.automations_subtitle')}
@@ -584,7 +584,7 @@ export default function AutomationsStudioView() {
             />
           ) : null}
         </div>
-      </div>
+      </HubPageHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (

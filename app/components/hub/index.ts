@@ -24,6 +24,8 @@ export type { HubSurfaceProps, HubGroupProps, HubRowProps } from './HubBlocks';
 export { HubSectionLabel } from './HubSectionLabel';
 export { HubHeader } from './HubHeader';
 export type { HubHeaderProps } from './HubHeader';
+export { HubPageHeader } from './HubPageHeader';
+export type { HubPageHeaderProps } from './HubPageHeader';
 export { HubSearch } from './HubSearch';
 export type { HubSearchProps } from './HubSearch';
 export { HubShell } from './HubShell';

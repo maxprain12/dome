@@ -38,7 +38,7 @@ import MarketplaceAgentDetail from './MarketplaceAgentDetail';
 import WorkflowDetail from './WorkflowDetail';
 import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { HubHeader } from '@/components/hub/HubHeader';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 import { HubSearch } from '@/components/hub/HubSearch';
 import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
 import { InstallCard } from '@/components/hub/InstallCard';
@@ -561,7 +561,7 @@ export default function MarketplaceView() {
   return (
     <>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="shrink-0 space-y-3 border-b px-5 py-4">
+        <HubPageHeader className="space-y-3 px-5 py-4 sm:px-5">
           <HubHeader
             title={t('marketplace.title')}
             description={
@@ -609,7 +609,7 @@ export default function MarketplaceView() {
               <ToggleGroupItem value="personal">{t('marketplace.scope_personal')}</ToggleGroupItem>
             </ToggleGroup>
           </div>
-        </div>
+        </HubPageHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {installedStrip.length > 0 ? (

@@ -99,9 +99,14 @@ function DirRows({ node, expanded, onToggle, onPick, selectedIds }: RowsProps) {
           <Button
             key={item.resourceId}
             type="button"
+            variant="ghost"
             onClick={() => onPick(item)}
-            className="flex items-center gap-1.5 w-full text-left px-2 py-1 text-xs hover:bg-accent rounded"
-            style={{ color: 'var(--foreground)', opacity: isSelected ? 0.55 : 1, minWidth: 0 }}
+            data-active={isSelected ? 'true' : undefined}
+            className={
+              isSelected
+                ? 'flex w-full min-w-0 items-center gap-1.5 rounded-xl border border-primary bg-brand-mint px-2 py-1 text-left text-xs text-foreground'
+                : 'flex w-full min-w-0 items-center gap-1.5 rounded-xl border border-transparent px-2 py-1 text-left text-xs text-foreground hover:bg-brand-mint/55'
+            }
           >
             <span className="size-3 shrink-0" aria-hidden />
             {item.type === 'video'

@@ -144,18 +144,21 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
         onRename={handleRename}
       />
 
-      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <CanvasSidebar onAddNode={handleAddNode} />
 
-        <CanvasWorkspace selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <CanvasWorkspace selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+          {nodes.length === 0 ? <AgentCanvasEmptyState /> : null}
+        </div>
 
-        {selectedNode && (
+        {selectedNode ? (
           <PropertiesPanel
             node={selectedNode}
             onClose={() => setSelectedNodeId(null)}
             onDelete={handleDeleteNode}
           />
-        )}
+        ) : null}
       </div>
 
       <ExecutionLog
@@ -166,8 +169,6 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
         selectedExecutionId={selectedExecutionId}
         onSelectExecution={selectExecution}
       />
-
-      {nodes.length === 0 && <AgentCanvasEmptyState />}
     </div>
   );
 }

@@ -134,7 +134,14 @@ function countTodos(fields: CardField[]): { done: number; total: number } {
 function formatWhenRange(startAt?: number | null, endAt?: number | null): string {
   if (!startAt && !endAt) return '—';
   const fmt = (ms: number) =>
-    new Date(ms).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
+    new Date(ms).toLocaleString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   if (startAt && endAt) return `${fmt(startAt)} → ${fmt(endAt)}`;
   if (startAt) return fmt(startAt);
   return fmt(endAt as number);
@@ -460,9 +467,13 @@ export default function CardDetailModal({
   ];
 
   const footer = editing ? (
-    <>
+    <div className="flex w-full flex-wrap items-center gap-2">
       <AlertDialog>
-        <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" size="sm" />}>
+        <AlertDialogTrigger
+          render={
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" />
+          }
+        >
           <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
           {t('pipelines.delete')}
         </AlertDialogTrigger>
@@ -473,22 +484,28 @@ export default function CardDetailModal({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
+              {t('pipelines.delete')}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="flex-1" />
-      <Button variant="outline" onClick={() => setEditing(false)} size="sm">
+      <div className="min-w-2 flex-1" />
+      <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
         {t('pipelines.cancel')}
       </Button>
       {canRun ? (
         <Button
           variant="outline"
+          size="sm"
           onClick={() => void handleRun()}
           disabled={generating || agentBusy || saving}
-          size="sm"
         >
-          {agentBusy ? <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" /> : <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />}
+          {agentBusy ? (
+            <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" />
+          ) : (
+            <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />
+          )}
           {launching
             ? t('pipelines.run_launching')
             : isRunning
@@ -498,21 +515,29 @@ export default function CardDetailModal({
       ) : null}
       <Button
         variant="outline"
+        size="sm"
         onClick={() => void generateReport()}
         disabled={saving || agentBusy}
-        size="sm"
       >
-        {generating ? <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" /> : <HugeiconsIcon icon={File02Icon} data-icon="inline-start" />}
+        {generating ? (
+          <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" />
+        ) : (
+          <HugeiconsIcon icon={File02Icon} data-icon="inline-start" />
+        )}
         {t('pipelines.generate_report')}
       </Button>
-      <Button onClick={() => void save()} disabled={saving || agentBusy} size="sm">
+      <Button size="sm" onClick={() => void save()} disabled={saving || agentBusy}>
         {saving ? t('pipelines.saving') : t('pipelines.save')}
       </Button>
-    </>
+    </div>
   ) : (
-    <>
+    <div className="flex w-full flex-wrap items-center gap-2">
       <AlertDialog>
-        <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" size="sm" />}>
+        <AlertDialogTrigger
+          render={
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" />
+          }
+        >
           <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
           {t('pipelines.delete')}
         </AlertDialogTrigger>
@@ -523,19 +548,21 @@ export default function CardDetailModal({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
+              {t('pipelines.delete')}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="flex-1" />
-      <Button variant="outline" onClick={() => setEditing(true)} size="sm">
-        <HugeiconsIcon icon={PencilIcon} className="size-4" />
+      <div className="min-w-2 flex-1" />
+      <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+        <HugeiconsIcon icon={PencilIcon} data-icon="inline-start" />
         {t('pipelines.edit')}
       </Button>
-      <Button onClick={onClose} size="sm">
+      <Button size="sm" onClick={onClose}>
         {t('pipelines.close')}
       </Button>
-    </>
+    </div>
   );
 
   const body = editing ? (
@@ -819,15 +846,22 @@ export default function CardDetailModal({
     </div>
   ) : (
     <div className="flex flex-col gap-5">
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {metaItems.map((meta) => (
-          <div key={meta.label} className="min-w-0">
-            <dt className="text-xs font-medium text-muted-foreground">{meta.label}</dt>
-            <dd className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-foreground">
+          <div
+            key={meta.label}
+            className="min-w-0 rounded-xl border border-border bg-muted/40 px-3 py-2"
+          >
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {meta.label}
+            </dt>
+            <dd className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-foreground">
               {meta.icon ? (
-                <span className="shrink-0 text-muted-foreground [&_svg]:size-3.5">{meta.icon}</span>
+                <span className="mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-3.5">{meta.icon}</span>
               ) : null}
-              <span className="min-w-0 truncate">{meta.value}</span>
+              <span className="min-w-0 break-words" title={String(meta.value)}>
+                {meta.value}
+              </span>
             </dd>
           </div>
         ))}

@@ -4,6 +4,7 @@ import { InstagramIcon, Linkedin01Icon, TwitterIcon } from '@hugeicons/core-free
 import { useTranslation } from 'react-i18next';
 import type { SocialPost, SocialProvider } from '@/components/social/socialTypes';
 import { SocialPostMetrics } from '@/components/social/SocialPostMetrics';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { formatSocialWhen, postSnippet } from '@/lib/social/socialQueues';
 import { cn } from '@/lib/utils';
 
@@ -34,9 +35,9 @@ export function SocialPostRow({
     <button
       type="button"
       onClick={onOpen}
+      data-active={active ? 'true' : undefined}
       className={cn(
-        'flex w-full items-start gap-2 rounded-md px-1.5 py-1.5 text-left',
-        active ? 'bg-accent' : 'hover:bg-accent',
+        selectionSurfaceClass(Boolean(active), 'flex w-full items-start gap-2 px-1.5 py-1.5 text-left'),
       )}
     >
       <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -52,7 +53,7 @@ export function SocialPostRow({
         {!compact ? (
           <span className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
             <span className="flex min-w-0 flex-wrap items-center gap-1">
-              <Badge variant="secondary" className="h-auto shrink-0 py-0.5 leading-none">
+              <Badge variant="lime" className="h-auto shrink-0 py-0.5 leading-none">
                 {t(`social.hub.status_${post.status}`)}
               </Badge>
               {post.campaign ? (

@@ -27,7 +27,7 @@ import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
 import { useWorkflowLibrary } from '@/components/agent-canvas/useWorkflowLibrary';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
-import { HubHeader } from '@/components/hub/HubHeader';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Search01Icon } from '@hugeicons/core-free-icons';
@@ -173,7 +173,7 @@ export default function WorkflowsStudioView() {
         key="library"
         className="@container/workflows flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
       >
-        <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+        <HubPageHeader className="space-y-3">
           <HubHeader
             title={t('tabs.workflows')}
             description={t('automationHub.workflows_subtitle')}
@@ -244,7 +244,7 @@ export default function WorkflowsStudioView() {
               ))}
             </ToggleGroup>
           </div>
-        </div>
+        </HubPageHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (

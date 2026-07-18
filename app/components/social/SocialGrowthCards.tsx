@@ -10,6 +10,7 @@ import {
   TwitterIcon,
 } from '@hugeicons/core-free-icons';
 import type { SocialGrowthAccount, SocialProvider } from '@/components/social/socialTypes';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { cn } from '@/lib/utils';
 
 const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
@@ -76,11 +77,13 @@ export default function SocialGrowthCards({
                 ? t('social.hub.growth_unavailable_linkedin_member')
                 : `${acc.provider} · ${label}`
             }
+            data-active={active ? 'true' : undefined}
             className={cn(
-              'flex min-w-[8.5rem] max-w-[11rem] shrink-0 flex-col gap-0.5 rounded-md border px-2.5 py-2 text-left transition-colors',
-              active
-                ? 'border-primary/50 bg-accent'
-                : 'border-border bg-card hover:bg-accent/60',
+              selectionSurfaceClass(
+                active,
+                'flex min-w-[8.5rem] max-w-[11rem] shrink-0 flex-col gap-0.5 px-2.5 py-2 text-left',
+              ),
+              !active && 'border-border bg-card',
             )}
           >
             <span className="flex min-w-0 items-center gap-1.5">

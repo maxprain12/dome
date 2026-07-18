@@ -1,5 +1,6 @@
-import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
+import { cn } from '@/lib/utils';
 import type { SocialFilter } from '@/lib/social/socialQueues';
 
 export function SocialStats({
@@ -30,23 +31,27 @@ export function SocialStats({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label={t('social.agent_filter_all')}>
       {items.map((item) => {
         const active = activeFilter === item.key;
         return (
-          <Button
+          <button
             key={item.key}
             type="button"
-            size="xs"
-            variant={active ? 'secondary' : 'ghost'}
             onClick={() => onFilter(item.key)}
-            className="tabular-nums"
+            aria-pressed={active}
+            data-active={active ? 'true' : undefined}
+            className={cn(
+              selectionSurfaceClass(active, 'inline-flex items-center gap-1 px-2.5 py-1 text-xs tabular-nums', {
+                shape: 'chip',
+              }),
+            )}
           >
             {item.label}
             {typeof item.value === 'number' ? (
-              <span className="text-muted-foreground">{item.value}</span>
+              <span className={active ? 'text-foreground/70' : 'text-muted-foreground'}>{item.value}</span>
             ) : null}
-          </Button>
+          </button>
         );
       })}
     </div>

@@ -3,7 +3,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import {
   PlayIcon as PlayIcon,
   SquareIcon as SquareIcon,
@@ -18,6 +17,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
+import { cn } from '@/lib/utils';
 
 interface CanvasToolbarProps {
   onRun: () => void;
@@ -47,83 +47,111 @@ export default function CanvasToolbar({
   const isRunning = executionStatus === 'running';
 
   return (
-    <div className="flex shrink-0 items-center gap-2 border-b bg-card px-3 py-2">
-      {/* Identity group */}
-      <Button type="button" variant="ghost" onClick={onBackToLibrary} title={t('canvas.back_to_library')} aria-label={t('canvas.back_to_library')} size="icon-sm">
-        <HugeiconsIcon icon={ChevronLeftIcon} data-icon="inline-start" />
-      </Button>
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-muted px-2 sm:px-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onBackToLibrary}
+          title={t('canvas.back_to_library')}
+          aria-label={t('canvas.back_to_library')}
+          size="icon-sm"
+        >
+          <HugeiconsIcon icon={ChevronLeftIcon} />
+        </Button>
 
-      <div
-        className="flex size-7 shrink-0 items-center justify-center rounded-lg"
-        style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
-        aria-hidden
-      >
-        <HugeiconsIcon icon={GitBranchIcon} className="size-3.5" strokeWidth={1.75} />
+        <div
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-mint text-primary"
+          aria-hidden
+        >
+          <HugeiconsIcon icon={GitBranchIcon} className="size-3.5" strokeWidth={1.75} />
+        </div>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRename}
+          className="max-w-[min(220px,36vw)] min-w-0 px-1.5"
+          title={t('canvas.rename_workflow')}
+        >
+          <span className="truncate font-medium">{activeWorkflowName}</span>
+          <HugeiconsIcon icon={PencilIcon} data-icon="inline-end" />
+        </Button>
+
+        <Badge
+          variant={isDirty ? 'outline' : 'lime'}
+          className="hidden shrink-0 sm:inline-flex"
+        >
+          {isDirty ? t('canvas.unsaved_changes') : t('canvas.all_saved')}
+        </Badge>
+
+        <span className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground md:inline">
+          {t('orchestration.workflows.nodes_count', { count: nodes.length })}
+        </span>
+
+        {executionStatus === 'running' ? (
+          <span className="flex items-center gap-1 text-xs text-primary">
+            <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
+            <span className="hidden sm:inline">{t('canvas.running_workflow')}</span>
+          </span>
+        ) : null}
+        {executionStatus === 'done' ? (
+          <span className="flex items-center gap-1 text-xs text-success">
+            <HugeiconsIcon icon={CheckCircle2Icon} className="size-3.5" />
+            <span className="hidden sm:inline">{t('canvas.completed')}</span>
+          </span>
+        ) : null}
+        {executionStatus === 'error' ? (
+          <span className="flex items-center gap-1 text-xs text-destructive">
+            <HugeiconsIcon icon={AlertCircleIcon} className="size-3.5" />
+            <span className="hidden sm:inline">{t('canvas.execution_error')}</span>
+          </span>
+        ) : null}
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onRename}
-        className="max-w-[min(240px,40vw)]"
-        title={t('canvas.rename_workflow')}
-      >
-        <span className="truncate">{activeWorkflowName}</span>
-        <HugeiconsIcon icon={PencilIcon} data-icon="inline-end" />
-      </Button>
+      <div className="flex shrink-0 items-center gap-1">
+        {isRunning ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onStop}
+            className="text-destructive"
+            size="sm"
+          >
+            <HugeiconsIcon icon={SquareIcon} data-icon="inline-start" />
+            {t('canvas.stop')}
+          </Button>
+        ) : (
+          <Button type="button" onClick={onRun} size="sm">
+            <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />
+            {t('canvas.run')}
+          </Button>
+        )}
 
-      {/* Save-state chip */}
-      <Badge variant={isDirty ? 'outline' : 'secondary'}>
-        {isDirty ? t('canvas.unsaved_changes') : t('canvas.all_saved')}
-      </Badge>
-
-      <span className="hidden shrink-0 text-[11px] tabular-nums sm:inline text-muted-foreground">
-        {t('orchestration.workflows.nodes_count', { count: nodes.length })}
-      </span>
-
-      <Separator orientation="vertical" className="mx-1 h-5" />
-
-      {/* Execution group */}
-      {isRunning ? (
-        <Button type="button" variant="secondary" onClick={onStop} className="text-destructive" size="sm"><HugeiconsIcon icon={SquareIcon} data-icon="inline-start" />
-          {t('canvas.stop')}
+        <Button
+          type="button"
+          variant={isDirty ? 'outline' : 'ghost'}
+          onClick={onSave}
+          title={t('canvas.save_workflow')}
+          size="sm"
+        >
+          <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />
+          <span className="hidden sm:inline">{t('canvas.save')}</span>
         </Button>
-      ) : (
-        <Button type="button" onClick={onRun} size="sm"><HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />
-          {t('canvas.run')}
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClear}
+          title={t('canvas.clear_canvas')}
+          aria-label={t('canvas.clear_canvas')}
+          className={cn('text-muted-foreground hover:text-destructive')}
+        >
+          <HugeiconsIcon icon={Trash2Icon} />
         </Button>
-      )}
-
-      {executionStatus === 'running' && (
-        <span className="flex items-center gap-1.5 text-xs text-primary">
-          <HugeiconsIcon icon={Loader2Icon} className="size-3.5 animate-spin" />
-          {t('canvas.running_workflow')}
-        </span>
-      )}
-      {executionStatus === 'done' && (
-        <span className="flex items-center gap-1.5 text-xs text-[var(--success)]">
-          <HugeiconsIcon icon={CheckCircle2Icon} className="size-3.5" />
-          {t('canvas.completed')}
-        </span>
-      )}
-      {executionStatus === 'error' && (
-        <span className="flex items-center gap-1.5 text-xs text-destructive">
-          <HugeiconsIcon icon={AlertCircleIcon} className="size-3.5" />
-          {t('canvas.execution_error')}
-        </span>
-      )}
-
-      <div className="min-w-2 flex-1" />
-
-      {/* Persistence group */}
-      <Button type="button" variant={isDirty ? 'outline' : 'ghost'} onClick={onSave} title={t('canvas.save_workflow')} size="sm"><HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />
-        {t('canvas.save')}
-      </Button>
-
-      <Button type="button" variant="ghost" onClick={onClear} title={t('canvas.clear_canvas')} className="text-muted-foreground hover:text-destructive" size="sm"><HugeiconsIcon icon={Trash2Icon} data-icon="inline-start" />
-        {t('canvas.clear_canvas')}
-      </Button>
+      </div>
     </div>
   );
 }

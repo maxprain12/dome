@@ -98,42 +98,74 @@ export default memo(function ManyHeader({
     typeof window !== 'undefined' &&
     Boolean(window.electron?.isWindows || window.electron?.isLinux);
 
-  const titleText =
-    sessionTitle && sessionTitle !== 'New chat' ? sessionTitle : t('many.many');
+  const hasSessionTitle = Boolean(sessionTitle && sessionTitle !== 'New chat');
+  // Popout is a real OS window: keep brand "Many" as the title; session/context sit below.
+  const titleText = isPopout
+    ? t('many.many')
+    : hasSessionTitle
+      ? sessionTitle!
+      : t('many.many');
+  const subtitleText = isPopout
+    ? loadingHint && !statusLabel
+      ? loadingHint
+      : hasSessionTitle
+        ? sessionTitle!
+        : contextDescription || null
+    : loadingHint && !statusLabel
+      ? loadingHint
+      : contextDescription || null;
   const fullscreenLabel = isFullscreenActive ? t('many.exit_fullscreen') : t('many.fullscreen');
+  // Native traffic lights / titleBarOverlay already close the window.
+  const showCloseButton = showClose && !isPopout;
 
   return (
     <header
       data-status={status}
       className={cn(
-        '@container/header flex shrink-0 items-center gap-2.5 border-b px-3 py-2',
-        isPopout && 'drag-region',
-        isPopout && isMac && 'nav-mac',
-        isPopout && needsRightChromeInset && 'win-titlebar-padding',
+        '@container/header flex shrink-0 items-center gap-2.5 border-b',
+        isPopout
+          ? cn(
+              // Match shell TitleBar: fixed height + traffic-light / overlay insets.
+              'drag-region h-11 gap-2 border-border/60 px-3',
+              isMac && 'pl-20',
+              needsRightChromeInset && 'pr-[140px]',
+            )
+          : 'px-3 py-2',
       )}
     >
-      <ManyAvatar size="md" state={avatarState} className="hidden @[380px]/header:inline-flex" />
-      <ManyAvatar size="sm" state={avatarState} className="inline-flex @[380px]/header:hidden" />
+      <ManyAvatar
+        size={isPopout ? 'sm' : 'md'}
+        state={avatarState}
+        className={cn(
+          isPopout ? 'inline-flex' : 'hidden @[380px]/header:inline-flex',
+        )}
+      />
+      {!isPopout ? (
+        <ManyAvatar size="sm" state={avatarState} className="inline-flex @[380px]/header:hidden" />
+      ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col justify-center leading-tight">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-semibold tracking-tight">{titleText}</span>
+          <span
+            className={cn(
+              'truncate font-semibold tracking-tight',
+              isPopout ? 'text-[13px]' : 'text-sm',
+            )}
+          >
+            {titleText}
+          </span>
           {statusLabel ? (
             <Badge variant="secondary" className="shrink truncate rounded-full font-normal">
               {statusLabel}
             </Badge>
           ) : null}
         </div>
-        <div className="flex min-w-0 items-center gap-1.5">
-          {loadingHint && !statusLabel ? (
-            <span className="truncate text-xs text-muted-foreground">{loadingHint}</span>
-          ) : contextDescription ? (
-            <span className="truncate text-xs text-muted-foreground">{contextDescription}</span>
-          ) : null}
-        </div>
+        {subtitleText ? (
+          <span className="truncate text-[11px] text-muted-foreground">{subtitleText}</span>
+        ) : null}
       </div>
 
-      <div className="no-drag flex shrink-0 items-center gap-1">
+      <div className="no-drag flex shrink-0 items-center gap-0.5">
         {showViewSwitcher ? (
           <Tabs
             value={view}
@@ -231,7 +263,7 @@ export default memo(function ManyHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {showClose ? (
+        {showCloseButton ? (
           <Button
             type="button"
             variant="ghost"

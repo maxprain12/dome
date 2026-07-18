@@ -34,7 +34,7 @@ function SubpageHeader({
   return (
     <header
       className={cn(
-        'shrink-0 flex items-start gap-3 px-5 py-4 border-b border-border bg-background',
+        'shrink-0 flex items-start gap-3 px-5 py-4 border-b border-border bg-muted',
         className,
       )}
     >

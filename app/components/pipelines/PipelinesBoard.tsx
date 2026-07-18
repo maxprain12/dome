@@ -17,7 +17,7 @@ import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { askStudioMany } from '@/components/studio-hub';
-import { HubHeader } from '@/components/hub/HubHeader';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 
 import {
   Dialog,
@@ -179,7 +179,7 @@ export default function PipelinesBoard() {
 
   return (
     <div className="@container/pipelines flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+      <HubPageHeader className="shrink-0 space-y-3">
         <HubHeader
           title={t('pipelines.title')}
           description={t('pipelines.dashboard_title')}
@@ -201,7 +201,11 @@ export default function PipelinesBoard() {
           <Button
             variant={showDashboard ? 'secondary' : 'outline'}
             size="sm"
-            onClick={() => setShowDashboard(true)}
+            onClick={() => {
+              setOpenItem(null);
+              setConfigStage(null);
+              setShowDashboard(true);
+            }}
             title={t('pipelines.dashboard_title')}
           >
             <HugeiconsIcon icon={DashboardSquare01Icon} data-icon="inline-start" />
@@ -228,40 +232,38 @@ export default function PipelinesBoard() {
               </Button>
             </div>
           ) : (
-            <div style={{ minWidth: 180 }}>
-              <Select
-                value={pipelines.length === 0 ? null : (activePipelineId ?? null)}
+            <Select
+              value={pipelines.length === 0 ? null : (activePipelineId ?? null)}
                 onValueChange={(next) => {
-                  if (next != null) {
-                    setShowDashboard(false);
-                    void selectPipeline(next);
+                if (next != null) {
+                  setOpenItem(null);
+                  setConfigStage(null);
+                  setShowDashboard(false);
+                  void selectPipeline(next);
+                }
+              }}
+              items={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+              disabled={pipelines.length === 0}
+            >
+              <SelectTrigger className="w-[min(100%,16rem)]" disabled={pipelines.length === 0}>
+                <SelectValue
+                  placeholder={
+                    pipelines.length === 0
+                      ? t('pipelines.empty_title')
+                      : t('pipelines.select_pipeline')
                   }
-                }}
-                items={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-                disabled={pipelines.length === 0}
-              >
-                <SelectTrigger className="w-full" disabled={pipelines.length === 0}>
-                  <SelectValue
-                    placeholder={
-                      pipelines.length === 0
-                        ? t('pipelines.empty_title')
-                        : t('pipelines.select_pipeline')
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {pipelines.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{p.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {pipelines.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="block truncate">{p.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           )}
 
           <Button
@@ -331,9 +333,9 @@ export default function PipelinesBoard() {
             </Button>
           )}
         </div>
-      </div>
+      </HubPageHeader>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {showDashboard ? (
           <PipelinesDashboard
             onOpenPipeline={(id) => {
@@ -342,12 +344,12 @@ export default function PipelinesBoard() {
             }}
           />
         ) : loadingBoard ? (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
             <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
           </div>
         ) : (
-          <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-            {sourcesOpen && (
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            {sourcesOpen ? (
               <DataSourcePanel
                 sources={sources}
                 stages={sortedStages}
@@ -355,10 +357,10 @@ export default function PipelinesBoard() {
                 onSync={(sourceId) => syncSource(sourceId)}
                 onDelete={(sourceId) => deleteSource(sourceId)}
               />
-            )}
+            ) : null}
             <div
               ref={boardScrollRef}
-              className="flex min-h-0 min-w-0 flex-1 flex-nowrap gap-3 overflow-x-auto overflow-y-hidden p-4"
+              className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 py-3 sm:px-4"
             >
               {sortedStages.map((stage) => (
                 <StageColumn
@@ -382,7 +384,7 @@ export default function PipelinesBoard() {
               <NewStageColumn onCreate={(data) => createStage(data)} />
             </div>
             {liveOpenItem || liveConfigStage ? (
-              <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-80 md:shrink-0 lg:w-[28rem]">
+              <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background min-[900px]:static min-[900px]:inset-auto min-[900px]:z-auto min-[900px]:w-[22rem] min-[900px]:shrink-0 lg:w-[28rem]">
                 {liveOpenItem ? (
                   <CardDetailModal
                     item={liveOpenItem}

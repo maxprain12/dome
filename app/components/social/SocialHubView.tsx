@@ -7,8 +7,7 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { HubHeader } from '@/components/hub/HubHeader';
-import { HubSearch } from '@/components/hub/HubSearch';
+import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
 import type {
   SocialAccount,
   SocialCampaign,
@@ -232,13 +231,7 @@ export default function SocialHubView() {
 
   return (
     <div className="@container/social flex h-full min-h-0 flex-col text-foreground">
-      <div
-        className={
-          detailOpen
-            ? 'flex shrink-0 flex-col gap-2 border-b bg-card px-3 py-2'
-            : 'flex shrink-0 flex-col gap-3 border-b bg-card px-4 py-3'
-        }
-      >
+      <HubPageHeader compact={detailOpen}>
         <HubHeader
           title={t('social.hub.title')}
           description={detailOpen ? undefined : syncDescription}
@@ -248,7 +241,7 @@ export default function SocialHubView() {
               {error ? (
                 <Badge variant="destructive">{t('social.hub.sync_badge_error')}</Badge>
               ) : refreshing ? (
-                <Badge variant="secondary">{t('social.hub.sync_badge_syncing')}</Badge>
+                <Badge variant="mint">{t('social.hub.sync_badge_syncing')}</Badge>
               ) : null}
               <Button
                 type="button"
@@ -293,7 +286,7 @@ export default function SocialHubView() {
           aria-label={t('social.agent_search')}
           clearLabel={t('common.cancel')}
         />
-      </div>
+      </HubPageHeader>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">

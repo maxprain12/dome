@@ -2,19 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import {
-  BotIcon as BotIcon,
   Clock01Icon as ClockIcon,
   Loading03Icon as Loader2Icon,
   SquareIcon as SquareIcon,
   Delete02Icon as Trash2Icon,
-  WorkflowSquare01Icon as WorkflowIcon,
-  SparklesIcon as SparklesIcon,
+  ZapIcon as ZapIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   abortRun,
   deleteRun,
   getRun,
+  isAutomationLinkedRun,
   listRuns,
   onRunStep,
   onRunUpdated,
@@ -32,24 +31,14 @@ import RunDetailView from './RunDetailView';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { askStudioMany } from '@/components/studio-hub';
 import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
-import { HubHeader } from '@/components/hub/HubHeader';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 import { HubSearch } from '@/components/hub/HubSearch';
 import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
 import ListState from '@/components/shared/ListState';
 import RunStatusBadge from '@/components/automations/RunStatusBadge';
 import { cn } from '@/lib/utils';
+import { useTabStore } from '@/lib/store/useTabStore';
 
-const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={BotIcon} {...props} />
-);
-const Workflow = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={WorkflowIcon} {...props} />
-);
-const Sparkles = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={SparklesIcon} {...props} />
-);
-
-type OwnerFilter = 'all' | 'agent' | 'workflow' | 'many';
 type StatusFilter = 'all' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 const ACTIVE_STATUSES = new Set(['running', 'queued', 'waiting_approval']);
@@ -78,6 +67,9 @@ function formatDuration(run: PersistentRun): string | null {
 }
 
 function mergeRunIntoList(prev: PersistentRun[], run: PersistentRun): PersistentRun[] {
+  if (!isAutomationLinkedRun(run)) {
+    return prev.filter((entry) => entry.id !== run.id);
+  }
   const existing = prev.find((entry) => entry.id === run.id);
   const merged = existing
     ? {
@@ -95,6 +87,7 @@ function mergeRunIntoList(prev: PersistentRun[], run: PersistentRun): Persistent
 }
 
 function mergeRunIntoSelected(prev: PersistentRun | null, run: PersistentRun): PersistentRun | null {
+  if (!isAutomationLinkedRun(run)) return prev?.id === run.id ? null : prev;
   return prev?.id === run.id
     ? {
         ...prev,
@@ -105,16 +98,33 @@ function mergeRunIntoSelected(prev: PersistentRun | null, run: PersistentRun): P
     : prev;
 }
 
-/** Runs monitor — live queue with master–detail layout. */
+function targetLabelForRun(run: PersistentRun, t: (key: string) => string): string {
+  switch (run.ownerType) {
+    case 'agent':
+      return t('runLog.detail_target_agent');
+    case 'workflow':
+      return t('runLog.detail_target_workflow');
+    case 'many':
+      return t('runLog.detail_target_many');
+    case 'automation':
+      return t('runLog.detail_owner_automation');
+    default: {
+      const _exhaustive: never = run.ownerType;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Runs monitor — automation-linked executions only (master–detail). */
 export default function RunsStudioView() {
   const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  const openAutomationsTab = useTabStore((s) => s.openAutomationsTab);
 
   const [allRuns, setAllRuns] = useState<PersistentRun[]>([]);
   const [selectedRun, setSelectedRun] = useState<PersistentRun | null>(null);
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [stoppingId, setStoppingId] = useState<string | null>(null);
@@ -128,7 +138,7 @@ export default function RunsStudioView() {
   }, [selectedRun]);
 
   const fetchListData = useCallback(async () => {
-    const all = await listRuns({ limit: 100, projectId });
+    const all = await listRuns({ limit: 100, projectId, automationLinkedOnly: true });
     setAllRuns(all);
   }, [projectId]);
 
@@ -151,7 +161,7 @@ export default function RunsStudioView() {
     void (async () => {
       try {
         const full = await getRun(pendingRunId);
-        if (!cancelled && full) setSelectedRun(full);
+        if (!cancelled && full && isAutomationLinkedRun(full)) setSelectedRun(full);
       } catch {
         /* ignore */
       }
@@ -168,6 +178,10 @@ export default function RunsStudioView() {
       void getRun(runId)
         .then((full) => {
           if (!full || selectedRunIdRef.current !== runId) return;
+          if (!isAutomationLinkedRun(full)) {
+            setSelectedRun(null);
+            return;
+          }
           setSelectedRun(full);
         })
         .catch(() => {})
@@ -182,7 +196,7 @@ export default function RunsStudioView() {
       setAllRuns((prev) => mergeRunIntoList(prev, run));
       if (selectedRunIdRef.current === run.id) {
         setSelectedRun((prev) => mergeRunIntoSelected(prev, run));
-        scheduleRefreshSelectedRun(run.id);
+        if (isAutomationLinkedRun(run)) scheduleRefreshSelectedRun(run.id);
       }
     });
 
@@ -205,7 +219,6 @@ export default function RunsStudioView() {
 
   const filtered = useMemo(() => {
     let result = allRuns;
-    if (ownerFilter !== 'all') result = result.filter((r) => r.ownerType === ownerFilter);
     if (statusFilter !== 'all') {
       result = result.filter((r) =>
         statusFilter === 'running' ? ACTIVE_STATUSES.has(r.status) : r.status === statusFilter,
@@ -217,11 +230,12 @@ export default function RunsStudioView() {
         (r) =>
           (r.title || '').toLowerCase().includes(q) ||
           r.id.toLowerCase().includes(q) ||
+          (r.automationId || '').toLowerCase().includes(q) ||
           (r.ownerType || '').toLowerCase().includes(q),
       );
     }
     return result;
-  }, [allRuns, ownerFilter, statusFilter, query]);
+  }, [allRuns, statusFilter, query]);
 
   const metrics = useMemo(() => {
     const todayRuns = allRuns.filter((r) => isToday(r.updatedAt ?? r.startedAt));
@@ -269,6 +283,10 @@ export default function RunsStudioView() {
     try {
       const full = await getRun(run.id);
       if (selectSeqRef.current !== seq) return;
+      if (full && !isAutomationLinkedRun(full)) {
+        setSelectedRun(null);
+        return;
+      }
       setSelectedRun(full ?? run);
     } catch {
       if (selectSeqRef.current !== seq) return;
@@ -283,7 +301,7 @@ export default function RunsStudioView() {
     try {
       await abortRun(runId);
       const full = await getRun(runId);
-      if (full) {
+      if (full && isAutomationLinkedRun(full)) {
         setAllRuns((prev) => prev.map((r) => (r.id === runId ? full : r)));
         if (selectedRunIdRef.current === runId) setSelectedRun(full);
       }
@@ -309,12 +327,6 @@ export default function RunsStudioView() {
     }
   };
 
-  const ownerOptions: Array<{ value: OwnerFilter; label: string }> = [
-    { value: 'all', label: t('runLog.filter_owner_all') },
-    { value: 'agent', label: t('runLog.filter_owner_agent') },
-    { value: 'workflow', label: t('runLog.filter_owner_workflow') },
-    { value: 'many', label: t('runLog.filter_owner_many') },
-  ];
   const statusOptions: Array<{ value: StatusFilter; label: string }> = [
     { value: 'all', label: t('runLog.filter_status_all') },
     { value: 'running', label: t('runLog.filter_status_running') },
@@ -332,18 +344,23 @@ export default function RunsStudioView() {
       title={t('runLog.empty_runs')}
       description={t('runLog.empty_runs_hint')}
       action={
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={() => askStudioMany(t('orchestration.agent_prompt_runs'))}
-        >
-          {t('orchestration.agent_ask_many')}
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button type="button" size="sm" onClick={() => openAutomationsTab()}>
+            {t('runLog.empty_runs_open_automations')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => askStudioMany(t('orchestration.agent_prompt_runs'))}
+          >
+            {t('orchestration.agent_ask_many')}
+          </Button>
+        </div>
       }
     />
   ) : (
-    <section className="flex min-h-0 flex-col gap-2">
+    <section className="flex flex-col gap-2">
       <HubSectionLabel>{t('orchestration.agent_queue_runs')}</HubSectionLabel>
       <div className="flex flex-col gap-0.5">
         {filtered.map((run) => {
@@ -356,14 +373,6 @@ export default function RunsStudioView() {
                 ? 100
                 : 0;
           const duration = formatDuration(run);
-          const OwnerIcon =
-            run.ownerType === 'agent' ? Bot : run.ownerType === 'many' ? Sparkles : Workflow;
-          const ownerLabel =
-            run.ownerType === 'agent'
-              ? t('runLog.filter_owner_agent')
-              : run.ownerType === 'many'
-                ? t('runLog.filter_owner_many')
-                : t('runLog.filter_owner_workflow');
           return (
             <button
               key={run.id}
@@ -380,8 +389,8 @@ export default function RunsStudioView() {
                 className="absolute inset-y-1 left-0 w-0.5 rounded-full"
                 style={{ background: runStatusColor(run.status) }}
               />
-              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <OwnerIcon className="size-3.5" />
+              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-mint text-primary">
+                <HugeiconsIcon icon={ZapIcon} className="size-3.5" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex min-w-0 items-center gap-2">
@@ -391,7 +400,7 @@ export default function RunsStudioView() {
                   <RunStatusBadge status={run.status} />
                 </span>
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                  <span>{ownerLabel}</span>
+                  <span>{targetLabelForRun(run, t)}</span>
                   <span className="inline-flex items-center gap-1">
                     <HugeiconsIcon icon={ClockIcon} className="size-3" />
                     {formatHubDate(run.updatedAt, t('runLog.never'))}
@@ -453,7 +462,6 @@ export default function RunsStudioView() {
     </section>
   );
 
-  // Full-screen audit view — side panels are too narrow for transcripts/steps.
   if (selectedRun) {
     return (
       <div key={`run-${selectedRun.id}`} className="flex h-full min-h-0 flex-col overflow-hidden studio-view-enter">
@@ -478,7 +486,7 @@ export default function RunsStudioView() {
       key="library"
       className="@container/runs flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
     >
-      <div className="shrink-0 space-y-3 border-b bg-card px-4 py-3 sm:px-6">
+      <HubPageHeader className="shrink-0 space-y-3">
         <HubHeader
           title={t('tabs.runs')}
           description={t('automationHub.runs_subtitle')}
@@ -496,34 +504,24 @@ export default function RunsStudioView() {
         <HubSearch
           value={query}
           onChange={setQuery}
-          placeholder={t('orchestration.agent_search')}
+          placeholder={t('orchestration.runs_search')}
         />
         <DomainStatChips stats={stats} />
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <ToggleGroup
-            value={[ownerFilter]}
-            onValueChange={(values) => values[0] && setOwnerFilter(values[0] as OwnerFilter)}
-          >
-            {ownerOptions.map((option) => (
-              <ToggleGroupItem key={option.value} value={option.value} size="sm">
-                {option.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <ToggleGroup
-            value={[statusFilter]}
-            onValueChange={(values) => values[0] && setStatusFilter(values[0] as StatusFilter)}
-          >
-            {statusOptions.map((option) => (
-              <ToggleGroupItem key={option.value} value={option.value} size="sm">
-                {option.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-      </div>
+        <ToggleGroup
+          value={[statusFilter]}
+          onValueChange={(values) => values[0] && setStatusFilter(values[0] as StatusFilter)}
+        >
+          {statusOptions.map((option) => (
+            <ToggleGroupItem key={option.value} value={option.value} size="sm">
+              {option.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </HubPageHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6">{queueBody}</div>
+      <div className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6">
+        {queueBody}
+      </div>
     </div>
   );
 }

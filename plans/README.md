@@ -39,6 +39,11 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 027 | Social feed sync (posts nativos) + insights en panel | P0 | M | 026 | DONE |
 | 028 | Seguimiento bugs + shadcn ficha/lista | P0 | M | 021 | DONE |
 | 029 | Seguimiento motion (enter, progress, tokens) | P1 | S | 028 | DONE |
+| 030 | Brand tokens light + dark (forest/lime/mint) | P0 | M | — | DONE |
+| 031 | Brand primitives Button/Badge/Card | P0 | M | 030 | DONE |
+| 032 | Brand motion overlays + Button press | P1 | S | 030, 031 | DONE |
+| 033 | Full-app brand visual sweep | P0 | L | 030–032 | DONE |
+| 034 | Brand docs (palette, UI guidelines, design guide) | P1 | S | 030 | DONE |
 
 ## Dependency graph
 
@@ -91,6 +96,7 @@ flowchart TD
 | **Memoria / harness** | 015 → 016 → 017 | Independiente de UI hasta 008/014 |
 | **Many + automations** | 008, 014, **018** | 014 STOP; DMs reales en 018 (comments → DM por provider) |
 | **Calendar craft** | **019** | Event detail: Dialog → DetailSheet + motion tokens |
+| **Brand design system** | **030 → 034** | Tokens → primitives → motion → app sweep → docs |
 
 ## Decisiones de producto globales
 

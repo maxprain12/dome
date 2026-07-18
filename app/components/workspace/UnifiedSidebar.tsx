@@ -27,6 +27,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -77,11 +78,11 @@ function SidebarNavButton({
       data-tour={dataTour}
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/80 transition-colors',
-        active
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-          : 'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+        'flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs font-medium',
+        selectionSurfaceClass(Boolean(active)),
+        !active && 'text-sidebar-foreground/80',
       )}
+      data-active={active ? 'true' : undefined}
     >
       <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{label}</span>

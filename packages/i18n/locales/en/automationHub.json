@@ -6,7 +6,7 @@
   "agents_subtitle": "Configure and run custom AI agents in your workspace.",
   "workflows_subtitle": "Design multi-step pipelines with the visual canvas.",
   "automations_subtitle": "Schedule tasks and react to workspace events.",
-  "runs_subtitle": "Track live executions and review past runs.",
+  "runs_subtitle": "History of runs started by automations.",
   "stat_agents": "Agents",
   "stat_workflows": "Workflows",
   "stat_automations": "Automations",

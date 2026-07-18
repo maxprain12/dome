@@ -31,11 +31,11 @@ export function CalendarHero({
   });
 
   return (
-    <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b px-4 py-3 md:px-5">
+    <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b bg-muted px-4 py-3 md:px-5">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">{date}</span>
-          <Badge variant="secondary" className="font-normal">
+          <Badge variant="lavender" className="font-normal">
             {syncHint}
           </Badge>
           <Badge variant="outline" className="tabular-nums font-normal">

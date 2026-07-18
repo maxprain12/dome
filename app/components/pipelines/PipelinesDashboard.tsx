@@ -125,7 +125,7 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
           )}
         >
           <div className="flex items-center justify-between">
-            <span className="inline-flex size-[34px] items-center justify-center rounded-lg bg-muted text-primary">
+            <span className="inline-flex size-[34px] items-center justify-center rounded-full bg-brand-mint text-primary">
               <HugeiconsIcon icon={LayoutThreeColumnIcon} size={18} />
             </span>
             <span className="text-xl font-semibold tabular-nums text-foreground">

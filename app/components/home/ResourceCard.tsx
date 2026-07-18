@@ -216,7 +216,7 @@ export default memo(function ResourceCard({
   if (viewMode === 'list') {
     return (
       <div
-        className={`group relative rounded-lg transition-colors border-b border-border last:border-b-0 hover:bg-[var(--card)] ${isSelected ? 'bg-[color-mix(in srgb, var(--primary) 12%, transparent)] border-primary z-10' : 'bg-card'
+        className={`group relative rounded-lg transition-colors border-b border-border last:border-b-0 hover:bg-card ${isSelected ? 'z-10 border-primary bg-brand-mint' : 'bg-card'
           } ${onClick ? 'cursor-pointer' : ''}`}
         style={{ ...listGridStyle, padding: '8px 16px', height: '48px' }}
         onContextMenu={handleContextMenu}

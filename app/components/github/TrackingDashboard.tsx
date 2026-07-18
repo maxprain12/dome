@@ -14,7 +14,6 @@ import { Card } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Select,
   SelectContent,
@@ -354,32 +353,6 @@ export default function TrackingDashboard({
         milestones={milestones}
         loadRepoData={loadRepoData}
       />
-
-      <ToggleGroup
-        value={[filter]}
-        onValueChange={(v) => {
-          const next = v[0] as TrackingFilter | undefined;
-          if (next) setFilter(next);
-        }}
-        variant="outline"
-        size="sm"
-        className="flex flex-wrap justify-start gap-1"
-        aria-label={t('github.dash_filters')}
-      >
-        {(
-          [
-            ['all', t('github.dash_filter_all')],
-            ['open', t('github.dash_filter_open')],
-            ['due_soon', t('github.dash_filter_due_soon')],
-            ['no_objective', t('github.dash_filter_no_objective')],
-            ['done', t('github.dash_filter_done')],
-          ] as const
-        ).map(([value, label]) => (
-          <ToggleGroupItem key={value} value={value} className="px-2.5 text-xs">
-            {label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
 
       <div className="flex flex-col gap-3">
         {filter !== 'no_objective' && filter !== 'done'

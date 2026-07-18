@@ -384,6 +384,15 @@ function listRuns(filters = {}) {
   if (filters.ownerType && filters.ownerId) {
     return queries.getAutomationRunsByOwner.all(filters.ownerType, filters.ownerId, limit).map(normalizeRunRow);
   }
+  // Studio "Ejecuciones": only runs that belong to an automation (not Many/agent ad-hoc).
+  if (filters.automationLinkedOnly) {
+    if (filters.projectId) {
+      return queries.getLatestLinkedAutomationRunsByProject
+        .all(filters.projectId, limit)
+        .map(normalizeRunRow);
+    }
+    return queries.getLatestLinkedAutomationRuns.all(limit).map(normalizeRunRow);
+  }
   if (filters.projectId) {
     return queries.getLatestAutomationRunsByProject.all(filters.projectId, limit).map(normalizeRunRow);
   }

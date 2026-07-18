@@ -1,22 +1,20 @@
-/** Sidebar modals: delete/new-folder/url — unified on DetailDrawer. */
+/** Sidebar modals: delete/new-folder/url — centered dialogs. */
 
-import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  Alert02Icon,
-} from '@hugeicons/core-free-icons';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useTranslation } from 'react-i18next';
-import type { Resource } from '@/lib/hooks/useResources';
 import {
-  DetailDrawer,
-  DetailDrawerBody,
-  DetailDrawerContent,
-  DetailDrawerFooter,
-  DetailDrawerHeader,
-} from '@/components/shared/DetailDrawer';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import type { Resource } from '@/lib/hooks/useResources';
 
 export function DeleteConfirmModal({
   resource,
@@ -29,34 +27,19 @@ export function DeleteConfirmModal({
 }) {
   const { t } = useTranslation();
   const isFolder = resource.type === 'folder';
+  const warning = isFolder ? t('ui.delete_content_warning') : t('ui.delete_warning');
 
   return (
-    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }} direction="down">
-      <DetailDrawerContent size="sm" direction="down">
-        <DetailDrawerHeader
-          title={t('ui.delete_confirm', { type: isFolder ? 'folder' : 'resource' })}
-          description={isFolder ? t('ui.delete_content_warning') : t('ui.delete_warning')}
-          icon={<HugeiconsIcon icon={Alert02Icon} className="size-4 text-destructive" />}
-        />
-        <DetailDrawerBody className="py-3">
-          <p className="truncate text-sm font-medium text-foreground">{resource.title}</p>
-        </DetailDrawerBody>
-        <DetailDrawerFooter>
-          <Button variant="secondary" onClick={onClose}>
-            {t('ui.cancel')}
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-          >
-            {t('ui.delete')}
-          </Button>
-        </DetailDrawerFooter>
-      </DetailDrawerContent>
-    </DetailDrawer>
+    <ConfirmDialog
+      isOpen
+      title={t('ui.delete_confirm', { type: isFolder ? 'folder' : 'resource' })}
+      message={`${resource.title} — ${warning}`}
+      confirmLabel={t('ui.delete')}
+      cancelLabel={t('ui.cancel')}
+      variant="danger"
+      onConfirm={onConfirm}
+      onCancel={onClose}
+    />
   );
 }
 
@@ -74,28 +57,18 @@ export function BulkDeleteConfirmModal({
   const { t } = useTranslation();
 
   return (
-    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }} direction="down">
-      <DetailDrawerContent size="sm" direction="down">
-        <DetailDrawerHeader
-          title={t('selection.bulk_delete_confirm', { count })}
-          description={t('ui.delete_content_warning')}
-          icon={<HugeiconsIcon icon={Alert02Icon} className="size-4 text-destructive" />}
-        />
-        <DetailDrawerBody className="py-3">
-          <p className="m-0 text-sm text-muted-foreground">
-            {t('selection.items_selected', { count })}
-          </p>
-        </DetailDrawerBody>
-        <DetailDrawerFooter>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            {t('ui.cancel')}
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={busy}>
-            {busy ? '…' : t('ui.delete')}
-          </Button>
-        </DetailDrawerFooter>
-      </DetailDrawerContent>
-    </DetailDrawer>
+    <ConfirmDialog
+      isOpen
+      title={t('selection.bulk_delete_confirm', { count })}
+      message={`${t('selection.items_selected', { count })} — ${t('ui.delete_content_warning')}`}
+      confirmLabel={busy ? '…' : t('ui.delete')}
+      cancelLabel={t('ui.cancel')}
+      variant="danger"
+      onConfirm={() => {
+        if (!busy) onConfirm();
+      }}
+      onCancel={onClose}
+    />
   );
 }
 
@@ -125,35 +98,36 @@ export function NewFolderModal({
   };
 
   return (
-    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }} direction="down">
-      <DetailDrawerContent size="sm" direction="down">
-        <DetailDrawerHeader title={t('ui.new_folder')} />
-        <DetailDrawerBody className="py-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="new-folder-name">{t('ui.folder_name')}</Label>
-            <Input
-              ref={inputRef}
-              id="new-folder-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit();
-              }}
-              placeholder={t('ui.folder_name')}
-            />
-          </div>
-        </DetailDrawerBody>
-        <DetailDrawerFooter>
-          <Button variant="secondary" onClick={onClose}>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('ui.new_folder')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('ui.folder_name')}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="new-folder-name">{t('ui.folder_name')}</Label>
+          <Input
+            ref={inputRef}
+            id="new-folder-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            placeholder={t('ui.folder_name')}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('ui.cancel')}
           </Button>
           <Button onClick={submit} disabled={!name.trim()}>
             {t('ui.create')}
           </Button>
-        </DetailDrawerFooter>
-      </DetailDrawerContent>
-    </DetailDrawer>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -181,34 +155,35 @@ export function UrlInputModal({
   };
 
   return (
-    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }} direction="down">
-      <DetailDrawerContent size="sm" direction="down">
-        <DetailDrawerHeader title={t('ui.add_url')} />
-        <DetailDrawerBody className="py-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="url-input">{t('ui.add_url')}</Label>
-            <Input
-              ref={inputRef}
-              id="url-input"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit();
-              }}
-              placeholder="https://..."
-            />
-          </div>
-        </DetailDrawerBody>
-        <DetailDrawerFooter>
-          <Button variant="secondary" onClick={onClose}>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('ui.add_url')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('ui.add_url')}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="url-input">{t('ui.add_url')}</Label>
+          <Input
+            ref={inputRef}
+            id="url-input"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            placeholder="https://..."
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('ui.cancel')}
           </Button>
           <Button onClick={submit} disabled={!url.trim()}>
             {t('ui.add')}
           </Button>
-        </DetailDrawerFooter>
-      </DetailDrawerContent>
-    </DetailDrawer>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

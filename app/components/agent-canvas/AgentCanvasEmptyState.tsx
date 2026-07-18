@@ -11,63 +11,47 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
-import { CANVAS_PALETTE_WIDTH_PX } from '@/lib/agent-canvas/canvas-layout';
 import { generateId } from '@/lib/utils';
 import { createCanvasPaletteNode } from './createCanvasPaletteNode';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-
-const Type = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={TypeIcon} {...props} />
-);
-const Search = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={SearchIcon} {...props} />
-);
-const Terminal = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={TerminalIcon} {...props} />
-);
+import { cn } from '@/lib/utils';
 
 function StepChip({
   index,
-  icon: Icon,
+  icon,
   label,
-  color,
+  tone,
 }: {
   index: number;
-  icon: typeof Type;
+  icon: typeof TypeIcon;
   label: string;
-  color: string;
+  tone: 'mint' | 'lime' | 'lavender';
 }) {
   return (
-    <div
-      className="flex items-center gap-2 rounded-xl px-3 py-2"
-      style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-    >
-      <span
-        className="flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-        style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
-        aria-hidden
-      >
+    <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-2.5 py-1.5 shadow-none">
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">
         {index}
       </span>
       <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-md"
-        style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+        className={cn(
+          'flex size-6 shrink-0 items-center justify-center rounded-md text-primary',
+          tone === 'mint' && 'bg-brand-mint',
+          tone === 'lime' && 'bg-brand-lime',
+          tone === 'lavender' && 'bg-brand-lavender',
+        )}
         aria-hidden
       >
-        <Icon className="size-3.5" style={{ color }} strokeWidth={1.75} />
+        <HugeiconsIcon icon={icon} className="size-3.5" strokeWidth={1.75} />
       </span>
-      <span className="text-[11px] font-medium text-foreground">
-        {label}
-      </span>
+      <span className="text-[11px] font-medium text-foreground">{label}</span>
     </div>
   );
 }
 
 /**
  * Guided empty state for a blank canvas: a 3-step recipe (input → agent →
- * output) plus a one-click seeder that builds a ready-to-run example flow
- * (text input → research agent → result, already connected).
+ * output) plus a one-click seeder that builds a ready-to-run example flow.
  */
 export default function AgentCanvasEmptyState() {
   const { t } = useTranslation();
@@ -89,38 +73,28 @@ export default function AgentCanvasEmptyState() {
   };
 
   return (
-    <Empty
-      className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
-      style={{ left: CANVAS_PALETTE_WIDTH_PX, top: 56 }}
-    >
+    <Empty className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center border-0 bg-background/75 px-4">
       <EmptyMedia variant="icon">
-          <HugeiconsIcon icon={MousePointerClickIcon} className="size-7" strokeWidth={1.5} aria-hidden />
+        <HugeiconsIcon icon={MousePointerClickIcon} className="size-6" strokeWidth={1.5} aria-hidden />
       </EmptyMedia>
-        <EmptyHeader>
-          <EmptyTitle>
-            {t('canvas.empty_canvas_title')}
-          </EmptyTitle>
-          <EmptyDescription>
-            {t('canvas.empty_canvas_subtitle')}
-          </EmptyDescription>
-        </EmptyHeader>
+      <EmptyHeader>
+        <EmptyTitle className="text-sm font-semibold tracking-tight">
+          {t('canvas.empty_canvas_title')}
+        </EmptyTitle>
+        <EmptyDescription>{t('canvas.empty_canvas_subtitle')}</EmptyDescription>
+      </EmptyHeader>
 
-      <EmptyContent>
+      <EmptyContent className="max-w-md">
         <div className="flex flex-wrap items-center justify-center gap-1.5">
-          <StepChip index={1} icon={Type} label={t('canvas.empty_step_input')} color="var(--primary)" />
+          <StepChip index={1} icon={TypeIcon} label={t('canvas.empty_step_input')} tone="mint" />
           <HugeiconsIcon icon={ArrowRightIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <StepChip index={2} icon={Search} label={t('canvas.empty_step_agent')} color="var(--success)" />
+          <StepChip index={2} icon={SearchIcon} label={t('canvas.empty_step_agent')} tone="lime" />
           <HugeiconsIcon icon={ArrowRightIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <StepChip index={3} icon={Terminal} label={t('canvas.empty_step_output')} color="var(--info)" />
+          <StepChip index={3} icon={TerminalIcon} label={t('canvas.empty_step_output')} tone="lavender" />
         </div>
 
-        <Button
-          type="button"
-          onClick={seedExampleFlow}
-          className="pointer-events-auto"
-          size="sm"
-        >
-          <HugeiconsIcon icon={Wand2Icon} className="size-3.5" aria-hidden />
+        <Button type="button" onClick={seedExampleFlow} className="pointer-events-auto" size="sm">
+          <HugeiconsIcon icon={Wand2Icon} data-icon="inline-start" aria-hidden />
           {t('canvas.empty_quick_start')}
         </Button>
       </EmptyContent>
