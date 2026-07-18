@@ -58,6 +58,7 @@ export default function TitleBar({
           type="button"
           variant="ghost"
           size="icon-sm"
+          className="[-webkit-app-region:no-drag]"
           onClick={onToggleLeftSidebar}
           title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
           aria-label={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
@@ -81,6 +82,7 @@ export default function TitleBar({
             type="button"
             variant={rightSidebarOpen ? 'secondary' : 'ghost'}
             size="icon-sm"
+            className="[-webkit-app-region:no-drag]"
             onClick={onToggleRightSidebar}
             title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
             aria-label={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
@@ -95,6 +97,7 @@ export default function TitleBar({
           type="button"
           variant="ghost"
           size="icon-sm"
+          className="[-webkit-app-region:no-drag]"
           aria-label={t('search.command_palette', 'Command')}
           data-tour="search"
           onClick={() => window.dispatchEvent(new CustomEvent('dome:open-command-palette'))}
