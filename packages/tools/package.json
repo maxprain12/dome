@@ -17,6 +17,6 @@
   },
   "dependencies": {
     "@dome/ai": "workspace:*",
-    "typebox": "^1.1.38"
+    "typebox": "^1.3.6"
   }
 }

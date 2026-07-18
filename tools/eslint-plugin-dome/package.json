@@ -4,6 +4,6 @@
   "private": true,
   "main": "index.cjs",
   "peerDependencies": {
-    "eslint": ">=8"
+    "eslint": ">=9.39.5"
   }
 }
