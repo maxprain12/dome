@@ -6,6 +6,8 @@ import { isEditablePath, repoRead, validatePatch } from '../policy.mjs';
 import { createStratifiedSplit } from '../split.mjs';
 import { REPO_ROOT } from '../constants.mjs';
 import { SELF_HARNESS_SCHEMAS } from '../schema-catalog.mjs';
+import { DEPENDENCY_INSTALL_ARGS } from '../execution.mjs';
+import { describeGateFailure } from '../controller.mjs';
 
 const validPatch = `diff --git a/electron/agents/agent-runtime.cjs b/electron/agents/agent-runtime.cjs
 --- a/electron/agents/agent-runtime.cjs
@@ -99,4 +101,18 @@ test('schema catalog covers every persisted public artifact', () => {
   ]) {
     assert.equal(SELF_HARNESS_SCHEMAS[name].type, 'object');
   }
+});
+
+test('worktree install prefers cache but can fetch a missing locked tarball', () => {
+  assert.equal(DEPENDENCY_INSTALL_ARGS.includes('--frozen-lockfile'), true);
+  assert.equal(DEPENDENCY_INSTALL_ARGS.includes('--prefer-offline'), true);
+  assert.equal(DEPENDENCY_INSTALL_ARGS.includes('--offline'), false);
+});
+
+test('static gate failures include the failing command output', () => {
+  const message = describeGateFailure([
+    { name: 'install', code: 1, stdout: 'ERR_PNPM_NO_OFFLINE_TARBALL missing package' },
+  ]);
+  assert.match(message, /install exited with code 1/);
+  assert.match(message, /ERR_PNPM_NO_OFFLINE_TARBALL/);
 });
