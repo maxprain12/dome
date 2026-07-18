@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const { parseBenchArgs } = require('../bench/parse-args.cjs');
 const { loadCaseFiles } = require('../bench/runner.cjs');
 const { validateBehavior } = require('../bench/validators.cjs');
+const { buildElectronLaunchArgs } = require('../bench/electron-launch-args.cjs');
 
 test('bench parses Self-Harness control-plane flags', () => {
   const args = parseBenchArgs([
@@ -37,4 +38,34 @@ test('behavior verifier rejects repeated tools and premature finalization', () =
     { type: 'done' },
   ]);
   assert.match(premature.reason, /no final text/);
+});
+
+test('Electron sandbox bypass is Linux CI opt-in only', () => {
+  const regular = buildElectronLaunchArgs({
+    benchMain: '/repo/electron/bench/main.cjs',
+    flags: ['--dry-run'],
+    platform: 'linux',
+    env: {},
+  });
+  assert.deepEqual(regular, ['/repo/electron/bench/main.cjs', '--dry-run']);
+
+  const dockerCi = buildElectronLaunchArgs({
+    benchMain: '/repo/electron/bench/main.cjs',
+    flags: ['--dry-run'],
+    platform: 'linux',
+    env: { DOME_BENCH_NO_SANDBOX: '1' },
+  });
+  assert.deepEqual(dockerCi, [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '/repo/electron/bench/main.cjs',
+    '--dry-run',
+  ]);
+
+  const localMac = buildElectronLaunchArgs({
+    benchMain: '/repo/electron/bench/main.cjs',
+    platform: 'darwin',
+    env: { DOME_BENCH_NO_SANDBOX: '1' },
+  });
+  assert.deepEqual(localMac, ['/repo/electron/bench/main.cjs']);
 });
