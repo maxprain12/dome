@@ -1338,10 +1338,10 @@ function buildQueries(db) {
 
     createSocialPost: db.prepare(`
       INSERT INTO social_posts (
-        id, account_id, provider, status, body, media, link_url, topics, campaign, campaign_id,
+        id, account_id, provider, status, body, media, link_url, topics, campaign, campaign_id, event_card_id, event_card_public_url,
         scheduled_at, published_at, external_post_id, external_url, error,
         created_by, group_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialPostById: db.prepare('SELECT * FROM social_posts WHERE id = ?'),
     getSocialPostByExternalId: db.prepare(
@@ -1349,7 +1349,7 @@ function buildQueries(db) {
     ),
     updateSocialPostContent: db.prepare(`
       UPDATE social_posts
-      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?, campaign_id = ?,
+      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?, campaign_id = ?, event_card_id = ?, event_card_public_url = ?,
           scheduled_at = ?, status = ?, updated_at = ?
       WHERE id = ?
     `),

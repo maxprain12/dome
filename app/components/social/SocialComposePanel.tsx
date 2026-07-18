@@ -16,6 +16,7 @@ import {
   PROVIDER_CHAR_LIMITS,
   type SocialAccount,
   type SocialCampaign,
+  type SocialEventCard,
   type SocialLibraryItem,
   type SocialMediaItem,
   type SocialPost,
@@ -90,6 +91,8 @@ export default function SocialComposePanel({
     editingPost?.campaignId ?? initialCampaignId ?? null,
   );
   const [campaign, setCampaign] = useState(editingPost?.campaign ?? initialCampaign ?? '');
+  const [eventCards, setEventCards] = useState<SocialEventCard[]>([]);
+  const [eventCardId, setEventCardId] = useState(editingPost?.eventCardId ?? '');
   const [scheduleAt, setScheduleAt] = useState(toLocalInputValue(editingPost?.scheduledAt ?? null));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +132,12 @@ export default function SocialComposePanel({
   // or video) can't reach Instagram; only public https URLs work there.
   const igLocalMediaWarning =
     selectedProviders.includes('instagram') && media.some((m) => !m.url);
+
+  useEffect(() => {
+    void window.electron.invoke('social:event-cards:list').then((res) => {
+      if (res?.success) setEventCards((res.data as { cards?: SocialEventCard[] })?.cards ?? []);
+    });
+  }, []);
 
   useEffect(() => {
     if (!showLibrary || library !== null) return;
@@ -365,6 +374,8 @@ export default function SocialComposePanel({
             topics: topicsArr,
             campaignId: campaignId || null,
             campaign: campaignId ? null : campaign.trim() || null,
+            eventCardId: eventCardId || null,
+            eventCardPublicUrl: eventCards.find((card) => card.id === eventCardId)?.publicUrl || null,
             scheduledAt,
           },
         });
@@ -384,6 +395,8 @@ export default function SocialComposePanel({
             topics: topicsArr,
             campaignId: campaignId || null,
             campaign: campaignId ? null : campaign.trim() || null,
+            eventCardId: eventCardId || null,
+            eventCardPublicUrl: eventCards.find((card) => card.id === eventCardId)?.publicUrl || null,
             scheduledAt,
             groupId,
           });
@@ -737,6 +750,17 @@ export default function SocialComposePanel({
                         </SelectItem>
                       ))}
                   </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Select
+                value={eventCardId || '__none__'}
+                onValueChange={(value) => setEventCardId(!value || value === '__none__' ? '' : value)}
+                items={[{ value: '__none__', label: t('social.events.no_card') }, ...eventCards.filter((card) => card.status === 'published').map((card) => ({ value: card.id, label: card.internalName }))]}
+              >
+                <SelectTrigger className="min-w-0"><SelectValue placeholder={t('social.events.attach_card')} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t('social.events.no_card')}</SelectItem>
+                  {eventCards.filter((card) => card.status === 'published').map((card) => <SelectItem key={card.id} value={card.id}>{card.internalName}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

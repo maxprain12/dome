@@ -33,9 +33,10 @@ function buildSocialQueries(db) {
     createSocialPost: db.prepare(`
       INSERT INTO social_posts (
         id, account_id, provider, status, body, media, link_url, topics, campaign, campaign_id,
+        event_card_id, event_card_public_url,
         scheduled_at, published_at, external_post_id, external_url, error, created_by, group_id,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialPostById: db.prepare('SELECT * FROM social_posts WHERE id = ?'),
   };
@@ -59,7 +60,8 @@ describe('social campaigns store', () => {
         id TEXT PRIMARY KEY, account_id TEXT, provider TEXT NOT NULL, status TEXT NOT NULL,
         body TEXT NOT NULL DEFAULT '', media TEXT NOT NULL DEFAULT '[]',
         media_storage TEXT NOT NULL DEFAULT '[]', link_url TEXT, topics TEXT NOT NULL DEFAULT '[]',
-        campaign TEXT, campaign_id TEXT, scheduled_at INTEGER, published_at INTEGER,
+        campaign TEXT, campaign_id TEXT, event_card_id TEXT, event_card_public_url TEXT,
+        scheduled_at INTEGER, published_at INTEGER,
         external_post_id TEXT, external_url TEXT, error TEXT, created_by TEXT NOT NULL DEFAULT 'user',
         group_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
       );
@@ -100,6 +102,17 @@ describe('social campaigns store', () => {
     const listed = store.listCampaigns({ status: 'active' });
     assert.equal(listed.length, 1);
     assert.equal(listed[0].draft, 1);
+  });
+
+  it('stores an event card link without appending it to the editable body', () => {
+    const post = store.createPost({
+      provider: 'instagram', body: 'Editable caption',
+      eventCardId: 'a7f9be42-1986-4bd3-8e25-e94d7f2bc48a',
+      eventCardPublicUrl: 'https://provider.example/e/opaque-event',
+    });
+    assert.equal(post.body, 'Editable caption');
+    assert.equal(post.eventCardId, 'a7f9be42-1986-4bd3-8e25-e94d7f2bc48a');
+    assert.equal(post.eventCardPublicUrl, 'https://provider.example/e/opaque-event');
   });
 
   it('createPost with campaign string backfills campaign row', () => {

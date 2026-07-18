@@ -282,6 +282,8 @@ function createSocialStore(database) {
       topics: parseJsonArray(row.topics),
       campaign: row.campaign,
       campaignId: row.campaign_id || null,
+      eventCardId: row.event_card_id || null,
+      eventCardPublicUrl: row.event_card_public_url || null,
       scheduledAt: row.scheduled_at,
       publishedAt: row.published_at,
       externalPostId: row.external_post_id,
@@ -384,7 +386,7 @@ function createSocialStore(database) {
 
   function createPost({
     provider, accountId = null, body = '', media = [], linkUrl = null, topics = [],
-    campaign = null, campaignId = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
+    campaign = null, campaignId = null, eventCardId = null, eventCardPublicUrl = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
   }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
     const now = Date.now();
@@ -394,7 +396,7 @@ function createSocialStore(database) {
     q().createSocialPost.run(
       id, accountId, provider, finalStatus, String(body || ''),
       JSON.stringify(media || []), linkUrl, JSON.stringify(topics || []),
-      ref.campaign, ref.campaignId,
+      ref.campaign, ref.campaignId, eventCardId, eventCardPublicUrl,
       scheduledAt, null, null, null, null, createdBy, groupId, now, now
     );
     return serializePost(q().getSocialPostById.get(id));
@@ -450,6 +452,8 @@ function createSocialStore(database) {
       '[]',
       null,
       '[]',
+      null,
+      null,
       null,
       null,
       null,
@@ -510,6 +514,8 @@ function createSocialStore(database) {
       topics: patch.topics !== undefined ? JSON.stringify(patch.topics || []) : row.topics,
       campaign,
       campaignId,
+      eventCardId: patch.eventCardId !== undefined ? patch.eventCardId : row.event_card_id,
+      eventCardPublicUrl: patch.eventCardPublicUrl !== undefined ? patch.eventCardPublicUrl : row.event_card_public_url,
       scheduledAt: patch.scheduledAt !== undefined ? patch.scheduledAt : row.scheduled_at,
     };
     let status = patch.status !== undefined ? patch.status : row.status;
@@ -518,7 +524,7 @@ function createSocialStore(database) {
       if (!next.scheduledAt && row.status === 'scheduled') status = 'draft';
     }
     q().updateSocialPostContent.run(
-      next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign, next.campaignId,
+      next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign, next.campaignId, next.eventCardId, next.eventCardPublicUrl,
       next.scheduledAt, status, Date.now(), postId
     );
     return getPost(postId);

@@ -440,5 +440,15 @@
     "empty_hint": "Générez votre premier rapport IA : croissance par réseau, ce qui a fonctionné, quoi abandonner et des idées de contenu concrètes pour la prochaine période.",
     "untitled": "Rapport",
     "trigger_auto": "automatique"
+  },
+  "events": {
+    "posts": "Publications", "cards": "Cartes d’événement", "updates": "Mises à jour", "automations": "Automatisations", "analytics": "Analytique",
+    "provider_error": "Connexion à Dome Provider impossible", "cards_description": "Concevez, publiez et distribuez des invitations.", "new": "Nouvelle carte", "empty": "Aucune carte d’événement", "empty_description": "Créez une carte pour obtenir un lien public, un QR et des passes Wallet.",
+    "editor_description": "La page publique et les passes sont actualisés avec vos modifications.", "internal_name": "Nom interne", "title": "Titre public", "description": "Description", "organizer": "Organisateur", "timezone": "Fuseau horaire", "start": "Début", "end": "Fin", "venue": "Lieu", "address": "Adresse", "cta": "Libellé du bouton", "cta_url": "URL du bouton", "brand": "Marque", "cover": "URL de couverture", "preview_title": "Titre de l’événement",
+    "required": "Renseignez le nom interne et le titre", "save": "Enregistrer le brouillon", "saving": "Enregistrement…", "saved": "Carte enregistrée", "save_error": "Impossible d’enregistrer", "publish": "Publier", "published": "Carte publiée", "archive": "Archiver", "archived": "Carte archivée",
+    "copy_url": "Copier l’URL", "copied": "Copié", "exported": "Fichier exporté", "export_error": "Export impossible", "no_card": "Sans carte", "attach_card": "Ajouter une carte d’événement", "setup_required": "configuration requise",
+    "updates_description": "Envoyez des changements immédiats ou planifiez des rappels.", "update_message": "Message de mise à jour", "update_created": "Mise à jour créée", "send_or_schedule": "Envoyer ou planifier", "message": "Message", "when": "Quand", "status": "État", "now": "Maintenant",
+    "automations_description": "Envoyez la carte en réponse privée à un mot-clé Instagram.", "instagram_required": "Connectez un compte Instagram", "publication": "Publication", "any_publication": "Toute publication", "keyword": "Mot ou phrase", "rule_created": "Automatisation activée", "activate": "Activer la règle",
+    "analytics_description": "Visites, QR, Wallet, mises à jour et livraisons par carte.", "no_metrics": "Aucune activité enregistrée."
   }
 }

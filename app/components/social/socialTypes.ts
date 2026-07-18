@@ -73,6 +73,8 @@ export interface SocialPost {
   topics: string[];
   campaign: string | null;
   campaignId?: string | null;
+  eventCardId?: string | null;
+  eventCardPublicUrl?: string | null;
   scheduledAt: number | null;
   publishedAt: number | null;
   externalPostId: string | null;
@@ -84,6 +86,50 @@ export interface SocialPost {
   updatedAt: number;
   /** Present in summary responses (latest snapshot). */
   metrics?: SocialMetric | null;
+}
+
+export interface SocialEventCard {
+  id: string;
+  internalName: string;
+  title: string;
+  description: string | null;
+  organizer: string | null;
+  startsAt: string;
+  endsAt: string;
+  timezone: string;
+  venueName: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  ctaLabel: string | null;
+  ctaUrl: string | null;
+  slug: string | null;
+  publicUrl: string | null;
+  status: 'draft' | 'published' | 'archived';
+  version: number;
+  design: { brandName?: string; logoUrl?: string; coverUrl?: string; primaryColor?: string; secondaryColor?: string };
+  walletStatus?: { appleConfigured: boolean; googleConfigured: boolean };
+}
+
+export interface SocialEventUpdate {
+  id: string;
+  eventCardId: string;
+  message: string;
+  scheduledAt: string | null;
+  status: 'draft' | 'scheduled' | 'processing' | 'sent' | 'failed' | 'cancelled';
+  attempted: number;
+  accepted: number;
+  failed: number;
+}
+
+export interface SocialDmRule {
+  id: string;
+  accountId: string;
+  postExternalId: string | null;
+  eventCardId: string;
+  keyword: string;
+  template: string;
+  status: 'active' | 'paused';
 }
 
 export interface SocialSummary {

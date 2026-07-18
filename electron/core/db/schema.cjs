@@ -18,7 +18,7 @@
  * New in v66: people + person_identities.
  * New in v67: email_folders, email_messages, email_sync_state.
  * New in v68: source_documents + source_documents_fts (integration search).
- * New in v69: social_campaigns + social_posts.campaign_id.
+ * New in v70: social_posts event-card link fields.
  *
  * When you change a table here, also add a migration in db/migrations.cjs so
  * existing installs converge — this file only helps brand-new databases.
@@ -1168,6 +1168,8 @@ function createBaseSchema(db) {
               topics TEXT NOT NULL DEFAULT '[]',
               campaign TEXT,
               campaign_id TEXT,
+              event_card_id TEXT,
+              event_card_public_url TEXT,
               scheduled_at INTEGER,
               published_at INTEGER,
               external_post_id TEXT,
@@ -1838,6 +1840,7 @@ function createBaseSchema(db) {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_posts_status ON social_posts(status, scheduled_at)
   `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_social_posts_event_card ON social_posts(event_card_id)`);
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_reports_created ON social_reports(created_at)

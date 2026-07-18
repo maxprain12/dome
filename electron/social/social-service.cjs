@@ -122,7 +122,11 @@ function createSocialService(database, windowManager) {
 
     try {
       const mod = providerModule(post.provider);
-      const result = await mod.publishPost(store, { ...post, accountId: account.id });
+      const eventUrl = String(post.eventCardPublicUrl || '').trim();
+      const publishBody = eventUrl && !post.body.includes(eventUrl)
+        ? [post.body.trim(), eventUrl].filter(Boolean).join('\n\n')
+        : post.body;
+      const result = await mod.publishPost(store, { ...post, body: publishBody, accountId: account.id });
       const published = store.markPostPublished(postId, result);
       broadcast('social:post-updated', published);
       void calendarBridge.syncPostEvent(published);

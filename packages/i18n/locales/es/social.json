@@ -440,5 +440,15 @@
     "empty_hint": "Genera tu primer informe IA: crecimiento por red, qué funcionó, qué descartar e ideas de contenido concretas para el próximo periodo.",
     "untitled": "Informe",
     "trigger_auto": "automático"
+  },
+  "events": {
+    "posts": "Publicaciones", "cards": "Tarjetas de eventos", "updates": "Actualizaciones", "automations": "Automatizaciones", "analytics": "Analítica",
+    "provider_error": "No se pudo conectar con Dome Provider", "cards_description": "Diseña, publica y distribuye invitaciones para eventos.", "new": "Nueva tarjeta", "empty": "Aún no hay tarjetas", "empty_description": "Crea una tarjeta de evento para obtener su enlace público, QR y pases Wallet.",
+    "editor_description": "La página pública y los pases se actualizan cuando publicas cambios.", "internal_name": "Nombre interno", "title": "Título público", "description": "Descripción", "organizer": "Organizador", "timezone": "Zona horaria", "start": "Inicio", "end": "Final", "venue": "Lugar", "address": "Dirección", "cta": "Texto del botón", "cta_url": "URL del botón", "brand": "Marca", "cover": "URL de portada", "preview_title": "Título del evento",
+    "required": "Completa el nombre interno y el título", "save": "Guardar borrador", "saving": "Guardando…", "saved": "Tarjeta guardada", "save_error": "No se pudo guardar la tarjeta", "publish": "Publicar", "published": "Tarjeta publicada", "archive": "Archivar", "archived": "Tarjeta archivada",
+    "copy_url": "Copiar URL", "copied": "Copiado", "exported": "Archivo exportado", "export_error": "No se pudo exportar", "no_card": "Sin tarjeta", "attach_card": "Añadir tarjeta de evento", "setup_required": "configuración pendiente",
+    "updates_description": "Envía cambios inmediatos o programa recordatorios para página y Wallet.", "update_message": "Mensaje de actualización", "update_created": "Actualización creada", "send_or_schedule": "Enviar o programar", "message": "Mensaje", "when": "Cuándo", "status": "Estado", "now": "Ahora",
+    "automations_description": "Envía la tarjeta por respuesta privada cuando alguien comente una palabra en Instagram.", "instagram_required": "Conecta una cuenta de Instagram para activar reglas", "publication": "Publicación", "any_publication": "Cualquier publicación", "keyword": "Palabra o frase", "rule_created": "Automatización activada", "activate": "Activar regla",
+    "analytics_description": "Visitas, QR, Wallet, actualizaciones y entregas por tarjeta.", "no_metrics": "Todavía no hay actividad registrada."
   }
 }
