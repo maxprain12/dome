@@ -6,7 +6,7 @@
  * run-engine.cjs re-exports this API unchanged.
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { safeStringify } = require('../tools/tool-result-cap.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
