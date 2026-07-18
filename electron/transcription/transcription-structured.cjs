@@ -62,7 +62,7 @@ function applyAlternatingSpeakerHeuristic(raw, opts = {}) {
   /** @type {Record<string, { label: string }>} */
   const speakers = {};
   let letter = 65; // A
-  for (const id of [...used].sort()) {
+  for (const id of [...used].sort((a, b) => a.localeCompare(b))) {
     speakers[id] = { label: `Persona ${String.fromCharCode(letter)}` };
     letter += 1;
     if (letter > 90) letter = 65;

@@ -57,8 +57,8 @@ function shallowEqualStringArrays(a: string[], b: string[]): boolean {
 }
 
 function shallowEqualRecordKeys<T>(a: Record<string, T>, b: Record<string, T>): boolean {
-  const aKeys = Object.keys(a).sort();
-  const bKeys = Object.keys(b).sort();
+  const aKeys = Object.keys(a).sort((x, y) => x.localeCompare(y));
+  const bKeys = Object.keys(b).sort((x, y) => x.localeCompare(y));
   return shallowEqualStringArrays(aKeys, bKeys);
 }
 
@@ -127,7 +127,7 @@ async function resolveInstalledAgentState(): Promise<{
     };
   }
 
-  const sortedIds = Array.from(ids).sort();
+  const sortedIds = Array.from(ids).sort((a, b) => a.localeCompare(b));
   if (!shallowEqualRecordKeys(storedRecords, records) || !shallowEqualJson(storedRecords, records)) {
     await saveAgentRecords(records);
   }
@@ -321,7 +321,7 @@ async function resolveInstalledWorkflowState(): Promise<{
     };
   }
 
-  const sortedIds = Array.from(ids).sort();
+  const sortedIds = Array.from(ids).sort((a, b) => a.localeCompare(b));
   if (!shallowEqualRecordKeys(storedRecords, records) || !shallowEqualJson(storedRecords, records)) {
     await saveWorkflowRecords(records);
   }
