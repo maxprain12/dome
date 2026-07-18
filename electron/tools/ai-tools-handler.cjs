@@ -1750,7 +1750,7 @@ async function resourceCreate(data) {
  * @param {string} [updates.title] - New title
  * @param {string} [updates.content] - New content
  * @param {Object} [updates.metadata] - Metadata to merge
- * @returns {Promise<Object>}
+ * @returns {Object}
  */
 function safeParseMeta(raw) {
   if (!raw) return {};
@@ -3812,7 +3812,6 @@ async function importFileToLibrary(args = {}) {
       ? path.extname(filename).toLowerCase()
       : mime_type?.includes('pdf') ? '.pdf'
       : mime_type?.includes('docx') || mime_type?.includes('wordprocessingml') ? '.docx'
-      : mime_type?.includes('plain') ? '.txt'
       : '.txt';
 
     // Write to temp file
