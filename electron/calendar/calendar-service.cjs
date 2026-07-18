@@ -270,7 +270,7 @@ async function createEvent(data) {
       ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata))
       : null;
 
-    const initialSource = isGoogleCalendarRow(cal) ? 'local' : 'local';
+    const initialSource = 'local';
 
     q.createCalendarEvent.run(
       eventId,
