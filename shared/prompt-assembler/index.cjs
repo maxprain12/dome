@@ -15,7 +15,7 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+const __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var prompt_assembler_exports = {};
 __export(prompt_assembler_exports, {
   CORE_SECTION_KEYS: () => CORE_SECTION_KEYS,
