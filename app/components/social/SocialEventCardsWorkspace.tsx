@@ -230,14 +230,15 @@ export function SocialEventCardsWorkspace({
     setForm(nextForm);
   }, [screen, editingId, editingCard]);
 
+  const applyCardUpdate = useCallback((updated: SocialEventCard | undefined) => {
+    if (!updated) return;
+    setCards((current) => current?.map((card) => (card.id === updated.id ? updated : card)) ?? []);
+  }, []);
+
   useEffect(() => {
     if (screen !== 'editor' || !editingId) return;
     const serialized = JSON.stringify(form);
     if (serialized === loadedFormRef.current) return;
-    const applyCardUpdate = (updated: SocialEventCard | undefined) => {
-      if (!updated) return;
-      setCards((current) => current?.map((card) => (card.id === updated.id ? updated : card)) ?? []);
-    };
     const timer = globalThis.setTimeout(() => {
       setSaving(true);
       void window.electron
@@ -256,7 +257,7 @@ export function SocialEventCardsWorkspace({
         });
     }, 900);
     return () => globalThis.clearTimeout(timer);
-  }, [form, editingId, screen, t]);
+  }, [form, editingId, screen, t, applyCardUpdate]);
 
   const openCreate = () => {
     setEditingId(null);
