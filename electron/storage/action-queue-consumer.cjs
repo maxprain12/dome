@@ -110,6 +110,33 @@ function moveItem(deps, payload) {
 }
 
 /**
+ * Execute one of the `publish_now | pause_post | resume_post | cancel_post |
+ * reschedule_post` action kinds against the social service. Extracted to keep
+ * `dispatchAction` under the cognitive-complexity threshold.
+ * @param {{ kind: string, payload: Record<string, unknown> }} action
+ * @param {{ publishPost: Function, store: { updatePost: Function } }} service
+ */
+async function executeSocialAction(action, service) {
+  const payload = action.payload || {};
+  const postId = String(payload.postId);
+  let result;
+  if (action.kind === 'publish_now') {
+    result = await service.publishPost(postId);
+  } else if (action.kind === 'pause_post') {
+    result = service.store.updatePost(postId, { status: 'draft' });
+  } else if (action.kind === 'resume_post') {
+    result = service.store.updatePost(postId, { status: 'scheduled' });
+  } else if (action.kind === 'cancel_post') {
+    result = service.store.updatePost(postId, { status: 'draft', scheduledAt: null });
+  } else {
+    const scheduledAt = Number(payload.scheduledAt);
+    if (!Number.isFinite(scheduledAt)) throw new Error('missing_scheduledAt');
+    result = service.store.updatePost(postId, { status: 'scheduled', scheduledAt });
+  }
+  return { postId, result };
+}
+
+/**
  * @param {object} deps { database, windowManager }
  * @param {{ kind: string, payload: Record<string, unknown> }} action
  */
@@ -140,21 +167,7 @@ async function dispatchAction(deps, action) {
       if (!payload.postId) throw new Error('missing_postId');
       const { getSocialService } = require('../social/social-service.cjs');
       const service = getSocialService(database, windowManager);
-      const postId = String(payload.postId);
-      let result;
-      if (action.kind === 'publish_now') {
-        result = await service.publishPost(postId);
-      } else if (action.kind === 'pause_post') {
-        result = service.store.updatePost(postId, { status: 'draft' });
-      } else if (action.kind === 'resume_post') {
-        result = service.store.updatePost(postId, { status: 'scheduled' });
-      } else if (action.kind === 'cancel_post') {
-        result = service.store.updatePost(postId, { status: 'draft', scheduledAt: null });
-      } else {
-        const scheduledAt = Number(payload.scheduledAt);
-        if (!Number.isFinite(scheduledAt)) throw new Error('missing_scheduledAt');
-        result = service.store.updatePost(postId, { status: 'scheduled', scheduledAt });
-      }
+      const { postId, result } = await executeSocialAction(action, service);
       windowManager?.broadcast?.('social:posts-refresh', {});
       return { postId, status: result?.status ?? 'ok' };
     }
