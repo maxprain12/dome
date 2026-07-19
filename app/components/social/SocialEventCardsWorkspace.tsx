@@ -234,6 +234,10 @@ export function SocialEventCardsWorkspace({
     if (screen !== 'editor' || !editingId) return;
     const serialized = JSON.stringify(form);
     if (serialized === loadedFormRef.current) return;
+    const applyCardUpdate = (updated: SocialEventCard | undefined) => {
+      if (!updated) return;
+      setCards((current) => current?.map((card) => (card.id === updated.id ? updated : card)) ?? []);
+    };
     const timer = globalThis.setTimeout(() => {
       setSaving(true);
       void window.electron
@@ -245,10 +249,7 @@ export function SocialEventCardsWorkspace({
             return;
           }
           loadedFormRef.current = serialized;
-          const updated = (response.data as { card?: SocialEventCard })?.card;
-          if (updated) {
-            setCards((current) => current?.map((card) => (card.id === updated.id ? updated : card)) ?? []);
-          }
+          applyCardUpdate((response.data as { card?: SocialEventCard })?.card);
         })
         .catch(() => {
           setSaving(false);
