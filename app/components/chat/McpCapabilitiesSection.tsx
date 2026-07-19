@@ -12,13 +12,67 @@ import {
   toggleGlobalMcpTool,
 } from '@/lib/mcp/settings';
 import { showToast } from '@/lib/store/useToastStore';
-import type { MCPServerConfig } from '@/types';
+import type { MCPServerConfig, MCPToolConfig } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 interface McpCapabilitiesSectionProps {
   serverIds?: string[];
   disabledServerIds?: Set<string>;
   onToggleServer?: (serverId: string) => void;
+}
+
+interface McpToolRowProps {
+  server: MCPServerConfig;
+  tool: MCPToolConfig;
+  servers: MCPServerConfig[];
+  isSaving: boolean;
+  persistServers: (nextServers: MCPServerConfig[], serverName: string) => Promise<void>;
+}
+
+function McpToolRow({
+  server,
+  tool,
+  servers,
+  isSaving,
+  persistServers,
+}: McpToolRowProps) {
+  const toolId = tool.id || tool.name;
+  return (
+    <div className="flex items-start justify-between gap-2.5 rounded-xl border border-transparent bg-muted p-2.5 transition-colors hover:border-border">
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate text-[12px] font-medium text-foreground"
+          title={tool.name}
+        >
+          {tool.name}
+        </div>
+        {tool.description ? (
+          <p
+            className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground"
+            title={tool.description}
+          >
+            {tool.description}
+          </p>
+        ) : null}
+      </div>
+      <Checkbox
+        className="mt-0.5 shrink-0"
+        aria-label={tool.name}
+        checked={tool.enabled !== false}
+        disabled={isSaving}
+        onCheckedChange={(checked) =>
+          persistServers(
+            servers.map((currentServer) =>
+              currentServer.name === server.name
+                ? toggleGlobalMcpTool(currentServer, toolId, checked === true)
+                : currentServer
+            ),
+            server.name
+          )
+        }
+      />
+    </div>
+  );
 }
 
 export default function McpCapabilitiesSection({
@@ -166,52 +220,16 @@ export default function McpCapabilitiesSection({
                   </div>
                 </div>
                 <div className="max-h-[min(220px,40vh)] flex flex-col gap-y-2 overflow-y-auto pr-0.5">
-                  {tools.map((tool) => {
-                    const toolId = tool.id || tool.name;
-                    return (
-                      <div
-                        key={toolId}
-                        className="flex items-start justify-between gap-2.5 rounded-xl border border-transparent bg-muted p-2.5 transition-colors hover:border-border"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className="truncate text-[12px] font-medium text-foreground"
-                            title={tool.name}
-                          >
-                            {tool.name}
-                          </div>
-                          {tool.description ? (
-                            <p
-                              className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground"
-                              title={tool.description}
-                            >
-                              {tool.description}
-                            </p>
-                          ) : null}
-                        </div>
-                        <Checkbox
-                          className="mt-0.5 shrink-0"
-                          aria-label={tool.name}
-                          checked={tool.enabled !== false}
-                          disabled={isSaving}
-                          onCheckedChange={(checked) =>
-                            persistServers(
-                              servers.map((currentServer) =>
-                                currentServer.name === server.name
-                                  ? toggleGlobalMcpTool(
-                                      currentServer,
-                                      toolId,
-                                      checked === true
-                                    )
-                                  : currentServer
-                              ),
-                              server.name
-                            )
-                          }
-                        />
-                      </div>
-                    );
-                  })}
+                  {tools.map((tool) => (
+                    <McpToolRow
+                      key={tool.id || tool.name}
+                      server={server}
+                      tool={tool}
+                      servers={servers}
+                      isSaving={isSaving}
+                      persistServers={persistServers}
+                    />
+                  ))}
                 </div>
               </CardContent>
             ) : (
