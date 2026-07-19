@@ -97,36 +97,36 @@ export function useMenuNavigation<T>({
   )
 
   useEffect(() => {
+    const handleArrow = (
+      event: KeyboardEvent,
+      blocked: boolean,
+      direction: "next" | "prev"
+    ): boolean => {
+      if (blocked) return false
+      event.preventDefault()
+      if (direction === "next") moveNext(items, onNavigate, setSelectedIndex)
+      else movePrev(items, onNavigate, setSelectedIndex)
+      return true
+    }
+
     const handleKeyboardNavigation = (event: KeyboardEvent) => {
       if (!items.length) return false
 
       switch (event.key) {
         case "ArrowUp": {
-          if (orientation === "horizontal") return false
-          event.preventDefault()
-          movePrev(items, onNavigate, setSelectedIndex)
-          return true
+          return handleArrow(event, orientation === "horizontal", "prev")
         }
 
         case "ArrowDown": {
-          if (orientation === "horizontal") return false
-          event.preventDefault()
-          moveNext(items, onNavigate, setSelectedIndex)
-          return true
+          return handleArrow(event, orientation === "horizontal", "next")
         }
 
         case "ArrowLeft": {
-          if (orientation === "vertical") return false
-          event.preventDefault()
-          movePrev(items, onNavigate, setSelectedIndex)
-          return true
+          return handleArrow(event, orientation === "vertical", "prev")
         }
 
         case "ArrowRight": {
-          if (orientation === "vertical") return false
-          event.preventDefault()
-          moveNext(items, onNavigate, setSelectedIndex)
-          return true
+          return handleArrow(event, orientation === "vertical", "next")
         }
 
         case "Tab": {
