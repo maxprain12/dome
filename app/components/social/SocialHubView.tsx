@@ -23,6 +23,8 @@ import { SocialCampaignDetail } from '@/components/social/SocialCampaignDetail';
 import { SocialReportDetail } from '@/components/social/SocialReportDetail';
 import type { SocialFilter, SocialReplyDraft } from '@/lib/social/socialQueues';
 import { SocialEventCardsWorkspace, type SocialEventSection } from './SocialEventCardsWorkspace';
+import { SocialHubKpiBar } from './SocialHubKpiBar';
+import { SocialInsightsStrip } from './SocialInsightsStrip';
 
 type DetailMode =
   | { kind: 'none' }
@@ -150,6 +152,13 @@ export default function SocialHubView() {
     openSettingsTab();
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'social' }));
+    }, 100);
+  };
+
+  const goToDomeProvider = () => {
+    openSettingsTab();
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'ai' }));
     }, 100);
   };
 
@@ -281,6 +290,14 @@ export default function SocialHubView() {
             </>
           }
         />
+        {!detailOpen ? (
+          <SocialHubKpiBar
+            section={hubSection}
+            growth={growth}
+            focusAccountId={focusAccountId}
+            onFocusAccount={setFocusAccountId}
+          />
+        ) : null}
         {hubSection === 'posts' ? <HubSearch
           className="min-w-0 w-full"
           value={query}
@@ -315,7 +332,6 @@ export default function SocialHubView() {
               if (f !== 'campaigns') setSelectedCampaignId(null);
             }}
             focusAccountId={focusAccountId}
-            onFocusAccount={setFocusAccountId}
             selectedId={selectedPostId}
             selectedCampaignId={selectedCampaignId}
             onOpenPost={(post) => setDetail({ kind: 'post', post })}
@@ -341,10 +357,27 @@ export default function SocialHubView() {
               void window.electron.invoke('social:drafts:poll-now').then(() => load());
             }}
             onConnectAccounts={goToSettings}
-            onOpenReport={(report) => setDetail({ kind: 'report', report })}
             compact={detailOpen}
           />
-        </div> : <div className="min-h-0 min-w-0 flex-1 overflow-hidden"><SocialEventCardsWorkspace section={hubSection} accounts={accounts} posts={posts} /></div>}
+        </div> : (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {hubSection === 'analytics' && !detailOpen ? (
+              <div className="shrink-0 border-b px-4 py-3 @[50rem]/social:px-6">
+                <SocialInsightsStrip
+                  onOpenReport={(report) => setDetail({ kind: 'report', report })}
+                />
+              </div>
+            ) : null}
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+              <SocialEventCardsWorkspace
+                section={hubSection}
+                accounts={accounts}
+                posts={posts}
+                onConnectDome={goToDomeProvider}
+              />
+            </div>
+          </div>
+        )}
 
         {detailOpen ? (
           <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]">

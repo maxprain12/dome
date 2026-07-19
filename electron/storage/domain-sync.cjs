@@ -38,11 +38,32 @@ const VALID_DOMAINS = /** @type {const} */ ([
  * @property {string} [wire]        Wire key (defaults to `name`) — must match the provider catalog.
  * @property {boolean} [appendOnly]
  * @property {string[]} [excludePush]  Local-only columns that must never travel.
+ * @property {(row: Record<string, unknown>) => Record<string, unknown>} [mapPushRow]
+ *                                  Extra per-row shaping after excludePush (contract guards).
  * @property {string} [selectSql]   Custom SELECT producing wire-shaped rows (must expose `id`).
  *                                  Appended with a `WHERE deltaColumn > ?` guard by the engine.
  * @property {(db: import('better-sqlite3').Database, row: Record<string, unknown>) => void} [applyRow]
  *                                  Custom local apply (for tables whose local shape differs from the wire).
  */
+
+/**
+ * Contract §3.1: desktop/companion may only write status draft|scheduled;
+ * publishing|published|failed are cloud-publisher owned. Cloud-only columns
+ * (writers: S) must never leave the desktop either.
+ * @param {Record<string, unknown>} row
+ */
+function mapSocialPostPushRow(row) {
+  const out = { ...row };
+  delete out.published_at;
+  delete out.external_post_id;
+  delete out.external_url;
+  delete out.error;
+  delete out.attempts;
+  if (out.status !== 'draft' && out.status !== 'scheduled') {
+    delete out.status;
+  }
+  return out;
+}
 
 /**
  * @type {Record<DomainName, { tables: TableSpec[] }>}
@@ -51,7 +72,13 @@ const DOMAIN_SPECS = {
   social: {
     tables: [
       { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials'] },
-      { name: 'social_posts', deltaColumn: 'updated_at' },
+      // campaign_id is local-only (social_campaigns is not cloud-synced); wire keeps denormalized `campaign`.
+      {
+        name: 'social_posts',
+        deltaColumn: 'updated_at',
+        excludePush: ['campaign_id'],
+        mapPushRow: mapSocialPostPushRow,
+      },
       { name: 'social_metrics', deltaColumn: 'updated_at' },
       { name: 'social_account_metrics', deltaColumn: 'updated_at' },
     ],
@@ -275,9 +302,10 @@ function buildPushRows(db, domain, sinceMs) {
       raw = sinceMs > 0 ? db.prepare(sql).all(sinceMs) : db.prepare(sql).all();
     }
     if (!raw.length) continue;
-    rows[table.wire ?? table.name] = raw.map((r) =>
-      sanitizeRowForWire(r, table.excludePush, deltaCol),
-    );
+    rows[table.wire ?? table.name] = raw.map((r) => {
+      const wire = sanitizeRowForWire(r, table.excludePush, deltaCol);
+      return table.mapPushRow ? table.mapPushRow(wire) : wire;
+    });
   }
   return rows;
 }

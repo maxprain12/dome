@@ -70,6 +70,14 @@ function greetingKey(): string {
   return 'dashboard.greeting_evening';
 }
 
+/** Native button for Item rows — avoid shadcn Button h-7; force a stable list-row layout. */
+const LIST_ITEM_BUTTON_CLASS = cn(
+  'h-auto min-h-11 w-full flex-nowrap items-center justify-start gap-3',
+  'whitespace-normal py-2.5 text-left',
+  '[&_[data-slot=item-media]]:self-center [&_[data-slot=item-media]]:translate-y-0',
+  '[&_[data-slot=item-actions]]:shrink-0 [&_[data-slot=item-content]]:min-w-0',
+);
+
 function formatEyebrowDate(locale: string): { short: string; week: number } {
   const now = new Date();
   const short = now
@@ -618,15 +626,15 @@ export default function DashboardView() {
                   <Skeleton className="h-14" />
                 </div>
               ) : activity.length ? (
-                <ItemGroup>
+                <ItemGroup className="gap-2">
                   {activity.slice(0, 8).map((item) => (
                     <Item
                       key={item.id}
                       variant="muted"
                       size="sm"
-                      render={
-                        <Button type="button" variant="ghost" onClick={() => openActivity(item)} />
-                      }
+                      className={cn(LIST_ITEM_BUTTON_CLASS, 'hover:bg-muted')}
+                      render={<button type="button" />}
+                      onClick={() => openActivity(item)}
                     >
                       <ItemMedia variant="icon">
                         <HugeiconsIcon
@@ -688,14 +696,15 @@ export default function DashboardView() {
                     <Skeleton className="h-12" />
                   </div>
                 ) : pendingToday.length ? (
-                  <ItemGroup>
+                  <ItemGroup className="gap-2">
                     {pendingToday.slice(0, 5).map((item) => (
                       <Item
                         key={item.id}
+                        variant="muted"
                         size="sm"
-                        render={
-                          <Button type="button" variant="ghost" onClick={() => openPending(item)} />
-                        }
+                        className={cn(LIST_ITEM_BUTTON_CLASS, 'hover:bg-muted')}
+                        render={<button type="button" />}
+                        onClick={() => openPending(item)}
                       >
                         <ItemContent>
                           <ItemTitle>{item.title}</ItemTitle>
@@ -745,18 +754,15 @@ export default function DashboardView() {
                 <CardTitle>{t('projects.your_projects')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <ItemGroup>
+                <ItemGroup className="gap-2">
                   {recentProjects.map((project) => (
                     <Item
                       key={project.id}
+                      variant="muted"
                       size="sm"
-                      render={
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => setCurrentProject(project)}
-                        />
-                      }
+                      className={cn(LIST_ITEM_BUTTON_CLASS, 'hover:bg-muted')}
+                      render={<button type="button" />}
+                      onClick={() => setCurrentProject(project)}
                     >
                       <ItemMedia variant="icon">
                         <HugeiconsIcon icon={Folder01Icon} />
