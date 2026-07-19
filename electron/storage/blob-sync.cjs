@@ -222,6 +222,73 @@ async function ingestLocalFiles(db, queries) {
 }
 
 /**
+ * Process one upload batch: stat-dedupe against the provider, resolve any
+ * missing local paths by content-hashing the vault, then upload each blob.
+ * Extracted from `runUploadQueue` to keep it under the cognitive-complexity
+ * threshold. Translates provider errors and rate-limit into early-exit flags
+ * that the caller can fold into its cumulative counters.
+ * @param {object} deps
+ * @param {import('better-sqlite3').Database} db
+ * @param {Array<object>} batch
+ * @param {string} base
+ * @param {import('better-sqlite3').Statement} markUploaded
+ * @param {import('better-sqlite3').Statement} markSkipped
+ * @returns {Promise<{ uploaded: number, deduped: number, rateLimited?: boolean, error?: string }>}
+ */
+async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipped) {
+  const queries = deps.database.getQueries?.();
+
+  const statRes = await domeOauth.fetchWithDomeAuth(deps.database, `${base}/api/v1/files/stat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hashes: batch.map((b) => b.hash) }),
+  });
+  if (!statRes.ok) {
+    console.warn('[blob-sync] stat failed:', statRes.status);
+    return { uploaded: 0, deduped: 0, error: `stat_${statRes.status}` };
+  }
+  const { existing } = await statRes.json();
+  const existingSet = new Set(existing || []);
+
+  // Resolver por contenido los hashes sin mapeo directo (espejos .md/.html)
+  // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
+  const unresolved = new Set(
+    batch
+      .filter((b) => !existingSet.has(b.hash) && !findLocalFileForHash(db, b, queries))
+      .map((b) => b.hash),
+  );
+  if (unresolved.size) {
+    await scanVaultForHashes(db, queries, unresolved);
+  }
+
+  let uploaded = 0;
+  let deduped = 0;
+  for (const blob of batch) {
+    const outcome = await uploadPendingBlob(
+      deps,
+      db,
+      blob,
+      base,
+      existingSet,
+      queries,
+      markUploaded,
+      markSkipped,
+    );
+    if (outcome.kind === 'deduped') deduped += 1;
+    else if (outcome.kind === 'uploaded') uploaded += 1;
+    else if (outcome.kind === 'rate-limited') {
+      // Rate limit del provider (30 req/min): los pendientes siguen en
+      // cola y el siguiente tick (60 s) continúa con cupo fresco.
+      console.warn(`[blob-sync] upload-url rate-limited — ${uploaded} uploaded, resuming next tick`);
+      return { uploaded, deduped, rateLimited: true };
+    } else if (outcome.kind === 'quota-exceeded') {
+      return { uploaded, deduped, error: 'storage_quota_exceeded' };
+    }
+  }
+  return { uploaded, deduped };
+}
+
+/**
  * Phase 2 — upload pending blobs (stat-deduped, streaming).
  * @param {object} deps
  * @param {import('better-sqlite3').Database} db
@@ -250,53 +317,11 @@ async function runUploadQueue(deps, db) {
   let deduped = 0;
   for (let i = 0; i < pending.length; i += STAT_BATCH) {
     const batch = pending.slice(i, i + STAT_BATCH);
-    const queries = deps.database.getQueries?.();
-
-    const statRes = await domeOauth.fetchWithDomeAuth(deps.database, `${base}/api/v1/files/stat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hashes: batch.map((b) => b.hash) }),
-    });
-    if (!statRes.ok) {
-      console.warn('[blob-sync] stat failed:', statRes.status);
-      return { uploaded, deduped, error: `stat_${statRes.status}` };
-    }
-    const { existing } = await statRes.json();
-    const existingSet = new Set(existing || []);
-
-    // Resolver por contenido los hashes sin mapeo directo (espejos .md/.html)
-    // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
-    const unresolved = new Set(
-      batch
-        .filter((b) => !existingSet.has(b.hash) && !findLocalFileForHash(db, b, queries))
-        .map((b) => b.hash),
-    );
-    if (unresolved.size) {
-      await scanVaultForHashes(db, queries, unresolved);
-    }
-
-    for (const blob of batch) {
-      const outcome = await uploadPendingBlob(
-        deps,
-        db,
-        blob,
-        base,
-        existingSet,
-        queries,
-        markUploaded,
-        markSkipped,
-      );
-      if (outcome.kind === 'deduped') deduped += 1;
-      else if (outcome.kind === 'uploaded') uploaded += 1;
-      else if (outcome.kind === 'rate-limited') {
-        // Rate limit del provider (30 req/min): los pendientes siguen en
-        // cola y el siguiente tick (60 s) continúa con cupo fresco.
-        console.warn(`[blob-sync] upload-url rate-limited — ${uploaded} uploaded, resuming next tick`);
-        return { uploaded, deduped, rateLimited: true };
-      } else if (outcome.kind === 'quota-exceeded') {
-        return { uploaded, deduped, error: 'storage_quota_exceeded' };
-      }
-    }
+    const result = await processUploadBatch(deps, db, batch, base, markUploaded, markSkipped);
+    uploaded += result.uploaded;
+    deduped += result.deduped;
+    if (result.rateLimited) return { uploaded, deduped, rateLimited: true };
+    if (result.error) return { uploaded, deduped, error: result.error };
   }
   if (uploaded || deduped) {
     console.log(`[blob-sync] uploads done: ${uploaded} uploaded, ${deduped} deduped`);
