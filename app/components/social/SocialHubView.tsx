@@ -98,12 +98,15 @@ export default function SocialHubView() {
         await load();
       }
     })();
+    const reload = () => {
+      void load().catch(() => {});
+    };
     const unsubs = [
-      window.electron?.on?.('social:post-updated', () => void load()),
-      window.electron?.on?.('social:posts-refresh', () => void load()),
-      window.electron?.on?.('social:account-updated', () => void load()),
-      window.electron?.on?.('social:metrics-updated', () => void load()),
-      window.electron?.on?.('social:drafts-updated', () => void load()),
+      window.electron?.on?.('social:post-updated', reload),
+      window.electron?.on?.('social:posts-refresh', reload),
+      window.electron?.on?.('social:account-updated', reload),
+      window.electron?.on?.('social:metrics-updated', reload),
+      window.electron?.on?.('social:drafts-updated', reload),
     ];
     return () => unsubs.forEach((u) => u?.());
   }, [load]);
@@ -259,7 +262,9 @@ export default function SocialHubView() {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => void syncPlatformFeed()}
+                onClick={() => {
+                  void syncPlatformFeed().catch(() => {});
+                }}
                 disabled={refreshing}
                 title={t('social.hub.sync_feed')}
               >
@@ -349,7 +354,9 @@ export default function SocialHubView() {
                 campaignName: campaign.name,
               })
             }
-            onCreateCampaign={() => void createCampaignInline()}
+            onCreateCampaign={() => {
+              void createCampaignInline().catch(() => {});
+            }}
             onAskManyGrowth={() => askMany(null, t('social.agent_prompt_growth'))}
             onAskManyCampaign={() => askMany(null, t('social.agent_prompt_campaign'))}
             onAskManyDraft={() => askMany(null, t('social.agent_prompt_draft'))}
@@ -407,7 +414,9 @@ export default function SocialHubView() {
                     campaignName: detail.post.campaign,
                   })
                 }
-                onPublish={() => void publishNow(detail.post.id)}
+                onPublish={() => {
+                  void publishNow(detail.post.id).catch(() => {});
+                }}
                 onAskMany={() =>
                   askMany(
                     detail.post,

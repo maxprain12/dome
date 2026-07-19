@@ -194,10 +194,10 @@ export function SocialEventCardsWorkspace({
   const [form, setForm] = useState<CardForm>(defaultForm);
   const [saving, setSaving] = useState(false);
   const loadedFormRef = useRef('');
-  const editingCard = useMemo(
-    () => (editingId ? cards?.find((card) => card.id === editingId) ?? null : null),
-    [cards, editingId],
-  );
+  const editingCard = useMemo(() => {
+    if (!editingId) return null;
+    return cards?.find((card) => card.id === editingId) ?? null;
+  }, [cards, editingId]);
 
   const load = useCallback(async () => {
     const response = await window.electron.invoke('social:event-cards:list');

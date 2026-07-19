@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EVENT_CARD_QR_COLORS } from '@/lib/ui/palettes';
 import { cn } from '@/lib/utils';
 import {
   DEFAULT_BACKGROUND,
@@ -83,7 +84,7 @@ function useQrDataUrl(url: string | null, enabled: boolean) {
       margin: 1,
       width: 160,
       errorCorrectionLevel: 'M',
-      color: { dark: '#111111', light: '#ffffff' },
+      color: { dark: EVENT_CARD_QR_COLORS.dark, light: EVENT_CARD_QR_COLORS.light },
     })
       .then((next) => {
         if (!cancelled) setDataUrl(next);

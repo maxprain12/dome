@@ -157,3 +157,19 @@ export const LEGACY_PDF_HIGHLIGHT_VARS: Record<string, string> = {
 
 /** PPTX slides default "light" color (slide content, not app theme). */
 export const PPT_SLIDE_LIGHT_DEFAULT = '#ffffff';
+
+/**
+ * Social event-card design defaults — persisted in event_cards.design JSON and
+ * baked into export canvases / QR bitmaps (theme CSS vars do not apply).
+ */
+export const EVENT_CARD_DESIGN_DEFAULTS = {
+  background: '#5e6a34',
+  foreground: '#ffffff',
+  label: '#ffffff',
+} as const;
+
+/** QR module colors for event-card preview/export (qrcode lib needs literals). */
+export const EVENT_CARD_QR_COLORS = {
+  dark: '#111111',
+  light: '#ffffff',
+} as const;

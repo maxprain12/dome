@@ -318,7 +318,9 @@ export default function DashboardView() {
       title: t('dashboard.action_new_note'),
       desc: t('dashboard.action_new_note_desc'),
       icon: PlusSignIcon,
-      onClick: () => void handleNewNote(),
+      onClick: () => {
+        void handleNewNote().catch(() => {});
+      },
       primary: true,
       kbd: 'N',
     },
@@ -327,7 +329,9 @@ export default function DashboardView() {
       title: t('dashboard.action_upload'),
       desc: t('dashboard.action_upload_desc'),
       icon: Upload04Icon,
-      onClick: () => void handleUpload(),
+      onClick: () => {
+        void handleUpload().catch(() => {});
+      },
       kbd: 'U',
     },
     {

@@ -267,8 +267,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   // Media pickers — local files (native dialog) and vault image/video resources
   ipcMain.handle('social:media:pick', wrap(null, async () => {
     const { dialog } = require('electron');
-    const path = require('path');
-    const fs = require('fs');
+    const path = require('node:path');
+    const fs = require('node:fs');
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -292,7 +292,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
 
   ipcMain.handle('social:media:library', wrap(LibraryQuerySchema, ({ projectId }) => {
     const vaultStore = require('../../storage/vault-store.cjs');
-    const fs = require('fs');
+    const fs = require('node:fs');
     const queries = database.getQueries();
     const rows = queries.getResourcesByProject.all(projectId || 'default');
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -328,8 +328,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
 
   // Composer preview thumbnails (images only, size-capped data URL)
   ipcMain.handle('social:media:preview', wrap(MediaPreviewSchema, ({ path: filePath, resourceId }) => {
-    const fs = require('fs');
-    const path = require('path');
+    const fs = require('node:fs');
+    const path = require('node:path');
     const { IMAGE_EXTS } = require('../../social/social-media.cjs');
     let resolved = filePath || null;
     if (resourceId) {
@@ -474,7 +474,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     const exported = await eventCardsClient.exportCard(database, cardId, format);
     if (format === 'url' || format === 'snippet') return { content: exported.toString('utf8') };
     const { dialog } = require('electron');
-    const fs = require('fs');
+    const fs = require('node:fs');
     const extension = format === 'qr-svg' ? 'svg' : format === 'qr-png' ? 'png' : 'pdf';
     const result = await dialog.showSaveDialog({ defaultPath: `evento.${extension}` });
     if (result.canceled || !result.filePath) return { cancelled: true };

@@ -1,3 +1,4 @@
+import { EVENT_CARD_DESIGN_DEFAULTS } from '@/lib/ui/palettes';
 import type {
   EventCardDesign,
   EventCardFontWeight,
@@ -5,9 +6,9 @@ import type {
   EventCardQrStyle,
 } from './socialTypes';
 
-export const DEFAULT_BACKGROUND = '#5e6a34';
-export const DEFAULT_FOREGROUND = '#ffffff';
-export const DEFAULT_LABEL = '#ffffff';
+export const DEFAULT_BACKGROUND = EVENT_CARD_DESIGN_DEFAULTS.background;
+export const DEFAULT_FOREGROUND = EVENT_CARD_DESIGN_DEFAULTS.foreground;
+export const DEFAULT_LABEL = EVENT_CARD_DESIGN_DEFAULTS.label;
 
 /** Official Wallet/event cover strip (width × height). */
 export const EVENT_CARD_COVER_WIDTH = 1125;
