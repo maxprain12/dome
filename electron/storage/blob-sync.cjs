@@ -250,6 +250,8 @@ async function runUploadQueue(deps, db) {
   let deduped = 0;
   for (let i = 0; i < pending.length; i += STAT_BATCH) {
     const batch = pending.slice(i, i + STAT_BATCH);
+    const queries = deps.database.getQueries?.();
+
     const statRes = await domeOauth.fetchWithDomeAuth(deps.database, `${base}/api/v1/files/stat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -266,90 +268,33 @@ async function runUploadQueue(deps, db) {
     // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
     const unresolved = new Set(
       batch
-        .filter((b) => !existingSet.has(b.hash) && !findLocalFileForHash(db, b, deps.database.getQueries?.()))
+        .filter((b) => !existingSet.has(b.hash) && !findLocalFileForHash(db, b, queries))
         .map((b) => b.hash),
     );
     if (unresolved.size) {
-      await scanVaultForHashes(db, deps.database.getQueries?.(), unresolved);
+      await scanVaultForHashes(db, queries, unresolved);
     }
 
     for (const blob of batch) {
-      if (existingSet.has(blob.hash)) {
-        markUploaded.run(blob.id);
-        deduped += 1;
-        continue;
-      }
-      const localFile = findLocalFileForHash(db, blob, deps.database.getQueries?.());
-      if (!localFile) continue; // manifest row from another device — nothing to upload here
-
-      try {
-        const grantRes = await domeOauth.fetchWithDomeAuth(
-          deps.database,
-          `${base}/api/v1/files/upload-url`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hash: blob.hash, sizeBytes: blob.size_bytes, mime: blob.mime }),
-          },
-        );
-        if (grantRes.status === 429) {
-          // Rate limit del provider (30 req/min): los pendientes siguen en
-          // cola y el siguiente tick (60 s) continúa con cupo fresco.
-          console.warn(`[blob-sync] upload-url rate-limited — ${uploaded} uploaded, resuming next tick`);
-          return { uploaded, deduped, rateLimited: true };
-        }
-        if (grantRes.status === 413 || grantRes.status === 402 || grantRes.status === 403) {
-          const info = await grantRes.json().catch(() => ({}));
-          console.warn('[blob-sync] upload blocked:', grantRes.status, info?.error);
-          if (info?.error === 'storage_quota_exceeded') {
-            return { uploaded, deduped, error: 'storage_quota_exceeded' };
-          }
-          // Demasiado grande para el plan: marcar para no re-pedirlo cada tick
-          // (se reintenta una vez por sesión de la app; ver run()).
-          markSkipped.run(blob.id);
-          continue;
-        }
-        if (!grantRes.ok) {
-          console.warn('[blob-sync] upload-url failed:', grantRes.status);
-          continue;
-        }
-        const grant = await grantRes.json();
-        if (grant.alreadyExists) {
-          markUploaded.run(blob.id);
-          deduped += 1;
-          continue;
-        }
-
-        const putRes = await fetch(grant.url, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': blob.mime || 'application/octet-stream',
-            'Content-Length': String(blob.size_bytes ?? fs.statSync(localFile).size),
-          },
-          body: fs.createReadStream(localFile),
-          duplex: 'half',
-        });
-        if (!putRes.ok) {
-          const detail = await putRes.text().catch(() => '');
-          // Supabase envuelve el "Payload too large" (límite GLOBAL de subida
-          // del proyecto, aparte del límite del bucket) en un HTTP 400.
-          // Sin marcarlo, cada tick re-streamearía el archivo entero para
-          // volver a fallar (134 MB/min de egress desperdiciado).
-          if (putRes.status === 413 || /payload too large|exceeded the maximum/i.test(detail)) {
-            console.warn(
-              `[blob-sync] ${blob.original_name || blob.hash.slice(0, 12)} supera el límite global de subida de Supabase Storage ` +
-              '(Settings → Storage → Upload file size limit). Se reintentará al reiniciar la app.',
-            );
-            markSkipped.run(blob.id);
-            continue;
-          }
-          console.warn('[blob-sync] upload failed:', putRes.status, blob.hash.slice(0, 12), detail.slice(0, 200));
-          continue;
-        }
-        markUploaded.run(blob.id);
-        uploaded += 1;
-      } catch (err) {
-        console.warn('[blob-sync] upload error:', err?.message);
+      const outcome = await uploadPendingBlob(
+        deps,
+        db,
+        blob,
+        base,
+        existingSet,
+        queries,
+        markUploaded,
+        markSkipped,
+      );
+      if (outcome.kind === 'deduped') deduped += 1;
+      else if (outcome.kind === 'uploaded') uploaded += 1;
+      else if (outcome.kind === 'rate-limited') {
+        // Rate limit del provider (30 req/min): los pendientes siguen en
+        // cola y el siguiente tick (60 s) continúa con cupo fresco.
+        console.warn(`[blob-sync] upload-url rate-limited — ${uploaded} uploaded, resuming next tick`);
+        return { uploaded, deduped, rateLimited: true };
+      } else if (outcome.kind === 'quota-exceeded') {
+        return { uploaded, deduped, error: 'storage_quota_exceeded' };
       }
     }
   }
@@ -357,6 +302,140 @@ async function runUploadQueue(deps, db) {
     console.log(`[blob-sync] uploads done: ${uploaded} uploaded, ${deduped} deduped`);
   }
   return { uploaded, deduped };
+}
+
+/**
+ * Request a signed upload URL for one blob and translate provider response
+ * codes into a small outcome enum the caller can branch on.
+ * @returns {Promise<
+ *   { kind: 'ok', url: string }
+ * | { kind: 'rate-limited' | 'quota-exceeded' | 'skipped' | 'error' | 'deduped' }
+ * >}
+ */
+async function requestUploadGrant(deps, base, blob) {
+  const grantRes = await domeOauth.fetchWithDomeAuth(
+    deps.database,
+    `${base}/api/v1/files/upload-url`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash: blob.hash, sizeBytes: blob.size_bytes, mime: blob.mime }),
+    },
+  );
+  if (grantRes.status === 429) {
+    return { kind: 'rate-limited' };
+  }
+  if (grantRes.status === 413 || grantRes.status === 402 || grantRes.status === 403) {
+    const info = await grantRes.json().catch(() => ({}));
+    console.warn('[blob-sync] upload blocked:', grantRes.status, info?.error);
+    if (info?.error === 'storage_quota_exceeded') {
+      return { kind: 'quota-exceeded' };
+    }
+    return { kind: 'skipped' };
+  }
+  if (!grantRes.ok) {
+    console.warn('[blob-sync] upload-url failed:', grantRes.status);
+    return { kind: 'error' };
+  }
+  const grant = await grantRes.json();
+  if (grant.alreadyExists) {
+    return { kind: 'deduped' };
+  }
+  return { kind: 'ok', url: grant.url };
+}
+
+/**
+ * PUT a vault blob's bytes to the provider-signed URL. Distinguishes the
+ * global Supabase upload limit (which the bucket cannot enforce itself) from
+ * generic upload failures so we can mark the row as skipped only when retrying
+ * the same bytes would burn egress for nothing.
+ * @returns {Promise<'ok' | 'too-large' | 'error'>}
+ */
+async function performBlobPut(blob, url, localFile) {
+  const putRes = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': blob.mime || 'application/octet-stream',
+      'Content-Length': String(blob.size_bytes ?? fs.statSync(localFile).size),
+    },
+    body: fs.createReadStream(localFile),
+    duplex: 'half',
+  });
+  if (!putRes.ok) {
+    const detail = await putRes.text().catch(() => '');
+    // Supabase envuelve el "Payload too large" (límite GLOBAL de subida
+    // del proyecto, aparte del límite del bucket) en un HTTP 400.
+    // Sin marcarlo, cada tick re-streamearía el archivo entero para
+    // volver a fallar (134 MB/min de egress desperdiciado).
+    if (putRes.status === 413 || /payload too large|exceeded the maximum/i.test(detail)) {
+      console.warn(
+        `[blob-sync] ${blob.original_name || blob.hash.slice(0, 12)} supera el límite global de subida de Supabase Storage ` +
+        '(Settings → Storage → Upload file size limit). Se reintentará al reiniciar la app.',
+      );
+      return 'too-large';
+    }
+    console.warn('[blob-sync] upload failed:', putRes.status, blob.hash.slice(0, 12), detail.slice(0, 200));
+    return 'error';
+  }
+  return 'ok';
+}
+
+/**
+ * Apply the side effects (mark uploaded/skipped, dedupe counter) that follow
+ * from `requestUploadGrant` and `performBlobPut` outcomes.
+ * @returns {{ kind: 'deduped' | 'skip' | 'uploaded' }}
+ */
+function applyUploadOutcome(blob, outcome, putResult, markUploaded, markSkipped) {
+  if (outcome.kind === 'skipped' || putResult === 'too-large') {
+    // Demasiado grande para el plan: marcar para no re-pedirlo cada tick
+    // (se reintenta una vez por sesión de la app; ver run()).
+    markSkipped.run(blob.id);
+    return { kind: 'skip' };
+  }
+  if (outcome.kind === 'deduped' || (outcome.kind === 'ok' && putResult === 'ok')) {
+    markUploaded.run(blob.id);
+    return { kind: outcome.kind === 'deduped' ? 'deduped' : 'uploaded' };
+  }
+  return { kind: 'skip' };
+}
+
+/**
+ * Try to upload one pending blob: short-circuit if the provider already has
+ * it, locate the local bytes, request a grant, PUT the file, and translate
+ * every failure mode into a single outcome kind.
+ * @returns {Promise<
+ *   { kind: 'deduped' | 'uploaded' | 'skip' | 'rate-limited' | 'quota-exceeded' }
+ * >}
+ */
+async function uploadPendingBlob(
+  deps,
+  db,
+  blob,
+  base,
+  existingSet,
+  queries,
+  markUploaded,
+  markSkipped,
+) {
+  if (existingSet.has(blob.hash)) {
+    markUploaded.run(blob.id);
+    return { kind: 'deduped' };
+  }
+  const localFile = findLocalFileForHash(db, blob, queries);
+  if (!localFile) return { kind: 'skip' }; // manifest row from another device — nothing to upload here
+
+  try {
+    const outcome = await requestUploadGrant(deps, base, blob);
+    if (outcome.kind !== 'ok') {
+      if (outcome.kind === 'rate-limited' || outcome.kind === 'quota-exceeded') return outcome;
+      return applyUploadOutcome(blob, outcome, null, markUploaded, markSkipped);
+    }
+    const putResult = await performBlobPut(blob, outcome.url, localFile);
+    return applyUploadOutcome(blob, outcome, putResult, markUploaded, markSkipped);
+  } catch (err) {
+    console.warn('[blob-sync] upload error:', err?.message);
+    return { kind: 'skip' };
+  }
 }
 
 /** hash completo → ruta absoluta local, poblado por ingest y por el escaneo perezoso. */
