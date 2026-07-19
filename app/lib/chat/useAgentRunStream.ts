@@ -23,6 +23,7 @@ import {
   type PersistentRun,
   type PersistentRunStep,
   type PersistentRunUsage,
+  type RunChunkPayload,
 } from '@/lib/automations/api';
 import { streamingLabelForActiveRun, streamingLabelForToolCall } from './streamingLabels';
 import { coalesceDuplicateToolCalls, applyToolResultChunk } from './coalesceToolCalls';
@@ -130,163 +131,20 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
       handleRunUpdate(run);
     });
 
+    const ctx: ChunkContext = {
+      activeRunId,
+      t,
+      setStreamingMessage,
+      onBudget,
+      onCompaction,
+      onUsage,
+      onStreamingActivity,
+      setPendingApproval,
+    };
+
     const unsubChunk = onRunChunk((payload) => {
       if (payload.runId !== activeRunId) return;
-
-      if (payload.type === 'phase') {
-        const label = payload.labelKey
-          ? t(payload.labelKey)
-          : payload.detail
-            ? streamingLabelForToolCall({ name: payload.detail, arguments: {} }, t)
-            : t('chat.processing');
-        setStreamingMessage((prev) =>
-          prev
-            ? { ...prev, streamingLabel: label }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: [],
-                streamingLabel: label,
-              },
-        );
-        return;
-      }
-
-      if (payload.type === 'tool_progress' && payload.toolCallId) {
-        const label = payload.toolName
-          ? streamingLabelForToolCall({ name: payload.toolName, arguments: {} }, t)
-          : t('chat.tool_running');
-        setStreamingMessage((prev) =>
-          prev ? { ...prev, streamingLabel: label } : prev,
-        );
-        return;
-      }
-
-      if (payload.type === 'budget' && payload.breakdown && onBudget) {
-        onBudget(payload.breakdown);
-        return;
-      }
-
-      if (payload.type === 'compaction') {
-        if (onCompaction) {
-          onCompaction({
-            tokensBefore: payload.tokensBefore,
-            tokensAfter: payload.tokensAfter,
-            summaryPreview: payload.summaryPreview,
-            automatic: payload.automatic,
-          });
-        }
-        setStreamingMessage((prev) =>
-          prev ? { ...prev, streamingLabel: t('chat.compacting_context') } : prev,
-        );
-        return;
-      }
-
-      if (payload.type === 'usage' && payload.usage && onUsage) {
-        onUsage(payload.usage, !!payload.partial);
-        return;
-      }
-
-      if (payload.type === 'text' && payload.text) {
-        onStreamingActivity?.();
-        setStreamingMessage((prev) =>
-          prev
-            ? {
-                ...prev,
-                content: `${prev.content ?? ''}${payload.text ?? ''}`,
-                streamingLabel: t('chat.generating_response'),
-              }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: payload.text ?? '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: [],
-                streamingLabel: t('chat.generating_response'),
-              },
-        );
-        return;
-      }
-
-      if (payload.type === 'thinking' && payload.text) {
-        setStreamingMessage((prev) =>
-          prev
-            ? {
-                ...prev,
-                thinking: `${prev.thinking || ''}${payload.text}`,
-                streamingLabel: prev.content?.trim()
-                  ? prev.streamingLabel
-                  : t('chat.thinking'),
-              }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: [],
-                thinking: payload.text,
-                streamingLabel: t('chat.thinking'),
-              },
-        );
-        return;
-      }
-
-      if (payload.type === 'tool_call' && payload.toolCall) {
-        onStreamingActivity?.();
-        const tc = payload.toolCall;
-        const parsedArgs = (() => {
-          try {
-            return typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : {};
-          } catch {
-            return {};
-          }
-        })();
-        setStreamingMessage((prev) =>
-          applyToolCallUpdate(prev, payload.runId, payload.agentName, parsedArgs, tc, t),
-        );
-        return;
-      }
-
-      if (payload.type === 'tool_result' && payload.toolCallId) {
-        setStreamingMessage((prev) => {
-          if (!prev?.toolCalls) return prev;
-          return {
-            ...prev,
-            toolCalls: applyToolResultChunk(
-              prev.toolCalls,
-              String(payload.toolCallId),
-              payload.result,
-              payload.isError === true,
-            ),
-          };
-        });
-        return;
-      }
-
-      if (
-        payload.type === 'interrupt' &&
-        Array.isArray(payload.actionRequests) &&
-        payload.actionRequests.length > 0 &&
-        setPendingApproval
-      ) {
-        setPendingApproval({
-          actionRequests: payload.actionRequests,
-          reviewConfigs: Array.isArray(payload.reviewConfigs) ? payload.reviewConfigs : [],
-          submitResume: (decisions) => {
-            void resumeRun(payload.runId, decisions as Array<unknown>);
-          },
-        });
-        setStreamingMessage((prev) =>
-          prev
-            ? { ...prev, streamingLabel: t('chat.waiting_approval'), isStreaming: false }
-            : prev,
-        );
-      }
+      handleRunChunk(ctx, payload);
     });
 
     const unsubStep = onRunStep(({ step }) => {
@@ -324,6 +182,236 @@ function upsertRunStep(steps: PersistentRunStep[], step: PersistentRunStep): Per
   const next = steps.slice();
   next[idx] = step;
   return next.slice(-24);
+}
+
+interface ChunkContext {
+  activeRunId: string;
+  t: TFunction;
+  setStreamingMessage: (updater: Updater<ChatMessageData | null>) => void;
+  onBudget?: (breakdown: import('@/lib/automations/api').RunChunkBudgetBreakdown) => void;
+  onCompaction?: AgentRunStreamOptions['onCompaction'];
+  onUsage?: (usage: PersistentRunUsage, partial: boolean) => void;
+  onStreamingActivity?: () => void;
+  setPendingApproval?: (approval: RunPendingApproval | null) => void;
+}
+
+function handleRunChunk(ctx: ChunkContext, payload: RunChunkPayload): void {
+  switch (payload.type) {
+    case 'phase':
+      handlePhaseChunk(ctx, payload);
+      return;
+    case 'tool_progress':
+      handleToolProgressChunk(ctx, payload);
+      return;
+    case 'budget':
+      handleBudgetChunk(ctx, payload);
+      return;
+    case 'compaction':
+      handleCompactionChunk(ctx, payload);
+      return;
+    case 'usage':
+      handleUsageChunk(ctx, payload);
+      return;
+    case 'text':
+      handleTextChunk(ctx, payload);
+      return;
+    case 'thinking':
+      handleThinkingChunk(ctx, payload);
+      return;
+    case 'tool_call':
+      handleToolCallChunk(ctx, payload);
+      return;
+    case 'tool_result':
+      handleToolResultChunk(ctx, payload);
+      return;
+    case 'interrupt':
+      handleInterruptChunk(ctx, payload);
+      return;
+    default:
+      return;
+  }
+}
+
+function newStreamingAssistantMessage(
+  runId: string,
+  content: string,
+  streamingLabel: string,
+  extras?: Partial<ChatMessageData>,
+): ChatMessageData {
+  return {
+    id: `run-${runId}`,
+    role: 'assistant',
+    content,
+    timestamp: Date.now(),
+    isStreaming: true,
+    toolCalls: [],
+    streamingLabel,
+    ...(extras ?? {}),
+  };
+}
+
+function handlePhaseChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'phase' }>,
+): void {
+  const label = payload.labelKey
+    ? ctx.t(payload.labelKey)
+    : payload.detail
+      ? streamingLabelForToolCall({ name: payload.detail, arguments: {} }, ctx.t)
+      : ctx.t('chat.processing');
+  ctx.setStreamingMessage((prev) =>
+    prev
+      ? { ...prev, streamingLabel: label }
+      : newStreamingAssistantMessage(payload.runId, '', label),
+  );
+}
+
+function handleToolProgressChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'tool_progress' }>,
+): void {
+  if (!payload.toolCallId) return;
+  const label = payload.toolName
+    ? streamingLabelForToolCall({ name: payload.toolName, arguments: {} }, ctx.t)
+    : ctx.t('chat.tool_running');
+  ctx.setStreamingMessage((prev) =>
+    prev ? { ...prev, streamingLabel: label } : prev,
+  );
+}
+
+function handleBudgetChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'budget' }>,
+): void {
+  if (!payload.breakdown || !ctx.onBudget) return;
+  ctx.onBudget(payload.breakdown);
+}
+
+function handleCompactionChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'compaction' }>,
+): void {
+  ctx.onCompaction?.({
+    tokensBefore: payload.tokensBefore,
+    tokensAfter: payload.tokensAfter,
+    summaryPreview: payload.summaryPreview,
+    automatic: payload.automatic,
+  });
+  ctx.setStreamingMessage((prev) =>
+    prev ? { ...prev, streamingLabel: ctx.t('chat.compacting_context') } : prev,
+  );
+}
+
+function handleUsageChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'usage' }>,
+): void {
+  if (!payload.usage || !ctx.onUsage) return;
+  ctx.onUsage(payload.usage, !!payload.partial);
+}
+
+function handleTextChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'text' }>,
+): void {
+  if (!payload.text) return;
+  ctx.onStreamingActivity?.();
+  const label = ctx.t('chat.generating_response');
+  ctx.setStreamingMessage((prev) =>
+    prev
+      ? {
+          ...prev,
+          content: `${prev.content ?? ''}${payload.text ?? ''}`,
+          streamingLabel: label,
+        }
+      : newStreamingAssistantMessage(payload.runId, payload.text ?? '', label),
+  );
+}
+
+function handleThinkingChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'thinking' }>,
+): void {
+  if (!payload.text) return;
+  const label = ctx.t('chat.thinking');
+  ctx.setStreamingMessage((prev) =>
+    prev
+      ? {
+          ...prev,
+          thinking: `${prev.thinking || ''}${payload.text}`,
+          streamingLabel: prev.content?.trim() ? prev.streamingLabel : label,
+        }
+      : newStreamingAssistantMessage(payload.runId, '', label, { thinking: payload.text }),
+  );
+}
+
+function handleToolCallChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'tool_call' }>,
+): void {
+  if (!payload.toolCall) return;
+  ctx.onStreamingActivity?.();
+  const tc = payload.toolCall;
+  let parsedArgs: Record<string, unknown> = {};
+  try {
+    parsedArgs = typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : {};
+  } catch {
+    parsedArgs = {};
+  }
+  ctx.setStreamingMessage((prev) =>
+    applyToolCallUpdate(
+      prev,
+      payload.runId,
+      payload.agentName,
+      parsedArgs,
+      tc,
+      ctx.t,
+    ),
+  );
+}
+
+function handleToolResultChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'tool_result' }>,
+): void {
+  if (!payload.toolCallId) return;
+  ctx.setStreamingMessage((prev) => {
+    if (!prev?.toolCalls) return prev;
+    return {
+      ...prev,
+      toolCalls: applyToolResultChunk(
+        prev.toolCalls,
+        String(payload.toolCallId),
+        payload.result,
+        payload.isError === true,
+      ),
+    };
+  });
+}
+
+function handleInterruptChunk(
+  ctx: ChunkContext,
+  payload: Extract<RunChunkPayload, { type: 'interrupt' }>,
+): void {
+  if (
+    !Array.isArray(payload.actionRequests) ||
+    payload.actionRequests.length === 0 ||
+    !ctx.setPendingApproval
+  ) {
+    return;
+  }
+  ctx.setPendingApproval({
+    actionRequests: payload.actionRequests,
+    reviewConfigs: Array.isArray(payload.reviewConfigs) ? payload.reviewConfigs : [],
+    submitResume: (decisions) => {
+      void resumeRun(payload.runId, decisions as Array<unknown>);
+    },
+  });
+  ctx.setStreamingMessage((prev) =>
+    prev
+      ? { ...prev, streamingLabel: ctx.t('chat.waiting_approval'), isStreaming: false }
+      : prev,
+  );
 }
 
 function applyToolCallUpdate(
