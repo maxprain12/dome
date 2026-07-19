@@ -70,7 +70,7 @@ function greetingKey(): string {
   return 'dashboard.greeting_evening';
 }
 
-/** Native button for Item rows — avoid shadcn Button h-7; force a stable list-row layout. */
+/** Button-as-Item rows: override default Button h-7 for a stable list-row layout. */
 const LIST_ITEM_BUTTON_CLASS = cn(
   'h-auto min-h-11 w-full flex-nowrap items-center justify-start gap-3',
   'whitespace-normal py-2.5 text-left',
@@ -633,7 +633,7 @@ export default function DashboardView() {
                       variant="muted"
                       size="sm"
                       className={cn(LIST_ITEM_BUTTON_CLASS, 'hover:bg-muted')}
-                      render={<button type="button" />}
+                      render={<Button type="button" variant="ghost" />}
                       onClick={() => openActivity(item)}
                     >
                       <ItemMedia variant="icon">
@@ -703,7 +703,7 @@ export default function DashboardView() {
                         variant="muted"
                         size="sm"
                         className={cn(LIST_ITEM_BUTTON_CLASS, 'hover:bg-muted')}
-                        render={<button type="button" />}
+                        render={<Button type="button" variant="ghost" />}
                         onClick={() => openPending(item)}
                       >
                         <ItemContent>
@@ -761,7 +761,7 @@ export default function DashboardView() {
                       variant="muted"
                       size="sm"
                       className={cn(LIST_ITEM_BUTTON_CLASS, 'hover:bg-muted')}
-                      render={<button type="button" />}
+                      render={<Button type="button" variant="ghost" />}
                       onClick={() => setCurrentProject(project)}
                     >
                       <ItemMedia variant="icon">
