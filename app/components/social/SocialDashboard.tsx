@@ -6,25 +6,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
-import {
-  Building2Icon,
-  InstagramIcon,
-  Linkedin01Icon,
-  SparklesIcon,
-  TwitterIcon,
-} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import type {
   SocialAccount,
   SocialCampaign,
   SocialGrowthAccount,
   SocialPost,
-  SocialProvider,
-  SocialReport,
 } from '@/components/social/socialTypes';
-import SocialGrowthCards from '@/components/social/SocialGrowthCards';
-import { SocialInsightsStrip } from '@/components/social/SocialInsightsStrip';
 import {
   buildSocialQueues,
   computeSocialStats,
@@ -33,16 +23,8 @@ import {
   type SocialFilter,
   type SocialReplyDraft,
 } from '@/lib/social/socialQueues';
-import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { SocialStats } from './SocialStats';
 import { SocialCampaignSection, SocialQueueSection } from './SocialQueueSection';
-import { cn } from '@/lib/utils';
-
-const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
-  linkedin: Linkedin01Icon,
-  instagram: InstagramIcon,
-  x: TwitterIcon,
-};
 
 function accountLabel(acc: SocialAccount): string {
   const handle = (acc.handle || '').trim();
@@ -63,7 +45,6 @@ export function SocialDashboard({
   filter,
   onFilter,
   focusAccountId,
-  onFocusAccount,
   selectedId,
   selectedCampaignId,
   onOpenPost,
@@ -76,7 +57,6 @@ export function SocialDashboard({
   onAskManyDraft,
   onPollComments,
   onConnectAccounts,
-  onOpenReport,
   compact,
 }: {
   posts: SocialPost[];
@@ -88,7 +68,6 @@ export function SocialDashboard({
   filter: SocialFilter;
   onFilter: (f: SocialFilter) => void;
   focusAccountId: string | null;
-  onFocusAccount: (accountId: string | null) => void;
   selectedId?: string | null;
   selectedCampaignId?: string | null;
   onOpenPost: (post: SocialPost) => void;
@@ -101,7 +80,6 @@ export function SocialDashboard({
   onAskManyDraft: () => void;
   onPollComments: () => void;
   onConnectAccounts: () => void;
-  onOpenReport: (report: SocialReport) => void;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
@@ -161,149 +139,52 @@ export function SocialDashboard({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className={compact ? 'shrink-0 gap-y-2 p-2 pb-0' : 'shrink-0 gap-y-3 p-4 pb-0'}>
-        {!compact ? (
-          <>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {accounts.length === 0 ? (
-                <Button type="button" size="xs" variant="outline" onClick={onConnectAccounts}>
-                  {t('social.hub.manage_accounts')}
-                </Button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    data-active={focusAccountId == null ? 'true' : undefined}
-                    className={selectionSurfaceClass(
-                      focusAccountId == null,
-                      'inline-flex h-7 items-center px-2.5 text-xs',
-                      { shape: 'chip' },
-                    )}
-                    onClick={() => onFocusAccount(null)}
-                  >
-                    {t('social.agent_presence_all')}
-                  </button>
-                  {accounts.map((acc) => {
-                    const icon =
-                      acc.provider === 'linkedin' && acc.accountKind === 'organization'
-                        ? Building2Icon
-                        : PROVIDER_ICONS[acc.provider];
-                    const active = focusAccountId === acc.id;
-                    return (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        data-active={active ? 'true' : undefined}
-                        className={cn(
-                          selectionSurfaceClass(active, 'inline-flex h-7 max-w-[12rem] items-center gap-1 px-2.5 text-xs', {
-                            shape: 'chip',
-                          }),
-                          !active && 'border-border',
-                          acc.status !== 'active' && 'border-destructive/40 text-destructive',
-                        )}
-                        title={`${acc.provider} · ${accountLabel(acc)}`}
-                        onClick={() => onFocusAccount(active ? null : acc.id)}
-                      >
-                        <HugeiconsIcon icon={icon} className="size-3.5 shrink-0" />
-                        <span className="truncate">{accountLabel(acc)}</span>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
-            </div>
+      <div className={compact ? 'shrink-0 flex flex-col gap-y-2 p-2 pb-0' : 'shrink-0 flex flex-col gap-y-3 p-4 pb-0'}>
+        {accounts.length === 0 ? (
+          <Button type="button" size="xs" variant="outline" className="w-fit" onClick={onConnectAccounts}>
+            {t('social.hub.manage_accounts')}
+          </Button>
+        ) : null}
 
-            {accounts.length > 0 ? (
-              <SocialGrowthCards
-                accounts={scopedGrowth.length > 0 ? scopedGrowth : growth}
-                focusAccountId={focusAccountId}
-                onFocusAccount={onFocusAccount}
-              />
-            ) : null}
+        {!compact ? <p className="text-sm text-muted-foreground">{briefingHint}</p> : null}
 
-            <p className="text-sm text-muted-foreground">{briefingHint}</p>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <SocialStats
-                drafts={stats.drafts}
-                scheduled={stats.scheduled}
-                attention={stats.attention}
-                campaigns={activeCampaigns.length}
-                recent={queues.recentPublished.length}
-                activeFilter={filter === 'analytics' ? 'all' : filter}
-                onFilter={onFilter}
-              />
-              <div className="flex flex-wrap items-center gap-1">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={<Button type="button" size="xs" variant="secondary" />}
-                  >
-                    <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
-                    {t('social.agent_ask_many')}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={onAskManyGrowth}>
-                      {t('social.agent_action_growth')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onAskManyCampaign}>
-                      {t('social.agent_action_campaign')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onAskManyDraft}>
-                      {t('social.agent_action_draft')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button type="button" size="xs" variant="ghost" onClick={onPollComments}>
-                  {t('social.hub.poll_comments')}
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SocialStats
+            drafts={stats.drafts}
+            scheduled={stats.scheduled}
+            attention={stats.attention}
+            campaigns={activeCampaigns.length}
+            recent={queues.recentPublished.length}
+            activeFilter={filter === 'analytics' ? 'all' : filter}
+            onFilter={onFilter}
+          />
+          {!compact ? (
             <div className="flex flex-wrap items-center gap-1">
-              <button
-                type="button"
-                data-active={focusAccountId == null ? 'true' : undefined}
-                className={selectionSurfaceClass(
-                  focusAccountId == null,
-                  'inline-flex h-7 items-center px-2.5 text-xs',
-                  { shape: 'chip' },
-                )}
-                onClick={() => onFocusAccount(null)}
-              >
-                {t('social.agent_presence_all')}
-              </button>
-              {accounts.map((acc) => {
-                const active = focusAccountId === acc.id;
-                return (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    data-active={active ? 'true' : undefined}
-                    className={selectionSurfaceClass(
-                      active,
-                      'inline-flex h-7 max-w-[8rem] items-center px-2.5 text-xs',
-                      { shape: 'chip' },
-                    )}
-                    onClick={() => onFocusAccount(active ? null : acc.id)}
-                  >
-                    <span className="truncate">{accountLabel(acc)}</span>
-                  </button>
-                );
-              })}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button type="button" size="xs" variant="secondary" />}
+                >
+                  <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+                  {t('social.agent_ask_many')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={onAskManyGrowth}>
+                    {t('social.agent_action_growth')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onAskManyCampaign}>
+                    {t('social.agent_action_campaign')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onAskManyDraft}>
+                    {t('social.agent_action_draft')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button type="button" size="xs" variant="ghost" onClick={onPollComments}>
+                {t('social.hub.poll_comments')}
+              </Button>
             </div>
-            <SocialStats
-              drafts={stats.drafts}
-              scheduled={stats.scheduled}
-              attention={stats.attention}
-              campaigns={activeCampaigns.length}
-              recent={queues.recentPublished.length}
-              activeFilter={filter === 'analytics' ? 'all' : filter}
-              onFilter={onFilter}
-            />
-          </div>
-        )}
+          ) : null}
+        </div>
 
         {query.trim() ? (
           <p className="px-1 text-xs text-muted-foreground">
@@ -423,7 +304,6 @@ export function SocialDashboard({
           />
         ) : null}
 
-        {!compact ? <SocialInsightsStrip onOpenReport={onOpenReport} /> : null}
       </div>
     </div>
   );

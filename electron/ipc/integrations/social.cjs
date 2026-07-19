@@ -107,15 +107,32 @@ const ReportConfigSchema = z.object({
   language: z.enum(['es', 'en', 'fr', 'pt']).optional(),
 });
 const EventCardIdSchema = z.object({ cardId: z.string().uuid() });
+const EventCardFontWeightSchema = z.enum(['400', '500', '600', '700']);
+/** URL or empty/null (UI clears fields before serialize). */
+const OptionalUrlSchema = z.union([z.string().url(), z.literal(''), z.null()]).optional();
 const EventCardDesignSchema = z.object({
-  brandName: z.string().max(200).optional(), logoUrl: z.string().url().nullable().optional(),
-  coverUrl: z.string().url().nullable().optional(), primaryColor: z.string().max(40).optional(), secondaryColor: z.string().max(40).optional(),
+  brandName: z.string().max(200).optional(),
+  logoUrl: OptionalUrlSchema,
+  coverUrl: OptionalUrlSchema,
+  backgroundColor: z.string().max(40).optional(),
+  foregroundColor: z.string().max(40).optional(),
+  labelColor: z.string().max(40).optional(),
+  /** Legacy Provider aliases */
+  primaryColor: z.string().max(40).optional(),
+  secondaryColor: z.string().max(40).optional(),
+  titleFont: z.string().max(40).optional(),
+  bodyFont: z.string().max(40).optional(),
+  titleWeight: EventCardFontWeightSchema.optional(),
+  bodyWeight: EventCardFontWeightSchema.optional(),
+  layout: z.enum(['classic', 'hero', 'split_qr', 'compact']).optional(),
+  qrStyle: z.enum(['square', 'rounded']).optional(),
+  showQr: z.boolean().optional(),
 });
 const EventCardInputSchema = z.object({
   internalName: z.string().min(1).max(200), title: z.string().min(1).max(300), description: z.string().max(5000).nullable().optional(),
   organizer: z.string().max(300).nullable().optional(), startsAt: z.string().datetime(), endsAt: z.string().datetime(), timezone: z.string().min(1).max(100),
   venueName: z.string().max(300).nullable().optional(), address: z.string().max(1000).nullable().optional(), latitude: z.number().min(-90).max(90).nullable().optional(), longitude: z.number().min(-180).max(180).nullable().optional(),
-  ctaLabel: z.string().max(120).nullable().optional(), ctaUrl: z.string().url().nullable().optional(), design: EventCardDesignSchema.default({}),
+  ctaLabel: z.string().max(120).nullable().optional(), ctaUrl: OptionalUrlSchema, design: EventCardDesignSchema.default({}),
 });
 const EventCardUpdateSchema = z.object({ cardId: z.string().uuid(), patch: EventCardInputSchema.partial() });
 const EventUpdateInputSchema = z.object({ cardId: z.string().uuid(), message: z.string().min(1).max(2000), scheduledAt: z.string().datetime().nullable().optional() });
@@ -250,8 +267,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   // Media pickers — local files (native dialog) and vault image/video resources
   ipcMain.handle('social:media:pick', wrap(null, async () => {
     const { dialog } = require('electron');
-    const path = require('path');
-    const fs = require('fs');
+    const path = require('node:path');
+    const fs = require('node:fs');
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -275,7 +292,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
 
   ipcMain.handle('social:media:library', wrap(LibraryQuerySchema, ({ projectId }) => {
     const vaultStore = require('../../storage/vault-store.cjs');
-    const fs = require('fs');
+    const fs = require('node:fs');
     const queries = database.getQueries();
     const rows = queries.getResourcesByProject.all(projectId || 'default');
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -311,8 +328,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
 
   // Composer preview thumbnails (images only, size-capped data URL)
   ipcMain.handle('social:media:preview', wrap(MediaPreviewSchema, ({ path: filePath, resourceId }) => {
-    const fs = require('fs');
-    const path = require('path');
+    const fs = require('node:fs');
+    const path = require('node:path');
     const { IMAGE_EXTS } = require('../../social/social-media.cjs');
     let resolved = filePath || null;
     if (resourceId) {
@@ -457,7 +474,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     const exported = await eventCardsClient.exportCard(database, cardId, format);
     if (format === 'url' || format === 'snippet') return { content: exported.toString('utf8') };
     const { dialog } = require('electron');
-    const fs = require('fs');
+    const fs = require('node:fs');
     const extension = format === 'qr-svg' ? 'svg' : format === 'qr-png' ? 'png' : 'pdf';
     const result = await dialog.showSaveDialog({ defaultPath: `evento.${extension}` });
     if (result.canceled || !result.filePath) return { cancelled: true };

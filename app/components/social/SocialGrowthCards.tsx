@@ -12,6 +12,7 @@ import {
 import type { SocialGrowthAccount, SocialProvider } from '@/components/social/socialTypes';
 import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 import { cn } from '@/lib/utils';
+import { SOCIAL_KPI_CARD_CLASS, SOCIAL_KPI_STRIP_CLASS } from './socialKpiLayout';
 
 const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
   linkedin: Linkedin01Icon,
@@ -38,7 +39,7 @@ export default function SocialGrowthCards({
   }
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-0.5">
+    <div className={SOCIAL_KPI_STRIP_CLASS}>
       {accounts.map((acc) => {
         const icon =
           acc.provider === 'linkedin' && acc.accountKind === 'organization'
@@ -79,10 +80,7 @@ export default function SocialGrowthCards({
             }
             data-active={active ? 'true' : undefined}
             className={cn(
-              selectionSurfaceClass(
-                active,
-                'flex min-w-[8.5rem] max-w-[11rem] shrink-0 flex-col gap-0.5 px-2.5 py-2 text-left',
-              ),
+              selectionSurfaceClass(active, SOCIAL_KPI_CARD_CLASS),
               !active && 'border-border bg-card',
             )}
           >
@@ -91,7 +89,7 @@ export default function SocialGrowthCards({
               <span className="truncate text-xs font-medium text-foreground">{label}</span>
             </span>
             {acc.latest?.followers != null ? (
-              <span className="flex flex-col gap-0.5">
+              <span className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
                 <span className="flex items-baseline gap-1.5">
                   <span className="text-base font-semibold tabular-nums text-foreground">
                     {Intl.NumberFormat().format(acc.latest.followers)}
@@ -104,7 +102,7 @@ export default function SocialGrowthCards({
                   </span>
                 </span>
                 {acc.latest.following != null ? (
-                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                  <span className="truncate text-[11px] text-muted-foreground tabular-nums">
                     {acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'member'
                       ? t('social.hub.growth_connections', {
                           defaultValue: 'conexiones',
@@ -114,13 +112,13 @@ export default function SocialGrowthCards({
                   </span>
                 ) : null}
                 {acc.latest.postsCount != null ? (
-                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                  <span className="truncate text-[11px] text-muted-foreground tabular-nums">
                     {t('social.hub.growth_posts')}: {Intl.NumberFormat().format(acc.latest.postsCount)}
                   </span>
                 ) : null}
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground">
+              <span className="flex flex-1 items-end text-xs text-muted-foreground">
                 {unavailable ? t('social.agent_presence_na') : t('social.hub.growth_pending')}
               </span>
             )}

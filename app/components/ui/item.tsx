@@ -67,7 +67,8 @@ function Item({
     defaultTagName: "div",
     props: mergeProps<"div">(
       {
-        className: cn(itemVariants({ variant, size, className })),
+        // Merge className outside cva so twMerge can override flex-wrap/h-* etc.
+        className: cn(itemVariants({ variant, size }), className),
       },
       props
     ),

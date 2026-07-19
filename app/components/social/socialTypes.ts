@@ -88,6 +88,30 @@ export interface SocialPost {
   metrics?: SocialMetric | null;
 }
 
+export type EventCardLayout = 'classic' | 'hero' | 'split_qr' | 'compact';
+export type EventCardQrStyle = 'square' | 'rounded';
+export type EventCardFontWeight = '400' | '500' | '600' | '700';
+
+export interface EventCardDesign {
+  brandName?: string;
+  logoUrl?: string | null;
+  coverUrl?: string | null;
+  backgroundColor?: string;
+  foregroundColor?: string;
+  labelColor?: string;
+  /** Provider legacy alias for backgroundColor */
+  primaryColor?: string;
+  /** Provider legacy alias for labelColor */
+  secondaryColor?: string;
+  titleFont?: string;
+  bodyFont?: string;
+  titleWeight?: EventCardFontWeight;
+  bodyWeight?: EventCardFontWeight;
+  layout?: EventCardLayout;
+  qrStyle?: EventCardQrStyle;
+  showQr?: boolean;
+}
+
 export interface SocialEventCard {
   id: string;
   internalName: string;
@@ -107,7 +131,7 @@ export interface SocialEventCard {
   publicUrl: string | null;
   status: 'draft' | 'published' | 'archived';
   version: number;
-  design: { brandName?: string; logoUrl?: string; coverUrl?: string; primaryColor?: string; secondaryColor?: string };
+  design: EventCardDesign;
   walletStatus?: { appleConfigured: boolean; googleConfigured: boolean };
 }
 
