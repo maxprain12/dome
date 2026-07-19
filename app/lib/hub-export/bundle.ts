@@ -56,46 +56,52 @@ async function loadAgentsByIds(agentIds: string[]): Promise<ManyAgent[]> {
   return agents;
 }
 
+function addNonEmptyStrings(set: Set<string>, ids: readonly unknown[] | undefined): void {
+  if (!ids) return;
+  for (const id of ids) {
+    if (typeof id === 'string' && id.trim()) set.add(id.trim());
+  }
+}
+
+function addMcpIds(set: Set<string>, ids: readonly unknown[] | undefined): void {
+  if (!ids) return;
+  for (const id of ids) {
+    if (typeof id === 'string' && id.trim()) set.add(normalizeMcpServerId(id));
+  }
+}
+
+function collectAgentSkillAndMcpIds(agents: ManyAgent[]): {
+  skillIds: Set<string>;
+  mcpKeys: Set<string>;
+} {
+  const skillIds = new Set<string>();
+  const mcpKeys = new Set<string>();
+  for (const a of agents) {
+    addNonEmptyStrings(skillIds, a.skillIds);
+    addMcpIds(mcpKeys, a.mcpServerIds);
+  }
+  return { skillIds, mcpKeys };
+}
+
+async function loadSkillsByIds(skillIds: Set<string>): Promise<AISkillRecord[]> {
+  if (skillIds.size === 0 || !db.isAvailable()) return [];
+  const sk = await db.getAISkills();
+  if (!sk.success || !Array.isArray(sk.data)) return [];
+  const out: AISkillRecord[] = [];
+  for (const s of sk.data) {
+    if (skillIds.has(s.id)) out.push(deepClone(s));
+  }
+  return out;
+}
+
 async function resolveSkillsAndMcp(agents: ManyAgent[]): Promise<{
   skills: AISkillRecord[];
   mcpServers: MCPServerConfig[];
 }> {
-  const skillIdSet = new Set<string>();
-  const mcpKeySet = new Set<string>();
-  for (const a of agents) {
-    for (const sid of a.skillIds ?? []) {
-      if (typeof sid === 'string' && sid.trim()) skillIdSet.add(sid.trim());
-    }
-    for (const mid of a.mcpServerIds ?? []) {
-      if (typeof mid === 'string' && mid.trim()) mcpKeySet.add(normalizeMcpServerId(mid));
-    }
-  }
-
-  const skillsOut: AISkillRecord[] = [];
-  const mcpOut: MCPServerConfig[] = [];
-
-  if (!db.isAvailable()) return { skills: skillsOut, mcpServers: mcpOut };
-
-  if (skillIdSet.size > 0) {
-    const sk = await db.getAISkills();
-    if (sk.success && Array.isArray(sk.data)) {
-      for (const s of sk.data) {
-        if (skillIdSet.has(s.id)) skillsOut.push(deepClone(s));
-      }
-    }
-  }
-
-  if (mcpKeySet.size > 0) {
-    const mc = await db.getMcpServers();
-    if (mc.success && Array.isArray(mc.data)) {
-      for (const server of mc.data) {
-        const k = normalizeMcpServerId(server.name);
-        if (mcpKeySet.has(k)) mcpOut.push(deepClone(server));
-      }
-    }
-  }
-
-  return { skills: skillsOut, mcpServers: mcpOut };
+  const { skillIds, mcpKeys } = collectAgentSkillAndMcpIds(agents);
+  const skills = await loadSkillsByIds(skillIds);
+  const mcpServers = await resolveMcpByKeys(mcpKeys);
+  return { skills, mcpServers };
 }
 
 function collectMcpKeysFromAutomation(auto: AutomationDefinition): string[] {
