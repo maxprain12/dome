@@ -533,7 +533,6 @@ export function ChatToolCardGroup({
       : allSuccess
         ? 'success'
         : 'pending';
-  void surfaceVariant;
 
   return (
     <div className={cn('flex flex-col gap-1', className)}>
