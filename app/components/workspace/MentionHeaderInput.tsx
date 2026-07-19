@@ -274,7 +274,6 @@ export default function MentionHeaderInput({
         break;
       default: {
         const _exhaustive: never = item;
-        void _exhaustive;
       }
     }
   };
