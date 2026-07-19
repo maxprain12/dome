@@ -42,6 +42,20 @@ function applyJournalMode(db) {
   }
 }
 
+function ensureSocialPostEventCardIndex(db) {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(social_posts)`)
+      .all()
+      .map((column) => column.name);
+    if (columns.includes('event_card_id')) {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_posts_event_card ON social_posts(event_card_id)');
+    }
+  } catch (err) {
+    console.warn('[DB] Could not ensure idx_social_posts_event_card:', err?.message || err);
+  }
+}
+
 function createBaseSchema(db) {
   // Enable optimizations
   db.exec('PRAGMA foreign_keys = ON');
@@ -1840,7 +1854,8 @@ function createBaseSchema(db) {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_posts_status ON social_posts(status, scheduled_at)
   `);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_social_posts_event_card ON social_posts(event_card_id)`);
+  // Existing databases do not receive v70 columns until migrations run below.
+  ensureSocialPostEventCardIndex(db);
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_reports_created ON social_reports(created_at)
@@ -2132,4 +2147,4 @@ function createSyncTriggers(db) {
   `);
 }
 
-module.exports = { createBaseSchema, createSyncTriggers };
+module.exports = { createBaseSchema, createSyncTriggers, ensureSocialPostEventCardIndex };
