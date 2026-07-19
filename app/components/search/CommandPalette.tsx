@@ -62,6 +62,24 @@ function emailSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string,
   return hit.snippet || t('command.find_email_fallback');
 }
 
+function openPersonRow(
+  hit: SourceHitRow,
+  openGitHubTab: () => void,
+  openEmailTab: () => void,
+  openSocialTab: () => void,
+  closePalette: () => void,
+): void {
+  const identities = (hit.meta?.identities as Array<{ source?: string }> | undefined) || [];
+  if (identities.some((i) => i.source === 'github')) {
+    openGitHubTab();
+  } else if (identities.some((i) => i.source === 'email')) {
+    openEmailTab();
+  } else {
+    openSocialTab();
+  }
+  closePalette();
+}
+
 export default function CommandPalette() {
   const { t } = useTranslation();
   const currentProject = useAppStore((s) => s.currentProject);
@@ -335,13 +353,7 @@ export default function CommandPalette() {
           sourceId: hit.id,
           meta: hit.meta,
           snippet: hit.snippet,
-          run: () => {
-            const identities = (hit.meta?.identities as Array<{ source?: string }> | undefined) || [];
-            if (identities.some((i) => i.source === 'github')) openGitHubTab();
-            else if (identities.some((i) => i.source === 'email')) openEmailTab();
-            else openSocialTab();
-            close();
-          },
+          run: () => openPersonRow(hit, openGitHubTab, openEmailTab, openSocialTab, close),
         });
       });
     }
