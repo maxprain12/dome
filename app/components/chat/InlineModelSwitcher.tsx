@@ -51,6 +51,51 @@ function normalizeProvider(p: string): AIProviderType {
   return p as AIProviderType;
 }
 
+function resolveConfiguredProvider(rawProvider: unknown): AIProviderType {
+  let p = normalizeProvider(String(rawProvider));
+  if (p === 'dome' && !DOME_PROVIDER_ENABLED) {
+    p = 'openai';
+  }
+  return p;
+}
+
+async function loadOllamaModelIds(provider: AIProviderType): Promise<string[]> {
+  if (provider !== 'ollama' || !window.electron?.ollama?.listModels) {
+    return [];
+  }
+  try {
+    const res = await window.electron.ollama.listModels();
+    if (res?.success && Array.isArray(res.models)) {
+      return res.models.map((m: { name: string }) => m.name).filter(Boolean);
+    }
+  } catch {
+    // ignore: fall back to empty list
+  }
+  return [];
+}
+
+async function loadDynamicModelOptions(
+  provider: AIProviderType,
+  apiKey: string | undefined,
+): Promise<ModelOption[]> {
+  // Dome no usa API key: el main consulta el plan del usuario vía OAuth.
+  const canFetchModels =
+    DYNAMIC_FETCH_PROVIDERS.includes(provider) &&
+    (CATALOG_PROVIDERS.includes(provider) || provider === 'dome' || Boolean(apiKey));
+  if (!canFetchModels) {
+    return [];
+  }
+  try {
+    const res = await fetchProviderModels(provider, apiKey);
+    if (res?.success && Array.isArray(res.models)) {
+      return res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name }));
+    }
+  } catch {
+    // ignore: fall back to empty list
+  }
+  return [];
+}
+
 interface InlineModelSwitcherProps {
   /** When false, nothing is rendered. */
   enabled?: boolean;
@@ -76,51 +121,13 @@ export function InlineModelSwitcher({ enabled = true, dropDirection = 'above' }:
       setConfigProvider(null);
       return;
     }
-    let p = normalizeProvider(String(cfg.provider));
-    if (p === 'dome' && !DOME_PROVIDER_ENABLED) {
-      p = 'openai';
-    }
+    const p = resolveConfiguredProvider(cfg.provider);
     setConfigProvider(p);
-    const mid = p === 'ollama' ? (cfg.ollamaModel ?? '') : (cfg.model ?? '');
-    setCurrentModelId(mid);
-    const cm = await getCustomModelsByProvider();
-    setCustomMap(cm);
-    const visible = await getVisibleModelIds(p);
-    setVisibleIds(visible);
-    if (p === 'ollama' && window.electron?.ollama?.listModels) {
-      try {
-        const res = await window.electron.ollama.listModels();
-        if (res?.success && Array.isArray(res.models)) {
-          setOllamaIds(res.models.map((m: { name: string }) => m.name).filter(Boolean));
-        } else {
-          setOllamaIds([]);
-        }
-      } catch {
-        setOllamaIds([]);
-      }
-    } else {
-      setOllamaIds([]);
-    }
-
-    // Dome no usa API key: el main consulta el plan del usuario vía OAuth.
-    const key = cfg.apiKey?.trim();
-    const canFetchModels =
-      DYNAMIC_FETCH_PROVIDERS.includes(p) &&
-      (CATALOG_PROVIDERS.includes(p) || p === 'dome' || Boolean(key));
-    if (canFetchModels) {
-      try {
-        const res = await fetchProviderModels(p, key);
-        if (res?.success && Array.isArray(res.models)) {
-          setDynamicOpts(res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name })));
-        } else {
-          setDynamicOpts([]);
-        }
-      } catch {
-        setDynamicOpts([]);
-      }
-    } else {
-      setDynamicOpts([]);
-    }
+    setCurrentModelId(p === 'ollama' ? cfg.ollamaModel ?? '' : cfg.model ?? '');
+    setCustomMap(await getCustomModelsByProvider());
+    setVisibleIds(await getVisibleModelIds(p));
+    setOllamaIds(await loadOllamaModelIds(p));
+    setDynamicOpts(await loadDynamicModelOptions(p, cfg.apiKey?.trim()));
   }, []);
 
   useEffect(() => {
