@@ -147,6 +147,74 @@ async function repairInvalidManifestHashes(db, queries) {
   }
 }
 
+/**
+ * Fast in-memory + manifest-row dedupe before touching the disk: filename
+ * prefix (managed files), known file_hash (vault files), or already hashed
+ * this session.
+ * @returns {boolean}
+ */
+function isFastDeduped(resource, cacheKey, findByPrefix, findByHash) {
+  const prefix = resource.internal_path ? prefixFromInternalPath(resource.internal_path) : '';
+  if (prefix && findByPrefix.get(prefix)) return true;
+  if (resource.file_hash && findByHash.get(resource.file_hash)) return true;
+  return hashCache.has(cacheKey);
+}
+
+/**
+ * Backfill a legacy `file_hash` (16-char prefix) with the full sha256 so
+ * Companion can find the blob by file_hash on the wire. The bump on
+ * `updated_at` re-pushes the resource row through the `library` domain.
+ */
+function backfillLegacyFileHash(db, resource, hash) {
+  try {
+    db.prepare('UPDATE resources SET file_hash = ?, updated_at = ? WHERE id = ?')
+      .run(hash, Date.now(), resource.id);
+  } catch (err) {
+    console.warn('[blob-sync] file_hash backfill failed:', err?.message);
+  }
+}
+
+/**
+ * Hash (or trust) one resource, write the `vault_blobs` manifest row, and
+ * handle the legacy file_hash backfill. Returns whether a new row was
+ * inserted (used by `ingestLocalFiles` to bump its counter).
+ * @returns {Promise<boolean>}
+ */
+async function ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert) {
+  try {
+    // file_hash lo mantiene el vault-watcher y es lo que viaja en el wire
+    // (Companion busca el blob por él); solo es de fiar si es un sha256
+    // completo — los recursos legacy guardan un prefijo de 16 y el provider
+    // rechaza el batch entero si un hash no es de 64 hex.
+    const trustedHash = FULL_HASH_RE.test(String(resource.file_hash || '')) ? resource.file_hash : null;
+    const hash = trustedHash || (await computeFullHash(fullPath));
+    hashCache.set(cacheKey, hash);
+    pathByHash.set(hash, fullPath);
+    // Backfill: un file_hash legacy (16 chars, esquema antiguo) puede NO ser
+    // prefijo del sha256 real — Companion busca el blob por file_hash, así
+    // que sin corregirlo el recurso queda "no sincronizado" en el móvil.
+    if (!trustedHash && resource.file_hash && resource.file_hash !== hash) {
+      backfillLegacyFileHash(db, resource, hash);
+    }
+    if (findByHash.get(hash)) return false;
+    const size = fs.statSync(fullPath).size;
+    const now = Date.now();
+    const result = insert.run(
+      crypto.randomUUID(),
+      hash,
+      size,
+      resource.file_mime_type || null,
+      resource.original_filename || path.basename(fullPath),
+      now,
+      now,
+    );
+    return result.changes > 0;
+  } catch (err) {
+    console.warn('[blob-sync] ingest failed for', cacheKey, err?.message);
+    return false;
+  }
+}
+
 async function ingestLocalFiles(db, queries) {
   await repairInvalidManifestHashes(db, queries);
   const resources = db
@@ -170,51 +238,11 @@ async function ingestLocalFiles(db, queries) {
     const cacheKey = resource.vault_path
       ? `${resource.project_id}:${resource.vault_path}`
       : resource.internal_path;
-    // Fast dedupe without touching the disk: filename prefix (managed files),
-    // known file_hash (vault files), or already hashed this session.
-    const prefix = resource.internal_path ? prefixFromInternalPath(resource.internal_path) : '';
-    if (prefix && findByPrefix.get(prefix)) continue;
-    if (resource.file_hash && findByHash.get(resource.file_hash)) continue;
-    if (hashCache.has(cacheKey)) continue;
-
+    if (isFastDeduped(resource, cacheKey, findByPrefix, findByHash)) continue;
     const fullPath = resolveResourceAbsPath(resource, queries);
     if (!fullPath || !fs.existsSync(fullPath)) continue;
-    try {
-      // file_hash lo mantiene el vault-watcher y es lo que viaja en el wire
-      // (Companion busca el blob por él); solo es de fiar si es un sha256
-      // completo — los recursos legacy guardan un prefijo de 16 y el provider
-      // rechaza el batch entero si un hash no es de 64 hex.
-      const trustedHash = FULL_HASH_RE.test(String(resource.file_hash || '')) ? resource.file_hash : null;
-      const hash = trustedHash || (await computeFullHash(fullPath));
-      hashCache.set(cacheKey, hash);
-      pathByHash.set(hash, fullPath);
-      // Backfill: un file_hash legacy (16 chars, esquema antiguo) puede NO ser
-      // prefijo del sha256 real — Companion busca el blob por file_hash, así
-      // que sin corregirlo el recurso queda "no sincronizado" en el móvil.
-      // El bump de updated_at re-empuja la fila por el dominio library.
-      if (!trustedHash && resource.file_hash && resource.file_hash !== hash) {
-        try {
-          db.prepare('UPDATE resources SET file_hash = ?, updated_at = ? WHERE id = ?')
-            .run(hash, Date.now(), resource.id);
-        } catch (err) {
-          console.warn('[blob-sync] file_hash backfill failed:', err?.message);
-        }
-      }
-      if (findByHash.get(hash)) continue;
-      const size = fs.statSync(fullPath).size;
-      const now = Date.now();
-      const result = insert.run(
-        crypto.randomUUID(),
-        hash,
-        size,
-        resource.file_mime_type || null,
-        resource.original_filename || path.basename(fullPath),
-        now,
-        now,
-      );
-      if (result.changes > 0) ingested += 1;
-    } catch (err) {
-      console.warn('[blob-sync] ingest failed for', cacheKey, err?.message);
+    if (await ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert)) {
+      ingested += 1;
     }
   }
   if (ingested > 0) console.log(`[blob-sync] ingested ${ingested} new vault blobs`);
