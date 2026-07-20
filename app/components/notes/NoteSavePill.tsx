@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { enUS, es, fr, ptBR } from 'date-fns/locale';
 
@@ -24,6 +25,19 @@ interface NoteSavePillProps {
   lastSavedAt: number | null;
   dirtyHintCmdS?: boolean;
   onClickSave?: () => void;
+}
+
+function getStatusText(state: NoteSavePillState, savedText: string, t: TFunction) {
+  switch (state) {
+    case 'dirty':
+      return t('notes.save_dirty');
+    case 'saving':
+      return t('notes.save_saving');
+    case 'error':
+      return t('notes.save_error');
+    default:
+      return savedText;
+  }
 }
 
 export default function NoteSavePill({
@@ -58,14 +72,7 @@ export default function NoteSavePill({
       ? t('notes.save_saved_at', { time: timeLabel })
       : t('notes.save_saved_all');
 
-  const text =
-    state === 'dirty'
-      ? t('notes.save_dirty')
-      : state === 'saving'
-        ? t('notes.save_saving')
-        : state === 'error'
-          ? t('notes.save_error')
-          : savedText;
+  const text = getStatusText(state, savedText, t);
 
   const mod = navigator.platform?.toUpperCase()?.includes('MAC') ? '⌘S' : 'Ctrl+S';
 
