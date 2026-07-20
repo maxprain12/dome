@@ -40,6 +40,55 @@ function filenameForDoc(doc: Exclude<ContextDocId, 'daily'>): string {
   return `${doc}.md`;
 }
 
+function isCoreDoc(doc: ContextDocId): boolean {
+  return doc === 'SOUL' || doc === 'USER' || doc === 'MEMORY';
+}
+
+function supportsViewEditToggle(doc: ContextDocId, viewMode: ViewMode): boolean {
+  return viewMode === 'full' || doc === 'daily' || doc === 'social' || doc === 'email';
+}
+
+function shouldShowEditor(doc: ContextDocId, viewMode: ViewMode, editMode: EditMode): boolean {
+  return editMode === 'edit' && (viewMode === 'full' || doc === 'daily');
+}
+
+function shouldShowAgentViewHint(doc: ContextDocId, viewMode: ViewMode): boolean {
+  return viewMode === 'agent' && isCoreDoc(doc);
+}
+
+function shouldShowSaveButtons(doc: ContextDocId, viewMode: ViewMode, editMode: EditMode): boolean {
+  return editMode === 'edit' && supportsViewEditToggle(doc, viewMode);
+}
+
+function shouldShowDailyLogs(doc: ContextDocId, dailyLogs: DailyLog[]): boolean {
+  return doc === 'daily' && dailyLogs.length > 0;
+}
+
+function getCharLimit(doc: ContextDocId): number | null {
+  return doc !== 'daily' ? CONTEXT_LIMITS[doc as keyof typeof CONTEXT_LIMITS] : null;
+}
+
+function isOverLimit(charLimit: number | null, content: string): boolean {
+  return charLimit != null && content.length > charLimit * 1.1;
+}
+
+function applyPendingDoc(
+  pendingDoc: ContextDocId | null,
+  setEditMode: (mode: EditMode) => void,
+  setViewMode: (mode: ViewMode) => void,
+  setSelectedDoc: (doc: ContextDocId) => void,
+  setPendingDoc: (doc: ContextDocId | null) => void,
+): void {
+  if (!pendingDoc) {
+    setPendingDoc(null);
+    return;
+  }
+  setEditMode('view');
+  if (pendingDoc !== 'daily') setViewMode('full');
+  setSelectedDoc(pendingDoc);
+  setPendingDoc(null);
+}
+
 /** SOUL/USER/MEMORY + daily-log editor for the agent's persistent context files. */
 export default function AgentContextSettingsTab() {
   const { t } = useTranslation();
@@ -141,7 +190,7 @@ export default function AgentContextSettingsTab() {
       return;
     }
     setEditMode('view');
-    if (doc === 'SOUL' || doc === 'USER' || doc === 'MEMORY') setViewMode('full');
+    if (isCoreDoc(doc)) setViewMode('full');
     setSelectedDoc(doc);
   };
 
@@ -171,9 +220,8 @@ export default function AgentContextSettingsTab() {
     }
   };
 
-  const charLimit =
-    selectedDoc !== 'daily' ? CONTEXT_LIMITS[selectedDoc as keyof typeof CONTEXT_LIMITS] : null;
-  const overLimit = charLimit != null && draftContent.length > charLimit * 1.1;
+  const charLimit = getCharLimit(selectedDoc);
+  const overLimit = isOverLimit(charLimit, draftContent);
 
   const docOptions = [
     { value: 'SOUL' as const, label: t('settings.ai.context_doc_soul') },
@@ -216,7 +264,7 @@ export default function AgentContextSettingsTab() {
           </TabsList>
         </Tabs>
 
-        {selectedDoc === 'daily' && dailyLogs.length > 0 ? (
+        {shouldShowDailyLogs(selectedDoc, dailyLogs) ? (
           <div className="flex flex-wrap gap-2">
             {dailyLogs.map((log) => (
               <Button
@@ -232,7 +280,7 @@ export default function AgentContextSettingsTab() {
           </div>
         ) : null}
 
-        {selectedDoc === 'SOUL' || selectedDoc === 'USER' || selectedDoc === 'MEMORY' ? (
+        {isCoreDoc(selectedDoc) ? (
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
             <TabsList>
               <TabsTrigger value="full">{t('settings.ai.context_view_full')}</TabsTrigger>
@@ -242,7 +290,7 @@ export default function AgentContextSettingsTab() {
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
-          {viewMode === 'full' || selectedDoc === 'daily' || selectedDoc === 'social' || selectedDoc === 'email' ? (
+          {supportsViewEditToggle(selectedDoc, viewMode) ? (
             <>
               <Button
                 type="button"
@@ -266,11 +314,7 @@ export default function AgentContextSettingsTab() {
             <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
             {t('common.copy')}
           </Button>
-          {editMode === 'edit' &&
-          (viewMode === 'full' ||
-            selectedDoc === 'daily' ||
-            selectedDoc === 'social' ||
-            selectedDoc === 'email') ? (
+          {shouldShowSaveButtons(selectedDoc, viewMode, editMode) ? (
             <>
               <Button
                 type="button"
@@ -294,8 +338,7 @@ export default function AgentContextSettingsTab() {
           ) : null}
         </div>
 
-        {viewMode === 'agent' &&
-        (selectedDoc === 'SOUL' || selectedDoc === 'USER' || selectedDoc === 'MEMORY') ? (
+        {shouldShowAgentViewHint(selectedDoc, viewMode) ? (
           <Alert role="note">
             <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
             <AlertDescription className="text-xs">
@@ -328,7 +371,7 @@ export default function AgentContextSettingsTab() {
             <Spinner />
             {t('ui.loading')}
           </div>
-        ) : editMode === 'edit' && (viewMode === 'full' || selectedDoc === 'daily') ? (
+        ) : shouldShowEditor(selectedDoc, viewMode, editMode) ? (
           <Textarea
             value={draftContent}
             onChange={(e) => setDraftContent(e.target.value)}
@@ -347,14 +390,9 @@ export default function AgentContextSettingsTab() {
         isOpen={pendingDoc !== null}
         title={t('settings.ai.context_unsaved_confirm')}
         message={t('settings.ai.context_unsaved_confirm')}
-        onConfirm={() => {
-          if (pendingDoc) {
-            setEditMode('view');
-            if (pendingDoc !== 'daily') setViewMode('full');
-            setSelectedDoc(pendingDoc);
-          }
-          setPendingDoc(null);
-        }}
+        onConfirm={() =>
+          applyPendingDoc(pendingDoc, setEditMode, setViewMode, setSelectedDoc, setPendingDoc)
+        }
         onCancel={() => setPendingDoc(null)}
       />
     </SettingsGroup>
