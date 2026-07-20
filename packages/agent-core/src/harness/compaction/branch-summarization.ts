@@ -121,43 +121,62 @@ function getMessageFromEntry(entry: SessionTreeEntry): AgentMessage | undefined 
 	}
 }
 
+/** Append the read/modified file lists from a branch-summary entry into the accumulator. */
+function appendBranchSummaryFiles(fileOps: FileOperations, details: BranchSummaryDetails): void {
+	if (Array.isArray(details.readFiles)) {
+		for (const f of details.readFiles) fileOps.read.add(f);
+	}
+	if (Array.isArray(details.modifiedFiles)) {
+		for (const f of details.modifiedFiles) {
+			fileOps.edited.add(f);
+		}
+	}
+}
+
+/** Collect read/modified files reported on non-hook branch-summary entries. */
+function collectBranchSummaryFiles(entry: SessionTreeEntry, fileOps: FileOperations): void {
+	if (entry.type !== "branch_summary" || entry.fromHook || !entry.details) return;
+	appendBranchSummaryFiles(fileOps, entry.details as BranchSummaryDetails);
+}
+
+/** Decide whether a candidate message fits in the remaining token budget. */
+function evaluateBudgetEntry(
+	message: AgentMessage,
+	entry: SessionTreeEntry,
+	tokenBudget: number,
+	totalTokens: number,
+): { include: boolean; stop: boolean; tokens: number } {
+	const tokens = estimateTokens(message);
+	if (tokenBudget <= 0 || totalTokens + tokens <= tokenBudget) {
+		return { include: true, stop: false, tokens };
+	}
+	const isPinnedSummary = entry.type === "compaction" || entry.type === "branch_summary";
+	const fitsHeadroom = totalTokens < tokenBudget * 0.9;
+	return { include: isPinnedSummary && fitsHeadroom, stop: true, tokens };
+}
+
 /** Prepare branch entries for summarization within an optional token budget. */
 export function prepareBranchEntries(entries: SessionTreeEntry[], tokenBudget: number = 0): BranchPreparation {
 	const messages: AgentMessage[] = [];
 	const fileOps = createFileOps();
 	let totalTokens = 0;
+
 	for (const entry of entries) {
-		if (entry.type === "branch_summary" && !entry.fromHook && entry.details) {
-			const details = entry.details as BranchSummaryDetails;
-			if (Array.isArray(details.readFiles)) {
-				for (const f of details.readFiles) fileOps.read.add(f);
-			}
-			if (Array.isArray(details.modifiedFiles)) {
-				for (const f of details.modifiedFiles) {
-					fileOps.edited.add(f);
-				}
-			}
-		}
+		collectBranchSummaryFiles(entry, fileOps);
 	}
+
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i];
 		const message = getMessageFromEntry(entry);
 		if (!message) continue;
 		extractFileOpsFromMessage(message, fileOps);
 
-		const tokens = estimateTokens(message);
-		if (tokenBudget > 0 && totalTokens + tokens > tokenBudget) {
-			if (entry.type === "compaction" || entry.type === "branch_summary") {
-				if (totalTokens < tokenBudget * 0.9) {
-					messages.unshift(message);
-					totalTokens += tokens;
-				}
-			}
-			break;
+		const decision = evaluateBudgetEntry(message, entry, tokenBudget, totalTokens);
+		if (decision.include) {
+			messages.unshift(message);
+			totalTokens += decision.tokens;
 		}
-
-		messages.unshift(message);
-		totalTokens += tokens;
+		if (decision.stop) break;
 	}
 
 	return { messages, fileOps, totalTokens };
