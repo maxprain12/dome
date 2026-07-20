@@ -193,7 +193,7 @@
     "@tiptap/y-tiptap": "^3.0.3",
     "adm-zip": "^0.6.0",
     "apache-arrow": "^18.1.0",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "better-sqlite3": "^12.6.2",
     "cheerio": "^1.1.2",
     "chokidar": "^5.0.0",
