@@ -1284,9 +1284,11 @@ export async function chatWithTools(
     subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>;
   },
 ): Promise<{ response: string; toolResults: Array<{ tool: string; result: unknown }>; thinking?: string }> {
-  let fullResponse = '';
-  let fullThinking = '';
-  const toolResultsMap = new Map<string, { tool: string; result: unknown }>();
+  const state = {
+    fullResponse: '',
+    fullThinking: '',
+    toolResultsMap: new Map<string, { tool: string; result: unknown }>(),
+  };
 
   for await (const chunk of chatWithToolsStream(messages, tools, {
     signal: options?.signal,
@@ -1296,19 +1298,45 @@ export async function chatWithTools(
     subagentIds: options?.subagentIds,
   })) {
     if (options?.signal?.aborted) break;
-    if (chunk.type === 'thinking' && chunk.text) fullThinking += chunk.text;
-    if (chunk.type === 'text' && chunk.text) fullResponse += chunk.text;
-    if (chunk.type === 'tool_call' && chunk.toolCall) {
-      toolResultsMap.set(chunk.toolCall.id, { tool: chunk.toolCall.name, result: { toolCall: chunk.toolCall } });
-    }
-    if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
-      const entry = toolResultsMap.get(chunk.toolCallId);
-      if (entry) entry.result = chunk.result ?? '';
-    }
+    accumulateToolChunk(chunk, state);
   }
 
-  const toolResults = Array.from(toolResultsMap.values());
-  return { response: fullResponse, toolResults, thinking: fullThinking || undefined };
+  const toolResults = Array.from(state.toolResultsMap.values());
+  return { response: state.fullResponse, toolResults, thinking: state.fullThinking || undefined };
+}
+
+/**
+ * Mutates `state` by accumulating one chunk from chatWithToolsStream into the
+ * response, thinking, and tool-results buffers. Pulled out of chatWithTools to
+ * keep its cognitive complexity within the allowed threshold.
+ */
+function accumulateToolChunk(
+  chunk: ChatStreamChunk,
+  state: {
+    fullResponse: string;
+    fullThinking: string;
+    toolResultsMap: Map<string, { tool: string; result: unknown }>;
+  },
+): void {
+  if (chunk.type === 'thinking' && chunk.text) {
+    state.fullThinking += chunk.text;
+    return;
+  }
+  if (chunk.type === 'text' && chunk.text) {
+    state.fullResponse += chunk.text;
+    return;
+  }
+  if (chunk.type === 'tool_call' && chunk.toolCall) {
+    state.toolResultsMap.set(chunk.toolCall.id, {
+      tool: chunk.toolCall.name,
+      result: { toolCall: chunk.toolCall },
+    });
+    return;
+  }
+  if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
+    const entry = state.toolResultsMap.get(chunk.toolCallId);
+    if (entry) entry.result = chunk.result ?? '';
+  }
 }
 
 // =============================================================================
