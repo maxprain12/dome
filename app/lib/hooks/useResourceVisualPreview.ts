@@ -108,6 +108,57 @@ function parseMeta(metadata: unknown): Record<string, unknown> {
   return {};
 }
 
+function extractImageUrl(
+  resource: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+): string | null {
+  const thumb = resource.thumbnail_data;
+  if (typeof thumb === 'string' && thumb.trim()) return thumb;
+
+  for (const key of ['preview_image', 'thumbnail', 'og_image', 'cover'] as const) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+
+  if (resource.type === 'image' && typeof resource.file_path === 'string' && resource.file_path) {
+    return resource.file_path;
+  }
+  return null;
+}
+
+function extractSnippet(
+  resource: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+): string | null {
+  let snippet: string | null = null;
+  for (const key of ['summary', 'description', 'excerpt', 'snippet', 'preview_text'] as const) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) {
+      snippet = value.trim();
+      break;
+    }
+  }
+  if (!snippet && typeof resource.content_text === 'string' && resource.content_text.trim()) {
+    snippet = resource.content_text.trim();
+  }
+  if (!snippet && typeof resource.content === 'string' && resource.content.trim()) {
+    snippet = stripToPlainText(resource.content);
+  }
+  if (snippet && snippet.length > SNIPPET_MAX) return `${snippet.slice(0, SNIPPET_MAX - 1)}…`;
+  return snippet;
+}
+
+async function extractMarkdown(resource: Record<string, unknown>): Promise<string | null> {
+  let markdown: string | null = null;
+  if (resource.type === 'note') {
+    try {
+      const noteMarkdown = await loadNoteMarkdown(resource as unknown as Resource);
+      markdown = noteMarkdown?.trim() ? noteMarkdown.trim().slice(0, MARKDOWN_MAX) : null;
+    } catch { /* fall back to content-based detection */ }
+  }
+  return markdown || extractMarkdownSource(resource.content);
+}
+
 async function fetchResourceDetail(resourceId: string): Promise<ResourceDetailPreview | null> {
   const cached = detailCache.get(resourceId);
   if (cached) return cached;
@@ -123,47 +174,13 @@ async function fetchResourceDetail(resourceId: string): Promise<ResourceDetailPr
       const r = (result as { data?: Record<string, unknown> }).data;
       if (!r) return null;
       const meta = parseMeta(r.metadata);
-
-      // Thumbnail / cover image.
-      let imageUrl: string | null = null;
-      const thumb = r.thumbnail_data;
-      if (typeof thumb === 'string' && thumb.trim()) {
-        imageUrl = thumb;
-      } else {
-        for (const key of ['preview_image', 'thumbnail', 'og_image', 'cover'] as const) {
-          const v = meta[key];
-          if (typeof v === 'string' && v.trim()) { imageUrl = v.trim(); break; }
-        }
-        if (!imageUrl && r.type === 'image' && typeof r.file_path === 'string' && r.file_path) {
-          imageUrl = r.file_path;
-        }
-      }
-
-      // Text snippet.
-      let snippet: string | null = null;
-      for (const key of ['summary', 'description', 'excerpt', 'snippet', 'preview_text'] as const) {
-        const v = meta[key];
-        if (typeof v === 'string' && v.trim()) { snippet = v.trim(); break; }
-      }
-      if (!snippet && typeof r.content_text === 'string' && r.content_text.trim()) {
-        snippet = r.content_text.trim();
-      }
-      if (!snippet && typeof r.content === 'string' && r.content.trim()) {
-        snippet = stripToPlainText(r.content);
-      }
-      if (snippet && snippet.length > SNIPPET_MAX) snippet = `${snippet.slice(0, SNIPPET_MAX - 1)}…`;
+      const imageUrl = extractImageUrl(r, meta);
+      const snippet = extractSnippet(r, meta);
 
       // Notes keep their Markdown in the vault `.md` mirror (DB `content` is
       // empty) — load it through the same path the editor uses so the card
       // preview matches what the editor renders.
-      let markdown: string | null = null;
-      if (r.type === 'note') {
-        try {
-          const md = await loadNoteMarkdown(r as unknown as Resource);
-          markdown = md?.trim() ? md.trim().slice(0, MARKDOWN_MAX) : null;
-        } catch { /* fall back to content-based detection */ }
-      }
-      if (!markdown) markdown = extractMarkdownSource(r.content);
+      const markdown = await extractMarkdown(r);
 
       const detail: ResourceDetailPreview = {
         imageUrl,

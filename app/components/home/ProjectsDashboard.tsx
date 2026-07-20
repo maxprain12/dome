@@ -419,6 +419,27 @@ function BulkDeleteProjectsDialog({
   );
 }
 
+type EmptyProjectsProps = {
+  query: string;
+  onCreate: () => void;
+};
+
+function EmptyProjects({ query, onCreate }: EmptyProjectsProps) {
+  const { t } = useTranslation();
+
+  return (
+    <Card className="items-center py-12 text-center shadow-sm">
+      <CardContent className="flex flex-col items-center gap-3">
+        <HugeiconsIcon icon={Folder01Icon} className="size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {query ? t('command.no_results', { query }) : t('projects.empty')}
+        </p>
+        {!query ? <Button type="button" onClick={onCreate}>{t('projects.create_project')}</Button> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ProjectsDashboard({
   currentProject,
   onSelectProject,
@@ -807,13 +828,7 @@ export default function ProjectsDashboard({
                 {[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-44" />)}
               </div>
             ) : filteredProjects.length === 0 ? (
-              <Card className="items-center py-12 text-center shadow-sm">
-                <CardContent className="flex flex-col items-center gap-3">
-                  <HugeiconsIcon icon={Folder01Icon} className="size-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">{projectQuery ? t('command.no_results', { query: projectQuery }) : t('projects.empty')}</p>
-                  {!projectQuery ? <Button type="button" onClick={() => setShowCreateForm(true)}>{t('projects.create_project')}</Button> : null}
-                </CardContent>
-              </Card>
+              <EmptyProjects query={projectQuery} onCreate={() => setShowCreateForm(true)} />
             ) : (
               <div className={viewMode === 'grid' ? 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3' : 'flex flex-col gap-3'}>
                 {filteredProjects.map((project) => (
