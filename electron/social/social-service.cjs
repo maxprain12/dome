@@ -197,6 +197,32 @@ function createSocialService(database, windowManager) {
     return { total: posts.length, refreshed, accountsRefreshed };
   }
 
+  function importPlatformPosts(account, posts, totals) {
+    let imported = 0;
+    let updated = 0;
+    for (const item of posts) {
+      if (!item?.externalPostId) continue;
+      const result = store.upsertImportedPost({
+        accountId: account.id,
+        provider: account.provider,
+        body: item.body || '',
+        externalPostId: item.externalPostId,
+        externalUrl: item.externalUrl || null,
+        publishedAt: item.publishedAt,
+        metrics: item.metrics || null,
+      });
+      if (result.skipped) continue;
+      if (result.created) {
+        totals.imported += 1;
+        imported += 1;
+      } else {
+        totals.updated += 1;
+        updated += 1;
+      }
+    }
+    return { imported, updated };
+  }
+
   /**
    * Pull recent posts that already exist on connected platforms into social_posts
    * (created_by=import), then refresh account + post metrics.
@@ -206,8 +232,7 @@ function createSocialService(database, windowManager) {
       ? [store.getAccount(accountId)].filter(Boolean)
       : store.listAccounts().filter((a) => a.status === 'active');
     const results = [];
-    let imported = 0;
-    let updated = 0;
+    const totals = { imported: 0, updated: 0 };
     for (const account of accounts) {
       const mod = providerModule(account.provider);
       if (typeof mod.listRecentPosts !== 'function') {
@@ -230,34 +255,13 @@ function createSocialService(database, windowManager) {
           });
           continue;
         }
-        let accountImported = 0;
-        let accountUpdated = 0;
-        for (const item of posts) {
-          if (!item?.externalPostId) continue;
-          const result = store.upsertImportedPost({
-            accountId: account.id,
-            provider: account.provider,
-            body: item.body || '',
-            externalPostId: item.externalPostId,
-            externalUrl: item.externalUrl || null,
-            publishedAt: item.publishedAt,
-            metrics: item.metrics || null,
-          });
-          if (result.skipped) continue;
-          if (result.created) {
-            imported += 1;
-            accountImported += 1;
-          } else {
-            updated += 1;
-            accountUpdated += 1;
-          }
-        }
+        const accountTotals = importPlatformPosts(account, posts, totals);
         results.push({
           accountId: account.id,
           provider: account.provider,
           fetched: posts.length,
-          imported: accountImported,
-          updated: accountUpdated,
+          imported: accountTotals.imported,
+          updated: accountTotals.updated,
         });
       } catch (err) {
         console.warn('[Social] syncPlatformFeed', account.provider, err.message);
@@ -271,9 +275,9 @@ function createSocialService(database, windowManager) {
     await refreshAllMetrics().catch((err) =>
       console.warn('[Social] metrics after feed sync:', err.message),
     );
-    broadcast('social:posts-refresh', { imported, updated });
+    broadcast('social:posts-refresh', { imported: totals.imported, updated: totals.updated });
     broadcast('social:metrics-updated', { source: 'feed-sync' });
-    return { imported, updated, accounts: results };
+    return { imported: totals.imported, updated: totals.updated, accounts: results };
   }
 
   /** Dashboard summary: counts, accounts, aggregate + per-post latest metrics. */
