@@ -107,46 +107,93 @@ export function exportAgentsConfig(agents: ManyAgent[]): string {
   return JSON.stringify(agents, null, 2);
 }
 
+type ParsedAgentResult =
+  | { kind: 'skip' }
+  | { kind: 'agent'; agent: ManyAgent }
+  | { kind: 'error'; error: string };
+
+function readStringField(raw: Record<string, unknown>, key: string): string {
+  const value = raw[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function readTrimmedStringField(
+  raw: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = raw[key];
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function readStringArrayField(raw: Record<string, unknown>, key: string): string[] {
+  const value = raw[key];
+  return Array.isArray(value) ? (value as string[]) : [];
+}
+
+function readIconIndexField(raw: Record<string, unknown>): number {
+  const value = raw.iconIndex;
+  return typeof value === 'number' && value >= 1 && value <= 18 ? value : 1;
+}
+
+function parseAgentRecord(
+  raw: unknown,
+  index: number,
+  now: number,
+): ParsedAgentResult {
+  if (!raw || typeof raw !== 'object') {
+    return { kind: 'skip' };
+  }
+  const record = raw as Record<string, unknown>;
+  const name = readStringField(record, 'name').trim();
+  if (!name) {
+    return { kind: 'error', error: `Agente ${index + 1}: falta el nombre` };
+  }
+  const folderId = readTrimmedStringField(record, 'folderId');
+  return {
+    kind: 'agent',
+    agent: {
+      id: generateId(),
+      projectId: readTrimmedStringField(record, 'projectId') ?? 'default',
+      name,
+      description: readStringField(record, 'description'),
+      systemInstructions: readStringField(record, 'systemInstructions'),
+      toolIds: readStringArrayField(record, 'toolIds'),
+      mcpServerIds: readStringArrayField(record, 'mcpServerIds'),
+      skillIds: readStringArrayField(record, 'skillIds'),
+      iconIndex: readIconIndexField(record),
+      ...(folderId ? { folderId } : {}),
+      favorite: record.favorite === true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  };
+}
+
+function collectAgents(parsed: unknown): { success: true; data: ManyAgent[] } | { success: false; error: string } {
+  const arr = Array.isArray(parsed) ? parsed : [parsed];
+  const now = Date.now();
+  const agents: ManyAgent[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const result = parseAgentRecord(arr[i], i, now);
+    if (result.kind === 'error') {
+      return { success: false, error: result.error };
+    }
+    if (result.kind === 'agent') {
+      agents.push(result.agent);
+    }
+  }
+  if (agents.length === 0) {
+    return { success: false, error: 'No se encontraron agentes válidos en el archivo' };
+  }
+  return { success: true, data: agents };
+}
+
 /** Validate and parse imported agent config. Returns validated agents with new IDs. */
 export function parseAgentsConfig(json: string): { success: true; data: ManyAgent[] } | { success: false; error: string } {
   try {
-    const parsed = JSON.parse(json) as unknown;
-    const arr = Array.isArray(parsed) ? parsed : [parsed];
-    const now = Date.now();
-    const agents: ManyAgent[] = [];
-    for (let i = 0; i < arr.length; i++) {
-      const raw = arr[i] as Record<string, unknown>;
-      if (!raw || typeof raw !== 'object') continue;
-      const name = typeof raw.name === 'string' ? raw.name.trim() : '';
-      if (!name) {
-        return { success: false, error: `Agente ${i + 1}: falta el nombre` };
-      }
-      const folderIdRaw = raw.folderId;
-      const folderId =
-        typeof folderIdRaw === 'string' && folderIdRaw.trim() ? folderIdRaw.trim() : undefined;
-      const favorite = raw.favorite === true;
-      const impPid =
-        typeof raw.projectId === 'string' && raw.projectId.trim() ? raw.projectId.trim() : 'default';
-      agents.push({
-        id: generateId(),
-        projectId: impPid,
-        name,
-        description: typeof raw.description === 'string' ? raw.description : '',
-        systemInstructions: typeof raw.systemInstructions === 'string' ? raw.systemInstructions : '',
-        toolIds: Array.isArray(raw.toolIds) ? (raw.toolIds as string[]) : [],
-        mcpServerIds: Array.isArray(raw.mcpServerIds) ? (raw.mcpServerIds as string[]) : [],
-        skillIds: Array.isArray(raw.skillIds) ? (raw.skillIds as string[]) : [],
-        iconIndex: typeof raw.iconIndex === 'number' && raw.iconIndex >= 1 && raw.iconIndex <= 18 ? raw.iconIndex : 1,
-        ...(folderId ? { folderId } : {}),
-        favorite,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-    if (agents.length === 0) {
-      return { success: false, error: 'No se encontraron agentes válidos en el archivo' };
-    }
-    return { success: true, data: agents };
+    return collectAgents(JSON.parse(json));
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'JSON inválido' };
   }
