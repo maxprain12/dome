@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -89,6 +90,39 @@ function mergeCatalog(
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+type FetchMergedCatalogResult = {
+  merged: ModelDefinition[];
+  error?: string;
+};
+
+async function fetchMergedCatalog(
+  provider: AIProviderType,
+  staticModels: ModelDefinition[],
+  t: TFunction,
+): Promise<FetchMergedCatalogResult> {
+  if (!CATALOG_FETCH_PROVIDERS.includes(provider)) {
+    return { merged: getStaticProviderCatalog(provider) };
+  }
+
+  const keyResult = await db.getSetting(`ai_api_key_${provider}`);
+  const legacy = keyResult.data ? null : await db.getSetting('ai_api_key');
+  const apiKey = (keyResult.data || legacy?.data || '').trim();
+  const res = await fetchProviderModels(provider, apiKey);
+
+  if (res.success && res.models?.length) {
+    return { merged: mergeCatalog(staticModels, rowsToDefinitions(res.models)) };
+  }
+
+  if (!staticModels.length) {
+    return { merged: [], error: res.error ?? t('settings.ai.models_error') };
+  }
+
+  if (res.error && provider !== 'opencode' && provider !== 'opencode-go') {
+    return { merged: staticModels, error: res.error };
+  }
+  return { merged: staticModels };
+}
+
 /** Two-column curator: full provider catalog on the left, visible selector list on the right. */
 export default function ProviderModelsConfigModal({
   open,
@@ -142,27 +176,8 @@ export default function ProviderModelsConfigModal({
           ? getStaticProviderCatalog(provider)
           : (PROVIDERS[provider]?.models ?? []);
 
-      let merged: ModelDefinition[] = staticModels;
-
-      if (CATALOG_FETCH_PROVIDERS.includes(provider)) {
-        const keyResult = await db.getSetting(`ai_api_key_${provider}`);
-        const legacy = keyResult.data ? null : await db.getSetting('ai_api_key');
-        const apiKey = (keyResult.data || legacy?.data || '').trim();
-        const res = await fetchProviderModels(provider, apiKey);
-        if (res.success && res.models?.length) {
-          merged = mergeCatalog(staticModels, rowsToDefinitions(res.models));
-        } else if (staticModels.length) {
-          merged = staticModels;
-          if (res.error && provider !== 'opencode' && provider !== 'opencode-go') {
-            setError(res.error);
-          }
-        } else {
-          merged = [];
-          setError(res.error ?? t('settings.ai.models_error'));
-        }
-      } else {
-        merged = getStaticProviderCatalog(provider);
-      }
+      const { merged, error: fetchError } = await fetchMergedCatalog(provider, staticModels, t);
+      if (fetchError) setError(fetchError);
       setCatalog(mergeCustomIntoCatalog(merged, customIds));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('settings.ai.models_error'));
