@@ -582,6 +582,40 @@ function findLocalFileForHash(db, blob, queries) {
 }
 
 /**
+ * Resolve the vault_blobs row that backs a resource: by full `file_hash`
+ * (vault files), then by the 16-char filename prefix (managed files).
+ * Returns null when the manifest hasn't been pulled yet (next cycle retries).
+ */
+function findBlobForResource(resource, blobByPrefix, blobByHash) {
+  const byHash = resource.file_hash ? blobByHash.get(resource.file_hash) : null;
+  if (byHash || !resource.internal_path) return byHash;
+  const prefix = prefixFromInternalPath(resource.internal_path);
+  return prefix ? blobByPrefix.get(prefix) : null;
+}
+
+/**
+ * Stream one missing blob from the provider's signed URL into a temp file
+ * then atomically rename it into place. Returns true on success, false on
+ * any network/HTTP failure (caller skips that resource this cycle).
+ */
+async function downloadBlob(deps, base, blob, fullPath) {
+  const urlRes = await domeOauth.fetchWithDomeAuth(
+    deps.database,
+    `${base}/api/v1/files/download-url?hash=${encodeURIComponent(blob.hash)}`,
+    { method: 'GET' },
+  );
+  if (!urlRes.ok) return false;
+  const { url } = await urlRes.json();
+  const download = await fetch(url);
+  if (!download.ok || !download.body) return false;
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  const tmpPath = `${fullPath}.dome-download`;
+  await pipeline(download.body, fs.createWriteStream(tmpPath));
+  fs.renameSync(tmpPath, fullPath);
+  return true;
+}
+
+/**
  * Phase 3 — download blobs for resources whose backing file is missing
  * locally (restore on a fresh device).
  * @param {object} deps
@@ -604,29 +638,13 @@ async function hydrateMissingFiles(deps, db) {
   for (const resource of resources) {
     const fullPath = resolveResourceAbsPath(resource, queries);
     if (!fullPath || fs.existsSync(fullPath)) continue;
-    let blob = resource.file_hash ? blobByHash.get(resource.file_hash) : null;
-    if (!blob && resource.internal_path) {
-      const prefix = prefixFromInternalPath(resource.internal_path);
-      if (prefix) blob = blobByPrefix.get(prefix);
-    }
+    const blob = findBlobForResource(resource, blobByPrefix, blobByHash);
     if (!blob) continue; // manifest not pulled yet — next cycle
 
     try {
-      const urlRes = await domeOauth.fetchWithDomeAuth(
-        deps.database,
-        `${base}/api/v1/files/download-url?hash=${encodeURIComponent(blob.hash)}`,
-        { method: 'GET' },
-      );
-      if (!urlRes.ok) continue;
-      const { url } = await urlRes.json();
-      const download = await fetch(url);
-      if (!download.ok || !download.body) continue;
-
-      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-      const tmpPath = `${fullPath}.dome-download`;
-      await pipeline(download.body, fs.createWriteStream(tmpPath));
-      fs.renameSync(tmpPath, fullPath);
-      hydrated += 1;
+      if (await downloadBlob(deps, base, blob, fullPath)) {
+        hydrated += 1;
+      }
     } catch (err) {
       console.warn(
         '[blob-sync] hydrate failed for',
