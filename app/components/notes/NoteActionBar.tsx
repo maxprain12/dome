@@ -56,6 +56,94 @@ interface NoteActionBarProps {
   hideWindowControls?: boolean;
 }
 
+/** Read an Electron desktop platform flag without nesting `typeof window` checks inline. */
+function readElectronPlatformFlag(flag: 'isMac' | 'isWindows' | 'isLinux'): boolean {
+  if (typeof window === 'undefined') return false;
+  const e = window.electron;
+  if (!e) return false;
+  if (flag === 'isMac') return Boolean(e.isMac ?? e.platform === 'darwin');
+  return Boolean(e[flag]);
+}
+
+/** Compose the outer action-bar class list given window-control + platform flags. */
+function buildActionBarClass(
+  hideWindowControls: boolean | undefined,
+  isMac: boolean,
+  needsRightChromeInset: boolean,
+): string {
+  const classes = ['note-actionbar drag-region'];
+  if (hideWindowControls) classes.push('note-actionbar--standalone');
+  if (hideWindowControls && isMac) classes.push('nav-mac');
+  if (hideWindowControls && needsRightChromeInset) classes.push('win-titlebar-padding');
+  return classes.join(' ');
+}
+
+/** Class name for toggle buttons that visualize their `active` state. */
+function toggleIconClass(isActive: boolean): string {
+  return `note-icon-btn note-icon-btn-sm no-drag${isActive ? ' active' : ''}`;
+}
+
+/** Inline style for the sources-panel toggle when the panel is open. */
+function sourcesOpenStyle(open: boolean): React.CSSProperties | undefined {
+  if (!open) return undefined;
+  return {
+    color: 'var(--primary)',
+    background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+  };
+}
+
+/** Tooltip/aria label for the sources-panel toggle. */
+function sourcesPanelLabel(open: boolean, t: (key: string) => string): string {
+  return open ? t('notes.hide_sources_panel') : t('notes.show_sources_panel');
+}
+
+/** Dropdown label for the side-insights toggle. */
+function insightsPanelLabel(open: boolean, t: (key: string) => string): string {
+  return open ? t('notes.hide_insights_panel') : t('notes.show_insights_panel');
+}
+
+/** Optional icon slot rendered for a crumb segment. */
+function CrumbIcon({ icon }: { icon?: React.ReactNode }) {
+  if (!icon) return null;
+  return (
+    <span className="note-crumb-icon" aria-hidden>
+      {icon}
+    </span>
+  );
+}
+
+/** Single breadcrumb segment (current / interactive / static). */
+function CrumbItem({ crumb }: { crumb: ActionBarCrumbSegment }) {
+  const icon = <CrumbIcon icon={crumb.icon} />;
+  if (crumb.current) {
+    return (
+      <span className="note-crumb note-crumb--current" title={crumb.label} aria-current="page">
+        {icon}
+        <span className="note-crumb-text">{crumb.label}</span>
+      </span>
+    );
+  }
+  if (crumb.onClick) {
+    return (
+      <button
+        type="button"
+        className="note-crumb note-crumb--interactive"
+        title={crumb.label}
+        onClick={crumb.onClick}
+      >
+        {icon}
+        <span className="note-crumb-text">{crumb.label}</span>
+      </button>
+    );
+  }
+  return (
+    <span className="note-crumb" title={crumb.label}>
+      {icon}
+      <span className="note-crumb-text">{crumb.label}</span>
+    </span>
+  );
+}
+
 export default function NoteActionBar({
   crumbs,
   saveState,
@@ -76,12 +164,14 @@ export default function NoteActionBar({
   const { t } = useTranslation();
   const sourcesOpen = useAppStore((s) => s.sourcesPanelOpen);
   const toggleSources = useAppStore((s) => s.toggleSourcesPanel);
-  const isMac =
-    typeof window !== 'undefined' && Boolean(window.electron?.isMac ?? window.electron?.platform === 'darwin');
-  const isWin = typeof window !== 'undefined' && Boolean(window.electron?.isWindows);
-  const isLinux = typeof window !== 'undefined' && Boolean(window.electron?.isLinux);
+  const isMac = readElectronPlatformFlag('isMac');
+  const isWin = readElectronPlatformFlag('isWindows');
+  const isLinux = readElectronPlatformFlag('isLinux');
   /** Win: titleBarOverlay; Linux (frameless): WindowControls dibujados a la derecha en AppShell — mismo hueco para popout */
   const needsRightChromeInset = isWin || isLinux;
+  const containerClass = buildActionBarClass(hideWindowControls, isMac, needsRightChromeInset);
+  const sourcesLabel = sourcesPanelLabel(sourcesOpen, t);
+  const insightsLabel = insightsPanelLabel(sidePanelOpen, t);
 
   const handleCopyShareLink = () => {
     if (!domeLinkToCopy) return;
@@ -95,60 +185,16 @@ export default function NoteActionBar({
     );
   };
 
+  const toggleViewMode = () =>
+    onViewModeChange(viewMode === 'focused' ? 'standard' : 'focused');
+
   return (
-    <div
-      className={[
-        'note-actionbar drag-region',
-        hideWindowControls ? 'note-actionbar--standalone' : '',
-        hideWindowControls && isMac ? 'nav-mac' : '',
-        hideWindowControls && needsRightChromeInset ? 'win-titlebar-padding' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+    <div className={containerClass}>
       <nav className="note-crumbs no-drag" aria-label={t('folder.breadcrumb', 'Ruta')}>
         {crumbs.map((c, i) => (
           <Fragment key={`${c.label}-${i}`}>
-            {i > 0 ? (
-              <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
-            ) : null}
-            {c.current ? (
-              <span
-                className="note-crumb note-crumb--current"
-                title={c.label}
-                aria-current="page"
-              >
-                {c.icon ? (
-                  <span className="note-crumb-icon" aria-hidden>
-                    {c.icon}
-                  </span>
-                ) : null}
-                <span className="note-crumb-text">{c.label}</span>
-              </span>
-            ) : c.onClick ? (
-              <button
-                type="button"
-                className="note-crumb note-crumb--interactive"
-                title={c.label}
-                onClick={c.onClick}
-              >
-                {c.icon ? (
-                  <span className="note-crumb-icon" aria-hidden>
-                    {c.icon}
-                  </span>
-                ) : null}
-                <span className="note-crumb-text">{c.label}</span>
-              </button>
-            ) : (
-              <span className="note-crumb" title={c.label}>
-                {c.icon ? (
-                  <span className="note-crumb-icon" aria-hidden>
-                    {c.icon}
-                  </span>
-                ) : null}
-                <span className="note-crumb-text">{c.label}</span>
-              </span>
-            )}
+            {i > 0 ? <CrumbSeparator /> : null}
+            <CrumbItem crumb={c} />
           </Fragment>
         ))}
       </nav>
@@ -205,10 +251,10 @@ export default function NoteActionBar({
 
       <button
         type="button"
-        className={`note-icon-btn note-icon-btn-sm no-drag${viewMode === 'focused' ? ' active' : ''}`}
+        className={toggleIconClass(viewMode === 'focused')}
         title={t('notes.mode_focused_tooltip')}
         aria-pressed={viewMode === 'focused'}
-        onClick={() => onViewModeChange(viewMode === 'focused' ? 'standard' : 'focused')}
+        onClick={toggleViewMode}
       >
         <HugeiconsIcon icon={EyeIcon} size={14} strokeWidth={2} />
       </button>
@@ -216,12 +262,10 @@ export default function NoteActionBar({
       <button
         type="button"
         className="note-icon-btn note-icon-btn-sm no-drag"
-        title={sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
-        aria-label={sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
+        title={sourcesLabel}
+        aria-label={sourcesLabel}
         aria-pressed={sourcesOpen}
-        style={
-          sourcesOpen ? { color: 'var(--primary)', background: 'color-mix(in srgb, var(--primary) 12%, transparent)' } : undefined
-        }
+        style={sourcesOpenStyle(sourcesOpen)}
         onClick={() => toggleSources()}
       >
         <HugeiconsIcon icon={PanelRightIcon} size={14} strokeWidth={2} />
@@ -241,7 +285,7 @@ export default function NoteActionBar({
 
       <button
         type="button"
-        className={`note-icon-btn note-icon-btn-sm no-drag${sidePanelOpen ? ' active' : ''}`}
+        className={toggleIconClass(sidePanelOpen)}
         title={t('notes.side_insights')}
         aria-label={t('notes.side_insights')}
         aria-pressed={sidePanelOpen}
@@ -268,15 +312,18 @@ export default function NoteActionBar({
             <HugeiconsIcon icon={InformationCircleIcon} size={14} />
             {t('notes.metadata')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toggleSources()}>
-            {sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onToggleSidePanel()}>
-            {sidePanelOpen ? t('notes.hide_insights_panel') : t('notes.show_insights_panel')}
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => toggleSources()}>{sourcesLabel}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onToggleSidePanel()}>{insightsLabel}</DropdownMenuItem>
           <DropdownMenuSeparator />
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  );
+}
+
+/** Separator rendered between breadcrumb segments. */
+function CrumbSeparator() {
+  return (
+    <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
   );
 }
