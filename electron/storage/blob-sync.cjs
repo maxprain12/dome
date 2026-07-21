@@ -542,6 +542,7 @@ async function scanVaultForHashes(db, queries, wantedHashes) {
 function findLocalFileForHash(db, blob, queries) {
   const known = pathByHash.get(blob.hash);
   if (known && fs.existsSync(known)) return known;
+
   const byHash = db
     .prepare(
       `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
@@ -553,32 +554,55 @@ function findLocalFileForHash(db, blob, queries) {
     if (fullPath && fs.existsSync(fullPath)) return fullPath;
   }
 
-  const prefix = blob.hash.slice(0, 16);
+  const prefixPath = findResourceByPrefixPath(db, blob.hash);
+  if (prefixPath) return prefixPath;
+
+  return findManySessionFile(db, blob.hash);
+}
+
+/**
+ * Locate a managed resource's backing file via the 16-char sha256 prefix
+ * embedded in its filename. Returns the absolute path of an existing file
+ * or null when no row matches or the file is missing on disk.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} hash
+ * @returns {string | null}
+ */
+function findResourceByPrefixPath(db, hash) {
+  const prefix = hash.slice(0, 16);
   const row = db
     .prepare(
       `SELECT internal_path FROM resources
        WHERE internal_path IS NOT NULL AND internal_path LIKE '%' || ? || '%' LIMIT 1`,
     )
     .get(prefix);
-  if (row?.internal_path) {
-    const fullPath = fileStorage.getFullPath(row.internal_path);
-    if (fullPath && fs.existsSync(fullPath)) return fullPath;
-  }
+  if (!row?.internal_path) return null;
+  const fullPath = fileStorage.getFullPath(row.internal_path);
+  if (!fs.existsSync(fullPath)) return null;
+  return fullPath;
+}
 
-  // Many session bodies (conversations domain) share this pipeline.
+/**
+ * Many session bodies (conversations domain) share this pipeline. The table
+ * may not exist on older installs — swallow the error.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} hash
+ * @returns {string | null}
+ */
+function findManySessionFile(db, hash) {
+  let session;
   try {
-    const session = db
+    session = db
       .prepare("SELECT rel_path FROM many_session_index WHERE hash = ? AND rel_path != '' LIMIT 1")
-      .get(blob.hash);
-    if (session?.rel_path) {
-      const manySessionSync = require('./many-session-sync.cjs');
-      const abs = path.join(manySessionSync.getSessionsRoot(), session.rel_path);
-      if (fs.existsSync(abs)) return abs;
-    }
+      .get(hash);
   } catch {
     /* table may not exist on older installs */
+    return null;
   }
-  return null;
+  if (!session?.rel_path) return null;
+  const manySessionSync = require('./many-session-sync.cjs');
+  const abs = path.join(manySessionSync.getSessionsRoot(), session.rel_path);
+  return fs.existsSync(abs) ? abs : null;
 }
 
 /**
