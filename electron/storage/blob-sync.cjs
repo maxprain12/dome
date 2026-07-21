@@ -182,37 +182,60 @@ function backfillLegacyFileHash(db, resource, hash) {
  */
 async function ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert) {
   try {
-    // file_hash lo mantiene el vault-watcher y es lo que viaja en el wire
-    // (Companion busca el blob por él); solo es de fiar si es un sha256
-    // completo — los recursos legacy guardan un prefijo de 16 y el provider
-    // rechaza el batch entero si un hash no es de 64 hex.
-    const trustedHash = FULL_HASH_RE.test(String(resource.file_hash || '')) ? resource.file_hash : null;
-    const hash = trustedHash || (await computeFullHash(fullPath));
+    const { trustedHash, hash } = await resolveResourceHash(resource, fullPath);
     hashCache.set(cacheKey, hash);
     pathByHash.set(hash, fullPath);
-    // Backfill: un file_hash legacy (16 chars, esquema antiguo) puede NO ser
-    // prefijo del sha256 real — Companion busca el blob por file_hash, así
-    // que sin corregirlo el recurso queda "no sincronizado" en el móvil.
-    if (!trustedHash && resource.file_hash && resource.file_hash !== hash) {
-      backfillLegacyFileHash(db, resource, hash);
-    }
+    maybeBackfillLegacyFileHash(db, resource, hash, trustedHash);
     if (findByHash.get(hash)) return false;
-    const size = fs.statSync(fullPath).size;
-    const now = Date.now();
-    const result = insert.run(
-      crypto.randomUUID(),
-      hash,
-      size,
-      resource.file_mime_type || null,
-      resource.original_filename || path.basename(fullPath),
-      now,
-      now,
-    );
-    return result.changes > 0;
+    return insertManifestRow(insert, resource, fullPath, hash);
   } catch (err) {
     console.warn('[blob-sync] ingest failed for', cacheKey, err?.message);
     return false;
   }
+}
+
+/**
+ * Resolve the hash for one resource: trust `resource.file_hash` when it is
+ * a full sha256 (the vault-watcher keeps it in sync and Companion looks up
+ * the blob by it on the wire), otherwise stream the file and compute the
+ * full sha256. Legacy 16-char prefixes are NOT trusted — the provider
+ * rejects the entire batch on a single non-64-hex hash.
+ */
+async function resolveResourceHash(resource, fullPath) {
+  const trustedHash = FULL_HASH_RE.test(String(resource.file_hash || '')) ? resource.file_hash : null;
+  const hash = trustedHash || (await computeFullHash(fullPath));
+  return { trustedHash, hash };
+}
+
+/**
+ * Backfill a legacy `file_hash` (16-char prefix) with the full sha256 so
+ * Companion can find the blob by file_hash on the wire. Skipped when the
+ * existing file_hash is already a full sha256 (`!trustedHash`) or already
+ * matches the just-computed hash.
+ */
+function maybeBackfillLegacyFileHash(db, resource, hash, trustedHash) {
+  if (!trustedHash && resource.file_hash && resource.file_hash !== hash) {
+    backfillLegacyFileHash(db, resource, hash);
+  }
+}
+
+/**
+ * Write the `vault_blobs` manifest row for one resource. Returns whether a
+ * new row was actually inserted.
+ */
+function insertManifestRow(insert, resource, fullPath, hash) {
+  const size = fs.statSync(fullPath).size;
+  const now = Date.now();
+  const result = insert.run(
+    crypto.randomUUID(),
+    hash,
+    size,
+    resource.file_mime_type || null,
+    resource.original_filename || path.basename(fullPath),
+    now,
+    now,
+  );
+  return result.changes > 0;
 }
 
 async function ingestLocalFiles(db, queries) {
