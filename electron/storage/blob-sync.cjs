@@ -663,6 +663,28 @@ async function downloadBlob(deps, base, blob, fullPath) {
 }
 
 /**
+ * Attempt to download the backing blob for a single resource. Returns true on
+ * a successful hydration, false when nothing was downloaded (already on disk,
+ * missing manifest row, or transient network/HTTP error logged inline).
+ */
+async function hydrateOneResource(deps, resource, base, queries, blobByPrefix, blobByHash) {
+  const fullPath = resolveResourceAbsPath(resource, queries);
+  if (!fullPath || fs.existsSync(fullPath)) return false;
+  const blob = findBlobForResource(resource, blobByPrefix, blobByHash);
+  if (!blob) return false; // manifest not pulled yet — next cycle
+  try {
+    return Boolean(await downloadBlob(deps, base, blob, fullPath));
+  } catch (err) {
+    console.warn(
+      '[blob-sync] hydrate failed for',
+      resource.vault_path || resource.internal_path,
+      err?.message,
+    );
+    return false;
+  }
+}
+
+/**
  * Phase 3 — download blobs for resources whose backing file is missing
  * locally (restore on a fresh device).
  * @param {object} deps
@@ -683,21 +705,8 @@ async function hydrateMissingFiles(deps, db) {
 
   let hydrated = 0;
   for (const resource of resources) {
-    const fullPath = resolveResourceAbsPath(resource, queries);
-    if (!fullPath || fs.existsSync(fullPath)) continue;
-    const blob = findBlobForResource(resource, blobByPrefix, blobByHash);
-    if (!blob) continue; // manifest not pulled yet — next cycle
-
-    try {
-      if (await downloadBlob(deps, base, blob, fullPath)) {
-        hydrated += 1;
-      }
-    } catch (err) {
-      console.warn(
-        '[blob-sync] hydrate failed for',
-        resource.vault_path || resource.internal_path,
-        err?.message,
-      );
+    if (await hydrateOneResource(deps, resource, base, queries, blobByPrefix, blobByHash)) {
+      hydrated += 1;
     }
   }
   if (hydrated > 0) {
