@@ -558,6 +558,27 @@ async function uploadPendingBlob(
 const pathByHash = new Map();
 
 /**
+ * Resolve the full sha256 for a vault resource: reuse the in-session cache
+ * when present, otherwise stream the file and remember the result. Returns
+ * null when the file can't be read — the scan loop skips the resource rather
+ * than bubbling an I/O error up (best-effort path for blobs we couldn't
+ * resolve any other way).
+ * @returns {Promise<string | null>}
+ */
+async function resolveOrComputeVaultHash(resource, fullPath) {
+  const cacheKey = `${resource.project_id}:${resource.vault_path}`;
+  const cached = hashCache.get(cacheKey);
+  if (cached) return cached;
+  try {
+    const hash = await computeFullHash(fullPath);
+    hashCache.set(cacheKey, hash);
+    return hash;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Última vía: recorre los archivos del vault hasheándolos (con caché) para
  * mapear hash→ruta. Necesario para recursos SIN `file_hash` (espejos de notas
  * y artefactos .md/.html): su fila del manifiesto nace de un hash calculado,
@@ -576,18 +597,10 @@ async function scanVaultForHashes(db, queries, wantedHashes) {
     .all();
   for (const resource of resources) {
     if (!wantedHashes.size) return;
-    const cacheKey = `${resource.project_id}:${resource.vault_path}`;
-    let hash = hashCache.get(cacheKey);
     const fullPath = resolveResourceAbsPath(resource, queries);
     if (!fullPath || !fs.existsSync(fullPath)) continue;
-    if (!hash) {
-      try {
-        hash = await computeFullHash(fullPath);
-        hashCache.set(cacheKey, hash);
-      } catch {
-        continue;
-      }
-    }
+    const hash = await resolveOrComputeVaultHash(resource, fullPath);
+    if (!hash) continue;
     pathByHash.set(hash, fullPath);
     wantedHashes.delete(hash);
   }
