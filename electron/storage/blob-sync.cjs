@@ -273,6 +273,36 @@ async function ingestLocalFiles(db, queries) {
 }
 
 /**
+ * Fold one `uploadPendingBlob` outcome into the batch counters and decide
+ * whether to stop the loop. Returning a non-null flags forces an early
+ * exit with the given extra fields (rateLimited / error). Returned null
+ * means "keep iterating".
+ * @param {{ kind: string }} outcome
+ * @param {{ uploaded: number, deduped: number }} counts mutated in place
+ * @returns {{ rateLimited?: boolean, error?: string } | null}
+ */
+function tallyBatchOutcome(outcome, counts) {
+  if (outcome.kind === 'deduped') {
+    counts.deduped += 1;
+    return null;
+  }
+  if (outcome.kind === 'uploaded') {
+    counts.uploaded += 1;
+    return null;
+  }
+  if (outcome.kind === 'rate-limited') {
+    // Rate limit del provider (30 req/min): los pendientes siguen en
+    // cola y el siguiente tick (60 s) continúa con cupo fresco.
+    console.warn(`[blob-sync] upload-url rate-limited — ${counts.uploaded} uploaded, resuming next tick`);
+    return { rateLimited: true };
+  }
+  if (outcome.kind === 'quota-exceeded') {
+    return { error: 'storage_quota_exceeded' };
+  }
+  return null;
+}
+
+/**
  * Process one upload batch: stat-dedupe against the provider, resolve any
  * missing local paths by content-hashing the vault, then upload each blob.
  * Extracted from `runUploadQueue` to keep it under the cognitive-complexity
@@ -312,8 +342,7 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
     await scanVaultForHashes(db, queries, unresolved);
   }
 
-  let uploaded = 0;
-  let deduped = 0;
+  const counts = { uploaded: 0, deduped: 0 };
   for (const blob of batch) {
     const outcome = await uploadPendingBlob(
       deps,
@@ -325,18 +354,10 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
       markUploaded,
       markSkipped,
     );
-    if (outcome.kind === 'deduped') deduped += 1;
-    else if (outcome.kind === 'uploaded') uploaded += 1;
-    else if (outcome.kind === 'rate-limited') {
-      // Rate limit del provider (30 req/min): los pendientes siguen en
-      // cola y el siguiente tick (60 s) continúa con cupo fresco.
-      console.warn(`[blob-sync] upload-url rate-limited — ${uploaded} uploaded, resuming next tick`);
-      return { uploaded, deduped, rateLimited: true };
-    } else if (outcome.kind === 'quota-exceeded') {
-      return { uploaded, deduped, error: 'storage_quota_exceeded' };
-    }
+    const earlyExit = tallyBatchOutcome(outcome, counts);
+    if (earlyExit) return { uploaded: counts.uploaded, deduped: counts.deduped, ...earlyExit };
   }
-  return { uploaded, deduped };
+  return { uploaded: counts.uploaded, deduped: counts.deduped };
 }
 
 /**
