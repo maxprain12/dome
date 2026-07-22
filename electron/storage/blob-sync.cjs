@@ -112,6 +112,10 @@ async function repairInvalidManifestHashes(db, queries) {
   if (!bad.length) return;
   const syncTombstone = require('./sync-tombstone.cjs');
   const findByHash = db.prepare('SELECT id FROM vault_blobs WHERE hash = ? AND id != ? LIMIT 1');
+  const findResource = db.prepare(
+    `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
+     WHERE file_hash = ? OR file_hash LIKE ? || '%' LIMIT 1`,
+  );
   const update = db.prepare('UPDATE vault_blobs SET hash = ?, updated_at = ? WHERE id = ?');
   const remove = db.prepare('DELETE FROM vault_blobs WHERE id = ?');
   // El tombstone limpia la copia mala que ya viajó al manifiesto cloud.
@@ -120,29 +124,36 @@ async function repairInvalidManifestHashes(db, queries) {
     syncTombstone.recordTombstone(db, 'vault_blobs', id);
   };
   for (const row of bad) {
-    const resource = db
-      .prepare(
-        `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
-         WHERE file_hash = ? OR file_hash LIKE ? || '%' LIMIT 1`,
-      )
-      .get(row.hash, row.hash);
-    const fullPath = resource ? resolveResourceAbsPath(resource, queries) : null;
-    if (fullPath && fs.existsSync(fullPath)) {
-      try {
-        const fullHash = await computeFullHash(fullPath);
-        if (findByHash.get(fullHash, row.id)) {
-          // El ingest ya creó la fila buena para este archivo: la mala sobra.
-          drop(row.id);
-          console.log(`[blob-sync] dropped duplicate bad-hash row ${row.hash}`);
-        } else {
-          update.run(fullHash, Date.now(), row.id);
-          console.log(`[blob-sync] repaired manifest hash ${row.hash} → ${fullHash.slice(0, 12)}…`);
-        }
-        continue;
-      } catch (err) {
-        console.warn('[blob-sync] hash repair failed:', err?.message);
-      }
+    await repairOneBadRow(row, findResource, findByHash, update, queries, drop);
+  }
+}
+
+/**
+ * Try to repair one `vault_blobs` row whose hash is not a valid sha256:
+ * recompute the full hash from the local file (if any) and either drop the
+ * bad row (when a good one already exists or the file is gone) or update it
+ * with the corrected hash so the manifest re-pushes.
+ * @returns {Promise<void>}
+ */
+async function repairOneBadRow(row, findResource, findByHash, update, queries, drop) {
+  const resource = findResource.get(row.hash, row.hash);
+  const fullPath = resource ? resolveResourceAbsPath(resource, queries) : null;
+  if (!fullPath || !fs.existsSync(fullPath)) {
+    drop(row.id);
+    return;
+  }
+  try {
+    const fullHash = await computeFullHash(fullPath);
+    if (findByHash.get(fullHash, row.id)) {
+      // El ingest ya creó la fila buena para este archivo: la mala sobra.
+      drop(row.id);
+      console.log(`[blob-sync] dropped duplicate bad-hash row ${row.hash}`);
+    } else {
+      update.run(fullHash, Date.now(), row.id);
+      console.log(`[blob-sync] repaired manifest hash ${row.hash} → ${fullHash.slice(0, 12)}…`);
     }
+  } catch (err) {
+    console.warn('[blob-sync] hash repair failed:', err?.message);
     drop(row.id);
   }
 }
