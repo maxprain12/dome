@@ -249,6 +249,20 @@ function insertManifestRow(insert, resource, fullPath, hash) {
   return result.changes > 0;
 }
 
+function resourceCacheKey(resource) {
+  return resource.vault_path
+    ? `${resource.project_id}:${resource.vault_path}`
+    : resource.internal_path;
+}
+
+async function ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert) {
+  const cacheKey = resourceCacheKey(resource);
+  if (isFastDeduped(resource, cacheKey, findByPrefix, findByHash)) return false;
+  const fullPath = resolveResourceAbsPath(resource, queries);
+  if (!fullPath || !fs.existsSync(fullPath)) return false;
+  return ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert);
+}
+
 async function ingestLocalFiles(db, queries) {
   await repairInvalidManifestHashes(db, queries);
   const resources = db
@@ -269,13 +283,7 @@ async function ingestLocalFiles(db, queries) {
 
   let ingested = 0;
   for (const resource of resources) {
-    const cacheKey = resource.vault_path
-      ? `${resource.project_id}:${resource.vault_path}`
-      : resource.internal_path;
-    if (isFastDeduped(resource, cacheKey, findByPrefix, findByHash)) continue;
-    const fullPath = resolveResourceAbsPath(resource, queries);
-    if (!fullPath || !fs.existsSync(fullPath)) continue;
-    if (await ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert)) {
+    if (await ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert)) {
       ingested += 1;
     }
   }
