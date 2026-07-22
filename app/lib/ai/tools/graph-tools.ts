@@ -95,6 +95,33 @@ function createGenerateKnowledgeGraphTool(): AnyAgentTool {
   };
 }
 
+type RelatedGraphEdge = {
+  source: string;
+  target: string;
+  similarity: number;
+  relation_type: string;
+};
+
+type RelatedResourceInfo = { relations: string[]; strength: number };
+
+function collectRelatedResources(
+  edges: RelatedGraphEdge[],
+  resourceId: string,
+): Map<string, RelatedResourceInfo> {
+  const related = new Map<string, RelatedResourceInfo>();
+  for (const edge of edges) {
+    const other = edge.source === resourceId ? edge.target : edge.source;
+    if (other === resourceId) continue;
+    const info = related.get(other) || { relations: [], strength: 0 };
+    if (!info.relations.includes(edge.relation_type)) {
+      info.relations.push(edge.relation_type);
+    }
+    info.strength += edge.similarity;
+    related.set(other, info);
+  }
+  return related;
+}
+
 function createGetRelatedResourcesTool(): AnyAgentTool {
   const parameters = Type.Object({
     resource_id: Type.String({
@@ -130,24 +157,8 @@ function createGetRelatedResourcesTool(): AnyAgentTool {
         if (!res.success || !res.data) {
           return errorResult(res.error || 'getGraph failed');
         }
-        const edges = res.data.edges as Array<{
-          source: string;
-          target: string;
-          similarity: number;
-          relation_type: string;
-        }>;
-
-        const related = new Map<string, { relations: string[]; strength: number }>();
-        for (const edge of edges) {
-          const other = edge.source === args.resource_id ? edge.target : edge.source;
-          if (other === args.resource_id) continue;
-          const info = related.get(other) || { relations: [], strength: 0 };
-          if (!info.relations.includes(edge.relation_type)) {
-            info.relations.push(edge.relation_type);
-          }
-          info.strength += edge.similarity;
-          related.set(other, info);
-        }
+        const edges = res.data.edges as RelatedGraphEdge[];
+        const related = collectRelatedResources(edges, args.resource_id);
 
         const relatedResources: Array<{
           id: string;
