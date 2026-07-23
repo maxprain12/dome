@@ -143,18 +143,22 @@ async function repairOneBadRow(row, findResource, findByHash, update, queries, d
     return;
   }
   try {
-    const fullHash = await computeFullHash(fullPath);
-    if (findByHash.get(fullHash, row.id)) {
-      // El ingest ya creó la fila buena para este archivo: la mala sobra.
-      drop(row.id);
-      console.log(`[blob-sync] dropped duplicate bad-hash row ${row.hash}`);
-    } else {
-      update.run(fullHash, Date.now(), row.id);
-      console.log(`[blob-sync] repaired manifest hash ${row.hash} → ${fullHash.slice(0, 12)}…`);
-    }
+    await repairBadRowHash(row, fullPath, findByHash, update, drop);
   } catch (err) {
     console.warn('[blob-sync] hash repair failed:', err?.message);
     drop(row.id);
+  }
+}
+
+async function repairBadRowHash(row, fullPath, findByHash, update, drop) {
+  const fullHash = await computeFullHash(fullPath);
+  if (findByHash.get(fullHash, row.id)) {
+    // El ingest ya creó la fila buena para este archivo: la mala sobra.
+    drop(row.id);
+    console.log(`[blob-sync] dropped duplicate bad-hash row ${row.hash}`);
+  } else {
+    update.run(fullHash, Date.now(), row.id);
+    console.log(`[blob-sync] repaired manifest hash ${row.hash} → ${fullHash.slice(0, 12)}…`);
   }
 }
 
