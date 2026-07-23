@@ -142,6 +142,10 @@ async function repairOneBadRow(row, findResource, findByHash, update, queries, d
     drop(row.id);
     return;
   }
+  await repairBadRowHashSafely(row, fullPath, findByHash, update, drop);
+}
+
+async function repairBadRowHashSafely(row, fullPath, findByHash, update, drop) {
   try {
     await repairBadRowHash(row, fullPath, findByHash, update, drop);
   } catch (err) {
