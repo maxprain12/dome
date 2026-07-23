@@ -1038,53 +1038,91 @@ function convertToolResultGroup(
 	return { messages, endIndex: j - 1, lastRole: "user" };
 }
 
+function addSystemPrompt(
+	params: ChatCompletionMessageParam[],
+	context: Context,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+): void {
+	if (!context.systemPrompt) return;
+	const useDeveloperRole = model.reasoning && compat.supportsDeveloperRole;
+	const role = useDeveloperRole ? "developer" : "system";
+	params.push({ role, content: sanitizeSurrogates(context.systemPrompt) });
+}
+
+/**
+ * Some providers don't allow user messages directly after tool results.
+ * Insert a synthetic assistant message to bridge the gap.
+ */
+function appendAssistantBridgeIfNeeded(
+	compat: ResolvedOpenAICompletionsCompat,
+	lastRole: string | null,
+	nextRole: Message["role"],
+	params: ChatCompletionMessageParam[],
+): void {
+	if (!compat.requiresAssistantAfterToolResult) return;
+	if (lastRole !== "toolResult" || nextRole !== "user") return;
+	params.push({
+		role: "assistant",
+		content: "I have processed the tool results.",
+	});
+}
+
+/**
+ * Process a single transformed message and append converted params.
+ * Returns the index of the last consumed message and the new lastRole.
+ */
+function processMessage(
+	transformedMessages: Message[],
+	index: number,
+	lastRole: string | null,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+	params: ChatCompletionMessageParam[],
+): { index: number; lastRole: string | null } {
+	const msg = transformedMessages[index];
+	appendAssistantBridgeIfNeeded(compat, lastRole, msg.role, params);
+
+	switch (msg.role) {
+		case "user": {
+			const userMsg = convertUserMessage(msg);
+			// Skip user messages that convert to empty content (lastRole is intentionally not updated)
+			if (!userMsg) return { index, lastRole };
+			params.push(userMsg);
+			return { index, lastRole: "user" };
+		}
+		case "assistant": {
+			const assistantMsg = convertAssistantMessage(msg, model, compat);
+			// Skip empty assistant messages (lastRole is intentionally not updated)
+			if (!assistantMsg) return { index, lastRole };
+			params.push(assistantMsg);
+			return { index, lastRole: "assistant" };
+		}
+		case "toolResult": {
+			const group = convertToolResultGroup(transformedMessages, index, model, compat);
+			params.push(...group.messages);
+			return { index: group.endIndex, lastRole: group.lastRole };
+		}
+	}
+	// Unreachable: Message["role"] is "user" | "assistant" | "toolResult", covered above.
+	return { index, lastRole };
+}
+
 export function convertMessages(
 	model: Model<"openai-completions">,
 	context: Context,
 	compat: ResolvedOpenAICompletionsCompat,
 ): ChatCompletionMessageParam[] {
 	const params: ChatCompletionMessageParam[] = [];
+	addSystemPrompt(params, context, model, compat);
 
 	const transformedMessages = transformMessages(context.messages, model, (id) => normalizeToolCallId(id, model));
 
-	if (context.systemPrompt) {
-		const useDeveloperRole = model.reasoning && compat.supportsDeveloperRole;
-		const role = useDeveloperRole ? "developer" : "system";
-		params.push({ role: role, content: sanitizeSurrogates(context.systemPrompt) });
-	}
-
 	let lastRole: string | null = null;
-
 	for (let i = 0; i < transformedMessages.length; i++) {
-		const msg = transformedMessages[i];
-		// Some providers don't allow user messages directly after tool results
-		// Insert a synthetic assistant message to bridge the gap
-		if (compat.requiresAssistantAfterToolResult && lastRole === "toolResult" && msg.role === "user") {
-			params.push({
-				role: "assistant",
-				content: "I have processed the tool results.",
-			});
-		}
-
-		if (msg.role === "user") {
-			const userMsg = convertUserMessage(msg);
-			// Skip user messages that convert to empty content (lastRole is intentionally not updated)
-			if (!userMsg) continue;
-			params.push(userMsg);
-		} else if (msg.role === "assistant") {
-			const assistantMsg = convertAssistantMessage(msg, model, compat);
-			// Skip empty assistant messages (lastRole is intentionally not updated)
-			if (!assistantMsg) continue;
-			params.push(assistantMsg);
-		} else if (msg.role === "toolResult") {
-			const group = convertToolResultGroup(transformedMessages, i, model, compat);
-			params.push(...group.messages);
-			i = group.endIndex;
-			lastRole = group.lastRole;
-			continue;
-		}
-
-		lastRole = msg.role;
+		const result = processMessage(transformedMessages, i, lastRole, model, compat, params);
+		i = result.index;
+		lastRole = result.lastRole;
 	}
 
 	return params;
