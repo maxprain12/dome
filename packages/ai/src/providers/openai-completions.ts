@@ -503,6 +503,22 @@ function createClient(
 	});
 }
 
+function applyToolParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	context: Context,
+	compat: ResolvedOpenAICompletionsCompat,
+): void {
+	if (context.tools && context.tools.length > 0) {
+		params.tools = convertTools(context.tools, compat);
+		if (compat.zaiToolStream) {
+			(params as any).tool_stream = true;
+		}
+	} else if (hasToolHistory(context.messages)) {
+		// Anthropic (via LiteLLM/proxy) requires tools param when conversation has tool_calls/tool_results
+		params.tools = [];
+	}
+}
+
 function buildParams(
 	model: Model<"openai-completions">,
 	context: Context,
@@ -545,15 +561,7 @@ function buildParams(
 		params.temperature = options.temperature;
 	}
 
-	if (context.tools && context.tools.length > 0) {
-		params.tools = convertTools(context.tools, compat);
-		if (compat.zaiToolStream) {
-			(params as any).tool_stream = true;
-		}
-	} else if (hasToolHistory(context.messages)) {
-		// Anthropic (via LiteLLM/proxy) requires tools param when conversation has tool_calls/tool_results
-		params.tools = [];
-	}
+	applyToolParams(params, context, compat);
 
 	if (cacheControl) {
 		applyAnthropicCacheControl(messages, params.tools, cacheControl);
