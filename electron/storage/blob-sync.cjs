@@ -271,6 +271,16 @@ async function ingestResourceIfPresent(resource, db, queries, findByPrefix, find
   return ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert);
 }
 
+async function ingestResources(resources, db, queries, findByPrefix, findByHash, insert) {
+  let ingested = 0;
+  for (const resource of resources) {
+    if (await ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert)) {
+      ingested += 1;
+    }
+  }
+  return ingested;
+}
+
 async function ingestLocalFiles(db, queries) {
   await repairInvalidManifestHashes(db, queries);
   const resources = db
@@ -289,12 +299,7 @@ async function ingestLocalFiles(db, queries) {
     VALUES (?, ?, ?, ?, ?, 'pending', 'present', ?, ?)
   `);
 
-  let ingested = 0;
-  for (const resource of resources) {
-    if (await ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert)) {
-      ingested += 1;
-    }
-  }
+  const ingested = await ingestResources(resources, db, queries, findByPrefix, findByHash, insert);
   if (ingested > 0) console.log(`[blob-sync] ingested ${ingested} new vault blobs`);
   return ingested;
 }
