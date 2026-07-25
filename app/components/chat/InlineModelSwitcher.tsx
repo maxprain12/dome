@@ -74,26 +74,28 @@ async function loadOllamaModelIds(provider: AIProviderType): Promise<string[]> {
   return [];
 }
 
+function canFetchDynamicModels(provider: AIProviderType, apiKey: string | undefined): boolean {
+  if (!DYNAMIC_FETCH_PROVIDERS.includes(provider)) return false;
+  if (CATALOG_PROVIDERS.includes(provider)) return true;
+  // Dome no usa API key: el main consulta el plan del usuario vía OAuth.
+  if (provider === 'dome') return true;
+  return Boolean(apiKey);
+}
+
 async function loadDynamicModelOptions(
   provider: AIProviderType,
   apiKey: string | undefined,
 ): Promise<ModelOption[]> {
-  // Dome no usa API key: el main consulta el plan del usuario vía OAuth.
-  const canFetchModels =
-    DYNAMIC_FETCH_PROVIDERS.includes(provider) &&
-    (CATALOG_PROVIDERS.includes(provider) || provider === 'dome' || Boolean(apiKey));
-  if (!canFetchModels) {
-    return [];
-  }
+  if (!canFetchDynamicModels(provider, apiKey)) return [];
+
   try {
     const res = await fetchProviderModels(provider, apiKey);
-    if (res?.success && Array.isArray(res.models)) {
-      return res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name }));
-    }
+    if (!res?.success || !Array.isArray(res.models)) return [];
+    return res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name }));
   } catch {
     // ignore: fall back to empty list
+    return [];
   }
-  return [];
 }
 
 interface InlineModelSwitcherProps {
