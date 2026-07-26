@@ -1,4 +1,4 @@
-import type { Message } from "@dome/ai";
+import type { Message, ToolCall } from "@dome/ai";
 import type { AgentMessage } from "../../types.js";
 
 /** File paths touched by a session branch or compaction range. */
@@ -87,58 +87,77 @@ function truncateForSummary(text: string, maxChars: number): string {
 	return `${text.slice(0, maxChars)}\n\n[... ${truncatedChars} more characters truncated]`;
 }
 
+function formatToolCall(block: ToolCall): string {
+	const args = block.arguments as Record<string, unknown>;
+	const argsStr = Object.entries(args)
+		.map(([k, v]) => `${k}=${safeJsonStringify(v)}`)
+		.join(", ");
+	return `${block.name}(${argsStr})`;
+}
+
+function joinTextContent(content: readonly { type: string }[]): string {
+	return content
+		.filter((c): c is { type: "text"; text: string } => c.type === "text")
+		.map((c) => c.text)
+		.join("");
+}
+
+function serializeUserMessage(msg: Extract<Message, { role: "user" }>): string[] {
+	const content = typeof msg.content === "string" ? msg.content : joinTextContent(msg.content);
+	return content ? [`[User]: ${content}`] : [];
+}
+
+function serializeAssistantMessage(msg: Extract<Message, { role: "assistant" }>): string[] {
+	const textParts: string[] = [];
+	const thinkingParts: string[] = [];
+	const toolCalls: string[] = [];
+	for (const block of msg.content) {
+		switch (block.type) {
+			case "text":
+				textParts.push(block.text);
+				break;
+			case "thinking":
+				thinkingParts.push(block.thinking);
+				break;
+			case "toolCall":
+				toolCalls.push(formatToolCall(block));
+				break;
+		}
+	}
+	const parts: string[] = [];
+	if (thinkingParts.length > 0) {
+		parts.push(`[Assistant thinking]: ${thinkingParts.join("\n")}`);
+	}
+	if (textParts.length > 0) {
+		parts.push(`[Assistant]: ${textParts.join("\n")}`);
+	}
+	if (toolCalls.length > 0) {
+		parts.push(`[Assistant tool calls]: ${toolCalls.join("; ")}`);
+	}
+	return parts;
+}
+
+function serializeToolResultMessage(msg: Extract<Message, { role: "toolResult" }>): string[] {
+	const content = joinTextContent(msg.content);
+	return content ? [`[Tool result]: ${truncateForSummary(content, TOOL_RESULT_MAX_CHARS)}`] : [];
+}
+
+function serializeMessage(msg: Message): string[] {
+	switch (msg.role) {
+		case "user":
+			return serializeUserMessage(msg);
+		case "assistant":
+			return serializeAssistantMessage(msg);
+		case "toolResult":
+			return serializeToolResultMessage(msg);
+	}
+}
+
 /** Serialize LLM messages to plain text for summarization prompts. */
 export function serializeConversation(messages: Message[]): string {
 	const parts: string[] = [];
-
 	for (const msg of messages) {
-		if (msg.role === "user") {
-			const content =
-				typeof msg.content === "string"
-					? msg.content
-					: msg.content
-							.filter((c): c is { type: "text"; text: string } => c.type === "text")
-							.map((c) => c.text)
-							.join("");
-			if (content) parts.push(`[User]: ${content}`);
-		} else if (msg.role === "assistant") {
-			const textParts: string[] = [];
-			const thinkingParts: string[] = [];
-			const toolCalls: string[] = [];
-
-			for (const block of msg.content) {
-				if (block.type === "text") {
-					textParts.push(block.text);
-				} else if (block.type === "thinking") {
-					thinkingParts.push(block.thinking);
-				} else if (block.type === "toolCall") {
-					const args = block.arguments as Record<string, unknown>;
-					const argsStr = Object.entries(args)
-						.map(([k, v]) => `${k}=${safeJsonStringify(v)}`)
-						.join(", ");
-					toolCalls.push(`${block.name}(${argsStr})`);
-				}
-			}
-
-			if (thinkingParts.length > 0) {
-				parts.push(`[Assistant thinking]: ${thinkingParts.join("\n")}`);
-			}
-			if (textParts.length > 0) {
-				parts.push(`[Assistant]: ${textParts.join("\n")}`);
-			}
-			if (toolCalls.length > 0) {
-				parts.push(`[Assistant tool calls]: ${toolCalls.join("; ")}`);
-			}
-		} else if (msg.role === "toolResult") {
-			const content = msg.content
-				.filter((c): c is { type: "text"; text: string } => c.type === "text")
-				.map((c) => c.text)
-				.join("");
-			if (content) {
-				parts.push(`[Tool result]: ${truncateForSummary(content, TOOL_RESULT_MAX_CHARS)}`);
-			}
-		}
+		parts.push(...serializeMessage(msg));
 	}
-
 	return parts.join("\n\n");
 }
