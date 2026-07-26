@@ -247,6 +247,39 @@ async function tallyFlashcardSessions(
   return cardsStudiedThisWeek;
 }
 
+function recordResourceActivity(tally: ActivityTally, cMs: number, uMs: number): void {
+  const ck = localDayKey(cMs);
+  const uk = localDayKey(uMs);
+  tally.activityDays.add(ck);
+  tally.activityDays.add(uk);
+  bumpDay(tally, ck);
+  if (uk !== ck) bumpDay(tally, uk);
+  else if (uMs > cMs + 1000) bumpDay(tally, uk);
+}
+
+function classifyResourceTimestamps(
+  cMs: number,
+  uMs: number,
+  tw: DashboardTimeWindows,
+) {
+  const inCurrentWeek = cMs >= tw.weekStartMs;
+  const inToday = cMs >= tw.startToday && cMs < tw.endToday;
+  const editedToday = uMs >= tw.startToday && uMs < tw.endToday && uMs > cMs + 30 * 1000;
+  const inPrevWeek = cMs >= tw.prevWeekStartMs && cMs < tw.weekStartMs;
+  const touchedPrevWeek = uMs >= tw.prevWeekStartMs && uMs < tw.weekStartMs;
+  const touchedThisWeek = uMs >= tw.weekStartMs;
+
+  return {
+    weeklyResourcesCreated: inCurrentWeek ? 1 : 0,
+    weeklyResourceTouches: touchedThisWeek ? 1 : 0,
+    resourcesCreatedToday: inToday ? 1 : 0,
+    resourcesEditedToday: editedToday ? 1 : 0,
+    resourcesCreatedThisWeek: inCurrentWeek ? 1 : 0,
+    prevWeeklyResourcesCreated: inPrevWeek ? 1 : 0,
+    prevWeeklyResourceTouches: touchedPrevWeek ? 1 : 0,
+  };
+}
+
 function tallyResources(
   resources: DashboardResource[],
   tally: ActivityTally,
@@ -262,19 +295,15 @@ function tallyResources(
   for (const r of resources) {
     const cMs = toEpochMs(r.created_at ?? r.updated_at);
     const uMs = toEpochMs(r.updated_at);
-    tally.activityDays.add(localDayKey(cMs));
-    tally.activityDays.add(localDayKey(uMs));
-    bumpDay(tally, localDayKey(cMs));
-    const uk = localDayKey(uMs);
-    if (uk !== localDayKey(cMs)) bumpDay(tally, uk);
-    else if (uMs > cMs + 1000) bumpDay(tally, uk);
-    if (cMs >= tw.weekStartMs) weeklyResourcesCreated++;
-    if (uMs >= tw.weekStartMs) weeklyResourceTouches++;
-    if (cMs >= tw.startToday && cMs < tw.endToday) resourcesCreatedToday++;
-    if (uMs >= tw.startToday && uMs < tw.endToday && uMs > cMs + 30 * 1000) resourcesEditedToday++;
-    if (cMs >= tw.weekStartMs) resourcesCreatedThisWeek++;
-    else if (cMs >= tw.prevWeekStartMs && cMs < tw.weekStartMs) prevWeeklyResourcesCreated++;
-    if (uMs >= tw.prevWeekStartMs && uMs < tw.weekStartMs) prevWeeklyResourceTouches++;
+    recordResourceActivity(tally, cMs, uMs);
+    const counts = classifyResourceTimestamps(cMs, uMs, tw);
+    weeklyResourcesCreated += counts.weeklyResourcesCreated;
+    weeklyResourceTouches += counts.weeklyResourceTouches;
+    resourcesCreatedToday += counts.resourcesCreatedToday;
+    resourcesEditedToday += counts.resourcesEditedToday;
+    resourcesCreatedThisWeek += counts.resourcesCreatedThisWeek;
+    prevWeeklyResourcesCreated += counts.prevWeeklyResourcesCreated;
+    prevWeeklyResourceTouches += counts.prevWeeklyResourceTouches;
   }
   return {
     weeklyResourcesCreated,
