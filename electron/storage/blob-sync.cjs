@@ -535,6 +535,15 @@ function applyUploadOutcome(blob, outcome, putResult, markUploaded, markSkipped)
 }
 
 /**
+ * Outcomes from `requestUploadGrant` that must propagate up unchanged so the
+ * outer loop can stop iterating (rate limit) or fail the whole cycle
+ * (quota exhausted). Everything else folds through `applyUploadOutcome`.
+ */
+function isTerminalGrantOutcome(outcome) {
+  return outcome.kind === 'rate-limited' || outcome.kind === 'quota-exceeded';
+}
+
+/**
  * Try to upload one pending blob: short-circuit if the provider already has
  * it, locate the local bytes, request a grant, PUT the file, and translate
  * every failure mode into a single outcome kind.
@@ -562,7 +571,7 @@ async function uploadPendingBlob(
   try {
     const outcome = await requestUploadGrant(deps, base, blob);
     if (outcome.kind !== 'ok') {
-      if (outcome.kind === 'rate-limited' || outcome.kind === 'quota-exceeded') return outcome;
+      if (isTerminalGrantOutcome(outcome)) return outcome;
       return applyUploadOutcome(blob, outcome, null, markUploaded, markSkipped);
     }
     const putResult = await performBlobPut(blob, outcome.url, localFile);
