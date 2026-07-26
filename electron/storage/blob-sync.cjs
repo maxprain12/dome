@@ -178,9 +178,11 @@ async function repairBadRowHash(row, fullPath, findByHash, update, drop) {
  */
 function isFastDeduped(resource, cacheKey, findByPrefix, findByHash) {
   const prefix = resource.internal_path ? prefixFromInternalPath(resource.internal_path) : '';
-  if (prefix && findByPrefix.get(prefix)) return true;
-  if (resource.file_hash && findByHash.get(resource.file_hash)) return true;
-  return hashCache.has(cacheKey);
+  return Boolean(
+    (prefix && findByPrefix.get(prefix)) ||
+      (resource.file_hash && findByHash.get(resource.file_hash)) ||
+      hashCache.has(cacheKey),
+  );
 }
 
 /**
