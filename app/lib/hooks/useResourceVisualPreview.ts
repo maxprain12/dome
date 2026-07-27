@@ -214,25 +214,24 @@ function setBounded<K, V>(map: Map<K, V>, key: K, value: V): void {
 
 function firstStringish(value: unknown, depth = 0): string | null {
   if (depth > 4 || value == null) return null;
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const r = firstStringish(item, depth + 1);
-      if (r) return r;
-    }
-    return null;
-  }
+  if (typeof value === 'string') return nonEmptyString(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (Array.isArray(value)) return firstStringishFromValues(value, depth);
   if (typeof value === 'object') {
-    for (const v of Object.values(value as Record<string, unknown>)) {
-      const r = firstStringish(v, depth + 1);
-      if (r) return r;
-    }
+    return firstStringishFromValues(Object.values(value as Record<string, unknown>), depth);
+  }
+  return null;
+}
+
+function nonEmptyString(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function firstStringishFromValues(values: unknown[], depth: number): string | null {
+  for (const item of values) {
+    const result = firstStringish(item, depth + 1);
+    if (result) return result;
   }
   return null;
 }
