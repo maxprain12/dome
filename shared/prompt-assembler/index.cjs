@@ -117,21 +117,18 @@ function formatPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
+function addOptionalSection(blocks, label, value) {
+  if (value?.trim()) {
+    blocks.push(`**${label}**
+${value.trim()}`);
+  }
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
-  if (opts.dateLine?.trim()) {
-    blocks.push(`**session-date**
-${opts.dateLine.trim()}`);
-  }
-  if (opts.uiContext?.trim()) {
-    blocks.push(`**ui-context**
-${opts.uiContext.trim()}`);
-  }
-  if (opts.userMemory?.trim()) {
-    blocks.push(`**user-memory**
-${opts.userMemory.trim()}`);
-  }
+  addOptionalSection(blocks, "session-date", opts.dateLine);
+  addOptionalSection(blocks, "ui-context", opts.uiContext);
+  addOptionalSection(blocks, "user-memory", opts.userMemory);
   if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
     const lines = opts.pinnedPeople.map(formatPersonLine).join("\n");
     blocks.push(
