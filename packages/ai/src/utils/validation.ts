@@ -282,6 +282,16 @@ export function validateToolCall(tools: Tool[], toolCall: ToolCall): any {
 	return validateToolArguments(tool, toolCall);
 }
 
+function replaceRecordContents(
+	target: Record<string, unknown>,
+	replacement: Record<string, unknown>,
+): void {
+	for (const key of Object.keys(target)) {
+		delete target[key];
+	}
+	Object.assign(target, replacement);
+}
+
 /**
  * Validates tool call arguments against the tool's TypeBox schema
  * @param tool The tool definition with TypeBox schema
@@ -298,10 +308,7 @@ export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
 		const coerced = coerceWithJsonSchema(args, tool.parameters);
 		if (coerced !== args) {
 			if (isRecord(args) && isRecord(coerced)) {
-				for (const key of Object.keys(args)) {
-					delete args[key];
-				}
-				Object.assign(args, coerced);
+				replaceRecordContents(args, coerced);
 			} else {
 				return validator.Check(coerced) ? coerced : args;
 			}
