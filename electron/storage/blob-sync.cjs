@@ -287,6 +287,10 @@ async function ingestResources(resources, db, queries, findByPrefix, findByHash,
   return ingested;
 }
 
+function logIngestedCount(ingested) {
+  if (ingested > 0) console.log(`[blob-sync] ingested ${ingested} new vault blobs`);
+}
+
 async function ingestLocalFiles(db, queries) {
   await repairInvalidManifestHashes(db, queries);
   const resources = db
@@ -306,7 +310,7 @@ async function ingestLocalFiles(db, queries) {
   `);
 
   const ingested = await ingestResources(resources, db, queries, findByPrefix, findByHash, insert);
-  if (ingested > 0) console.log(`[blob-sync] ingested ${ingested} new vault blobs`);
+  logIngestedCount(ingested);
   return ingested;
 }
 
