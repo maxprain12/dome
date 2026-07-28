@@ -129,8 +129,14 @@ function formatPinnedSourceLine(src) {
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
+function formatIdentityLabel(identity) {
+  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
+}
+function formatIdentitiesList(identities) {
+  return (identities || []).map(formatIdentityLabel).join(", ");
+}
 function formatPersonLine(person) {
-  const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+  const identities = formatIdentitiesList(person.identities);
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
 function addOptionalSection(blocks, label, value) {
