@@ -103,14 +103,30 @@ You are speaking aloud in a live voice conversation. Follow these rules:
 - Avoid filler phrases like "of course!", "certainly!".
 - Respond in ${langName}.`;
 }
+function pinnedSourceMetaLabel(src, kind, metaKey, label) {
+  if (src.kind !== kind) return "";
+  const value = src.meta?.[metaKey];
+  return typeof value === "string" ? ` ${label}=${value}` : "";
+}
+function pinnedSourceBodyLabel(src) {
+  const raw = src.meta?.body;
+  if (typeof raw !== "string" || !raw.trim()) return "";
+  return `
+  body: ${raw.trim().slice(0, 2e3)}`;
+}
+function pinnedSourceToolHint(kind) {
+  if (kind === "social_post") return " → social_post_get";
+  if (kind === "email") return " → email_read";
+  if (kind === "issue") return " → github_get_issue";
+  return "";
+}
 function formatPinnedSourceLine(src) {
-  const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
-  const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
-  const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
-  const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
-  const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
-  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
-  const toolHint = src.kind === "social_post" ? " → social_post_get" : src.kind === "email" ? " → email_read" : src.kind === "issue" ? " → github_get_issue" : "";
+  const repo = pinnedSourceMetaLabel(src, "issue", "fullName", "repo");
+  const folder = pinnedSourceMetaLabel(src, "email", "folder", "folder");
+  const provider = pinnedSourceMetaLabel(src, "social_post", "provider", "provider");
+  const status = pinnedSourceMetaLabel(src, "social_post", "status", "status");
+  const body = pinnedSourceBodyLabel(src);
+  const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
 function formatPersonLine(person) {
