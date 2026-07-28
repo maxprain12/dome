@@ -123,6 +123,9 @@ function addOptionalSection(blocks, label, value) {
 ${value.trim()}`);
   }
 }
+function resolveTaskLine(value) {
+  return value?.trim() || "Respond to the user message using the sources above only when relevant.";
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
@@ -157,7 +160,7 @@ ${lines}`
 "${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
     );
   }
-  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+  const task = resolveTaskLine(opts.taskLine);
   blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
 }
