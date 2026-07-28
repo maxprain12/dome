@@ -126,6 +126,15 @@ ${value.trim()}`);
 function resolveTaskLine(value) {
   return value?.trim() || "Respond to the user message using the sources above only when relevant.";
 }
+function addActiveResourceSection(blocks, opts) {
+  if (opts.activeResource?.id) {
+    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
+    blocks.push(
+      `**active-resource** \u2014 ${opts.activeResource.id}${type}
+"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
+    );
+  }
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
@@ -153,13 +162,7 @@ ${lines}`
 ${lines}`
     );
   }
-  if (opts.activeResource?.id) {
-    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
-    blocks.push(
-      `**active-resource** \u2014 ${opts.activeResource.id}${type}
-"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
-    );
-  }
+  addActiveResourceSection(blocks, opts);
   const task = resolveTaskLine(opts.taskLine);
   blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
