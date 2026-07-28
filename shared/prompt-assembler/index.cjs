@@ -140,10 +140,9 @@ function formatPersonLine(person) {
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
 function addOptionalSection(blocks, label, value) {
-  if (value?.trim()) {
-    blocks.push(`**${label}**
+  if (!value?.trim()) return;
+  blocks.push(`**${label}**
 ${value.trim()}`);
-  }
 }
 function resolveTaskLine(value) {
   return value?.trim() || "Respond to the user message using the sources above only when relevant.";
