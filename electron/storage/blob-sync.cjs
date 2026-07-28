@@ -399,6 +399,21 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
 }
 
 /**
+ * Drop manifest rows whose hash is not a full sha256 (defense in depth: a
+ * malformed hash would 422 the entire stat batch and block all uploads).
+ * Returns null when no valid blobs remain so the caller can short-circuit.
+ * @param {Array<object>} rows
+ * @returns {Array<object> | null}
+ */
+function pendingBlobsWithValidHashes(rows) {
+  const pending = rows.filter((b) => FULL_HASH_RE.test(String(b.hash || '')));
+  if (pending.length < rows.length) {
+    console.warn(`[blob-sync] skipping ${rows.length - pending.length} manifest rows with invalid hash`);
+  }
+  return pending.length ? pending : null;
+}
+
+/**
  * Phase 2 — upload pending blobs (stat-deduped, streaming).
  * @param {object} deps
  * @param {import('better-sqlite3').Database} db
@@ -409,11 +424,8 @@ async function runUploadQueue(deps, db) {
     .all();
   // Defensa en profundidad: un hash malformado que se cuele haría 422 al
   // batch de stat completo y bloquearía TODAS las subidas.
-  const pending = rows.filter((b) => FULL_HASH_RE.test(String(b.hash || '')));
-  if (pending.length < rows.length) {
-    console.warn(`[blob-sync] skipping ${rows.length - pending.length} manifest rows with invalid hash`);
-  }
-  if (!pending.length) return { uploaded: 0, deduped: 0 };
+  const pending = pendingBlobsWithValidHashes(rows);
+  if (!pending) return { uploaded: 0, deduped: 0 };
 
   const base = getDomeProviderBaseUrl().replace(/\/$/, '');
   const markUploaded = db.prepare(
