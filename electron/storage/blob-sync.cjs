@@ -276,9 +276,9 @@ async function ingestResourceIfPresent(resource, db, queries, findByPrefix, find
 async function ingestResources(resources, db, queries, findByPrefix, findByHash, insert) {
   let ingested = 0;
   for (const resource of resources) {
-    if (await ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert)) {
-      ingested += 1;
-    }
+    ingested += Number(
+      await ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert),
+    );
   }
   return ingested;
 }
