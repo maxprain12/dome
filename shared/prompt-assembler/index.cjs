@@ -135,33 +135,39 @@ function addActiveResourceSection(blocks, opts) {
     );
   }
 }
+function addPinnedPeopleBlock(blocks, people) {
+  if (!people || people.length === 0) return;
+  const lines = people.map(formatPersonLine).join("\n");
+  blocks.push(
+    `**mentioned-people** \u2014 ${people.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+  );
+}
+function addPinnedSourcesBlock(blocks, sources) {
+  if (!sources || sources.length === 0) return;
+  const lines = sources.map(formatPinnedSourceLine).join("\n");
+  blocks.push(
+    `**mentioned-sources** \u2014 ${sources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+  );
+}
+function addPinnedResourcesBlock(blocks, resources) {
+  if (!resources || resources.length === 0) return;
+  const lines = resources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+  blocks.push(
+    `**pinned-resources** \u2014 ${resources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`
+  );
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
   addOptionalSection(blocks, "session-date", opts.dateLine);
   addOptionalSection(blocks, "ui-context", opts.uiContext);
   addOptionalSection(blocks, "user-memory", opts.userMemory);
-  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
-    const lines = opts.pinnedPeople.map(formatPersonLine).join("\n");
-    blocks.push(
-      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`
-    );
-  }
-  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
-    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
-    blocks.push(
-      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`
-    );
-  }
-  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
-    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
-    blocks.push(
-      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`
-    );
-  }
+  addPinnedPeopleBlock(blocks, opts.pinnedPeople);
+  addPinnedSourcesBlock(blocks, opts.pinnedSources);
+  addPinnedResourcesBlock(blocks, opts.pinnedResources);
   addActiveResourceSection(blocks, opts);
   const task = resolveTaskLine(opts.taskLine);
   blocks.push(`Task: ${task}`);
