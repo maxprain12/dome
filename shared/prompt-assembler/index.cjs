@@ -201,16 +201,17 @@ function addExtraSections(sections, extraSections) {
       sections.push(extra.trim());
   }
 }
-function buildDomeSystemPrompt(options, coreSections) {
-  const sections = [];
-  const persona = String(options.staticPersona || "").trim();
+function addPersonaSection(sections, staticPersona) {
+  const persona = String(staticPersona || "").trim();
   if (persona)
     sections.push(persona);
-  if (options.coreToolsMode !== "minimal") {
+}
+function addCoreToolsSections(sections, coreSections, coreToolsMode, omitCoreTools) {
+  if (coreToolsMode !== "minimal") {
     if (coreSections.constraintsLanguage)
       sections.push(coreSections.constraintsLanguage.trim());
   }
-  if (!options.omitCoreTools) {
+  if (!omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
     const toolsBlock = buildCoreToolsBlock(coreSections);
@@ -219,16 +220,28 @@ function buildDomeSystemPrompt(options, coreSections) {
   } else if (coreSections.toolGuardrails) {
     sections.push(coreSections.toolGuardrails.trim());
   }
-  const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
+}
+function addSkillsSection(sections, skillsCatalogMarkdown) {
+  const catalog = skillsCatalogMarkdown && String(skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
-  const volatileParts = [];
-  if (options.includeDate !== false) {
-    volatileParts.push(`Current date: ${todayEnLong()}.`);
+}
+function buildVolatileParts(includeDate, volatileContext) {
+  const parts = [];
+  if (includeDate !== false) {
+    parts.push(`Current date: ${todayEnLong()}.`);
   }
-  const volatile = options.volatileContext && String(options.volatileContext).trim();
+  const volatile = volatileContext && String(volatileContext).trim();
   if (volatile)
-    volatileParts.push(volatile);
+    parts.push(volatile);
+  return parts;
+}
+function buildDomeSystemPrompt(options, coreSections) {
+  const sections = [];
+  addPersonaSection(sections, options.staticPersona);
+  addCoreToolsSections(sections, coreSections, options.coreToolsMode, options.omitCoreTools);
+  addSkillsSection(sections, options.skillsCatalogMarkdown);
+  const volatileParts = buildVolatileParts(options.includeDate, options.volatileContext);
   if (volatileParts.length)
     sections.push(volatileParts.join("\n\n"));
   addExtraSections(sections, options.extraSections);
