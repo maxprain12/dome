@@ -1,10 +1,10 @@
 "use strict";
 var __defProp = Object.defineProperty;
-const __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-const __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (let name in all)
+  for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
@@ -15,7 +15,7 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-const __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var prompt_assembler_exports = {};
 __export(prompt_assembler_exports, {
   CORE_SECTION_KEYS: () => CORE_SECTION_KEYS,
@@ -115,9 +115,9 @@ function pinnedSourceBodyLabel(src) {
   body: ${raw.trim().slice(0, 2e3)}`;
 }
 function pinnedSourceToolHint(kind) {
-  if (kind === "social_post") return " → social_post_get";
-  if (kind === "email") return " → email_read";
-  if (kind === "issue") return " → github_get_issue";
+  if (kind === "social_post") return " \u2192 social_post_get";
+  if (kind === "email") return " \u2192 email_read";
+  if (kind === "issue") return " \u2192 github_get_issue";
   return "";
 }
 function formatPinnedSourceLine(src) {
@@ -129,25 +129,45 @@ function formatPinnedSourceLine(src) {
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
-function formatIdentityLabel(identity) {
-  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
-}
-function formatIdentitiesList(identities) {
-  return (identities || []).map(formatIdentityLabel).join(", ");
-}
-function formatPersonLine(person) {
-  const identities = formatIdentitiesList(person.identities);
-  return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
-}
-function addOptionalSection(blocks, label, value) {
-  if (!value?.trim()) return;
-  blocks.push(`**${label}**
-${value.trim()}`);
-}
-function resolveTaskLine(value) {
-  return value?.trim() || "Respond to the user message using the sources above only when relevant.";
-}
-function addActiveResourceSection(blocks, opts) {
+function formatVolatileSourceContext(opts = {}) {
+  const blocks = [];
+  blocks.push("Source (session):");
+  if (opts.dateLine?.trim()) {
+    blocks.push(`**session-date**
+${opts.dateLine.trim()}`);
+  }
+  if (opts.uiContext?.trim()) {
+    blocks.push(`**ui-context**
+${opts.uiContext.trim()}`);
+  }
+  if (opts.userMemory?.trim()) {
+    blocks.push(`**user-memory**
+${opts.userMemory.trim()}`);
+  }
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople.map((person) => {
+      const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+      return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
+  }
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+    );
+  }
+  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
+    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+    blocks.push(
+      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`
+    );
+  }
   if (opts.activeResource?.id) {
     const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
     blocks.push(
@@ -155,63 +175,20 @@ function addActiveResourceSection(blocks, opts) {
 "${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
     );
   }
-}
-function addPinnedPeopleBlock(blocks, people) {
-  if (!people || people.length === 0) return;
-  const lines = people.map(formatPersonLine).join("\n");
-  blocks.push(
-    `**mentioned-people** \u2014 ${people.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`
-  );
-}
-function addPinnedSourcesBlock(blocks, sources) {
-  if (!sources || sources.length === 0) return;
-  const lines = sources.map(formatPinnedSourceLine).join("\n");
-  blocks.push(
-    `**mentioned-sources** \u2014 ${sources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`
-  );
-}
-function addPinnedResourcesBlock(blocks, resources) {
-  if (!resources || resources.length === 0) return;
-  const lines = resources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
-  blocks.push(
-    `**pinned-resources** \u2014 ${resources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`
-  );
-}
-function formatVolatileSourceContext(opts = {}) {
-  const blocks = [];
-  blocks.push("Source (session):");
-  addOptionalSection(blocks, "session-date", opts.dateLine);
-  addOptionalSection(blocks, "ui-context", opts.uiContext);
-  addOptionalSection(blocks, "user-memory", opts.userMemory);
-  addPinnedPeopleBlock(blocks, opts.pinnedPeople);
-  addPinnedSourcesBlock(blocks, opts.pinnedSources);
-  addPinnedResourcesBlock(blocks, opts.pinnedResources);
-  addActiveResourceSection(blocks, opts);
-  const task = resolveTaskLine(opts.taskLine);
+  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
   blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
 }
-function addExtraSections(sections, extraSections) {
-  if (!Array.isArray(extraSections)) return;
-  for (const extra of extraSections) {
-    if (typeof extra === "string" && extra.trim())
-      sections.push(extra.trim());
-  }
-}
-function addPersonaSection(sections, staticPersona) {
-  const persona = String(staticPersona || "").trim();
+function buildDomeSystemPrompt(options, coreSections) {
+  const sections = [];
+  const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
-}
-function addCoreToolsSections(sections, coreSections, coreToolsMode, omitCoreTools) {
-  if (coreToolsMode !== "minimal") {
+  if (options.coreToolsMode !== "minimal") {
     if (coreSections.constraintsLanguage)
       sections.push(coreSections.constraintsLanguage.trim());
   }
-  if (!omitCoreTools) {
+  if (!options.omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
     const toolsBlock = buildCoreToolsBlock(coreSections);
@@ -220,31 +197,24 @@ function addCoreToolsSections(sections, coreSections, coreToolsMode, omitCoreToo
   } else if (coreSections.toolGuardrails) {
     sections.push(coreSections.toolGuardrails.trim());
   }
-}
-function addSkillsSection(sections, skillsCatalogMarkdown) {
-  const catalog = skillsCatalogMarkdown && String(skillsCatalogMarkdown).trim();
+  const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
-}
-function buildVolatileParts(includeDate, volatileContext) {
-  const parts = [];
-  if (includeDate !== false) {
-    parts.push(`Current date: ${todayEnLong()}.`);
+  const volatileParts = [];
+  if (options.includeDate !== false) {
+    volatileParts.push(`Current date: ${todayEnLong()}.`);
   }
-  const volatile = volatileContext && String(volatileContext).trim();
+  const volatile = options.volatileContext && String(options.volatileContext).trim();
   if (volatile)
-    parts.push(volatile);
-  return parts;
-}
-function buildDomeSystemPrompt(options, coreSections) {
-  const sections = [];
-  addPersonaSection(sections, options.staticPersona);
-  addCoreToolsSections(sections, coreSections, options.coreToolsMode, options.omitCoreTools);
-  addSkillsSection(sections, options.skillsCatalogMarkdown);
-  const volatileParts = buildVolatileParts(options.includeDate, options.volatileContext);
+    volatileParts.push(volatile);
   if (volatileParts.length)
     sections.push(volatileParts.join("\n\n"));
-  addExtraSections(sections, options.extraSections);
+  if (Array.isArray(options.extraSections)) {
+    for (const extra of options.extraSections) {
+      if (typeof extra === "string" && extra.trim())
+        sections.push(extra.trim());
+    }
+  }
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
