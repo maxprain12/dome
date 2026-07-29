@@ -110,6 +110,13 @@ async function repairInvalidManifestHashes(db, queries) {
     .prepare("SELECT id, hash FROM vault_blobs WHERE LENGTH(hash) != 64 OR hash GLOB '*[^0-9a-f]*'")
     .all();
   if (!bad.length) return;
+  const repairStatements = prepareManifestHashRepair(db);
+  for (const row of bad) {
+    await repairOneBadRow(row, repairStatements.findResource, repairStatements.findByHash, repairStatements.update, queries, repairStatements.drop);
+  }
+}
+
+function prepareManifestHashRepair(db) {
   const syncTombstone = require('./sync-tombstone.cjs');
   const findByHash = db.prepare('SELECT id FROM vault_blobs WHERE hash = ? AND id != ? LIMIT 1');
   const findResource = db.prepare(
@@ -123,9 +130,7 @@ async function repairInvalidManifestHashes(db, queries) {
     remove.run(id);
     syncTombstone.recordTombstone(db, 'vault_blobs', id);
   };
-  for (const row of bad) {
-    await repairOneBadRow(row, findResource, findByHash, update, queries, drop);
-  }
+  return { findByHash, findResource, update, drop };
 }
 
 /**
