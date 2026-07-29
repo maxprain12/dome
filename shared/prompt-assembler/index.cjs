@@ -136,51 +136,64 @@ function formatPinnedPeopleLine(person) {
   const identities = (person.identities || []).map(formatPinnedPersonIdentity).join(", ");
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
-function formatVolatileSourceContext(opts = {}) {
-  const blocks = [];
-  blocks.push("Source (session):");
-  if (opts.dateLine?.trim()) {
-    blocks.push(`**session-date**
-${opts.dateLine.trim()}`);
-  }
-  if (opts.uiContext?.trim()) {
-    blocks.push(`**ui-context**
-${opts.uiContext.trim()}`);
-  }
-  if (opts.userMemory?.trim()) {
-    blocks.push(`**user-memory**
-${opts.userMemory.trim()}`);
-  }
-  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
-    const lines = opts.pinnedPeople.map(formatPinnedPeopleLine).join("\n");
-    blocks.push(
-      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`
-    );
-  }
-  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
-    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
-    blocks.push(
-      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`
-    );
-  }
-  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
-    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
-    blocks.push(
-      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`
-    );
-  }
-  if (opts.activeResource?.id) {
-    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
-    blocks.push(
-      `**active-resource** \u2014 ${opts.activeResource.id}${type}
-"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
-    );
-  }
+function formatSessionDateLine(opts) {
+  const trimmed = opts.dateLine?.trim();
+  return trimmed ? `**session-date**
+${trimmed}` : null;
+}
+function formatUiContextLine(opts) {
+  const trimmed = opts.uiContext?.trim();
+  return trimmed ? `**ui-context**
+${trimmed}` : null;
+}
+function formatUserMemoryLine(opts) {
+  const trimmed = opts.userMemory?.trim();
+  return trimmed ? `**user-memory**
+${trimmed}` : null;
+}
+function formatPinnedPeopleBlock(opts) {
+  if (!opts.pinnedPeople || opts.pinnedPeople.length === 0) return null;
+  const lines = opts.pinnedPeople.map(formatPinnedPeopleLine).join("\n");
+  return `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`;
+}
+function formatPinnedSourcesBlock(opts) {
+  if (!opts.pinnedSources || opts.pinnedSources.length === 0) return null;
+  const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
+  return `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`;
+}
+function formatPinnedResourcesBlock(opts) {
+  if (!opts.pinnedResources || opts.pinnedResources.length === 0) return null;
+  const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+  return `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`;
+}
+function formatActiveResourceBlock(opts) {
+  if (!opts.activeResource?.id) return null;
+  const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
+  return `**active-resource** \u2014 ${opts.activeResource.id}${type}
+"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`;
+}
+function formatTaskLine(opts) {
   const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  blocks.push(`Task: ${task}`);
+  return `Task: ${task}`;
+}
+function formatVolatileSourceContext(opts = {}) {
+  const blocks = ["Source (session):"];
+  const sections = [
+    formatSessionDateLine(opts),
+    formatUiContextLine(opts),
+    formatUserMemoryLine(opts),
+    formatPinnedPeopleBlock(opts),
+    formatPinnedSourcesBlock(opts),
+    formatPinnedResourcesBlock(opts),
+    formatActiveResourceBlock(opts)
+  ];
+  for (const section of sections) {
+    if (section) blocks.push(section);
+  }
+  blocks.push(formatTaskLine(opts));
   return blocks.join("\n\n");
 }
 function buildDomeSystemPrompt(options, coreSections) {
