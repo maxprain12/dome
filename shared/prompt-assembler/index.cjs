@@ -186,6 +186,9 @@ function formatTaskLine(opts) {
 function appendSection(blocks, section) {
   if (section) blocks.push(section);
 }
+function appendSections(blocks, sections) {
+  for (const section of sections) appendSection(blocks, section);
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = ["Source (session):"];
   const sections = [
@@ -197,7 +200,7 @@ function formatVolatileSourceContext(opts = {}) {
     formatPinnedResourcesBlock(opts),
     formatActiveResourceBlock(opts)
   ];
-  for (const section of sections) appendSection(blocks, section);
+  appendSections(blocks, sections);
   blocks.push(formatTaskLine(opts));
   return blocks.join("\n\n");
 }
