@@ -182,6 +182,9 @@ function formatTaskLine(opts) {
   const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
   return `Task: ${task}`;
 }
+function appendSection(blocks, section) {
+  if (section) blocks.push(section);
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = ["Source (session):"];
   const sections = [
@@ -193,9 +196,7 @@ function formatVolatileSourceContext(opts = {}) {
     formatPinnedResourcesBlock(opts),
     formatActiveResourceBlock(opts)
   ];
-  for (const section of sections) {
-    if (section) blocks.push(section);
-  }
+  for (const section of sections) appendSection(blocks, section);
   blocks.push(formatTaskLine(opts));
   return blocks.join("\n\n");
 }
