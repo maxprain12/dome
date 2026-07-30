@@ -89,15 +89,6 @@ function resolveResourceAbsPath(resource, queries) {
 }
 
 /**
- * Phase 1 — make sure every local resource file has a manifest row.
- * Covers BOTH storage schemes: `internal_path` (managed) and `vault_path`
- * (vault files — the vast majority; historically these were skipped, so the
- * cloud manifest only ever saw a handful of blobs and Companion showed
- * "not synced" for everything else).
- * @param {import('better-sqlite3').Database} db
- * @param {object} [queries]
- */
-/**
  * Repair pass: manifest rows whose hash is not a full sha256 (legacy 16-char
  * prefixes copied from resources.file_hash). Recompute from the local file and
  * update in place (same id + bumped updated_at → the fixed row re-pushes and
@@ -292,6 +283,16 @@ function logIngestedCount(ingested) {
   if (ingested > 0) console.log(`[blob-sync] ingested ${ingested} new vault blobs`);
 }
 
+/**
+ * Phase 1 — make sure every local resource file has a manifest row.
+ * Covers BOTH storage schemes: `internal_path` (managed) and `vault_path`
+ * (vault files — the vast majority; historically these were skipped, so the
+ * cloud manifest only ever saw a handful of blobs and Companion showed
+ * "not synced" for everything else).
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} [queries]
+ * @returns {Promise<number>} number of new vault_blobs rows inserted
+ */
 async function ingestLocalFiles(db, queries) {
   await repairInvalidManifestHashes(db, queries);
   const resources = db
