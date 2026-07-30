@@ -129,15 +129,16 @@ function formatPinnedSourceLine(src) {
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
-function pinnedPersonIdentityLabel(identity) {
-  return identity.displayLabel || identity.externalId;
-}
 function formatPinnedPersonIdentity(identity) {
-  return `${identity.source}:${pinnedPersonIdentityLabel(identity)}`;
+  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
+}
+function formatPinnedPeopleHeadline(person) {
+  return `- ${person.id}: ${person.title}`;
 }
 function formatPinnedPeopleLine(person) {
   const identities = (person.identities || []).map(formatPinnedPersonIdentity).join(", ");
-  return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+  const headline = formatPinnedPeopleHeadline(person);
+  return identities ? `${headline} (${identities})` : headline;
 }
 function formatSessionDateLine(opts) {
   const trimmed = opts.dateLine?.trim();
