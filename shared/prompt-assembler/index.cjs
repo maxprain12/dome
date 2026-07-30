@@ -211,10 +211,8 @@ function buildDomeSystemPrompt(options, coreSections) {
   const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
-  if (options.coreToolsMode !== "minimal") {
-    if (coreSections.constraintsLanguage)
-      sections.push(coreSections.constraintsLanguage.trim());
-  }
+  if (options.coreToolsMode !== "minimal" && coreSections.constraintsLanguage)
+    sections.push(coreSections.constraintsLanguage.trim());
   if (!options.omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
