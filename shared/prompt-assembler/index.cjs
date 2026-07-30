@@ -199,6 +199,13 @@ function formatVolatileSourceContext(opts = {}) {
   blocks.push(formatTaskLine(opts));
   return blocks.join("\n\n");
 }
+function appendExtraSections(sections, extraSections) {
+  if (!Array.isArray(extraSections)) return;
+  for (const extra of extraSections) {
+    if (typeof extra === "string" && extra.trim())
+      sections.push(extra.trim());
+  }
+}
 function buildDomeSystemPrompt(options, coreSections) {
   const sections = [];
   const persona = String(options.staticPersona || "").trim();
@@ -229,12 +236,7 @@ function buildDomeSystemPrompt(options, coreSections) {
     volatileParts.push(volatile);
   if (volatileParts.length)
     sections.push(volatileParts.join("\n\n"));
-  if (Array.isArray(options.extraSections)) {
-    for (const extra of options.extraSections) {
-      if (typeof extra === "string" && extra.trim())
-        sections.push(extra.trim());
-    }
-  }
+  appendExtraSections(sections, options.extraSections);
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
