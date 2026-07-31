@@ -189,9 +189,8 @@ function appendSection(blocks, section) {
 function appendSections(blocks, sections) {
   for (const section of sections) appendSection(blocks, section);
 }
-function formatVolatileSourceContext(opts = {}) {
-  const blocks = ["Source (session):"];
-  const sections = [
+function formatVolatileSections(opts) {
+  return [
     formatSessionDateLine(opts),
     formatUiContextLine(opts),
     formatUserMemoryLine(opts),
@@ -200,7 +199,10 @@ function formatVolatileSourceContext(opts = {}) {
     formatPinnedResourcesBlock(opts),
     formatActiveResourceBlock(opts)
   ];
-  appendSections(blocks, sections);
+}
+function formatVolatileSourceContext(opts = {}) {
+  const blocks = ["Source (session):"];
+  appendSections(blocks, formatVolatileSections(opts));
   blocks.push(formatTaskLine(opts));
   return blocks.join("\n\n");
 }
