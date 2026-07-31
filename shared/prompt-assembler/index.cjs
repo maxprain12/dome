@@ -140,97 +140,65 @@ function formatPinnedPeopleLine(person) {
   const headline = formatPinnedPeopleHeadline(person);
   return identities ? `${headline} (${identities})` : headline;
 }
-function formatSessionDateLine(opts) {
-  const trimmed = opts.dateLine?.trim();
-  return trimmed ? `**session-date**
-${trimmed}` : null;
-}
-function formatUiContextLine(opts) {
-  const trimmed = opts.uiContext?.trim();
-  return trimmed ? `**ui-context**
-${trimmed}` : null;
-}
-function formatUserMemoryLine(opts) {
-  const trimmed = opts.userMemory?.trim();
-  return trimmed ? `**user-memory**
-${trimmed}` : null;
-}
-function formatPinnedPeopleBlock(opts) {
-  if (!opts.pinnedPeople || opts.pinnedPeople.length === 0) return null;
-  const lines = opts.pinnedPeople.map(formatPinnedPeopleLine).join("\n");
-  return `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`;
-}
-function formatPinnedSourcesBlock(opts) {
-  if (!opts.pinnedSources || opts.pinnedSources.length === 0) return null;
-  const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
-  return `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`;
-}
-function formatPinnedResourcesBlock(opts) {
-  if (!opts.pinnedResources || opts.pinnedResources.length === 0) return null;
-  const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
-  return `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`;
-}
-function formatActiveResourceBlock(opts) {
-  if (!opts.activeResource?.id) return null;
-  const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
-  return `**active-resource** \u2014 ${opts.activeResource.id}${type}
-"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`;
-}
-function formatTaskLine(opts) {
-  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  return `Task: ${task}`;
-}
-function appendSection(blocks, section) {
-  if (section) blocks.push(section);
-}
-function appendSections(blocks, sections) {
-  for (const section of sections) appendSection(blocks, section);
-}
-function formatVolatileSections(opts) {
-  return [
-    formatSessionDateLine(opts),
-    formatUiContextLine(opts),
-    formatUserMemoryLine(opts),
-    formatPinnedPeopleBlock(opts),
-    formatPinnedSourcesBlock(opts),
-    formatPinnedResourcesBlock(opts),
-    formatActiveResourceBlock(opts)
-  ];
+function formatPinnedResourcesLine(r) {
+  return `- ${r.id}: ${r.title} (${r.type})`;
 }
 function formatVolatileSourceContext(opts = {}) {
-  const blocks = ["Source (session):"];
-  appendSections(blocks, formatVolatileSections(opts));
-  blocks.push(formatTaskLine(opts));
+  const blocks = [];
+  blocks.push("Source (session):");
+  if (opts.dateLine?.trim()) {
+    blocks.push(`**session-date**
+${opts.dateLine.trim()}`);
+  }
+  if (opts.uiContext?.trim()) {
+    blocks.push(`**ui-context**
+${opts.uiContext.trim()}`);
+  }
+  if (opts.userMemory?.trim()) {
+    blocks.push(`**user-memory**
+${opts.userMemory.trim()}`);
+  }
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople.map(formatPinnedPeopleLine).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
+  }
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+    );
+  }
+  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
+    const lines = opts.pinnedResources.map(formatPinnedResourcesLine).join("\n");
+    blocks.push(
+      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`
+    );
+  }
+  if (opts.activeResource?.id) {
+    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
+    blocks.push(
+      `**active-resource** \u2014 ${opts.activeResource.id}${type}
+"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
+    );
+  }
+  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+  blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
-}
-function appendExtraSections(sections, extraSections) {
-  if (!Array.isArray(extraSections)) return;
-  for (const extra of extraSections) {
-    if (typeof extra === "string" && extra.trim())
-      sections.push(extra.trim());
-  }
-}
-function appendVolatileSections(sections, options) {
-  const volatileParts = [];
-  if (options.includeDate !== false) {
-    volatileParts.push(`Current date: ${todayEnLong()}.`);
-  }
-  const volatile = options.volatileContext && String(options.volatileContext).trim();
-  if (volatile)
-    volatileParts.push(volatile);
-  if (volatileParts.length)
-    sections.push(volatileParts.join("\n\n"));
 }
 function buildDomeSystemPrompt(options, coreSections) {
   const sections = [];
   const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
-  if (options.coreToolsMode !== "minimal" && coreSections.constraintsLanguage)
-    sections.push(coreSections.constraintsLanguage.trim());
+  if (options.coreToolsMode !== "minimal") {
+    if (coreSections.constraintsLanguage)
+      sections.push(coreSections.constraintsLanguage.trim());
+  }
   if (!options.omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
@@ -243,8 +211,21 @@ function buildDomeSystemPrompt(options, coreSections) {
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
-  appendVolatileSections(sections, options);
-  appendExtraSections(sections, options.extraSections);
+  const volatileParts = [];
+  if (options.includeDate !== false) {
+    volatileParts.push(`Current date: ${todayEnLong()}.`);
+  }
+  const volatile = options.volatileContext && String(options.volatileContext).trim();
+  if (volatile)
+    volatileParts.push(volatile);
+  if (volatileParts.length)
+    sections.push(volatileParts.join("\n\n"));
+  if (Array.isArray(options.extraSections)) {
+    for (const extra of options.extraSections) {
+      if (typeof extra === "string" && extra.trim())
+        sections.push(extra.trim());
+    }
+  }
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
