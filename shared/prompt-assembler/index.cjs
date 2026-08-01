@@ -199,15 +199,7 @@ function formatVolatileSourceContext(opts = {}) {
   blocks.push(formatTaskLineBlock(opts));
   return blocks.join("\n\n");
 }
-function buildDomeSystemPrompt(options, coreSections) {
-  const sections = [];
-  const persona = String(options.staticPersona || "").trim();
-  if (persona)
-    sections.push(persona);
-  if (options.coreToolsMode !== "minimal") {
-    if (coreSections.constraintsLanguage)
-      sections.push(coreSections.constraintsLanguage.trim());
-  }
+function appendCoreToolsSection(sections, options, coreSections) {
   if (!options.omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
@@ -217,6 +209,24 @@ function buildDomeSystemPrompt(options, coreSections) {
   } else if (coreSections.toolGuardrails) {
     sections.push(coreSections.toolGuardrails.trim());
   }
+}
+function appendExtraSections(sections, options) {
+  if (!Array.isArray(options.extraSections)) return;
+  for (const extra of options.extraSections) {
+    if (typeof extra === "string" && extra.trim())
+      sections.push(extra.trim());
+  }
+}
+function buildDomeSystemPrompt(options, coreSections) {
+  const sections = [];
+  const persona = String(options.staticPersona || "").trim();
+  if (persona)
+    sections.push(persona);
+  if (options.coreToolsMode !== "minimal") {
+    if (coreSections.constraintsLanguage)
+      sections.push(coreSections.constraintsLanguage.trim());
+  }
+  appendCoreToolsSection(sections, options, coreSections);
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
@@ -229,12 +239,7 @@ function buildDomeSystemPrompt(options, coreSections) {
     volatileParts.push(volatile);
   if (volatileParts.length)
     sections.push(volatileParts.join("\n\n"));
-  if (Array.isArray(options.extraSections)) {
-    for (const extra of options.extraSections) {
-      if (typeof extra === "string" && extra.trim())
-        sections.push(extra.trim());
-    }
-  }
+  appendExtraSections(sections, options);
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
