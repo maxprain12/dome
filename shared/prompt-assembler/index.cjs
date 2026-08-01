@@ -129,8 +129,11 @@ function formatPinnedSourceLine(src) {
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
+function pinnedPersonIdentityLabel(identity) {
+  return identity.displayLabel || identity.externalId;
+}
 function formatPinnedPersonIdentity(identity) {
-  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
+  return `${identity.source}:${pinnedPersonIdentityLabel(identity)}`;
 }
 function formatPinnedPeopleHeadline(person) {
   return `- ${person.id}: ${person.title}`;
