@@ -225,9 +225,8 @@ function buildDomeSystemPrompt(options, coreSections) {
   const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
-  if (options.coreToolsMode !== "minimal") {
-    if (coreSections.constraintsLanguage)
-      sections.push(coreSections.constraintsLanguage.trim());
+  if (options.coreToolsMode !== "minimal" && coreSections.constraintsLanguage) {
+    sections.push(coreSections.constraintsLanguage.trim());
   }
   appendCoreToolsSection(sections, options, coreSections);
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
