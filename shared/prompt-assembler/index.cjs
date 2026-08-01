@@ -143,51 +143,60 @@ function formatPinnedPeopleLine(person) {
 function formatPinnedResourcesLine(r) {
   return `- ${r.id}: ${r.title} (${r.type})`;
 }
+function formatDateLineBlock(opts) {
+  return opts.dateLine?.trim() ? `**session-date**
+${opts.dateLine.trim()}` : null;
+}
+function formatUiContextBlock(opts) {
+  return opts.uiContext?.trim() ? `**ui-context**
+${opts.uiContext.trim()}` : null;
+}
+function formatUserMemoryBlock(opts) {
+  return opts.userMemory?.trim() ? `**user-memory**
+${opts.userMemory.trim()}` : null;
+}
+function formatPinnedPeopleBlock(opts) {
+  if (!opts.pinnedPeople || opts.pinnedPeople.length === 0) return null;
+  const lines = opts.pinnedPeople.map(formatPinnedPeopleLine).join("\n");
+  return `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`;
+}
+function formatPinnedSourcesBlock(opts) {
+  if (!opts.pinnedSources || opts.pinnedSources.length === 0) return null;
+  const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
+  return `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`;
+}
+function formatPinnedResourcesBlock(opts) {
+  if (!opts.pinnedResources || opts.pinnedResources.length === 0) return null;
+  const lines = opts.pinnedResources.map(formatPinnedResourcesLine).join("\n");
+  return `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`;
+}
+function formatActiveResourceBlock(opts) {
+  if (!opts.activeResource?.id) return null;
+  const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
+  return `**active-resource** \u2014 ${opts.activeResource.id}${type}
+"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`;
+}
+function formatTaskLineBlock(opts) {
+  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+  return `Task: ${task}`;
+}
+function appendBlock(blocks, block) {
+  if (block) blocks.push(block);
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
-  if (opts.dateLine?.trim()) {
-    blocks.push(`**session-date**
-${opts.dateLine.trim()}`);
-  }
-  if (opts.uiContext?.trim()) {
-    blocks.push(`**ui-context**
-${opts.uiContext.trim()}`);
-  }
-  if (opts.userMemory?.trim()) {
-    blocks.push(`**user-memory**
-${opts.userMemory.trim()}`);
-  }
-  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
-    const lines = opts.pinnedPeople.map(formatPinnedPeopleLine).join("\n");
-    blocks.push(
-      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`
-    );
-  }
-  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
-    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
-    blocks.push(
-      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`
-    );
-  }
-  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
-    const lines = opts.pinnedResources.map(formatPinnedResourcesLine).join("\n");
-    blocks.push(
-      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`
-    );
-  }
-  if (opts.activeResource?.id) {
-    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
-    blocks.push(
-      `**active-resource** \u2014 ${opts.activeResource.id}${type}
-"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
-    );
-  }
-  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  blocks.push(`Task: ${task}`);
+  appendBlock(blocks, formatDateLineBlock(opts));
+  appendBlock(blocks, formatUiContextBlock(opts));
+  appendBlock(blocks, formatUserMemoryBlock(opts));
+  appendBlock(blocks, formatPinnedPeopleBlock(opts));
+  appendBlock(blocks, formatPinnedSourcesBlock(opts));
+  appendBlock(blocks, formatPinnedResourcesBlock(opts));
+  appendBlock(blocks, formatActiveResourceBlock(opts));
+  blocks.push(formatTaskLineBlock(opts));
   return blocks.join("\n\n");
 }
 function buildDomeSystemPrompt(options, coreSections) {
