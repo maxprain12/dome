@@ -458,6 +458,14 @@ async function runUploadQueue(deps, db) {
 }
 
 /**
+ * HTTP statuses that mean "request is well-formed but the upload is
+ * permanently rejected" — payload too large, payment required, or forbidden
+ * by plan/policy. These collapse into the same skip-or-quota decision; the
+ * caller should NOT retry.
+ */
+const UPLOAD_REJECT_STATUSES = new Set([413, 402, 403]);
+
+/**
  * Request a signed upload URL for one blob and translate provider response
  * codes into a small outcome enum the caller can branch on.
  * @returns {Promise<
@@ -478,13 +486,8 @@ async function requestUploadGrant(deps, base, blob) {
   if (grantRes.status === 429) {
     return { kind: 'rate-limited' };
   }
-  if (grantRes.status === 413 || grantRes.status === 402 || grantRes.status === 403) {
-    const info = await grantRes.json().catch(() => ({}));
-    console.warn('[blob-sync] upload blocked:', grantRes.status, info?.error);
-    if (info?.error === 'storage_quota_exceeded') {
-      return { kind: 'quota-exceeded' };
-    }
-    return { kind: 'skipped' };
+  if (UPLOAD_REJECT_STATUSES.has(grantRes.status)) {
+    return translateUploadRejection(grantRes);
   }
   if (!grantRes.ok) {
     console.warn('[blob-sync] upload-url failed:', grantRes.status);
@@ -495,6 +498,20 @@ async function requestUploadGrant(deps, base, blob) {
     return { kind: 'deduped' };
   }
   return { kind: 'ok', url: grant.url };
+}
+
+/**
+ * Map a permanent-rejection response to a small outcome kind, distinguishing
+ * "plan quota exhausted" (hard-stop the whole cycle) from "size/policy skip"
+ * (mark this blob, move on).
+ */
+async function translateUploadRejection(grantRes) {
+  const info = await grantRes.json().catch(() => ({}));
+  console.warn('[blob-sync] upload blocked:', grantRes.status, info?.error);
+  if (info?.error === 'storage_quota_exceeded') {
+    return { kind: 'quota-exceeded' };
+  }
+  return { kind: 'skipped' };
 }
 
 /**
