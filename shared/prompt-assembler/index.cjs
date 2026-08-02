@@ -138,8 +138,11 @@ function formatPinnedPersonIdentity(identity) {
 function formatPinnedPeopleHeadline(person) {
   return `- ${person.id}: ${person.title}`;
 }
+function formatPinnedPeopleIdentities(person) {
+  return (person.identities || []).map(formatPinnedPersonIdentity).join(", ");
+}
 function formatPinnedPeopleLine(person) {
-  const identities = (person.identities || []).map(formatPinnedPersonIdentity).join(", ");
+  const identities = formatPinnedPeopleIdentities(person);
   const headline = formatPinnedPeopleHeadline(person);
   return identities ? `${headline} (${identities})` : headline;
 }
