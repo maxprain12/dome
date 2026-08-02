@@ -276,6 +276,12 @@ function buildStudioPrompt(studioTemplate, taskHint) {
     parts.push(`Task: ${taskHint.trim()}`);
   return parts.join("\n\n");
 }
+function benchPrimaryToolTaskLine(primaryTool, explainOnly) {
+  if (explainOnly) {
+    return `Task: Document **${primaryTool}** in prose. Do NOT invoke \`${primaryTool}\`; use get_tool_definition only if needed.`;
+  }
+  return `Task: Execute the user request using \`${primaryTool}\` in the fewest steps.`;
+}
 function buildBenchPrompt(opts) {
   const sections = [opts.intro.trim(), opts.benchRules.trim()];
   if (opts.toolsExcerpt) {
@@ -287,13 +293,7 @@ ${opts.toolsExcerpt.trim()}`);
 ${opts.fixtureList.trim()}`);
   }
   if (opts.primaryTool) {
-    if (opts.explainOnly) {
-      sections.push(
-        `Task: Document **${opts.primaryTool}** in prose. Do NOT invoke \`${opts.primaryTool}\`; use get_tool_definition only if needed.`
-      );
-    } else {
-      sections.push(`Task: Execute the user request using \`${opts.primaryTool}\` in the fewest steps.`);
-    }
+    sections.push(benchPrimaryToolTaskLine(opts.primaryTool, opts.explainOnly));
   } else {
     sections.push("Task: Execute the single user request using tools in the fewest steps.");
   }
