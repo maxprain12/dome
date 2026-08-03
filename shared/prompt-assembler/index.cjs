@@ -226,6 +226,16 @@ function appendExtraSections(sections, options) {
       sections.push(extra.trim());
   }
 }
+function buildVolatileSection(options) {
+  const parts = [];
+  if (options.includeDate !== false) {
+    parts.push(`Current date: ${todayEnLong()}.`);
+  }
+  const volatile = options.volatileContext && String(options.volatileContext).trim();
+  if (volatile)
+    parts.push(volatile);
+  return parts.length ? parts.join("\n\n") : null;
+}
 function buildDomeSystemPrompt(options, coreSections) {
   const sections = [];
   const persona = String(options.staticPersona || "").trim();
@@ -238,15 +248,9 @@ function buildDomeSystemPrompt(options, coreSections) {
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
-  const volatileParts = [];
-  if (options.includeDate !== false) {
-    volatileParts.push(`Current date: ${todayEnLong()}.`);
-  }
-  const volatile = options.volatileContext && String(options.volatileContext).trim();
-  if (volatile)
-    volatileParts.push(volatile);
-  if (volatileParts.length)
-    sections.push(volatileParts.join("\n\n"));
+  const volatileSection = buildVolatileSection(options);
+  if (volatileSection)
+    sections.push(volatileSection);
   appendExtraSections(sections, options);
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
