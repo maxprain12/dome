@@ -141,10 +141,13 @@ function formatPinnedPeopleHeadline(person) {
 function formatPinnedPeopleIdentities(person) {
   return (person.identities || []).map(formatPinnedPersonIdentity).join(", ");
 }
+function formatPinnedPeopleLineResult(headline, identities) {
+  return identities ? `${headline} (${identities})` : headline;
+}
 function formatPinnedPeopleLine(person) {
   const identities = formatPinnedPeopleIdentities(person);
   const headline = formatPinnedPeopleHeadline(person);
-  return identities ? `${headline} (${identities})` : headline;
+  return formatPinnedPeopleLineResult(headline, identities);
 }
 function formatPinnedResourcesLine(r) {
   return `- ${r.id}: ${r.title} (${r.type})`;
