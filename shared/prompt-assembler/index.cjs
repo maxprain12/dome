@@ -236,18 +236,27 @@ function buildVolatileSection(options) {
     parts.push(volatile);
   return parts.length ? parts.join("\n\n") : null;
 }
-function buildDomeSystemPrompt(options, coreSections) {
-  const sections = [];
+function appendPersonaSection(sections, options) {
   const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
+}
+function appendConstraintsLanguageSection(sections, options, coreSections) {
   if (options.coreToolsMode !== "minimal" && coreSections.constraintsLanguage) {
     sections.push(coreSections.constraintsLanguage.trim());
   }
-  appendCoreToolsSection(sections, options, coreSections);
+}
+function appendSkillsCatalogSection(sections, options) {
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
+}
+function buildDomeSystemPrompt(options, coreSections) {
+  const sections = [];
+  appendPersonaSection(sections, options);
+  appendConstraintsLanguageSection(sections, options, coreSections);
+  appendCoreToolsSection(sections, options, coreSections);
+  appendSkillsCatalogSection(sections, options);
   const volatileSection = buildVolatileSection(options);
   if (volatileSection)
     sections.push(volatileSection);
