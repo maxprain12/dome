@@ -152,17 +152,19 @@ function formatPinnedPeopleLine(person) {
 function formatPinnedResourcesLine(r) {
   return `- ${r.id}: ${r.title} (${r.type})`;
 }
+function formatHeaderBlock(value, header) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed ? `**${header}**
+${trimmed}` : null;
+}
 function formatDateLineBlock(opts) {
-  return opts.dateLine?.trim() ? `**session-date**
-${opts.dateLine.trim()}` : null;
+  return formatHeaderBlock(opts.dateLine, "session-date");
 }
 function formatUiContextBlock(opts) {
-  return opts.uiContext?.trim() ? `**ui-context**
-${opts.uiContext.trim()}` : null;
+  return formatHeaderBlock(opts.uiContext, "ui-context");
 }
 function formatUserMemoryBlock(opts) {
-  return opts.userMemory?.trim() ? `**user-memory**
-${opts.userMemory.trim()}` : null;
+  return formatHeaderBlock(opts.userMemory, "user-memory");
 }
 function formatPinnedPeopleBlock(opts) {
   if (!opts.pinnedPeople || opts.pinnedPeople.length === 0) return null;
