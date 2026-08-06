@@ -114,11 +114,13 @@ function pinnedSourceBodyLabel(src) {
   return `
   body: ${raw.trim().slice(0, 2e3)}`;
 }
+const PINNED_SOURCE_TOOL_HINT_BY_KIND = {
+  social_post: " \u2192 social_post_get",
+  email: " \u2192 email_read",
+  issue: " \u2192 github_get_issue"
+};
 function pinnedSourceToolHint(kind) {
-  if (kind === "social_post") return " \u2192 social_post_get";
-  if (kind === "email") return " \u2192 email_read";
-  if (kind === "issue") return " \u2192 github_get_issue";
-  return "";
+  return PINNED_SOURCE_TOOL_HINT_BY_KIND[kind] || "";
 }
 function formatPinnedSourceLine(src) {
   const repo = pinnedSourceMetaLabel(src, "issue", "fullName", "repo");
