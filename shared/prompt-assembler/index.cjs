@@ -130,10 +130,9 @@ function formatPinnedSourceLine(src) {
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
 function appendVolatileContext(blocks, label, value) {
-  if (value?.trim()) {
-    blocks.push(`**${label}**
+  if (!value?.trim()) return;
+  blocks.push(`**${label}**
 ${value.trim()}`);
-  }
 }
 function pinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
