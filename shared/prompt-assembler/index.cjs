@@ -185,42 +185,55 @@ function formatVolatileSourceContext(opts = {}) {
   blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
 }
-function buildDomeSystemPrompt(options, coreSections) {
-  const sections = [];
-  const persona = String(options.staticPersona || "").trim();
-  if (persona)
-    sections.push(persona);
-  if (options.coreToolsMode !== "minimal") {
-    if (coreSections.constraintsLanguage)
-      sections.push(coreSections.constraintsLanguage.trim());
+function appendConstraintsSection(sections, options, coreSections) {
+  if (options.coreToolsMode !== "minimal" && coreSections.constraintsLanguage) {
+    sections.push(coreSections.constraintsLanguage.trim());
   }
-  if (!options.omitCoreTools) {
-    if (coreSections.appContext)
-      sections.push(coreSections.appContext.trim());
-    const toolsBlock = buildCoreToolsBlock(coreSections);
-    if (toolsBlock)
-      sections.push(toolsBlock);
-  } else if (coreSections.toolGuardrails) {
-    sections.push(coreSections.toolGuardrails.trim());
+}
+function appendCoreToolsSection(sections, options, coreSections) {
+  if (options.omitCoreTools) {
+    if (coreSections.toolGuardrails)
+      sections.push(coreSections.toolGuardrails.trim());
+    return;
   }
+  if (coreSections.appContext)
+    sections.push(coreSections.appContext.trim());
+  const toolsBlock = buildCoreToolsBlock(coreSections);
+  if (toolsBlock)
+    sections.push(toolsBlock);
+}
+function appendSkillsCatalogSection(sections, options) {
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
+}
+function appendVolatileSection(sections, options) {
   const volatileParts = [];
-  if (options.includeDate !== false) {
+  if (options.includeDate !== false)
     volatileParts.push(`Current date: ${todayEnLong()}.`);
-  }
   const volatile = options.volatileContext && String(options.volatileContext).trim();
   if (volatile)
     volatileParts.push(volatile);
   if (volatileParts.length)
     sections.push(volatileParts.join("\n\n"));
-  if (Array.isArray(options.extraSections)) {
-    for (const extra of options.extraSections) {
-      if (typeof extra === "string" && extra.trim())
-        sections.push(extra.trim());
-    }
+}
+function appendExtraSectionsList(sections, options) {
+  if (!Array.isArray(options.extraSections)) return;
+  for (const extra of options.extraSections) {
+    if (typeof extra === "string" && extra.trim())
+      sections.push(extra.trim());
   }
+}
+function buildDomeSystemPrompt(options, coreSections) {
+  const sections = [];
+  const persona = String(options.staticPersona || "").trim();
+  if (persona)
+    sections.push(persona);
+  appendConstraintsSection(sections, options, coreSections);
+  appendCoreToolsSection(sections, options, coreSections);
+  appendSkillsCatalogSection(sections, options);
+  appendVolatileSection(sections, options);
+  appendExtraSectionsList(sections, options);
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
