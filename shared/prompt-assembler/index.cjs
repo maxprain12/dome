@@ -129,21 +129,18 @@ function formatPinnedSourceLine(src) {
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
+function appendVolatileContext(blocks, label, value) {
+  if (value?.trim()) {
+    blocks.push(`**${label}**
+${value.trim()}`);
+  }
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
-  if (opts.dateLine?.trim()) {
-    blocks.push(`**session-date**
-${opts.dateLine.trim()}`);
-  }
-  if (opts.uiContext?.trim()) {
-    blocks.push(`**ui-context**
-${opts.uiContext.trim()}`);
-  }
-  if (opts.userMemory?.trim()) {
-    blocks.push(`**user-memory**
-${opts.userMemory.trim()}`);
-  }
+  appendVolatileContext(blocks, "session-date", opts.dateLine);
+  appendVolatileContext(blocks, "ui-context", opts.uiContext);
+  appendVolatileContext(blocks, "user-memory", opts.userMemory);
   if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
     const lines = opts.pinnedPeople.map((person) => {
       const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
