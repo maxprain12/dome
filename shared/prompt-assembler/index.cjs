@@ -103,6 +103,11 @@ You are speaking aloud in a live voice conversation. Follow these rules:
 - Avoid filler phrases like "of course!", "certainly!".
 - Respond in ${langName}.`;
 }
+function appendVolatileContext(blocks, label, value) {
+  if (!value?.trim()) return;
+  blocks.push(`**${label}**
+${value.trim()}`);
+}
 function pinnedSourceMetaLabel(src, kind, metaKey, label) {
   if (src.kind !== kind) return "";
   const value = src.meta?.[metaKey];
@@ -128,11 +133,6 @@ function formatPinnedSourceLine(src) {
   const body = pinnedSourceBodyLabel(src);
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
-}
-function appendVolatileContext(blocks, label, value) {
-  if (!value?.trim()) return;
-  blocks.push(`**${label}**
-${value.trim()}`);
 }
 function pinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
