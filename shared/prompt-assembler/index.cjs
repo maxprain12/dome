@@ -127,14 +127,19 @@ const SOURCE_TOOL_HINTS = {
 function pinnedSourceToolHint(kind) {
   return SOURCE_TOOL_HINTS[kind] ?? "";
 }
+function pinnedSourceMetaLabels(src) {
+  return [
+    pinnedSourceMetaLabel(src, "issue", "fullName", "repo"),
+    pinnedSourceMetaLabel(src, "email", "folder", "folder"),
+    pinnedSourceMetaLabel(src, "social_post", "provider", "provider"),
+    pinnedSourceMetaLabel(src, "social_post", "status", "status")
+  ].join("");
+}
 function formatPinnedSourceLine(src) {
-  const repo = pinnedSourceMetaLabel(src, "issue", "fullName", "repo");
-  const folder = pinnedSourceMetaLabel(src, "email", "folder", "folder");
-  const provider = pinnedSourceMetaLabel(src, "social_post", "provider", "provider");
-  const status = pinnedSourceMetaLabel(src, "social_post", "status", "status");
+  const meta = pinnedSourceMetaLabels(src);
   const body = pinnedSourceBodyLabel(src);
   const toolHint = pinnedSourceToolHint(src.kind);
-  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+  return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
 }
 function pinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
