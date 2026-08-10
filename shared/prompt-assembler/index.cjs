@@ -127,16 +127,13 @@ const SOURCE_TOOL_HINTS = {
 function pinnedSourceToolHint(kind) {
   return SOURCE_TOOL_HINTS[kind] ?? "";
 }
-function pinnedSourceMetaLabels(src) {
-  return [
+function formatPinnedSourceLine(src) {
+  const meta = [
     pinnedSourceMetaLabel(src, "issue", "fullName", "repo"),
     pinnedSourceMetaLabel(src, "email", "folder", "folder"),
     pinnedSourceMetaLabel(src, "social_post", "provider", "provider"),
     pinnedSourceMetaLabel(src, "social_post", "status", "status")
   ].join("");
-}
-function formatPinnedSourceLine(src) {
-  const meta = pinnedSourceMetaLabels(src);
   const body = pinnedSourceBodyLabel(src);
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
