@@ -128,13 +128,12 @@ function pinnedSourceToolHint(kind) {
   return SOURCE_TOOL_HINTS[kind] ?? "";
 }
 function pinnedSourceMetaLabels(src) {
-  const labels = [
-    ["issue", "fullName", "repo"],
-    ["email", "folder", "folder"],
-    ["social_post", "provider", "provider"],
-    ["social_post", "status", "status"]
-  ];
-  return labels.map(([kind, metaKey, label]) => pinnedSourceMetaLabel(src, kind, metaKey, label)).join("");
+  return [
+    pinnedSourceMetaLabel(src, "issue", "fullName", "repo"),
+    pinnedSourceMetaLabel(src, "email", "folder", "folder"),
+    pinnedSourceMetaLabel(src, "social_post", "provider", "provider"),
+    pinnedSourceMetaLabel(src, "social_post", "status", "status")
+  ].join("");
 }
 function formatPinnedSourceLine(src) {
   const meta = pinnedSourceMetaLabels(src);
