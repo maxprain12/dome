@@ -76,16 +76,20 @@ function prefixFromInternalPath(internalPath) {
 function resolveResourceAbsPath(resource, queries) {
   try {
     const primary = vaultStore.getResourceFilePath(resource, queries, fileStorage);
-    if (primary && fs.existsSync(primary)) return primary;
-    // Recursos con ambos esquemas: si la copia del vault falta, usar la gestionada.
-    if (resource.internal_path) {
-      const managed = fileStorage.getFullPath(resource.internal_path);
-      if (managed && fs.existsSync(managed)) return managed;
-    }
-    return primary;
+    return existingResourcePath(primary, resource);
   } catch {
     return null;
   }
+}
+
+function existingResourcePath(primary, resource) {
+  if (primary && fs.existsSync(primary)) return primary;
+  // Recursos con ambos esquemas: si la copia del vault falta, usar la gestionada.
+  if (resource.internal_path) {
+    const managed = fileStorage.getFullPath(resource.internal_path);
+    if (managed && fs.existsSync(managed)) return managed;
+  }
+  return primary;
 }
 
 /**
