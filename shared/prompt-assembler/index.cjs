@@ -130,11 +130,7 @@ const PINNED_SOURCE_META_FIELDS = [
 ];
 function buildPinnedSourceMeta(src) {
   const meta = src.meta;
-  let result = "";
-  for (const [kind, metaKey, label] of PINNED_SOURCE_META_FIELDS) {
-    result += appendMetaFieldIfMatch(src, meta, kind, metaKey, label);
-  }
-  return result;
+  return PINNED_SOURCE_META_FIELDS.map(([kind, metaKey, label]) => appendMetaFieldIfMatch(src, meta, kind, metaKey, label)).join("");
 }
 function appendMetaFieldIfMatch(src, meta, kind, metaKey, label) {
   if (src.kind !== kind || typeof meta?.[metaKey] !== "string") return "";
