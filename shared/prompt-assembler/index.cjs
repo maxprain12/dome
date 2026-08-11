@@ -132,11 +132,13 @@ function buildPinnedSourceMeta(src) {
   const meta = src.meta;
   let result = "";
   for (const [kind, metaKey, label] of PINNED_SOURCE_META_FIELDS) {
-    if (src.kind === kind && typeof meta?.[metaKey] === "string") {
-      result += ` ${label}=${meta[metaKey]}`;
-    }
+    result += appendMetaFieldIfMatch(src, meta, kind, metaKey, label);
   }
   return result;
+}
+function appendMetaFieldIfMatch(src, meta, kind, metaKey, label) {
+  if (src.kind !== kind || typeof meta?.[metaKey] !== "string") return "";
+  return ` ${label}=${meta[metaKey]}`;
 }
 function formatPinnedSourceLine(src) {
   const meta = buildPinnedSourceMeta(src);
