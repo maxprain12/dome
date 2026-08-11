@@ -149,9 +149,13 @@ async function repairBadRowHashSafely(row, fullPath, findByHash, update, drop) {
   try {
     await repairBadRowHash(row, fullPath, findByHash, update, drop);
   } catch (err) {
-    console.warn('[blob-sync] hash repair failed:', err?.message);
-    drop(row.id);
+    handleBadRowHashRepairFailure(row, drop, err);
   }
+}
+
+function handleBadRowHashRepairFailure(row, drop, err) {
+  console.warn('[blob-sync] hash repair failed:', err?.message);
+  drop(row.id);
 }
 
 async function repairBadRowHash(row, fullPath, findByHash, update, drop) {
