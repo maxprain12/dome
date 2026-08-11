@@ -177,6 +177,10 @@ function appendActiveResourceBlock(blocks, activeResource) {
 "${activeResource.title}". Call resource_get_active() to read content when needed.`
   );
 }
+function appendTaskBlock(blocks, taskLine) {
+  const task = taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+  blocks.push(`Task: ${task}`);
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
@@ -187,8 +191,7 @@ function formatVolatileSourceContext(opts = {}) {
   appendPinnedSourcesBlock(blocks, opts.pinnedSources);
   appendPinnedResourcesBlock(blocks, opts.pinnedResources);
   appendActiveResourceBlock(blocks, opts.activeResource);
-  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  blocks.push(`Task: ${task}`);
+  appendTaskBlock(blocks, opts.taskLine);
   return blocks.join("\n\n");
 }
 function appendConstraintsSection(sections, options, coreSections) {
