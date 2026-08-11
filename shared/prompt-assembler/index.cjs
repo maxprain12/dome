@@ -108,11 +108,6 @@ function appendVolatileContext(blocks, label, value) {
   blocks.push(`**${label}**
 ${value.trim()}`);
 }
-function pinnedSourceMetaLabel(src, kind, metaKey, label) {
-  if (src.kind !== kind) return "";
-  const value = src.meta?.[metaKey];
-  return typeof value === "string" ? ` ${label}=${value}` : "";
-}
 function pinnedSourceBodyLabel(src) {
   const raw = src.meta?.body;
   if (typeof raw !== "string" || !raw.trim()) return "";
@@ -127,13 +122,21 @@ const SOURCE_TOOL_HINTS = {
 function pinnedSourceToolHint(kind) {
   return SOURCE_TOOL_HINTS[kind] ?? "";
 }
+const PINNED_SOURCE_META_FIELDS = [
+  ["issue", "fullName", "repo"],
+  ["email", "folder", "folder"],
+  ["social_post", "provider", "provider"],
+  ["social_post", "status", "status"]
+];
 function buildPinnedSourceMeta(src) {
-  return [
-    pinnedSourceMetaLabel(src, "issue", "fullName", "repo"),
-    pinnedSourceMetaLabel(src, "email", "folder", "folder"),
-    pinnedSourceMetaLabel(src, "social_post", "provider", "provider"),
-    pinnedSourceMetaLabel(src, "social_post", "status", "status")
-  ].join("");
+  const meta = src.meta;
+  let result = "";
+  for (const [kind, metaKey, label] of PINNED_SOURCE_META_FIELDS) {
+    if (src.kind === kind && typeof meta?.[metaKey] === "string") {
+      result += ` ${label}=${meta[metaKey]}`;
+    }
+  }
+  return result;
 }
 function formatPinnedSourceLine(src) {
   const meta = buildPinnedSourceMeta(src);
