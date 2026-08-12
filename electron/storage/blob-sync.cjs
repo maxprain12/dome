@@ -355,6 +355,20 @@ function tallyBatchOutcome(outcome, counts) {
 }
 
 /**
+ * A pending blob still needs a vault scan when neither the provider nor the
+ * local path cache already know its hash — `.md`/`.html` mirrors whose
+ * `vault_blobs` row was born from a content hash, not a column lookup.
+ * @param {{ hash: string }} blob
+ * @param {Set<string>} existingSet
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} [queries]
+ * @returns {boolean}
+ */
+function needsVaultHashLookup(blob, existingSet, db, queries) {
+  return !existingSet.has(blob.hash) && !findLocalFileForHash(db, blob, queries);
+}
+
+/**
  * Process one upload batch: stat-dedupe against the provider, resolve any
  * missing local paths by content-hashing the vault, then upload each blob.
  * Extracted from `runUploadQueue` to keep it under the cognitive-complexity
@@ -387,7 +401,7 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
   // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
   const unresolved = new Set(
     batch
-      .filter((b) => !existingSet.has(b.hash) && !findLocalFileForHash(db, b, queries))
+      .filter((b) => needsVaultHashLookup(b, existingSet, db, queries))
       .map((b) => b.hash),
   );
   if (unresolved.size) {
