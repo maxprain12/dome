@@ -130,13 +130,10 @@ const PINNED_SOURCE_META_FIELDS = [
 ];
 function buildPinnedSourceMeta(src) {
   const meta = src.meta;
-  const parts = [];
-  for (const [kind, metaKey, label] of PINNED_SOURCE_META_FIELDS) {
-    if (src.kind === kind && typeof meta?.[metaKey] === "string") {
-      parts.push(` ${label}=${meta[metaKey]}`);
-    }
-  }
-  return parts.join("");
+  return PINNED_SOURCE_META_FIELDS
+    .filter(([kind, metaKey]) => src.kind === kind && typeof meta?.[metaKey] === "string")
+    .map(([, metaKey, label]) => ` ${label}=${meta[metaKey]}`)
+    .join("");
 }
 function formatPinnedSourceLine(src) {
   const meta = buildPinnedSourceMeta(src);
