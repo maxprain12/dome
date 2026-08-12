@@ -128,10 +128,13 @@ const PINNED_SOURCE_META_FIELDS = [
   ["social_post", "provider", "provider"],
   ["social_post", "status", "status"]
 ];
+function isApplicablePinnedMetaField(src, meta, [kind, metaKey]) {
+  return src.kind === kind && typeof meta?.[metaKey] === "string";
+}
 function buildPinnedSourceMeta(src) {
   const meta = src.meta;
   return PINNED_SOURCE_META_FIELDS
-    .filter(([kind, metaKey]) => src.kind === kind && typeof meta?.[metaKey] === "string")
+    .filter((entry) => isApplicablePinnedMetaField(src, meta, entry))
     .map(([, metaKey, label]) => ` ${label}=${meta[metaKey]}`)
     .join("");
 }
