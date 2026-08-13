@@ -133,10 +133,15 @@ function isApplicablePinnedMetaField(src, meta, [kind, metaKey]) {
 }
 function buildPinnedSourceMeta(src) {
   const meta = src.meta;
-  return PINNED_SOURCE_META_FIELDS
-    .filter((entry) => isApplicablePinnedMetaField(src, meta, entry))
-    .map(([, metaKey, label]) => ` ${label}=${meta[metaKey]}`)
-    .join("");
+  if (!meta) return "";
+  let result = "";
+  for (const entry of PINNED_SOURCE_META_FIELDS) {
+    if (isApplicablePinnedMetaField(src, meta, entry)) {
+      const [, metaKey, label] = entry;
+      result += ` ${label}=${meta[metaKey]}`;
+    }
+  }
+  return result;
 }
 function formatPinnedSourceLine(src) {
   const meta = buildPinnedSourceMeta(src);
