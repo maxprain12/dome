@@ -145,8 +145,11 @@ function formatPinnedSourceLine(src) {
   const toolHint = pinnedSourceToolHint(src.kind);
   return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
 }
+function formatPersonIdentity(identity) {
+  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
+}
 function pinnedPersonLine(person) {
-  const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+  const identities = (person.identities || []).map(formatPersonIdentity).join(", ");
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
 function appendPinnedPeopleBlock(blocks, pinnedPeople) {
