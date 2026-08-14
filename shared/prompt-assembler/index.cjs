@@ -134,14 +134,10 @@ function isApplicablePinnedMetaField(src, meta, [kind, metaKey]) {
 function buildPinnedSourceMeta(src) {
   const meta = src.meta;
   if (!meta) return "";
-  let result = "";
-  for (const entry of PINNED_SOURCE_META_FIELDS) {
-    if (isApplicablePinnedMetaField(src, meta, entry)) {
-      const [, metaKey, label] = entry;
-      result += ` ${label}=${meta[metaKey]}`;
-    }
-  }
-  return result;
+  return PINNED_SOURCE_META_FIELDS
+    .filter((entry) => isApplicablePinnedMetaField(src, meta, entry))
+    .map(([, metaKey, label]) => ` ${label}=${meta[metaKey]}`)
+    .join("");
 }
 function formatPinnedSourceLine(src) {
   const meta = buildPinnedSourceMeta(src);
