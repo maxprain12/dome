@@ -168,9 +168,12 @@ function appendPinnedSourcesBlock(blocks, pinnedSources) {
 ${lines}`
   );
 }
+function pinnedResourceLine(r) {
+  return `- ${r.id}: ${r.title} (${r.type})`;
+}
 function appendPinnedResourcesBlock(blocks, pinnedResources) {
   if (!pinnedResources || pinnedResources.length === 0) return;
-  const lines = pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+  const lines = pinnedResources.map(pinnedResourceLine).join("\n");
   blocks.push(
     `**pinned-resources** \u2014 ${pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
 ${lines}`
