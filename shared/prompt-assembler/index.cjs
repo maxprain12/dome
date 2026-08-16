@@ -128,40 +128,52 @@ function pushIfTrimmed(blocks, label, value) {
     blocks.push(`**${label}**\n${trimmed}`);
   }
 }
+function pushPinnedPeopleBlock(blocks, pinnedPeople) {
+  if (pinnedPeople?.length) {
+    const lines = pinnedPeople.map(formatPinnedPersonLine).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
+  }
+}
+function pushPinnedSourcesBlock(blocks, pinnedSources) {
+  if (pinnedSources && pinnedSources.length > 0) {
+    const lines = pinnedSources.map(formatPinnedSourceLine).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+    );
+  }
+}
+function pushPinnedResourcesBlock(blocks, pinnedResources) {
+  if (pinnedResources && pinnedResources.length > 0) {
+    const lines = pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+    blocks.push(
+      `**pinned-resources** \u2014 ${pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`
+    );
+  }
+}
+function pushActiveResourceBlock(blocks, activeResource) {
+  if (activeResource?.id) {
+    const type = activeResource.type ? ` / ${activeResource.type}` : "";
+    blocks.push(
+      `**active-resource** \u2014 ${activeResource.id}${type}
+"${activeResource.title}". Call resource_get_active() to read content when needed.`
+    );
+  }
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
   pushIfTrimmed(blocks, "session-date", opts.dateLine);
   pushIfTrimmed(blocks, "ui-context", opts.uiContext);
   pushIfTrimmed(blocks, "user-memory", opts.userMemory);
-  if (opts.pinnedPeople?.length) {
-    const lines = opts.pinnedPeople.map(formatPinnedPersonLine).join("\n");
-    blocks.push(
-      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`
-    );
-  }
-  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
-    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
-    blocks.push(
-      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`
-    );
-  }
-  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
-    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
-    blocks.push(
-      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`
-    );
-  }
-  if (opts.activeResource?.id) {
-    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
-    blocks.push(
-      `**active-resource** \u2014 ${opts.activeResource.id}${type}
-"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
-    );
-  }
+  pushPinnedPeopleBlock(blocks, opts.pinnedPeople);
+  pushPinnedSourcesBlock(blocks, opts.pinnedSources);
+  pushPinnedResourcesBlock(blocks, opts.pinnedResources);
+  pushActiveResourceBlock(blocks, opts.activeResource);
   const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
   blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
