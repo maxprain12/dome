@@ -103,156 +103,107 @@ You are speaking aloud in a live voice conversation. Follow these rules:
 - Avoid filler phrases like "of course!", "certainly!".
 - Respond in ${langName}.`;
 }
-function appendVolatileContext(blocks, label, value) {
-  if (!value?.trim()) return;
-  blocks.push(`**${label}**
-${value.trim()}`);
-}
-function pinnedSourceBodyLabel(src) {
-  const raw = src.meta?.body;
-  if (typeof raw !== "string" || !raw.trim()) return "";
-  return `
-  body: ${raw.trim().slice(0, 2e3)}`;
-}
 const SOURCE_TOOL_HINTS = {
-  "social_post": " \u2192 social_post_get",
-  "email": " \u2192 email_read",
-  "issue": " \u2192 github_get_issue"
+  social_post: " \u2192 social_post_get",
+  email: " \u2192 email_read",
+  issue: " \u2192 github_get_issue"
 };
-function pinnedSourceToolHint(kind) {
-  return SOURCE_TOOL_HINTS[kind] ?? "";
-}
-const PINNED_SOURCE_META_FIELDS = [
-  ["issue", "fullName", "repo"],
-  ["email", "folder", "folder"],
-  ["social_post", "provider", "provider"],
-  ["social_post", "status", "status"]
-];
-function isApplicablePinnedMetaField(src, meta, [kind, metaKey]) {
-  return src.kind === kind && typeof meta?.[metaKey] === "string";
-}
-function buildPinnedSourceMeta(src) {
-  const meta = src.meta;
-  if (!meta) return "";
-  return PINNED_SOURCE_META_FIELDS
-    .filter((entry) => isApplicablePinnedMetaField(src, meta, entry))
-    .map(([, metaKey, label]) => ` ${label}=${meta[metaKey]}`)
-    .join("");
-}
 function formatPinnedSourceLine(src) {
-  const meta = buildPinnedSourceMeta(src);
-  const body = pinnedSourceBodyLabel(src);
-  const toolHint = pinnedSourceToolHint(src.kind);
-  return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
-}
-function formatPersonIdentity(identity) {
-  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
-}
-function pinnedPersonLine(person) {
-  const identities = (person.identities || []).map(formatPersonIdentity).join(", ");
-  return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
-}
-function appendPinnedPeopleBlock(blocks, pinnedPeople) {
-  if (!pinnedPeople || pinnedPeople.length === 0) return;
-  const lines = pinnedPeople.map(pinnedPersonLine).join("\n");
-  blocks.push(
-    `**mentioned-people** \u2014 ${pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
-${lines}`
-  );
-}
-function appendPinnedSourcesBlock(blocks, pinnedSources) {
-  if (!pinnedSources || pinnedSources.length === 0) return;
-  const lines = pinnedSources.map(formatPinnedSourceLine).join("\n");
-  blocks.push(
-    `**mentioned-sources** \u2014 ${pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
-${lines}`
-  );
-}
-function pinnedResourceLine(r) {
-  return `- ${r.id}: ${r.title} (${r.type})`;
-}
-function appendPinnedResourcesBlock(blocks, pinnedResources) {
-  if (!pinnedResources || pinnedResources.length === 0) return;
-  const lines = pinnedResources.map(pinnedResourceLine).join("\n");
-  blocks.push(
-    `**pinned-resources** \u2014 ${pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
-${lines}`
-  );
-}
-function appendActiveResourceBlock(blocks, activeResource) {
-  if (!activeResource?.id) return;
-  const type = activeResource.type ? ` / ${activeResource.type}` : "";
-  blocks.push(
-    `**active-resource** \u2014 ${activeResource.id}${type}
-"${activeResource.title}". Call resource_get_active() to read content when needed.`
-  );
-}
-function appendTaskBlock(blocks, taskLine) {
-  const task = taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  blocks.push(`Task: ${task}`);
+  const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
+  const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
+  const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
+  const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+  const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
+  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
+  const toolHint = SOURCE_TOOL_HINTS[src.kind] ?? "";
+  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
-  appendVolatileContext(blocks, "session-date", opts.dateLine);
-  appendVolatileContext(blocks, "ui-context", opts.uiContext);
-  appendVolatileContext(blocks, "user-memory", opts.userMemory);
-  appendPinnedPeopleBlock(blocks, opts.pinnedPeople);
-  appendPinnedSourcesBlock(blocks, opts.pinnedSources);
-  appendPinnedResourcesBlock(blocks, opts.pinnedResources);
-  appendActiveResourceBlock(blocks, opts.activeResource);
-  appendTaskBlock(blocks, opts.taskLine);
+  if (opts.dateLine?.trim()) {
+    blocks.push(`**session-date**
+${opts.dateLine.trim()}`);
+  }
+  if (opts.uiContext?.trim()) {
+    blocks.push(`**ui-context**
+${opts.uiContext.trim()}`);
+  }
+  if (opts.userMemory?.trim()) {
+    blocks.push(`**user-memory**
+${opts.userMemory.trim()}`);
+  }
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople.map((person) => {
+      const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+      return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
+  }
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+    );
+  }
+  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
+    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+    blocks.push(
+      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`
+    );
+  }
+  if (opts.activeResource?.id) {
+    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
+    blocks.push(
+      `**active-resource** \u2014 ${opts.activeResource.id}${type}
+"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
+    );
+  }
+  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+  blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
-}
-function appendConstraintsSection(sections, options, coreSections) {
-  if (options.coreToolsMode !== "minimal" && coreSections.constraintsLanguage) {
-    sections.push(coreSections.constraintsLanguage.trim());
-  }
-}
-function appendCoreToolsSection(sections, options, coreSections) {
-  if (options.omitCoreTools) {
-    if (coreSections.toolGuardrails)
-      sections.push(coreSections.toolGuardrails.trim());
-    return;
-  }
-  if (coreSections.appContext)
-    sections.push(coreSections.appContext.trim());
-  const toolsBlock = buildCoreToolsBlock(coreSections);
-  if (toolsBlock)
-    sections.push(toolsBlock);
-}
-function appendSkillsCatalogSection(sections, options) {
-  const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
-  if (catalog)
-    sections.push(catalog);
-}
-function appendVolatileSection(sections, options) {
-  const volatileParts = [];
-  if (options.includeDate !== false)
-    volatileParts.push(`Current date: ${todayEnLong()}.`);
-  const volatile = options.volatileContext && String(options.volatileContext).trim();
-  if (volatile)
-    volatileParts.push(volatile);
-  if (volatileParts.length)
-    sections.push(volatileParts.join("\n\n"));
-}
-function appendExtraSectionsList(sections, options) {
-  if (!Array.isArray(options.extraSections)) return;
-  for (const extra of options.extraSections) {
-    if (typeof extra === "string" && extra.trim())
-      sections.push(extra.trim());
-  }
 }
 function buildDomeSystemPrompt(options, coreSections) {
   const sections = [];
   const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
-  appendConstraintsSection(sections, options, coreSections);
-  appendCoreToolsSection(sections, options, coreSections);
-  appendSkillsCatalogSection(sections, options);
-  appendVolatileSection(sections, options);
-  appendExtraSectionsList(sections, options);
+  if (options.coreToolsMode !== "minimal") {
+    if (coreSections.constraintsLanguage)
+      sections.push(coreSections.constraintsLanguage.trim());
+  }
+  if (!options.omitCoreTools) {
+    if (coreSections.appContext)
+      sections.push(coreSections.appContext.trim());
+    const toolsBlock = buildCoreToolsBlock(coreSections);
+    if (toolsBlock)
+      sections.push(toolsBlock);
+  } else if (coreSections.toolGuardrails) {
+    sections.push(coreSections.toolGuardrails.trim());
+  }
+  const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
+  if (catalog)
+    sections.push(catalog);
+  const volatileParts = [];
+  if (options.includeDate !== false) {
+    volatileParts.push(`Current date: ${todayEnLong()}.`);
+  }
+  const volatile = options.volatileContext && String(options.volatileContext).trim();
+  if (volatile)
+    volatileParts.push(volatile);
+  if (volatileParts.length)
+    sections.push(volatileParts.join("\n\n"));
+  if (Array.isArray(options.extraSections)) {
+    for (const extra of options.extraSections) {
+      if (typeof extra === "string" && extra.trim())
+        sections.push(extra.trim());
+    }
+  }
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
@@ -284,15 +235,6 @@ function buildStudioPrompt(studioTemplate, taskHint) {
     parts.push(`Task: ${taskHint.trim()}`);
   return parts.join("\n\n");
 }
-function primaryToolTaskSection(primaryTool, explainOnly) {
-  if (primaryTool) {
-    if (explainOnly) {
-      return `Task: Document **${primaryTool}** in prose. Do NOT invoke \`${primaryTool}\`; use get_tool_definition only if needed.`;
-    }
-    return `Task: Execute the user request using \`${primaryTool}\` in the fewest steps.`;
-  }
-  return "Task: Execute the single user request using tools in the fewest steps.";
-}
 function buildBenchPrompt(opts) {
   const sections = [opts.intro.trim(), opts.benchRules.trim()];
   if (opts.toolsExcerpt) {
@@ -303,7 +245,17 @@ ${opts.toolsExcerpt.trim()}`);
     sections.push(`Source (fixtures):
 ${opts.fixtureList.trim()}`);
   }
-  sections.push(primaryToolTaskSection(opts.primaryTool, opts.explainOnly));
+  if (opts.primaryTool) {
+    if (opts.explainOnly) {
+      sections.push(
+        `Task: Document **${opts.primaryTool}** in prose. Do NOT invoke \`${opts.primaryTool}\`; use get_tool_definition only if needed.`
+      );
+    } else {
+      sections.push(`Task: Execute the user request using \`${opts.primaryTool}\` in the fewest steps.`);
+    }
+  } else {
+    sections.push("Task: Execute the single user request using tools in the fewest steps.");
+  }
   sections.push(`Current date: ${todayEnLong()}.`);
   sections.push(`Prompt version: ${PROMPT_VERSION}`);
   return sections.join("\n\n");
