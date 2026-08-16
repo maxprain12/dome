@@ -133,7 +133,7 @@ ${opts.uiContext.trim()}`);
     blocks.push(`**user-memory**
 ${opts.userMemory.trim()}`);
   }
-  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+  if (opts.pinnedPeople?.length) {
     const lines = opts.pinnedPeople.map((person) => {
       const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
       return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
