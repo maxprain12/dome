@@ -181,15 +181,18 @@ function formatVolatileSourceContext(opts = {}) {
   blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
 }
-function buildDomeSystemPrompt(options, coreSections) {
-  const sections = [];
+function appendPersonaSection(sections, options) {
   const persona = String(options.staticPersona || "").trim();
   if (persona)
     sections.push(persona);
+}
+function appendCoreConstraints(sections, options, coreSections) {
   if (options.coreToolsMode !== "minimal") {
     if (coreSections.constraintsLanguage)
       sections.push(coreSections.constraintsLanguage.trim());
   }
+}
+function appendCoreToolsBlock(sections, options, coreSections) {
   if (!options.omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
@@ -199,9 +202,13 @@ function buildDomeSystemPrompt(options, coreSections) {
   } else if (coreSections.toolGuardrails) {
     sections.push(coreSections.toolGuardrails.trim());
   }
+}
+function appendCatalogSection(sections, options) {
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
   if (catalog)
     sections.push(catalog);
+}
+function appendVolatileContext(sections, options) {
   const volatileParts = [];
   if (options.includeDate !== false) {
     volatileParts.push(`Current date: ${todayEnLong()}.`);
@@ -211,12 +218,23 @@ function buildDomeSystemPrompt(options, coreSections) {
     volatileParts.push(volatile);
   if (volatileParts.length)
     sections.push(volatileParts.join("\n\n"));
+}
+function appendExtraSections(sections, options) {
   if (Array.isArray(options.extraSections)) {
     for (const extra of options.extraSections) {
       if (typeof extra === "string" && extra.trim())
         sections.push(extra.trim());
     }
   }
+}
+function buildDomeSystemPrompt(options, coreSections) {
+  const sections = [];
+  appendPersonaSection(sections, options);
+  appendCoreConstraints(sections, options, coreSections);
+  appendCoreToolsBlock(sections, options, coreSections);
+  appendCatalogSection(sections, options);
+  appendVolatileContext(sections, options);
+  appendExtraSections(sections, options);
   let assembled = sections.join("\n\n");
   if (options.voiceLanguage)
     assembled += buildVoiceSuffix(options.voiceLanguage);
