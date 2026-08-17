@@ -112,14 +112,18 @@ function formatPinnedSourceBody(src) {
   return typeof src.meta?.body === "string" && src.meta.body.trim() ? `
   body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
 }
-function formatPinnedSourceLine(src) {
+function formatPinnedSourceMeta(src) {
   const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
   const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
   const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
   const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+  return `${repo}${folder}${provider}${status}`;
+}
+function formatPinnedSourceLine(src) {
+  const meta = formatPinnedSourceMeta(src);
   const body = formatPinnedSourceBody(src);
   const toolHint = SOURCE_TOOL_HINTS[src.kind] ?? "";
-  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+  return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
 }
 function formatPinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
