@@ -167,6 +167,9 @@ function pushActiveResourceBlock(blocks, activeResource) {
     );
   }
 }
+function resolveTaskLine(taskLine) {
+  return taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
@@ -177,8 +180,7 @@ function formatVolatileSourceContext(opts = {}) {
   pushPinnedSourcesBlock(blocks, opts.pinnedSources);
   pushPinnedResourcesBlock(blocks, opts.pinnedResources);
   pushActiveResourceBlock(blocks, opts.activeResource);
-  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  blocks.push(`Task: ${task}`);
+  blocks.push(`Task: ${resolveTaskLine(opts.taskLine)}`);
   return blocks.join("\n\n");
 }
 function appendPersonaSection(sections, options) {
