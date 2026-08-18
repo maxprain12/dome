@@ -128,10 +128,13 @@ function formatPinnedSourceMeta(src) {
   const status = formatPinnedSourceMetaField(src, "social_post", "status", "status");
   return `${repo}${folder}${provider}${status}`;
 }
+function formatPinnedSourceToolHint(src) {
+  return SOURCE_TOOL_HINTS[src.kind] ?? "";
+}
 function formatPinnedSourceLine(src) {
   const meta = formatPinnedSourceMeta(src);
   const body = formatPinnedSourceBody(src);
-  const toolHint = SOURCE_TOOL_HINTS[src.kind] ?? "";
+  const toolHint = formatPinnedSourceToolHint(src);
   return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
 }
 function formatPinnedIdentity(identity) {
