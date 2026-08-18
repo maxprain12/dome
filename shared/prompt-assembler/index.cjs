@@ -116,11 +116,16 @@ function formatPinnedSourceBody(src) {
   return `
   body: ${trimmed.slice(0, 2e3)}`;
 }
+function formatPinnedSourceMetaField(src, kind, field, label) {
+  if (src.kind !== kind) return "";
+  const value = src.meta?.[field];
+  return typeof value === "string" ? ` ${label}=${value}` : "";
+}
 function formatPinnedSourceMeta(src) {
-  const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
-  const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
-  const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
-  const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+  const repo = formatPinnedSourceMetaField(src, "issue", "fullName", "repo");
+  const folder = formatPinnedSourceMetaField(src, "email", "folder", "folder");
+  const provider = formatPinnedSourceMetaField(src, "social_post", "provider", "provider");
+  const status = formatPinnedSourceMetaField(src, "social_post", "status", "status");
   return `${repo}${folder}${provider}${status}`;
 }
 function formatPinnedSourceLine(src) {
