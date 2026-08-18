@@ -129,8 +129,11 @@ function formatPinnedSourceLine(src) {
   const toolHint = SOURCE_TOOL_HINTS[src.kind] ?? "";
   return `- [${src.kind}] ${src.id}: ${src.title}${meta}${toolHint}${body}`;
 }
+function formatPinnedIdentity(identity) {
+  return `${identity.source}:${identity.displayLabel || identity.externalId}`;
+}
 function formatPinnedPersonLine(person) {
-  const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+  const identities = (person.identities || []).map(formatPinnedIdentity).join(", ");
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
 function pushIfTrimmed(blocks, label, value) {
