@@ -109,8 +109,12 @@ const SOURCE_TOOL_HINTS = {
   issue: " \u2192 github_get_issue"
 };
 function formatPinnedSourceBody(src) {
-  return typeof src.meta?.body === "string" && src.meta.body.trim() ? `
-  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
+  const body = src.meta?.body;
+  if (typeof body !== "string") return "";
+  const trimmed = body.trim();
+  if (!trimmed) return "";
+  return `
+  body: ${trimmed.slice(0, 2e3)}`;
 }
 function formatPinnedSourceMeta(src) {
   const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
