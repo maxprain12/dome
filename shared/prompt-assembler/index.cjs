@@ -132,21 +132,21 @@ ${opts.uiContext.trim()}`);
     blocks.push(`**user-memory**
 ${opts.userMemory.trim()}`);
   }
-  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+  if (opts.pinnedPeople?.length) {
     const lines = opts.pinnedPeople.map(formatPinnedPersonLine).join("\n");
     blocks.push(
       `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
 ${lines}`
     );
   }
-  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+  if (opts.pinnedSources?.length) {
     const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
     blocks.push(
       `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
 ${lines}`
     );
   }
-  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
+  if (opts.pinnedResources?.length) {
     const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
     blocks.push(
       `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
