@@ -107,6 +107,11 @@ function formatPinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
+const PINNED_SOURCE_TOOL_HINTS = new Map([
+  ["social_post", " \u2192 social_post_get"],
+  ["email", " \u2192 email_read"],
+  ["issue", " \u2192 github_get_issue"]
+]);
 function formatPinnedSourceLine(src) {
   const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
   const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
@@ -114,7 +119,7 @@ function formatPinnedSourceLine(src) {
   const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
   const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
   body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
-  const toolHint = src.kind === "social_post" ? " \u2192 social_post_get" : src.kind === "email" ? " \u2192 email_read" : src.kind === "issue" ? " \u2192 github_get_issue" : "";
+  const toolHint = PINNED_SOURCE_TOOL_HINTS.get(src.kind) || "";
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
 function formatVolatileSourceContext(opts = {}) {
