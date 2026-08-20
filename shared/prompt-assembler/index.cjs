@@ -133,6 +133,17 @@ function pushVolatileListBlock(blocks, header, items, lineFn) {
     blocks.push(`${header}\n${lines}`);
   }
 }
+function volatileListCount(items) {
+  return items?.length || 0;
+}
+function formatActiveResourceLine(activeResource) {
+  if (!activeResource?.id) return null;
+  const type = activeResource.type ? ` / ${activeResource.type}` : "";
+  return `**active-resource** \u2014 ${activeResource.id}${type}\n"${activeResource.title}". Call resource_get_active() to read content when needed.`;
+}
+function defaultTaskLine(taskLine) {
+  return taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = ["Source (session):"];
   pushVolatileLabel(blocks, "**session-date**", opts.dateLine);
@@ -140,30 +151,25 @@ function formatVolatileSourceContext(opts = {}) {
   pushVolatileLabel(blocks, "**user-memory**", opts.userMemory);
   pushVolatileListBlock(
     blocks,
-    `**mentioned-people** \u2014 ${opts.pinnedPeople?.length || 0} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.`,
+    `**mentioned-people** \u2014 ${volatileListCount(opts.pinnedPeople)} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.`,
     opts.pinnedPeople,
     formatPinnedPersonLine
   );
   pushVolatileListBlock(
     blocks,
-    `**mentioned-sources** \u2014 ${opts.pinnedSources?.length || 0} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.`,
+    `**mentioned-sources** \u2014 ${volatileListCount(opts.pinnedSources)} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.`,
     opts.pinnedSources,
     formatPinnedSourceLine
   );
   pushVolatileListBlock(
     blocks,
-    `**pinned-resources** \u2014 ${opts.pinnedResources?.length || 0} item(s). Use resource_get_pinned(id); do not search by title.`,
+    `**pinned-resources** \u2014 ${volatileListCount(opts.pinnedResources)} item(s). Use resource_get_pinned(id); do not search by title.`,
     opts.pinnedResources,
     (r) => `- ${r.id}: ${r.title} (${r.type})`
   );
-  if (opts.activeResource?.id) {
-    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
-    blocks.push(
-      `**active-resource** \u2014 ${opts.activeResource.id}${type}\n"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
-    );
-  }
-  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-  blocks.push(`Task: ${task}`);
+  const activeLine = formatActiveResourceLine(opts.activeResource);
+  if (activeLine) blocks.push(activeLine);
+  blocks.push(`Task: ${defaultTaskLine(opts.taskLine)}`);
   return blocks.join("\n\n");
 }
 function buildDomeSystemPrompt(options, coreSections) {
