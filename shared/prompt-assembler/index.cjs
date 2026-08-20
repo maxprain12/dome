@@ -128,13 +128,17 @@ function pinnedSourceBody(meta) {
   return typeof meta?.body === "string" && meta.body.trim() ? `
   body: ${meta.body.trim().slice(0, 2e3)}` : "";
 }
-function formatPinnedSourceLine(src) {
+function pinnedSourceLineParts(src) {
   const repo = pinnedSourceRepo(src.meta, src.kind);
   const folder = pinnedSourceFolder(src.meta, src.kind);
   const provider = pinnedSourceProvider(src.meta, src.kind);
   const status = pinnedSourceStatus(src.meta, src.kind);
   const body = pinnedSourceBody(src.meta);
   const toolHint = PINNED_SOURCE_TOOL_HINTS.get(src.kind) || "";
+  return [repo, folder, provider, status, body, toolHint];
+}
+function formatPinnedSourceLine(src) {
+  const [repo, folder, provider, status, body, toolHint] = pinnedSourceLineParts(src);
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
 function pushVolatileLabel(blocks, header, value) {
