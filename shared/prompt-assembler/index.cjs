@@ -112,13 +112,28 @@ const PINNED_SOURCE_TOOL_HINTS = new Map([
   ["email", " \u2192 email_read"],
   ["issue", " \u2192 github_get_issue"]
 ]);
+function pinnedSourceRepo(meta, kind) {
+  return kind === "issue" && typeof meta?.fullName === "string" ? ` repo=${meta.fullName}` : "";
+}
+function pinnedSourceFolder(meta, kind) {
+  return kind === "email" && typeof meta?.folder === "string" ? ` folder=${meta.folder}` : "";
+}
+function pinnedSourceProvider(meta, kind) {
+  return kind === "social_post" && typeof meta?.provider === "string" ? ` provider=${meta.provider}` : "";
+}
+function pinnedSourceStatus(meta, kind) {
+  return kind === "social_post" && typeof meta?.status === "string" ? ` status=${meta.status}` : "";
+}
+function pinnedSourceBody(meta) {
+  return typeof meta?.body === "string" && meta.body.trim() ? `
+  body: ${meta.body.trim().slice(0, 2e3)}` : "";
+}
 function formatPinnedSourceLine(src) {
-  const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
-  const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
-  const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
-  const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
-  const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
-  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
+  const repo = pinnedSourceRepo(src.meta, src.kind);
+  const folder = pinnedSourceFolder(src.meta, src.kind);
+  const provider = pinnedSourceProvider(src.meta, src.kind);
+  const status = pinnedSourceStatus(src.meta, src.kind);
+  const body = pinnedSourceBody(src.meta);
   const toolHint = PINNED_SOURCE_TOOL_HINTS.get(src.kind) || "";
   return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }

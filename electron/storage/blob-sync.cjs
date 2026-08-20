@@ -682,13 +682,24 @@ async function scanVaultForHashes(db, queries, wantedHashes) {
     .all();
   for (const resource of resources) {
     if (!wantedHashes.size) return;
-    const fullPath = resolveResourceAbsPath(resource, queries);
-    if (!fullPath || !fs.existsSync(fullPath)) continue;
-    const hash = await resolveOrComputeVaultHash(resource, fullPath);
-    if (!hash) continue;
-    pathByHash.set(hash, fullPath);
-    wantedHashes.delete(hash);
+    await resolveAndRecordVaultHash(resource, queries, wantedHashes);
   }
+}
+
+/**
+ * Hash one vault resource and, on success, remember its path and remove the
+ * hash from `wantedHashes`. Skips resources whose backing file is missing or
+ * whose content can't be read — the caller keeps iterating.
+ * @returns {Promise<boolean>} whether the hash was recorded this iteration
+ */
+async function resolveAndRecordVaultHash(resource, queries, wantedHashes) {
+  const fullPath = resolveResourceAbsPath(resource, queries);
+  if (!fullPath || !fs.existsSync(fullPath)) return false;
+  const hash = await resolveOrComputeVaultHash(resource, fullPath);
+  if (!hash) return false;
+  pathByHash.set(hash, fullPath);
+  wantedHashes.delete(hash);
+  return true;
 }
 
 /**
