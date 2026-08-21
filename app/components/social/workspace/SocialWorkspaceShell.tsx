@@ -319,7 +319,8 @@ function postStatusBadgeVariant(status: SocialPost['status']): 'destructive' | '
     case 'draft':
       return 'outline';
     default: {
-      const _exhaustive: never = status; _exhaustive;
+      const _exhaustive: never = status;
+      void _exhaustive;
       return 'outline';
     }
   }
