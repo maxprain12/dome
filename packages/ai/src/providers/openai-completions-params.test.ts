@@ -176,3 +176,167 @@ describe("buildParams (openai-completions request mapping)", () => {
 		expect(params.tools).toEqual([]);
 	});
 });
+
+describe("applyReasoningParams (openai-completions thinkingFormat mapping)", () => {
+	function reasoningModel(
+		overrides: Partial<Model<"openai-completions">> = {},
+	): Model<"openai-completions"> {
+		return baseModel({
+			reasoning: true,
+			thinkingLevelMap: { off: "none", low: "low", medium: "medium", high: "high" },
+			...overrides,
+		});
+	}
+
+	it("sets enable_thinking for zai/qwen formats", async () => {
+		const zaiOn = await captureBuildParams(
+			reasoningModel({ compat: { thinkingFormat: "zai" } }),
+			emptyContext(),
+			{ reasoningEffort: "medium" },
+		);
+		expect(zaiOn.enable_thinking).toBe(true);
+
+		const qwenOff = await captureBuildParams(
+			reasoningModel({ compat: { thinkingFormat: "qwen" } }),
+			emptyContext(),
+		);
+		expect(qwenOff.enable_thinking).toBe(false);
+	});
+
+	it("sets chat_template_kwargs for qwen-chat-template", async () => {
+		const params = await captureBuildParams(
+			reasoningModel({ compat: { thinkingFormat: "qwen-chat-template" } }),
+			emptyContext(),
+			{ reasoningEffort: "low" },
+		);
+		expect(params.chat_template_kwargs).toEqual({
+			enable_thinking: true,
+			preserve_thinking: true,
+		});
+	});
+
+	it("maps deepseek thinking + optional reasoning_effort", async () => {
+		const withEffort = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "deepseek", supportsReasoningEffort: true },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "high" },
+		);
+		expect(withEffort.thinking).toEqual({ type: "enabled" });
+		expect(withEffort.reasoning_effort).toBe("high");
+
+		const disabled = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "deepseek", supportsReasoningEffort: true },
+			}),
+			emptyContext(),
+		);
+		expect(disabled.thinking).toEqual({ type: "disabled" });
+		expect(disabled).not.toHaveProperty("reasoning_effort");
+	});
+
+	it("maps openrouter nested reasoning and off fallback", async () => {
+		const on = await captureBuildParams(
+			reasoningModel({ compat: { thinkingFormat: "openrouter" } }),
+			emptyContext(),
+			{ reasoningEffort: "low" },
+		);
+		expect(on.reasoning).toEqual({ effort: "low" });
+
+		const off = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "openrouter" },
+				thinkingLevelMap: { off: "none" },
+			}),
+			emptyContext(),
+		);
+		expect(off.reasoning).toEqual({ effort: "none" });
+	});
+
+	it("maps ant-ling via thinkingLevelMap and falls back without effort", async () => {
+		const mapped = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "ant-ling", supportsReasoningEffort: true },
+				thinkingLevelMap: { medium: "ant-medium", off: "none" },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "medium" },
+		);
+		expect(mapped.reasoning).toEqual({ effort: "ant-medium" });
+
+		const fallthrough = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "ant-ling", supportsReasoningEffort: true },
+				thinkingLevelMap: { off: "none", medium: "ant-medium" },
+			}),
+			emptyContext(),
+		);
+		expect(fallthrough.reasoning_effort).toBe("none");
+		expect(fallthrough).not.toHaveProperty("reasoning");
+	});
+
+	it("maps together and string-thinking formats", async () => {
+		const together = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "together", supportsReasoningEffort: true },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "medium" },
+		);
+		expect(together.reasoning).toEqual({ enabled: true });
+		expect(together.reasoning_effort).toBe("medium");
+
+		const stringThinking = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "string-thinking" },
+				thinkingLevelMap: { high: "think-hard", off: "none" },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "high" },
+		);
+		expect(stringThinking.thinking).toBe("think-hard");
+	});
+
+	it("applies generic reasoning_effort for openai format", async () => {
+		const on = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "medium" },
+		);
+		expect(on.reasoning_effort).toBe("medium");
+
+		const off = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
+				thinkingLevelMap: { off: "minimal" },
+			}),
+			emptyContext(),
+		);
+		expect(off.reasoning_effort).toBe("minimal");
+
+		const unsupported = await captureBuildParams(
+			reasoningModel({
+				compat: { thinkingFormat: "openai", supportsReasoningEffort: false },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "medium" },
+		);
+		expect(unsupported).not.toHaveProperty("reasoning_effort");
+	});
+
+	it("skips reasoning params when model.reasoning is false", async () => {
+		const params = await captureBuildParams(
+			baseModel({
+				reasoning: false,
+				compat: { thinkingFormat: "zai" },
+			}),
+			emptyContext(),
+			{ reasoningEffort: "medium" },
+		);
+		expect(params).not.toHaveProperty("enable_thinking");
+		expect(params).not.toHaveProperty("reasoning_effort");
+	});
+});
