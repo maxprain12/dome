@@ -102,6 +102,34 @@ function insightsPanelLabel(open: boolean, t: (key: string) => string): string {
   return open ? t('notes.hide_insights_panel') : t('notes.show_insights_panel');
 }
 
+/** Win titleBarOverlay / Linux frameless controls share the same right inset. */
+function needsRightChromeInset(isWin: boolean, isLinux: boolean): boolean {
+  return isWin || isLinux;
+}
+
+/** Toggle between standard and focused note layouts. */
+function oppositeViewMode(mode: NoteViewMode): NoteViewMode {
+  if (mode === 'focused') return 'standard';
+  return 'focused';
+}
+
+/** Copy a dome:// share link and toast success/failure (no-op when link is missing). */
+function copyDomeShareLink(
+  domeLinkToCopy: string | null | undefined,
+  t: (key: string) => string,
+): void {
+  if (!domeLinkToCopy) return;
+  // Rejection handled by the second then callback; void marks fire-and-forget for eslint.
+  void navigator.clipboard.writeText(domeLinkToCopy).then(
+    () => {
+      showToast('success', t('notes.share_link_copied'));
+    },
+    () => {
+      showToast('error', t('notes.share_link_copy_failed'));
+    },
+  );
+}
+
 /** Optional icon slot rendered for a crumb segment. */
 function CrumbIcon({ icon }: { icon?: React.ReactNode }) {
   if (!icon) return null;
@@ -144,6 +172,90 @@ function CrumbItem({ crumb }: { crumb: ActionBarCrumbSegment }) {
   );
 }
 
+/** Separator rendered between breadcrumb segments. */
+function CrumbSeparator() {
+  return (
+    <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
+  );
+}
+
+/** Workspace / folder / note trail — extracted so NoteActionBar stays under S3776. */
+function NoteActionBarCrumbs({
+  crumbs,
+  ariaLabel,
+}: {
+  crumbs: ActionBarCrumbSegment[];
+  ariaLabel: string;
+}) {
+  return (
+    <nav className="note-crumbs no-drag" aria-label={ariaLabel}>
+      {crumbs.map((c, i) => (
+        <Fragment key={`${c.label}-${i}`}>
+          {i > 0 ? <CrumbSeparator /> : null}
+          <CrumbItem crumb={c} />
+        </Fragment>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * Split-view control — only in embedded chrome (hidden in standalone popout).
+ * Extracted so NoteActionBar does not branch on `hideWindowControls`.
+ */
+function EmbeddedSplitButton({
+  hideWindowControls,
+  canOpenSplit,
+  onOpenSplit,
+  title,
+}: {
+  hideWindowControls?: boolean;
+  canOpenSplit: boolean;
+  onOpenSplit: () => void;
+  title: string;
+}) {
+  if (hideWindowControls) return null;
+  return (
+    <button
+      type="button"
+      className="note-icon-btn note-icon-btn-sm no-drag"
+      title={title}
+      aria-label={title}
+      disabled={!canOpenSplit}
+      onClick={onOpenSplit}
+    >
+      <HugeiconsIcon icon={SplitIcon} size={14} strokeWidth={2} />
+    </button>
+  );
+}
+
+/**
+ * Popout control — only in embedded chrome; kept separate from split so
+ * toolbar button order (split → focus → sources → popout → insights) is unchanged.
+ */
+function EmbeddedPopoutButton({
+  hideWindowControls,
+  onOpenPopout,
+  title,
+}: {
+  hideWindowControls?: boolean;
+  onOpenPopout: () => void;
+  title: string;
+}) {
+  if (hideWindowControls) return null;
+  return (
+    <button
+      type="button"
+      className="note-icon-btn note-icon-btn-sm no-drag"
+      title={title}
+      aria-label={title}
+      onClick={onOpenPopout}
+    >
+      <HugeiconsIcon icon={Maximize02Icon} size={14} strokeWidth={2} />
+    </button>
+  );
+}
+
 export default function NoteActionBar({
   crumbs,
   saveState,
@@ -167,37 +279,18 @@ export default function NoteActionBar({
   const isMac = readElectronPlatformFlag('isMac');
   const isWin = readElectronPlatformFlag('isWindows');
   const isLinux = readElectronPlatformFlag('isLinux');
-  /** Win: titleBarOverlay; Linux (frameless): WindowControls dibujados a la derecha en AppShell — mismo hueco para popout */
-  const needsRightChromeInset = isWin || isLinux;
-  const containerClass = buildActionBarClass(hideWindowControls, isMac, needsRightChromeInset);
+  const containerClass = buildActionBarClass(
+    hideWindowControls,
+    isMac,
+    needsRightChromeInset(isWin, isLinux),
+  );
   const sourcesLabel = sourcesPanelLabel(sourcesOpen, t);
   const insightsLabel = insightsPanelLabel(sidePanelOpen, t);
-
-  const handleCopyShareLink = () => {
-    if (!domeLinkToCopy) return;
-    void navigator.clipboard.writeText(domeLinkToCopy).then(
-      () => {
-        showToast('success', t('notes.share_link_copied'));
-      },
-      () => {
-        showToast('error', t('notes.share_link_copy_failed'));
-      },
-    );
-  };
-
-  const toggleViewMode = () =>
-    onViewModeChange(viewMode === 'focused' ? 'standard' : 'focused');
+  const focused = viewMode === 'focused';
 
   return (
     <div className={containerClass}>
-      <nav className="note-crumbs no-drag" aria-label={t('folder.breadcrumb', 'Ruta')}>
-        {crumbs.map((c, i) => (
-          <Fragment key={`${c.label}-${i}`}>
-            {i > 0 ? <CrumbSeparator /> : null}
-            <CrumbItem crumb={c} />
-          </Fragment>
-        ))}
-      </nav>
+      <NoteActionBarCrumbs crumbs={crumbs} ariaLabel={t('folder.breadcrumb', 'Ruta')} />
 
       <NoteSavePill state={saveState} lastSavedAt={lastSavedAt} onClickSave={onSave} />
 
@@ -229,32 +322,26 @@ export default function NoteActionBar({
         title={t('notes.share_copy_tooltip')}
         aria-label={t('notes.share_copy_tooltip')}
         disabled={!domeLinkToCopy}
-        onClick={handleCopyShareLink}
+        onClick={() => copyDomeShareLink(domeLinkToCopy, t)}
       >
         <HugeiconsIcon icon={Share08Icon} size={14} strokeWidth={2} />
       </button>
 
       <span className="note-actionbar-sep" aria-hidden />
 
-      {!hideWindowControls ? (
-        <button
-          type="button"
-          className="note-icon-btn note-icon-btn-sm no-drag"
-          title={t('focused_editor.open_reference')}
-          aria-label={t('focused_editor.open_reference')}
-          disabled={!canOpenSplit}
-          onClick={onOpenSplit}
-        >
-          <HugeiconsIcon icon={SplitIcon} size={14} strokeWidth={2} />
-        </button>
-      ) : null}
+      <EmbeddedSplitButton
+        hideWindowControls={hideWindowControls}
+        canOpenSplit={canOpenSplit}
+        onOpenSplit={onOpenSplit}
+        title={t('focused_editor.open_reference')}
+      />
 
       <button
         type="button"
-        className={toggleIconClass(viewMode === 'focused')}
+        className={toggleIconClass(focused)}
         title={t('notes.mode_focused_tooltip')}
-        aria-pressed={viewMode === 'focused'}
-        onClick={toggleViewMode}
+        aria-pressed={focused}
+        onClick={() => onViewModeChange(oppositeViewMode(viewMode))}
       >
         <HugeiconsIcon icon={EyeIcon} size={14} strokeWidth={2} />
       </button>
@@ -271,17 +358,11 @@ export default function NoteActionBar({
         <HugeiconsIcon icon={PanelRightIcon} size={14} strokeWidth={2} />
       </button>
 
-      {!hideWindowControls ? (
-        <button
-          type="button"
-          className="note-icon-btn note-icon-btn-sm no-drag"
-          title={t('notes.popout_tooltip')}
-          aria-label={t('notes.popout_tooltip')}
-          onClick={onOpenPopout}
-        >
-          <HugeiconsIcon icon={Maximize02Icon} size={14} strokeWidth={2} />
-        </button>
-      ) : null}
+      <EmbeddedPopoutButton
+        hideWindowControls={hideWindowControls}
+        onOpenPopout={onOpenPopout}
+        title={t('notes.popout_tooltip')}
+      />
 
       <button
         type="button"
@@ -318,12 +399,5 @@ export default function NoteActionBar({
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  );
-}
-
-/** Separator rendered between breadcrumb segments. */
-function CrumbSeparator() {
-  return (
-    <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
   );
 }
