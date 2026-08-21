@@ -391,7 +391,9 @@ export default function AgentContextSettingsTab() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void window.electron?.personality?.openFolder?.()}
+            onClick={() => {
+              window.electron?.personality?.openFolder?.();
+            }}
           >
             <HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />
             {t('settings.ai.context_open_folder')}
