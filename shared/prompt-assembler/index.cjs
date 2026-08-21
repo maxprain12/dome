@@ -116,6 +116,11 @@ function pinnedSourceMetaString(meta, prefix, key) {
   const value = meta && meta[key];
   return typeof value === "string" ? ` ${prefix}=${value}` : "";
 }
+function pinnedSourceBody(meta) {
+  if (!meta || typeof meta.body !== "string" || !meta.body.trim()) return "";
+  return `
+  body: ${meta.body.trim().slice(0, 2e3)}`;
+}
 function pinnedSourceLineParts(src) {
   const meta = src.meta;
   const kind = src.kind;
@@ -123,8 +128,7 @@ function pinnedSourceLineParts(src) {
   const folder = kind === "email" ? pinnedSourceMetaString(meta, "folder", "folder") : "";
   const provider = kind === "social_post" ? pinnedSourceMetaString(meta, "provider", "provider") : "";
   const status = kind === "social_post" ? pinnedSourceMetaString(meta, "status", "status") : "";
-  const body = meta && typeof meta.body === "string" && meta.body.trim() ? `
-  body: ${meta.body.trim().slice(0, 2e3)}` : "";
+  const body = pinnedSourceBody(meta);
   const toolHint = PINNED_SOURCE_TOOL_HINTS.get(kind) || "";
   return [repo, folder, provider, status, body, toolHint];
 }
