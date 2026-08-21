@@ -629,6 +629,35 @@ function isTerminalGrantOutcome(outcome) {
 }
 
 /**
+ * Grant → PUT → side effects for one blob whose local bytes are already
+ * located. Terminal grant outcomes (rate limit / quota) propagate unchanged;
+ * everything else folds through `applyUploadOutcome`.
+ * @returns {Promise<
+ *   { kind: 'deduped' | 'uploaded' | 'skip' | 'rate-limited' | 'quota-exceeded' }
+ * >}
+ */
+async function runBlobUpload(deps, base, blob, localFile, markUploaded, markSkipped) {
+  const outcome = await requestUploadGrant(deps, base, blob);
+  if (outcome.kind !== 'ok') {
+    if (isTerminalGrantOutcome(outcome)) return outcome;
+    return applyUploadOutcome(blob, outcome, null, markUploaded, markSkipped);
+  }
+  const putResult = await performBlobPut(blob, outcome.url, localFile);
+  return applyUploadOutcome(blob, outcome, putResult, markUploaded, markSkipped);
+}
+
+/** Network/HTTP failure while uploading one blob — logged, never thrown. */
+function logBlobUploadError(err, blob) {
+  const cause = err?.cause?.code || err?.cause?.message || '';
+  console.warn(
+    '[blob-sync] upload error:',
+    err?.message,
+    cause ? `(${cause})` : '',
+    blob.hash?.slice?.(0, 12) || '',
+  );
+}
+
+/**
  * Try to upload one pending blob: short-circuit if the provider already has
  * it, locate the local bytes, request a grant, PUT the file, and translate
  * every failure mode into a single outcome kind.
@@ -654,21 +683,9 @@ async function uploadPendingBlob(
   if (!localFile) return { kind: 'skip' }; // manifest row from another device — nothing to upload here
 
   try {
-    const outcome = await requestUploadGrant(deps, base, blob);
-    if (outcome.kind !== 'ok') {
-      if (isTerminalGrantOutcome(outcome)) return outcome;
-      return applyUploadOutcome(blob, outcome, null, markUploaded, markSkipped);
-    }
-    const putResult = await performBlobPut(blob, outcome.url, localFile);
-    return applyUploadOutcome(blob, outcome, putResult, markUploaded, markSkipped);
+    return await runBlobUpload(deps, base, blob, localFile, markUploaded, markSkipped);
   } catch (err) {
-    const cause = err?.cause?.code || err?.cause?.message || '';
-    console.warn(
-      '[blob-sync] upload error:',
-      err?.message,
-      cause ? `(${cause})` : '',
-      blob.hash?.slice?.(0, 12) || '',
-    );
+    logBlobUploadError(err, blob);
     return { kind: 'skip' };
   }
 }
