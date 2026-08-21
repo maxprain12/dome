@@ -121,22 +121,31 @@ function getMessageFromEntry(entry: SessionTreeEntry): AgentMessage | undefined 
 	}
 }
 
+/** Append paths from one list into a file-ops set when the list is an array. */
+function appendPathsToSet(target: Set<string>, paths: unknown): void {
+	if (!Array.isArray(paths)) return;
+	for (const path of paths as string[]) target.add(path);
+}
+
 /** Append the read/modified file lists from a branch-summary entry into the accumulator. */
 function appendBranchSummaryFiles(fileOps: FileOperations, details: BranchSummaryDetails): void {
-	if (Array.isArray(details.readFiles)) {
-		for (const f of details.readFiles) fileOps.read.add(f);
-	}
-	if (Array.isArray(details.modifiedFiles)) {
-		for (const f of details.modifiedFiles) {
-			fileOps.edited.add(f);
-		}
-	}
+	appendPathsToSet(fileOps.read, details.readFiles);
+	appendPathsToSet(fileOps.edited, details.modifiedFiles);
 }
 
 /** Collect read/modified files reported on non-hook branch-summary entries. */
 function collectBranchSummaryFiles(entry: SessionTreeEntry, fileOps: FileOperations): void {
 	if (entry.type !== "branch_summary" || entry.fromHook || !entry.details) return;
 	appendBranchSummaryFiles(fileOps, entry.details as BranchSummaryDetails);
+}
+
+/** Seed file-ops from prior non-hook branch-summary details on the abandoned branch. */
+function accumulateBranchFileOps(entries: SessionTreeEntry[]): FileOperations {
+	const fileOps = createFileOps();
+	for (const entry of entries) {
+		collectBranchSummaryFiles(entry, fileOps);
+	}
+	return fileOps;
 }
 
 /** Decide whether a candidate message fits in the remaining token budget. */
@@ -155,15 +164,32 @@ function evaluateBudgetEntry(
 	return { include: isPinnedSummary && fitsHeadroom, stop: true, tokens };
 }
 
-/** Prepare branch entries for summarization within an optional token budget. */
-export function prepareBranchEntries(entries: SessionTreeEntry[], tokenBudget: number = 0): BranchPreparation {
-	const messages: AgentMessage[] = [];
-	const fileOps = createFileOps();
-	let totalTokens = 0;
-
-	for (const entry of entries) {
-		collectBranchSummaryFiles(entry, fileOps);
+/** Apply one budget decision: maybe keep the message (newest-first) and stop when over budget. */
+function applyBudgetDecision(
+	decision: { include: boolean; stop: boolean; tokens: number },
+	message: AgentMessage,
+	messages: AgentMessage[],
+	totalTokens: number,
+): { totalTokens: number; stop: boolean } {
+	let nextTotal = totalTokens;
+	if (decision.include) {
+		messages.unshift(message);
+		nextTotal += decision.tokens;
 	}
+	return { totalTokens: nextTotal, stop: decision.stop };
+}
+
+/**
+ * Walk entries newest→oldest, extract tool file-ops, and keep messages that fit the budget.
+ * Pinned compaction/branch_summary messages may still be kept once under 90% headroom.
+ */
+function selectMessagesWithinBudget(
+	entries: SessionTreeEntry[],
+	fileOps: FileOperations,
+	tokenBudget: number,
+): { messages: AgentMessage[]; totalTokens: number } {
+	const messages: AgentMessage[] = [];
+	let totalTokens = 0;
 
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i];
@@ -172,13 +198,18 @@ export function prepareBranchEntries(entries: SessionTreeEntry[], tokenBudget: n
 		extractFileOpsFromMessage(message, fileOps);
 
 		const decision = evaluateBudgetEntry(message, entry, tokenBudget, totalTokens);
-		if (decision.include) {
-			messages.unshift(message);
-			totalTokens += decision.tokens;
-		}
-		if (decision.stop) break;
+		const applied = applyBudgetDecision(decision, message, messages, totalTokens);
+		totalTokens = applied.totalTokens;
+		if (applied.stop) break;
 	}
 
+	return { messages, totalTokens };
+}
+
+/** Prepare branch entries for summarization within an optional token budget. */
+export function prepareBranchEntries(entries: SessionTreeEntry[], tokenBudget: number = 0): BranchPreparation {
+	const fileOps = accumulateBranchFileOps(entries);
+	const { messages, totalTokens } = selectMessagesWithinBudget(entries, fileOps, tokenBudget);
 	return { messages, fileOps, totalTokens };
 }
 
@@ -216,6 +247,55 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`;
 
+/** Resolve summarization instructions from default prompt + optional custom focus. */
+function resolveBranchSummaryInstructions(
+	customInstructions: string | undefined,
+	replaceInstructions: boolean | undefined,
+): string {
+	if (replaceInstructions && customInstructions) return customInstructions;
+	if (customInstructions) return `${BRANCH_SUMMARY_PROMPT}\n\nAdditional focus: ${customInstructions}`;
+	return BRANCH_SUMMARY_PROMPT;
+}
+
+/** Join text blocks from a model response. */
+function textFromAssistantContent(content: Array<{ type: string; text?: string }>): string {
+	return content
+		.filter((c): c is { type: "text"; text: string } => c.type === "text")
+		.map((c) => c.text)
+		.join("\n");
+}
+
+/** Map aborted/error stop reasons to a BranchSummaryError; otherwise null. */
+function branchSummaryStopError(
+	stopReason: string,
+	errorMessage: string | undefined,
+): BranchSummaryError | null {
+	if (stopReason === "aborted") {
+		return new BranchSummaryError("aborted", errorMessage || "Branch summary aborted");
+	}
+	if (stopReason === "error") {
+		return new BranchSummaryError(
+			"summarization_failed",
+			`Branch summary failed: ${errorMessage || "Unknown error"}`,
+		);
+	}
+	return null;
+}
+
+/** Assemble the final BranchSummaryResult from model text + accumulated file ops. */
+function buildBranchSummaryResult(
+	rawSummary: string,
+	fileOps: FileOperations,
+): BranchSummaryResult {
+	const { readFiles, modifiedFiles } = computeFileLists(fileOps);
+	const summary = BRANCH_SUMMARY_PREAMBLE + rawSummary + formatFileOperations(readFiles, modifiedFiles);
+	return {
+		summary: summary || "No summary generated",
+		readFiles,
+		modifiedFiles,
+	};
+}
+
 /** Generate a summary for abandoned branch entries. */
 export async function generateBranchSummary(
 	entries: SessionTreeEntry[],
@@ -232,14 +312,7 @@ export async function generateBranchSummary(
 	}
 	const llmMessages = convertToLlm(messages);
 	const conversationText = serializeConversation(llmMessages);
-	let instructions: string;
-	if (replaceInstructions && customInstructions) {
-		instructions = customInstructions;
-	} else if (customInstructions) {
-		instructions = `${BRANCH_SUMMARY_PROMPT}\n\nAdditional focus: ${customInstructions}`;
-	} else {
-		instructions = BRANCH_SUMMARY_PROMPT;
-	}
+	const instructions = resolveBranchSummaryInstructions(customInstructions, replaceInstructions);
 	const promptText = `<conversation>\n${conversationText}\n</conversation>\n\n${instructions}`;
 
 	const summarizationMessages = [
@@ -254,29 +327,8 @@ export async function generateBranchSummary(
 		{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages },
 		{ apiKey, headers, signal, maxTokens: 2048 },
 	);
-	if (response.stopReason === "aborted") {
-		return err(new BranchSummaryError("aborted", response.errorMessage || "Branch summary aborted"));
-	}
-	if (response.stopReason === "error") {
-		return err(
-			new BranchSummaryError(
-				"summarization_failed",
-				`Branch summary failed: ${response.errorMessage || "Unknown error"}`,
-			),
-		);
-	}
+	const stopError = branchSummaryStopError(response.stopReason, response.errorMessage);
+	if (stopError) return err(stopError);
 
-	let summary = response.content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("\n");
-	summary = BRANCH_SUMMARY_PREAMBLE + summary;
-	const { readFiles, modifiedFiles } = computeFileLists(fileOps);
-	summary += formatFileOperations(readFiles, modifiedFiles);
-
-	return ok({
-		summary: summary || "No summary generated",
-		readFiles,
-		modifiedFiles,
-	});
+	return ok(buildBranchSummaryResult(textFromAssistantContent(response.content), fileOps));
 }
