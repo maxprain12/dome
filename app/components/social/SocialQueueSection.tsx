@@ -10,6 +10,99 @@ import { SocialPostRow } from './SocialPostRow';
 const INITIAL_VISIBLE = 30;
 const LOAD_MORE = 30;
 
+/** Empty queue body — extracted for S3776. */
+function SocialQueueEmpty({
+  emptyText,
+  emptyActionLabel,
+  onEmptyAction,
+}: {
+  emptyText?: string;
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-2 py-2">
+      <p className="text-xs text-muted-foreground">{emptyText || t('social.agent_queue_empty')}</p>
+      {emptyActionLabel && onEmptyAction ? (
+        <Button
+          type="button"
+          variant="link"
+          size="xs"
+          className="h-auto px-0"
+          onClick={onEmptyAction}
+        >
+          {emptyActionLabel}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Non-empty queue body (hint, rows, load-more) — extracted for S3776. */
+function SocialQueueFilled({
+  slice,
+  remaining,
+  selectedId,
+  onOpen,
+  compact,
+  footerHint,
+  footerActionLabel,
+  onFooterAction,
+  onLoadMore,
+}: {
+  slice: SocialPost[];
+  remaining: number;
+  selectedId?: string | null;
+  onOpen: (post: SocialPost) => void;
+  compact?: boolean;
+  footerHint?: string;
+  footerActionLabel?: string;
+  onFooterAction?: () => void;
+  onLoadMore: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {footerHint ? (
+        <div className="flex flex-wrap items-center gap-2 px-2 pb-1">
+          <p className="text-xs text-muted-foreground">{footerHint}</p>
+          {footerActionLabel && onFooterAction ? (
+            <Button type="button" size="xs" variant="ghost" onClick={onFooterAction}>
+              {footerActionLabel}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {slice.map((post) => (
+        <SocialPostRow
+          key={post.id}
+          post={post}
+          active={selectedId === post.id}
+          onOpen={() => onOpen(post)}
+          compact={compact}
+        />
+      ))}
+      {remaining > 0 ? (
+        <div className="px-2 py-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="w-full"
+            onClick={onLoadMore}
+          >
+            {t('social.agent_show_more', {
+              count: Math.min(remaining, LOAD_MORE),
+              total: remaining,
+            })}
+          </Button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function SocialQueueSection({
   queueId,
   title,
@@ -70,58 +163,23 @@ export function SocialQueueSection({
       </CardHeader>
       <CardContent className={compact ? 'flex flex-col gap-0.5 px-1 pb-2' : 'flex flex-col gap-0.5 px-2 pb-2'}>
         {posts.length === 0 ? (
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-2 py-2">
-            <p className="text-xs text-muted-foreground">{emptyText || t('social.agent_queue_empty')}</p>
-            {emptyActionLabel && onEmptyAction ? (
-              <Button
-                type="button"
-                variant="link"
-                size="xs"
-                className="h-auto px-0"
-                onClick={onEmptyAction}
-              >
-                {emptyActionLabel}
-              </Button>
-            ) : null}
-          </div>
+          <SocialQueueEmpty
+            emptyText={emptyText}
+            emptyActionLabel={emptyActionLabel}
+            onEmptyAction={onEmptyAction}
+          />
         ) : (
-          <>
-            {footerHint ? (
-              <div className="flex flex-wrap items-center gap-2 px-2 pb-1">
-                <p className="text-xs text-muted-foreground">{footerHint}</p>
-                {footerActionLabel && onFooterAction ? (
-                  <Button type="button" size="xs" variant="ghost" onClick={onFooterAction}>
-                    {footerActionLabel}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {slice.map((post) => (
-              <SocialPostRow
-                key={post.id}
-                post={post}
-                active={selectedId === post.id}
-                onOpen={() => onOpen(post)}
-                compact={compact}
-              />
-            ))}
-            {remaining > 0 ? (
-              <div className="px-2 py-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="w-full"
-                  onClick={() => setVisible((v) => v + LOAD_MORE)}
-                >
-                  {t('social.agent_show_more', {
-                    count: Math.min(remaining, LOAD_MORE),
-                    total: remaining,
-                  })}
-                </Button>
-              </div>
-            ) : null}
-          </>
+          <SocialQueueFilled
+            slice={slice}
+            remaining={remaining}
+            selectedId={selectedId}
+            onOpen={onOpen}
+            compact={compact}
+            footerHint={footerHint}
+            footerActionLabel={footerActionLabel}
+            onFooterAction={onFooterAction}
+            onLoadMore={() => setVisible((v) => v + LOAD_MORE)}
+          />
         )}
       </CardContent>
     </Card>
