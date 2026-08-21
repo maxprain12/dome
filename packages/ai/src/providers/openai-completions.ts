@@ -519,6 +519,54 @@ function applyToolParams(
 	}
 }
 
+/** Resolve OpenAI prompt-cache request fields from model URL + retention policy. */
+function resolvePromptCacheParams(
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+	cacheRetention: CacheRetention,
+	sessionId?: string,
+): Pick<
+	OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	"prompt_cache_key" | "prompt_cache_retention"
+> {
+	const usePromptCacheKey =
+		(model.baseUrl.includes("api.openai.com") && cacheRetention !== "none") ||
+		(cacheRetention === "long" && compat.supportsLongCacheRetention);
+	const useLongRetention = cacheRetention === "long" && compat.supportsLongCacheRetention;
+
+	return {
+		prompt_cache_key: usePromptCacheKey ? clampOpenAIPromptCacheKey(sessionId) : undefined,
+		prompt_cache_retention: useLongRetention ? "24h" : undefined,
+	};
+}
+
+/** Apply streaming usage + store flags that depend on provider compat. */
+function applyStreamCompatParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	compat: ResolvedOpenAICompletionsCompat,
+): void {
+	if (compat.supportsUsageInStreaming !== false) {
+		(params as { stream_options?: { include_usage: boolean } }).stream_options = { include_usage: true };
+	}
+	if (compat.supportsStore) {
+		params.store = false;
+	}
+}
+
+/** Map maxTokens onto either max_tokens or max_completion_tokens per compat. */
+function applyMaxTokensParam(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	maxTokens: number | undefined,
+	compat: ResolvedOpenAICompletionsCompat,
+): void {
+	if (!maxTokens) return;
+	if (compat.maxTokensField === "max_tokens") {
+		(params as { max_tokens?: number }).max_tokens = maxTokens;
+	} else {
+		params.max_completion_tokens = maxTokens;
+	}
+}
+
 function buildParams(
 	model: Model<"openai-completions">,
 	context: Context,
@@ -533,29 +581,11 @@ function buildParams(
 		model: model.id,
 		messages,
 		stream: true,
-		prompt_cache_key:
-			(model.baseUrl.includes("api.openai.com") && cacheRetention !== "none") ||
-			(cacheRetention === "long" && compat.supportsLongCacheRetention)
-				? clampOpenAIPromptCacheKey(options?.sessionId)
-				: undefined,
-		prompt_cache_retention: cacheRetention === "long" && compat.supportsLongCacheRetention ? "24h" : undefined,
+		...resolvePromptCacheParams(model, compat, cacheRetention, options?.sessionId),
 	};
 
-	if (compat.supportsUsageInStreaming !== false) {
-		(params as any).stream_options = { include_usage: true };
-	}
-
-	if (compat.supportsStore) {
-		params.store = false;
-	}
-
-	if (options?.maxTokens) {
-		if (compat.maxTokensField === "max_tokens") {
-			(params as any).max_tokens = options.maxTokens;
-		} else {
-			params.max_completion_tokens = options.maxTokens;
-		}
-	}
+	applyStreamCompatParams(params, compat);
+	applyMaxTokensParam(params, options?.maxTokens, compat);
 
 	if (options?.temperature !== undefined) {
 		params.temperature = options.temperature;
