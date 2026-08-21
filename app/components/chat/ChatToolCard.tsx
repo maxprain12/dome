@@ -7,7 +7,6 @@ import { CheckmarkCircle02Icon, File02Icon, PlusSignCircleIcon, UserMultiple02Ic
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard from './ArtifactCard';
 import ChatTodoList from './ChatTodoList';
-import type { TodoItem } from '@/lib/chat/todos';
 import { parseTodos } from '@/lib/chat/todos';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';

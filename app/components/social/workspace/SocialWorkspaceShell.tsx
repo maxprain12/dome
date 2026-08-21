@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
@@ -775,10 +775,12 @@ function PostInspectorFooter({
       </div>
       <div className="flex flex-wrap gap-2">
         {post.externalUrl ? (
-          // Base UI supplies the accessible link content from the Button children below.
-          // eslint-disable-next-line jsx-a11y/anchor-has-content
           <Button
-            render={<a href={post.externalUrl} target="_blank" rel="noreferrer" />}
+            render={
+              // Base UI injects the Button children into this host element.
+              // eslint-disable-next-line jsx-a11y/anchor-has-content
+              <a href={post.externalUrl} target="_blank" rel="noreferrer" />
+            }
             variant="ghost"
           >
             <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />

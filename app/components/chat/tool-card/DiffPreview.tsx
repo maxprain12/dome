@@ -89,7 +89,7 @@ export function DiffPreview({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const hunks = diff.diff_hunks ?? [];
+  const hunks = useMemo(() => diff.diff_hunks ?? [], [diff.diff_hunks]);
   const totalLines = useMemo(
     () => hunks.reduce((sum, hunk) => sum + hunk.lines.length, 0),
     [hunks],
