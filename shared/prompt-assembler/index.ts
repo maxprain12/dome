@@ -99,6 +99,12 @@ const VOICE_LANGUAGE_NAMES: Record<string, string> = {
   pt: 'Portuguese',
 };
 
+const PINNED_SOURCE_TOOL_HINTS: Record<string, string> = {
+  social_post: ' → social_post_get',
+  email: ' → email_read',
+  issue: ' → github_get_issue',
+};
+
 const CORE_SECTION_KEYS_LIST: (keyof CorePromptSections)[] = [
   'constraintsLanguage',
   'appContext',
@@ -112,6 +118,10 @@ const CORE_SECTION_KEYS_LIST: (keyof CorePromptSections)[] = [
 ];
 
 export const CORE_SECTION_KEYS = CORE_SECTION_KEYS_LIST;
+
+type PinnedPerson = NonNullable<VolatileSourceOptions['pinnedPeople']>[number];
+type PinnedSource = NonNullable<VolatileSourceOptions['pinnedSources']>[number];
+type PinnedResource = NonNullable<VolatileSourceOptions['pinnedResources']>[number];
 
 export function buildCoreToolsBlock(sections: CorePromptSections): string {
   const parts: string[] = [];
@@ -146,98 +156,103 @@ You are speaking aloud in a live voice conversation. Follow these rules:
 - Respond in ${langName}.`;
 }
 
+function formatPinnedPersonLine(person: PinnedPerson): string {
+  const identities = (person.identities || [])
+    .map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`)
+    .join(', ');
+  return identities
+    ? `- ${person.id}: ${person.title} (${identities})`
+    : `- ${person.id}: ${person.title}`;
+}
+
+function formatPinnedSourceLine(src: PinnedSource): string {
+  const repo =
+    src.kind === 'issue' && typeof src.meta?.fullName === 'string'
+      ? ` repo=${src.meta.fullName}`
+      : '';
+  const folder =
+    src.kind === 'email' && typeof src.meta?.folder === 'string'
+      ? ` folder=${src.meta.folder}`
+      : '';
+  const provider =
+    src.kind === 'social_post' && typeof src.meta?.provider === 'string'
+      ? ` provider=${src.meta.provider}`
+      : '';
+  const status =
+    src.kind === 'social_post' && typeof src.meta?.status === 'string'
+      ? ` status=${src.meta.status}`
+      : '';
+  const body =
+    typeof src.meta?.body === 'string' && src.meta.body.trim()
+      ? `\n  body: ${src.meta.body.trim().slice(0, 2000)}`
+      : '';
+  const toolHint = PINNED_SOURCE_TOOL_HINTS[src.kind] || '';
+  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+}
+
+function formatPinnedResourceLine(r: PinnedResource): string {
+  return `- ${r.id}: ${r.title} (${r.type})`;
+}
+
+function pushVolatileLabel(blocks: string[], header: string, value: string | undefined): void {
+  if (typeof value === 'string' && value.trim()) {
+    blocks.push(`${header}\n${value.trim()}`);
+  }
+}
+
+function pushVolatileListBlock<T>(
+  blocks: string[],
+  header: string,
+  items: T[] | undefined,
+  lineFn: (item: T) => string,
+): void {
+  if (items?.length) {
+    const lines = items.map(lineFn).join('\n');
+    blocks.push(`${header}\n${lines}`);
+  }
+}
+
+function formatActiveResourceLine(
+  activeResource: VolatileSourceOptions['activeResource'],
+): string | null {
+  if (!activeResource?.id) return null;
+  const type = activeResource.type ? ` / ${activeResource.type}` : '';
+  return `**active-resource** — ${activeResource.id}${type}\n"${activeResource.title}". Call resource_get_active() to read content when needed.`;
+}
+
+function defaultTaskLine(taskLine: string | undefined): string {
+  return (
+    taskLine?.trim() ||
+    'Respond to the user message using the sources above only when relevant.'
+  );
+}
+
 export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): string {
-  const blocks: string[] = [];
-  blocks.push('Source (session):');
-
-  if (opts.dateLine?.trim()) {
-    blocks.push(`**session-date**\n${opts.dateLine.trim()}`);
-  }
-
-  if (opts.uiContext?.trim()) {
-    blocks.push(`**ui-context**\n${opts.uiContext.trim()}`);
-  }
-
-  if (opts.userMemory?.trim()) {
-    blocks.push(`**user-memory**\n${opts.userMemory.trim()}`);
-  }
-
-  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
-    const lines = opts.pinnedPeople
-      .map((person) => {
-        const identities = (person.identities || [])
-          .map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`)
-          .join(', ');
-        return identities
-          ? `- ${person.id}: ${person.title} (${identities})`
-          : `- ${person.id}: ${person.title}`;
-      })
-      .join('\n');
-    blocks.push(
-      `**mentioned-people** — ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.\n${lines}`,
-    );
-  }
-
-  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
-    const lines = opts.pinnedSources
-      .map((src) => {
-        const repo =
-          src.kind === 'issue' && typeof src.meta?.fullName === 'string'
-            ? ` repo=${src.meta.fullName}`
-            : '';
-        const folder =
-          src.kind === 'email' && typeof src.meta?.folder === 'string'
-            ? ` folder=${src.meta.folder}`
-            : '';
-        const provider =
-          src.kind === 'social_post' && typeof src.meta?.provider === 'string'
-            ? ` provider=${src.meta.provider}`
-            : '';
-        const status =
-          src.kind === 'social_post' && typeof src.meta?.status === 'string'
-            ? ` status=${src.meta.status}`
-            : '';
-        const body =
-          typeof src.meta?.body === 'string' && src.meta.body.trim()
-            ? `\n  body: ${src.meta.body.trim().slice(0, 2000)}`
-            : '';
-        const toolHint =
-          src.kind === 'social_post'
-            ? ' → social_post_get'
-            : src.kind === 'email'
-              ? ' → email_read'
-              : src.kind === 'issue'
-                ? ' → github_get_issue'
-                : '';
-        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
-      })
-      .join('\n');
-    blocks.push(
-      `**mentioned-sources** — ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.\n${lines}`,
-    );
-  }
-
-  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
-    const lines = opts.pinnedResources
-      .map((r) => `- ${r.id}: ${r.title} (${r.type})`)
-      .join('\n');
-    blocks.push(
-      `**pinned-resources** — ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.\n${lines}`,
-    );
-  }
-
-  if (opts.activeResource?.id) {
-    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : '';
-    blocks.push(
-      `**active-resource** — ${opts.activeResource.id}${type}\n"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`,
-    );
-  }
-
-  const task =
-    opts.taskLine?.trim() ||
-    'Respond to the user message using the sources above only when relevant.';
-  blocks.push(`Task: ${task}`);
-
+  const blocks: string[] = ['Source (session):'];
+  pushVolatileLabel(blocks, '**session-date**', opts.dateLine);
+  pushVolatileLabel(blocks, '**ui-context**', opts.uiContext);
+  pushVolatileLabel(blocks, '**user-memory**', opts.userMemory);
+  pushVolatileListBlock(
+    blocks,
+    `**mentioned-people** — ${opts.pinnedPeople?.length || 0} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.`,
+    opts.pinnedPeople,
+    formatPinnedPersonLine,
+  );
+  pushVolatileListBlock(
+    blocks,
+    `**mentioned-sources** — ${opts.pinnedSources?.length || 0} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.`,
+    opts.pinnedSources,
+    formatPinnedSourceLine,
+  );
+  pushVolatileListBlock(
+    blocks,
+    `**pinned-resources** — ${opts.pinnedResources?.length || 0} item(s). Use resource_get_pinned(id); do not search by title.`,
+    opts.pinnedResources,
+    formatPinnedResourceLine,
+  );
+  const activeLine = formatActiveResourceLine(opts.activeResource);
+  if (activeLine) blocks.push(activeLine);
+  blocks.push(`Task: ${defaultTaskLine(opts.taskLine)}`);
   return blocks.join('\n\n');
 }
 

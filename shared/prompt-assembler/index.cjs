@@ -139,7 +139,8 @@ ${lines}`);
   }
 }
 function formatActiveResourceLine(activeResource) {
-  if (!activeResource?.id) return null;
+  if (!activeResource?.id)
+    return null;
   const type = activeResource.type ? ` / ${activeResource.type}` : "";
   return `**active-resource** \u2014 ${activeResource.id}${type}
 "${activeResource.title}". Call resource_get_active() to read content when needed.`;
@@ -171,7 +172,8 @@ function formatVolatileSourceContext(opts = {}) {
     formatPinnedResourceLine
   );
   const activeLine = formatActiveResourceLine(opts.activeResource);
-  if (activeLine) blocks.push(activeLine);
+  if (activeLine)
+    blocks.push(activeLine);
   blocks.push(`Task: ${defaultTaskLine(opts.taskLine)}`);
   return blocks.join("\n\n");
 }
