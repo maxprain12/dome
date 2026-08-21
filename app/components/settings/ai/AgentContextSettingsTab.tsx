@@ -89,6 +89,155 @@ function applyPendingDoc(
   setPendingDoc(null);
 }
 
+function isDirtyContent(editMode: EditMode, draftContent: string, savedContent: string): boolean {
+  return editMode === 'edit' && draftContent !== savedContent;
+}
+
+function editModeButtonVariant(editMode: EditMode, mode: EditMode): 'default' | 'outline' {
+  return editMode === mode ? 'default' : 'outline';
+}
+
+/** Which text to show for the selected doc / view / edit mode. */
+function resolveDisplayedContent(opts: {
+  selectedDoc: ContextDocId;
+  viewMode: ViewMode;
+  editMode: EditMode;
+  fullContent: string;
+  draftContent: string;
+  agentView: PersonalityContextFiles | null;
+}): string {
+  const { selectedDoc, viewMode, editMode, fullContent, draftContent, agentView } = opts;
+  if (selectedDoc === 'daily') return fullContent;
+  if (selectedDoc === 'social' || selectedDoc === 'email') {
+    return editMode === 'edit' ? draftContent : fullContent;
+  }
+  if (viewMode === 'agent' && agentView) {
+    if (selectedDoc === 'SOUL') return agentView.soul;
+    if (selectedDoc === 'USER') return agentView.user;
+    return agentView.memory;
+  }
+  return editMode === 'edit' ? draftContent : fullContent;
+}
+
+type ActionBarProps = {
+  selectedDoc: ContextDocId;
+  viewMode: ViewMode;
+  editMode: EditMode;
+  isDirty: boolean;
+  saving: boolean;
+  onEditModeChange: (mode: EditMode) => void;
+  onCopy: () => void;
+  onSave: () => void;
+  onDiscard: () => void;
+};
+
+/** View/edit toggles, copy, and save/discard for the context editor. */
+function AgentContextActionBar({
+  selectedDoc,
+  viewMode,
+  editMode,
+  isDirty,
+  saving,
+  onEditModeChange,
+  onCopy,
+  onSave,
+  onDiscard,
+}: ActionBarProps) {
+  const { t } = useTranslation();
+  const showModeToggle = supportsViewEditToggle(selectedDoc, viewMode);
+  const showSave = shouldShowSaveButtons(selectedDoc, viewMode, editMode);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {showModeToggle ? (
+        <>
+          <Button
+            type="button"
+            variant={editModeButtonVariant(editMode, 'view')}
+            size="sm"
+            onClick={() => onEditModeChange('view')}
+          >
+            {t('settings.ai.context_mode_view')}
+          </Button>
+          <Button
+            type="button"
+            variant={editModeButtonVariant(editMode, 'edit')}
+            size="sm"
+            onClick={() => onEditModeChange('edit')}
+          >
+            {t('settings.ai.context_mode_edit')}
+          </Button>
+        </>
+      ) : null}
+      <Button type="button" variant="ghost" size="sm" onClick={onCopy}>
+        <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
+        {t('common.copy')}
+      </Button>
+      {showSave ? (
+        <>
+          <Button type="button" size="sm" disabled={!isDirty || saving} onClick={onSave}>
+            {saving ? <Spinner data-icon="inline-start" /> : null}
+            {t('common.save')}
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={!isDirty} onClick={onDiscard}>
+            {t('settings.ai.context_discard')}
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+type EditorBodyProps = {
+  loading: boolean;
+  selectedDoc: ContextDocId;
+  viewMode: ViewMode;
+  editMode: EditMode;
+  draftContent: string;
+  displayedContent: string;
+  onDraftChange: (value: string) => void;
+};
+
+/** Loading spinner, textarea editor, or read-only pre for context docs. */
+function AgentContextEditorBody({
+  loading,
+  selectedDoc,
+  viewMode,
+  editMode,
+  draftContent,
+  displayedContent,
+  onDraftChange,
+}: EditorBodyProps) {
+  const { t } = useTranslation();
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner />
+        {t('ui.loading')}
+      </div>
+    );
+  }
+
+  if (shouldShowEditor(selectedDoc, viewMode, editMode)) {
+    return (
+      <Textarea
+        value={draftContent}
+        onChange={(e) => onDraftChange(e.target.value)}
+        className="min-h-[320px] w-full rounded-lg bg-background p-3 font-mono text-xs leading-relaxed"
+        spellCheck={false}
+        aria-label={t('settings.ai.tab_context')}
+      />
+    );
+  }
+
+  return (
+    <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed">
+      {displayedContent || t('settings.ai.context_empty')}
+    </pre>
+  );
+}
+
 /** SOUL/USER/MEMORY + daily-log editor for the agent's persistent context files. */
 export default function AgentContextSettingsTab() {
   const { t } = useTranslation();
@@ -105,20 +254,20 @@ export default function AgentContextSettingsTab() {
   const [selectedDailyDate, setSelectedDailyDate] = useState<string | null>(null);
   const [pendingDoc, setPendingDoc] = useState<ContextDocId | null>(null);
 
-  const isDirty = editMode === 'edit' && draftContent !== savedContent;
+  const isDirty = isDirtyContent(editMode, draftContent, savedContent);
 
-  const displayedContent = useMemo(() => {
-    if (selectedDoc === 'daily') return fullContent;
-    if (selectedDoc === 'social' || selectedDoc === 'email') {
-      return editMode === 'edit' ? draftContent : fullContent;
-    }
-    if (viewMode === 'agent' && agentView) {
-      if (selectedDoc === 'SOUL') return agentView.soul;
-      if (selectedDoc === 'USER') return agentView.user;
-      return agentView.memory;
-    }
-    return editMode === 'edit' ? draftContent : fullContent;
-  }, [agentView, draftContent, editMode, fullContent, selectedDoc, viewMode]);
+  const displayedContent = useMemo(
+    () =>
+      resolveDisplayedContent({
+        selectedDoc,
+        viewMode,
+        editMode,
+        fullContent,
+        draftContent,
+        agentView,
+      }),
+    [agentView, draftContent, editMode, fullContent, selectedDoc, viewMode],
+  );
 
   const loadAgentView = useCallback(async () => {
     const files = await loadPersonalityContextFiles();
@@ -242,7 +391,9 @@ export default function AgentContextSettingsTab() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void window.electron?.personality?.openFolder?.()}
+            onClick={() => {
+              window.electron?.personality?.openFolder?.();
+            }}
           >
             <HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />
             {t('settings.ai.context_open_folder')}
@@ -289,54 +440,21 @@ export default function AgentContextSettingsTab() {
           </Tabs>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {supportsViewEditToggle(selectedDoc, viewMode) ? (
-            <>
-              <Button
-                type="button"
-                variant={editMode === 'view' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setEditMode('view')}
-              >
-                {t('settings.ai.context_mode_view')}
-              </Button>
-              <Button
-                type="button"
-                variant={editMode === 'edit' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setEditMode('edit')}
-              >
-                {t('settings.ai.context_mode_edit')}
-              </Button>
-            </>
-          ) : null}
-          <Button type="button" variant="ghost" size="sm" onClick={() => void handleCopy()}>
-            <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
-            {t('common.copy')}
-          </Button>
-          {shouldShowSaveButtons(selectedDoc, viewMode, editMode) ? (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                disabled={!isDirty || saving}
-                onClick={() => void handleSave()}
-              >
-                {saving ? <Spinner data-icon="inline-start" /> : null}
-                {t('common.save')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!isDirty}
-                onClick={() => setDraftContent(savedContent)}
-              >
-                {t('settings.ai.context_discard')}
-              </Button>
-            </>
-          ) : null}
-        </div>
+        <AgentContextActionBar
+          selectedDoc={selectedDoc}
+          viewMode={viewMode}
+          editMode={editMode}
+          isDirty={isDirty}
+          saving={saving}
+          onEditModeChange={setEditMode}
+          onCopy={() => {
+            void handleCopy().catch(() => {});
+          }}
+          onSave={() => {
+            void handleSave().catch(() => {});
+          }}
+          onDiscard={() => setDraftContent(savedContent)}
+        />
 
         {shouldShowAgentViewHint(selectedDoc, viewMode) ? (
           <Alert role="note">
@@ -366,24 +484,15 @@ export default function AgentContextSettingsTab() {
           </AlertDescription>
         </Alert>
 
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner />
-            {t('ui.loading')}
-          </div>
-        ) : shouldShowEditor(selectedDoc, viewMode, editMode) ? (
-          <Textarea
-            value={draftContent}
-            onChange={(e) => setDraftContent(e.target.value)}
-            className="min-h-[320px] w-full rounded-lg bg-background p-3 font-mono text-xs leading-relaxed"
-            spellCheck={false}
-            aria-label={t('settings.ai.tab_context')}
-          />
-        ) : (
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed">
-            {displayedContent || t('settings.ai.context_empty')}
-          </pre>
-        )}
+        <AgentContextEditorBody
+          loading={loading}
+          selectedDoc={selectedDoc}
+          viewMode={viewMode}
+          editMode={editMode}
+          draftContent={draftContent}
+          displayedContent={displayedContent}
+          onDraftChange={setDraftContent}
+        />
       </div>
 
       <ConfirmDialog
