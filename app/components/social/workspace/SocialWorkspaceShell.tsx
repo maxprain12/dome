@@ -70,6 +70,7 @@ import type {
   SocialAccount,
   SocialCampaign,
   SocialComment,
+  SocialEventCard,
   SocialGrowthAccount,
   SocialMetric,
   SocialPost,
@@ -173,6 +174,12 @@ export function SocialWorkspaceShell() {
     );
   }
 
+  const composePost = () => setEditor({ kind: 'post', post: null });
+  const selectedPostId = selection.kind === 'post' ? selection.post.id : null;
+  const selectedCampaignId = selection.kind === 'campaign' ? selection.campaign.id : null;
+  const detailSelection =
+    selection.kind !== 'none' && selection.kind !== 'event' ? selection : null;
+
   return (
     <div className="social-studio @container/social-studio flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
         <WorkspaceHeader
@@ -187,60 +194,36 @@ export function SocialWorkspaceShell() {
           error={workspace.error}
           lastSyncAt={workspace.lastSyncAt}
           onSync={() => workspace.syncFeed(selectedAccountId)}
-          onCompose={() => setEditor({ kind: 'post', post: null })}
+          onCompose={composePost}
         />
 
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <main className="min-w-0 flex-1 overflow-auto">
-            {workspace.loading ? (
-              <WorkspaceSkeleton />
-            ) : section === 'overview' ? (
-              <OverviewView
-                posts={filteredPosts}
-                accounts={workspace.accounts}
-                campaigns={workspace.campaigns}
-                growth={workspace.growth}
-                replyDrafts={workspace.replyDrafts}
-                onNavigate={navigate}
-                onSelect={setSelection}
-                onCompose={() => setEditor({ kind: 'post', post: null })}
-                onPoll={() => workspace.pollComments()}
-              />
-            ) : section === 'content' ? (
-              <ContentView
-                posts={filteredPosts}
-                filter={contentFilter}
-                onFilter={setContentFilter}
-                selectedId={selection.kind === 'post' ? selection.post.id : null}
-                onSelect={(post) => setSelection({ kind: 'post', post })}
-                onCompose={() => setEditor({ kind: 'post', post: null })}
-              />
-            ) : section === 'campaigns' ? (
-              <CampaignsView
-                campaigns={workspace.campaigns}
-                posts={workspace.posts}
-                selectedId={selection.kind === 'campaign' ? selection.campaign.id : null}
-                onSelect={(campaign) => setSelection({ kind: 'campaign', campaign })}
-                onCreate={() => setCampaignDialogOpen(true)}
-              />
-            ) : section === 'events' ? (
-              <SocialEventsStudio accounts={workspace.accounts} posts={workspace.posts} onEdit={(card) => setEditor({ kind: 'event', card })} />
-            ) : section === 'insights' ? (
-              <SocialInsightsStudio
-                growth={workspace.growth}
-                posts={filteredPosts}
-                onSelectReport={(report) => setSelection({ kind: 'report', report })}
-                onOpenEvents={() => navigate('events')}
-                onOpenAccounts={() => navigate('accounts')}
-              />
-            ) : (
-              <SocialAccountsManager embedded />
-            )}
+            <WorkspaceSectionBody
+              loading={workspace.loading}
+              section={section}
+              filteredPosts={filteredPosts}
+              posts={workspace.posts}
+              accounts={workspace.accounts}
+              campaigns={workspace.campaigns}
+              growth={workspace.growth}
+              replyDrafts={workspace.replyDrafts}
+              contentFilter={contentFilter}
+              selectedPostId={selectedPostId}
+              selectedCampaignId={selectedCampaignId}
+              onNavigate={navigate}
+              onSelect={setSelection}
+              onCompose={composePost}
+              onPoll={() => workspace.pollComments()}
+              onContentFilter={setContentFilter}
+              onCreateCampaign={() => setCampaignDialogOpen(true)}
+              onEditEvent={(card) => setEditor({ kind: 'event', card })}
+            />
           </main>
 
-          {selection.kind !== 'none' && selection.kind !== 'event' ? (
+          {detailSelection ? (
             <DetailDialog
-              selection={selection}
+              selection={detailSelection}
               onClose={() => setSelection({ kind: 'none' })}
               onEditPost={(post) => setEditor({ kind: 'post', post })}
               onPublish={(post) => workspace.publishPost(post.id)}
@@ -262,6 +245,108 @@ export function SocialWorkspaceShell() {
       />
     </div>
   );
+}
+
+type WorkspaceSectionBodyProps = {
+  loading: boolean;
+  section: SocialSection;
+  filteredPosts: SocialPost[];
+  posts: SocialPost[];
+  accounts: SocialAccount[];
+  campaigns: SocialCampaign[];
+  growth: SocialGrowthAccount[];
+  replyDrafts: SocialReplyDraft[];
+  contentFilter: SocialContentFilter;
+  selectedPostId: string | null;
+  selectedCampaignId: string | null;
+  onNavigate: (section: SocialSection) => void;
+  onSelect: (selection: SocialSelection) => void;
+  onCompose: () => void;
+  onPoll: () => void;
+  onContentFilter: (filter: SocialContentFilter) => void;
+  onCreateCampaign: () => void;
+  onEditEvent: (card: SocialEventCard | null) => void;
+};
+
+/** Section switch for the social studio main pane — extracted for S3776. */
+function WorkspaceSectionBody({
+  loading,
+  section,
+  filteredPosts,
+  posts,
+  accounts,
+  campaigns,
+  growth,
+  replyDrafts,
+  contentFilter,
+  selectedPostId,
+  selectedCampaignId,
+  onNavigate,
+  onSelect,
+  onCompose,
+  onPoll,
+  onContentFilter,
+  onCreateCampaign,
+  onEditEvent,
+}: WorkspaceSectionBodyProps) {
+  if (loading) return <WorkspaceSkeleton />;
+
+  switch (section) {
+    case 'overview':
+      return (
+        <OverviewView
+          posts={filteredPosts}
+          accounts={accounts}
+          campaigns={campaigns}
+          growth={growth}
+          replyDrafts={replyDrafts}
+          onNavigate={onNavigate}
+          onSelect={onSelect}
+          onCompose={onCompose}
+          onPoll={onPoll}
+        />
+      );
+    case 'content':
+      return (
+        <ContentView
+          posts={filteredPosts}
+          filter={contentFilter}
+          onFilter={onContentFilter}
+          selectedId={selectedPostId}
+          onSelect={(post) => onSelect({ kind: 'post', post })}
+          onCompose={onCompose}
+        />
+      );
+    case 'campaigns':
+      return (
+        <CampaignsView
+          campaigns={campaigns}
+          posts={posts}
+          selectedId={selectedCampaignId}
+          onSelect={(campaign) => onSelect({ kind: 'campaign', campaign })}
+          onCreate={onCreateCampaign}
+        />
+      );
+    case 'events':
+      return <SocialEventsStudio accounts={accounts} posts={posts} onEdit={onEditEvent} />;
+    case 'insights':
+      return (
+        <SocialInsightsStudio
+          growth={growth}
+          posts={filteredPosts}
+          onSelectReport={(report) => onSelect({ kind: 'report', report })}
+          onOpenEvents={() => onNavigate('events')}
+          onOpenAccounts={() => onNavigate('accounts')}
+        />
+      );
+    case 'accounts':
+      return <SocialAccountsManager embedded />;
+    default: {
+      const _exhaustive: never = section;
+      void _exhaustive;
+      return null;
+    }
+  }
 }
 
 function WorkspaceHeader({ section, onNavigate, accounts, accountId, onAccountId, query, onQuery, refreshing, error, lastSyncAt, onSync, onCompose }: { section: SocialSection; onNavigate: (section: SocialSection) => void; accounts: SocialAccount[]; accountId: string; onAccountId: (value: string) => void; query: string; onQuery: (value: string) => void; refreshing: boolean; error: string | null; lastSyncAt: number | null; onSync: () => void; onCompose: () => void }) {
@@ -455,26 +540,60 @@ export function formatSocialBody(body: string): string {
 
 type PostInspectorTab = 'summary' | 'comments' | 'notes';
 
-function PostInspector({
-  post,
-  onPostUpdated,
-}: {
-  post: SocialPost;
-  onPostUpdated: (post: SocialPost) => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const [tab, setTab] = useState<PostInspectorTab>('summary');
+type CommentsListPayload = {
+  comments?: SocialComment[];
+  unsupported?: boolean;
+  reason?: string;
+  error?: string;
+};
+
+function isPostInspectorTab(value: string): value is PostInspectorTab {
+  return value === 'summary' || value === 'comments' || value === 'notes';
+}
+
+/** Map unsupported-comments reason → i18n title key (keeps PostInspector under S3776). */
+function commentsUnsupportedTitleKey(reason: string | null): string {
+  if (reason === 'permission') return 'social.studio.inspector.comments_permission_title';
+  if (reason === 'no_account') return 'social.studio.inspector.comments_no_account_title';
+  return 'social.studio.inspector.comments_unsupported_title';
+}
+
+/** Copy for the unsupported-comments empty state. */
+function commentsUnsupportedDescription(
+  reason: string | null,
+  opts: {
+    t: (key: string, options?: Record<string, unknown>) => string;
+    commentsCount: number | null | undefined;
+    providerLabel: string;
+    commentsError: string | null;
+  },
+): string {
+  if (reason === 'permission') {
+    return opts.t('social.studio.inspector.comments_permission', {
+      count: opts.commentsCount ?? 0,
+      provider: opts.providerLabel,
+    });
+  }
+  if (reason === 'no_account') {
+    return opts.t('social.studio.inspector.comments_no_account');
+  }
+  return opts.commentsError || opts.t('social.studio.inspector.comments_unsupported');
+}
+
+function commentAuthorLabel(
+  comment: SocialComment,
+  anonymousLabel: string,
+): string {
+  return comment.authorName || comment.authorExternalId || anonymousLabel;
+}
+
+/** Load remote comments when the inspector comments tab is active. */
+function usePostComments(post: SocialPost, tab: PostInspectorTab, errorFallback: string) {
   const [comments, setComments] = useState<SocialComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [commentsUnsupported, setCommentsUnsupported] = useState(false);
   const [commentsReason, setCommentsReason] = useState<string | null>(null);
-  const [notesDraft, setNotesDraft] = useState(post.notes ?? '');
-  const [notesSaving, setNotesSaving] = useState(false);
-
-  useEffect(() => {
-    setNotesDraft(post.notes ?? '');
-  }, [post.id, post.notes]);
 
   useEffect(() => {
     if (tab !== 'comments') return;
@@ -488,22 +607,18 @@ function PostInspector({
     let cancelled = false;
     setCommentsLoading(true);
     setCommentsError(null);
-    setCommentsReason(null); (async () => {
+    setCommentsReason(null);
+    (async () => {
       const response = await window.electron.invoke('social:comments:list', { postId: post.id });
       if (cancelled) return;
       setCommentsLoading(false);
       if (!response?.success) {
         setComments([]);
         setCommentsUnsupported(false);
-        setCommentsError(response?.error || t('social.studio.inspector.comments_error'));
+        setCommentsError(response?.error || errorFallback);
         return;
       }
-      const data = response.data as {
-        comments?: SocialComment[];
-        unsupported?: boolean;
-        reason?: string;
-        error?: string;
-      };
+      const data = response.data as CommentsListPayload;
       setComments(Array.isArray(data?.comments) ? data.comments : []);
       setCommentsUnsupported(Boolean(data?.unsupported));
       setCommentsReason(data?.reason ?? null);
@@ -513,46 +628,322 @@ function PostInspector({
     })().catch((reason: unknown) => {
       if (cancelled) return;
       setCommentsLoading(false);
-      setCommentsError(reason instanceof Error ? reason.message : t('social.studio.inspector.comments_error'));
+      setCommentsError(reason instanceof Error ? reason.message : errorFallback);
     });
     return () => {
       cancelled = true;
     };
-  }, [post.externalPostId, post.id, post.status, t, tab]);
+  }, [errorFallback, post.externalPostId, post.id, post.status, tab]);
 
+  return { comments, commentsLoading, commentsError, commentsUnsupported, commentsReason };
+}
+
+async function savePostNotes(opts: {
+  post: SocialPost;
+  notesDraft: string;
+  onPostUpdated: (post: SocialPost) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}): Promise<void> {
+  const { post, notesDraft, onPostUpdated, t } = opts;
+  const response = await window.electron.invoke('social:posts:updateNotes', {
+    postId: post.id,
+    notes: notesDraft.trim() || null,
+  });
+  if (!response?.success) {
+    toast.error(response?.error || t('social.studio.inspector.notes_error'));
+    return;
+  }
+  onPostUpdated({
+    ...post,
+    ...(response.data as SocialPost),
+    metrics: post.metrics,
+  });
+  toast.success(t('social.studio.inspector.notes_saved'));
+}
+
+function PostInspectorSummary({ post }: { post: SocialPost }) {
+  const { t } = useTranslation();
   const body = formatSocialBody(post.body);
   const media = post.media[0];
   const topics = post.topics.slice(0, 4);
+  const mediaUrl = media?.type !== 'video' ? media?.url : undefined;
+
+  return (
+    <div className="flex h-[min(22rem,100%)] flex-col gap-3 overflow-hidden">
+      <div className="flex min-h-0 flex-1 gap-3">
+        {mediaUrl ? (
+          <img
+            src={mediaUrl}
+            alt=""
+            className="size-24 shrink-0 rounded-xl bg-muted object-cover ring-1 ring-foreground/10"
+          />
+        ) : null}
+        <Card size="sm" className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
+          <CardContent className="flex h-full flex-col gap-2 overflow-hidden px-4 py-3">
+            <p className="line-clamp-8 whitespace-pre-wrap text-sm leading-6 text-foreground">
+              {body || t('social.hub.no_text')}
+            </p>
+            {topics.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {topics.map((topic) => (
+                  <Badge key={topic} variant="secondary">
+                    #{topic.replace(/^#/, '')}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+      <MetricGrid metrics={post.metrics} status={post.status} compact />
+      {post.error ? (
+        <Alert variant="destructive">
+          <AlertDescription className="line-clamp-2">{post.error}</AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
+  );
+}
+
+function PostInspectorCommentsUnsupported({
+  reason,
+  commentsCount,
+  provider,
+  commentsError,
+}: {
+  reason: string | null;
+  commentsCount: number | null | undefined;
+  provider: SocialPost['provider'];
+  commentsError: string | null;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Empty className="border border-dashed">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <HugeiconsIcon icon={File02Icon} />
+        </EmptyMedia>
+        <EmptyTitle>{t(commentsUnsupportedTitleKey(reason))}</EmptyTitle>
+        <EmptyDescription>
+          {commentsUnsupportedDescription(reason, {
+            t,
+            commentsCount,
+            providerLabel: PROVIDER_LABELS[provider],
+            commentsError,
+          })}
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+function PostInspectorCommentsList({
+  comments,
+  language,
+}: {
+  comments: SocialComment[];
+  language: string;
+}) {
+  const { t } = useTranslation();
+  const anonymous = t('social.studio.inspector.comments_anonymous');
+  return (
+    <ScrollArea className="h-full min-h-0">
+      <ul className="flex flex-col gap-2 pr-3">
+        {comments.map((comment) => (
+          <li key={comment.id} className="rounded-xl bg-muted/50 px-3 py-2.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="truncate text-sm font-medium">{commentAuthorLabel(comment, anonymous)}</p>
+              {comment.createdAt ? (
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {formatSocialWhen(comment.createdAt, language)}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-5 text-foreground">
+              {comment.text || '—'}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </ScrollArea>
+  );
+}
+
+function PostInspectorComments({
+  post,
+  comments,
+  commentsLoading,
+  commentsError,
+  commentsUnsupported,
+  commentsReason,
+  language,
+}: {
+  post: SocialPost;
+  comments: SocialComment[];
+  commentsLoading: boolean;
+  commentsError: string | null;
+  commentsUnsupported: boolean;
+  commentsReason: string | null;
+  language: string;
+}) {
+  const { t } = useTranslation();
+  const commentsCount = post.metrics?.comments;
+  const unpublished = post.status !== 'published' || !post.externalPostId;
+
+  if (unpublished) {
+    return (
+      <div className="flex h-[min(22rem,100%)] flex-col">
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={File02Icon} />
+            </EmptyMedia>
+            <EmptyTitle>{t('social.studio.inspector.comments_unpublished_title')}</EmptyTitle>
+            <EmptyDescription>{t('social.studio.inspector.comments_unpublished')}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    );
+  }
+
+  if (commentsLoading) {
+    return (
+      <div className="flex h-[min(22rem,100%)] flex-col">
+        <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
+          {t('social.studio.inspector.comments_loading')}
+        </div>
+      </div>
+    );
+  }
+
+  if (commentsError && !commentsUnsupported) {
+    return (
+      <div className="flex h-[min(22rem,100%)] flex-col">
+        <Alert variant="destructive">
+          <AlertDescription>{commentsError}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (commentsUnsupported) {
+    return (
+      <div className="flex h-[min(22rem,100%)] flex-col">
+        <PostInspectorCommentsUnsupported
+          reason={commentsReason}
+          commentsCount={commentsCount}
+          provider={post.provider}
+          commentsError={commentsError}
+        />
+      </div>
+    );
+  }
+
+  if (comments.length === 0) {
+    return (
+      <div className="flex h-[min(22rem,100%)] flex-col">
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>{t('social.studio.inspector.comments_empty_title')}</EmptyTitle>
+            <EmptyDescription>{t('social.studio.inspector.comments_empty')}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[min(22rem,100%)] flex-col">
+      <PostInspectorCommentsList comments={comments} language={language} />
+    </div>
+  );
+}
+
+function PostInspectorNotes({
+  post,
+  notesDraft,
+  notesSaving,
+  onNotesDraftChange,
+  onSave,
+}: {
+  post: SocialPost;
+  notesDraft: string;
+  notesSaving: boolean;
+  onNotesDraftChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  const { t } = useTranslation();
+  const dirty = notesDraft !== (post.notes ?? '');
+  return (
+    <div className="flex h-[min(22rem,100%)] flex-col gap-3">
+      <Field className="min-h-0 flex-1">
+        <FieldLabel htmlFor={`social-post-notes-${post.id}`}>
+          {t('social.studio.inspector.notes_label')}
+        </FieldLabel>
+        <Textarea
+          id={`social-post-notes-${post.id}`}
+          value={notesDraft}
+          onChange={(event) => onNotesDraftChange(event.target.value)}
+          placeholder={t('social.studio.inspector.notes_placeholder')}
+          className="min-h-0 flex-1 resize-none"
+        />
+        <p className="text-xs text-muted-foreground">{t('social.studio.inspector.notes_hint')}</p>
+      </Field>
+      <Button
+        type="button"
+        className="self-end"
+        disabled={notesSaving || !dirty}
+        onClick={onSave}
+      >
+        {notesSaving ? <Spinner data-icon="inline-start" /> : null}
+        {t('social.studio.inspector.notes_save')}
+      </Button>
+    </div>
+  );
+}
+
+function PostInspector({
+  post,
+  onPostUpdated,
+}: {
+  post: SocialPost;
+  onPostUpdated: (post: SocialPost) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const [tab, setTab] = useState<PostInspectorTab>('summary');
+  const commentsErrorFallback = t('social.studio.inspector.comments_error');
+  const {
+    comments,
+    commentsLoading,
+    commentsError,
+    commentsUnsupported,
+    commentsReason,
+  } = usePostComments(post, tab, commentsErrorFallback);
+  const [notesDraft, setNotesDraft] = useState(post.notes ?? '');
+  const [notesSaving, setNotesSaving] = useState(false);
+
+  useEffect(() => {
+    setNotesDraft(post.notes ?? '');
+  }, [post.id, post.notes]);
+
   const commentsCount = post.metrics?.comments;
   const hasNotes = Boolean(post.notes?.trim());
 
-  const saveNotes = async () => {
+  const handleSaveNotes = () => {
     setNotesSaving(true);
-    try {
-      const response = await window.electron.invoke('social:posts:updateNotes', {
-        postId: post.id,
-        notes: notesDraft.trim() || null,
+    savePostNotes({ post, notesDraft, onPostUpdated, t })
+      .catch(() => undefined)
+      .finally(() => {
+        setNotesSaving(false);
       });
-      if (!response?.success) {
-        toast.error(response?.error || t('social.studio.inspector.notes_error'));
-        return;
-      }
-      onPostUpdated({
-        ...post,
-        ...(response.data as SocialPost),
-        metrics: post.metrics,
-      });
-      toast.success(t('social.studio.inspector.notes_saved'));
-    } finally {
-      setNotesSaving(false);
-    }
   };
 
   return (
     <Tabs
       value={tab}
       onValueChange={(value) => {
-        if (value === 'summary' || value === 'comments' || value === 'notes') setTab(value);
+        if (isPostInspectorTab(value)) setTab(value);
       }}
       className="flex h-full min-h-0 flex-col gap-3"
     >
@@ -577,149 +968,29 @@ function PostInspector({
       </TabsList>
 
       <TabsContent value="summary" className="min-h-0 overflow-hidden">
-        <div className="flex h-[min(22rem,100%)] flex-col gap-3 overflow-hidden">
-          <div className="flex min-h-0 flex-1 gap-3">
-            {media?.url && media.type !== 'video' ? (
-              <img
-                src={media.url}
-                alt=""
-                className="size-24 shrink-0 rounded-xl bg-muted object-cover ring-1 ring-foreground/10"
-              />
-            ) : null}
-            <Card size="sm" className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
-              <CardContent className="flex h-full flex-col gap-2 overflow-hidden px-4 py-3">
-                <p className="line-clamp-8 whitespace-pre-wrap text-sm leading-6 text-foreground">
-                  {body || t('social.hub.no_text')}
-                </p>
-                {topics.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {topics.map((topic) => (
-                      <Badge key={topic} variant="secondary">
-                        #{topic.replace(/^#/, '')}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
-          <MetricGrid metrics={post.metrics} status={post.status} compact />
-          {post.error ? (
-            <Alert variant="destructive">
-              <AlertDescription className="line-clamp-2">{post.error}</AlertDescription>
-            </Alert>
-          ) : null}
-        </div>
+        <PostInspectorSummary post={post} />
       </TabsContent>
 
       <TabsContent value="comments" className="min-h-0 overflow-hidden">
-        <div className="flex h-[min(22rem,100%)] flex-col">
-          {post.status !== 'published' || !post.externalPostId ? (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon icon={File02Icon} />
-                </EmptyMedia>
-                <EmptyTitle>{t('social.studio.inspector.comments_unpublished_title')}</EmptyTitle>
-                <EmptyDescription>{t('social.studio.inspector.comments_unpublished')}</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : commentsLoading ? (
-            <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Spinner />
-              {t('social.studio.inspector.comments_loading')}
-            </div>
-          ) : commentsError && !commentsUnsupported ? (
-            <Alert variant="destructive">
-              <AlertDescription>{commentsError}</AlertDescription>
-            </Alert>
-          ) : commentsUnsupported ? (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon icon={File02Icon} />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {commentsReason === 'permission'
-                    ? t('social.studio.inspector.comments_permission_title')
-                    : commentsReason === 'no_account'
-                      ? t('social.studio.inspector.comments_no_account_title')
-                      : t('social.studio.inspector.comments_unsupported_title')}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {commentsReason === 'permission'
-                    ? t('social.studio.inspector.comments_permission', {
-                        count: commentsCount ?? 0,
-                        provider: PROVIDER_LABELS[post.provider],
-                      })
-                    : commentsReason === 'no_account'
-                      ? t('social.studio.inspector.comments_no_account')
-                      : commentsError
-                        || t('social.studio.inspector.comments_unsupported')}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : comments.length === 0 ? (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyTitle>{t('social.studio.inspector.comments_empty_title')}</EmptyTitle>
-                <EmptyDescription>{t('social.studio.inspector.comments_empty')}</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <ScrollArea className="h-full min-h-0">
-              <ul className="flex flex-col gap-2 pr-3">
-                {comments.map((comment) => (
-                  <li key={comment.id} className="rounded-xl bg-muted/50 px-3 py-2.5">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="truncate text-sm font-medium">
-                        {comment.authorName
-                          || comment.authorExternalId
-                          || t('social.studio.inspector.comments_anonymous')}
-                      </p>
-                      {comment.createdAt ? (
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
-                          {formatSocialWhen(comment.createdAt, i18n.language)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm leading-5 text-foreground">
-                      {comment.text || '—'}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
-          )}
-        </div>
+        <PostInspectorComments
+          post={post}
+          comments={comments}
+          commentsLoading={commentsLoading}
+          commentsError={commentsError}
+          commentsUnsupported={commentsUnsupported}
+          commentsReason={commentsReason}
+          language={i18n.language}
+        />
       </TabsContent>
 
       <TabsContent value="notes" className="min-h-0 overflow-hidden">
-        <div className="flex h-[min(22rem,100%)] flex-col gap-3">
-          <Field className="min-h-0 flex-1">
-            <FieldLabel htmlFor={`social-post-notes-${post.id}`}>
-              {t('social.studio.inspector.notes_label')}
-            </FieldLabel>
-            <Textarea
-              id={`social-post-notes-${post.id}`}
-              value={notesDraft}
-              onChange={(event) => setNotesDraft(event.target.value)}
-              placeholder={t('social.studio.inspector.notes_placeholder')}
-              className="min-h-0 flex-1 resize-none"
-            />
-            <p className="text-xs text-muted-foreground">{t('social.studio.inspector.notes_hint')}</p>
-          </Field>
-          <Button
-            type="button"
-            className="self-end"
-            disabled={notesSaving || notesDraft === (post.notes ?? '')}
-            onClick={() => { saveNotes().catch(() => undefined);
-            }}
-          >
-            {notesSaving ? <Spinner data-icon="inline-start" /> : null}
-            {t('social.studio.inspector.notes_save')}
-          </Button>
-        </div>
+        <PostInspectorNotes
+          post={post}
+          notesDraft={notesDraft}
+          notesSaving={notesSaving}
+          onNotesDraftChange={setNotesDraft}
+          onSave={handleSaveNotes}
+        />
       </TabsContent>
     </Tabs>
   );
