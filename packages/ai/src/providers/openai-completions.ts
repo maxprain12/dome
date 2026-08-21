@@ -607,6 +607,150 @@ function buildParams(
 	return params;
 }
 
+type ReasoningEffortLevel = NonNullable<OpenAICompletionsOptions["reasoningEffort"]>;
+
+function resolveMappedReasoningEffort(
+	model: Model<"openai-completions">,
+	requestedEffort: ReasoningEffortLevel | undefined,
+): string | undefined {
+	if (!requestedEffort) return undefined;
+	return model.thinkingLevelMap?.[requestedEffort] ?? requestedEffort;
+}
+
+function applyDeepseekThinkingParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	compat: ResolvedOpenAICompletionsCompat,
+	requestedEffort: ReasoningEffortLevel | undefined,
+	mappedEffort: string | undefined,
+): void {
+	(params as { thinking?: { type: string } }).thinking = {
+		type: requestedEffort ? "enabled" : "disabled",
+	};
+	if (requestedEffort && compat.supportsReasoningEffort) {
+		(params as { reasoning_effort?: string }).reasoning_effort = mappedEffort;
+	}
+}
+
+function applyOpenRouterThinkingParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	requestedEffort: ReasoningEffortLevel | undefined,
+	mappedEffort: string | undefined,
+): void {
+	// OpenRouter normalizes reasoning across providers via a nested reasoning object.
+	const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
+	if (requestedEffort) {
+		openRouterParams.reasoning = { effort: mappedEffort };
+	} else if (model.thinkingLevelMap?.off !== null) {
+		openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
+	}
+}
+
+/** @returns false when ant-ling has no effort and must fall through to generic handling. */
+function tryApplyAntLingThinkingParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	requestedEffort: ReasoningEffortLevel | undefined,
+): boolean {
+	if (!requestedEffort) return false;
+	const effort = model.thinkingLevelMap?.[requestedEffort];
+	if (typeof effort === "string") {
+		(params as typeof params & { reasoning?: { effort: string } }).reasoning = { effort };
+	}
+	return true;
+}
+
+function applyTogetherThinkingParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	compat: ResolvedOpenAICompletionsCompat,
+	requestedEffort: ReasoningEffortLevel | undefined,
+	mappedEffort: string | undefined,
+): void {
+	const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
+		reasoning?: { enabled: boolean };
+		reasoning_effort?: string;
+	};
+	togetherParams.reasoning = { enabled: !!requestedEffort };
+	if (requestedEffort && compat.supportsReasoningEffort) {
+		togetherParams.reasoning_effort = mappedEffort;
+	}
+}
+
+function applyStringThinkingParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	requestedEffort: ReasoningEffortLevel | undefined,
+	mappedEffort: string | undefined,
+): void {
+	const stringThinkingParams = params as typeof params & { thinking?: string };
+	if (requestedEffort) {
+		stringThinkingParams.thinking = mappedEffort;
+	} else if (model.thinkingLevelMap?.off !== null) {
+		stringThinkingParams.thinking = model.thinkingLevelMap?.off ?? "none";
+	}
+}
+
+/**
+ * Apply a named thinkingFormat fully. Returns false when the format is unknown
+ * or ant-ling without effort — caller falls back to generic reasoning_effort.
+ */
+function tryApplyNamedThinkingFormat(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+	requestedEffort: ReasoningEffortLevel | undefined,
+	mappedEffort: string | undefined,
+): boolean {
+	switch (compat.thinkingFormat) {
+		case "zai":
+		case "qwen":
+			(params as { enable_thinking?: boolean }).enable_thinking = !!requestedEffort;
+			return true;
+		case "qwen-chat-template":
+			(params as { chat_template_kwargs?: { enable_thinking: boolean; preserve_thinking: boolean } }).chat_template_kwargs =
+				{
+					enable_thinking: !!requestedEffort,
+					preserve_thinking: true,
+				};
+			return true;
+		case "deepseek":
+			applyDeepseekThinkingParams(params, compat, requestedEffort, mappedEffort);
+			return true;
+		case "openrouter":
+			applyOpenRouterThinkingParams(params, model, requestedEffort, mappedEffort);
+			return true;
+		case "ant-ling":
+			return tryApplyAntLingThinkingParams(params, model, requestedEffort);
+		case "together":
+			applyTogetherThinkingParams(params, compat, requestedEffort, mappedEffort);
+			return true;
+		case "string-thinking":
+			applyStringThinkingParams(params, model, requestedEffort, mappedEffort);
+			return true;
+		default:
+			return false;
+	}
+}
+
+/** Generic OpenAI-style reasoning_effort when no named thinkingFormat handled the request. */
+function applyGenericReasoningEffort(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+	requestedEffort: ReasoningEffortLevel | undefined,
+	mappedEffort: string | undefined,
+): void {
+	if (!compat.supportsReasoningEffort) return;
+	if (requestedEffort) {
+		(params as { reasoning_effort?: string }).reasoning_effort = mappedEffort;
+		return;
+	}
+	const offValue = model.thinkingLevelMap?.off;
+	if (typeof offValue === "string") {
+		(params as { reasoning_effort?: string }).reasoning_effort = offValue;
+	}
+}
+
 /**
  * Map options.reasoningEffort onto the provider-specific thinking/reasoning
  * params. Each named thinkingFormat handles the request fully, except
@@ -621,77 +765,12 @@ function applyReasoningParams(
 ): void {
 	if (!model.reasoning) return;
 	const requestedEffort = options?.reasoningEffort;
-	const mappedEffort = requestedEffort ? (model.thinkingLevelMap?.[requestedEffort] ?? requestedEffort) : undefined;
+	const mappedEffort = resolveMappedReasoningEffort(model, requestedEffort);
 
-	switch (compat.thinkingFormat) {
-		case "zai":
-		case "qwen":
-			(params as any).enable_thinking = !!requestedEffort;
-			return;
-		case "qwen-chat-template":
-			(params as any).chat_template_kwargs = {
-				enable_thinking: !!requestedEffort,
-				preserve_thinking: true,
-			};
-			return;
-		case "deepseek":
-			(params as any).thinking = { type: requestedEffort ? "enabled" : "disabled" };
-			if (requestedEffort && compat.supportsReasoningEffort) {
-				(params as any).reasoning_effort = mappedEffort;
-			}
-			return;
-		case "openrouter": {
-			// OpenRouter normalizes reasoning across providers via a nested reasoning object.
-			const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
-			if (requestedEffort) {
-				openRouterParams.reasoning = { effort: mappedEffort };
-			} else if (model.thinkingLevelMap?.off !== null) {
-				openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
-			}
-			return;
-		}
-		case "ant-ling": {
-			if (!requestedEffort) break; // falls back to generic reasoning_effort handling
-			const effort = model.thinkingLevelMap?.[requestedEffort];
-			if (typeof effort === "string") {
-				(params as typeof params & { reasoning?: { effort: string } }).reasoning = { effort };
-			}
-			return;
-		}
-		case "together": {
-			const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
-				reasoning?: { enabled: boolean };
-				reasoning_effort?: string;
-			};
-			togetherParams.reasoning = { enabled: !!requestedEffort };
-			if (requestedEffort && compat.supportsReasoningEffort) {
-				togetherParams.reasoning_effort = mappedEffort;
-			}
-			return;
-		}
-		case "string-thinking": {
-			const stringThinkingParams = params as typeof params & { thinking?: string };
-			if (requestedEffort) {
-				stringThinkingParams.thinking = mappedEffort;
-			} else if (model.thinkingLevelMap?.off !== null) {
-				stringThinkingParams.thinking = model.thinkingLevelMap?.off ?? "none";
-			}
-			return;
-		}
-		default:
-			break;
+	if (tryApplyNamedThinkingFormat(params, model, compat, requestedEffort, mappedEffort)) {
+		return;
 	}
-
-	// Generic OpenAI-style reasoning_effort
-	if (!compat.supportsReasoningEffort) return;
-	if (requestedEffort) {
-		(params as any).reasoning_effort = mappedEffort;
-	} else {
-		const offValue = model.thinkingLevelMap?.off;
-		if (typeof offValue === "string") {
-			(params as any).reasoning_effort = offValue;
-		}
-	}
+	applyGenericReasoningEffort(params, model, compat, requestedEffort, mappedEffort);
 }
 
 function applyProviderRoutingParams(
