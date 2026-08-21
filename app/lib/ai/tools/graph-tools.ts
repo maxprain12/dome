@@ -104,7 +104,17 @@ type RelatedGraphEdge = {
 
 type RelatedResourceInfo = { relations: string[]; strength: number };
 
-function collectRelatedResources(
+type RelatedResourceRow = {
+  id: string;
+  title: string;
+  type: string;
+  relations: string[];
+  strength: number;
+  updated_at: number;
+};
+
+/** @internal Exported for unit tests (S3776 helpers). */
+export function collectRelatedResources(
   edges: RelatedGraphEdge[],
   resourceId: string,
 ): Map<string, RelatedResourceInfo> {
@@ -120,6 +130,38 @@ function collectRelatedResources(
     related.set(other, info);
   }
   return related;
+}
+
+function toolErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
+async function hydrateRelatedResources(
+  related: Map<string, RelatedResourceInfo>,
+): Promise<RelatedResourceRow[]> {
+  const relatedResources: RelatedResourceRow[] = [];
+  for (const [rid, info] of related) {
+    const result = await window.electron.db.resources.getById(rid);
+    if (!result.success || !result.data) continue;
+    relatedResources.push({
+      id: result.data.id,
+      title: result.data.title,
+      type: result.data.type,
+      relations: info.relations,
+      strength: info.strength,
+      updated_at: result.data.updated_at,
+    });
+  }
+  return relatedResources;
+}
+
+/** @internal Exported for unit tests (S3776 helpers). */
+export function rankRelatedResources(
+  relatedResources: RelatedResourceRow[],
+  limit?: number,
+): RelatedResourceRow[] {
+  relatedResources.sort((a, b) => b.strength - a.strength);
+  return relatedResources.slice(0, limit || 10);
 }
 
 function createGetRelatedResourcesTool(): AnyAgentTool {
@@ -159,32 +201,8 @@ function createGetRelatedResourcesTool(): AnyAgentTool {
         }
         const edges = res.data.edges as RelatedGraphEdge[];
         const related = collectRelatedResources(edges, args.resource_id);
-
-        const relatedResources: Array<{
-          id: string;
-          title: string;
-          type: string;
-          relations: string[];
-          strength: number;
-          updated_at: number;
-        }> = [];
-
-        for (const [rid, info] of related) {
-          const result = await window.electron.db.resources.getById(rid);
-          if (result.success && result.data) {
-            relatedResources.push({
-              id: result.data.id,
-              title: result.data.title,
-              type: result.data.type,
-              relations: info.relations,
-              strength: info.strength,
-              updated_at: result.data.updated_at,
-            });
-          }
-        }
-
-        relatedResources.sort((a, b) => b.strength - a.strength);
-        const limited = relatedResources.slice(0, args.limit || 10);
+        const relatedResources = await hydrateRelatedResources(related);
+        const limited = rankRelatedResources(relatedResources, args.limit);
 
         return jsonResult({
           status: 'success',
@@ -193,9 +211,7 @@ function createGetRelatedResourcesTool(): AnyAgentTool {
           related_resources: limited,
         });
       } catch (error) {
-        return errorResult(
-          `Failed to get related resources: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
+        return errorResult(`Failed to get related resources: ${toolErrorMessage(error)}`);
       }
     },
   };
