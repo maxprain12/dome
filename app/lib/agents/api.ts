@@ -107,6 +107,10 @@ export function exportAgentsConfig(agents: ManyAgent[]): string {
   return JSON.stringify(agents, null, 2);
 }
 
+type ParseAgentsResult =
+  | { success: true; data: ManyAgent[] }
+  | { success: false; error: string };
+
 type ParsedAgentResult =
   | { kind: 'skip' }
   | { kind: 'agent'; agent: ManyAgent }
@@ -134,7 +138,36 @@ function readStringArrayField(raw: Record<string, unknown>, key: string): string
 
 function readIconIndexField(raw: Record<string, unknown>): number {
   const value = raw.iconIndex;
-  return typeof value === 'number' && value >= 1 && value <= 18 ? value : 1;
+  if (typeof value !== 'number') return 1;
+  if (value < 1 || value > 18) return 1;
+  return value;
+}
+
+/** Build a ManyAgent from a validated import record (no branching beyond field defaults). */
+function buildImportedAgent(
+  record: Record<string, unknown>,
+  name: string,
+  now: number,
+): ManyAgent {
+  const agent: ManyAgent = {
+    id: generateId(),
+    projectId: readTrimmedStringField(record, 'projectId') ?? 'default',
+    name,
+    description: readStringField(record, 'description'),
+    systemInstructions: readStringField(record, 'systemInstructions'),
+    toolIds: readStringArrayField(record, 'toolIds'),
+    mcpServerIds: readStringArrayField(record, 'mcpServerIds'),
+    skillIds: readStringArrayField(record, 'skillIds'),
+    iconIndex: readIconIndexField(record),
+    favorite: record.favorite === true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const folderId = readTrimmedStringField(record, 'folderId');
+  if (folderId) {
+    agent.folderId = folderId;
+  }
+  return agent;
 }
 
 function parseAgentRecord(
@@ -150,38 +183,29 @@ function parseAgentRecord(
   if (!name) {
     return { kind: 'error', error: `Agente ${index + 1}: falta el nombre` };
   }
-  const folderId = readTrimmedStringField(record, 'folderId');
-  return {
-    kind: 'agent',
-    agent: {
-      id: generateId(),
-      projectId: readTrimmedStringField(record, 'projectId') ?? 'default',
-      name,
-      description: readStringField(record, 'description'),
-      systemInstructions: readStringField(record, 'systemInstructions'),
-      toolIds: readStringArrayField(record, 'toolIds'),
-      mcpServerIds: readStringArrayField(record, 'mcpServerIds'),
-      skillIds: readStringArrayField(record, 'skillIds'),
-      iconIndex: readIconIndexField(record),
-      ...(folderId ? { folderId } : {}),
-      favorite: record.favorite === true,
-      createdAt: now,
-      updatedAt: now,
-    },
-  };
+  return { kind: 'agent', agent: buildImportedAgent(record, name, now) };
 }
 
-function collectAgents(parsed: unknown): { success: true; data: ManyAgent[] } | { success: false; error: string } {
+/** Apply one parse result: push agent, ignore skip, or surface error. */
+function applyParsedAgent(
+  result: ParsedAgentResult,
+  agents: ManyAgent[],
+): string | null {
+  if (result.kind === 'error') return result.error;
+  if (result.kind === 'agent') {
+    agents.push(result.agent);
+  }
+  return null;
+}
+
+function collectAgents(parsed: unknown): ParseAgentsResult {
   const arr = Array.isArray(parsed) ? parsed : [parsed];
   const now = Date.now();
   const agents: ManyAgent[] = [];
   for (let i = 0; i < arr.length; i++) {
-    const result = parseAgentRecord(arr[i], i, now);
-    if (result.kind === 'error') {
-      return { success: false, error: result.error };
-    }
-    if (result.kind === 'agent') {
-      agents.push(result.agent);
+    const error = applyParsedAgent(parseAgentRecord(arr[i], i, now), agents);
+    if (error) {
+      return { success: false, error };
     }
   }
   if (agents.length === 0) {
@@ -190,12 +214,17 @@ function collectAgents(parsed: unknown): { success: true; data: ManyAgent[] } | 
   return { success: true, data: agents };
 }
 
+function parseAgentsConfigError(error: unknown): ParseAgentsResult {
+  const message = error instanceof Error ? error.message : 'JSON inválido';
+  return { success: false, error: message };
+}
+
 /** Validate and parse imported agent config. Returns validated agents with new IDs. */
-export function parseAgentsConfig(json: string): { success: true; data: ManyAgent[] } | { success: false; error: string } {
+export function parseAgentsConfig(json: string): ParseAgentsResult {
   try {
     return collectAgents(JSON.parse(json));
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : 'JSON inválido' };
+    return parseAgentsConfigError(e);
   }
 }
 
