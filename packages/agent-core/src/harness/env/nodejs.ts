@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { constants, createReadStream } from "node:fs";
 import {
@@ -106,7 +106,7 @@ async function runCommand(
 ): Promise<{ stdout: string; status: number | null }> {
 	return await new Promise((resolve) => {
 		let stdout = "";
-		let child: ReturnType<typeof spawn>;
+		let child: ChildProcess;
 		try {
 			child = spawn(command, args, {
 				stdio: ["ignore", "pipe", "ignore"],
@@ -256,7 +256,7 @@ export class NodeExecutionEnv implements ExecutionEnv {
 			let settled = false;
 			let timedOut = false;
 			let callbackError: ExecutionError | undefined;
-			let child: ReturnType<typeof spawn> | undefined;
+			let child: ChildProcess | undefined;
 			let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
 			const onAbort = () => {

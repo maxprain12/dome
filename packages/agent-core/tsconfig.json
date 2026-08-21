@@ -10,7 +10,8 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "allowImportingTsExtensions": false,
     "module": "Node16",
-    "moduleResolution": "Node16"
+    "moduleResolution": "Node16",
+    "lib": ["ESNext"]
   },
   "include": ["src"],
   "references": [
