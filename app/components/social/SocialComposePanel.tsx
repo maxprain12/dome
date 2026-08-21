@@ -165,6 +165,85 @@ function ComposePreviewFormatHints({
   );
 }
 
+const AI_TONE_LABELS: Record<AiTone, string> = {
+  professional: 'profesional',
+  casual: 'cercano y conversacional',
+  selling: 'persuasivo orientado a conversión',
+  informative: 'informativo y claro',
+};
+
+/** Brief lines for AI copy assist — extracted for S3776. */
+function buildComposeAiBrief(topics: string, campaign: string, linkUrl: string): string {
+  return [
+    topics.trim() && `Temas: ${topics.trim()}`,
+    campaign.trim() && `Campaña: ${campaign.trim()}`,
+    linkUrl.trim() && `Enlace: ${linkUrl.trim()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** i18n key when AI assist cannot run, else null — extracted for S3776. */
+function composeAiAssistErrorKey(
+  action: AiAction,
+  trimmed: string,
+  brief: string,
+): 'social.composer.ai_need_text' | 'social.composer.ai_need_brief' | null {
+  if (action !== 'generate' && !trimmed) return 'social.composer.ai_need_text';
+  if (action === 'generate' && !trimmed && !brief) return 'social.composer.ai_need_brief';
+  return null;
+}
+
+/** System prompt for social AI copy assist — extracted for S3776. */
+function buildComposeAiSystemPrompt(
+  networks: string,
+  minLimit: number,
+  aiTone: AiTone,
+  previewFormat: SocialPostFormat,
+): string {
+  return (
+    'Eres un copywriter experto en redes sociales. Respondes SOLO con el texto final del post, ' +
+    'sin comillas, sin explicaciones ni preámbulos. Mantén el idioma del usuario ' +
+    `(si no hay texto, escribe en el idioma del brief). Redes destino: ${networks}. ` +
+    `Límite duro: ${minLimit} caracteres. Tono: ${AI_TONE_LABELS[aiTone]}. ` +
+    `Formato de publicación: ${previewFormat}.`
+  );
+}
+
+/** User prompt per AI action — extracted for S3776. */
+function buildComposeAiUserPrompt(
+  action: AiAction,
+  trimmed: string,
+  brief: string,
+  networks: string,
+  minLimit: number,
+): string {
+  const contextBlock = brief ? `\n\nContexto:\n${brief}` : '';
+  switch (action) {
+    case 'improve':
+      return `Mejora este copy manteniendo su mensaje y su idioma. Hazlo más claro y con más gancho:\n\n${trimmed}${contextBlock}`;
+    case 'shorten':
+      return `Reescribe este copy para que quepa cómodamente en ${minLimit} caracteres sin perder el mensaje:\n\n${trimmed}`;
+    case 'hashtags':
+      return `Devuelve SOLO una línea con 3-6 hashtags relevantes (sin texto adicional) para este post:\n\n${trimmed}${contextBlock}`;
+    case 'generate':
+      return `Escribe un post desde cero para ${networks}.${trimmed ? `\nIdea inicial: ${trimmed}` : ''}${brief ? `\nBrief:\n${brief}` : ''}`;
+  }
+}
+
+/** Apply AI reply to body (append hashtags vs replace) — extracted for S3776. */
+function applyComposeAiResult(
+  action: AiAction,
+  result: string,
+  setBody: (updater: string | ((prev: string) => string)) => void,
+): void {
+  if (action === 'hashtags') {
+    setBody((prev) => (prev.trimEnd() ? `${prev.trimEnd()}\n\n${result}` : result));
+    return;
+  }
+  setBody(result);
+}
+
 export default function SocialComposePanel({
   accounts,
   campaigns = [],
@@ -345,63 +424,27 @@ export default function SocialComposePanel({
   const runAiAssist = async (action: AiAction) => {
     setError(null);
     const trimmed = body.trim();
-    const brief = [
-      topics.trim() && `Temas: ${topics.trim()}`,
-      campaign.trim() && `Campaña: ${campaign.trim()}`,
-      linkUrl.trim() && `Enlace: ${linkUrl.trim()}`,
-    ].filter(Boolean).join('\n');
-
-    if (action !== 'generate' && !trimmed) {
-      setError(t('social.composer.ai_need_text'));
-      return;
-    }
-    if (action === 'generate' && !trimmed && !brief) {
-      setError(t('social.composer.ai_need_brief'));
+    const brief = buildComposeAiBrief(topics, campaign, linkUrl);
+    const errorKey = composeAiAssistErrorKey(action, trimmed, brief);
+    if (errorKey) {
+      setError(t(errorKey));
       return;
     }
 
     const networks = selectedProviders.map((p) => PROVIDER_LABELS[p]).join(', ');
-    const toneNames: Record<AiTone, string> = {
-      professional: 'profesional',
-      casual: 'cercano y conversacional',
-      selling: 'persuasivo orientado a conversión',
-      informative: 'informativo y claro',
-    };
-    const system =
-      'Eres un copywriter experto en redes sociales. Respondes SOLO con el texto final del post, ' +
-      'sin comillas, sin explicaciones ni preámbulos. Mantén el idioma del usuario ' +
-      `(si no hay texto, escribe en el idioma del brief). Redes destino: ${networks}. ` +
-      `Límite duro: ${minLimit} caracteres. Tono: ${toneNames[aiTone]}. ` +
-      `Formato de publicación: ${previewFormat}.`;
-
-    let user: string;
-    switch (action) {
-      case 'improve':
-        user = `Mejora este copy manteniendo su mensaje y su idioma. Hazlo más claro y con más gancho:\n\n${trimmed}${brief ? `\n\nContexto:\n${brief}` : ''}`;
-        break;
-      case 'shorten':
-        user = `Reescribe este copy para que quepa cómodamente en ${minLimit} caracteres sin perder el mensaje:\n\n${trimmed}`;
-        break;
-      case 'hashtags':
-        user = `Devuelve SOLO una línea con 3-6 hashtags relevantes (sin texto adicional) para este post:\n\n${trimmed}${brief ? `\n\nContexto:\n${brief}` : ''}`;
-        break;
-      case 'generate':
-        user = `Escribe un post desde cero para ${networks}.${trimmed ? `\nIdea inicial: ${trimmed}` : ''}${brief ? `\nBrief:\n${brief}` : ''}`;
-        break;
-    }
+    const system = buildComposeAiSystemPrompt(networks, minLimit, aiTone, previewFormat);
+    const user = buildComposeAiUserPrompt(action, trimmed, brief, networks, minLimit);
 
     setAiBusy(action);
     try {
       const result = (await chat([
         { role: 'system', content: system },
         { role: 'user', content: user },
-      ])).trim().replace(/^["'`]+|["'`]+$/g, '');
+      ]))
+        .trim()
+        .replace(/^["'`]+|["'`]+$/g, '');
       if (!result) throw new Error('empty response');
-      if (action === 'hashtags') {
-        setBody((prev) => (prev.trimEnd() ? `${prev.trimEnd()}\n\n${result}` : result));
-      } else {
-        setBody(result);
-      }
+      applyComposeAiResult(action, result, setBody);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(t('social.composer.ai_error', { error: msg }));
