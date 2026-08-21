@@ -320,7 +320,9 @@ export function InlineModelSwitcher({ enabled = true, dropDirection = 'above' }:
       >
         <DropdownMenuRadioGroup
           value={currentModelId}
-          onValueChange={(id) => void pickModel(String(id))}
+          onValueChange={(id) => {
+            void pickModel(String(id)).catch(() => {});
+          }}
         >
           {options.map((o) => (
             <DropdownMenuRadioItem key={o.id} value={o.id} className="text-xs">
