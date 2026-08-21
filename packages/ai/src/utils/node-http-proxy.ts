@@ -117,7 +117,7 @@ export function createHttpProxyAgentsForTarget(targetUrl: string | URL): NodeHtt
 	}
 
 	return {
-		httpAgent: new HttpProxyAgent(proxyUrl),
+		httpAgent: new HttpProxyAgent(proxyUrl) as unknown as HttpAgent,
 		httpsAgent: new HttpsProxyAgent(proxyUrl) as unknown as HttpsAgent,
 	};
 }
