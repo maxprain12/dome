@@ -18,7 +18,7 @@
  * `schema_version` and calling it from applyMigrations (after migration65).
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 
 // Electron's package throws on require when its binary isn't installed
 // (some tooling runs without it); migrations only use app paths at runtime.
@@ -311,8 +311,8 @@ function migration55(db, version) {
         const folders = db
           .prepare("SELECT id, project_id, folder_id, title FROM resources WHERE type = 'folder' AND (vault_path IS NULL OR trim(vault_path) = '') ORDER BY created_at ASC")
           .all();
-        const fsMod = require('fs');
-        const pathMod = require('path');
+        const fsMod = require('node:fs');
+        const pathMod = require('node:path');
         const defaultVault = pathMod.join(userData, 'dome-files', 'vault');
         const projRoot = (projectId) => {
           const p = db.prepare('SELECT name, vault_root FROM projects WHERE id = ?').get(projectId);
@@ -1161,7 +1161,7 @@ function migration69(db, version) {
       `UPDATE social_posts SET campaign_id = ? WHERE TRIM(campaign) = ? AND (campaign_id IS NULL OR campaign_id = '')`,
     );
     for (const name of names) {
-      const id = `scamp-${require('crypto').randomBytes(8).toString('hex')}`;
+      const id = `scamp-${require('node:crypto').randomBytes(8).toString('hex')}`;
       insert.run(id, name, now, now);
       const row = findByName.get(name);
       if (row?.id) link.run(row.id, name);

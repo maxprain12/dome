@@ -15,7 +15,7 @@
  *   approval:respond    — renderer → main (invoke)
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { webContents } = require('electron');
 const { z } = require('zod');
 

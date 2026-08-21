@@ -279,8 +279,7 @@ export default function ManyPanel({
   const handleDismissError = useCallback(() => setError(null), [setError]);
 
   const handleReportError = useCallback(() => {
-    if (!error) return;
-    void navigator.clipboard
+    if (!error) return; navigator.clipboard
       .writeText(error)
       .then(() => {
         showToast('info', t('many.error_copied'));
@@ -402,7 +401,7 @@ export default function ManyPanel({
     setResourceToolsEnabled,
     setMemoryEnabled,
     supportsTools,
-    onSend: () => void handleSend(),
+    onSend: () => handleSend(),
     onAbort: handleAbort,
     placeholderOverride: pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null,
     attachments: chatAttachments,
@@ -473,7 +472,7 @@ export default function ManyPanel({
           isFullscreenActive={isFullscreen}
           onToggleFullscreen={handleToggleFullscreen}
           showPopoutToggle={!isPopout}
-          onPopout={() => void handlePopout()}
+          onPopout={() => handlePopout()}
         />
 
         {view === 'history' && !isFullscreen ? (

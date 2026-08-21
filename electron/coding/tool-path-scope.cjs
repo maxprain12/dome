@@ -16,7 +16,7 @@
  *    so the HITL gate above still sees the real target.
  */
 
-const path = require('path');
+const path = require('node:path');
 
 /** Path-shaped argument names per tool, in the order they should be filled. */
 const PATH_ARGS_BY_TOOL = Object.freeze({

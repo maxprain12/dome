@@ -107,9 +107,9 @@ function registerAll(deps) {
 
   const secureIpcMain = createSecureIpcMain(ipcMain, windowManager, validateSender);
 
-  const fs = require('fs');
-  const path = require('path');
-  const crypto = require('crypto');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const crypto = require('node:crypto');
 
   systemHandlers.register({ ipcMain: secureIpcMain, app, windowManager, validateSender, sanitizePath, validateUrl });
   windowHandlers.register({ ipcMain: secureIpcMain, nativeTheme, windowManager, database });

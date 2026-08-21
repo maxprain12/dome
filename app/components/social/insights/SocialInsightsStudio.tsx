@@ -104,18 +104,15 @@ export function SocialInsightsStudio({
     setReports(Array.isArray(response.data?.reports) ? response.data.reports : []);
   }, []);
 
-  useEffect(() => {
-    void loadReports();
-    const unsubscribe = window.electron?.on?.('social:report-updated', () => {
-      void loadReports();
+  useEffect(() => { loadReports();
+    const unsubscribe = window.electron?.on?.('social:report-updated', () => { loadReports();
     });
     return () => unsubscribe?.();
   }, [loadReports]);
 
   useEffect(() => {
     let active = true;
-    setGrowthLoading(true);
-    void (async () => {
+    setGrowthLoading(true); (async () => {
       try {
         const response = await window.electron.invoke('social:growth', { days: period });
         if (!active || !response?.success) return;
@@ -172,7 +169,7 @@ export function SocialInsightsStudio({
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          <Button type="button" onClick={() => void generate()} disabled={generating}>
+          <Button type="button" onClick={() => generate()} disabled={generating}>
             {generating ? (
               <Spinner data-icon="inline-start" />
             ) : (
@@ -313,7 +310,7 @@ export function SocialInsightsStudio({
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => void generate()}
+              onClick={() => generate()}
               disabled={generating}
             >
               {generating ? (

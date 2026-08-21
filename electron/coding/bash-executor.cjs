@@ -17,11 +17,11 @@
  *    so a long build is never silently lost
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawn } = require('child_process');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
 const {
   getShellConfig,
   getShellEnv,

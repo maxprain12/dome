@@ -76,14 +76,14 @@ export const STRICT_RULES = [
     rule: 'S6638',
     tier: 'strict',
     message: 'String(...) is never nullish — do not use ?? on it',
-    test: (line) => /String\s*\([^)]*\)\s*\?\?/.test(line),
+    test: (line) => /\bString\s*\([^)]*\)\s*\?\?/.test(line),
   },
   {
     id: 'number-nullish',
     rule: 'S6638',
     tier: 'strict',
     message: 'Number(...) is never nullish — use || / Number.isFinite instead of ??',
-    test: (line) => /Number\s*\([^)]*\)\s*\?\?/.test(line),
+    test: (line) => /\bNumber\s*\([^)]*\)\s*\?\?/.test(line),
   },
   {
     id: 'sort-no-compare',
@@ -129,7 +129,7 @@ export const PROGRESSIVE_RULES = [
     rule: 'S7735',
     tier: 'progressive',
     message: 'Avoid unnecessary void in arrow callbacks (see no-void-operator.mdc)',
-    test: (line) => /=>\s*void\s+/.test(line),
+    test: (line) => /=>\s*void\s+[a-zA-Z_$(]/.test(line),
     allowPath: (rel) => rel.startsWith('electron/') || rel.startsWith('scripts/'),
   },
   {
@@ -149,7 +149,7 @@ export const PROGRESSIVE_RULES = [
     tier: 'progressive',
     message: 'Identical ternary branches — simplify',
     test: (line) =>
-      /\?\s*([a-zA-Z_$][\w.$]*|true|false|null|\d+(?:\.\d+)?)\s*:\s*\1\b/.test(line),
+      /(?<!\?)\?(?!\?)\s*([a-zA-Z_$]\w*|true|false|null|\d+(?:\.\d+)?)\s*:\s*\1(?!\s*[.?(])/.test(line),
   },
   {
     id: 'jsx-numeric-and',

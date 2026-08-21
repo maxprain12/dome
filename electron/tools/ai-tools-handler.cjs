@@ -16,7 +16,7 @@ function traceLog(fn, params, result, err) {
   }
 }
 
-const fs = require('fs');
+const fs = require('node:fs');
 const database = require('../core/database.cjs');
 const fileStorage = require('../storage/file-storage.cjs');
 const documentExtractor = require('../documents/document-extractor.cjs');
@@ -28,7 +28,7 @@ const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('../calendar/calendar-service.cjs');
 const semanticIndexScheduler = require('../storage/semantic-index-scheduler.cjs');
 const lancedbSemantic = require('../services/lancedb-semantic.cjs');
-const path = require('path');
+const path = require('node:path');
 const { rrfMerge } = require('../storage/hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
@@ -2243,7 +2243,7 @@ async function flashcardCreate(data) {
 
     const db = database.getDB();
     const queries = database.getQueries();
-    const crypto = require('crypto');
+    const crypto = require('node:crypto');
 
     // Determine project ID (must exist for FK constraint)
     let projectId = data.project_id;
@@ -4052,10 +4052,10 @@ async function importFileToLibrary(args = {}) {
       return { success: false, error: 'content or content_base64 is required' };
     }
 
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
-    const crypto = require('crypto');
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const os = require('node:os');
+    const crypto = require('node:crypto');
     const fileStorage = require('../storage/file-storage.cjs');
     const documentExtractor = require('../documents/document-extractor.cjs');
 
@@ -4570,7 +4570,7 @@ async function uiHideCursor(args) {
 // =============================================================================
 
 const { dialog: electronDialog } = require('electron');
-const nodePath = require('path');
+const nodePath = require('node:path');
 const { executeBash, truncationNotice } = require('../coding/bash-executor.cjs');
 const { assessShellCommand } = require('../core/shell-policy.cjs');
 const gitTools = require('../coding/git-tools.cjs');
@@ -4870,7 +4870,7 @@ function _isPlainObject(value) {
 
 function _syncArtifactRuntimeFromState(queries, artifactRow, stateObj, now) {
   if (!artifactRow || !_isPlainObject(stateObj?.data)) return;
-  const cryptoMod = require('crypto');
+  const cryptoMod = require('node:crypto');
   const dataStr = JSON.stringify(stateObj.data);
   const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
   queries.upsertArtifactRuntimeData.run(
@@ -4923,7 +4923,7 @@ async function artifactGet(args) {
 
 async function artifactCreate(args) {
   try {
-    const cryptoMod = require('crypto');
+    const cryptoMod = require('node:crypto');
     const rawTitle = typeof args?.title === 'string' ? args.title.trim() : '';
     const rawType = args?.artifact_type ?? args?.artifactType ?? 'custom';
     const allowed = new Set(['task-tracker', 'chart', 'custom']);

@@ -237,17 +237,14 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     }
   }, []);
 
-  useEffect(() => {
-    void fetchResources();
-    void fetchProjects();
+  useEffect(() => { fetchResources(); fetchProjects();
   }, [fetchProjects, fetchResources]);
 
   const debouncedSilentRefetchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleDebouncedSilentRefetch = useCallback(() => {
     if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
     debouncedSilentRefetchRef.current = setTimeout(() => {
-      debouncedSilentRefetchRef.current = null;
-      void fetchResources({ silent: true });
+      debouncedSilentRefetchRef.current = null; fetchResources({ silent: true });
     }, 400);
   }, [fetchResources]);
 
@@ -395,9 +392,9 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
-    const onCreated = () => { void fetchResourcesRef.current({ silent: true }); };
-    const onDeleted = () => { void fetchResourcesRef.current({ silent: true }); };
-    const onProjectCreated = () => { void fetchProjectsRef.current(); };
+    const onCreated = () => { fetchResourcesRef.current({ silent: true }); };
+    const onDeleted = () => { fetchResourcesRef.current({ silent: true }); };
+    const onProjectCreated = () => { fetchProjectsRef.current(); };
     const u1 = window.electron.on('resource:created', onCreated);
     const onUpdated = (payload: unknown) => {
       const p = payload as {
@@ -440,12 +437,10 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     const u2 = window.electron.on('resource:updated', onUpdated);
     const u3 = window.electron.on('resource:deleted', onDeleted);
     const u4 = window.electron.on('project:created', onProjectCreated);
-    const onProjectDeleted = (payload: { id?: string }) => {
-      void fetchProjectsRef.current();
+    const onProjectDeleted = (payload: { id?: string }) => { fetchProjectsRef.current();
       const deletedId = payload?.id;
       const cur = useAppStore.getState().currentProject;
-      if (deletedId && cur?.id === deletedId) {
-        void window.electron.db.projects.getAll().then((all) => {
+      if (deletedId && cur?.id === deletedId) { window.electron.db.projects.getAll().then((all) => {
           if (all?.success && all.data) {
             const list = all.data as Project[];
             const dome = list.find((p) => p.id === 'default');
@@ -456,7 +451,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
       void fetchResourcesRef.current({ silent: true });
     };
     const u5 = window.electron.on('project:deleted', onProjectDeleted);
-    const onResourcesChanged = () => { void fetchResourcesRef.current({ silent: true }); };
+    const onResourcesChanged = () => { fetchResourcesRef.current({ silent: true }); };
     window.addEventListener('dome:resources-changed', onResourcesChanged);
     return () => {
       u1?.();
@@ -747,7 +742,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t('workspace.open_vault_folder')}
-                onClick={() => { void window.electron?.resource?.openVaultRoot(hubProjectId); }}
+                onClick={() => { window.electron?.resource?.openVaultRoot(hubProjectId); }}
               >
                 <HugeiconsIcon icon={FolderSymlinkIcon} />
               </Button>
@@ -761,7 +756,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 ) : (
                   <FileTree
                     resources={scopedResources}
-                    onRefresh={() => { void fetchResources({ silent: true }); }}
+                    onRefresh={() => { fetchResources({ silent: true }); }}
                     autoExpandFolderIds={autoExpandFolderIds}
                   />
                 )}
@@ -789,7 +784,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         {showCloudPicker && (
           <Suspense fallback={null}>
             <CloudFilePicker
-              onClose={() => { setShowCloudPicker(false); void fetchResources({ silent: true }); }}
+              onClose={() => { setShowCloudPicker(false); fetchResources({ silent: true }); }}
               projectId={getDefaultProjectId()}
             />
           </Suspense>
@@ -830,7 +825,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
               <SidebarNavButton
                 icon={Login01Icon}
                 label={connectingAccount ? t('sidebar.sign_in_connecting') : t('sidebar.sign_in')}
-                onClick={() => void handleSignIn()}
+                onClick={() => handleSignIn()}
               />
             ) : null}
             {hiddenFeatureCount > 0 ? (

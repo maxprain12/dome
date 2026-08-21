@@ -13,9 +13,9 @@
  * family is only offered at all when a trusted workspace is resolved.
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const database = require('../core/database.cjs');
 
 const db = () => database.getDB();

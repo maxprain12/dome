@@ -167,7 +167,7 @@ export default function PersonDetailPanel({
             <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
             {t('people.delete')}
           </Button>
-          <Button type="button" size="sm" onClick={() => void handleSave()} disabled={!dirty || saving}>
+          <Button type="button" size="sm" onClick={() => handleSave()} disabled={!dirty || saving}>
             <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />
             {saving ? t('people.saving') : t('people.save')}
           </Button>
@@ -344,15 +344,14 @@ export default function PersonDetailPanel({
                 className="min-h-9"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    void handleAddNote();
+                    e.preventDefault(); handleAddNote();
                   }
                 }}
               />
               <Button
                 type="button"
                 size="sm"
-                onClick={() => void handleAddNote()}
+                onClick={() => handleAddNote()}
                 disabled={!noteDraft.trim() || addingNote}
               >
                 <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />

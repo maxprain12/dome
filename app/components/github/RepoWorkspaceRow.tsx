@@ -41,8 +41,7 @@ export function RepoWorkspaceRow({ repoId, localPath, label }: Props) {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
+    let cancelled = false; (async () => {
       const path = localPath;
       const res = await window.electron?.coding?.workspace?.list?.();
       if (cancelled) return;
@@ -124,7 +123,7 @@ export function RepoWorkspaceRow({ repoId, localPath, label }: Props) {
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void pick()}>
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => pick()}>
           {localPath ? t('github.local_repo_change') : t('github.local_repo_link')}
         </Button>
         {localPath && !trusted ? (
@@ -133,7 +132,7 @@ export function RepoWorkspaceRow({ repoId, localPath, label }: Props) {
           </Button>
         ) : null}
         {localPath ? (
-          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => unlink()}>
             {t('github.local_repo_unlink')}
           </Button>
         ) : null}
@@ -145,7 +144,7 @@ export function RepoWorkspaceRow({ repoId, localPath, label }: Props) {
         title={t('github.local_repo_trust_title')}
         message={t('github.local_repo_trust_message', { path: trustPrompt ?? '' })}
         confirmLabel={t('github.local_repo_trust_action')}
-        onConfirm={() => void confirmTrust()}
+        onConfirm={() => confirmTrust()}
         onCancel={() => setTrustPrompt(null)}
       />
     </div>

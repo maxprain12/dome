@@ -141,8 +141,7 @@ export function SocialComposerWorkspace({
   const limit = Math.min(...providers.map((provider) => PROVIDER_CHAR_LIMITS[provider]));
   const selectedEventCard = eventCards.find((card) => card.id === eventCardId);
 
-  useEffect(() => {
-    void window.electron.invoke('social:event-cards:list').then((response) => {
+  useEffect(() => { window.electron.invoke('social:event-cards:list').then((response) => {
       if (response?.success) setEventCards(response.data?.cards ?? []);
     });
   }, []);
@@ -284,7 +283,7 @@ export function SocialComposerWorkspace({
           <Button type="button" variant="ghost" onClick={requestClose}>
             {t('social.composer.cancel')}
           </Button>
-          <Button type="button" onClick={() => void save()} disabled={saving}>
+          <Button type="button" onClick={() => save()} disabled={saving}>
             {saving ? <Spinner data-icon="inline-start" /> : null}
             {scheduledAt ? t('social.composer.save_scheduled') : t('social.composer.save_draft')}
           </Button>
@@ -378,7 +377,7 @@ export function SocialComposerWorkspace({
                             ['hashtags', HashIcon, t('social.composer.ai_hashtags')],
                             ['generate', MagicWand01Icon, t('social.composer.ai_generate')],
                           ] as const).map(([action, icon, label]) => (
-                            <Button key={action} type="button" size="xs" variant="ghost" onClick={() => void runAi(action)} disabled={aiBusy !== null}>
+                            <Button key={action} type="button" size="xs" variant="ghost" onClick={() => runAi(action)} disabled={aiBusy !== null}>
                               {aiBusy === action ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={icon} data-icon="inline-start" />}
                               {label}
                             </Button>
@@ -395,11 +394,11 @@ export function SocialComposerWorkspace({
                   <FieldGroup>
                     <Field>
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" onClick={() => void pickMedia()}>
+                        <Button type="button" variant="outline" onClick={() => pickMedia()}>
                           <HugeiconsIcon icon={ComputerIcon} data-icon="inline-start" />
                           {t('social.composer.media_from_computer')}
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => void openLibrary()}>
+                        <Button type="button" variant="outline" onClick={() => openLibrary()}>
                           <HugeiconsIcon icon={LibraryIcon} data-icon="inline-start" />
                           {t('social.composer.media_from_library')}
                         </Button>

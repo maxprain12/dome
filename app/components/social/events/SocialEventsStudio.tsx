@@ -82,8 +82,7 @@ export function SocialEventsStudio({
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void load();
+  useEffect(() => { load();
     const unsubscribe = window.electron?.on?.('social:event-cards-refresh', (payload: { cards?: SocialEventCard[] }) => {
       setCards(payload?.cards ?? []);
       setLoading(false);
@@ -175,9 +174,9 @@ function EventCardTile({ card, onEdit, onReload }: { card: SocialEventCard; onEd
       <CardContent className="flex-1"><p className="line-clamp-3 text-sm text-muted-foreground">{card.description || t('social.events.empty_description')}</p></CardContent>
       <CardFooter className="flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onEdit}>{t('common.edit')}</Button>
-        {card.status !== 'published' ? <Button type="button" size="sm" onClick={() => void run('social:event-cards:publish', { cardId: card.id })}>{t('social.events.publish')}</Button> : <Button type="button" size="sm" variant="outline" onClick={() => void exportCard('url')}><HugeiconsIcon icon={Copy01Icon} data-icon="inline-start" />{t('social.events.copy_url')}</Button>}
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => void exportCard('qr-png')}><HugeiconsIcon icon={QrCodeIcon} /><span className="sr-only">{t('social.events.export_qr')}</span></Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => void run('social:event-cards:archive', { cardId: card.id })}><HugeiconsIcon icon={Archive02Icon} /><span className="sr-only">{t('social.events.archive')}</span></Button>
+        {card.status !== 'published' ? <Button type="button" size="sm" onClick={() => run('social:event-cards:publish', { cardId: card.id })}>{t('social.events.publish')}</Button> : <Button type="button" size="sm" variant="outline" onClick={() => exportCard('url')}><HugeiconsIcon icon={Copy01Icon} data-icon="inline-start" />{t('social.events.copy_url')}</Button>}
+        <Button type="button" variant="ghost" size="icon-sm" onClick={() => exportCard('qr-png')}><HugeiconsIcon icon={QrCodeIcon} /><span className="sr-only">{t('social.events.export_qr')}</span></Button>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={() => run('social:event-cards:archive', { cardId: card.id })}><HugeiconsIcon icon={Archive02Icon} /><span className="sr-only">{t('social.events.archive')}</span></Button>
       </CardFooter>
     </Card>
   );
@@ -204,7 +203,7 @@ export function SocialEventEditor({ card, onClose, onSaved }: { card: SocialEven
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b px-4 py-3 lg:px-6"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">{t('social.studio.events.editor_eyebrow')}</p><h2 className="font-heading text-xl font-semibold">{card ? t('social.events.edit') : t('social.events.create')}</h2></div><div className="flex gap-2"><Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button type="button" onClick={() => void save()} disabled={saving}>{saving ? <Spinner data-icon="inline-start" /> : null}{t('common.save')}</Button></div></header>
+      <header className="flex items-center justify-between gap-4 border-b px-4 py-3 lg:px-6"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">{t('social.studio.events.editor_eyebrow')}</p><h2 className="font-heading text-xl font-semibold">{card ? t('social.events.edit') : t('social.events.create')}</h2></div><div className="flex gap-2"><Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button type="button" onClick={() => save()} disabled={saving}>{saving ? <Spinner data-icon="inline-start" /> : null}{t('common.save')}</Button></div></header>
       <div className="grid min-h-0 flex-1 overflow-auto xl:grid-cols-[minmax(0,1fr)_26rem]">
         <main className="mx-auto w-full max-w-3xl p-4 lg:p-6">
           {error ? <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert> : null}
@@ -231,8 +230,7 @@ function UpdatesStudio({ cards }: { cards: SocialEventCard[] }) {
     const response = await window.electron.invoke('social:event-updates:list', { cardId });
     if (response?.success) setUpdates(response.data?.updates ?? []);
   }, [cardId]);
-  useEffect(() => {
-    void load();
+  useEffect(() => { load();
     const unsubscribe = window.electron?.on?.(
       'social:event-updates-refresh',
       (payload: { cardId?: string; updates?: SocialEventUpdate[] }) => {
@@ -297,8 +295,7 @@ function UpdatesStudio({ cards }: { cards: SocialEventCard[] }) {
             </Field>
             <Button
               type="button"
-              onClick={() => {
-                void create().catch(() => undefined);
+              onClick={() => { create().catch(() => undefined);
               }}
               disabled={!cardId || !message.trim()}
             >
@@ -312,7 +309,7 @@ function UpdatesStudio({ cards }: { cards: SocialEventCard[] }) {
         <CardHeader>
           <CardTitle>{t('social.events.updates')}</CardTitle>
           <CardAction>
-            <Button type="button" variant="ghost" size="icon-sm" onClick={() => void load()}>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={() => load()}>
               <HugeiconsIcon icon={RefreshIcon} />
               <span className="sr-only">{t('common.refresh')}</span>
             </Button>
@@ -380,8 +377,7 @@ function AutomationsStudio({
     const response = await window.electron.invoke('social:dm-rules:list');
     if (response?.success) setRules(response.data?.rules ?? []);
   }, []);
-  useEffect(() => {
-    void load();
+  useEffect(() => { load();
     const unsubscribe = window.electron?.on?.(
       'social:dm-rules-refresh',
       (payload: { rules?: SocialDmRule[] }) => setRules(payload.rules ?? []),
@@ -530,8 +526,7 @@ function AutomationsStudio({
             </Field>
             <Button
               type="button"
-              onClick={() => {
-                void create().catch(() => undefined);
+              onClick={() => { create().catch(() => undefined);
               }}
               disabled={
                 !accountId ||

@@ -15,9 +15,9 @@ const { app } = (() => {
     return { app: null };
   }
 })();
-const { spawn, spawnSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { spawn, spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // --- ANSI ------------------------------------------------------------------
 
@@ -62,7 +62,7 @@ function sanitizeBinaryOutput(value) {
 
 /** Downloaded helper binaries (rg, fd) live here and are prepended to PATH. */
 function getBinDir() {
-  const base = app?.getPath ? app.getPath('userData') : path.join(require('os').homedir(), '.dome');
+  const base = app?.getPath ? app.getPath('userData') : path.join(require('node:os').homedir(), '.dome');
   return path.join(base, 'bin');
 }
 

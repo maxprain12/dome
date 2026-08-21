@@ -489,7 +489,7 @@ export default function CardDetailModal({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => void handleRun()}
+          onClick={() => handleRun()}
           disabled={generating || agentBusy || saving}
         >
           {agentBusy ? (
@@ -507,7 +507,7 @@ export default function CardDetailModal({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => void generateReport()}
+        onClick={() => generateReport()}
         disabled={saving || agentBusy}
       >
         {generating ? (
@@ -517,7 +517,7 @@ export default function CardDetailModal({
         )}
         {t('pipelines.generate_report')}
       </Button>
-      <Button size="sm" onClick={() => void save()} disabled={saving || agentBusy}>
+      <Button size="sm" onClick={() => save()} disabled={saving || agentBusy}>
         {saving ? t('pipelines.saving') : t('pipelines.save')}
       </Button>
     </div>
@@ -916,8 +916,7 @@ export default function CardDetailModal({
         confirmLabel={t('pipelines.delete')}
         cancelLabel={t('pipelines.cancel')}
         variant="danger"
-        onConfirm={() => {
-          void onDelete();
+        onConfirm={() => { onDelete();
           setConfirmDelete(false);
         }}
         onCancel={() => setConfirmDelete(false)}

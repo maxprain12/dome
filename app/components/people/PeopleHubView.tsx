@@ -110,8 +110,7 @@ export default function PeopleHubView() {
   const selectPersonRefLatest = useRef(selectPersonRef.current);
   selectPersonRefLatest.current = selectPersonRef.current;
   useEffect(() => {
-    const applyFocus = (personId: string) => {
-      void selectPersonRefLatest.current(personId);
+    const applyFocus = (personId: string) => { selectPersonRefLatest.current(personId);
     };
     const pending = useOpenIntentStore.getState().consume('person');
     if (pending) applyFocus(pending.personId);
@@ -150,7 +149,7 @@ export default function PeopleHubView() {
           filter={filter}
           onFilterChange={setFilter}
           selectedId={selectedId}
-          onSelect={(id) => void selectPerson(id)}
+          onSelect={(id) => selectPerson(id)}
           checkedIds={checkedIds}
           onToggleChecked={handleToggleChecked}
           onToggleAllChecked={handleToggleAllChecked}
@@ -172,8 +171,7 @@ export default function PeopleHubView() {
               onSave={saveProfile}
               onAddNote={addNote}
               onDelete={() => setPendingDeleteIds([selectedPerson.id])}
-              onEnrich={() => {
-                void enrichPerson(selectedPerson.id);
+              onEnrich={() => { enrichPerson(selectedPerson.id);
               }}
               onOpenPipelines={openPipelinesTab}
               onOpenCalendar={openCalendarTab}
@@ -210,7 +208,7 @@ export default function PeopleHubView() {
             <Button variant="outline" onClick={() => setCreating(false)}>
               {t('people.cancel')}
             </Button>
-            <Button onClick={() => void handleCreate()} disabled={!newName.trim() || createBusy}>
+            <Button onClick={() => handleCreate()} disabled={!newName.trim() || createBusy}>
               {t('people.create')}
             </Button>
           </AppModalFooter>
@@ -233,8 +231,7 @@ export default function PeopleHubView() {
         cancelLabel={t('people.cancel')}
         variant="danger"
         busy={deleting}
-        onConfirm={() => {
-          void confirmDelete();
+        onConfirm={() => { confirmDelete();
         }}
         onCancel={() => {
           if (!deleting) setPendingDeleteIds(null);

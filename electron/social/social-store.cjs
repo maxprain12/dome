@@ -12,7 +12,7 @@
  * stored encrypted in `social_accounts.credentials` (BLOB).
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { safeStorage } = require('electron');
 const syncTombstone = require('../storage/sync-tombstone.cjs');
 

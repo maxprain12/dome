@@ -636,8 +636,7 @@ export default function EventModal({
         setLinkedTitles(nextTitles);
         setLinkedTypes(nextTypes);
       }
-    };
-    void loadTitles();
+    }; loadTitles();
     return () => {
       cancelled = true;
     };
@@ -755,8 +754,7 @@ export default function EventModal({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  void window.electron?.invoke?.('open-external-url', githubUrl);
+                onClick={() => { window.electron?.invoke?.('open-external-url', githubUrl);
                 }}
               >
                 <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
@@ -801,7 +799,7 @@ export default function EventModal({
         footer={
           <>
             {onDelete ? (
-              <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
+              <DeleteEventAction deleting={deleting} onConfirm={() => handleDelete()} />
             ) : (
               <span />
             )}
@@ -858,7 +856,7 @@ export default function EventModal({
         footer={
           <>
             {event && onDelete ? (
-              <DeleteEventAction deleting={deleting} onConfirm={() => void handleDelete()} />
+              <DeleteEventAction deleting={deleting} onConfirm={() => handleDelete()} />
             ) : (
               <span />
             )}

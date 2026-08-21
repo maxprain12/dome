@@ -157,8 +157,7 @@ export function SocialWorkspaceShell() {
         initialCampaignId={editor.campaignId}
         onClose={() => setEditor({ kind: 'none' })}
         onSaved={() => {
-          setEditor({ kind: 'none' });
-          void workspace.load();
+          setEditor({ kind: 'none' }); workspace.load();
         }}
       />
     );
@@ -187,7 +186,7 @@ export function SocialWorkspaceShell() {
           refreshing={workspace.refreshing}
           error={workspace.error}
           lastSyncAt={workspace.lastSyncAt}
-          onSync={() => void workspace.syncFeed(selectedAccountId)}
+          onSync={() => workspace.syncFeed(selectedAccountId)}
           onCompose={() => setEditor({ kind: 'post', post: null })}
         />
 
@@ -205,7 +204,7 @@ export function SocialWorkspaceShell() {
                 onNavigate={navigate}
                 onSelect={setSelection}
                 onCompose={() => setEditor({ kind: 'post', post: null })}
-                onPoll={() => void workspace.pollComments()}
+                onPoll={() => workspace.pollComments()}
               />
             ) : section === 'content' ? (
               <ContentView
@@ -244,11 +243,10 @@ export function SocialWorkspaceShell() {
               selection={selection}
               onClose={() => setSelection({ kind: 'none' })}
               onEditPost={(post) => setEditor({ kind: 'post', post })}
-              onPublish={(post) => void workspace.publishPost(post.id)}
+              onPublish={(post) => workspace.publishPost(post.id)}
               onComposeCampaign={(campaign) => setEditor({ kind: 'post', post: null, campaignId: campaign.id, campaignName: campaign.name })}
               onPostUpdated={(post) => {
-                setSelection({ kind: 'post', post });
-                void workspace.load();
+                setSelection({ kind: 'post', post }); workspace.load();
               }}
             />
           ) : null}
@@ -321,8 +319,7 @@ function postStatusBadgeVariant(status: SocialPost['status']): 'destructive' | '
     case 'draft':
       return 'outline';
     default: {
-      const _exhaustive: never = status;
-      void _exhaustive;
+      const _exhaustive: never = status; _exhaustive;
       return 'outline';
     }
   }
@@ -490,8 +487,7 @@ function PostInspector({
     let cancelled = false;
     setCommentsLoading(true);
     setCommentsError(null);
-    setCommentsReason(null);
-    void (async () => {
+    setCommentsReason(null); (async () => {
       const response = await window.electron.invoke('social:comments:list', { postId: post.id });
       if (cancelled) return;
       setCommentsLoading(false);
@@ -716,8 +712,7 @@ function PostInspector({
             type="button"
             className="self-end"
             disabled={notesSaving || notesDraft === (post.notes ?? '')}
-            onClick={() => {
-              void saveNotes().catch(() => undefined);
+            onClick={() => { saveNotes().catch(() => undefined);
             }}
           >
             {notesSaving ? <Spinner data-icon="inline-start" /> : null}
@@ -892,6 +887,6 @@ function ReportInspector({ report }: { report: SocialReport }) {
   );
 }
 
-function CampaignDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; onCreated: (campaign: SocialCampaign) => Promise<void> }) { const { t } = useTranslation(); const [name, setName] = useState(''); const [goal, setGoal] = useState(''); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null); const create = async () => { setSaving(true); setError(null); const response = await window.electron.invoke('social:campaigns:create', { name: name.trim(), goal: goal.trim() || null }); setSaving(false); if (!response?.success) return setError(response?.error || 'Error'); setName(''); setGoal(''); onOpenChange(false); await onCreated(response.data); }; return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{t('social.agent_campaign_new')}</DialogTitle><DialogDescription>{t('social.studio.campaigns.dialog_description')}</DialogDescription></DialogHeader><FieldGroup><Field data-invalid={Boolean(error)}><FieldLabel htmlFor="social-campaign-name">{t('social.agent_campaign_prompt_name')}</FieldLabel><Input id="social-campaign-name" value={name} onChange={(event) => setName(event.target.value)} aria-invalid={Boolean(error)} /></Field><Field><FieldLabel htmlFor="social-campaign-goal">{t('social.agent_campaign_prompt_goal')}</FieldLabel><Textarea id="social-campaign-goal" value={goal} onChange={(event) => setGoal(event.target.value)} /></Field>{error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}</FieldGroup><DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button><Button type="button" onClick={() => void create()} disabled={saving || !name.trim()}>{saving ? <Spinner data-icon="inline-start" /> : null}{t('social.agent_campaign_new')}</Button></DialogFooter></DialogContent></Dialog>; }
+function CampaignDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; onCreated: (campaign: SocialCampaign) => Promise<void> }) { const { t } = useTranslation(); const [name, setName] = useState(''); const [goal, setGoal] = useState(''); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null); const create = async () => { setSaving(true); setError(null); const response = await window.electron.invoke('social:campaigns:create', { name: name.trim(), goal: goal.trim() || null }); setSaving(false); if (!response?.success) return setError(response?.error || 'Error'); setName(''); setGoal(''); onOpenChange(false); await onCreated(response.data); }; return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{t('social.agent_campaign_new')}</DialogTitle><DialogDescription>{t('social.studio.campaigns.dialog_description')}</DialogDescription></DialogHeader><FieldGroup><Field data-invalid={Boolean(error)}><FieldLabel htmlFor="social-campaign-name">{t('social.agent_campaign_prompt_name')}</FieldLabel><Input id="social-campaign-name" value={name} onChange={(event) => setName(event.target.value)} aria-invalid={Boolean(error)} /></Field><Field><FieldLabel htmlFor="social-campaign-goal">{t('social.agent_campaign_prompt_goal')}</FieldLabel><Textarea id="social-campaign-goal" value={goal} onChange={(event) => setGoal(event.target.value)} /></Field>{error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}</FieldGroup><DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button><Button type="button" onClick={() => create()} disabled={saving || !name.trim()}>{saving ? <Spinner data-icon="inline-start" /> : null}{t('social.agent_campaign_new')}</Button></DialogFooter></DialogContent></Dialog>; }
 
 function WorkspaceSkeleton() { return <div className="mx-auto grid w-full max-w-7xl gap-4 p-6 md:grid-cols-2 xl:grid-cols-4"><Skeleton className="h-44 xl:col-span-4" />{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-28" />)}<Skeleton className="h-80 md:col-span-2 xl:col-span-3" /><Skeleton className="h-80" /></div>; }

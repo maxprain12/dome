@@ -21,9 +21,9 @@
  */
 /* eslint-disable no-console */
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { pipeline } = require('stream/promises');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');

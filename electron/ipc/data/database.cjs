@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const kbShared = require('../../agents/kb-llm-shared.cjs');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
 const vaultStore = require('../../storage/vault-store.cjs');

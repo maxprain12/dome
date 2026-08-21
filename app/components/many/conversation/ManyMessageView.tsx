@@ -299,7 +299,7 @@ export default function ManyMessageView({
                 type="button"
                 size="icon-xs"
                 variant="ghost"
-                onClick={() => void handleCopy()}
+                onClick={() => handleCopy()}
                 title={t('chat.copy_message')}
               >
                 <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
@@ -398,7 +398,7 @@ export default function ManyMessageView({
           <Button type="button" size="xs" onClick={handlePdfRegionContinue}>
             {t('viewer.pdf_region_qa_continue_many')}
           </Button>
-          <Button type="button" size="xs" variant="outline" onClick={() => void handlePdfRegionCopy()}>
+          <Button type="button" size="xs" variant="outline" onClick={() => handlePdfRegionCopy()}>
             {t('viewer.pdf_region_qa_copy_handoff')}
           </Button>
         </div>
@@ -419,7 +419,7 @@ export default function ManyMessageView({
             type="button"
             size="icon-xs"
             variant="ghost"
-            onClick={() => void handleCopy()}
+            onClick={() => handleCopy()}
             title={t('chat.copy_message')}
           >
             <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />

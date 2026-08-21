@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-const { setMaxListeners } = require('events');
+const { setMaxListeners } = require('node:events');
 // Single agent runtime: the "many" surface runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('../../agents/agent-runtime.cjs');
@@ -447,7 +447,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
           assertOllamaAuthReady(baseUrl, ollamaApiKey);
           const urlObj = new URL(`${baseUrl}/api/tags`);
-          const transport = urlObj.protocol === 'https:' ? require('https') : require('http');
+          const transport = urlObj.protocol === 'https:' ? require('node:https') : require('node:http');
           const requestOptions = {
             timeout: 5000,
             rejectUnauthorized: false,

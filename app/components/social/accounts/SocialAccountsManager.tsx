@@ -100,13 +100,11 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void load().catch((reason) => {
+  useEffect(() => { load().catch((reason) => {
       setError(reason instanceof Error ? reason.message : 'Error');
       setLoading(false);
     });
-    const unsubscribe = window.electron?.on?.('social:account-updated', () => {
-      void load();
+    const unsubscribe = window.electron?.on?.('social:account-updated', () => { load();
     });
     return () => unsubscribe?.();
   }, [load]);
@@ -202,7 +200,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
                   className="max-w-40"
                 />
               </Field>
-              <Button type="button" variant="outline" size="sm" onClick={() => void savePort()}>
+              <Button type="button" variant="outline" size="sm" onClick={() => savePort()}>
                 {t('social.settings.save')}
               </Button>
             </div>
@@ -293,7 +291,7 @@ function ProviderCard({
               <Field orientation="horizontal">
                 <Checkbox
                   checked={Boolean(account.cloudPublishing)}
-                  onCheckedChange={(checked) => void toggleCloud(account.id, checked)}
+                  onCheckedChange={(checked) => toggleCloud(account.id, checked)}
                 />
                 <FieldLabel>{t('social.settings.cloud_publishing')}</FieldLabel>
               </Field>
@@ -303,7 +301,7 @@ function ProviderCard({
               size="xs"
               variant="ghost"
               className="self-start"
-              onClick={() => void disconnect(account.id)}
+              onClick={() => disconnect(account.id)}
             >
               {t('social.settings.disconnect')}
             </Button>
@@ -437,7 +435,7 @@ function ProviderConfigurationDialog({
             <FieldLabel>{t('social.settings.redirect_uri')}</FieldLabel>
             <div className="flex items-center gap-2 rounded-lg bg-muted p-2">
               <code className="min-w-0 flex-1 truncate text-xs">{provider.redirectUri}</code>
-              <Button type="button" variant="ghost" size="icon-xs" onClick={() => void navigator.clipboard?.writeText(provider.redirectUri)}>
+              <Button type="button" variant="ghost" size="icon-xs" onClick={() => navigator.clipboard?.writeText(provider.redirectUri)}>
                 <HugeiconsIcon icon={Copy01Icon} />
                 <span className="sr-only">{t('social.settings.copy')}</span>
               </Button>
@@ -457,7 +455,7 @@ function ProviderConfigurationDialog({
               <FieldLabel htmlFor={`studio-token-${provider.provider}`}>{t('social.settings.connect_token')}</FieldLabel>
               <div className="flex gap-2">
                 <Input id={`studio-token-${provider.provider}`} type="password" value={token} onChange={(event) => setToken(event.target.value)} />
-                <Button type="button" variant="outline" onClick={() => void connectToken()} disabled={busy || !token.trim()}>
+                <Button type="button" variant="outline" onClick={() => connectToken()} disabled={busy || !token.trim()}>
                   <HugeiconsIcon icon={Key01Icon} data-icon="inline-start" />
                   {t('social.settings.connect')}
                 </Button>
@@ -467,16 +465,16 @@ function ProviderConfigurationDialog({
         </FieldGroup>
         <DialogFooter>
           {provider.provider === 'linkedin' && accounts.some((account) => account.accountKind === 'member') ? (
-            <Button type="button" variant="ghost" onClick={() => void syncOrganizations()} disabled={busy}>
+            <Button type="button" variant="ghost" onClick={() => syncOrganizations()} disabled={busy}>
               <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
               {t('social.settings.linkedin_sync_orgs')}
             </Button>
           ) : null}
-          <Button type="button" variant="outline" onClick={() => void save()} disabled={busy}>
+          <Button type="button" variant="outline" onClick={() => save()} disabled={busy}>
             {busy ? <Spinner data-icon="inline-start" /> : null}
             {t('social.settings.save')}
           </Button>
-          <Button type="button" onClick={() => void connectOAuth()} disabled={busy || !clientId.trim()}>
+          <Button type="button" onClick={() => connectOAuth()} disabled={busy || !clientId.trim()}>
             {busy ? <Spinner data-icon="inline-start" /> : null}
             {t('social.settings.connect_oauth')}
           </Button>

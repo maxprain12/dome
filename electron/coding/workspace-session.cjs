@@ -13,7 +13,7 @@
  * root, instead of trusting whatever absolute path the model invents.
  */
 
-const path = require('path');
+const path = require('node:path');
 const workspaceStore = require('./workspace-store.cjs');
 
 /**

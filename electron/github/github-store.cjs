@@ -6,7 +6,7 @@
  * handlers go through these helpers.
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const database = require('../core/database.cjs');
 
 const db = () => database.getDB();

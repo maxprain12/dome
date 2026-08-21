@@ -5,8 +5,8 @@
  * Same idea as LangChain Deep Agents / agents.md — keep small; skills carry detail.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const DEFAULT_MAX_CHARS = 14_000;
 
