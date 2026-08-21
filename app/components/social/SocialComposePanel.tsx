@@ -69,6 +69,102 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Active account for the live preview (LinkedIn selection wins when set). */
+function resolvePreviewAccount(
+  accounts: SocialAccount[],
+  previewProvider: SocialProvider,
+  linkedInAccountId: string | null,
+): SocialAccount | null {
+  if (previewProvider === 'linkedin' && linkedInAccountId) {
+    const selected = accounts.find((a) => a.id === linkedInAccountId);
+    if (selected) return selected;
+  }
+  return (
+    accounts.find((a) => a.provider === previewProvider && a.status === 'active') ??
+    accounts.find((a) => a.provider === previewProvider) ??
+    null
+  );
+}
+
+type ComposeLibraryPanelProps = {
+  library: SocialLibraryItem[] | null;
+  selectedIds: Set<string>;
+  onPick: (item: SocialLibraryItem) => void;
+};
+
+/** Vault picker body while the library accordion is open. */
+function ComposeLibraryPanel({ library, selectedIds, onPick }: ComposeLibraryPanelProps) {
+  const { t } = useTranslation();
+  if (library === null) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+        <Spinner className="size-3.5" />
+        {t('common.loading')}
+      </div>
+    );
+  }
+  if (library.length === 0) {
+    return (
+      <p className="px-3 py-2 text-xs text-muted-foreground">
+        {t('social.composer.library_empty')}
+      </p>
+    );
+  }
+  return (
+    <SocialLibraryTree
+      items={library}
+      onPick={onPick}
+      selectedIds={selectedIds}
+    />
+  );
+}
+
+type ComposePreviewFormatHintsProps = {
+  previewProvider: SocialProvider;
+  previewFormat: SocialPostFormat;
+  previewHasVideo: boolean;
+  linkUrl: string;
+  mediaCount: number;
+};
+
+/** Format-specific warnings under the live preview. */
+function ComposePreviewFormatHints({
+  previewProvider,
+  previewFormat,
+  previewHasVideo,
+  linkUrl,
+  mediaCount,
+}: ComposePreviewFormatHintsProps) {
+  const { t } = useTranslation();
+  const hintClass = 'text-[11px]';
+  const hintStyle = { color: 'var(--warning-text, var(--muted-foreground))' } as const;
+
+  return (
+    <>
+      {previewProvider === 'instagram' && previewFormat === 'reel' && !previewHasVideo && (
+        <p className={hintClass} style={hintStyle}>
+          {t('social.preview.hint_reel_needs_video')}
+        </p>
+      )}
+      {previewFormat === 'article' && !linkUrl.trim() && (
+        <p className={hintClass} style={hintStyle}>
+          {t('social.preview.hint_article_needs_link')}
+        </p>
+      )}
+      {previewFormat === 'carousel' && mediaCount < 2 && (
+        <p className={hintClass} style={hintStyle}>
+          {t('social.preview.hint_carousel_needs_images')}
+        </p>
+      )}
+      {(previewFormat === 'video' || previewFormat === 'image') && mediaCount === 0 && (
+        <p className={hintClass} style={hintStyle}>
+          {t('social.preview.hint_needs_media')}
+        </p>
+      )}
+    </>
+  );
+}
+
 export default function SocialComposePanel({
   accounts,
   campaigns = [],
@@ -179,13 +275,7 @@ export default function SocialComposePanel({
 
   const previewFormat: SocialPostFormat =
     formatOverrides[previewProvider] ?? deriveFormat(previewProvider, media, linkUrl.trim());
-  const previewAccount =
-    (previewProvider === 'linkedin' && linkedInAccountId
-      ? accounts.find((a) => a.id === linkedInAccountId)
-      : null) ??
-    accounts.find((a) => a.provider === previewProvider && a.status === 'active') ??
-    accounts.find((a) => a.provider === previewProvider) ??
-    null;
+  const previewAccount = resolvePreviewAccount(accounts, previewProvider, linkedInAccountId);
   const previewHasVideo = media.some((m) => m.type === 'video' || m.type === 'reel');
 
   const toggleProvider = (p: SocialProvider) => {
@@ -428,7 +518,14 @@ export default function SocialComposePanel({
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
             {t('social.composer.cancel')}
           </Button>
-          <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              save().catch(() => {});
+            }}
+            disabled={saving}
+          >
             {saving ? <Spinner data-icon="inline-start" /> : null}
             {scheduleAt ? t('social.composer.save_scheduled') : t('social.composer.save_draft')}
           </Button>
@@ -535,7 +632,9 @@ export default function SocialComposePanel({
                     type="button"
                     size="xs"
                     variant="outline"
-                    onClick={() => void runAiAssist(action)}
+                    onClick={() => {
+                      runAiAssist(action).catch(() => {});
+                    }}
                     disabled={aiBusy !== null}
                     className="text-[11px] text-primary"
                     title={label}
@@ -575,7 +674,15 @@ export default function SocialComposePanel({
           <div className="flex flex-col gap-2">
             <SectionLabel>{t('social.composer.section_media')}</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
-              <Button type="button" size="sm" variant="outline" className="text-xs" onClick={() => void pickLocalFiles()}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => {
+                  pickLocalFiles().catch(() => {});
+                }}
+              >
                 <HugeiconsIcon icon={ComputerIcon} className="size-3.5 text-primary" />
                 {t('social.composer.media_from_computer')}
               </Button>
@@ -603,22 +710,11 @@ export default function SocialComposePanel({
 
             {showLibrary && (
               <div className="max-h-64 overflow-y-auto rounded-md border bg-card">
-                {library === null ? (
-                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                    <Spinner className="size-3.5" />
-                    {t('common.loading')}
-                  </div>
-                ) : library.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-muted-foreground">
-                    {t('social.composer.library_empty')}
-                  </p>
-                ) : (
-                  <SocialLibraryTree
-                    items={library}
-                    onPick={addLibraryItem}
-                    selectedIds={selectedLibraryIds}
-                  />
-                )}
+                <ComposeLibraryPanel
+                  library={library}
+                  selectedIds={selectedLibraryIds}
+                  onPick={addLibraryItem}
+                />
               </div>
             )}
 
@@ -862,27 +958,13 @@ export default function SocialComposePanel({
           thumbnails={thumbnails}
         />
 
-        {/* Format-specific hints */}
-        {previewProvider === 'instagram' && previewFormat === 'reel' && !previewHasVideo && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
-            {t('social.preview.hint_reel_needs_video')}
-          </p>
-        )}
-        {previewFormat === 'article' && !linkUrl.trim() && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
-            {t('social.preview.hint_article_needs_link')}
-          </p>
-        )}
-        {previewFormat === 'carousel' && media.length < 2 && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
-            {t('social.preview.hint_carousel_needs_images')}
-          </p>
-        )}
-        {(previewFormat === 'video' || previewFormat === 'image') && media.length === 0 && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
-            {t('social.preview.hint_needs_media')}
-          </p>
-        )}
+        <ComposePreviewFormatHints
+          previewProvider={previewProvider}
+          previewFormat={previewFormat}
+          previewHasVideo={previewHasVideo}
+          linkUrl={linkUrl}
+          mediaCount={media.length}
+        />
       </aside>
       </div>
     </InlineDetailCard>
