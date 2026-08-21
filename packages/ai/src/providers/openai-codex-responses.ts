@@ -50,7 +50,8 @@ import { buildBaseOptions } from "./simple-options.js";
 
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 const JWT_CLAIM_PATH = "https://api.openai.com/auth" as const;
-const DEFAULT_MAX_RETRIES = 0;
+/** Transient 502/503/504 from chatgpt.com/backend-api need a short retry window. */
+const DEFAULT_MAX_RETRIES = 2;
 const BASE_DELAY_MS = 1000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 60_000;
 const DEFAULT_SSE_HEADER_TIMEOUT_MS = 10_000;
@@ -1406,6 +1407,7 @@ async function parseErrorResponse(response: Response): Promise<{ message: string
 	try {
 		const parsed = JSON.parse(raw) as {
 			error?: { code?: string; type?: string; message?: string; plan_type?: string; resets_at?: number };
+			detail?: string;
 		};
 		const err = parsed?.error;
 		if (err) {
@@ -1419,8 +1421,21 @@ async function parseErrorResponse(response: Response): Promise<{ message: string
 				friendlyMessage = `You have hit your ChatGPT usage limit${plan}.${when}`.trim();
 			}
 			message = err.message || friendlyMessage || message;
+		} else if (typeof parsed?.detail === "string" && parsed.detail.trim()) {
+			message = parsed.detail;
 		}
 	} catch {}
+
+	if (
+		!friendlyMessage &&
+		(response.status === 502 || response.status === 503 || response.status === 504)
+	) {
+		friendlyMessage =
+			"ChatGPT Codex is temporarily unavailable. Wait a moment and try again, or switch provider in Settings → AI.";
+		if (!raw || message === response.statusText || /^service unavailable$/i.test(message)) {
+			message = friendlyMessage;
+		}
+	}
 
 	return { message, friendlyMessage };
 }

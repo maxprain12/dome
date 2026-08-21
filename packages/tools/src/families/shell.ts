@@ -19,12 +19,21 @@ export function shellToolDefinitions(): ToolDefinition[] {
       function: {
         name: 'shell_exec',
         description:
-          'Execute a shell command. A native confirmation dialog appears before running — the user must approve. Returns stdout, stderr, and exit code.',
+          'Execute a shell command. The user must approve it first. Output (stdout+stderr interleaved) streams back and is capped to the last ~2000 lines / 50KB; when truncated, the full transcript is saved and its path returned in full_output_path. Long builds and test suites are fine — there is no default timeout.',
         parameters: {
           type: 'object',
           properties: {
             command: { type: 'string', description: 'Shell command to execute (e.g. "pnpm run build").' },
-            cwd: { type: 'string', description: 'Working directory for the command.' },
+            cwd: {
+              type: 'string',
+              description:
+                'Working directory. Ignored in a coding session, where commands always run at the workspace root.',
+            },
+            timeout: {
+              type: 'number',
+              description:
+                'Optional timeout in seconds. Omit for no timeout; the command is killed (with its children) when it elapses.',
+            },
           },
           required: ['command'],
         },

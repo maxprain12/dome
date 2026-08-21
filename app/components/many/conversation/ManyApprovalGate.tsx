@@ -47,9 +47,9 @@ export default function ManyApprovalGate({
   }, [expiresAt]);
 
   const respondApproval = useCallback(
-    (approvalId: string, approved: boolean) => {
+    (approvalId: string, approved: boolean, scope?: 'once' | 'session') => {
       dequeue(approvalId);
-      window.electron?.approval?.respond?.(approvalId, approved);
+      window.electron?.approval?.respond?.(approvalId, approved, scope);
     },
     [dequeue],
   );
@@ -79,6 +79,10 @@ export default function ManyApprovalGate({
           expiresSeconds={secondsLeft}
           onReject={() => respondApproval(current.approvalId, false)}
           onApprove={() => respondApproval(current.approvalId, true)}
+          // Stops asking for the rest of the conversation — the escape hatch
+          // for a coding run where every command would need its own click.
+          showApproveAll={current.canRemember === true}
+          onApproveAll={() => respondApproval(current.approvalId, true, 'session')}
         />
       ) : null}
 

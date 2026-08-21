@@ -324,6 +324,80 @@ export function createGithubSyncTool(): AnyAgentTool {
   };
 }
 
+
+/**
+ * Pull-request tools.
+ *
+ * Definitions only: execution happens in the main process against the
+ * authenticated GitHub client. Reading PR state with web_fetch does not work —
+ * a private repo returns nothing over plain HTTP, and whether a PR was merged
+ * (as opposed to merely closed) is not on the page at all.
+ */
+const PR_MAIN_PROCESS_ONLY = jsonResult({
+  success: false,
+  error: 'GitHub pull-request tools run in the main process.',
+});
+
+const repoRefParams = {
+  repo_id: Type.Optional(Type.String({ description: 'Dome repo id (ghr-…).' })),
+  full_name: Type.Optional(Type.String({ description: 'Alternative to repo_id, e.g. "owner/name".' })),
+};
+
+export function createGithubPullRequestTools(): AnyAgentTool[] {
+  return [
+    {
+      label: 'Pull request',
+      name: 'github_get_pull_request',
+      description:
+        'Get one pull request: state, whether it was actually merged (merged/merged_at/merge_commit_sha), draft, mergeable state, head and base. Authenticated — use instead of web_fetch, which cannot see private repos or merge state.',
+      parameters: Type.Object({
+        ...repoRefParams,
+        number: Type.Number({ description: 'Pull request number, e.g. 1031.' }),
+      }),
+      execute: async () => PR_MAIN_PROCESS_ONLY,
+    },
+    {
+      label: 'Pull requests',
+      name: 'github_list_pull_requests',
+      description:
+        'List pull requests for a repo (open by default), each with its merge state. Authenticated — works on private repos.',
+      parameters: Type.Object({
+        ...repoRefParams,
+        state: Type.Optional(Type.String({ description: '"open" (default), "closed" or "all".' })),
+        limit: Type.Optional(Type.Number({ description: 'Maximum PRs to return (default 20, max 50).' })),
+      }),
+      execute: async () => PR_MAIN_PROCESS_ONLY,
+    },
+    {
+      label: 'Open PR',
+      name: 'github_create_pull_request',
+      description:
+        'Open a pull request from an already-pushed branch. Put "Closes #N" in the body to link and auto-close an issue on merge.',
+      parameters: Type.Object({
+        ...repoRefParams,
+        title: Type.String({ description: 'Pull request title.' }),
+        head: Type.String({ description: 'Branch containing the changes (must already be pushed).' }),
+        base: Type.Optional(Type.String({ description: 'Branch to merge into (default "main").' })),
+        body: Type.Optional(Type.String({ description: 'Description. Use "Closes #N" to link an issue.' })),
+        draft: Type.Optional(Type.Boolean({ description: 'Open as a draft.' })),
+      }),
+      execute: async () => PR_MAIN_PROCESS_ONLY,
+    },
+    {
+      label: 'PR checks',
+      name: 'github_pr_checks',
+      description:
+        'CI state for a pull request (or any ref): rolled-up status plus each check run and its conclusion. Use to verify a PR is green before merging.',
+      parameters: Type.Object({
+        ...repoRefParams,
+        number: Type.Optional(Type.Number({ description: 'Pull request number; its head sha is resolved automatically.' })),
+        ref: Type.Optional(Type.String({ description: 'Explicit commit sha or branch, instead of a PR number.' })),
+      }),
+      execute: async () => PR_MAIN_PROCESS_ONLY,
+    },
+  ];
+}
+
 export function createGithubTools(): AnyAgentTool[] {
   return [
     createGithubUpcomingMilestonesTool(),
@@ -335,5 +409,6 @@ export function createGithubTools(): AnyAgentTool[] {
     createGithubCreateMilestoneTool(),
     createGithubUpdateIssueTool(),
     createGithubSyncTool(),
+    ...createGithubPullRequestTools(),
   ];
 }

@@ -21,9 +21,9 @@
  */
 /* eslint-disable no-console */
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { pipeline } = require('stream/promises');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
@@ -495,15 +495,41 @@ const UPLOAD_REJECT_STATUSES = new Set([413, 402, 403]);
  * | { kind: 'rate-limited' | 'quota-exceeded' | 'skipped' | 'error' | 'deduped' }
  * >}
  */
+/**
+ * One retry for transient undici "fetch failed" (DNS blip, socket reset).
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @param {string} label
+ * @returns {Promise<T>}
+ */
+async function withTransientFetchRetry(fn, label) {
+  try {
+    return await fn();
+  } catch (err) {
+    const msg = `${err?.message || err}`;
+    const cause = err?.cause?.code || err?.cause?.message || '';
+    const transient = /fetch failed|econnreset|etimedout|enotfound|socket hang up|network/i.test(
+      `${msg} ${cause}`,
+    );
+    if (!transient) throw err;
+    console.warn(`[blob-sync] ${label} transient (${msg}${cause ? `; ${cause}` : ''}); retrying once`);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return fn();
+  }
+}
+
 async function requestUploadGrant(deps, base, blob) {
-  const grantRes = await domeOauth.fetchWithDomeAuth(
-    deps.database,
-    `${base}/api/v1/files/upload-url`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hash: blob.hash, sizeBytes: blob.size_bytes, mime: blob.mime }),
-    },
+  const grantRes = await withTransientFetchRetry(
+    () => domeOauth.fetchWithDomeAuth(
+      deps.database,
+      `${base}/api/v1/files/upload-url`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hash: blob.hash, sizeBytes: blob.size_bytes, mime: blob.mime }),
+      },
+    ),
+    'upload-url',
   );
   if (grantRes.status === 429) {
     return { kind: 'rate-limited' };
@@ -544,15 +570,17 @@ async function translateUploadRejection(grantRes) {
  * @returns {Promise<'ok' | 'too-large' | 'error'>}
  */
 async function performBlobPut(blob, url, localFile) {
-  const putRes = await fetch(url, {
+  const putOnce = () => fetch(url, {
     method: 'PUT',
     headers: {
       'Content-Type': blob.mime || 'application/octet-stream',
       'Content-Length': String(blob.size_bytes ?? fs.statSync(localFile).size),
     },
+    // Fresh stream per attempt — a retried Readable cannot be rewound.
     body: fs.createReadStream(localFile),
     duplex: 'half',
   });
+  const putRes = await withTransientFetchRetry(putOnce, `put ${blob.hash.slice(0, 12)}`);
   if (!putRes.ok) {
     const detail = await putRes.text().catch(() => '');
     // Supabase envuelve el "Payload too large" (límite GLOBAL de subida
@@ -634,7 +662,13 @@ async function uploadPendingBlob(
     const putResult = await performBlobPut(blob, outcome.url, localFile);
     return applyUploadOutcome(blob, outcome, putResult, markUploaded, markSkipped);
   } catch (err) {
-    console.warn('[blob-sync] upload error:', err?.message);
+    const cause = err?.cause?.code || err?.cause?.message || '';
+    console.warn(
+      '[blob-sync] upload error:',
+      err?.message,
+      cause ? `(${cause})` : '',
+      blob.hash?.slice?.(0, 12) || '',
+    );
     return { kind: 'skip' };
   }
 }

@@ -123,6 +123,12 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
           src.kind === 'social_post' && typeof src.meta?.status === 'string'
             ? ` status=${src.meta.status}`
             : '';
+        // A bound clone turns the pin into a coding task: the run's tools are
+        // already scoped to this root, so the model must not guess a path.
+        const workspace =
+          src.kind === 'issue' && typeof src.meta?.localPath === 'string' && src.meta.localPath.trim()
+            ? `\n  working copy: ${src.meta.localPath.trim()} — the file, shell and git tools are already scoped to it; use relative paths.`
+            : '';
         const body =
           typeof src.meta?.body === 'string' && src.meta.body.trim()
             ? `\n  body: ${src.meta.body.trim().slice(0, 2000)}`
@@ -135,7 +141,7 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
               : src.kind === 'issue'
                 ? ' → github_get_issue'
                 : '';
-        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+        return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${workspace}${body}`;
       })
       .join('\n');
     blocks.push(

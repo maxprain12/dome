@@ -5,6 +5,8 @@ export interface ApprovalRequest {
   kind: 'shell_exec' | 'tool_action' | string;
   payload: Record<string, unknown>;
   timeoutMs: number;
+  /** Whether "approve for this chat" is offered (needs a thread to scope to). */
+  canRemember?: boolean;
 }
 
 interface ApprovalStore {

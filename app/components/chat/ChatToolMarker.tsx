@@ -46,14 +46,24 @@ export function ChatToolMarker({
   const markerBody = (
     <>
       <MarkerIcon>{markerIcon}</MarkerIcon>
+      {/*
+        One line, not two. A turn shows a dozen of these; stacking the target
+        under the label doubled the height of the whole trace for information
+        that reads fine inline. The full value stays available via `title`.
+      */}
       <MarkerContent
         className={cn(
-          'flex min-w-0 flex-1 flex-col gap-0.5 leading-tight',
+          'flex min-w-0 flex-1 items-baseline gap-1.5 leading-tight',
           isPending && 'shimmer',
         )}
+        title={typeof summary === 'string' && summary ? summary : undefined}
       >
-        <span className="truncate font-medium">{label}</span>
-        {summary ? <span className="truncate text-xs text-muted-foreground">{summary}</span> : null}
+        <span className="shrink-0 font-medium">{label}</span>
+        {summary ? (
+          <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">
+            {summary}
+          </span>
+        ) : null}
       </MarkerContent>
       {expandable ? (
         <HugeiconsIcon
@@ -108,6 +118,12 @@ export interface ChatToolGroupMarkerProps {
   expanded?: boolean;
   onToggle: () => void;
   className?: string;
+  /**
+   * What the group is doing right now (the running call's target). Without it a
+   * collapsed group reads as "Reading file (17)" and the user cannot tell what
+   * the agent is actually touching.
+   */
+  summary?: string;
 }
 
 /** Grouped tool calls header row. */
@@ -118,10 +134,12 @@ export function ChatToolGroupMarker({
   expanded = false,
   onToggle,
   className,
+  summary,
 }: ChatToolGroupMarkerProps) {
   return (
     <ChatToolMarker
       label={label}
+      summary={summary}
       status={status}
       icon={icon}
       expanded={expanded}

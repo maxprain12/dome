@@ -7,7 +7,6 @@ import { CheckmarkCircle02Icon, File02Icon, PlusSignCircleIcon, UserMultiple02Ic
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard from './ArtifactCard';
 import ChatTodoList from './ChatTodoList';
-import type { TodoItem } from '@/lib/chat/todos';
 import { parseTodos } from '@/lib/chat/todos';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -34,6 +33,12 @@ export interface ToolCallData {
   error?: string;
   /** Name of the subagent that produced this call (deepagents `task` delegation). */
   agentName?: string;
+  /**
+   * Characters of assistant text emitted before this call, used to interleave
+   * the card at the point of the reply where it actually happened.
+   * Absent on messages restored from storage, which fall back to tools-first.
+   */
+  contentOffset?: number;
 }
 
 export type ChatToolSurfaceVariant = 'default' | 'many';
@@ -53,15 +58,21 @@ import {
   parseArtifactResult,
   parsePersistedArtifactCreateResult,
   parseResourceItems,
-  formatArgsSummary,
   smartToolSummary,
   getCodegenPreview,
 } from './tool-card/toolResultParsers';
 import {
   CodegenPreview,
 } from './tool-card/ToolResultHighlights';
+import {
+  DiffPreview,
+  ShellPreview,
+  parseDiffResult,
+  parseShellResult,
+} from './tool-card/DiffPreview';
 import { renderToolSuccessHighlight } from '@/lib/chat/toolResultHighlights';
 import { renderTreeToolSummary } from '@/lib/chat/renderTreeToolSummary';
+import SubagentTranscript from '@/components/many/conversation/SubagentTranscript';
 
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -134,7 +145,6 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
 
   const resultText = formatToolResult(toolCall.result);
   const isPending = toolCall.status === 'pending' || toolCall.status === 'running';
-  const argsSummary = formatArgsSummary(toolCall.arguments);
 
   // Soft confirmation requested by tool (needs_confirmation status)
   const needsConfirmation = (parsedResult as Record<string, unknown> | null)?.status === 'needs_confirmation';
@@ -178,6 +188,13 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   const renderFormattedView = (): ReactNode => {
     if (showRawJson) return null;
     if (treeToolSummary) return renderTreeToolSummary(treeToolSummary, t);
+
+    // Coding surfaces: show the actual change, not a JSON blob.
+    const diff = parseDiffResult(toolCall.result);
+    if (diff) return <div className="mt-1"><DiffPreview diff={diff} t={t} /></div>;
+    const shell = parseShellResult(toolCall.result);
+    if (shell) return <div className="mt-1"><ShellPreview shell={shell} t={t} /></div>;
+
     const codegen = getCodegenPreview(toolCall.name, toolCall.arguments);
     if (codegen) return <CodegenPreview preview={codegen} t={t} />;
     const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
@@ -446,7 +463,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     <div className={cn('flex min-w-0 max-w-full flex-col gap-1', className)}>
       <ChatToolMarker
         label={toolLabel}
-        summary={cardSummary || argsSummary}
+        summary={cardSummary}
         status={toolCall.status}
         icon={Icon}
         expanded={expanded}
@@ -507,7 +524,14 @@ export function SubagentToolSection({
         expandable
         onToggle={() => setExpanded((open) => !open)}
       />
-      {expanded ? <div className="flex flex-col gap-1 pl-1">{childArray}</div> : null}
+      {expanded ? (
+        <div className="flex flex-col gap-1 pl-1">
+          {childArray}
+          {/* The tools above are only what the subagent surfaced to the parent
+              stream; its full transcript lives in its own nested session. */}
+          <SubagentTranscript agentKey={agentKey} className="pt-0.5" />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -534,10 +558,18 @@ export function ChatToolCardGroup({
         ? 'success'
         : 'pending';
 
+  // While the group is working, surface what it is working *on*; once it is
+  // done, the last target is the most useful trace of where it ended up.
+  const activeCall =
+    calls.find((c) => c.status === 'running' || c.status === 'pending')
+    ?? calls[calls.length - 1];
+  const groupSummary = activeCall ? smartToolSummary(activeCall.name, activeCall.arguments ?? {}) : '';
+
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <ChatToolGroupMarker
         label={t('chat.tool_group_count', { label, count })}
+        summary={groupSummary || undefined}
         status={groupStatus}
         icon={Icon}
         expanded={expanded}

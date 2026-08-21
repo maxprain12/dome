@@ -32,7 +32,9 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { socialAccountLabel, socialEventCardLabel, socialPostLabel } from '@/lib/social/socialQueues';
 import { EventCardDesignPanel } from './EventCardDesignPanel';
 import { EventCardCoverStrip, EventCardPreview } from './EventCardPreview';
 import {
@@ -217,6 +219,17 @@ export function SocialEventCardsWorkspace({
 
   useEffect(() => {
     void load().catch(() => {});
+    const unsub = window.electron?.on?.(
+      'social:event-cards-refresh',
+      (payload: { cards?: SocialEventCard[]; wallet?: { appleConfigured: boolean; googleConfigured: boolean } }) => {
+        setProviderError(null);
+        setCards(unwrapCards(payload));
+        setWallet(payload?.wallet ?? { appleConfigured: false, googleConfigured: false });
+      },
+    );
+    return () => {
+      unsub?.();
+    };
   }, [load]);
 
   useEffect(() => {
@@ -846,7 +859,17 @@ function UpdatesPanel({ cards }: { cards: SocialEventCard[] }) {
   }, [cardId, t]);
   useEffect(() => {
     void load().catch(() => {});
-  }, [load]);
+    const unsub = window.electron?.on?.(
+      'social:event-updates-refresh',
+      (payload: { cardId?: string; updates?: SocialEventUpdate[] }) => {
+        if (!payload?.cardId || payload.cardId !== cardId) return;
+        setUpdates(payload.updates ?? []);
+      },
+    );
+    return () => {
+      unsub?.();
+    };
+  }, [load, cardId]);
   if (!cards.length) return <CardsEmpty />;
   return (
     <Panel title={t('social.events.updates')} description={t('social.events.updates_description')}>
@@ -947,6 +970,10 @@ function AutomationsPanel({
   const [postId, setPostId] = useState('');
   const [keyword, setKeyword] = useState('INFO');
   const [replyTemplate, setReplyTemplate] = useState('{{event}} · {{date}} · {{location}}\n{{link}}');
+  const [commentReplyEnabled, setCommentReplyEnabled] = useState(true);
+  const [commentReplyTemplate, setCommentReplyTemplate] = useState(
+    t('social.events.comment_reply_placeholder'),
+  );
   const load = useCallback(async () => {
     const r = await window.electron.invoke('social:dm-rules:list');
     if (!r?.success) {
@@ -958,8 +985,21 @@ function AutomationsPanel({
   }, [t]);
   useEffect(() => {
     void load().catch(() => {});
+    const unsub = window.electron?.on?.(
+      'social:dm-rules-refresh',
+      (payload: { rules?: SocialDmRule[] }) => {
+        setRules(payload?.rules ?? []);
+      },
+    );
+    return () => {
+      unsub?.();
+    };
   }, [load]);
   if (!cards.length) return <CardsEmpty />;
+  const selectedPost = postId ? posts.find((p) => p.id === postId) : undefined;
+  const postSelectLabel = selectedPost
+    ? socialPostLabel(selectedPost)
+    : t('social.events.any_publication');
   return (
     <Panel title={t('social.events.automations')} description={t('social.events.automations_description')}>
       {!instagram.length ? (
@@ -970,12 +1010,20 @@ function AutomationsPanel({
             <FieldLabel>{t('social.events.instagram_account')}</FieldLabel>
             <Select value={accountId} onValueChange={(v) => setAccountId(v ?? '')}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>
+                  {socialAccountLabel(
+                    instagram.find((a) => a.id === accountId) ?? {
+                      displayName: null,
+                      handle: null,
+                      provider: 'instagram',
+                    },
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {instagram.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
-                    {a.displayName || a.handle || a.id}
+                    {socialAccountLabel(a)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -992,7 +1040,7 @@ function AutomationsPanel({
               onValueChange={(v) => setPostId(!v || v === '__any__' ? '' : v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder={t('social.events.publication')} />
+                <SelectValue>{postSelectLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__any__">{t('social.events.any_publication')}</SelectItem>
@@ -1000,7 +1048,7 @@ function AutomationsPanel({
                   .filter((p) => p.provider === 'instagram' && p.status === 'published' && p.externalPostId)
                   .map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.body.slice(0, 80) || p.externalPostId}
+                      {socialPostLabel(p)}
                     </SelectItem>
                   ))}
               </SelectContent>
@@ -1014,11 +1062,38 @@ function AutomationsPanel({
             <FieldLabel>{t('social.events.reply_template')}</FieldLabel>
             <Textarea value={replyTemplate} onChange={(e) => setReplyTemplate(e.target.value)} rows={3} />
           </Field>
+          <Field className="@[40rem]/social:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <FieldLabel htmlFor="legacy-dm-comment-reply">
+                {t('social.events.comment_reply_enabled')}
+              </FieldLabel>
+              <Switch
+                id="legacy-dm-comment-reply"
+                checked={commentReplyEnabled}
+                onCheckedChange={setCommentReplyEnabled}
+              />
+            </div>
+          </Field>
+          {commentReplyEnabled ? (
+            <Field className="@[40rem]/social:col-span-2">
+              <FieldLabel>{t('social.events.comment_reply_template')}</FieldLabel>
+              <Textarea
+                value={commentReplyTemplate}
+                onChange={(e) => setCommentReplyTemplate(e.target.value)}
+                placeholder={t('social.events.comment_reply_placeholder')}
+                rows={2}
+              />
+            </Field>
+          ) : null}
         </div>
       )}
       <Button
         className="mt-4"
-        disabled={!accountId || !cardId}
+        disabled={
+          !accountId ||
+          !cardId ||
+          (commentReplyEnabled && !commentReplyTemplate.trim())
+        }
         onClick={() => {
           void (async () => {
             const r = await window.electron.invoke('social:dm-rules:create', {
@@ -1028,6 +1103,9 @@ function AutomationsPanel({
               keyword,
               replyTemplate,
               enabled: true,
+              commentReplyEnabled,
+              commentReplyTemplate:
+                commentReplyTemplate.trim() || t('social.events.comment_reply_placeholder'),
             });
             if (r?.success) {
               await load();
@@ -1042,6 +1120,7 @@ function AutomationsPanel({
         <TableHeader>
           <TableRow>
             <TableHead>{t('social.events.keyword')}</TableHead>
+            <TableHead>{t('social.events.comment_reply_template')}</TableHead>
             <TableHead>{t('social.events.status')}</TableHead>
             <TableHead />
           </TableRow>
@@ -1050,6 +1129,13 @@ function AutomationsPanel({
           {rules.map((r) => (
             <TableRow key={r.id}>
               <TableCell>{r.keyword}</TableCell>
+              <TableCell>
+                <Badge variant={r.commentReplyEnabled ? 'secondary' : 'outline'}>
+                  {r.commentReplyEnabled
+                    ? t('social.events.comment_reply_on')
+                    : t('social.events.comment_reply_off')}
+                </Badge>
+              </TableCell>
               <TableCell>
                 <Badge variant={r.status === 'active' ? 'mint' : 'outline'}>{statusLabel(t, r.status)}</Badge>
               </TableCell>
@@ -1160,15 +1246,16 @@ function CardSelect({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const selected = cards.find((c) => c.id === value);
   return (
     <Select value={value} onValueChange={(v) => onChange(v ?? '')}>
       <SelectTrigger>
-        <SelectValue />
+        <SelectValue>{selected ? socialEventCardLabel(selected) : '…'}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {cards.map((c) => (
           <SelectItem key={c.id} value={c.id}>
-            {c.internalName}
+            {socialEventCardLabel(c)}
           </SelectItem>
         ))}
       </SelectContent>

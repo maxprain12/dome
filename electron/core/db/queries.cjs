@@ -1363,6 +1363,9 @@ function buildQueries(db) {
       SET body = ?, external_url = ?, published_at = COALESCE(?, published_at), updated_at = ?
       WHERE id = ?
     `),
+    updateSocialPostNotes: db.prepare(`
+      UPDATE social_posts SET notes = ?, updated_at = ? WHERE id = ?
+    `),
     listSocialPosts: db.prepare(`
       SELECT * FROM social_posts ORDER BY COALESCE(scheduled_at, published_at, created_at) DESC LIMIT ?
     `),

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-const { setMaxListeners } = require('events');
+const { setMaxListeners } = require('node:events');
 // Single agent runtime: the "many" surface runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('../../agents/agent-runtime.cjs');
@@ -447,7 +447,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
           assertOllamaAuthReady(baseUrl, ollamaApiKey);
           const urlObj = new URL(`${baseUrl}/api/tags`);
-          const transport = urlObj.protocol === 'https:' ? require('https') : require('http');
+          const transport = urlObj.protocol === 'https:' ? require('node:https') : require('node:http');
           const requestOptions = {
             timeout: 5000,
             rejectUnauthorized: false,
@@ -581,6 +581,45 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           || '');
       return await fetchProviderModels(provider, { apiKey, database });
     } catch (error) {
+      return { success: false, error: error.message || String(error) };
+    }
+  });
+
+  /**
+   * Thinking levels a given provider/model actually supports.
+   *
+   * The model registry (`@dome/ai`, generated from the providers' own
+   * capability data) is the single authority here — the renderer must not keep
+   * a parallel table of which models can reason.
+   */
+  ipcMain.handle('ai:model:thinkingLevels', async (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const provider = typeof params?.provider === 'string' ? params.provider.trim() : '';
+      const model = typeof params?.model === 'string' ? params.model.trim() : '';
+      if (!provider || !model) {
+        return { success: false, error: 'provider and model are required' };
+      }
+      const ai = await import('@dome/ai');
+      const resolved = ai.resolveDomeModel({
+        provider,
+        model,
+        baseUrl: typeof params?.baseUrl === 'string' ? params.baseUrl : undefined,
+      });
+      if (!resolved) {
+        return { success: true, data: { reasoning: false, levels: ['off'] } };
+      }
+      return {
+        success: true,
+        data: {
+          reasoning: Boolean(resolved.reasoning),
+          levels: ai.getSupportedThinkingLevels(resolved),
+        },
+      };
+    } catch (error) {
+      console.error('[AI] thinkingLevels error:', error);
       return { success: false, error: error.message || String(error) };
     }
   });

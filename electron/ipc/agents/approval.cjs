@@ -15,18 +15,24 @@
  *   approval:respond    — renderer → main (invoke)
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { webContents } = require('electron');
 const { z } = require('zod');
 
 const ApprovalRespondPayloadSchema = z.object({
   approvalId: z.string().min(1),
   approved: z.boolean(),
+  /**
+   * 'once' (default) answers this request only. 'session' also stops asking for
+   * the rest of the conversation — the escape hatch for a long coding run where
+   * every edit and command would otherwise need its own click.
+   */
+  scope: z.enum(['once', 'session']).optional(),
 });
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-// Pending approvals: approvalId → { resolve, timer }
+// Pending approvals: approvalId → { resolve, timer, threadId }
 const pending = new Map();
 
 let _windowManager = null;
@@ -48,17 +54,24 @@ function register({ ipcMain, windowManager, validateSender }) {
     if (!parsed.success) {
       return { success: false, error: 'Invalid payload' };
     }
-    const { approvalId, approved } = parsed.data;
+    const { approvalId, approved, scope } = parsed.data;
 
     if (!pending.has(approvalId)) {
       return { success: false, error: 'Unknown approvalId' };
     }
 
-    const { resolve, timer } = pending.get(approvalId);
+    const { resolve, timer, threadId } = pending.get(approvalId);
     clearTimeout(timer);
     pending.delete(approvalId);
+
+    // Only an approval can widen the scope; a rejection never grants anything.
+    if (approved && scope === 'session' && threadId) {
+      require('../../agents/hitl-allowlist.cjs').approveAllForThread(threadId);
+      console.log('[Approval] auto-approve enabled for thread:', threadId);
+    }
+
     resolve(approved);
-    return { success: true };
+    return { success: true, scope: scope ?? 'once' };
   });
 }
 
@@ -68,7 +81,7 @@ function register({ ipcMain, windowManager, validateSender }) {
  * @param {{ kind: string, payload: object, senderId: number, timeoutMs?: number }} opts
  * @returns {Promise<boolean>} Resolves true (approved) or false (cancelled/timeout).
  */
-function requestApproval({ kind, payload, senderId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+function requestApproval({ kind, payload, senderId, threadId = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   if (!_windowManager) {
     console.warn('[Approval] windowManager not initialised — auto-cancelling');
     return Promise.resolve(false);
@@ -85,10 +98,12 @@ function requestApproval({ kind, payload, senderId, timeoutMs = DEFAULT_TIMEOUT_
       }
     }, timeoutMs);
 
-    pending.set(approvalId, { resolve, timer });
+    pending.set(approvalId, { resolve, timer, threadId });
 
     // Send to the specific renderer window that triggered the tool call.
-    const message = { approvalId, kind, payload, timeoutMs };
+    // `canRemember` tells the UI whether "approve for this chat" is meaningful:
+    // without a thread there is nothing to scope the decision to.
+    const message = { approvalId, kind, payload, timeoutMs, canRemember: Boolean(threadId) };
     try {
       const wc = webContents.fromId(senderId);
       if (!wc || wc.isDestroyed()) {

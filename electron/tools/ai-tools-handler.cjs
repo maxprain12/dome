@@ -16,7 +16,7 @@ function traceLog(fn, params, result, err) {
   }
 }
 
-const fs = require('fs');
+const fs = require('node:fs');
 const database = require('../core/database.cjs');
 const fileStorage = require('../storage/file-storage.cjs');
 const documentExtractor = require('../documents/document-extractor.cjs');
@@ -28,7 +28,7 @@ const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('../calendar/calendar-service.cjs');
 const semanticIndexScheduler = require('../storage/semantic-index-scheduler.cjs');
 const lancedbSemantic = require('../services/lancedb-semantic.cjs');
-const path = require('path');
+const path = require('node:path');
 const { rrfMerge } = require('../storage/hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
@@ -2243,7 +2243,7 @@ async function flashcardCreate(data) {
 
     const db = database.getDB();
     const queries = database.getQueries();
-    const crypto = require('crypto');
+    const crypto = require('node:crypto');
 
     // Determine project ID (must exist for FK constraint)
     let projectId = data.project_id;
@@ -3110,11 +3110,29 @@ async function pipelineGet({ pipeline_id } = {}) {
   }
 }
 
-async function pipelineCreateCard({ pipeline_id, stage_id, title, data, start_at, end_at } = {}) {
+async function pipelineCreateCard({
+  pipeline_id,
+  stage_id,
+  title,
+  data,
+  start_at,
+  end_at,
+  person_id,
+  personId,
+} = {}) {
   try {
     if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
     const startAt = start_at != null ? new Date(start_at).getTime() : null;
     const endAt = end_at != null ? new Date(end_at).getTime() : null;
+    const linkedPersonId = person_id || personId || null;
+    /** @type {Record<string, unknown> | null} */
+    let metadata = null;
+    if (linkedPersonId) {
+      metadata = {
+        personIds: [String(linkedPersonId)],
+        primaryPersonId: String(linkedPersonId),
+      };
+    }
     const item = await getPipelineService().createCard({
       pipelineId: pipeline_id,
       stageId: stage_id || null,
@@ -3122,6 +3140,7 @@ async function pipelineCreateCard({ pipeline_id, stage_id, title, data, start_at
       data: data ?? null,
       startAt: Number.isNaN(startAt) ? null : startAt,
       endAt: Number.isNaN(endAt) ? null : endAt,
+      metadata,
     });
     broadcastPipelineItem(item);
     return { success: true, item };
@@ -3494,14 +3513,245 @@ async function githubGetIssue({ issue_id, issueId } = {}) {
   }
 }
 
+// --- pull requests ----------------------------------------------------------
+// Answered through the authenticated GitHub client, not web_fetch: a private
+// repo returns nothing over plain HTTP, and merge state is not on the page.
+
+/**
+ * Resolve `owner/repo` from a tracked repo id or a full name.
+ * @returns {{ owner: string, repo: string } | { error: string }}
+ */
+function ghResolveRepoSlug({ repo_id, repoId, full_name, fullName } = {}) {
+  const slug = full_name || fullName;
+  if (typeof slug === 'string' && slug.includes('/')) {
+    const [owner, repo] = slug.split('/');
+    if (owner && repo) return { owner, repo };
+  }
+  const id = repo_id || repoId;
+  if (!id) return { error: 'repo_id (or full_name) is required' };
+  const row = githubStore().getRepo(id);
+  if (!row?.full_name) return { error: `Repo not found: ${id}` };
+  const [owner, repo] = row.full_name.split('/');
+  if (!owner || !repo) return { error: `Malformed repo full_name: ${row.full_name}` };
+  return { owner, repo };
+}
+
+function ghShapePullRequest(pr) {
+  return {
+    number: pr.number,
+    title: pr.title,
+    state: pr.state,
+    // `merged` is the question people actually ask; a closed PR may never have
+    // landed, so never infer it from `state`.
+    merged: pr.merged === true || Boolean(pr.merged_at),
+    merged_at: pr.merged_at ?? null,
+    merge_commit_sha: pr.merge_commit_sha ?? null,
+    draft: pr.draft === true,
+    mergeable: pr.mergeable ?? null,
+    mergeable_state: pr.mergeable_state ?? null,
+    head: pr.head?.ref ?? null,
+    head_sha: pr.head?.sha ?? null,
+    base: pr.base?.ref ?? null,
+    author: pr.user?.login ?? null,
+    url: pr.html_url ?? null,
+    body: typeof pr.body === 'string' ? pr.body.slice(0, 4000) : '',
+  };
+}
+
+async function githubGetPullRequest(args = {}) {
+  try {
+    const slug = ghResolveRepoSlug(args);
+    if (slug.error) return { success: false, error: slug.error };
+    const number = Number(args.number ?? args.pr_number);
+    if (!Number.isInteger(number) || number <= 0) {
+      return { success: false, error: 'number is required' };
+    }
+    const api = require('../github/github-api.cjs');
+    const pr = await api.getPullRequest(slug.owner, slug.repo, number);
+    return { success: true, source: 'github', pull_request: ghShapePullRequest(pr) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubListPullRequests(args = {}) {
+  try {
+    const slug = ghResolveRepoSlug(args);
+    if (slug.error) return { success: false, error: slug.error };
+    const api = require('../github/github-api.cjs');
+    const state = args.state === 'closed' || args.state === 'all' ? args.state : 'open';
+    const list = await api.listPullRequests(slug.owner, slug.repo, { state });
+    const limit = Number.isInteger(args.limit) && args.limit > 0 ? Math.min(args.limit, 50) : 20;
+    return {
+      success: true,
+      source: 'github',
+      state,
+      count: list.length,
+      pull_requests: list.slice(0, limit).map(ghShapePullRequest),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubCreatePullRequest(args = {}) {
+  try {
+    const slug = ghResolveRepoSlug(args);
+    if (slug.error) return { success: false, error: slug.error };
+    const title = typeof args.title === 'string' ? args.title.trim() : '';
+    const head = typeof args.head === 'string' ? args.head.trim() : '';
+    const base = typeof args.base === 'string' && args.base.trim() ? args.base.trim() : 'main';
+    if (!title) return { success: false, error: 'title is required' };
+    if (!head) return { success: false, error: 'head (the branch to merge) is required' };
+    const api = require('../github/github-api.cjs');
+    const pr = await api.createPullRequest(slug.owner, slug.repo, {
+      title,
+      head,
+      base,
+      body: args.body,
+      draft: args.draft === true,
+    });
+    return { success: true, source: 'github', pull_request: ghShapePullRequest(pr) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubPrChecks(args = {}) {
+  try {
+    const slug = ghResolveRepoSlug(args);
+    if (slug.error) return { success: false, error: slug.error };
+    const api = require('../github/github-api.cjs');
+
+    let ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref.trim() : '';
+    if (!ref) {
+      const number = Number(args.number ?? args.pr_number);
+      if (!Number.isInteger(number) || number <= 0) {
+        return { success: false, error: 'number or ref is required' };
+      }
+      const pr = await api.getPullRequest(slug.owner, slug.repo, number);
+      ref = pr?.head?.sha;
+      if (!ref) return { success: false, error: `Could not resolve head sha for PR #${number}` };
+    }
+
+    const [combined, checks] = await Promise.all([
+      api.getCombinedStatus(slug.owner, slug.repo, ref).catch(() => null),
+      api.listCheckRuns(slug.owner, slug.repo, ref).catch(() => null),
+    ]);
+
+    return {
+      success: true,
+      source: 'github',
+      ref,
+      state: combined?.state ?? null,
+      checks: (checks?.check_runs ?? []).map((run) => ({
+        name: run.name,
+        status: run.status,
+        conclusion: run.conclusion ?? null,
+        url: run.html_url ?? null,
+      })),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function peopleGet({ person_id, personId } = {}) {
   try {
     const id = person_id || personId;
     if (!id) return { success: false, error: 'person_id is required' };
     const peopleStore = require('../people/people-store.cjs');
-    const person = peopleStore.getPerson(id);
+    const person = peopleStore.getPerson(id, { includeInteractions: true });
     if (!person) return { success: false, error: `Person not found: ${id}` };
     return { success: true, source: 'people', person };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleSearch({ query, project_id, projectId, limit } = {}) {
+  try {
+    if (!query) return { success: false, error: 'query is required' };
+    const peopleStore = require('../people/people-store.cjs');
+    const people = peopleStore.searchPeople(project_id || projectId || 'default', String(query), {
+      limit,
+    });
+    return { success: true, source: 'people', people };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleUpsert({
+  display_name,
+  displayName,
+  person_id,
+  personId,
+  project_id,
+  projectId,
+  primary_email,
+  primaryEmail,
+  notes,
+  lead_status,
+  leadStatus,
+  identities,
+} = {}) {
+  try {
+    const name = display_name || displayName;
+    if (!name) return { success: false, error: 'display_name is required' };
+    const peopleStore = require('../people/people-store.cjs');
+    const pid = project_id || projectId || 'default';
+    let person = peopleStore.upsertPerson({
+      id: person_id || personId || undefined,
+      projectId: pid,
+      displayName: name,
+      primaryEmail: primary_email ?? primaryEmail,
+      notes,
+      leadStatus: lead_status || leadStatus,
+    });
+    const list = Array.isArray(identities) ? identities : [];
+    for (const row of list) {
+      if (!row?.source || !row?.external_id) continue;
+      peopleStore.linkIdentity({
+        personId: person.id,
+        projectId: pid,
+        source: String(row.source),
+        externalId: String(row.external_id),
+        displayLabel: row.display_label ?? row.displayLabel ?? undefined,
+      });
+    }
+    person = peopleStore.getPerson(person.id, { includeInteractions: true });
+    return { success: true, source: 'people', person };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleLinkIdentity({
+  person_id,
+  personId,
+  source,
+  external_id,
+  externalId,
+  display_label,
+  displayLabel,
+  project_id,
+  projectId,
+} = {}) {
+  try {
+    const id = person_id || personId;
+    if (!id || !source || !(external_id || externalId)) {
+      return { success: false, error: 'person_id, source, and external_id are required' };
+    }
+    const peopleStore = require('../people/people-store.cjs');
+    const result = peopleStore.linkIdentity({
+      personId: id,
+      projectId: project_id || projectId,
+      source: String(source),
+      externalId: String(external_id || externalId),
+      displayLabel: display_label ?? displayLabel,
+    });
+    return { success: true, source: 'people', ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -3802,10 +4052,10 @@ async function importFileToLibrary(args = {}) {
       return { success: false, error: 'content or content_base64 is required' };
     }
 
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
-    const crypto = require('crypto');
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const os = require('node:os');
+    const crypto = require('node:crypto');
     const fileStorage = require('../storage/file-storage.cjs');
     const documentExtractor = require('../documents/document-extractor.cjs');
 
@@ -4319,25 +4569,22 @@ async function uiHideCursor(args) {
 // Native File & Shell Tools
 // =============================================================================
 
-const { exec: childExec } = require('child_process');
 const { dialog: electronDialog } = require('electron');
-const nodePath = require('path');
+const nodePath = require('node:path');
+const { executeBash, truncationNotice } = require('../coding/bash-executor.cjs');
+const { assessShellCommand } = require('../core/shell-policy.cjs');
+const gitTools = require('../coding/git-tools.cjs');
 
-const SHELL_EXEC_TIMEOUT_MS = 60_000;
 const FILE_SEARCH_MAX = 200;
 const { buildFileTree, MAX_LIST_ITEMS } = require('./file-tree.cjs');
-
-async function fileRead(args) {
-  const filePath = typeof args.file_path === 'string' ? args.file_path
-    : typeof args.path === 'string' ? args.path : '';
-  if (!filePath) return { status: 'error', error: 'file_path is required' };
-  try {
-    const content = fs.readFileSync(nodePath.resolve(filePath), 'utf8');
-    return { status: 'success', file_path: filePath, content, size: content.length };
-  } catch (err) {
-    return { status: 'error', error: err.message };
-  }
-}
+const {
+  fileRead,
+  fileGrep,
+  fileFind,
+  fileEdit,
+  fileWrite,
+} = require('./file-disk-tools.cjs');
+const hitlAllowlist = require('../agents/hitl-allowlist.cjs');
 
 async function skillRead(args) {
   const skillId = typeof args.skill_id === 'string' ? args.skill_id
@@ -4380,20 +4627,6 @@ async function skillRead(args) {
   }
 }
 
-async function fileWrite(args) {
-  const filePath = typeof args.file_path === 'string' ? args.file_path
-    : typeof args.path === 'string' ? args.path : '';
-  const content = typeof args.content === 'string' ? args.content : '';
-  if (!filePath) return { status: 'error', error: 'file_path is required' };
-  try {
-    const resolved = nodePath.resolve(filePath);
-    fs.mkdirSync(nodePath.dirname(resolved), { recursive: true });
-    fs.writeFileSync(resolved, content, 'utf8');
-    return { status: 'success', file_path: filePath, bytesWritten: Buffer.byteLength(content, 'utf8') };
-  } catch (err) {
-    return { status: 'error', error: err.message };
-  }
-}
 
 async function fileList(args) {
   const dirPath = typeof args.file_path === 'string' ? args.file_path
@@ -4402,19 +4635,47 @@ async function fileList(args) {
   try {
     const resolved = nodePath.resolve(dirPath);
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
-    const allItems = entries.map((e) => ({
-      name: e.name,
-      path: nodePath.join(resolved, e.name),
-      isDirectory: e.isDirectory(),
-    }));
+
+    const allItems = entries.map((entry) => {
+      const full = nodePath.join(resolved, entry.name);
+      const isDirectory = entry.isDirectory();
+      let size = null;
+      // Sizes let the model decide whether a file is worth reading whole.
+      if (!isDirectory) {
+        try {
+          size = fs.statSync(full).size;
+        } catch {
+          size = null;
+        }
+      }
+      return {
+        name: entry.name,
+        path: full,
+        isDirectory,
+        isSymlink: entry.isSymbolicLink(),
+        size,
+      };
+    });
+
+    // Directories first, then files, each case-insensitively alphabetical — a
+    // stable order matters because the model diffs successive listings.
+    allItems.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+
     const truncated = allItems.length > MAX_LIST_ITEMS;
     const items = truncated ? allItems.slice(0, MAX_LIST_ITEMS) : allItems;
     return {
       status: 'success',
-      path: dirPath,
+      path: resolved,
       count: items.length,
       total: allItems.length,
+      directories: allItems.filter((i) => i.isDirectory).length,
       truncated,
+      notice: truncated
+        ? `Showing the first ${MAX_LIST_ITEMS} of ${allItems.length} entries — use file_find with a glob to narrow it down.`
+        : null,
       items,
     };
   } catch (err) {
@@ -4445,6 +4706,19 @@ function _walkDirForSearch(dir, visitor) {
   return true;
 }
 
+/**
+ * Build a case-insensitive RegExp for file_search.
+ * `*` / `?` stay as glob wildcards; other regex metacharacters are escaped so
+ * code queries like `importFileToLibrary(` do not throw "Unterminated group".
+ */
+function buildFileSearchRegex(pattern) {
+  const escaped = String(pattern)
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.');
+  return new RegExp(escaped, 'i');
+}
+
 async function fileSearch(args) {
   const directory = typeof args.directory === 'string' ? args.directory : '';
   const pattern = typeof args.pattern === 'string' ? args.pattern : '';
@@ -4453,8 +4727,13 @@ async function fileSearch(args) {
   if (!pattern) return { status: 'error', error: 'pattern is required' };
   const root = nodePath.resolve(directory);
   if (!fs.existsSync(root)) return { status: 'error', error: 'Directory not found' };
+  let re;
+  try {
+    re = buildFileSearchRegex(pattern);
+  } catch (err) {
+    return { status: 'error', error: `Invalid search pattern: ${err.message}` };
+  }
   const matches = [];
-  const re = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'), 'i');
   _walkDirForSearch(root, (entry) => {
     if (type === 'name') {
       if (re.test(entry.name)) matches.push({ path: entry.full, name: entry.name, isDirectory: entry.isDir });
@@ -4495,52 +4774,90 @@ async function promptShellExecDialog(command, cwd) {
 
 async function shellExec(args, toolContext = null) {
   const command = typeof args.command === 'string' ? args.command.trim() : '';
-  const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : undefined;
+  const cwd = typeof args.cwd === 'string' && args.cwd.trim() ? args.cwd.trim() : null;
   if (!command) return { status: 'error', error: 'command is required' };
 
+  // Coding runs pin the cwd to the workspace; outside them fall back to the
+  // process cwd rather than letting the model pick an arbitrary directory.
+  const workDir = toolContext?.workspaceCwd || cwd || process.cwd();
+
+  const policy = assessShellCommand(command);
+  if (policy.blocked) {
+    return { status: 'error', error: policy.reason || 'Command blocked by security policy' };
+  }
+
   // Resumed HITL runs already carry the user's approval for this exact call.
-  if (toolContext?.hitlApproved === true) {
-    return runShellCommand(command, cwd);
-  }
+  // Thread-scoped "approve all" also skips further shell prompts.
+  const threadId = toolContext?.threadId || toolContext?.thread_id || null;
+  const preApproved =
+    toolContext?.hitlApproved === true
+    || hitlAllowlist.isToolAutoApproved(threadId, 'shell_exec');
 
-  const approval = require('../ipc/agents/approval.cjs');
-  let confirmed = false;
-  try {
-    const senderId = resolveShellSenderId(toolContext);
-    if (senderId != null) {
-      confirmed = await approval.requestApproval({
-        kind: 'shell_exec',
-        payload: { command, cwd: cwd || null },
-        senderId,
-      });
-    } else {
-      confirmed = await promptShellExecDialog(command, cwd);
+  if (!preApproved) {
+    const approval = require('../ipc/agents/approval.cjs');
+    let confirmed = false;
+    try {
+      const senderId = resolveShellSenderId(toolContext);
+      if (senderId != null) {
+        confirmed = await approval.requestApproval({
+          kind: 'shell_exec',
+          payload: { command, cwd: workDir },
+          senderId,
+          // Lets the user answer "approve for this chat" once instead of
+          // clicking through every command of a long coding run.
+          threadId,
+        });
+      } else {
+        confirmed = await promptShellExecDialog(command, workDir);
+      }
+    } catch (err) {
+      return { status: 'error', error: `Dialog error: ${err.message}` };
     }
-  } catch (err) {
-    return { status: 'error', error: `Dialog error: ${err.message}` };
+    if (!confirmed) return { status: 'cancelled', message: 'User cancelled execution' };
   }
 
-  if (!confirmed) return { status: 'cancelled', message: 'User cancelled execution' };
-
-  return runShellCommand(command, cwd);
+  return runShellCommand(command, workDir, args, toolContext);
 }
 
-function runShellCommand(command, cwd) {
-  return new Promise((resolve) => {
-    childExec(
+async function runShellCommand(command, workDir, args = {}, toolContext = null) {
+  const timeoutSeconds = Number(args.timeout);
+  try {
+    const result = await executeBash(command, workDir, {
+      signal: toolContext?.signal,
+      timeoutSeconds: Number.isFinite(timeoutSeconds) && timeoutSeconds > 0 ? timeoutSeconds : undefined,
+      onChunk: toolContext?.onToolOutput
+        ? (text) => toolContext.onToolOutput({ tool: 'shell_exec', command, text })
+        : undefined,
+    });
+
+    if (result.cancelled) {
+      return { status: 'cancelled', command, cwd: workDir, output: result.output };
+    }
+    if (result.timedOut) {
+      return {
+        status: 'error',
+        command,
+        cwd: workDir,
+        output: result.output,
+        error: `Command timed out after ${timeoutSeconds}s and was killed.`,
+      };
+    }
+
+    return {
+      status: 'success',
       command,
-      { cwd, timeout: SHELL_EXEC_TIMEOUT_MS, maxBuffer: 1024 * 1024 * 10 },
-      (err, stdout, stderr) => {
-        resolve({
-          status: 'success',
-          command,
-          stdout: stdout || '',
-          stderr: stderr || '',
-          exitCode: err?.code ?? 0,
-        });
-      },
-    );
-  });
+      cwd: workDir,
+      // stdout and stderr are interleaved, as a terminal would show them.
+      output: result.output,
+      exitCode: result.exitCode ?? 0,
+      truncated: result.truncated,
+      notice: truncationNotice(result),
+      full_output_path: result.fullOutputPath ?? null,
+      bytes_original: result.bytesTotal,
+    };
+  } catch (err) {
+    return { status: 'error', command, cwd: workDir, error: err.message };
+  }
 }
 
 // =============================================================================
@@ -4553,7 +4870,7 @@ function _isPlainObject(value) {
 
 function _syncArtifactRuntimeFromState(queries, artifactRow, stateObj, now) {
   if (!artifactRow || !_isPlainObject(stateObj?.data)) return;
-  const cryptoMod = require('crypto');
+  const cryptoMod = require('node:crypto');
   const dataStr = JSON.stringify(stateObj.data);
   const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
   queries.upsertArtifactRuntimeData.run(
@@ -4606,7 +4923,7 @@ async function artifactGet(args) {
 
 async function artifactCreate(args) {
   try {
-    const cryptoMod = require('crypto');
+    const cryptoMod = require('node:crypto');
     const rawTitle = typeof args?.title === 'string' ? args.title.trim() : '';
     const rawType = args?.artifact_type ?? args?.artifactType ?? 'custom';
     const allowed = new Set(['task-tracker', 'chart', 'custom']);
@@ -5170,11 +5487,18 @@ module.exports = {
   githubUpcomingMilestones,
   githubListIssues,
   githubGetIssue,
+  githubGetPullRequest,
+  githubListPullRequests,
+  githubCreatePullRequest,
+  githubPrChecks,
   githubCreateIssue,
   githubUpdateIssue,
   githubCreateMilestone,
   githubSync,
   peopleGet,
+  peopleSearch,
+  peopleUpsert,
+  peopleLinkIdentity,
   socialAccountsList,
   socialPostDraft,
   socialPostPublish,
@@ -5217,7 +5541,18 @@ module.exports = {
   fileList,
   fileTree,
   fileSearch,
+  fileGrep,
+  fileFind,
+  fileEdit,
   shellExec,
+
+  // Local git (coding workspace only)
+  gitStatus: gitTools.gitStatus,
+  gitDiff: gitTools.gitDiff,
+  gitLog: gitTools.gitLog,
+  gitBranchCreate: gitTools.gitBranchCreate,
+  gitAdd: gitTools.gitAdd,
+  gitCommit: gitTools.gitCommit,
 
   // UI interaction tools
   uiPointTo,

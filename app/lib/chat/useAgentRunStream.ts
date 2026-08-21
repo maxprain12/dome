@@ -428,6 +428,11 @@ function applyToolCallUpdate(
     name: tc.name,
     arguments: parsedArgs,
     status: 'running' as ToolCallData['status'],
+    // Where the reply had got to when this call was issued. The transcript
+    // keeps text and tools in separate fields, so this offset is what lets the
+    // view put the card back where it happened instead of hoisting every tool
+    // above the prose.
+    contentOffset: prev?.content?.length ?? 0,
     ...(agentName ? { agentName } : {}),
   };
   const idx = existing.findIndex((c) => c.id === tc.id);

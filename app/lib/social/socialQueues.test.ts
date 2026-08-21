@@ -7,6 +7,10 @@ import {
   filterPostsByAccount,
   filterPostsByQuery,
   postSnippet,
+  socialAccountLabel,
+  looksLikeOpaqueId,
+  socialEventCardLabel,
+  socialPostLabel,
 } from './socialQueues';
 
 function post(partial: Partial<SocialPost> & { id: string }): SocialPost {
@@ -105,5 +109,53 @@ describe('socialQueues', () => {
     expect(stats.campaigns).toBe(1);
     expect(stats.activeAccounts).toBe(2);
     expect(stats.followersDelta).toBe(5);
+  });
+
+  it('formats account and event card labels without raw ids', () => {
+    expect(
+      socialAccountLabel({ displayName: 'Dome', handle: '@dome', provider: 'instagram' }),
+    ).toBe('Dome (@dome)');
+    expect(
+      socialAccountLabel({ displayName: null, handle: null, provider: 'instagram' }),
+    ).toBe('instagram');
+    expect(
+      socialEventCardLabel({
+        internalName: 'Launch',
+        title: 'Pase',
+        slug: 'pase',
+      }),
+    ).toBe('Launch');
+    expect(
+      socialEventCardLabel({
+        internalName: '',
+        title: 'Pase de Lanzamiento',
+        slug: 'pase',
+      }),
+    ).toBe('Pase de Lanzamiento');
+    expect(looksLikeOpaqueId('dfa9d9ab-533e-49f7-84da-226ff712717c')).toBe(true);
+    expect(looksLikeOpaqueId('sp-ab12cd34ef')).toBe(true);
+    expect(looksLikeOpaqueId('soc-instagram-03b04c26ef42')).toBe(true);
+    expect(looksLikeOpaqueId('Launch Night')).toBe(false);
+    expect(
+      socialEventCardLabel({
+        internalName: 'dfa9d9ab-533e-49f7-84da-226ff712717c',
+        title: '',
+        slug: null,
+      }),
+    ).toBe('…');
+    expect(
+      socialPostLabel({
+        body: 'This AI reads my PDFs so I do not have to. Ask Many about summaries.',
+        campaign: null,
+        publishedAt: null,
+      }),
+    ).toMatch(/^This AI reads my PDFs/);
+    expect(
+      socialPostLabel({
+        body: '',
+        campaign: 'Launch',
+        publishedAt: null,
+      }),
+    ).toBe('Launch');
   });
 });

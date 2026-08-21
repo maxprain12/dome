@@ -20,20 +20,12 @@ import {
   computeSocialStats,
   filterPostsByAccount,
   filterPostsByQuery,
+  socialAccountLabel,
   type SocialFilter,
   type SocialReplyDraft,
 } from '@/lib/social/socialQueues';
 import { SocialStats } from './SocialStats';
 import { SocialCampaignSection, SocialQueueSection } from './SocialQueueSection';
-
-function accountLabel(acc: SocialAccount): string {
-  const handle = (acc.handle || '').trim();
-  const name = (acc.displayName || '').trim();
-  if (handle && name && handle.toLowerCase() !== name.toLowerCase()) {
-    return `${name} (${handle})`;
-  }
-  return handle || name || acc.provider;
-}
 
 export function SocialDashboard({
   posts,
@@ -110,7 +102,7 @@ export function SocialDashboard({
     activeAccounts === 0
       ? t('social.agent_brief_no_accounts')
       : focusAccount
-        ? t('social.agent_brief_focus', { name: accountLabel(focusAccount) })
+        ? t('social.agent_brief_focus', { name: socialAccountLabel(focusAccount) })
         : posts.length === 0
           ? t('social.agent_brief_no_posts')
           : stats.attention > 0

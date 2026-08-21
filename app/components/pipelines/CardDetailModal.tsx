@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger , DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import PeoplePicker, { personIdsFromMeta } from '@/components/people/PeoplePicker';
 import type { ReactNode } from 'react';
 interface TodoItem {
   id: string;
@@ -200,6 +201,9 @@ export default function CardDetailModal({
   const [startInput, setStartInput] = useState(toDateInput(item.startAt));
   const [endInput, setEndInput] = useState(toDateInput(item.endAt));
   const [fields, setFields] = useState<CardField[]>(() => migrateFields(item.data));
+  const [personIds, setPersonIds] = useState<string[]>(() =>
+    personIdsFromMeta(item.metadata ?? null),
+  );
   const [descView, setDescView] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const f of migrateFields(item.data)) {
@@ -346,11 +350,20 @@ export default function CardDetailModal({
         if (cleanTodos.length > 0) data.todos = cleanTodos;
       }
     }
+    const prevMeta =
+      item.metadata && typeof item.metadata === 'object' ? { ...item.metadata } : {};
+    const metadata: Record<string, unknown> = {
+      ...prevMeta,
+      personIds,
+    };
+    if (personIds[0]) metadata.primaryPersonId = personIds[0];
+    else delete metadata.primaryPersonId;
     await onSave({
       title: title.trim() || item.title,
       startAt: fromDateInput(startInput),
       endAt: fromDateInput(endInput),
       data: (fields.length > 0 ? data : null) as Record<string, unknown> | null,
+      metadata,
     });
   };
 
@@ -476,7 +489,7 @@ export default function CardDetailModal({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => void handleRun()}
+          onClick={() => handleRun()}
           disabled={generating || agentBusy || saving}
         >
           {agentBusy ? (
@@ -494,7 +507,7 @@ export default function CardDetailModal({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => void generateReport()}
+        onClick={() => generateReport()}
         disabled={saving || agentBusy}
       >
         {generating ? (
@@ -504,7 +517,7 @@ export default function CardDetailModal({
         )}
         {t('pipelines.generate_report')}
       </Button>
-      <Button size="sm" onClick={() => void save()} disabled={saving || agentBusy}>
+      <Button size="sm" onClick={() => save()} disabled={saving || agentBusy}>
         {saving ? t('pipelines.saving') : t('pipelines.save')}
       </Button>
     </div>
@@ -555,6 +568,13 @@ export default function CardDetailModal({
           onChange={setEndInput}
         />
       </div>
+
+      <PeoplePicker
+        projectId={item.projectId}
+        personIds={personIds}
+        onChange={setPersonIds}
+        editable
+      />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="min-w-0"><TabsList aria-label={t('pipelines.tab_details')} className="h-auto w-full max-w-full flex-wrap">{(tabOptions).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
 
@@ -896,8 +916,7 @@ export default function CardDetailModal({
         confirmLabel={t('pipelines.delete')}
         cancelLabel={t('pipelines.cancel')}
         variant="danger"
-        onConfirm={() => {
-          void onDelete();
+        onConfirm={() => { onDelete();
           setConfirmDelete(false);
         }}
         onCancel={() => setConfirmDelete(false)}

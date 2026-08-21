@@ -70,12 +70,16 @@ Do **not** blindly rewrite Electron `main` process code.
 | `Number(x) ?? 37214` | `Number(x) \|\| 37214` (or `Number.isFinite`) |
 | `0 && expr` / always-true `\|\|` | delete dead branch |
 
+The CI heuristic uses a word boundary (`\bNumber(` / `\bString(`), so helpers like `asNumber(x) ?? asNumber(y)` are not flagged.
+
 ### S3923 — identical branches
 
 | Bad | Good |
 |-----|------|
 | `cond ? 'local' : 'local'` | `'local'` |
 | `isSelected ? 1 : 1` | `1` |
+
+Do not collapse `cond ? rows : rows.filter(...)` or `typeof x === 'string' ? x : x?.name` — those branches are not identical. The CI heuristic requires the same identifier on both sides, not a shared prefix.
 
 ### S6439 — leaked values in JSX `&&`
 

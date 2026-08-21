@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/input-group';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
+import { ThinkingLevelSwitcher } from '@/components/chat/ThinkingLevelSwitcher';
 import ManyComposerChips from './ManyComposerChips';
 import ManyComposerInput from './ManyComposerInput';
 import ManyCapabilitiesMenu from './ManyCapabilitiesMenu';
@@ -661,6 +662,7 @@ const ManyComposer = memo(function ManyComposer({
               <span className="min-w-0 shrink">
                 <InlineModelSwitcher />
               </span>
+              <ThinkingLevelSwitcher disabled={isLoading} />
             </div>
 
             <div className="flex shrink-0 items-center gap-1">

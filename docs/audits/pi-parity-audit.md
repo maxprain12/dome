@@ -243,6 +243,22 @@ dominio Dome (no provienen de pi), por lo que no son un gap de paridad con pi.
 
 ---
 
+## 6.1 Capa E — Coding tools (pi-coding-agent → Dome `file_*`)
+
+| Pi tool | Dome | Veredicto |
+|---|---|---|
+| `read` (offset 1-based, truncateHead 2000/50KB) | `file_read` via `electron/tools/file-disk-tools.cjs` | `ADAPTADO-OK` |
+| `grep` (`rg --json`) | `file_grep` (+ fallback walk) | `ADAPTADO-OK` |
+| `find` (`fd` / `rg --files`) | `file_find` | `ADAPTADO-OK` |
+| `edit` + edit-diff | `file_edit` | `ADAPTADO-OK` (diff simplificado, sin paquete `diff`) |
+| `bash` truncateTail | `shell_exec` + `tool-output-truncate.cjs` | `ADAPTADO-OK` (+ HITL Dome) |
+| `truncate.ts` | `electron/tools/tool-output-truncate.cjs` (+ ya en `@dome/agent-core`) | `COPIA-FIEL` (CJS mirror) |
+| TUI / `ensureTool` auto-download | — | `NO-APLICA` |
+
+Estrategia: *adopt the design, not the package* (igual que pi-agent). Soft-cap 48k en `@dome/tools` registry para content JSONL.
+
+---
+
 ## 7. Apéndice — comandos de verificación (reproducibles)
 
 ```bash

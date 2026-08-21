@@ -240,10 +240,35 @@ function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
     }
     return;
   }
+  // A run resumed after HITL keeps accumulating into `fullResponse`, so each
+  // resume used to persist the whole answer again — the transcript ended up
+  // with overlapping messages, the later one containing the earlier verbatim.
+  // Persist only what this segment added.
+  const alreadyPersisted = context.persistedChars ?? 0;
+  const full = context.fullResponse ?? '';
+  const pending = full.length > alreadyPersisted ? full.slice(alreadyPersisted) : '';
+  // Skip only a follow-up segment that added nothing; the first persist still
+  // runs even with empty text so a tool-only turn keeps its cards.
+  if (!pending.trim() && alreadyPersisted > 0) return;
+  context.persistedChars = full.length;
+
+  // Offsets are absolute against the whole reply, but this message only carries
+  // the new slice — keep the calls issued in this segment and rebase them onto
+  // it, so the card still lands where it happened after a reload.
+  const segmentToolCalls = (context.toolCalls ?? [])
+    .filter((call) =>
+      typeof call.contentOffset === 'number' ? call.contentOffset >= alreadyPersisted : true,
+    )
+    .map((call) =>
+      typeof call.contentOffset === 'number'
+        ? { ...call, contentOffset: Math.max(0, call.contentOffset - alreadyPersisted) }
+        : call,
+    );
+
   try {
     persistAssistantMessage(sessionId, {
-      content: context.fullResponse,
-      toolCalls: context.toolCalls,
+      content: pending,
+      toolCalls: segmentToolCalls,
       thinking: context.fullThinking,
       metadata: {
         mode: persistOpts.ownerType,
@@ -324,6 +349,10 @@ function handleToolCallChunk(data, runId, context, heartbeat) {
     name: data.toolCall.name,
     arguments: args,
     status: 'running',
+    // How much of the reply was written when this call was issued. The renderer
+    // uses it to place the card where it happened; without it the finished
+    // message falls back to rendering every tool above the prose.
+    contentOffset: (context.fullResponse ?? '').length,
     ...(data.agentName ? { agentName: data.agentName } : {}),
   });
   const step = appendRunStep({
@@ -557,11 +586,16 @@ function prepareAgentRunContext(runId, params) {
     useDirectTools: useDirectToolsRun,
     mcpServerIds: params.mcpServerIds,
     subagentIds: resolveSubagentIds(params),
-      skipHitl: !!params.skipHitl,
-      automationProjectId,
-      automationId: params.automationId ?? null,
-      ownerType: params.ownerType,
-      runtimeContext,
+    skipHitl: !!params.skipHitl,
+    automationProjectId,
+    automationId: params.automationId ?? null,
+    ownerType: params.ownerType,
+    runtimeContext,
+    // The resume rebuilds the harness from scratch. Without these the workspace
+    // is lost exactly on the actions that need it most — every HITL-gated tool
+    // (branch, commit, shell, edit) resumed into "no coding workspace".
+    workspacePath: params.workspacePath ?? null,
+    thinkingLevel: params.thinkingLevel ?? 'off',
   };
   return { context, useDirectToolsRun, automationProjectId, runtimeContext };
 }
@@ -724,6 +758,8 @@ async function executeAgentRun(runId, params) {
       ownerType: params.ownerType,
       runtimeContext,
       userMemory: params.userMemory ?? null,
+      workspacePath: params.workspacePath ?? null,
+      thinkingLevel: params.thinkingLevel ?? 'off',
     });
     const current = getRun(runId);
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
@@ -817,6 +853,9 @@ function buildResumeContext(run, metadata, providerConfig, existingContext, cont
   return {
     controller,
     fullResponse: run.outputText || '',
+    // Everything already in `outputText` reached the transcript before the
+    // interrupt; only what the resumed turn adds should be persisted again.
+    persistedChars: (run.outputText || '').length,
     fullThinking: '',
     toolCalls: Array.isArray(metadata.toolCalls) ? metadata.toolCalls : [],
     toolStepIds: new Map(),
@@ -850,6 +889,9 @@ async function runAgentResume(run, context, metadata, providerConfig, controller
     toolDefinitions: resumeOpts.toolDefinitions ?? [],
     mcpServerIds: resumeOpts.mcpServerIds,
     runtimeContext: resumeOpts.runtimeContext,
+    subagentIds: resumeOpts.subagentIds,
+    workspacePath: resumeOpts.workspacePath ?? null,
+    thinkingLevel: resumeOpts.thinkingLevel ?? 'off',
     signal: controller.signal,
     onChunk: createRunChunkEmitter(runId, context),
   });

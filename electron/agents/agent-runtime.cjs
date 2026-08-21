@@ -50,6 +50,10 @@ const HITL_TOOL_NAMES = new Set([
   'github_update_issue',
   'github_create_milestone',
   'social_post_publish',
+  // Local git mutations. Reads (status/diff/log) stay ungated — the agent needs
+  // to inspect the working copy constantly.
+  'git_branch_create',
+  'git_commit',
 ]);
 
 /** Per-conversation caps for creation/mutation tools (count over history). */
@@ -240,6 +244,30 @@ function emitCompactionChunk(onChunk, payload) {
 }
 
 /**
+ * Clamp a requested reasoning effort to what the model supports.
+ *
+ * The model registry is the authority (`getSupportedThinkingLevels`); a model
+ * without reasoning always resolves to 'off', and an unsupported level falls
+ * back to the nearest available one rather than failing the request.
+ *
+ * @param {typeof import('@dome/ai')} ai
+ * @param {object} model - resolved Dome model
+ * @param {string | undefined} requested
+ * @returns {string} a level this model accepts
+ */
+function resolveThinkingLevel(ai, model, requested) {
+  const level = typeof requested === 'string' && requested ? requested : 'off';
+  if (level === 'off' || !model) return 'off';
+  try {
+    if (!model.reasoning) return 'off';
+    return ai.clampThinkingLevel(model, level);
+  } catch (err) {
+    console.warn('[AgentRuntime] thinking level clamp failed:', err?.message || err);
+    return 'off';
+  }
+}
+
+/**
  * Resolve which runtime a surface uses. Only the Dome-native runtime
  * (`@dome/agent-core`) exists; kept as a function for call sites and tests.
  */
@@ -426,6 +454,8 @@ function buildBeforeToolCall(opts, caps) {
   const requiresApproval = opts.skipHitl ? null : opts.requiresApproval;
   const requestApproval = opts.skipHitl ? null : opts.requestApproval;
   const hitlInterrupt = !opts.skipHitl && opts.hitlInterrupt === true;
+  const threadId = opts.threadId || opts.effectiveThreadId || null;
+  const hitlAllowlist = require('./hitl-allowlist.cjs');
 
   const needsApproval = (name) => {
     if (!requiresApproval) return false;
@@ -461,6 +491,11 @@ function buildBeforeToolCall(opts, caps) {
       requestApproval,
     });
     if (threshold.block) return { block: true, reason: threshold.reason };
+
+    // Thread-scoped "approve all" — skip HITL for the rest of this chat.
+    if (hitlAllowlist.isToolAutoApproved(threadId, name)) {
+      return undefined;
+    }
 
     // HITL approval.
     return await runHitlApproval(ctx.toolCall, {
@@ -639,10 +674,45 @@ function runManyAgent(opts) {
   return runAgent('many', opts);
 }
 
+/**
+ * Activate a registered-but-inactive tool the model just asked about.
+ *
+ * `get_tool_definition` used to be a dead end: the model could read the schema
+ * of a tool that was not in `tools[]` and then had no way to call it — in one
+ * run it burned nine turns looking up `shell_exec` and `git_branch_create`.
+ * Looking a tool up is now the request to enable it, so the next turn can use
+ * it. This is the harness's `setTools` contract, used as pi intends.
+ *
+ * @param {import('@dome/agent-core').AgentHarness} harness
+ * @param {{ toolName?: string, tool_name?: string }} input
+ */
+async function activateLookedUpTool(harness, input) {
+  const requested = String(input?.tool_name ?? input?.toolName ?? '').trim();
+  if (!requested || typeof harness?.getTools !== 'function') return;
+  try {
+    const registered = harness.getTools();
+    if (!registered.some((tool) => tool?.name === requested)) return;
+    const active = new Set(
+      typeof harness.getActiveTools === 'function'
+        ? harness.getActiveTools().map((tool) => tool?.name).filter(Boolean)
+        : registered.map((tool) => tool.name),
+    );
+    if (active.has(requested)) return;
+    active.add(requested);
+    await harness.setActiveTools([...active]);
+    console.log('[AgentRuntime] activated tool on lookup:', requested);
+  } catch (err) {
+    console.warn('[AgentRuntime] could not activate tool:', requested, err?.message || err);
+  }
+}
+
 /** Build a harness `tool_call` hook from caps + HITL opts (needs live session messages). */
-function buildHarnessToolCallHook(session, opts) {
+function buildHarnessToolCallHook(session, opts, harness) {
   const before = buildBeforeToolCall(opts);
   return async function harnessToolCall(event) {
+    if (event.toolName === 'get_tool_definition' && harness) {
+      await activateLookedUpTool(harness, event.input);
+    }
     const sessionCtx = await session.buildContext();
     const result = await before({
       toolCall: {
@@ -702,6 +772,9 @@ async function setupHarness(surface, opts) {
   const bridge = require('./dome-harness-bridge.cjs');
   const database = require('../core/database.cjs');
   const dispatcher = require('../tools/tool-dispatcher.cjs');
+  const codingWorkspace = require('../coding/workspace-session.cjs');
+  const workspaceStore = require('../coding/workspace-store.cjs');
+  const projectMemory = require('../personality/project-memory.cjs');
 
   const {
     provider,
@@ -723,13 +796,28 @@ async function setupHarness(surface, opts) {
   const effectiveThreadId =
     rawThreadId || (sessionId ? `session_${sessionId}` : undefined);
 
+  // A run bound to a trusted local repository becomes a coding run: the harness
+  // cwd, the tool cwd and the project rules all move to that root.
+  const workspaceSession = codingWorkspace.resolveWorkspaceSession(opts);
+
   const sysMsg = Array.isArray(messages) ? messages.find((m) => m && m.role === 'system') : null;
-  const baseSystemPrompt =
+  const rawSystemPrompt =
     typeof sysMsg?.content === 'string'
       ? sysMsg.content
       : sysMsg
         ? JSON.stringify(sysMsg.content ?? '')
         : '';
+  const baseSystemPrompt = workspaceSession
+    ? [
+        rawSystemPrompt,
+        codingWorkspace.buildWorkspacePromptBlock(workspaceSession),
+        projectMemory.loadWorkspaceContextMarkdown(
+          workspaceStore.listContextFiles(workspaceSession.root),
+        ),
+      ]
+        .filter((part) => part && part.trim())
+        .join('\n\n')
+    : rawSystemPrompt;
   const nonSystem = (Array.isArray(messages) ? messages : []).filter((m) => m && m.role !== 'system');
 
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
@@ -756,18 +844,33 @@ async function setupHarness(surface, opts) {
       skipHitl: !!opts.skipHitl,
       automationProjectId: opts.automationProjectId ?? null,
       automationId: opts.automationId ?? null,
+      threadId,
+      // Coding runs resolve relative tool paths against the repo root.
+      workspaceCwd: workspaceSession?.cwd ?? null,
+      // Long-running tools (shell) need the run's abort signal to be killable.
+      signal: opts.signal ?? null,
       ...(contextOverride || {}),
     });
   const mcpToolsList = await bridge.buildMcpAgentTools(database, opts.mcpServerIds);
   const mcpToolNames = mcpToolsList.map((t) => t.name);
-  const tools = await bridge.buildAllTools(database, opts, executeToolInMain);
+  // Coding tools are hidden — not merely denied — outside a trusted workspace.
+  const tools = codingWorkspace.filterToolsForWorkspace(
+    await bridge.buildAllTools(database, opts, executeToolInMain),
+    workspaceSession,
+  );
   const subagentToolNames = ['task', 'delegate_to_agent'];
 
   if (surface === 'many') {
     const { manySubagentIds, buildTaskTool } = require('./subagents-native.cjs');
-    const enabledSubagents = Array.isArray(opts.subagentIds)
+    const requestedSubagents = Array.isArray(opts.subagentIds)
       ? opts.subagentIds
       : manySubagentIds();
+    // `coding` exists only inside a workspace; outside one it would be offered
+    // with every tool filtered away. In a coding run it replaces the content
+    // subagents, which have no file/shell tools and would answer "I can't".
+    const enabledSubagents = workspaceSession
+      ? ['coding', ...requestedSubagents.filter((id) => id === 'research')]
+      : requestedSubagents.filter((id) => id !== 'coding');
     if (enabledSubagents.length > 0) {
       tools.push(buildTaskTool({
         provider,
@@ -779,6 +882,7 @@ async function setupHarness(surface, opts) {
         signal: opts.signal,
         threadId,
         subagentIds: enabledSubagents,
+        workspacePath: workspaceSession?.cwd ?? null,
         runAgent: (nestedSurface, nestedOpts) => runAgent(nestedSurface, nestedOpts),
       }));
     }
@@ -801,22 +905,34 @@ async function setupHarness(surface, opts) {
   }
 
   const nativeWeb = ai.resolveNativeWebActivation(resolvedModel, tools);
-  let activeTools =
+  const registeredTools =
     nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools;
-  // OpenAI-compatible APIs hard-cap `tools[]` at 128; over the limit the whole
-  // request is rejected. Dome tools + subagents + MCP servers can exceed it.
-  const { capLangChainTools } = require('../tools/tool-cap.cjs');
-  activeTools = capLangChainTools(activeTools, { provider, model });
+
+  // OpenAI-compatible APIs hard-cap `tools[]` at 128 and reject the whole
+  // request past it. Rather than dropping tools from the registry, keep them all
+  // registered and narrow what this turn *offers* — the harness's
+  // `activeToolNames` contract. The catalog stays introspectable via
+  // `get_tool_definition`, and `setTools` can widen the set mid-session.
+  const { resolveActiveToolNames } = require('../tools/tool-cap.cjs');
+  const activeToolNames = resolveActiveToolNames(registeredTools, {
+    provider,
+    model,
+    coding: Boolean(workspaceSession),
+  });
 
   const resources = await bridge.loadSkillsResources();
-  const env = new NodeExecutionEnv({ cwd: process.cwd() });
+  const env = new NodeExecutionEnv({ cwd: workspaceSession?.cwd ?? process.cwd() });
   const harness = new core.AgentHarness({
     env,
     session,
-    tools: activeTools,
+    tools: registeredTools,
+    ...(activeToolNames ? { activeToolNames } : {}),
     resources,
     model: resolvedModel,
-    thinkingLevel: thinkingLevel && thinkingLevel !== 'off' ? thinkingLevel : 'off',
+    // Clamp to what this model actually offers: asking a non-reasoning model to
+    // think, or asking for a level it lacks, degrades to the nearest supported
+    // one instead of being rejected by the provider.
+    thinkingLevel: resolveThinkingLevel(ai, resolvedModel, thinkingLevel),
     streamOptions: {
       nativeWeb: nativeWeb.search || nativeWeb.fetch ? nativeWeb : undefined,
     },
@@ -837,7 +953,10 @@ async function setupHarness(surface, opts) {
     },
   });
 
-  const unsubTool = harness.on('tool_call', buildHarnessToolCallHook(session, opts));
+  const unsubTool = harness.on(
+    'tool_call',
+    buildHarnessToolCallHook(session, { ...opts, threadId }, harness),
+  );
   const unsubCtx = harness.on('context', buildHarnessContextHook(core, resolvedModel, apiKey, onChunk));
   const unsubEvents = harness.subscribe((event) => {
     if (!event || typeof event.type !== 'string') return;
@@ -1018,18 +1137,45 @@ async function finalizeResumeToolResult({ session, onChunk, toolCallId, toolName
 
 /**
  * Continue the agent turn, surfacing any error via the chunk stream. Returns
- * the assistant's final text payload.
+ * the assistant's final text payload. On context overflow, force-compact once
+ * and retry continueTurn (recovery for oversized tool history).
  */
 async function continueResumeTurn({ harness, onChunk }) {
-  const assistant = await harness.continueTurn();
-  const finalText = assistantText(assistant);
-  if (assistant?.stopReason === 'error') {
-    const errText = finalText || assistant.errorMessage || 'Agent error';
-    if (typeof onChunk === 'function') onChunk({ type: 'error', error: errText });
-    throw new Error(errText);
+  const runOnce = async () => {
+    const assistant = await harness.continueTurn();
+    const finalText = assistantText(assistant);
+    if (assistant?.stopReason === 'error') {
+      const errText = finalText || assistant.errorMessage || 'Agent error';
+      return { assistant, finalText, errText, overflow: looksLikeContextOverflow(errText, assistant) };
+    }
+    return { assistant, finalText, errText: null, overflow: false };
+  };
+
+  let result = await runOnce();
+  if (result.overflow && typeof harness.compact === 'function') {
+    try {
+      console.warn('[AgentRuntime] context overflow on resume — compacting and retrying once');
+      if (typeof onChunk === 'function') {
+        onChunk({ type: 'compaction', reason: 'context_overflow_retry' });
+      }
+      await harness.compact();
+      result = await runOnce();
+    } catch (compactErr) {
+      console.warn('[AgentRuntime] overflow compact/retry failed:', compactErr?.message || compactErr);
+    }
+  }
+
+  if (result.errText) {
+    if (typeof onChunk === 'function') onChunk({ type: 'error', error: result.errText });
+    throw new Error(result.errText);
   }
   if (typeof onChunk === 'function') onChunk({ type: 'done' });
-  return finalText;
+  return result.finalText;
+}
+
+function looksLikeContextOverflow(errText, assistant) {
+  const msg = String(errText || assistant?.errorMessage || '');
+  return /context[_ ]length[_ ]exceeded|exceeds the context window|prompt is too long|context window exceeds/i.test(msg);
 }
 
 /**
@@ -1078,7 +1224,19 @@ async function resumeDomeAgent(surface, opts) {
   const toolArgs = parseToolArgs(pendingToolCall.arguments);
 
   const decision = Array.isArray(decisions) ? decisions[0] : null;
-  const approved = decision?.type === 'approve' || decision?.type === 'edit';
+  const approveAll =
+    decision?.type === 'approve_all'
+    || decision?.autoApproveRemaining === true
+    || opts.autoApproveRemaining === true;
+  if (approveAll && threadId) {
+    const hitlAllowlist = require('./hitl-allowlist.cjs');
+    hitlAllowlist.approveAllForThread(threadId, '*');
+  }
+  const approved =
+    approveAll
+    || decision?.type === 'approve'
+    || decision?.type === 'edit'
+    || decision?.type === 'approve_all';
   const effectiveArgs = resolveEffectiveArgs(decision, toolArgs);
 
   try {
@@ -1177,6 +1335,19 @@ async function runDomeAgent(surface, opts) {
         opts.onChunk({ type: 'error', error: errText });
       }
       throw new Error(errText);
+    }
+    // Re-measure once the turn is done. The pre-turn reading is taken against an
+    // empty session, so the indicator showed only the static segments (system,
+    // tools, skills) and reported the conversation as zero however long it got.
+    if (typeof opts.onChunk === 'function') {
+      try {
+        emitBudgetChunk(
+          opts.onChunk,
+          await buildBudgetBreakdown(setup, { userMemory: opts.userMemory }),
+        );
+      } catch (budgetErr) {
+        console.warn('[AgentRuntime] post-turn budget skipped:', budgetErr?.message || budgetErr);
+      }
     }
     return finalText;
   } catch (err) {

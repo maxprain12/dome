@@ -30,9 +30,12 @@ const VISION_PROVIDERS = new Set([
 function resolveConfig(getQueries) {
   const q = getQueries();
   const billingMode = q.getSetting.get('ai_billing_mode')?.value || 'dome_cloud';
-  let provider = String(q.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
-  if (billingMode === 'dome_cloud') provider = 'dome';
-  if (billingMode === 'custom_api_key' && provider === 'dome') provider = 'openai';
+  // ai_provider is authoritative when not Dome. Default billing_mode=dome_cloud
+  // used to force every call through Dome and broke ChatGPT Codex / API keys.
+  const configured = String(q.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
+  let provider = configured;
+  if (configured === 'dome' && billingMode === 'custom_api_key') provider = 'openai';
+  if (configured === 'dome' && billingMode !== 'custom_api_key') provider = 'dome';
 
   if (provider === 'ollama') {
     return {

@@ -180,5 +180,12 @@
   "run_started_toast": "Agente iniciado",
   "agent_running_overlay": "Agente en ejecución…",
   "field_empty": "Sin campos. Añade el primero.",
-  "remove_field": "Eliminar campo"
+  "remove_field": "Eliminar campo",
+  "people_section": "Personas",
+  "people_empty": "Aún no hay personas vinculadas.",
+  "link_person": "Vincular persona",
+  "people_search_placeholder": "Buscar personas…",
+  "people_no_results": "No se encontraron personas",
+  "people_unknown": "Persona desconocida",
+  "remove_person": "Quitar persona"
 }

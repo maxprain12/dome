@@ -16,6 +16,7 @@ import { inferResourceVisualKind, type ResourceVisualKind } from '@/lib/resource
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 import { PinnedResourceChipList } from '@/components/many/PinnedResourceChipList';
+import CodingWorkspaceChip from '@/components/many/composer/CodingWorkspaceChip';
 
 interface ManyComposerChipsProps {
   attachments: ChatAttachment[];
@@ -67,6 +68,7 @@ export default function ManyComposerChips({
 
   return (
     <div className="flex flex-col min-w-0 w-full gap-y-2 px-2.5 pt-2">
+      <CodingWorkspaceChip pinnedResources={pinnedResources} />
       <PinnedResourceChipList resources={pinnedResources} onRemove={onRemovePinned} />
       {attachments.length > 0 ? (
         <AttachmentGroup className="w-full max-w-full flex-wrap overflow-x-hidden *:data-[slot=attachment]:max-w-full">

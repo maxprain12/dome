@@ -301,6 +301,40 @@ function updateIssue(owner, repo, number, patch) {
   return mutate('PATCH', `/repos/${owner}/${repo}/issues/${number}`, body);
 }
 
+// --- pull requests ---------------------------------------------------------
+// These go through the authenticated client on purpose: the agent used to read
+// PR state by fetching github.com, which returns nothing useful for a private
+// repo and cannot see merge status at all.
+
+function getPullRequest(owner, repo, number) {
+  return get(`/repos/${owner}/${repo}/pulls/${number}`);
+}
+
+function listPullRequests(owner, repo, opts = {}) {
+  const state = opts.state === 'closed' || opts.state === 'all' ? opts.state : 'open';
+  return getAllPages(`/repos/${owner}/${repo}/pulls?state=${state}`, opts);
+}
+
+function createPullRequest(owner, repo, { title, head, base, body, draft }) {
+  return mutate('POST', `/repos/${owner}/${repo}/pulls`, {
+    title,
+    head,
+    base,
+    body: body || undefined,
+    draft: draft === true ? true : undefined,
+  });
+}
+
+/** Rolled-up CI state for a ref (`success` / `failure` / `pending`). */
+function getCombinedStatus(owner, repo, ref) {
+  return get(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}/status`);
+}
+
+/** Individual check runs for a ref — finer grained than the combined status. */
+function listCheckRuns(owner, repo, ref) {
+  return get(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}/check-runs`);
+}
+
 function listIssueComments(owner, repo, number) {
   return getAllPages(`/repos/${owner}/${repo}/issues/${number}/comments`);
 }
@@ -350,6 +384,11 @@ module.exports = {
   getIssue,
   createIssue,
   updateIssue,
+  getPullRequest,
+  listPullRequests,
+  createPullRequest,
+  getCombinedStatus,
+  listCheckRuns,
   listIssueComments,
   createIssueComment,
   listIssueTimeline,

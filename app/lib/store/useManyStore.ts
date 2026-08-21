@@ -19,6 +19,7 @@ import {
   listManyThreadSummariesResult,
 } from '@/lib/chat/manyThreadBridge';
 import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
+import type { ThinkingLevel } from '@/lib/ai/types';
 import { normalizePinnedResource } from '@/lib/chat/pinLabels';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
@@ -297,6 +298,12 @@ interface ManyState {
   /** Sticky skill per Many session (in-memory); applies until cleared */
   activeSkillIdBySession: Record<string, string | null>;
   setActiveSkillForSession: (sessionId: string, skillId: string | null) => void;
+  /**
+   * Reasoning effort per Many session (in-memory), like the sticky skill above.
+   * 'off' means the model answers directly and emits no reasoning.
+   */
+  thinkingLevelBySession: Record<string, ThinkingLevel>;
+  setThinkingLevelForSession: (sessionId: string, level: ThinkingLevel) => void;
   /** Last text-to-speech error (voice assistant HUD) */
   ttsError: string | null;
   setTtsError: (message: string | null) => void;
@@ -693,6 +700,12 @@ export const useManyStore = create<ManyState>((set, get) => ({
   setActiveSkillForSession: (sessionId, skillId) =>
     set((state) => ({
       activeSkillIdBySession: { ...state.activeSkillIdBySession, [sessionId]: skillId },
+    })),
+
+  thinkingLevelBySession: {},
+  setThinkingLevelForSession: (sessionId, level) =>
+    set((state) => ({
+      thinkingLevelBySession: { ...state.thinkingLevelBySession, [sessionId]: level },
     })),
 
   ttsError: null,

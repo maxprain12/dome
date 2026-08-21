@@ -54,6 +54,11 @@ export function createPipelineCreateCardTool(): AnyAgentTool {
       ),
       start_at: Type.Optional(Type.String({ description: 'Optional start date/time as ISO 8601' })),
       end_at: Type.Optional(Type.String({ description: 'Optional end/deadline as ISO 8601' })),
+      person_id: Type.Optional(
+        Type.String({
+          description: 'Optional People id to soft-link via metadata.personIds',
+        }),
+      ),
     }),
     execute: async () => mainOnly(),
   };

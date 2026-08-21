@@ -296,6 +296,9 @@ export function useManySend(options: UseManySendOptions) {
       isSubmittingRef.current = true;
       setInput('');
       setChatAttachments([]);
+      // Pins travel with the message that was just sent, like attachments. Left
+      // in the composer they silently ride along on every following turn.
+      useManyStore.getState().clearPinnedResources();
       setIsLoading(true);
       setStatus('thinking');
       setError(null);
@@ -387,6 +390,14 @@ export function useManySend(options: UseManySendOptions) {
         const pinnedPeople = hydrated.people;
         const enrichedSources = hydrated.sources;
         const pinnedDocs = hydrated.docs;
+
+        // A pinned issue bound to a local clone turns this turn into a coding
+        // session: the main process resolves the path into the run's cwd.
+        const workspacePath = enrichedSources.reduce<string | undefined>((found, src) => {
+          if (found) return found;
+          const candidate = src.kind === 'issue' ? src.meta?.localPath : null;
+          return typeof candidate === 'string' && candidate.trim() ? candidate : undefined;
+        }, undefined);
 
         const toolIdsForMemory = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
         let memoryForPrompt = memoryEnabled && userMemory ? userMemory : undefined;
@@ -508,16 +519,18 @@ export function useManySend(options: UseManySendOptions) {
         });
         manySkillState.setPendingOneShotSkill(null);
 
+        // The pinned context lives in the system prompt (`mentioned-sources`
+        // / `mentioned-people`), not in the user's message. Appending it here
+        // too duplicated every pin in the payload and — because the JSONL
+        // session is the source of truth on reload — leaked the raw block into
+        // the visible user bubble.
         const userText =
           userMessage.trim() ||
           (pinSnapshot.length > 0 ? 'Analyze the pinned context.' : '');
-        const agentUserContent = [userText, ...hydrated.agentBlocks]
-          .filter((part) => part && String(part).trim())
-          .join('\n\n');
 
         const runUserMessage: ChatRunMessage = {
           ...userRunMessage,
-          content: agentUserContent || userRunMessage.content,
+          content: userText || userRunMessage.content,
         };
 
         const runMessages = [
@@ -587,6 +600,10 @@ export function useManySend(options: UseManySendOptions) {
           pinnedResourceIds:
             pinnedDocs.length > 0 ? pinnedDocs.map((r) => r.id) : undefined,
           userMemory: memoryEnabled && userMemory ? userMemory : undefined,
+          workspacePath,
+          thinkingLevel: currentSessionId
+            ? (useManyStore.getState().thinkingLevelBySession[currentSessionId] ?? 'off')
+            : 'off',
         });
         delegatedToRunEngine = true;
         if (sendOptions?.autoSpeak) {

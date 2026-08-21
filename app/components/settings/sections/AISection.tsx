@@ -119,7 +119,13 @@ export default function AISection() {
         setProvider(loadedProvider as AIProviderType);
         setApiKey(config.api_key || '');
         const defaultModel = getDefaultModelId(loadedProvider as AIProviderType);
-        setModel(config.model || defaultModel);
+        // Dome Cloud rejects bare OpenAI ids (gpt-5.6-sol); catalog uses vendor/model.
+        const loadedModel = config.model || defaultModel;
+        const domeSafeModel =
+          loadedProvider === 'dome' && loadedModel !== 'dome/auto' && !loadedModel.includes('/')
+            ? 'dome/auto'
+            : loadedModel;
+        setModel(domeSafeModel);
         const providerModels = PROVIDERS[loadedProvider as AIProviderType]?.models || [];
         // Dome: los modelos del plan llegan del provider (no están en el
         // catálogo estático) — no son "modelos custom".

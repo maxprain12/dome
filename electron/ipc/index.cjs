@@ -7,6 +7,7 @@ const windowHandlers = require('./core/window.cjs');
 const initHandlers = require('./core/init.cjs');
 const databaseHandlers = require('./data/database.cjs');
 const interactionsHandlers = require('./data/interactions.cjs');
+const codingHandlers = require('./data/coding.cjs');
 const semanticHandlers = require('./ai/semantic.cjs');
 const embeddingsHandlers = require('./ai/embeddings.cjs');
 const cloudLlmHandlers = require('./ai/cloud-llm.cjs');
@@ -106,15 +107,16 @@ function registerAll(deps) {
 
   const secureIpcMain = createSecureIpcMain(ipcMain, windowManager, validateSender);
 
-  const fs = require('fs');
-  const path = require('path');
-  const crypto = require('crypto');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const crypto = require('node:crypto');
 
   systemHandlers.register({ ipcMain: secureIpcMain, app, windowManager, validateSender, sanitizePath, validateUrl });
   windowHandlers.register({ ipcMain: secureIpcMain, nativeTheme, windowManager, database });
   initHandlers.register({ ipcMain: secureIpcMain, windowManager, initModule, validateSender });
   databaseHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService });
   interactionsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  codingHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   semanticHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   embeddingsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   cloudLlmHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });

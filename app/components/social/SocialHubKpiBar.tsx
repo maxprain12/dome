@@ -159,6 +159,15 @@ export function SocialHubKpiBar({
 
   useEffect(() => {
     void loadCards().catch(() => setCards([]));
+    const unsub = window.electron?.on?.(
+      'social:event-cards-refresh',
+      (payload: { cards?: SocialEventCard[] }) => {
+        setCards(payload?.cards ?? []);
+      },
+    );
+    return () => {
+      unsub?.();
+    };
   }, [loadCards]);
 
   if (section === 'posts') {

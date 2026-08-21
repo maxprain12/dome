@@ -13,11 +13,12 @@ export function createFileReadTool(): AnyAgentTool {
     label: 'Read File',
     name: 'file_read',
     description:
-      'Read the text content of a file from the filesystem. Returns the full content as a string. Use to inspect source code, configs, logs, or any text file. Supports pagination via offset and limit (line numbers).',
+      'Read text from a file. Prefer offset (1-indexed) + limit for large files. Output is capped; when truncated, continue with offset=N. Prefer file_grep before reading large sources.',
     parameters: Type.Object({
       file_path: Type.String({ description: 'Absolute path to the file to read.' }),
-      start_line: Type.Optional(Type.Number({ description: 'Line number to start reading from (0-based). Default: 0.' })),
-      limit: Type.Optional(Type.Number({ description: 'Maximum number of lines to read. Default: 200.' })),
+      offset: Type.Optional(Type.Number({ description: '1-indexed line to start from (default 1).' })),
+      start_line: Type.Optional(Type.Number({ description: 'Legacy 0-based start line.' })),
+      limit: Type.Optional(Type.Number({ description: 'Maximum lines to read.' })),
     }),
     execute: async (_id, args) => {
       const params = args as Record<string, unknown>;
@@ -205,5 +206,7 @@ export function createFileTools(): AnyAgentTool[] {
     createFileListTool(),
     createFileTreeTool(),
     createFileSearchTool(),
+    // file_grep / file_find / file_edit run in main via the agent harness registry
+    // (packages/tools + electron/tools/file-disk-tools.cjs).
   ];
 }

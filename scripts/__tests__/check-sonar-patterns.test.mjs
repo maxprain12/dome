@@ -29,6 +29,21 @@ describe('STRICT_RULES', () => {
     assert.ok(hits.some((h) => h.id === 'string-nullish'));
   });
 
+  it('flags Number(...) ??', () => {
+    const file = writeTemp('a-num.ts', 'const n = Number(raw) ?? 0;\n');
+    const hits = scanFile(file, STRICT_RULES);
+    assert.ok(hits.some((h) => h.id === 'number-nullish'));
+  });
+
+  it('does not flag asNumber(...) ?? or asString(...) ??', () => {
+    const file = writeTemp(
+      'a-as.ts',
+      'const n = asNumber(a) ?? asNumber(b);\nconst s = asString(a) ?? asString(b);\n',
+    );
+    const hits = scanFile(file, STRICT_RULES);
+    assert.equal(hits.filter((h) => h.id === 'number-nullish' || h.id === 'string-nullish').length, 0);
+  });
+
   it('flags .sort() without compare', () => {
     const file = writeTemp('b.cjs', 'const a = list.sort();\n');
     const hits = scanFile(file, STRICT_RULES);
@@ -67,6 +82,15 @@ describe('PROGRESSIVE_RULES', () => {
     assert.ok(hits.some((h) => h.id === 'void-arrow'));
   });
 
+  it('does not flag TypeScript void return types', () => {
+    const file = writeTemp(
+      'f-type.tsx',
+      'function F({ onClose }: { onClose: () => void }) {}\nexport type Run = () => void | Promise<void>;\n',
+    );
+    const hits = scanFile(file, PROGRESSIVE_RULES);
+    assert.equal(hits.filter((h) => h.id === 'void-arrow').length, 0);
+  });
+
   it('flags require(fs) without node:', () => {
     const file = writeTemp('g.cjs', "const fs = require('fs');\n");
     // allowPath skips non-electron — simulate under electron via rewriting scan
@@ -80,6 +104,15 @@ describe('PROGRESSIVE_RULES', () => {
     const file = writeTemp('h.ts', 'const o = cond ? value : value;\nconst n = x ? 1 : 1;\n');
     const hits = scanFile(file, PROGRESSIVE_RULES);
     assert.ok(hits.some((h) => h.id === 'identical-ternary'));
+  });
+
+  it('does not flag ternary whose branches only share a prefix', () => {
+    const file = writeTemp(
+      'h-prefix.ts',
+      "const a = cond ? rows : rows.filter(Boolean);\nconst b = typeof x === 'string' ? x : x?.name;\nconst c = initial ? find() ?? null : null;\nconst d = typeof raw === 'number' ? raw : raw ? 1 : 0;\n",
+    );
+    const hits = scanFile(file, PROGRESSIVE_RULES);
+    assert.equal(hits.filter((h) => h.id === 'identical-ternary').length, 0);
   });
 
   it('flags numeric JSX && leak', () => {

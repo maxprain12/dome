@@ -80,12 +80,24 @@ export interface SocialPost {
   externalPostId: string | null;
   externalUrl: string | null;
   error: string | null;
+  /** Internal editorial notes (Dome-only; not published). */
+  notes?: string | null;
   createdBy: string;
   groupId: string | null;
   createdAt: number;
   updatedAt: number;
   /** Present in summary responses (latest snapshot). */
   metrics?: SocialMetric | null;
+}
+
+/** Normalized public comment from a social provider. */
+export interface SocialComment {
+  id: string;
+  text: string;
+  authorName: string | null;
+  authorExternalId: string | null;
+  createdAt: number | null;
+  permalink: string | null;
 }
 
 export type EventCardLayout = 'classic' | 'hero' | 'split_qr' | 'compact';
@@ -154,6 +166,9 @@ export interface SocialDmRule {
   keyword: string;
   template: string;
   status: 'active' | 'paused';
+  commentReplyEnabled: boolean;
+  commentReplyTemplate: string;
+  captureLead: boolean;
 }
 
 export interface SocialSummary {

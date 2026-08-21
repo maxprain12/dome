@@ -97,5 +97,6 @@
   "view_section": "View",
   "context_title": "Context",
   "context_empty": "No active context",
-  "context_pin_hint": "Pin resources with @ in the composer to always include them."
+  "context_pin_hint": "Pin resources with @ in the composer to always include them.",
+  "hitl_approve_session": "Approve for this chat"
 }

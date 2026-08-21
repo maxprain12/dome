@@ -6,7 +6,7 @@
  * handlers go through these helpers.
  */
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const database = require('../core/database.cjs');
 
 const db = () => database.getDB();
@@ -119,6 +119,22 @@ function setRepoSelected(id, selected, projectId) {
 
 function touchRepoSync(id) {
   db().prepare('UPDATE github_repos SET last_sync_at = ? WHERE id = ?').run(now(), id);
+}
+
+/**
+ * Bind (or clear) the on-disk clone backing this repo — the "resuélvelo, lo
+ * tengo en esta ruta" link that lets the agent open a coding workspace from an
+ * issue. Pass null to unbind.
+ * @param {string} id
+ * @param {string | null} localPath - already normalized by the caller
+ */
+function setRepoLocalPath(id, localPath) {
+  const repo = getRepo(id);
+  if (!repo) throw new Error('Repo not found');
+  db()
+    .prepare('UPDATE github_repos SET local_path = ?, updated_at = ? WHERE id = ?')
+    .run(localPath || null, now(), id);
+  return getRepo(id);
 }
 
 // --- sync state (ETags) ----------------------------------------------------
@@ -521,6 +537,7 @@ module.exports = {
   getRepoByFullNameAndProject,
   findAssignmentsByFullName,
   setRepoSelected,
+  setRepoLocalPath,
   touchRepoSync,
   getEtag,
   setEtag,

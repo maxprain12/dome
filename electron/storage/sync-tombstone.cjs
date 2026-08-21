@@ -44,6 +44,7 @@ const DOMAIN_TABLES = {
   ],
   files: ['vault_blobs'],
   conversations: ['chat_sessions', 'chat_messages', 'many_session_index'],
+  people: ['people', 'person_identities', 'person_interactions'],
 };
 
 const ALL_TABLES = new Set(Object.values(DOMAIN_TABLES).flat());

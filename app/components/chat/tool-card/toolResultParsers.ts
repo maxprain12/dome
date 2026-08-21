@@ -146,44 +146,130 @@ export function formatArgsSummary(args: Record<string, unknown>): string {
   return joined;
 }
 
-/** Human-readable one-liner summary for the many panel card style */
+const SUMMARY_MAX = 72;
+
+function clipSummary(value: string, max = SUMMARY_MAX): string {
+  const text = value.trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/**
+ * Shorten a filesystem path to its last two segments.
+ *
+ * A tool card showing `/Users/me/Documents/proyectos/dome/electron/tools/x.cjs`
+ * is mostly noise: the tail is what identifies the file, and every path in a run
+ * shares the same prefix anyway.
+ */
+function shortenPath(value: unknown): string {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  const segments = raw.split('/').filter(Boolean);
+  if (segments.length <= 2) return raw;
+  return segments.slice(-2).join('/');
+}
+
+function firstString(args: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = args?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number') return String(value);
+  }
+  return '';
+}
+
+/**
+ * Which argument is the headline for a given tool, and how to render it.
+ *
+ * A table rather than a chain of `if`s: adding a tool means adding a row, and a
+ * name that no longer exists is visible as a dead row instead of hiding inside
+ * a condition that silently never matches.
+ */
+const TOOL_SUMMARY_SPECS: Record<
+  string,
+  { keys: string[]; render?: (value: string, args: Record<string, unknown>) => string }
+> = {
+  file_read: { keys: ['file_path', 'path'], render: shortenPath },
+  file_write: { keys: ['file_path', 'path'], render: shortenPath },
+  file_edit: { keys: ['file_path', 'path'], render: shortenPath },
+  file_list: { keys: ['file_path', 'path'], render: shortenPath },
+  file_tree: { keys: ['file_path', 'path'], render: shortenPath },
+  file_grep: {
+    keys: ['pattern'],
+    render: (value, args) => {
+      const where = shortenPath(args.path ?? args.directory);
+      return where ? `"${value}" in ${where}` : `"${value}"`;
+    },
+  },
+  file_find: {
+    keys: ['pattern'],
+    render: (value, args) => {
+      const where = shortenPath(args.path ?? args.directory);
+      return where ? `${value} in ${where}` : value;
+    },
+  },
+  file_search: {
+    keys: ['pattern'],
+    render: (value, args) => {
+      const where = shortenPath(args.directory);
+      return where ? `${value} in ${where}` : value;
+    },
+  },
+  shell_exec: { keys: ['command'] },
+  git_status: { keys: [] },
+  git_diff: {
+    keys: ['path'],
+    render: (value, args) => {
+      const scope = value ? shortenPath(value) : '';
+      const staged = args.staged === true ? 'staged' : '';
+      return [staged, scope].filter(Boolean).join(' · ') || 'working tree';
+    },
+  },
+  git_log: { keys: [], render: (_v, args) => `last ${args.limit ?? 20}` },
+  git_add: {
+    keys: ['path'],
+    render: (value, args) =>
+      Array.isArray(args.paths) ? args.paths.map(shortenPath).join(', ') : shortenPath(value),
+  },
+  git_commit: { keys: ['message'] },
+  git_branch_create: { keys: ['name'] },
+  task: {
+    keys: ['subagent_type', 'subagentType', 'agent', 'name'],
+    render: (value, args) => {
+      const desc = firstString(args, ['prompt', 'task', 'description']);
+      return desc ? `${value}: ${desc}` : value;
+    },
+  },
+  delegate_to_agent: {
+    keys: ['subagent_type', 'agent', 'name'],
+    render: (value, args) => {
+      const desc = firstString(args, ['prompt', 'task', 'description']);
+      return desc ? `${value}: ${desc}` : value;
+    },
+  },
+  web_search: { keys: ['query', 'q'], render: (value) => `"${value}"` },
+  web_fetch: { keys: ['url'] },
+  resource_search: { keys: ['query', 'q'], render: (value) => `"${value}"` },
+  skill_read: {
+    keys: ['skill_id'],
+    render: (value, args) => {
+      const path = firstString(args, ['path']);
+      return path ? `${value}/${path}` : value;
+    },
+  },
+  get_tool_definition: { keys: ['tool_name'] },
+  dome_load_doc: { keys: ['id', 'doc_id'] },
+};
+
+/** Human-readable one-liner summary for a tool card. */
 export function smartToolSummary(name: string, args: Record<string, unknown>): string {
-  const n = name.toLowerCase();
-  if (n === 'file_write' || n === 'write_file' || n === 'edit_file' || n.includes('resource_create') || n.includes('notebook')) {
-    const fp = String(args.file_path ?? args.path ?? '');
-    if (fp) return fp.split('/').slice(-2).join('/');
-    const title = String(args.title ?? '');
-    return title.length > 64 ? title.slice(0, 61) + '…' : title;
-  }
-  if (n === 'file_read' || n === 'read_file') {
-    const fp = String(args.file_path ?? args.path ?? '');
-    return fp ? fp.split('/').slice(-1)[0]! : 'file';
-  }
-  if (n === 'glob') return String(args.pattern ?? args.glob ?? '').slice(0, 64);
-  if (n === 'ls' || n === 'file_list' || n === 'file_tree') {
-    return String(args.file_path ?? args.path ?? args.dir ?? '').slice(0, 64);
-  }
-  if (n === 'task' || n === 'delegate_to_agent') {
-    const sub = String(args.subagent_type ?? args.subagentType ?? args.agent ?? args.name ?? '');
-    const desc = String(args.prompt ?? args.task ?? args.description ?? '');
-    if (sub && desc) return `${sub}: ${desc}`.slice(0, 72);
-    return (sub || desc).slice(0, 72);
-  }
-  if (n === 'shell_exec' || n.includes('shell')) {
-    const cmd = String(args.command ?? '').trim();
-    return cmd.length > 72 ? cmd.slice(0, 69) + '…' : cmd;
-  }
-  if (n.includes('web_search') || n.includes('resource_search') || n.includes('memory')) {
-    return `"${String(args.query ?? args.q ?? '').slice(0, 60)}"`;
-  }
-  if (n.includes('web_fetch')) return String(args.url ?? '').slice(0, 72);
-  if (n.includes('resource_get')) {
-    return String(args.title ?? args.resourceId ?? args.id ?? '').slice(0, 64);
-  }
-  if (n.includes('calendar')) {
-    return String(args.title ?? args.summary ?? '').slice(0, 64);
-  }
-  return formatArgsSummary(args);
+  const safeArgs = args && typeof args === 'object' ? args : {};
+  const spec = TOOL_SUMMARY_SPECS[String(name || '').toLowerCase()];
+  if (!spec) return formatArgsSummary(safeArgs);
+
+  const value = firstString(safeArgs, spec.keys);
+  if (!value && !spec.render) return '';
+  const rendered = spec.render ? spec.render(value, safeArgs) : value;
+  return clipSummary(rendered);
 }
 
 /** Extract a code preview from a filesystem/codegen tool's arguments, or null. */

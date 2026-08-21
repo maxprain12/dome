@@ -97,5 +97,6 @@
   "view_section": "Vista",
   "context_title": "Contexto",
   "context_empty": "Sin contexto activo",
-  "context_pin_hint": "Fija recursos con @ en el redactor para incluirlos siempre."
+  "context_pin_hint": "Fija recursos con @ en el redactor para incluirlos siempre.",
+  "hitl_approve_session": "Aprobar en este chat"
 }

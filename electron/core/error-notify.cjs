@@ -33,10 +33,16 @@ function classifyError(message) {
   if (/(invalid[ _]?api[ _-]?key|incorrect api key|unauthorized|401|authentication)/.test(text)) {
     return 'invalid_api_key';
   }
+  if (/(credits_exhausted|not enough dome credits)/.test(text)) return 'credits_exhausted';
+  if (/(subscription_inactive|subscription status)/.test(text)) return 'subscription_inactive';
+  if (/(model_not_in_plan|not available on plan)/.test(text)) return 'model_not_in_plan';
   if (/(rate.?limit|429|quota|insufficient_quota)/.test(text)) return 'rate_limit';
   if (/(model.*(not found|does not exist)|404.*model)/.test(text)) return 'model_not_found';
   if (/(econnrefused|enotfound|etimedout|fetch failed|network|socket hang up)/.test(text)) {
     return 'network';
+  }
+  if (/(service unavailable|temporarily unavailable|bad gateway|gateway timeout|\b502\b|\b503\b|\b504\b)/.test(text)) {
+    return 'service_unavailable';
   }
   if (/(context.*(length|window)|too many tokens|maximum.*tokens)/.test(text)) {
     return 'context_overflow';

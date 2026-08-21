@@ -9,7 +9,7 @@ import ManyConversation, {
   type ManyConversationHandle,
 } from './conversation/ManyConversation';
 import ManyWelcome from './conversation/ManyWelcome';
-import { ManyCompactionNotice, ManyLoadingMarker, ManyPdfRegionChip } from './conversation/ManyNotices';
+import { ManyCompactionNotice, ManyPdfRegionChip } from './conversation/ManyNotices';
 import ManyComposer from './composer/ManyComposer';
 import ContextUsageIndicator from './ContextUsageIndicator';
 import UICursorOverlay from './UICursorOverlay';
@@ -279,8 +279,7 @@ export default function ManyPanel({
   const handleDismissError = useCallback(() => setError(null), [setError]);
 
   const handleReportError = useCallback(() => {
-    if (!error) return;
-    void navigator.clipboard
+    if (!error) return; navigator.clipboard
       .writeText(error)
       .then(() => {
         showToast('info', t('many.error_copied'));
@@ -402,7 +401,7 @@ export default function ManyPanel({
     setResourceToolsEnabled,
     setMemoryEnabled,
     supportsTools,
-    onSend: () => void handleSend(),
+    onSend: () => handleSend(),
     onAbort: handleAbort,
     placeholderOverride: pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null,
     attachments: chatAttachments,
@@ -473,7 +472,7 @@ export default function ManyPanel({
           isFullscreenActive={isFullscreen}
           onToggleFullscreen={handleToggleFullscreen}
           showPopoutToggle={!isPopout}
-          onPopout={() => void handlePopout()}
+          onPopout={() => handlePopout()}
         />
 
         {view === 'history' && !isFullscreen ? (
@@ -519,6 +518,7 @@ export default function ManyPanel({
                 messageGroups={messageGroups}
                 lastUserGroupIndex={lastUserGroupIndex}
                 isLoading={isLoading}
+                loadingHint={loadingHint}
                 hasStreamingMessage={Boolean(streamingMessage)}
                 showApprovalGate={showHitlInline}
                 pendingApproval={pendingApproval}
@@ -540,11 +540,6 @@ export default function ManyPanel({
                 event={compactionNotice}
                 onDismiss={() => setCompactionNotice(null)}
               />
-            ) : null}
-            {isLoading && loadingHint && !showHitlInline ? (
-              <div className="mx-4 mb-1" aria-live="polite">
-                <ManyLoadingMarker label={loadingHint} />
-              </div>
             ) : null}
 
             {!showWelcomeHero ? (

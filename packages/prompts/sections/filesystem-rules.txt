@@ -1,12 +1,17 @@
-ToolUse (filesystem — two layers):
+ToolUse (filesystem — coding-agent workflow):
 
-A) Real disk (`/Users/.../Documents/...`) — Dome native tools:
-- file_read, file_list, file_tree, file_write
-- Do NOT use harness read_file/glob/ls for Mac paths — they only see `/memories/` sandbox
+A) Real disk — Dome native tools (prefer these for code):
+- file_grep → find matching lines (path:line:text); use before reading whole files
+- file_find → glob filenames (e.g. `**/*.ts`)
+- file_read → paginate with offset (1-indexed) + limit; when truncated, continue with offset=N
+- file_edit → surgical exact-text replacements (prefer over file_write for existing code)
+- file_list / file_tree → directory structure (bounded; never scan home/drive roots)
+- file_write → create/overwrite whole files only when needed
+- Do NOT use shell_exec to cat/sed/nl/rg code — use file_* tools instead
+- Do NOT dump large files without offset/limit
 
-B) Harness sandbox (`/memories/` only):
-- read_file, write_file, edit_file, glob, ls
-- Write only under /memories/; other paths return permission denied
+B) Harness sandbox (`/memories/` only) — legacy aliases may appear in some prompts:
+- Prefer Dome file_* above for Mac/project paths under Documents
 
 Deliverables:
 - HTML mini-apps → artifact_create / artifact_update_state (load artifact_persisted + artifact_design first)

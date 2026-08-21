@@ -27,6 +27,7 @@ const VALID_DOMAINS = /** @type {const} */ ([
   'learn',
   'files',
   'conversations',
+  'people',
 ]);
 
 /** @typedef {typeof VALID_DOMAINS[number]} DomainName */
@@ -63,6 +64,86 @@ function mapSocialPostPushRow(row) {
     delete out.status;
   }
   return out;
+}
+
+/**
+ * SQLite stores JSON as TEXT; provider jsonb columns expect objects on the wire.
+ * @param {Record<string, unknown>} row
+ * @param {string[]} fields
+ */
+function parseJsonFieldsForPush(row, fields) {
+  const out = { ...row };
+  for (const field of fields) {
+    const value = out[field];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    try {
+      out[field] = JSON.parse(value);
+    } catch {
+      /* keep string */
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} table
+ * @param {Record<string, unknown>} row
+ * @param {string[]} jsonFields
+ */
+/**
+ * UPSERT that updates in place. Prefer this over INSERT OR REPLACE for tables
+ * with ON DELETE CASCADE children (REPLACE deletes the row first → wipe kids).
+ */
+function applyRowWithJsonTextUpsert(db, table, row, jsonFields) {
+  /** @type {Record<string, unknown>} */
+  const filtered = { ...row };
+  for (const field of jsonFields) {
+    if (filtered[field] != null && typeof filtered[field] === 'object') {
+      filtered[field] = JSON.stringify(filtered[field]);
+    }
+  }
+  const validCols = pragmaColumns(db, table);
+  const keys = Object.keys(filtered).filter((k) => validCols.has(k));
+  if (!keys.length || !filtered.id) return;
+  const placeholders = keys.map(() => '?').join(',');
+  const updateCols = keys.filter((k) => k !== 'id');
+  const updateClause =
+    updateCols.length > 0
+      ? updateCols.map((k) => `${k} = excluded.${k}`).join(', ')
+      : 'id = excluded.id';
+  db.prepare(
+    `INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})
+     ON CONFLICT(id) DO UPDATE SET ${updateClause}`,
+  ).run(...keys.map((k) => filtered[k]));
+}
+
+/** @deprecated Prefer applyRowWithJsonTextUpsert for CASCADE-safe tables. */
+function applyRowWithJsonText(db, table, row, jsonFields) {
+  applyRowWithJsonTextUpsert(db, table, row, jsonFields);
+}
+
+/**
+ * person_identities has UNIQUE(project_id, source, external_id). A remote row
+ * with a different id for the same natural key must replace the local one or
+ * UPSERT-by-id fails forever and push keeps bouncing 23505.
+ */
+function applyPersonIdentityRow(db, row) {
+  const projectId = row.project_id || 'default';
+  const source = row.source;
+  const externalId = row.external_id;
+  if (row.id && projectId && source && externalId) {
+    const existingByKey = db
+      .prepare(
+        `SELECT id FROM person_identities
+         WHERE project_id = ? AND source = ? AND external_id = ? AND id != ?`,
+      )
+      .get(projectId, source, externalId, row.id);
+    if (existingByKey?.id) {
+      db.prepare('DELETE FROM person_identities WHERE id = ?').run(existingByKey.id);
+    }
+  }
+  applyRowWithJsonTextUpsert(db, 'person_identities', row, ['meta_json']);
 }
 
 /**
@@ -161,6 +242,45 @@ const DOMAIN_SPECS = {
       { name: 'chat_sessions', deltaColumn: 'updated_at' },
       { name: 'chat_messages', deltaColumn: 'created_at', appendOnly: true },
       { name: 'many_session_index', wire: 'many_sessions', deltaColumn: 'updated_at' },
+    ],
+  },
+  people: {
+    tables: [
+      {
+        name: 'people',
+        deltaColumn: 'updated_at',
+        mapPushRow: (row) => {
+          const out = parseJsonFieldsForPush(row, ['profile_json']);
+          if (out.profile_json == null) out.profile_json = {};
+          if (!out.lead_status) out.lead_status = 'lead';
+          if (!out.project_id) out.project_id = 'default';
+          if (!out.display_name) out.display_name = 'Unknown';
+          return out;
+        },
+        applyRow: (db, row) => applyRowWithJsonText(db, 'people', row, ['profile_json']),
+      },
+      {
+        name: 'person_identities',
+        deltaColumn: 'updated_at',
+        mapPushRow: (row) => {
+          const out = parseJsonFieldsForPush(row, ['meta_json']);
+          if (out.meta_json == null) out.meta_json = {};
+          if (!out.project_id) out.project_id = 'default';
+          return out;
+        },
+        applyRow: (db, row) => applyPersonIdentityRow(db, row),
+      },
+      {
+        name: 'person_interactions',
+        deltaColumn: 'updated_at',
+        mapPushRow: (row) => {
+          const out = parseJsonFieldsForPush(row, ['payload']);
+          if (out.payload == null) out.payload = {};
+          if (!out.project_id) out.project_id = 'default';
+          return out;
+        },
+        applyRow: (db, row) => applyRowWithJsonText(db, 'person_interactions', row, ['payload']),
+      },
     ],
   },
 };

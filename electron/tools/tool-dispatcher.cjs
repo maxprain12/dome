@@ -21,13 +21,17 @@ const {
   getToolDefinitionsByIds,
   getToolDefsBySubagent,
 } = require('./tool-definitions.cjs');
+const { scopeToolPaths } = require('../coding/tool-path-scope.cjs');
 
 const DEFAULT_TOOL_TIMEOUT_MS = Number(process.env.DOME_TOOL_TIMEOUT_MS) || 120_000;
 const TOOL_TIMEOUT_OVERRIDES = {
   transcribe_audio: 600_000,
   notebook_run_cell: 300_000,
   ppt_create: 300_000,
-  shell_exec: 120_000,
+  // Builds and test suites legitimately run for minutes. The shell tool has its
+  // own optional per-call timeout and is cancellable, so this is only a backstop
+  // against a wedged process, not the normal control.
+  shell_exec: 1_800_000,
   web_fetch: 90_000,
   resource_index: 180_000,
   semantic_index_resource: 180_000,
@@ -50,8 +54,17 @@ function getAiToolsHandler() {
   if (!_aiToolsHandler) _aiToolsHandler = require('./ai-tools-handler.cjs');
   return _aiToolsHandler;
 }
-async function executeToolInMainImpl(toolName, args, toolContext) {
+async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
   const automationProjectId = toolContext?.automationProjectId ?? null;
+  const normalizedToolName = normalizeToolName(toolName);
+
+  // Coding runs anchor relative tool paths to the repository root so the model
+  // never has to guess absolute paths (and cannot silently drift outside it).
+  const { args } = scopeToolPaths(
+    normalizedToolName,
+    rawArgs,
+    toolContext?.workspaceCwd ?? null,
+  );
 
   function denyUnlessResourceInScope(resourceId) {
     if (!automationProjectId || !resourceId) return null;
@@ -63,7 +76,6 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
     return null;
   }
 
-  const normalizedToolName = normalizeToolName(toolName);
   const handlerName = TOOL_HANDLER_MAP[normalizedToolName];
   const aiToolsHandler = getAiToolsHandler();
   if (!handlerName || !aiToolsHandler[handlerName]) {
@@ -681,6 +693,13 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
         result = await fn(args);
         break;
       case 'shellExec':
+      // Git tools need the workspace cwd (and the abort signal) from the context.
+      case 'gitStatus':
+      case 'gitDiff':
+      case 'gitLog':
+      case 'gitBranchCreate':
+      case 'gitAdd':
+      case 'gitCommit':
         result = await fn(args, toolContext);
         break;
       default:

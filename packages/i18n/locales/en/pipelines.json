@@ -180,5 +180,12 @@
   "run_started_toast": "Agent started",
   "agent_running_overlay": "Agent running…",
   "field_empty": "No fields. Add the first.",
-  "remove_field": "Remove field"
+  "remove_field": "Remove field",
+  "people_section": "People",
+  "people_empty": "No people linked yet.",
+  "link_person": "Link person",
+  "people_search_placeholder": "Search people…",
+  "people_no_results": "No people found",
+  "people_unknown": "Unknown person",
+  "remove_person": "Remove person"
 }

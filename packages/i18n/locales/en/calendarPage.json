@@ -48,5 +48,12 @@
   "linked_resources_empty": "No linked resources yet.",
   "link_resource": "Link resource",
   "open_in_github": "Open in GitHub",
-  "open_in_social": "Open in Social"
+  "open_in_social": "Open in Social",
+  "people_section": "People",
+  "people_empty": "No people linked yet.",
+  "link_person": "Link person",
+  "people_search_placeholder": "Search people…",
+  "people_no_results": "No people found",
+  "people_unknown": "Unknown person",
+  "remove_person": "Remove person"
 }

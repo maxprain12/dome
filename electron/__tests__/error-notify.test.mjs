@@ -20,7 +20,16 @@ describe('error-notify', () => {
     assert.equal(classifyError('401 Unauthorized: invalid api key'), 'invalid_api_key');
     assert.equal(classifyError('Rate limit exceeded (429)'), 'rate_limit');
     assert.equal(classifyError('The model `gpt-99` does not exist'), 'model_not_found');
+    assert.equal(classifyError('403 "model_not_in_plan"'), 'model_not_in_plan');
+    assert.equal(classifyError('Model gpt-5.6-sol not available on plan dome_pro'), 'model_not_in_plan');
+    assert.equal(classifyError('402 credits_exhausted'), 'credits_exhausted');
+    assert.equal(classifyError('Subscription status is canceled'), 'subscription_inactive');
     assert.equal(classifyError('fetch failed: ECONNREFUSED 127.0.0.1'), 'network');
+    assert.equal(classifyError('Service Unavailable'), 'service_unavailable');
+    assert.equal(
+      classifyError('ChatGPT Codex is temporarily unavailable'),
+      'service_unavailable',
+    );
     assert.equal(classifyError('maximum context length is 8192 tokens'), 'context_overflow');
     assert.equal(classifyError('something exploded'), 'unknown');
   });

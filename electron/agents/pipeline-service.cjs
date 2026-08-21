@@ -42,6 +42,7 @@ function mapItem(row) {
     startAt: row.start_at ?? null,
     endAt: row.end_at ?? null,
     data: parseJson(row.data_json, null),
+    metadata: parseJson(row.metadata_json, null),
   };
 }
 
@@ -78,7 +79,7 @@ function getPipeline(pipelineId) {
   };
 }
 
-async function createCard({ pipelineId, stageId, title, data, startAt, endAt }) {
+async function createCard({ pipelineId, stageId, title, data, startAt, endAt, metadata }) {
   const queries = q();
   const pipeline = queries.getPipelineById.get(pipelineId);
   if (!pipeline) throw new Error('Pipeline not found');
@@ -97,7 +98,9 @@ async function createCard({ pipelineId, stageId, title, data, startAt, endAt }) 
     'pending', 'unassigned', null, null, null,
     Number.isInteger(startAt) ? startAt : null,
     Number.isInteger(endAt) ? endAt : null,
-    null, null, now, now,
+    null,
+    metadata != null ? JSON.stringify(metadata) : null,
+    now, now,
   );
   await pipelineCalendarSync.syncItemCalendar(queries.getPipelineItemById.get(id));
   return mapItem(queries.getPipelineItemById.get(id));

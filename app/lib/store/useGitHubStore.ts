@@ -58,6 +58,8 @@ interface GitHubState {
     projectId?: string,
   ) => Promise<void>;
   loadRepoData: (repoId: string, projectId?: string) => Promise<void>;
+  /** Bind (or clear, with null) the on-disk clone the coding agent works in. */
+  setRepoLocalPath: (repoId: string, path: string | null) => Promise<CodingWorkspace | null>;
   patchLocalIssue: (issue: GitHubIssueRow) => void;
   syncNow: (projectId?: string) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -249,6 +251,20 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
     } finally {
       if (_loadRepoInflight?.repoId === repoId) _loadRepoInflight = null;
     }
+  },
+
+  setRepoLocalPath: async (repoId, path) => {
+    const res = await window.electron?.coding?.repo?.setLocalPath?.({ repoId, path });
+    if (!res?.success || !res.data) {
+      set({ error: res?.error ?? 'Failed to bind local repository' });
+      return null;
+    }
+    const { repo, workspace } = res.data;
+    set((state) => ({
+      error: null,
+      repos: state.repos.map((row) => (row.id === repo.id ? { ...row, ...repo } : row)),
+    }));
+    return workspace;
   },
 
   patchLocalIssue: (issue) => {
