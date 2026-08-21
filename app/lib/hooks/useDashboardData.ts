@@ -257,26 +257,31 @@ function recordResourceActivity(tally: ActivityTally, cMs: number, uMs: number):
   else if (uMs > cMs + 1000) bumpDay(tally, uk);
 }
 
+function inHalfOpenRange(ts: number, startMs: number, endMs: number): boolean {
+  return ts >= startMs && ts < endMs;
+}
+
 function classifyResourceTimestamps(
   cMs: number,
   uMs: number,
   tw: DashboardTimeWindows,
 ) {
   const inCurrentWeek = cMs >= tw.weekStartMs;
-  const inToday = cMs >= tw.startToday && cMs < tw.endToday;
-  const editedToday = uMs >= tw.startToday && uMs < tw.endToday && uMs > cMs + 30 * 1000;
-  const inPrevWeek = cMs >= tw.prevWeekStartMs && cMs < tw.weekStartMs;
-  const touchedPrevWeek = uMs >= tw.prevWeekStartMs && uMs < tw.weekStartMs;
+  const inToday = inHalfOpenRange(cMs, tw.startToday, tw.endToday);
+  const editedToday =
+    inHalfOpenRange(uMs, tw.startToday, tw.endToday) && uMs > cMs + 30 * 1000;
+  const inPrevWeek = inHalfOpenRange(cMs, tw.prevWeekStartMs, tw.weekStartMs);
+  const touchedPrevWeek = inHalfOpenRange(uMs, tw.prevWeekStartMs, tw.weekStartMs);
   const touchedThisWeek = uMs >= tw.weekStartMs;
 
   return {
-    weeklyResourcesCreated: inCurrentWeek ? 1 : 0,
-    weeklyResourceTouches: touchedThisWeek ? 1 : 0,
-    resourcesCreatedToday: inToday ? 1 : 0,
-    resourcesEditedToday: editedToday ? 1 : 0,
-    resourcesCreatedThisWeek: inCurrentWeek ? 1 : 0,
-    prevWeeklyResourcesCreated: inPrevWeek ? 1 : 0,
-    prevWeeklyResourceTouches: touchedPrevWeek ? 1 : 0,
+    weeklyResourcesCreated: Number(inCurrentWeek),
+    weeklyResourceTouches: Number(touchedThisWeek),
+    resourcesCreatedToday: Number(inToday),
+    resourcesEditedToday: Number(editedToday),
+    resourcesCreatedThisWeek: Number(inCurrentWeek),
+    prevWeeklyResourcesCreated: Number(inPrevWeek),
+    prevWeeklyResourceTouches: Number(touchedPrevWeek),
   };
 }
 
@@ -342,6 +347,30 @@ function tallyChats(
   return { chatsToday, weeklyChatSessions, chatsThisWeek, prevWeeklyChatSessions };
 }
 
+function recordRunActivity(
+  run: PersistentRun,
+  tally: ActivityTally,
+  startedAt: number,
+  finished: number,
+  updatedAt: number,
+): void {
+  tally.activityDays.add(localDayKey(startedAt));
+  tally.activityDays.add(localDayKey(updatedAt));
+  if (run.finishedAt) tally.activityDays.add(localDayKey(finished));
+  bumpDay(tally, localDayKey(startedAt));
+  if (run.finishedAt) bumpDay(tally, localDayKey(finished));
+}
+
+function classifyCompletedRun(finished: number, tw: DashboardTimeWindows) {
+  return {
+    weeklyRunsCompleted: Number(finished >= tw.weekStartMs),
+    runsCompletedToday: Number(inHalfOpenRange(finished, tw.startToday, tw.endToday)),
+    prevWeeklyRunsCompleted: Number(
+      inHalfOpenRange(finished, tw.prevWeekStartMs, tw.weekStartMs),
+    ),
+  };
+}
+
 function tallyRuns(
   runs: PersistentRun[],
   tally: ActivityTally,
@@ -355,19 +384,99 @@ function tallyRuns(
     const startedAt = toEpochMs(run.startedAt);
     const finished = toEpochMs(run.finishedAt ?? run.updatedAt);
     const updatedAt = toEpochMs(run.updatedAt);
-    tally.activityDays.add(localDayKey(startedAt));
-    tally.activityDays.add(localDayKey(updatedAt));
-    if (run.finishedAt) tally.activityDays.add(localDayKey(finished));
-    bumpDay(tally, localDayKey(startedAt));
-    if (run.finishedAt) bumpDay(tally, localDayKey(finished));
+    recordRunActivity(run, tally, startedAt, finished, updatedAt);
     if (startedAt >= tw.weekStartMs) runsStartedThisWeek++;
     if (run.status === 'completed') {
-      if (finished >= tw.weekStartMs) weeklyRunsCompleted++;
-      if (finished >= tw.startToday && finished < tw.endToday) runsCompletedToday++;
-      if (finished >= tw.prevWeekStartMs && finished < tw.weekStartMs) prevWeeklyRunsCompleted++;
+      const counts = classifyCompletedRun(finished, tw);
+      weeklyRunsCompleted += counts.weeklyRunsCompleted;
+      runsCompletedToday += counts.runsCompletedToday;
+      prevWeeklyRunsCompleted += counts.prevWeeklyRunsCompleted;
     }
   }
   return { runsCompletedToday, weeklyRunsCompleted, prevWeeklyRunsCompleted, runsStartedThisWeek };
+}
+
+function pushPendingFlashcards(
+  pending: PendingTodayItem[],
+  dueFlashcards: number,
+  tw: DashboardTimeWindows,
+  t: TranslateFn,
+): void {
+  if (dueFlashcards <= 0) return;
+  pending.push({
+    id: 'pending-flashcards',
+    kind: 'flashcards',
+    title: t('dashboard.pending_flashcards', { count: dueFlashcards }),
+    subtitle: t('dashboard.pending_flashcards_sub'),
+    timestamp: tw.nowMs,
+    ...formatPendingTime(tw.nowMs),
+    tag: t('dashboard.tag_study'),
+    tagKind: 'warn',
+  });
+}
+
+function eventTitleOrFallback(title: string | undefined, t: TranslateFn): string {
+  if (title) return title;
+  return t('dashboard.pending_event');
+}
+
+function pushPendingCalendarEvents(
+  pending: PendingTodayItem[],
+  eventsRaw: DashboardUpcomingEvent[],
+  tw: DashboardTimeWindows,
+  t: TranslateFn,
+): void {
+  const windowEnd = tw.endToday + 86400000;
+  for (const ev of eventsRaw) {
+    const st = toEpochMs(ev.start_at);
+    if (!inHalfOpenRange(st, tw.startToday, windowEnd)) continue;
+    const { time, ampm } = formatPendingTime(st);
+    const tagInfo = pendingTagForEvent(st, tw.nowMs, t);
+    pending.push({
+      id: `pending-cal-${ev.id}`,
+      kind: 'calendar',
+      title: eventTitleOrFallback(ev.title, t),
+      subtitle: t('dashboard.pending_calendar_sub'),
+      refId: ev.id,
+      timestamp: st,
+      timeLabel: time,
+      ampm,
+      ...tagInfo,
+    });
+  }
+}
+
+function isActivePendingRunStatus(status: PersistentRun['status']): boolean {
+  return status === 'running' || status === 'waiting_approval' || status === 'queued';
+}
+
+function runTitleOrFallback(title: string | undefined, t: TranslateFn): string {
+  if (title) return title;
+  return t('dashboard.pending_run');
+}
+
+function pushPendingRuns(
+  pending: PendingTodayItem[],
+  runs: PersistentRun[],
+  t: TranslateFn,
+): void {
+  for (const run of runs) {
+    if (!isActivePendingRunStatus(run.status)) continue;
+    const updatedAt = toEpochMs(run.updatedAt);
+    const { time, ampm } = formatPendingTime(updatedAt);
+    const tagInfo = pendingTagForRun(run.status, t);
+    pending.push({
+      id: `pending-run-${run.id}`,
+      kind: 'run',
+      title: runTitleOrFallback(run.title, t),
+      subtitle: t('dashboard.pending_run_sub'),
+      refId: run.id,
+      timestamp: updatedAt,
+      timeLabel: time,
+      ampm,
+      ...tagInfo,
+    });
+  }
 }
 
 function buildPendingToday(args: {
@@ -379,54 +488,9 @@ function buildPendingToday(args: {
 }): PendingTodayItem[] {
   const { dueFlashcards, eventsRaw, runs, tw, t } = args;
   const pending: PendingTodayItem[] = [];
-  if (dueFlashcards > 0) {
-    const tagInfo = { tag: t('dashboard.tag_study'), tagKind: 'warn' as PendingTagKind };
-    pending.push({
-      id: 'pending-flashcards',
-      kind: 'flashcards',
-      title: t('dashboard.pending_flashcards', { count: dueFlashcards }),
-      subtitle: t('dashboard.pending_flashcards_sub'),
-      timestamp: tw.nowMs,
-      ...formatPendingTime(tw.nowMs),
-      ...tagInfo,
-    });
-  }
-  for (const ev of eventsRaw) {
-    const st = toEpochMs(ev.start_at);
-    if (st >= tw.startToday && st < tw.endToday + 86400000) {
-      const { time, ampm } = formatPendingTime(st);
-      const tagInfo = pendingTagForEvent(st, tw.nowMs, t);
-      pending.push({
-        id: `pending-cal-${ev.id}`,
-        kind: 'calendar',
-        title: ev.title || t('dashboard.pending_event'),
-        subtitle: t('dashboard.pending_calendar_sub'),
-        refId: ev.id,
-        timestamp: st,
-        timeLabel: time,
-        ampm,
-        ...tagInfo,
-      });
-    }
-  }
-  for (const run of runs) {
-    if (run.status === 'running' || run.status === 'waiting_approval' || run.status === 'queued') {
-      const updatedAt = toEpochMs(run.updatedAt);
-      const { time, ampm } = formatPendingTime(updatedAt);
-      const tagInfo = pendingTagForRun(run.status, t);
-      pending.push({
-        id: `pending-run-${run.id}`,
-        kind: 'run',
-        title: run.title || t('dashboard.pending_run'),
-        subtitle: t('dashboard.pending_run_sub'),
-        refId: run.id,
-        timestamp: updatedAt,
-        timeLabel: time,
-        ampm,
-        ...tagInfo,
-      });
-    }
-  }
+  pushPendingFlashcards(pending, dueFlashcards, tw, t);
+  pushPendingCalendarEvents(pending, eventsRaw, tw, t);
+  pushPendingRuns(pending, runs, t);
   pending.sort((a, b) => a.timestamp - b.timestamp);
   return pending;
 }
