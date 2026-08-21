@@ -379,6 +379,7 @@ const ALLOWED_CHANNELS = {
     'ai:testConnection',
     'ai:openrouter:listModels',
     'ai:provider:listModels',
+    'ai:model:thinkingLevels',
     'minimax:files:upload',
     'ai:testWebSearch',
     'ai:webSearch',
@@ -631,9 +632,11 @@ const ALLOWED_CHANNELS = {
     'social:posts:get',
     'social:posts:create',
     'social:posts:update',
+    'social:posts:updateNotes',
     'social:posts:delete',
     'social:posts:publish',
     'social:posts:sync',
+    'social:comments:list',
     'social:metrics:post',
     'social:metrics:refresh',
     'social:metrics:refreshPost',
@@ -725,6 +728,12 @@ const ALLOWED_CHANNELS = {
     'github:image:resolve',
     'github:sync:now',
     'github:sync:status',
+    'coding:workspace:list',
+    'coding:workspace:pick',
+    'coding:workspace:register',
+    'coding:workspace:trust',
+    'coding:workspace:forget',
+    'coding:repo:setLocalPath',
     'people:list',
     'people:get',
     'people:search',
@@ -732,6 +741,10 @@ const ALLOWED_CHANNELS = {
     'people:linkIdentity',
     'people:upsertIdentity',
     'people:syncGithub',
+    'people:updateProfile',
+    'people:addInteraction',
+    'people:delete',
+    'people:enrich',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -837,6 +850,9 @@ const ALLOWED_CHANNELS = {
     'social:account-updated',
     'social:post-updated',
     'social:posts-refresh',
+    'social:event-cards-refresh',
+    'social:event-updates-refresh',
+    'social:dm-rules-refresh',
     'social:metrics-updated',
     'social:report-updated',
     'social:drafts-updated',
@@ -1249,17 +1265,34 @@ const electronHandler = {
     },
   },
 
+  coding: {
+    workspace: {
+      list: () => ipcRenderer.invoke('coding:workspace:list'),
+      pick: (payload) => ipcRenderer.invoke('coding:workspace:pick', payload),
+      register: (payload) => ipcRenderer.invoke('coding:workspace:register', payload),
+      trust: (payload) => ipcRenderer.invoke('coding:workspace:trust', payload),
+      forget: (payload) => ipcRenderer.invoke('coding:workspace:forget', payload),
+    },
+    repo: {
+      setLocalPath: (payload) => ipcRenderer.invoke('coding:repo:setLocalPath', payload),
+    },
+  },
+
   // ============================================
   // PEOPLE / IDENTITIES API (unified contacts)
   // ============================================
   people: {
-    list: (projectId) => ipcRenderer.invoke('people:list', projectId),
-    get: (id) => ipcRenderer.invoke('people:get', id),
+    list: (payload) => ipcRenderer.invoke('people:list', payload),
+    get: (payload) => ipcRenderer.invoke('people:get', payload),
     search: (payload) => ipcRenderer.invoke('people:search', payload),
     upsert: (payload) => ipcRenderer.invoke('people:upsert', payload),
     linkIdentity: (payload) => ipcRenderer.invoke('people:linkIdentity', payload),
     upsertIdentity: (payload) => ipcRenderer.invoke('people:upsertIdentity', payload),
     syncGithub: (projectId) => ipcRenderer.invoke('people:syncGithub', projectId),
+    updateProfile: (payload) => ipcRenderer.invoke('people:updateProfile', payload),
+    addInteraction: (payload) => ipcRenderer.invoke('people:addInteraction', payload),
+    delete: (payload) => ipcRenderer.invoke('people:delete', payload),
+    enrich: (payload) => ipcRenderer.invoke('people:enrich', payload),
   },
 
   // ============================================
@@ -1785,6 +1818,9 @@ const electronHandler = {
     listProviderModels: (params) =>
       ipcRenderer.invoke('ai:provider:listModels', params),
 
+    getThinkingLevels: (params) =>
+      ipcRenderer.invoke('ai:model:thinkingLevels', params),
+
     testWebSearch: () =>
       ipcRenderer.invoke('ai:testWebSearch'),
 
@@ -2137,13 +2173,14 @@ const electronHandler = {
      * Respond to a pending approval request from the main process.
      * @param {string} approvalId
      * @param {boolean} approved
+     * @param {'once'|'session'} [scope] 'session' stops asking for the rest of the chat
      */
-    respond: (approvalId, approved) =>
-      ipcRenderer.invoke('approval:respond', { approvalId, approved }),
+    respond: (approvalId, approved, scope) =>
+      ipcRenderer.invoke('approval:respond', { approvalId, approved, ...(scope ? { scope } : {}) }),
 
     /**
      * Listen for approval requests from the main process.
-     * @param {(data: { approvalId: string, kind: string, payload: object, timeoutMs: number }) => void} callback
+     * @param {(data: { approvalId: string, kind: string, payload: object, timeoutMs: number, canRemember?: boolean }) => void} callback
      * @returns {() => void} cleanup function
      */
     onRequested: (callback) => {

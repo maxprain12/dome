@@ -97,5 +97,6 @@
   "view_section": "Affichage",
   "context_title": "Contexte",
   "context_empty": "Aucun contexte actif",
-  "context_pin_hint": "Épinglez des ressources avec @ dans le composeur pour toujours les inclure."
+  "context_pin_hint": "Épinglez des ressources avec @ dans le composeur pour toujours les inclure.",
+  "hitl_approve_session": "Approuver pour ce chat"
 }

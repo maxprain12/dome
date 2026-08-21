@@ -97,5 +97,6 @@
   "view_section": "Exibição",
   "context_title": "Contexto",
   "context_empty": "Sem contexto ativo",
-  "context_pin_hint": "Fixe recursos com @ no compositor para incluí-los sempre."
+  "context_pin_hint": "Fixe recursos com @ no compositor para incluí-los sempre.",
+  "hitl_approve_session": "Aprovar neste chat"
 }

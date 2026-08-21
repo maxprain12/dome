@@ -585,6 +585,45 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     }
   });
 
+  /**
+   * Thinking levels a given provider/model actually supports.
+   *
+   * The model registry (`@dome/ai`, generated from the providers' own
+   * capability data) is the single authority here — the renderer must not keep
+   * a parallel table of which models can reason.
+   */
+  ipcMain.handle('ai:model:thinkingLevels', async (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const provider = typeof params?.provider === 'string' ? params.provider.trim() : '';
+      const model = typeof params?.model === 'string' ? params.model.trim() : '';
+      if (!provider || !model) {
+        return { success: false, error: 'provider and model are required' };
+      }
+      const ai = await import('@dome/ai');
+      const resolved = ai.resolveDomeModel({
+        provider,
+        model,
+        baseUrl: typeof params?.baseUrl === 'string' ? params.baseUrl : undefined,
+      });
+      if (!resolved) {
+        return { success: true, data: { reasoning: false, levels: ['off'] } };
+      }
+      return {
+        success: true,
+        data: {
+          reasoning: Boolean(resolved.reasoning),
+          levels: ai.getSupportedThinkingLevels(resolved),
+        },
+      };
+    } catch (error) {
+      console.error('[AI] thinkingLevels error:', error);
+      return { success: false, error: error.message || String(error) };
+    }
+  });
+
   ipcMain.handle('ai:testWebSearch', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

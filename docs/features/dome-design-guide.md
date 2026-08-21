@@ -2,6 +2,8 @@
 
 Documento de referencia para mantener coherencia entre la aplicación **Dome** (producto) y los **materiales de comunicación** (posts, presentaciones, gráficos). Los valores numéricos de color y tipografía provienen de `app/globals.css` y la hoja corporativa Dome.
 
+**Canon cross-repo:** [docs/brand/](../brand/) — landing (`landing-page-dome`) y **Dome Provider** deben seguir estos tokens (chrome `#F2F2F2`, forest `#4A5D3F`, Inter). Boards: `docs/brand/dome-brand-kit-overview.png`, `docs/brand/dome-brand-kit-applications.png`.
+
 ---
 
 ## 1. Qué es Dome (marca en una frase)

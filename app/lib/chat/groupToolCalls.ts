@@ -12,26 +12,46 @@ export type ToolDisplayBlock =
       blocks: Array<{ type: 'tool'; call: ToolCallData } | { type: 'tool-group'; name: string; calls: ToolCallData[] }>;
     };
 
-function groupCallsByName(calls: ToolCallData[]): Array<{ type: 'tool'; call: ToolCallData } | { type: 'tool-group'; name: string; calls: ToolCallData[] }> {
+type FlatToolBlock =
+  | { type: 'tool'; call: ToolCallData }
+  | { type: 'tool-group'; name: string; calls: ToolCallData[] };
+
+/**
+ * Collapse *consecutive* runs of the same tool, preserving execution order.
+ *
+ * Grouping every call by name regardless of position reordered the transcript:
+ * sixteen reads interleaved with git and search calls collapsed into one block
+ * at the position of the first read, so the timeline no longer showed what the
+ * agent actually did, in what order. Only a real chain — the same tool called
+ * back to back — is compacted.
+ */
+function groupConsecutiveCalls(calls: ToolCallData[]): FlatToolBlock[] {
   if (!calls.length) return [];
-  const grouped = new Map<string, ToolCallData[]>();
-  for (const tc of calls) {
-    const arr = grouped.get(tc.name) ?? [];
-    arr.push(tc);
-    grouped.set(tc.name, arr);
-  }
-  return Array.from(grouped.entries()).map(([name, items]) => {
-    if (name === 'write_todos' && items.length > 1) {
-      return { type: 'tool' as const, call: items[items.length - 1]! };
+
+  const blocks: FlatToolBlock[] = [];
+  let i = 0;
+  while (i < calls.length) {
+    const name = calls[i]!.name;
+    const run: ToolCallData[] = [];
+    while (i < calls.length && calls[i]!.name === name) {
+      run.push(calls[i]!);
+      i += 1;
     }
-    if (items.length === 1) return { type: 'tool' as const, call: items[0]! };
-    return { type: 'tool-group' as const, name, calls: items };
-  });
+    // A todo list is a single evolving artifact: only the latest state matters.
+    if (name === 'write_todos') {
+      blocks.push({ type: 'tool', call: run[run.length - 1]! });
+    } else if (run.length === 1) {
+      blocks.push({ type: 'tool', call: run[0]! });
+    } else {
+      blocks.push({ type: 'tool-group', name, calls: run });
+    }
+  }
+  return blocks;
 }
 
 /**
  * Organize tool calls for chat UI: supervisor tools first, nested subagent sections
- * with grouped duplicates (e.g. 12× file_write under "Investigación").
+ * compacting consecutive runs of the same tool while keeping execution order.
  */
 export function buildToolDisplayBlocks(calls: ToolCallData[], t: ToolLabelT): ToolDisplayBlock[] {
   const coalesced = coalesceDuplicateToolCalls(calls ?? []);
@@ -54,7 +74,7 @@ export function buildToolDisplayBlocks(calls: ToolCallData[], t: ToolLabelT): To
         type: 'subagent',
         agentKey,
         agentLabel: getSubagentDisplayLabel(agentKey, t),
-        blocks: groupCallsByName(agentCalls),
+        blocks: groupConsecutiveCalls(agentCalls),
       });
     } else {
       const supervisorCalls: ToolCallData[] = [];
@@ -62,7 +82,7 @@ export function buildToolDisplayBlocks(calls: ToolCallData[], t: ToolLabelT): To
         supervisorCalls.push(coalesced[i]!);
         i += 1;
       }
-      blocks.push(...groupCallsByName(supervisorCalls));
+      blocks.push(...groupConsecutiveCalls(supervisorCalls));
     }
   }
 

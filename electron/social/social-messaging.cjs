@@ -52,6 +52,16 @@ function accountSupports(account, capability) {
   // Manual IG tokens often store scopes=null — allow if matrix says true
   // (user pasted a token that may already include permissions).
   if (have.size === 0 && provider === 'instagram') return true;
+  // listComments is best-effort: allow the attempt when any IG business scope
+  // is present (older reconnects may omit manage_comments in the stored string
+  // while the token still works, or Graph will reject clearly).
+  if (
+    capability === 'listComments'
+    && provider === 'instagram'
+    && [...have].some((scope) => scope.startsWith('instagram_business_'))
+  ) {
+    return true;
+  }
   return hints.some((h) => have.has(h.toLowerCase()));
 }
 

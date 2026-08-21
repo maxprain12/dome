@@ -5,6 +5,7 @@ import {
   notifyHubAutomationsChanged,
   notifyHubRunsChanged,
 } from '@/lib/hub/hubEvents';
+import type { ThinkingLevel } from '@/lib/ai/types';
 
 export type AutomationTargetType = 'many' | 'agent' | 'workflow' | 'feeder';
 export type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
@@ -266,6 +267,17 @@ export async function startAgentRun(params: {
   pinnedResourceIds?: string[];
   /** USER.md / MEMORY.md block for context budget rules segment. */
   userMemory?: string;
+  /**
+   * Absolute path of the local repository this run works in. Set when the turn
+   * comes from an issue bound to a clone — unlocks the coding tool family once
+   * the workspace is trusted.
+   */
+  workspacePath?: string;
+  /**
+   * Reasoning effort for this turn. Omit (or 'off') to let the model answer
+   * directly. The main process clamps it to what the model actually supports.
+   */
+  thinkingLevel?: ThinkingLevel;
 }): Promise<PersistentRun> {
   return invoke<PersistentRun>('runs:start', params);
 }

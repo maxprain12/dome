@@ -16,6 +16,7 @@ export default function ApprovalProvider() {
         kind: data.kind,
         payload: data.payload as Record<string, unknown>,
         timeoutMs: data.timeoutMs ?? 60_000,
+        canRemember: (data as { canRemember?: boolean }).canRemember === true,
       });
     });
     return cleanup;

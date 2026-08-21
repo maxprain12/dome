@@ -561,6 +561,73 @@ function createSocialService(database, windowManager) {
   }
 
   /**
+   * List public comments for a Dome post (provider listComments).
+   * Best-effort: resolve a fallback account for the provider and call the API
+   * even when stored OAuth scopes omit the comment permission (manual tokens /
+   * older reconnects). Permission failures return unsupported + reason.
+   * @param {{ postId: string, cursor?: string|null }} opts
+   */
+  async function listPostComments({ postId, cursor = null } = {}) {
+    const post = store.getPost(postId);
+    if (!post) throw new Error('Post not found');
+    if (post.status !== 'published' || !post.externalPostId) {
+      return { comments: [], nextCursor: undefined, unsupported: false };
+    }
+
+    let account = post.accountId
+      ? store.serializeAccount(store.getAccount(post.accountId))
+      : null;
+    if (!account || account.status !== 'active') {
+      account =
+        store.listAccounts(post.provider).find((row) => row.status === 'active') || null;
+    }
+    if (!account) {
+      return {
+        comments: [],
+        nextCursor: undefined,
+        unsupported: true,
+        reason: 'no_account',
+      };
+    }
+
+    const mod = PROVIDER_MODULES[account.provider];
+    if (typeof mod?.listComments !== 'function') {
+      return {
+        comments: [],
+        nextCursor: undefined,
+        unsupported: true,
+        reason: 'unsupported',
+      };
+    }
+
+    try {
+      const page = await mod.listComments(store, {
+        accountId: account.id,
+        externalPostId: post.externalPostId,
+        cursor: cursor || undefined,
+      });
+      return {
+        comments: Array.isArray(page?.comments) ? page.comments : [],
+        nextCursor: page?.nextCursor,
+        unsupported: false,
+      };
+    } catch (err) {
+      const message = String(err?.message || err);
+      const permission = /permission|oauth|scope|#10\b|#200\b|not authorized|insufficient/i.test(
+        message,
+      );
+      console.warn(`[Social] listPostComments ${account.provider}/${post.id}:`, message);
+      return {
+        comments: [],
+        nextCursor: undefined,
+        unsupported: true,
+        reason: permission ? 'permission' : 'error',
+        error: message,
+      };
+    }
+  }
+
+  /**
    * Poll published posts for new comments and apply live reply rules (cold DM).
    */
   async function pollCommentsAndAutoReply() {
@@ -692,6 +759,7 @@ function createSocialService(database, windowManager) {
     stopScheduler,
     createDraftFromMatchedComment,
     sendReplyDraft,
+    listPostComments,
     pollCommentsAndAutoReply,
     getIntegrationCapabilities,
   };

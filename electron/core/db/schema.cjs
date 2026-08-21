@@ -19,6 +19,7 @@
  * New in v67: email_folders, email_messages, email_sync_state.
  * New in v68: source_documents + source_documents_fts (integration search).
  * New in v70: social_posts event-card link fields.
+ * New in v71: social_posts.notes (internal editorial reminders).
  *
  * When you change a table here, also add a migration in db/migrations.cjs so
  * existing installs converge — this file only helps brand-new databases.
@@ -659,11 +660,24 @@ function createBaseSchema(db) {
                   html_url TEXT,
                   selected INTEGER DEFAULT 0,
                   last_sync_at INTEGER,
+                  local_path TEXT,
                   project_id TEXT NOT NULL DEFAULT 'default',
                   created_at INTEGER NOT NULL,
                   updated_at INTEGER NOT NULL,
                   UNIQUE(full_name, project_id)
                 )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS coding_workspaces (
+              id TEXT PRIMARY KEY,
+              path TEXT NOT NULL UNIQUE,
+              label TEXT,
+              trusted INTEGER NOT NULL DEFAULT 0,
+              last_used_at INTEGER,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
   `);
 
   db.exec(`
@@ -878,6 +892,11 @@ function createBaseSchema(db) {
               primary_email TEXT,
               avatar_url TEXT,
               notes TEXT,
+              lead_status TEXT NOT NULL DEFAULT 'lead',
+              profile_json TEXT,
+              discovered_via TEXT,
+              first_seen_at INTEGER,
+              last_seen_at INTEGER,
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL
             )
@@ -899,6 +918,40 @@ function createBaseSchema(db) {
               UNIQUE(project_id, source, external_id)
             )
   `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS person_interactions (
+              id TEXT PRIMARY KEY,
+              person_id TEXT NOT NULL,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              kind TEXT NOT NULL,
+              ref_type TEXT,
+              ref_id TEXT,
+              summary TEXT,
+              payload TEXT,
+              occurred_at INTEGER NOT NULL,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+            )
+  `);
+
+  // CREATE TABLE IF NOT EXISTS is a no-op on older DBs that already have `people`
+  // without lead columns — add them before indexes that reference lead_status.
+  {
+    const peopleCols = new Set(
+      db.prepare("PRAGMA table_info('people')").all().map((c) => c.name),
+    );
+    if (peopleCols.size > 0) {
+      if (!peopleCols.has('lead_status')) {
+        db.exec(`ALTER TABLE people ADD COLUMN lead_status TEXT NOT NULL DEFAULT 'lead'`);
+      }
+      if (!peopleCols.has('profile_json')) db.exec('ALTER TABLE people ADD COLUMN profile_json TEXT');
+      if (!peopleCols.has('discovered_via')) db.exec('ALTER TABLE people ADD COLUMN discovered_via TEXT');
+      if (!peopleCols.has('first_seen_at')) db.exec('ALTER TABLE people ADD COLUMN first_seen_at INTEGER');
+      if (!peopleCols.has('last_seen_at')) db.exec('ALTER TABLE people ADD COLUMN last_seen_at INTEGER');
+    }
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS pipeline_sources (
@@ -1189,6 +1242,7 @@ function createBaseSchema(db) {
               external_post_id TEXT,
               external_url TEXT,
               error TEXT,
+              notes TEXT,
               created_by TEXT NOT NULL DEFAULT 'user',
               group_id TEXT,
               created_at INTEGER NOT NULL,
@@ -1487,6 +1541,10 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_coding_workspaces_last_used ON coding_workspaces(last_used_at DESC)
+  `);
+
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_calendar_notifications_event ON calendar_notifications(event_id)
   `);
 
@@ -1745,6 +1803,12 @@ function createBaseSchema(db) {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_person_identities_external ON person_identities(project_id, source, external_id)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_person_interactions_person ON person_interactions(person_id, occurred_at DESC)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_people_lead_status ON people(project_id, lead_status, last_seen_at)
   `);
 
   db.exec(`

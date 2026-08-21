@@ -903,10 +903,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       if (provider) {
         queries.setSetting.run('ai_provider', provider, Date.now());
+        // Align billing with provider so default dome_cloud cannot hijack Codex.
+        const billingMode = provider === 'dome' ? 'dome_cloud' : 'custom_api_key';
+        queries.setSetting.run('ai_billing_mode', billingMode, Date.now());
         const db = database.getDB?.();
         if (db) {
           const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
           settingsSyncBridge.mirrorSettingChange(db, 'ai_provider', provider);
+          settingsSyncBridge.mirrorSettingChange(db, 'ai_billing_mode', billingMode);
         }
       }
       const targetProvider = provider || queries.getSetting.get('ai_provider')?.value;

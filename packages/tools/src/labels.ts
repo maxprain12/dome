@@ -13,8 +13,18 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   file_list: 'List Directory',
   file_tree: 'File Tree',
   file_search: 'Search Files',
+  file_grep: 'Grep',
+  file_find: 'Find Files',
+  file_edit: 'Edit File',
   // Shell
   shell_exec: 'Shell',
+  // Git (local working copy)
+  git_status: 'Git Status',
+  git_diff: 'Git Diff',
+  git_log: 'Git Log',
+  git_branch_create: 'New Branch',
+  git_add: 'Stage',
+  git_commit: 'Commit',
   // Delegation
   task: 'Subagent',
   delegate_to_agent: 'Delegate',
@@ -31,7 +41,14 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   social_post_get: 'Social Post',
   social_metrics_summary: 'Social Analytics',
   github_get_issue: 'GitHub Issue',
+  github_get_pull_request: 'Pull Request',
+  github_list_pull_requests: 'Pull Requests',
+  github_create_pull_request: 'Open PR',
+  github_pr_checks: 'PR Checks',
   people_get: 'Person',
+  people_search: 'Search people',
+  people_upsert: 'Upsert person',
+  people_link_identity: 'Link identity',
   email_read: 'Read Email',
   // Artifacts
   artifact_create: 'Artifact Create',

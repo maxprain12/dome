@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 70;
+const SCHEMA_HEAD = 73;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1186,6 +1186,113 @@ function migration70(db, version) {
   console.log('[DB] Migration 70 complete - social event card links');
 }
 
+function migration71(db, version) {
+  if (version >= 71) return;
+  console.log('[DB] Running migration 71 - social post notes');
+  const cols = db.prepare("PRAGMA table_info('social_posts')").all().map((c) => c.name);
+  if (!cols.includes('notes')) db.exec('ALTER TABLE social_posts ADD COLUMN notes TEXT');
+  setSchemaVersion(db, 71);
+  console.log('[DB] Migration 71 complete - social post notes');
+}
+
+function migration72(db, version) {
+  if (version >= 72) return;
+  console.log('[DB] Running migration 72 - people leads / interactions');
+  // Fixture DBs (and rare upgrade paths) may reach 72 without migration 66's people table.
+  const peopleExists = db
+    .prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'people'")
+    .get();
+  if (!peopleExists) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS people (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        display_name TEXT NOT NULL,
+        primary_email TEXT,
+        avatar_url TEXT,
+        notes TEXT,
+        lead_status TEXT NOT NULL DEFAULT 'lead',
+        profile_json TEXT,
+        discovered_via TEXT,
+        first_seen_at INTEGER,
+        last_seen_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS person_identities (
+        id TEXT PRIMARY KEY,
+        person_id TEXT NOT NULL,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        source TEXT NOT NULL
+          CHECK(source IN ('github', 'email', 'social_x', 'social_linkedin', 'social_instagram', 'manual')),
+        external_id TEXT NOT NULL,
+        display_label TEXT,
+        meta_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+        UNIQUE(project_id, source, external_id)
+      )
+    `);
+  } else {
+    const cols = db.prepare("PRAGMA table_info('people')").all().map((c) => c.name);
+    if (!cols.includes('lead_status')) {
+      db.exec(`ALTER TABLE people ADD COLUMN lead_status TEXT NOT NULL DEFAULT 'lead'`);
+    }
+    if (!cols.includes('profile_json')) db.exec('ALTER TABLE people ADD COLUMN profile_json TEXT');
+    if (!cols.includes('discovered_via')) db.exec('ALTER TABLE people ADD COLUMN discovered_via TEXT');
+    if (!cols.includes('first_seen_at')) db.exec('ALTER TABLE people ADD COLUMN first_seen_at INTEGER');
+    if (!cols.includes('last_seen_at')) db.exec('ALTER TABLE people ADD COLUMN last_seen_at INTEGER');
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS person_interactions (
+      id TEXT PRIMARY KEY,
+      person_id TEXT NOT NULL,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      kind TEXT NOT NULL,
+      ref_type TEXT,
+      ref_id TEXT,
+      summary TEXT,
+      payload TEXT,
+      occurred_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+    )
+  `);
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_person_interactions_person ON person_interactions(person_id, occurred_at DESC)`,
+  );
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_people_lead_status ON people(project_id, lead_status, last_seen_at)`);
+  setSchemaVersion(db, 72);
+  console.log('[DB] Migration 72 complete - people leads');
+}
+
+function migration73(db, version) {
+  if (version >= 73) return;
+  console.log('[DB] Running migration 73 - coding workspaces');
+  const cols = db.prepare("PRAGMA table_info('github_repos')").all().map((c) => c.name);
+  if (!cols.includes('local_path')) db.exec('ALTER TABLE github_repos ADD COLUMN local_path TEXT');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS coding_workspaces (
+      id TEXT PRIMARY KEY,
+      path TEXT NOT NULL UNIQUE,
+      label TEXT,
+      trusted INTEGER NOT NULL DEFAULT 0,
+      last_used_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_coding_workspaces_last_used ON coding_workspaces(last_used_at DESC)',
+  );
+  setSchemaVersion(db, 73);
+  console.log('[DB] Migration 73 complete - coding workspaces');
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1243,6 +1350,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration68(db, version);
   migration69(db, version);
   migration70(db, version);
+  migration71(db, version);
+  migration72(db, version);
+  migration73(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

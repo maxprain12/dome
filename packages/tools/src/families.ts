@@ -35,6 +35,7 @@ export type ToolFamily =
   | 'image'
   | 'file'
   | 'shell'
+  | 'git'
   | 'studio'
   | 'ui'
   | 'pipelines'
@@ -59,6 +60,9 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   interaction_list: 'memory', remember_fact: 'memory',
   // people
   people_get: 'people',
+  people_search: 'people',
+  people_upsert: 'people',
+  people_link_identity: 'people',
   // calendar
   calendar_list_events: 'calendar', calendar_get_upcoming: 'calendar',
   calendar_create_event: 'calendar', calendar_update_event: 'calendar',
@@ -70,6 +74,8 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   github_list_repos: 'github', github_upcoming_milestones: 'github',
   github_list_milestones: 'github', github_list_issues: 'github',
   github_get_issue: 'github',
+  github_get_pull_request: 'github', github_list_pull_requests: 'github',
+  github_create_pull_request: 'github', github_pr_checks: 'github',
   github_create_issue: 'github', github_update_issue: 'github',
   github_create_milestone: 'github', github_sync: 'github',
   // social (LinkedIn / Instagram / X)
@@ -113,8 +119,12 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   image_crop: 'image', image_thumbnail: 'image',
   // file
   file_read: 'file', file_write: 'file', file_list: 'file', file_tree: 'file', file_search: 'file',
+  file_grep: 'file', file_find: 'file', file_edit: 'file',
   // shell
   shell_exec: 'shell',
+  // git (local working copy — only inside a trusted coding workspace)
+  git_status: 'git', git_diff: 'git', git_log: 'git',
+  git_branch_create: 'git', git_add: 'git', git_commit: 'git',
   // studio / generate
   generate_knowledge_graph: 'studio', generate_mindmap: 'studio', generate_quiz: 'studio',
   generate_guide: 'studio', generate_faq: 'studio', generate_timeline: 'studio',

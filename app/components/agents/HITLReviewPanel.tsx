@@ -9,7 +9,7 @@ import ManyHitlInlineCard from '@/components/many/ManyHitlInlineCard';
 import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 
 interface ActionDecision {
-  type: 'approve' | 'reject';
+  type: 'approve' | 'reject' | 'approve_all';
   args?: Record<string, unknown>;
   message?: string;
 }
@@ -56,11 +56,11 @@ export default function HITLReviewPanel({
   const flushDecisions = useCallback(
     (next: ActionDecision[]) => {
       submitResume(
-        next.map((d) =>
-          d.type === 'approve'
-            ? { type: 'approve', args: d.args }
-            : { type: 'reject', message: d.message },
-        ),
+        next.map((d) => {
+          if (d.type === 'approve_all') return { type: 'approve_all' as const, args: d.args };
+          if (d.type === 'approve') return { type: 'approve' as const, args: d.args };
+          return { type: 'reject' as const, message: d.message };
+        }),
       );
       onDismiss?.();
     },
@@ -79,6 +79,15 @@ export default function HITLReviewPanel({
       flushDecisions(next);
     },
     [actionRequests, flushDecisions, t],
+  );
+
+  const submitApproveAll = useCallback(
+    (idx: number) => {
+      const req = actionRequests[idx];
+      if (!req) return;
+      flushDecisions([{ type: 'approve_all', args: req.args }]);
+    },
+    [actionRequests, flushDecisions],
   );
 
   const wrapperCls = inline ? 'flex flex-col gap-3' : 'many-hitl-panel px-4 py-3 border-t border-border bg-background';
@@ -105,6 +114,7 @@ export default function HITLReviewPanel({
                   showReject={allowReject}
                   onReject={() => (single ? submitOne(i, false) : setDecision(i, { type: 'reject', message: t('chat.rejected_by_user') }))}
                   onApprove={() => (single ? submitOne(i, true) : setDecision(i, { type: 'approve', args: req.args }))}
+                  onApproveAll={single ? () => submitApproveAll(i) : undefined}
                 />
               );
             }
@@ -132,6 +142,7 @@ export default function HITLReviewPanel({
                 onApprove={() =>
                   single ? submitOne(i, true) : setDecision(i, { type: 'approve', args: req.args })
                 }
+                onApproveAll={single ? () => submitApproveAll(i) : undefined}
               />
             );
           })}

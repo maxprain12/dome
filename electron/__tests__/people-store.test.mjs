@@ -24,6 +24,11 @@ describe('people-store', () => {
         primary_email TEXT,
         avatar_url TEXT,
         notes TEXT,
+        lead_status TEXT NOT NULL DEFAULT 'lead',
+        profile_json TEXT,
+        discovered_via TEXT,
+        first_seen_at INTEGER,
+        last_seen_at INTEGER,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
@@ -39,6 +44,20 @@ describe('people-store', () => {
         updated_at INTEGER NOT NULL,
         FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
         UNIQUE(project_id, source, external_id)
+      );
+      CREATE TABLE person_interactions (
+        id TEXT PRIMARY KEY,
+        person_id TEXT NOT NULL,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        kind TEXT NOT NULL,
+        ref_type TEXT,
+        ref_id TEXT,
+        summary TEXT,
+        payload TEXT,
+        occurred_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
       );
     `);
 
@@ -123,5 +142,34 @@ describe('people-store', () => {
     assert.equal(full.primaryEmail, 'alder@example.com');
     const byEmail = peopleStore.searchPeople('proj-b', 'alder@example.com');
     assert.equal(byEmail[0].id, person.id);
+  });
+
+  it('deletePerson removes person, identities and interactions', () => {
+    const person = peopleStore.upsertIdentityPerson({
+      projectId: 'proj-del',
+      source: 'email',
+      externalId: 'spam@example.com',
+      displayName: 'Spam',
+    });
+    peopleStore.addInteraction({
+      personId: person.id,
+      projectId: 'proj-del',
+      kind: 'note',
+      summary: 'junk',
+    });
+    const result = peopleStore.deletePerson(person.id);
+    assert.equal(result.deleted, true);
+    assert.equal(peopleStore.getPerson(person.id), null);
+    assert.equal(peopleStore.searchPeople('proj-del', 'spam@example.com').length, 0);
+    assert.equal(peopleStore.deletePerson(person.id).deleted, false);
+  });
+
+  it('deletePeople deletes many', () => {
+    const a = peopleStore.upsertPerson({ projectId: 'proj-bulk', displayName: 'A' });
+    const b = peopleStore.upsertPerson({ projectId: 'proj-bulk', displayName: 'B' });
+    const result = peopleStore.deletePeople([a.id, b.id, 'missing']);
+    assert.equal(result.deleted, 2);
+    assert.equal(result.requested, 3);
+    assert.equal(peopleStore.listPeople('proj-bulk').length, 0);
   });
 });

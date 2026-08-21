@@ -1,6 +1,46 @@
 /** Pure heuristics for the agentic social dashboard (plan 024). */
 
-import type { SocialGrowthAccount, SocialPost } from '@/components/social/socialTypes';
+import type {
+  SocialAccount,
+  SocialEventCard,
+  SocialGrowthAccount,
+  SocialPost,
+} from '@/components/social/socialTypes';
+
+/** Readable label for account selects — never the raw `soc-…` id. */
+export function socialAccountLabel(acc: Pick<SocialAccount, 'displayName' | 'handle' | 'provider'>): string {
+  const handle = (acc.handle || '').trim();
+  const name = (acc.displayName || '').trim();
+  if (handle && name && handle.toLowerCase() !== name.toLowerCase()) {
+    return `${name} (${handle})`;
+  }
+  return handle || name || acc.provider;
+}
+
+/** True for UUIDs / opaque store ids that must never appear as UI labels. */
+export function looksLikeOpaqueId(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return true;
+  }
+  // Dome-style opaque ids: sp-…, scamp-…, sa-…, soc-instagram-…
+  if (/^[a-z]{1,12}-[0-9a-f]{6,}$/i.test(trimmed)) return true;
+  if (/^soc-[a-z]+-[0-9a-f]{6,}$/i.test(trimmed)) return true;
+  return false;
+}
+
+/** Readable label for event-card selects — prefer internal name, then title/slug. Never returns raw ids. */
+export function socialEventCardLabel(
+  card: Pick<SocialEventCard, 'internalName' | 'title' | 'slug'>,
+): string {
+  const candidates = [card.internalName, card.title, card.slug];
+  for (const raw of candidates) {
+    const value = (raw || '').trim();
+    if (value && !looksLikeOpaqueId(value)) return value;
+  }
+  return '…';
+}
 
 export type SocialQueueId =
   | 'needs_attention'
@@ -53,6 +93,18 @@ export function postSnippet(post: SocialPost, max = 80): string {
   const text = (post.body || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/** Readable label for post selects — never the raw `sp-…` id. */
+export function socialPostLabel(post: Pick<SocialPost, 'body' | 'campaign' | 'publishedAt'>, max = 60): string {
+  const snippet = postSnippet(post as SocialPost, max);
+  if (snippet) return snippet;
+  const campaign = (post.campaign || '').trim();
+  if (campaign) return campaign;
+  if (post.publishedAt != null && Number.isFinite(post.publishedAt)) {
+    return new Date(post.publishedAt).toLocaleDateString();
+  }
+  return '…';
 }
 
 export function filterPostsByQuery(posts: SocialPost[], query: string): SocialPost[] {

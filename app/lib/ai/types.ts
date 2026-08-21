@@ -22,6 +22,15 @@ export type ModelApi =
   | 'bedrock-converse-stream'
   | 'ollama';
 
+/**
+ * How hard the model should reason before answering.
+ *
+ * Wire contract with the main process (`ModelThinkingLevel` in `@dome/ai`).
+ * Which levels a given model actually supports is *not* decided here — ask
+ * `window.electron.ai.getThinkingLevels()`, which reads the real model registry.
+ */
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
 // =============================================================================
 // Authentication Types
 // =============================================================================
@@ -345,7 +354,7 @@ export interface ChatStreamChunk {
   /** Human-in-the-loop: allowed decisions per action */
   reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
   /** Human-in-the-loop: call with decisions to resume (approve/edit/reject) */
-  submitResume?: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => void;
+  submitResume?: (decisions: Array<{ type: 'approve' } | { type: 'approve_all' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => void;
   toolCall?: {
     id: string;
     name: string;

@@ -36,6 +36,8 @@ interface ManyConversationProps {
   messageGroups: ManyMessageData[][];
   lastUserGroupIndex: number;
   isLoading: boolean;
+  /** What the run is doing right now; shown while no assistant message exists yet. */
+  loadingHint?: string;
   hasStreamingMessage: boolean;
   showApprovalGate: boolean;
   pendingApproval: RunPendingApproval | null;
@@ -81,6 +83,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
       messageGroups,
       lastUserGroupIndex,
       isLoading,
+      loadingHint,
       hasStreamingMessage,
       showApprovalGate,
       pendingApproval,
@@ -132,7 +135,7 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
                     })}
                     {isLoading && !hasStreamingMessage ? (
                       <MessageScrollerItem messageId="many-analyzing">
-                        <ManyLoadingMarker label={t('chat.analyzing')} />
+                        <ManyLoadingMarker label={loadingHint || t('chat.analyzing')} />
                       </MessageScrollerItem>
                     ) : null}
                     {showApprovalGate ? (

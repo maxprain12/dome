@@ -110,11 +110,18 @@ const TOOL_HANDLER_MAP = {
   github_list_milestones: 'githubListMilestones',
   github_list_issues: 'githubListIssues',
   github_get_issue: 'githubGetIssue',
+  github_get_pull_request: 'githubGetPullRequest',
+  github_list_pull_requests: 'githubListPullRequests',
+  github_create_pull_request: 'githubCreatePullRequest',
+  github_pr_checks: 'githubPrChecks',
   github_create_issue: 'githubCreateIssue',
   github_update_issue: 'githubUpdateIssue',
   github_create_milestone: 'githubCreateMilestone',
   github_sync: 'githubSync',
   people_get: 'peopleGet',
+  people_search: 'peopleSearch',
+  people_upsert: 'peopleUpsert',
+  people_link_identity: 'peopleLinkIdentity',
 
   // Social hub (LinkedIn / Instagram / X)
   social_accounts_list: 'socialAccountsList',
@@ -150,7 +157,18 @@ const TOOL_HANDLER_MAP = {
   file_list: 'fileList',
   file_tree: 'fileTree',
   file_search: 'fileSearch',
+  file_grep: 'fileGrep',
+  file_find: 'fileFind',
+  file_edit: 'fileEdit',
   shell_exec: 'shellExec',
+
+  // Local git (only reachable inside a trusted coding workspace)
+  git_status: 'gitStatus',
+  git_diff: 'gitDiff',
+  git_log: 'gitLog',
+  git_branch_create: 'gitBranchCreate',
+  git_add: 'gitAdd',
+  git_commit: 'gitCommit',
 
   // Persisted chat artifacts (iframe mini-apps; same contract as artifact-tools.ts)
   artifact_create: 'artifactCreate',
@@ -185,6 +203,11 @@ const TOOL_NAME_ALIASES = {
   write_file: 'file_write',
   list_directory: 'file_list',
   list_dir: 'file_list',
+  grep: 'file_grep',
+  find: 'file_find',
+  glob: 'file_find',
+  edit: 'file_edit',
+  edit_file: 'file_edit',
   dome_ui_type: 'ui_type',
   dome_ui_click: 'ui_click',
   dome_ui_point_to: 'ui_point_to',
@@ -288,6 +311,24 @@ function getToolDefsBySubagent() {
       'resource_get_section',
       'get_document_structure',
       'get_current_project',
+    ),
+    // Only reachable inside a trusted coding workspace: the runtime filters the
+    // mutating tools out when no workspace is resolved.
+    coding: pick(
+      'file_read',
+      'file_grep',
+      'file_find',
+      'file_list',
+      'file_tree',
+      'file_edit',
+      'file_write',
+      'shell_exec',
+      'git_status',
+      'git_diff',
+      'git_log',
+      'git_add',
+      'git_commit',
+      'git_branch_create',
     ),
   };
 }
@@ -654,6 +695,10 @@ function getAllToolDefinitions() {
             data: { type: 'object', description: 'Arbitrary business data for the card (the agent assigned to a stage processes this)' },
             start_at: { type: 'string', description: 'Optional start date/time as ISO 8601 (mirrors to calendar)' },
             end_at: { type: 'string', description: 'Optional end/deadline as ISO 8601 (mirrors to calendar)' },
+            person_id: {
+              type: 'string',
+              description: 'Optional People id soft-linked via metadata.personIds',
+            },
           },
           required: ['pipeline_id', 'title'],
         },
@@ -984,6 +1029,78 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'github_get_pull_request',
+        description:
+          'Get one pull request through the authenticated GitHub API: state, whether it was actually merged (merged/merged_at/merge_commit_sha), draft, mergeable state, head and base branches. Use this instead of web_fetch — private repos return nothing over plain HTTP and merge state is not on the page.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id (ghr-…) from github_list_repos or an issue.' },
+            full_name: { type: 'string', description: 'Alternative to repo_id, e.g. "owner/name".' },
+            number: { type: 'number', description: 'Pull request number, e.g. 1031.' },
+          },
+          required: ['number'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_list_pull_requests',
+        description:
+          'List pull requests for a repo (open by default). Returns merge state for each. Authenticated — works on private repos.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id (ghr-…) from github_list_repos or an issue.' },
+            full_name: { type: 'string', description: 'Alternative to repo_id, e.g. "owner/name".' },
+            state: { type: 'string', description: '"open" (default), "closed" or "all".' },
+            limit: { type: 'number', description: 'Maximum PRs to return (default 20, max 50).' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_create_pull_request',
+        description:
+          'Open a pull request from an already-pushed branch. Include "Closes #N" in the body to link and auto-close an issue on merge.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id (ghr-…) from github_list_repos or an issue.' },
+            full_name: { type: 'string', description: 'Alternative to repo_id, e.g. "owner/name".' },
+            title: { type: 'string', description: 'Pull request title.' },
+            head: { type: 'string', description: 'Branch containing the changes (must already be pushed).' },
+            base: { type: 'string', description: 'Branch to merge into (default "main").' },
+            body: { type: 'string', description: 'Description. Use "Closes #N" to link an issue.' },
+            draft: { type: 'boolean', description: 'Open as a draft.' },
+          },
+          required: ['title', 'head'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_pr_checks',
+        description:
+          'CI state for a pull request (or any ref): the rolled-up status plus each check run and its conclusion. Use to verify a PR is green before merging.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id (ghr-…) from github_list_repos or an issue.' },
+            full_name: { type: 'string', description: 'Alternative to repo_id, e.g. "owner/name".' },
+            number: { type: 'number', description: 'Pull request number; its head sha is resolved automatically.' },
+            ref: { type: 'string', description: 'Explicit commit sha or branch, instead of a PR number.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'people_get',
         description:
           'Get one person by id (name, email, identities). Use when mentioned-people lists a person. Source: People.',
@@ -993,6 +1110,74 @@ function getAllToolDefinitions() {
             person_id: { type: 'string', description: 'Person id from mentioned-people' },
           },
           required: ['person_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_search',
+        description:
+          'Search Dome People (leads/contacts) by name, handle, or email. Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Name, @handle, or email fragment' },
+            project_id: { type: 'string', description: 'Optional project id' },
+            limit: { type: 'number', description: 'Max results' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_upsert',
+        description:
+          'Create or update a person in Dome People. Optional identities. Leads = lead_status lead. Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            display_name: { type: 'string' },
+            person_id: { type: 'string' },
+            project_id: { type: 'string' },
+            primary_email: { type: 'string' },
+            notes: { type: 'string' },
+            lead_status: { type: 'string', description: 'lead | customer | archived' },
+            identities: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  source: { type: 'string' },
+                  external_id: { type: 'string' },
+                  display_label: { type: 'string' },
+                },
+                required: ['source', 'external_id'],
+              },
+            },
+          },
+          required: ['display_name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_link_identity',
+        description:
+          'Link social_instagram / email / github identity to an existing person. Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            person_id: { type: 'string' },
+            source: { type: 'string' },
+            external_id: { type: 'string' },
+            display_label: { type: 'string' },
+            project_id: { type: 'string' },
+          },
+          required: ['person_id', 'source', 'external_id'],
         },
       },
     },
@@ -2138,13 +2323,15 @@ function getAllToolDefinitions() {
       function: {
         name: 'file_read',
         description:
-          'Read the text content of a file from the filesystem. Returns the full content as a string. Use to inspect source code, configs, logs, or any text file.',
+          'Read text from a file. Prefer offset (1-indexed line) + limit for large files. Output is capped (~2000 lines / 50KB); when truncated, use offset=N to continue.',
         parameters: {
           type: 'object',
           properties: {
             file_path: { type: 'string', description: 'Absolute path to the file to read.' },
-            start_line: { type: 'number', description: 'Line number to start reading from (0-based). Default: 0.' },
-            limit: { type: 'number', description: 'Maximum number of lines to read. Default: 200.' },
+            path: { type: 'string', description: 'Alias for file_path.' },
+            offset: { type: 'number', description: '1-indexed line to start reading from (default 1). Prefer this over start_line.' },
+            start_line: { type: 'number', description: 'Legacy 0-based start line (mapped to offset = start_line + 1).' },
+            limit: { type: 'number', description: 'Maximum number of lines to read. Default 200 when offset/start_line is set; otherwise truncateHead applies.' },
           },
           required: ['file_path'],
         },
@@ -2155,7 +2342,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'file_write',
         description:
-          'Write text content to a file. Creates parent directories if needed. Overwrites existing content. Use to create project files on disk (e.g. Remotion, scripts, configs).',
+          'Write text content to a file, replacing it entirely. Creates parent directories if needed. Returns a unified diff of what changed. Use for new files; prefer file_edit for surgical changes to an existing file.',
         parameters: {
           type: 'object',
           properties: {
@@ -2171,7 +2358,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'file_list',
         description:
-          'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory. Capped at 500 entries — use file_search for deep or filtered scans. Prefer this over MCP directory_tree.',
+          'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory. Capped at 500 entries — use file_find for globs or file_grep for content. Prefer this over MCP directory_tree.',
         parameters: {
           type: 'object',
           properties: {
@@ -2208,7 +2395,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'file_search',
         description:
-          'Recursively search a directory for files matching a name pattern or containing a text string. Returns up to 200 matches. Prefer over MCP directory_tree for large folders (especially on Windows).',
+          'Legacy search: recursively find files by name pattern or containing a text string (paths only, up to 200). Prefer file_grep for content with line numbers, or file_find for globs.',
         parameters: {
           type: 'object',
           properties: {
@@ -2217,6 +2404,76 @@ function getAllToolDefinitions() {
             type: { type: 'string', description: 'Search mode: "name" (default) or "content".' },
           },
           required: ['directory', 'pattern'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_grep',
+        description:
+          'Search file contents for a pattern (ripgrep when available). Returns matching lines with paths and line numbers. Respects .gitignore when using rg. Output capped (~100 matches / 50KB). Prefer this over shell_exec grep/rg for reading code.',
+        parameters: {
+          type: 'object',
+          properties: {
+            pattern: { type: 'string', description: 'Search pattern (regex or literal string).' },
+            path: { type: 'string', description: 'Directory or file to search (default: cwd).' },
+            directory: { type: 'string', description: 'Alias for path.' },
+            glob: { type: 'string', description: "Filter files by glob, e.g. '*.ts' or '**/*.spec.ts'." },
+            ignoreCase: { type: 'boolean', description: 'Case-insensitive search (default false).' },
+            literal: { type: 'boolean', description: 'Treat pattern as literal string instead of regex (default false).' },
+            context: { type: 'number', description: 'Lines of context before/after each match (default 0).' },
+            limit: { type: 'number', description: 'Maximum matches to return (default 100).' },
+          },
+          required: ['pattern'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_find',
+        description:
+          'Find files by glob pattern (fd or rg --files when available). Returns paths only. Prefer over recursive file_list / MCP directory_tree.',
+        parameters: {
+          type: 'object',
+          properties: {
+            pattern: { type: 'string', description: "Glob pattern, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'." },
+            path: { type: 'string', description: 'Directory to search in (default: cwd).' },
+            directory: { type: 'string', description: 'Alias for path.' },
+            limit: { type: 'number', description: 'Maximum results (default 1000).' },
+          },
+          required: ['pattern'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_edit',
+        description:
+          'Apply one or more exact text replacements to a file. Each oldText must be unique in the file. Prefer this over file_write or shell_exec for surgical code edits.',
+        parameters: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string', description: 'Absolute path to the file to edit.' },
+            path: { type: 'string', description: 'Alias for file_path.' },
+            edits: {
+              type: 'array',
+              description: 'Targeted replacements matched against the original file (not incremental).',
+              items: {
+                type: 'object',
+                properties: {
+                  oldText: { type: 'string', description: 'Exact text to replace (must be unique).' },
+                  newText: { type: 'string', description: 'Replacement text.' },
+                },
+                required: ['oldText', 'newText'],
+              },
+            },
+            oldText: { type: 'string', description: 'Legacy single-edit shorthand.' },
+            newText: { type: 'string', description: 'Legacy single-edit shorthand.' },
+          },
+          required: ['file_path'],
         },
       },
     },
@@ -2242,14 +2499,115 @@ function getAllToolDefinitions() {
       function: {
         name: 'shell_exec',
         description:
-          'Execute a shell command. A native confirmation dialog appears before running — the user must approve. Returns stdout, stderr, and exit code.',
+          'Execute a shell command. The user must approve it first. Output (stdout+stderr interleaved) streams back and is capped to the last ~2000 lines / 50KB; when truncated, the full transcript is saved and its path returned in full_output_path. Long builds and test suites are fine — there is no default timeout.',
         parameters: {
           type: 'object',
           properties: {
             command: { type: 'string', description: 'Shell command to execute (e.g. "pnpm run build").' },
-            cwd: { type: 'string', description: 'Working directory for the command.' },
+            cwd: {
+              type: 'string',
+              description:
+                'Working directory. Ignored in a coding session, where commands always run at the workspace root.',
+            },
+            timeout: {
+              type: 'number',
+              description: 'Optional timeout in seconds. Omit for no timeout; the command is killed (with its children) when it elapses.',
+            },
           },
           required: ['command'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'git_status',
+        description:
+          'Show the working copy state: current branch, ahead/behind counts, and every changed file with its staged/untracked flags. Call this before and after editing to know what you actually changed.',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'git_diff',
+        description:
+          'Show the diff of the working copy. Unstaged by default; pass staged=true for what is about to be committed. Output is capped — narrow it with paths when a repo-wide diff is too large.',
+        parameters: {
+          type: 'object',
+          properties: {
+            staged: { type: 'boolean', description: 'Diff the index against HEAD instead of the working tree.' },
+            stat: { type: 'boolean', description: 'Summary of changed files and line counts instead of the full patch.' },
+            paths: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Limit the diff to these paths (relative to the workspace root).',
+            },
+            path: { type: 'string', description: 'Single-path shorthand for paths.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'git_log',
+        description: 'Recent commits (hash, author, date, subject) on the current branch.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'How many commits to return (default 20, max 100).' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'git_branch_create',
+        description:
+          'Create a new branch and switch to it. Use this before starting work on an issue so the change is isolated.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Branch name, e.g. "fix/issue-123-null-guard".' },
+            from: { type: 'string', description: 'Base ref to branch from (default: current HEAD).' },
+          },
+          required: ['name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'git_add',
+        description:
+          'Stage specific paths. Requires an explicit list — there is no "stage everything" shortcut.',
+        parameters: {
+          type: 'object',
+          properties: {
+            paths: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Paths to stage, relative to the workspace root.',
+            },
+            path: { type: 'string', description: 'Single-path shorthand for paths.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'git_commit',
+        description:
+          'Commit what is currently staged. Fails when nothing is staged — call git_add first. Does not push.',
+        parameters: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Commit message.' },
+          },
+          required: ['message'],
         },
       },
     },

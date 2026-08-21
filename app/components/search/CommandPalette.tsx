@@ -8,7 +8,7 @@ import { useFeaturesStore } from '@/lib/store/useFeaturesStore';
 import { isFeatureVisible } from '@/lib/features/featureKeys';
 import { recordSearchResultSelected } from '@/lib/search/search-signals';
 import { formatDistanceToNow } from '@/lib/utils';
-import { focusEmail, focusGithubIssue, focusSocialPost } from '@/lib/store/useOpenIntentStore';
+import { focusEmail, focusGithubIssue, focusPerson, focusSocialPost } from '@/lib/store/useOpenIntentStore';
 import { buildNavigationDestinations, buildQuickActions } from './commandPaletteNav';
 import {
   matchesQuery,
@@ -62,21 +62,9 @@ function emailSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string,
   return hit.snippet || t('command.find_email_fallback');
 }
 
-function openPersonRow(
-  hit: SourceHitRow,
-  openGitHubTab: () => void,
-  openEmailTab: () => void,
-  openSocialTab: () => void,
-  closePalette: () => void,
-): void {
-  const identities = (hit.meta?.identities as Array<{ source?: string }> | undefined) || [];
-  if (identities.some((i) => i.source === 'github')) {
-    openGitHubTab();
-  } else if (identities.some((i) => i.source === 'email')) {
-    openEmailTab();
-  } else {
-    openSocialTab();
-  }
+function openPersonRow(hit: SourceHitRow, openPeopleTab: () => void, closePalette: () => void): void {
+  openPeopleTab();
+  focusPerson({ personId: hit.id });
   closePalette();
 }
 
@@ -97,6 +85,7 @@ export default function CommandPalette() {
     openGitHubTab,
     openEmailTab,
     openSocialTab,
+    openPeopleTab,
     openProjectsTab,
     openLearnTab,
     openMarketplaceTab,
@@ -115,6 +104,7 @@ export default function CommandPalette() {
       openGitHubTab: s.openGitHubTab,
       openEmailTab: s.openEmailTab,
       openSocialTab: s.openSocialTab,
+      openPeopleTab: s.openPeopleTab,
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
       openMarketplaceTab: s.openMarketplaceTab,
@@ -251,6 +241,7 @@ export default function CommandPalette() {
         openCalendarTab,
         openGitHubTab,
         openEmailTab,
+        openPeopleTab,
         openPipelinesTab,
         openAgentsTab,
         openWorkflowsTab,
@@ -271,6 +262,7 @@ export default function CommandPalette() {
       openGitHubTab,
       openLearnTab,
       openMarketplaceTab,
+      openPeopleTab,
       openPipelinesTab,
       openProjectsTab,
       openRunsTab,
@@ -353,7 +345,7 @@ export default function CommandPalette() {
           sourceId: hit.id,
           meta: hit.meta,
           snippet: hit.snippet,
-          run: () => openPersonRow(hit, openGitHubTab, openEmailTab, openSocialTab, close),
+          run: () => openPersonRow(hit, openPeopleTab, close),
         });
       });
     }
@@ -435,6 +427,7 @@ export default function CommandPalette() {
     navigationDestinations,
     openEmailTab,
     openGitHubTab,
+    openPeopleTab,
     openResource,
     openSocialTab,
     peopleHits,

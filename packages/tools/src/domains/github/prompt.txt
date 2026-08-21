@@ -25,6 +25,24 @@ Load this doc (`dome_load_doc({ id: "github_tool" })`) before mutating GitHub (`
 | `github_update_issue` | `issue_id`; patch `title`, `body`, `state`, `milestone_number` |
 | `github_create_milestone` | `repo_id`, `title`; optional `description`, `due_on` (ISO date), `state` open/closed |
 
+## Pull requests
+
+Use these instead of `web_fetch` on github.com. A private repo returns nothing over plain HTTP, and
+whether a PR was **merged** (rather than merely closed) is not on the page — only the API knows.
+
+| Tool | Required fields |
+|------|-----------------|
+| `github_get_pull_request` | `number`; plus `repo_id` or `full_name` |
+| `github_list_pull_requests` | `repo_id` or `full_name`; optional `state` (open/closed/all), `limit` |
+| `github_create_pull_request` | `title`, `head`; optional `base` (default `main`), `body`, `draft` |
+| `github_pr_checks` | `number` or `ref`; plus `repo_id` or `full_name` |
+
+- "Did the PR land?" → `github_get_pull_request` and read **`merged`**, not `state`. A closed PR may
+  never have been merged.
+- Link an issue by putting `Closes #N` in the PR body; GitHub closes it on merge.
+- `head` must already be pushed — create the PR after `git push`, never before.
+- Before claiming a PR is ready, check `github_pr_checks`.
+
 ## Mentioned people → assignees
 - When Source has **mentioned-people** with `github:login`, pass those logins in `assignees` (no `@`).
 - Do **not** invent logins. If no github identity, ask once or note “suggested assignee” in the body.

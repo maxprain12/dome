@@ -128,10 +128,17 @@ export default function ChatMessage({
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [savedAsNote, setSavedAsNote] = useState(false);
-  const [thinkingExpanded, setThinkingExpanded] = useState(false);
+  // `null` = the user has not decided; follow the live heuristic below.
+  const [thinkingExpandedOverride, setThinkingExpandedOverride] = useState<boolean | null>(null);
 
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
+
+  // While the model is still reasoning and has written no answer yet, the
+  // reasoning *is* the content — show it. Once the answer starts, fold it away
+  // so it does not push the reply off screen. A manual toggle always wins.
+  const thinkingIsLive = Boolean(message.isStreaming && message.thinking && !message.content?.trim());
+  const thinkingExpanded = thinkingExpandedOverride ?? thinkingIsLive;
 
   const handleOpenCitation = useMemo(() => {
     return (citationNumber: number) => {
@@ -323,7 +330,7 @@ export default function ChatMessage({
         {isAssistant && message.thinking ? (
           <Collapsible
             open={thinkingExpanded}
-            onOpenChange={setThinkingExpanded}
+            onOpenChange={setThinkingExpandedOverride}
             className="w-full min-w-0 max-w-full"
           >
             <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-muted">
@@ -331,7 +338,14 @@ export default function ChatMessage({
                 icon={ArrowRight01Icon}
                 className={cn('text-muted-foreground transition-transform', thinkingExpanded && 'rotate-90')}
               />
-              <span className="text-sm font-medium text-muted-foreground">{t('chat.reasoning')}</span>
+              <span
+                className={cn(
+                  'text-sm font-medium text-muted-foreground',
+                  thinkingIsLive && 'shimmer',
+                )}
+              >
+                {t('chat.reasoning')}
+              </span>
             </CollapsibleTrigger>
             <CollapsibleContent className="ml-2 border-l border-border py-1 pl-4">
               <div className="text-xs whitespace-pre-wrap break-words text-muted-foreground opacity-90">

@@ -103,6 +103,47 @@ function stringifyToolOutput(raw: unknown): string {
 }
 
 /**
+ * Soft model-facing cap (~48k chars default). Native tools previously only had
+ * the 16MB hard serialization budget, which let multi-MB shell/file results
+ * into the session JSONL and blow the context window.
+ */
+const SOFT_CAP_CHARS = 48_000;
+const SOFT_CAP_BY_TOOL: Record<string, number> = {
+  directory_tree: 12_000,
+  list_directory_with_sizes: 24_000,
+  search_files: 32_000,
+  file_tree: 32_000,
+  shell_exec: 48_000,
+  file_read: 48_000,
+  file_grep: 48_000,
+  file_find: 32_000,
+  file_search: 32_000,
+  file_edit: 48_000,
+};
+
+function softCapForTool(toolName: string): number {
+  const key = String(toolName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  const cap = SOFT_CAP_BY_TOOL[key];
+  return typeof cap === 'number' && cap > 2000 ? cap : SOFT_CAP_CHARS;
+}
+
+function capModelFacingText(toolName: string, text: string): string {
+  const maxChars = softCapForTool(toolName);
+  if (text.length <= maxChars) return text;
+  const head = Math.floor(maxChars * 0.5);
+  return (
+    `${text.slice(0, head)}\n\n` +
+    `[Dome: tool result truncated — ${text.length} chars → ~${head} shown. Tool: ${toolName}. ` +
+    'Use smaller pages/batches, filters, or follow-up calls to retrieve the rest.]'
+  );
+}
+
+/**
  * Bound a tool result's `details` so the persisted session entry can never grow
  * without limit. Returns the value untouched when it fits the budget, or a tiny
  * marker when it is too large / unserializable (ELECTRON-7 guard).
@@ -147,7 +188,10 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
         const message = err instanceof Error ? err.message : String(err);
         throw new Error(`Tool "${name}" failed: ${message}`);
       }
-      return { content: [{ type: 'text', text: stringifyToolOutput(raw) }], details: boundToolDetails(raw) };
+      return {
+        content: [{ type: 'text', text: capModelFacingText(name, stringifyToolOutput(raw)) }],
+        details: boundToolDetails(raw),
+      };
     },
   };
 }

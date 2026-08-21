@@ -289,6 +289,7 @@ function createSocialStore(database) {
       externalPostId: row.external_post_id,
       externalUrl: row.external_url,
       error: row.error,
+      notes: row.notes != null ? String(row.notes) : null,
       createdBy: row.created_by,
       groupId: row.group_id,
       createdAt: row.created_at,
@@ -482,6 +483,15 @@ function createSocialStore(database) {
 
   function getPostRow(postId) {
     return q().getSocialPostById.get(postId) || null;
+  }
+
+  /** Internal editorial notes — allowed on any status (including published). */
+  function updatePostNotes(postId, notes) {
+    const row = q().getSocialPostById.get(postId);
+    if (!row) throw new Error(`Social post not found: ${postId}`);
+    const value = notes == null || String(notes).trim() === '' ? null : String(notes);
+    q().updateSocialPostNotes.run(value, Date.now(), postId);
+    return serializePost(q().getSocialPostById.get(postId));
   }
 
   function updatePost(postId, patch = {}) {
@@ -914,6 +924,7 @@ function createSocialStore(database) {
     upsertImportedPost,
     getPost,
     getPostRow,
+    updatePostNotes,
     updatePost,
     markPostPublishing,
     markPostPublished,

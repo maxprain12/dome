@@ -1,0 +1,46 @@
+---
+description: Never show raw IDs/UUIDs in UI — always use readable labels
+globs: app/**/*.{tsx,ts}
+alwaysApply: true
+---
+
+# No raw IDs in UI
+
+Users must never see opaque identifiers (UUIDs, `sp-…`, `scamp-…`, URN fragments, etc.) as the primary label in selects, tables, badges, titles, or empty states. Show human-readable details instead.
+
+## Do
+
+- Resolve entities to a label helper before render (`socialEventCardLabel`, `socialAccountLabel`, `socialPostLabel`, resource title, person name…).
+- For Base UI / shadcn `Select`, pass readable children to `SelectValue` (the trigger does **not** auto-map `SelectItem` children from the raw `value`).
+- When the entity is missing, use i18n fallbacks (`unknown_card`, `no_card`, “Untitled…”) — never the id string.
+- Keep ids only in `value` / `key` / IPC payloads / `data-*` attributes for logic.
+
+## Don’t
+
+```tsx
+// Bad — trigger shows the UUID
+<Select value={cardId}>
+  <SelectTrigger><SelectValue /></SelectTrigger>
+  <SelectContent>
+    {cards.map((c) => (
+      <SelectItem key={c.id} value={c.id}>{c.internalName}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+// Bad — fallback paints the id into the UI
+socialEventCardLabel(card ?? { internalName: cardId, title: '', slug: null })
+```
+
+```tsx
+// Good
+const selected = cards.find((c) => c.id === cardId);
+<Select value={cardId}>
+  <SelectTrigger>
+    <SelectValue>{selected ? socialEventCardLabel(selected) : t('social.events.unknown_card')}</SelectValue>
+  </SelectTrigger>
+  …
+</Select>
+```
+
+If a label helper might receive an id as a name field, reject opaque ids (`looksLikeOpaqueId`) and fall back to a placeholder.

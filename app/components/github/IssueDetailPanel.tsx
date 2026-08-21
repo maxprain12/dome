@@ -8,9 +8,11 @@ import { useTranslation } from 'react-i18next';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import IssueTimeline from '@/components/github/IssueTimeline';
 import MentionTextarea, { type Mentionable } from '@/components/github/MentionTextarea';
+import RepoWorkspaceRow from '@/components/github/RepoWorkspaceRow';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
+import { askStudioMany } from '@/components/studio-hub/askStudioMany';
 import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
 import { Badge } from '@/components/ui/badge';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -149,7 +151,12 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const { t } = useTranslation();
   const issues = useGitHubStore((s) => s.issues);
   const milestones = useGitHubStore((s) => s.milestones);
+  const repos = useGitHubStore((s) => s.repos);
   const initial = issues.find((i) => i.id === issueId);
+  const repo = useMemo(
+    () => (initial ? repos.find((r) => r.id === initial.repo_id) ?? null : null),
+    [initial, repos],
+  );
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -345,6 +352,42 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     }
   };
 
+  const askMany = () => {
+    const repoUri =
+      repo?.html_url
+      || (repo?.full_name ? `https://github.com/${repo.full_name}` : '')
+      || initial.html_url
+      || '';
+    const localPath = repo?.local_path || null;
+    // With a bound clone the ask becomes a coding task, not a question about a link.
+    const prompt = localPath
+      ? t('github.agent_prompt_about_local', {
+          number: initial.number,
+          title: initial.title,
+          localPath,
+        })
+      : t('github.agent_prompt_about', {
+          number: initial.number,
+          title: initial.title,
+          repoUri: repoUri || repo?.full_name || '',
+        });
+    askStudioMany(prompt, {
+      id: initial.id,
+      title: initial.title,
+      type: 'issue',
+      kind: 'issue',
+      meta: {
+        number: initial.number,
+        state: initial.state,
+        fullName: repo?.full_name,
+        html_url: initial.html_url,
+        repoId: initial.repo_id,
+        ...(repoUri ? { repoUri } : {}),
+        ...(localPath ? { localPath } : {}),
+      },
+    });
+  };
+
   const headerActions = (
     <div className="flex items-center gap-1.5">
       {initial.html_url && (
@@ -383,10 +426,16 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       </Button>
     </div>
   ) : (
-    <div className="flex items-center justify-end gap-2 w-full">
-      <Button disabled={!newComment.trim() || postingComment}
-  onClick={() => postComment()}
-  size="sm">{postingComment ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />}
+    <div className="flex items-center justify-between gap-2 w-full">
+      <Button type="button" size="sm" variant="secondary" onClick={askMany}>
+        {t('github.agent_ask_many')}
+      </Button>
+      <Button
+        disabled={!newComment.trim() || postingComment}
+        onClick={() => postComment()}
+        size="sm"
+      >
+        {postingComment ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />}
         {t('github.post_comment')}
       </Button>
     </div>
@@ -619,6 +668,15 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               </div>
             )}
           </div>
+
+          {/* Local clone binding — makes "Send to Many" a coding task */}
+          {repo ? (
+            <RepoWorkspaceRow
+              repoId={repo.id}
+              localPath={repo.local_path ?? null}
+              label={repo.full_name}
+            />
+          ) : null}
 
           {/* Body */}
           {body.trim() ? (

@@ -32,8 +32,6 @@ export type HydratedPinnedContext = {
   people: EnrichedPinnedPerson[];
   sources: EnrichedPinnedSource[];
   docs: EnrichedPinnedDoc[];
-  /** Blocks appended to the agent user message (not shown in the UI bubble). */
-  agentBlocks: string[];
 };
 
 function clip(text: string, max = BODY_MAX): string {
@@ -211,85 +209,6 @@ async function hydrateDoc(pin: PinnedResource): Promise<EnrichedPinnedDoc> {
   };
 }
 
-function blockForSource(src: EnrichedPinnedSource): string {
-  const meta = src.meta || {};
-  const body = typeof meta.body === 'string' ? meta.body : '';
-
-  if (src.kind === 'social_post') {
-    return [
-      `### Pinned social_post ${src.id} — ${src.title}`,
-      `provider: ${meta.provider ?? 'unknown'}`,
-      `status: ${meta.status ?? 'unknown'}`,
-      'body:',
-      body || '(unavailable — call social_post_get)',
-      '',
-      `Call social_post_get with post_id=${src.id} if you need the full record or metrics.`,
-    ].join('\n');
-  }
-
-  if (src.kind === 'social_campaign') {
-    return [
-      `### Pinned social_campaign ${src.id} — ${src.title}`,
-      `goal: ${meta.goal ?? '(none)'}`,
-      '',
-      'Use social_posts_list / social_metrics_summary filtered by this campaign; do not call social_post_get with the campaign id.',
-    ].join('\n');
-  }
-
-  if (src.kind === 'email') {
-    return [
-      `### Pinned email ${src.id} — ${src.title}`,
-      `folder: ${meta.folder ?? 'INBOX'}`,
-      `from: ${meta.from ?? '(unknown)'}`,
-      'body:',
-      body || '(unavailable — call email_read)',
-      '',
-      `Call email_read with message_id=${meta.uid || src.id}` +
-        (meta.folder ? ` folder=${meta.folder}` : '') +
-        '.',
-    ].join('\n');
-  }
-
-  // issue
-  return [
-    `### Pinned issue ${src.id} — ${src.title}`,
-    `state: ${meta.state ?? 'unknown'}`,
-    typeof meta.fullName === 'string' ? `repo: ${meta.fullName}` : null,
-    'body:',
-    body || '(unavailable — call github_get_issue)',
-    '',
-    `Call github_get_issue with issue_id=${src.id}.`,
-  ]
-    .filter(Boolean)
-    .join('\n');
-}
-
-function blockForPerson(person: EnrichedPinnedPerson): string {
-  const identities = (person.identities || [])
-    .map((i) => `${i.source}:${i.displayLabel || i.externalId}`)
-    .join(', ');
-  const notes =
-    typeof person.meta?.notes === 'string' && person.meta.notes
-      ? `\nnotes: ${person.meta.notes}`
-      : '';
-  return [
-    `### Pinned person ${person.id} — ${person.title}`,
-    identities ? `identities: ${identities}` : null,
-    person.meta?.primaryEmail ? `email: ${person.meta.primaryEmail}` : null,
-    notes.trim() || null,
-    '',
-    `Call people_get with person_id=${person.id} for the full profile.`,
-  ]
-    .filter(Boolean)
-    .join('\n');
-}
-
-function blockForDoc(doc: EnrichedPinnedDoc): string {
-  return [
-    `### Pinned resource ${doc.id} — ${doc.title} (${doc.type})`,
-    `This library document is pinned. Call resource_get_pinned with id=${doc.id} before answering about its contents.`,
-  ].join('\n');
-}
 
 /** Prefetch all pinned entities for the next Many agent turn. */
 export async function hydratePinnedContext(
@@ -323,11 +242,5 @@ export async function hydratePinnedContext(
   ]);
 
   const allSources = [...sources, ...campaigns];
-  const agentBlocks = [
-    ...allSources.map(blockForSource),
-    ...people.map(blockForPerson),
-    ...docs.map(blockForDoc),
-  ];
-
-  return { people, sources: allSources, docs, agentBlocks };
+  return { people, sources: allSources, docs };
 }

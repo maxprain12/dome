@@ -21,9 +21,20 @@ const KNOWN_CODES = new Set([
   'invalid_api_key',
   'rate_limit',
   'model_not_found',
+  'model_not_in_plan',
+  'credits_exhausted',
+  'subscription_inactive',
   'network',
   'context_overflow',
   'unknown',
+]);
+
+const OPEN_AI_SETTINGS_CODES = new Set([
+  'invalid_api_key',
+  'model_not_found',
+  'model_not_in_plan',
+  'credits_exhausted',
+  'subscription_inactive',
 ]);
 
 /**
@@ -62,10 +73,8 @@ export default function SystemErrorNotifier() {
         message,
         autoClose: 10000,
         withCloseButton: true,
-        onClick: code === 'invalid_api_key' || code === 'model_not_found'
-          ? () => openSettingsTab()
-          : undefined,
-        style: { cursor: code === 'invalid_api_key' || code === 'model_not_found' ? 'pointer' : undefined },
+        onClick: OPEN_AI_SETTINGS_CODES.has(code) ? () => openSettingsTab() : undefined,
+        style: { cursor: OPEN_AI_SETTINGS_CODES.has(code) ? 'pointer' : undefined },
       });
     });
 

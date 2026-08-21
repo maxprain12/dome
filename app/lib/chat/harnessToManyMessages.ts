@@ -88,6 +88,13 @@ function consumeAssistantTurn(
   const toolCallOrder: string[] = [];
   const textParts: string[] = [];
   const thinkingParts: string[] = [];
+  // Prose length at the moment each call was issued. The session content array
+  // is already ordered, so the interleaving is recoverable here — flattening it
+  // into "all text" + "all tools" is what made a reloaded turn show every card
+  // above the reply.
+  const offsetByToolCallId = new Map<string, number>();
+  /** Length of `textParts.join('\n\n')` so far, tracked instead of re-joining. */
+  let joinedTextLength = 0;
   let timestamp = Date.now();
 
   let i = startIndex;
@@ -107,11 +114,15 @@ function consumeAssistantTurn(
           if (!block || typeof block !== 'object') continue;
           const b = block as PiContentBlock;
           if (b.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
+            joinedTextLength += (textParts.length > 0 ? 2 : 0) + b.text.length;
             textParts.push(b.text);
           } else if (b.type === 'thinking' && typeof b.thinking === 'string' && b.thinking.trim()) {
             thinkingParts.push(b.thinking);
           } else if (b.type === 'toolCall' && b.id && b.name) {
-            if (!toolCallsById.has(b.id)) toolCallOrder.push(b.id);
+            if (!toolCallsById.has(b.id)) {
+              toolCallOrder.push(b.id);
+              offsetByToolCallId.set(b.id, joinedTextLength);
+            }
             const prev = toolCallsById.get(b.id);
             toolCallsById.set(b.id, {
               id: b.id,
@@ -161,12 +172,24 @@ function consumeAssistantTurn(
     i += 1;
   }
 
+  const rawContent = textParts.join('\n\n');
+  const content = rawContent.trim();
+  // `trim()` drops leading whitespace, so shift the offsets by the same amount.
+  const leadingTrimmed = rawContent.length - rawContent.trimStart().length;
+
   const toolCalls = toolCallOrder
     .map((id) => toolCallsById.get(id))
     .filter((tc): tc is ToolCallData => Boolean(tc))
-    .map((tc) => (tc.status === 'running' ? { ...tc, status: 'success' as const } : tc));
+    .map((tc) => (tc.status === 'running' ? { ...tc, status: 'success' as const } : tc))
+    .map((tc) => {
+      const offset = offsetByToolCallId.get(tc.id);
+      if (typeof offset !== 'number') return tc;
+      return {
+        ...tc,
+        contentOffset: Math.min(Math.max(offset - leadingTrimmed, 0), content.length),
+      };
+    });
 
-  const content = textParts.join('\n\n').trim();
   const coalescedTools = toolCalls.length > 0 ? coalesceDuplicateToolCalls(toolCalls) : undefined;
   if (!content && !coalescedTools?.length) {
     return { nextIndex: i };

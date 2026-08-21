@@ -14,7 +14,11 @@
       "invalid_api_key": "The API key was rejected by the provider. Check your key in Settings → AI.",
       "rate_limit": "The provider rate limit was reached. Wait a moment and try again, or check your plan.",
       "model_not_found": "The selected model is not available. Pick another model in Settings → AI.",
+      "model_not_in_plan": "That model is not included in your Dome plan. Choose Dome Auto or another model from your plan in Settings → AI.",
+      "credits_exhausted": "You have used all Dome Credits for this billing period. Upgrade your plan or wait for the next cycle.",
+      "subscription_inactive": "Your Dome subscription is not active. Open Settings → AI to reconnect or renew.",
       "network": "Could not reach the service. Check your internet connection and try again.",
+      "service_unavailable": "The AI provider is temporarily unavailable (ChatGPT Codex or upstream). Wait a moment and retry, or switch provider in Settings → AI.",
       "context_overflow": "The conversation is too long for the model. Start a new chat or compact the thread.",
       "unknown": "Something went wrong. The technical detail is in the log."
     },

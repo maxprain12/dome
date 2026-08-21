@@ -14,7 +14,8 @@ const LANGUAGE_NAMES = { es: 'Spanish', en: 'English', fr: 'French', pt: 'Portug
 const SYSTEM_PROMPT = [
   'You are a senior social media strategist and growth analyst.',
   'You receive a JSON snapshot of the user\'s social accounts (LinkedIn, Instagram, X):',
-  'follower growth over time, per-post performance metrics, posting cadence and topics.',
+  'follower growth over time, per-post performance metrics, posting cadence and topics,',
+  'plus eventAutomations funnels (comment keyword → private DM → public comment reply → link click).',
   'Write an actionable growth report in Markdown with EXACTLY these sections:',
   '',
   '# <short report title with the period>',
@@ -22,11 +23,13 @@ const SYSTEM_PROMPT = [
   '## Crecimiento de la cuenta — follower/engagement evolution per network; call out inflection points.',
   '## Qué está funcionando — top posts and WHY (topic, format, hook, timing). Cite concrete posts.',
   '## Qué no está funcionando — weak posts/patterns to drop, with evidence.',
+  '## Automatizaciones comentario→DM — funnel conversion (matches, DMs sent, public replies, link clicks); call out rates and opportunities.',
   '## Recomendaciones de contenido — 5-8 concrete post ideas (network, angle, suggested hook) based on what worked.',
   '## Plan de enfoque — cadence, best posting windows from the data, topics to double down on for the next period.',
   '',
   'Rules: ground every claim in the provided data (quote numbers); if data is sparse, say so and',
-  'give best-practice guidance clearly labeled as such; never invent metrics; keep it under 900 words.',
+  'give best-practice guidance clearly labeled as such; never invent metrics; keep it under 1000 words.',
+  'If eventAutomations is empty, say that comment→DM funnels have no data yet in that section.',
 ].join('\n');
 
 function truncate(text, max) {
@@ -122,7 +125,40 @@ function buildAnalysisData(store, { periodDays = 30 } = {}) {
     postCounts: counts,
     postsInPeriod: published.length,
     posts,
+    eventAutomations: [],
   };
+}
+
+/** Aggregate comment→DM conversion funnels from published event cards (Provider metrics). */
+async function loadEventAutomationFunnels(database) {
+  try {
+    const eventCardsClient = require('./social-event-cards-client.cjs');
+    const listed = await eventCardsClient.listCards(database);
+    const cards = (listed.cards || []).filter((card) => card.status === 'published').slice(0, 20);
+    const funnels = [];
+    for (const card of cards) {
+      const result = await eventCardsClient.metrics(database, card.id);
+      const totals = result?.metrics?.totals || result?.totals || {};
+      const dmMatched = Number(totals.dm_matched || 0);
+      const dmSent = Number(totals.dm_sent || 0);
+      const commentReplies = Number(totals.comment_reply_sent || 0);
+      const dmClicks = Number(totals.dm_click || 0);
+      if (!(dmMatched || dmSent || commentReplies || dmClicks)) continue;
+      funnels.push({
+        card: card.internalName || card.title || card.slug,
+        dmMatched,
+        dmSent,
+        commentReplies,
+        dmClicks,
+        dmRatePct: dmMatched > 0 ? Math.round((dmSent / dmMatched) * 100) : null,
+        clickRatePct: dmSent > 0 ? Math.round((dmClicks / dmSent) * 100) : null,
+      });
+    }
+    return funnels;
+  } catch (error) {
+    console.warn('[Social] event automation funnel load failed:', error?.message || error);
+    return [];
+  }
 }
 
 /**
@@ -139,6 +175,7 @@ async function generateReport(database, store, { periodDays, language, trigger =
 
   try {
     const data = buildAnalysisData(store, { periodDays: days });
+    data.eventAutomations = await loadEventAutomationFunnels(database);
     if (data.accounts.length === 0) {
       throw new Error('No social accounts connected — connect one in Settings → Social first.');
     }
@@ -189,4 +226,4 @@ async function generateReport(database, store, { periodDays, language, trigger =
   }
 }
 
-module.exports = { buildGrowth, buildAnalysisData, generateReport };
+module.exports = { buildGrowth, buildAnalysisData, generateReport, loadEventAutomationFunnels };

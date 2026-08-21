@@ -23,6 +23,19 @@ describe('social-messaging accountSupports', () => {
     );
   });
 
+  it('allows IG listComments when any instagram_business scope is present', () => {
+    assert.equal(
+      accountSupports(
+        {
+          provider: 'instagram',
+          scopes: 'instagram_business_basic,instagram_business_content_publish',
+        },
+        'listComments',
+      ),
+      true,
+    );
+  });
+
   it('allows X listComments with tweet.read', () => {
     assert.equal(
       accountSupports({ provider: 'x', scopes: 'tweet.read tweet.write' }, 'listComments'),

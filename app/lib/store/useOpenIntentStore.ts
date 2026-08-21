@@ -12,7 +12,8 @@ export type OpenIntent =
       uid?: string | number;
       at: number;
     }
-  | { kind: 'social-post'; postId: string; at: number };
+  | { kind: 'social-post'; postId: string; at: number }
+  | { kind: 'person'; personId: string; at: number };
 
 interface OpenIntentState {
   intent: OpenIntent | null;
@@ -74,4 +75,13 @@ export function focusSocialPost(detail: { postId: string }): void {
     at: Date.now(),
   });
   window.dispatchEvent(new CustomEvent('dome:focus-social-post', { detail }));
+}
+
+export function focusPerson(detail: { personId: string }): void {
+  useOpenIntentStore.getState().setIntent({
+    kind: 'person',
+    personId: detail.personId,
+    at: Date.now(),
+  });
+  window.dispatchEvent(new CustomEvent('dome:focus-person', { detail }));
 }

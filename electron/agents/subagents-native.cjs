@@ -10,7 +10,7 @@ const { readSubagentPrompt } = require('../prompts/prompts-loader.cjs');
 const { getToolDefsBySubagent } = require('../tools/tool-definitions.cjs');
 const { capToolResultString } = require('../tools/tool-result-cap.cjs');
 
-const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data'];
+const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data', 'coding'];
 
 const SUBAGENT_DESCRIPTIONS = {
   research:
@@ -21,6 +21,8 @@ const SUBAGENT_DESCRIPTIONS = {
     'Delegate to the writer subagent to create notes, flashcards, edit or delete resources, and modify notebooks. Use when the user wants to create content or study materials.',
   data:
     "Delegate to the data subagent for Excel AND PowerPoint. Use for spreadsheets or when the user wants to create a real .pptx presentation.",
+  coding:
+    'Delegate to the coding subagent to read, edit and verify code in the open repository. Only available inside a trusted coding workspace. Use it for a self-contained sub-task (one module, one refactor); keep the overall plan yourself.',
 };
 
 const subagentPromptCache = new Map();
@@ -49,9 +51,15 @@ function manySubagentIds() {
 
 /**
  * Run one subagent turn via a nested harness (no further task delegation).
+ *
+ * Returns the nested thread id alongside the text: the subagent keeps its own
+ * JSONL session with its reasoning and tool calls, and the UI can only open
+ * that history if it knows the id.
+ *
  * @param {string} agentName
  * @param {string} query
  * @param {object} parentOpts - provider/model/apiKey/baseUrl/runtimeContext/onChunk/signal
+ * @returns {Promise<{ text: string, threadId: string | undefined }>}
  */
 async function runSubagentTurn(agentName, query, parentOpts) {
   const runAgent = parentOpts?.runAgent;
@@ -77,6 +85,10 @@ async function runSubagentTurn(agentName, query, parentOpts) {
       }
     : undefined;
 
+  const nestedThreadId = parentOpts.threadId
+    ? `${parentOpts.threadId}_sub_${agentName}_${Date.now()}`
+    : undefined;
+
   const text = await runAgent('subagent', {
     provider: parentOpts.provider,
     model: parentOpts.model,
@@ -89,13 +101,18 @@ async function runSubagentTurn(agentName, query, parentOpts) {
     runtimeContext: parentOpts.runtimeContext,
     onChunk: nestedOnChunk,
     signal: parentOpts.signal,
-    threadId: parentOpts.threadId
-      ? `${parentOpts.threadId}_sub_${agentName}_${Date.now()}`
-      : undefined,
+    // A subagent inherits the coding workspace. Without this it resolves no
+    // session, its coding tools are filtered out, and it answers "this
+    // environment has no terminal" — while the supervisor plainly does.
+    workspacePath: parentOpts.workspacePath ?? null,
+    threadId: nestedThreadId,
     parentThreadId: parentOpts.threadId,
   });
 
-  return typeof text === 'string' ? text : String(text?.text ?? text ?? '');
+  return {
+    text: typeof text === 'string' ? text : String(text?.text ?? text ?? ''),
+    threadId: nestedThreadId,
+  };
 }
 
 /**
@@ -154,12 +171,16 @@ function buildTaskTool(parentOpts) {
         };
       }
       try {
-        const result = await runSubagentTurn(subagentType, prompt, {
+        const { text: result, threadId: subThreadId } = await runSubagentTurn(subagentType, prompt, {
           ...parentOpts,
           signal,
         });
         const capped = capToolResultString('task', result);
-        return { content: [{ type: 'text', text: capped }], details: { subagent: subagentType } };
+        return {
+          content: [{ type: 'text', text: capped }],
+          // `thread_id` lets the UI open the subagent's own transcript.
+          details: { subagent: subagentType, ...(subThreadId ? { thread_id: subThreadId } : {}) },
+        };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return {

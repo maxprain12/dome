@@ -427,6 +427,25 @@
 :root { color-scheme: light; }
 .dark { color-scheme: dark; }
 
+/* Social editorial workspace: scoped atmosphere, never leaks into other hubs. */
+.social-studio {
+  --social-canvas: color-mix(in oklch, var(--background) 94%, var(--accent));
+  --social-elevated: color-mix(in oklch, var(--card) 96%, var(--primary));
+  background:
+    radial-gradient(circle at 72% -10%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 34rem),
+    var(--social-canvas);
+}
+
+.social-studio [data-slot='card'] {
+  background-color: var(--social-elevated);
+}
+
+.social-studio .social-studio-hero {
+  background:
+    radial-gradient(circle at 86% 20%, color-mix(in oklch, var(--primary-foreground) 14%, transparent), transparent 20rem),
+    var(--primary);
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

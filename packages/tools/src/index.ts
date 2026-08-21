@@ -86,6 +86,8 @@ export type { FileToolName } from './families/file.js';
 
 export { SHELL_TOOL_NAMES, shellToolDefinitions } from './families/shell.js';
 export type { ShellToolName } from './families/shell.js';
+export { GIT_TOOL_NAMES, gitToolDefinitions } from './families/git.js';
+export type { GitToolName } from './families/git.js';
 
 export { STUDIO_TOOL_NAMES, studioToolDefinitions } from './families/studio.js';
 export type { StudioToolName } from './families/studio.js';

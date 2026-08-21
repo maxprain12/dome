@@ -22,6 +22,7 @@ const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
 const GitHubView = lazy(() => import('@/components/github/GitHubView'));
 const EmailView = lazy(() => import('@/components/email/EmailView'));
 const SocialHubView = lazy(() => import('@/components/social/SocialHubView'));
+const PeopleHubView = lazy(() => import('@/components/people/PeopleHubView'));
 import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
@@ -342,6 +343,17 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
           <SuspenseWithTimeout>
             <div className="flex flex-col h-full overflow-hidden bg-background">
               <SocialHubView />
+            </div>
+          </SuspenseWithTimeout>
+        </TabBoundary>
+      );
+
+    case 'people':
+      return (
+        <TabBoundary tab={tab}>
+          <SuspenseWithTimeout>
+            <div className="flex flex-col h-full overflow-hidden bg-background">
+              <PeopleHubView />
             </div>
           </SuspenseWithTimeout>
         </TabBoundary>

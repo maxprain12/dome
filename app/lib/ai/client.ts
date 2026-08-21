@@ -125,6 +125,10 @@ export async function getAIConfig(): Promise<AIConfig | null> {
 
 export async function saveAIConfig(config: AIConfig): Promise<void> {
   await db.setSetting('ai_provider', config.provider);
+  await db.setSetting(
+    'ai_billing_mode',
+    config.provider === 'dome' ? 'dome_cloud' : 'custom_api_key',
+  );
 
   if (config.apiKey) {
     // Slot por proveedor (cambiar de provider conserva cada clave) + legacy
@@ -1207,7 +1211,7 @@ export async function* chatWithToolsStream(
         threadId,
         actionRequests: data.actionRequests,
         reviewConfigs,
-        submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
+        submitResume: (decisions: Array<{ type: 'approve' } | { type: 'approve_all' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
           if (threadId) {
             void window.electron?.ai?.resumeAgent?.({ threadId, streamId, decisions });
           }

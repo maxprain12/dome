@@ -294,6 +294,12 @@ export async function getAIConfig(): Promise<AISettings> {
 export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   if (config.provider !== undefined) {
     await db.setSetting('ai_provider', config.provider);
+    // Keep billing mode aligned with the provider picker. Default dome_cloud
+    // otherwise hijacks Codex/Claude OAuth/API-key providers into Dome Cloud.
+    await db.setSetting(
+      'ai_billing_mode',
+      config.provider === 'dome' ? 'dome_cloud' : 'custom_api_key',
+    );
   }
 
   if (config.api_key !== undefined) {

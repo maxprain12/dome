@@ -14,6 +14,7 @@ import {
   Settings01Icon,
   Store01Icon,
   Upload04Icon,
+  UserIcon,
   WorkflowSquare01Icon,
   ZapIcon,
 } from '@hugeicons/core-free-icons';
@@ -28,6 +29,7 @@ interface BuildNavOptions {
   openCalendarTab: () => void;
   openGitHubTab: () => void;
   openEmailTab: () => void;
+  openPeopleTab: () => void;
   openPipelinesTab: () => void;
   openAgentsTab: () => void;
   openWorkflowsTab: () => void;
@@ -56,6 +58,7 @@ export function buildNavigationDestinations(opts: BuildNavOptions): PaletteRow[]
     { key: 'calendar', row: wrap('calendar', opts.t('workspace.calendar'), Calendar03Icon, opts.openCalendarTab) },
     { key: 'github', row: wrap('github', opts.t('github.tab_title'), Task01Icon, opts.openGitHubTab) },
     { key: 'email', row: wrap('email', opts.t('email.tab_title'), Mail01Icon, opts.openEmailTab) },
+    { key: 'people', row: wrap('people', opts.t('people.tab_title'), UserIcon, opts.openPeopleTab) },
     { key: 'pipelines', row: wrap('pipelines', opts.t('tabs.pipelines'), FolderKanbanIcon, opts.openPipelinesTab) },
     { key: 'agents', row: wrap('agents', opts.t('automationHub.tab_agents'), BotIcon, opts.openAgentsTab) },
     { key: 'workflows', row: wrap('workflows', opts.t('automationHub.tab_workflows'), WorkflowSquare01Icon, opts.openWorkflowsTab) },

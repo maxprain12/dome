@@ -38,6 +38,7 @@ import type { Resource } from '@/types';
 import { cn } from '@/lib/utils';
 
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import PeoplePicker, { personIdsFromMeta } from '@/components/people/PeoplePicker';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -578,6 +579,7 @@ export default function EventModal({
   const [editing, setEditing] = useState(!event);
   const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
   const [resourceIds, setResourceIds] = useState(() => resourceIdsFromMeta(event?.metadata));
+  const [personIds, setPersonIds] = useState(() => personIdsFromMeta(event?.metadata));
   const [linkedTitles, setLinkedTitles] = useState<Record<string, string>>({});
   const [linkedTypes, setLinkedTypes] = useState<Record<string, string>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -709,7 +711,11 @@ export default function EventModal({
         start_at: startIso,
         end_at: endIso,
         all_day: allDay,
-        metadata: { resourceIds },
+        metadata: {
+          ...(event?.metadata && typeof event.metadata === 'object' ? event.metadata : {}),
+          resourceIds,
+          personIds,
+        },
       });
       onClose();
     } catch (err) {
@@ -966,6 +972,14 @@ export default function EventModal({
             onOpen={openLinkedResource}
             onRemove={(id) => setResourceIds((prev) => prev.filter((x) => x !== id))}
             onAdd={() => setPickerOpen(true)}
+          />
+
+          <PeoplePicker
+            projectId={projectId}
+            personIds={personIds}
+            onChange={setPersonIds}
+            editable
+            namespace="calendarPage"
           />
         </form>
       </EventDetailChrome>

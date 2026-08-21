@@ -22,6 +22,14 @@ const ConnectOAuthSchema = z.object({ provider: ProviderSchema });
 const ConnectTokenSchema = z.object({ provider: ProviderSchema, accessToken: z.string().min(1) });
 const AccountIdSchema = z.object({ accountId: z.string().min(1) });
 const PostIdSchema = z.object({ postId: z.string().min(1) });
+const PostNotesSchema = z.object({
+  postId: z.string().min(1),
+  notes: z.string().max(8000).nullable().optional(),
+});
+const CommentsListSchema = z.object({
+  postId: z.string().min(1),
+  cursor: z.string().min(1).optional().nullable(),
+});
 const MediaItemSchema = z
   .object({
     type: z.enum(['image', 'video', 'reel']).optional(),
@@ -137,7 +145,17 @@ const EventCardInputSchema = z.object({
 const EventCardUpdateSchema = z.object({ cardId: z.string().uuid(), patch: EventCardInputSchema.partial() });
 const EventUpdateInputSchema = z.object({ cardId: z.string().uuid(), message: z.string().min(1).max(2000), scheduledAt: z.string().datetime().nullable().optional() });
 const EventUpdatePatchSchema = z.object({ updateId: z.string().uuid(), patch: z.object({ message: z.string().min(1).max(2000).optional(), scheduledAt: z.string().datetime().nullable().optional(), status: z.enum(['draft', 'scheduled', 'cancelled']).optional() }) });
-const DmRuleInputSchema = z.object({ accountId: z.string().min(1), postId: z.string().nullable().optional(), cardId: z.string().uuid(), keyword: z.string().min(1).max(200), replyTemplate: z.string().min(1).max(2000), enabled: z.boolean().optional() });
+const DmRuleInputSchema = z.object({
+  accountId: z.string().min(1),
+  postId: z.string().nullable().optional(),
+  cardId: z.string().uuid(),
+  keyword: z.string().min(1).max(200),
+  replyTemplate: z.string().min(1).max(2000),
+  enabled: z.boolean().optional(),
+  commentReplyEnabled: z.boolean().optional(),
+  commentReplyTemplate: z.string().min(1).max(500).optional(),
+  captureLead: z.boolean().optional(),
+});
 const DmRulePatchSchema = z.object({ ruleId: z.string().uuid(), patch: DmRuleInputSchema.partial() });
 
 function register({ ipcMain, windowManager, database, fileStorage }) {
@@ -260,8 +278,16 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     return { deleted: true };
   }));
   ipcMain.handle('social:posts:publish', wrap(PostIdSchema, ({ postId }) => service.publishPost(postId)));
+  ipcMain.handle('social:posts:updateNotes', wrap(PostNotesSchema, ({ postId, notes }) => {
+    const post = service.store.updatePostNotes(postId, notes ?? null);
+    windowManager.broadcast?.('social:post-updated', post);
+    return post;
+  }));
   ipcMain.handle('social:posts:sync', wrap(FeedSyncSchema, ({ accountId, limit }) =>
     service.syncPlatformFeed({ accountId: accountId || null, limit: limit || 25 }),
+  ));
+  ipcMain.handle('social:comments:list', wrap(CommentsListSchema, ({ postId, cursor }) =>
+    service.listPostComments({ postId, cursor: cursor || null }),
   ));
 
   // Media pickers — local files (native dialog) and vault image/video resources
@@ -462,8 +488,16 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     ),
   );
 
-  // Provider-backed event cards. Consumers never receive Supabase credentials.
-  ipcMain.handle('social:event-cards:list', wrap(null, () => eventCardsClient.listCards(database)));
+  // Provider-backed event cards (local replica + background refresh).
+  const broadcastCards = (data) => windowManager.broadcast?.('social:event-cards-refresh', data);
+  const broadcastDmRules = (data) => windowManager.broadcast?.('social:dm-rules-refresh', data);
+  const broadcastUpdates = (cardId, data) =>
+    windowManager.broadcast?.('social:event-updates-refresh', { cardId, ...data });
+
+  ipcMain.handle(
+    'social:event-cards:list',
+    wrap(null, () => eventCardsClient.listCards(database, { onRefreshed: broadcastCards })),
+  );
   ipcMain.handle('social:event-cards:get', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.getCard(database, cardId)));
   ipcMain.handle('social:event-cards:create', wrap(EventCardInputSchema, (input) => eventCardsClient.createCard(database, input)));
   ipcMain.handle('social:event-cards:update', wrap(EventCardUpdateSchema, ({ cardId, patch }) => eventCardsClient.updateCard(database, cardId, patch)));
@@ -481,11 +515,21 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     fs.writeFileSync(result.filePath, exported);
     return { cancelled: false, filePath: result.filePath };
   }));
-  ipcMain.handle('social:event-updates:list', wrap(EventCardIdSchema, ({ cardId }) => eventCardsClient.listUpdates(database, cardId)));
+  ipcMain.handle(
+    'social:event-updates:list',
+    wrap(EventCardIdSchema, ({ cardId }) =>
+      eventCardsClient.listUpdates(database, cardId, {
+        onRefreshed: (data) => broadcastUpdates(cardId, data),
+      }),
+    ),
+  );
   ipcMain.handle('social:event-updates:create', wrap(EventUpdateInputSchema, ({ cardId, ...input }) => eventCardsClient.createUpdate(database, cardId, input)));
   ipcMain.handle('social:event-updates:update', wrap(EventUpdatePatchSchema, ({ updateId, patch }) => eventCardsClient.updateUpdate(database, updateId, patch)));
   ipcMain.handle('social:event-updates:cancel', wrap(z.object({ updateId: z.string().uuid() }), ({ updateId }) => eventCardsClient.updateUpdate(database, updateId, { status: 'cancelled' })));
-  ipcMain.handle('social:dm-rules:list', wrap(null, () => eventCardsClient.listDmRules(database)));
+  ipcMain.handle(
+    'social:dm-rules:list',
+    wrap(null, () => eventCardsClient.listDmRules(database, { onRefreshed: broadcastDmRules })),
+  );
   ipcMain.handle('social:dm-rules:create', wrap(DmRuleInputSchema, (input) => eventCardsClient.createDmRule(database, input)));
   ipcMain.handle('social:dm-rules:update', wrap(DmRulePatchSchema, ({ ruleId, patch }) => eventCardsClient.updateDmRule(database, ruleId, patch)));
   ipcMain.handle('social:dm-rules:delete', wrap(z.object({ ruleId: z.string().uuid() }), ({ ruleId }) => eventCardsClient.deleteDmRule(database, ruleId)));

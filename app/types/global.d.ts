@@ -195,7 +195,23 @@ declare global {
     html_url: string | null;
     selected: number;
     last_sync_at: number | null;
+    /** Absolute path of the local clone the coding agent works in, if bound. */
+    local_path: string | null;
     project_id: string;
+  }
+  /** A local repository the agent may work in (`coding_workspaces`). */
+  interface CodingWorkspace {
+    id: string;
+    path: string;
+    label: string;
+    trusted: boolean;
+    lastUsedAt: number | null;
+    createdAt: number;
+    updatedAt: number;
+    /** False when the directory was moved or deleted since it was registered. */
+    exists: boolean;
+    /** Project instruction files found at the root (AGENTS.md / CLAUDE.md). */
+    contextFiles: string[];
   }
   interface GitHubCatalogRepoRow {
     id: number;
@@ -804,8 +820,30 @@ declare global {
         onDataUpdated: (cb: (data: { local?: boolean }) => void) => () => void;
       };
 
+      coding: {
+        workspace: {
+          list: () => Promise<{ success: boolean; data: CodingWorkspace[]; error?: string }>;
+          pick: (payload?: { label?: string }) => Promise<{
+            success: boolean;
+            cancelled?: boolean;
+            data?: CodingWorkspace | null;
+            error?: string;
+          }>;
+          register: (payload: { path: string; label?: string }) => Promise<{ success: boolean; data?: CodingWorkspace; error?: string }>;
+          trust: (payload: { path: string; trusted: boolean }) => Promise<{ success: boolean; data?: CodingWorkspace; error?: string }>;
+          forget: (payload: { path: string }) => Promise<{ success: boolean; data?: { removed: boolean }; error?: string }>;
+        };
+        repo: {
+          setLocalPath: (payload: { repoId: string; path: string | null }) => Promise<{
+            success: boolean;
+            data?: { repo: GitHubRepoRow; workspace: CodingWorkspace | null };
+            error?: string;
+          }>;
+        };
+      };
+
       people: {
-        list: (projectId?: string) => Promise<{
+        list: (payload?: string | { projectId?: string; leadStatus?: string; limit?: number }) => Promise<{
           success: boolean;
           data?: {
             people: Array<{
@@ -813,6 +851,12 @@ declare global {
               displayName: string;
               primaryEmail?: string | null;
               avatarUrl?: string | null;
+              notes?: string | null;
+              leadStatus?: string;
+              profile?: Record<string, unknown>;
+              discoveredVia?: string | null;
+              firstSeenAt?: number | null;
+              lastSeenAt?: number | null;
               identities?: Array<{
                 source: string;
                 externalId: string;
@@ -822,17 +866,28 @@ declare global {
           };
           error?: string;
         }>;
-        get: (id: string) => Promise<{
+        get: (payload: string | { id: string; includeInteractions?: boolean }) => Promise<{
           success: boolean;
           data?: {
             person: {
               id: string;
               displayName: string;
               primaryEmail?: string | null;
+              notes?: string | null;
+              leadStatus?: string;
+              profile?: Record<string, unknown>;
+              discoveredVia?: string | null;
               identities?: Array<{
                 source: string;
                 externalId: string;
                 displayLabel?: string | null;
+              }>;
+              interactions?: Array<{
+                id: string;
+                kind: string;
+                summary?: string | null;
+                occurredAt: number;
+                payload?: Record<string, unknown>;
               }>;
             };
           };
@@ -849,6 +904,7 @@ declare global {
               id: string;
               displayName: string;
               primaryEmail?: string | null;
+              leadStatus?: string;
               identities?: Array<{
                 source: string;
                 externalId: string;
@@ -862,6 +918,18 @@ declare global {
         linkIdentity: (payload: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
         upsertIdentity: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
         syncGithub: (projectId?: string) => Promise<{ success: boolean; error?: string }>;
+        updateProfile: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
+        addInteraction: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { interaction: unknown }; error?: string }>;
+        delete: (
+          payload: string | { id?: string; ids?: string[] },
+        ) => Promise<{
+          success: boolean;
+          data?: { deleted?: boolean | number; id?: string; requested?: number };
+          error?: string;
+        }>;
+        enrich: (
+          payload: string | { personId?: string; id?: string },
+        ) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
       };
 
       // Plugins API
@@ -1489,7 +1557,7 @@ declare global {
         resumeAgent: (opts: {
           threadId: string;
           streamId: string;
-          decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>;
+          decisions: Array<{ type: 'approve' } | { type: 'approve_all' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>;
           provider?: string;
           model?: string;
         }) => Promise<{ success: boolean; interrupted?: boolean; threadId?: string; error?: string }>;
@@ -1523,6 +1591,12 @@ declare global {
         }>;
         listOpenRouterModels: (apiKey?: string) => Promise<ProviderModelsListResult>;
         listProviderModels: (params: { provider: string; apiKey?: string }) => Promise<ProviderModelsListResult>;
+        /** Reasoning efforts this provider/model supports, from the real model registry. */
+        getThinkingLevels: (params: { provider: string; model: string; baseUrl?: string }) => Promise<{
+          success: boolean;
+          data?: { reasoning: boolean; levels: Array<'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'> };
+          error?: string;
+        }>;
         // AI Tools for Many agent
         tools: {
           resourceSearch: (
@@ -2344,7 +2418,7 @@ declare global {
       };
 
       approval: {
-        respond: (approvalId: string, approved: boolean) => Promise<{ success: boolean; error?: string }>;
+        respond: (approvalId: string, approved: boolean, scope?: 'once' | 'session') => Promise<{ success: boolean; error?: string }>;
         onRequested: (callback: (data: { approvalId: string; kind: string; payload: Record<string, unknown>; timeoutMs: number }) => void) => () => void;
       };
 

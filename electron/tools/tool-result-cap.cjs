@@ -9,10 +9,16 @@ const TOOL_RESULT_CAPS = {
   list_directory_with_sizes: 24_000,
   search_files: 32_000,
   file_tree: 32_000,
+  shell_exec: 48_000,
+  file_read: 48_000,
+  file_grep: 48_000,
+  file_find: 32_000,
+  file_search: 32_000,
+  file_edit: 48_000,
 };
 
 const DIRECTORY_TREE_HINT =
-  'Prefer Dome native file_list (one level), file_tree (bounded depth), or file_search (pattern). ' +
+  'Prefer Dome native file_list (one level), file_tree (bounded depth), file_grep / file_find (pattern). ' +
   'Never scan project root, home, or drive roots with directory_tree.';
 
 /**

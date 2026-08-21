@@ -88,8 +88,11 @@ export default memo(function ManyHeader({
 
   const avatarState: ManyAvatarState =
     status === 'speaking' ? 'speaking' : status === 'thinking' ? 'thinking' : 'idle';
-  const statusLabel =
-    status === 'speaking' ? t('many.speaking') : status === 'thinking' ? t('many.thinking') : null;
+  // "Thinking" is transcript state and is shown there, next to the message being
+  // produced. Repeating it in the header (and again in a panel bar) meant the
+  // same word appeared three times at once. The animated avatar carries the
+  // status here without adding a third copy of the label.
+  const statusLabel = status === 'speaking' ? t('many.speaking') : null;
 
   const isMac =
     typeof window !== 'undefined' &&
@@ -105,7 +108,7 @@ export default memo(function ManyHeader({
     : hasSessionTitle
       ? sessionTitle!
       : t('many.many');
-  const subtitleText = isPopout
+  const rawSubtitle = isPopout
     ? loadingHint && !statusLabel
       ? loadingHint
       : hasSessionTitle
@@ -114,6 +117,9 @@ export default memo(function ManyHeader({
     : loadingHint && !statusLabel
       ? loadingHint
       : contextDescription || null;
+  // The context description often *is* the session title (a chat named after
+  // the first message). Echoing it under the title is noise, not information.
+  const subtitleText = rawSubtitle && rawSubtitle.trim() === titleText.trim() ? null : rawSubtitle;
   const fullscreenLabel = isFullscreenActive ? t('many.exit_fullscreen') : t('many.fullscreen');
   // Native traffic lights / titleBarOverlay already close the window.
   const showCloseButton = showClose && !isPopout;

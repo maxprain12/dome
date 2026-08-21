@@ -20,6 +20,12 @@ Sequential only:
 - dome_load_doc → then artifact_create or entity_create
 - new_page → navigate_page → take_snapshot before browser interactions
 
+Narrate as you work:
+- Before switching to a different kind of work, write one short line saying what you are about to do and why ("Voy a leer el componente para localizar la función" / "Ya tengo el fichero; ahora creo la rama").
+- After a batch of similar calls, state what you found in one line before moving on.
+- Reasoning is not narration: the user only sees "Thinking…" while you reason silently. A run that goes many calls without a written line looks stuck.
+- Keep each line to a sentence. Do not narrate every individual call — narrate the change of intent.
+
 Stopping rules:
 - One user ask = one creation (no variants unless user listed distinct items)
 - Same tool ≤ 3 times per turn (except explicit multi-item lists)

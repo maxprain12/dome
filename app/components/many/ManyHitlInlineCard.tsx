@@ -17,10 +17,12 @@ export interface ManyHitlInlineCardProps {
   previewCommand?: string;
   contextLine?: string | null;
   onApprove: () => void;
+  onApproveAll?: () => void;
   onReject?: () => void;
   onEditArgs?: () => void;
   showEditArgs?: boolean;
   showReject?: boolean;
+  showApproveAll?: boolean;
   expiresSeconds?: number | null;
   className?: string;
 }
@@ -36,10 +38,12 @@ export default function ManyHitlInlineCard({
   previewCommand,
   contextLine,
   onApprove,
+  onApproveAll,
   onReject,
   onEditArgs,
   showEditArgs = false,
   showReject = true,
+  showApproveAll = true,
   expiresSeconds = null,
   className,
 }: ManyHitlInlineCardProps) {
@@ -94,6 +98,11 @@ export default function ManyHitlInlineCard({
             <HugeiconsIcon icon={Tick02Icon} data-icon="inline-start" />
             {t('many.hitl_approve')}
           </Button>
+          {showApproveAll && onApproveAll ? (
+            <Button type="button" size="sm" variant="secondary" onClick={onApproveAll}>
+              {t('many.hitl_approve_session')}
+            </Button>
+          ) : null}
           {showReject ? (
             <Button type="button" size="sm" variant="outline" className="text-destructive" onClick={onReject}>
               {t('chat.reject')}

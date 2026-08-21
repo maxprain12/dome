@@ -33,7 +33,8 @@ import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
 import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
-import { buildToolDisplayBlocks, type ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
+import type { ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
+import { interleaveMessageParts } from '@/lib/chat/interleaveMessageParts';
 import { stripPinnedMentionTokens } from '@/lib/chat/pinLabels';
 import { extractActionSuggestions } from '@/lib/many/actionSuggestions';
 import { extractCitationNumbers } from '@/lib/utils/citations';
@@ -98,10 +99,16 @@ export default function ManyMessageView({
 }: ManyMessageViewProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
-  const [thinkingOpen, setThinkingOpen] = useState(false);
+  // `null` = the user has not decided; follow the live heuristic below.
+  const [thinkingOpenOverride, setThinkingOpenOverride] = useState<boolean | null>(null);
 
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
+
+  // While the model reasons and has written nothing, the reasoning *is* the
+  // content — show it. Fold it away once the answer starts. Manual toggle wins.
+  const thinkingIsLive = Boolean(message.isStreaming && message.thinking && !message.content?.trim());
+  const thinkingOpen = thinkingOpenOverride ?? thinkingIsLive;
 
   const openCitation = useCallback(
     (citationNumber: number) => {
@@ -200,9 +207,18 @@ export default function ManyMessageView({
     return stripArtifactBlocks(message.content);
   }, [message.content, isUser]);
 
-  const toolBlocks = useMemo(
-    () => buildToolDisplayBlocks(coalesceDuplicateToolCalls(message.toolCalls ?? []), t),
-    [message.toolCalls, t],
+  // The turn is rebuilt in emission order: prose, the tools run at that point,
+  // more prose. Stored messages carry no offsets and degrade to tools-first.
+  const messageParts = useMemo(
+    () =>
+      isUser
+        ? []
+        : interleaveMessageParts(
+            assistantMarkdown,
+            coalesceDuplicateToolCalls(message.toolCalls ?? []),
+            t,
+          ),
+    [isUser, assistantMarkdown, message.toolCalls, t],
   );
 
   const actionSuggestions = useMemo(
@@ -300,13 +316,13 @@ export default function ManyMessageView({
   return (
     <div className={cn('group/turn flex min-w-0 w-full flex-col gap-2', className)}>
       {isAssistant && message.thinking ? (
-        <Collapsible open={thinkingOpen} onOpenChange={setThinkingOpen} className="w-full min-w-0">
+        <Collapsible open={thinkingOpen} onOpenChange={setThinkingOpenOverride} className="w-full min-w-0">
           <CollapsibleTrigger className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted motion-reduce:transition-none">
             <HugeiconsIcon
               icon={ArrowRight01Icon}
               className={cn('transition-transform motion-reduce:transition-none', thinkingOpen && 'rotate-90')}
             />
-            {t('chat.reasoning')}
+            <span className={cn(thinkingIsLive && 'shimmer')}>{t('chat.reasoning')}</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="ml-1.5 border-l py-1 pl-3.5">
             <div className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
@@ -316,13 +332,6 @@ export default function ManyMessageView({
         </Collapsible>
       ) : null}
 
-      {toolBlocks.length > 0 ? (
-        <div className="flex w-full min-w-0 flex-col gap-1.5">
-          {toolBlocks.map((block, idx) => (
-            <ToolBlock key={toolBlockKey(block, idx)} block={block} />
-          ))}
-        </div>
-      ) : null}
 
       {actionSuggestions.length > 0 ? (
         <div className="flex w-full min-w-0 flex-col gap-2">
@@ -338,7 +347,12 @@ export default function ManyMessageView({
         </span>
       ) : null}
 
-      {message.isStreaming && !message.content ? (
+      {/*
+        Turn-level state, so only the last message renders it. A group can hold
+        a persisted partial reply and the live streaming message at once; both
+        drawing the spinner is what produced the doubled "Thinking…".
+      */}
+      {message.isStreaming && !message.content && isLastInGroup ? (
         <Marker role="status">
           <MarkerIcon>
             <Spinner />
@@ -349,23 +363,35 @@ export default function ManyMessageView({
         </Marker>
       ) : null}
 
-      {message.content ? (
-        <div className="min-w-0 w-full break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
-          {assistantMarkdown ? (
+      {messageParts.map((part, partIdx) =>
+        part.type === 'tools' ? (
+          <div
+            key={`part:${partIdx}:tools`}
+            className="flex w-full min-w-0 flex-col gap-1.5"
+          >
+            {part.blocks.map((block, idx) => (
+              <ToolBlock key={toolBlockKey(block, idx)} block={block} />
+            ))}
+          </div>
+        ) : (
+          <div
+            key={`part:${partIdx}:text`}
+            className="min-w-0 w-full break-words text-sm leading-relaxed [overflow-wrap:anywhere]"
+          >
             <MarkdownRenderer
-              content={assistantMarkdown}
+              content={part.text}
               citationMap={message.citationMap}
               onClickCitation={openCitation}
             />
-          ) : null}
-          {message.isStreaming ? (
-            <span
-              aria-hidden
-              className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current motion-reduce:animate-none"
-            />
-          ) : null}
-        </div>
-      ) : null}
+            {message.isStreaming && partIdx === messageParts.length - 1 ? (
+              <span
+                aria-hidden
+                className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current motion-reduce:animate-none"
+              />
+            ) : null}
+          </div>
+        ),
+      )}
 
       {isAssistant && !message.isStreaming && message.pdfRegionMeta ? (
         <div className="flex flex-wrap gap-2">

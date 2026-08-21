@@ -293,6 +293,10 @@ export function useManyRunLifecycle({
           role: 'assistant',
           content: finalContent,
           toolCalls: finalToolCalls,
+          // The main process persists the reasoning with the message; carry the
+          // streamed copy over too, so it does not blink out of the transcript
+          // in the gap before the session rehydrates.
+          ...(streamSnap?.thinking ? { thinking: streamSnap.thinking } : {}),
         });
         setStreamingMessage(null);
       };

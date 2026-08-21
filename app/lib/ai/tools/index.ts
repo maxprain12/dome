@@ -387,7 +387,9 @@ import { createSocialTools } from './social-tools';
 import { createPeopleTools } from './people-tools';
 import { createPipelineTools } from './pipeline-tools';
 import { createVisionTools } from './vision-tools';
-import { createFileTools } from './file-tools';import { createShellTools } from './shell-tools';
+import { createFileTools } from './file-tools';
+import { createShellTools } from './shell-tools';
+import { createGitTools } from './git-tools';
 import { createUiTools } from './ui-tools';
 import { createArtifactTools } from './artifact-tools';
 import { createFeederTools } from './feeder-tools';
@@ -510,9 +512,11 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // On-device vision (Gemma)
   tools.push(...createVisionTools());
 
-  // Native file & shell tools
+  // Native file, shell & git tools (git is filtered out unless the run
+  // resolved a trusted coding workspace).
   tools.push(...createFileTools());
   tools.push(...createShellTools());
+  tools.push(...createGitTools());
 
   // UI interaction tools (cursor, click, navigate)
   tools.push(...createUiTools());
@@ -625,9 +629,11 @@ export function createManyToolsForContext(
   // On-device vision (Gemma)
   tools.push(...createVisionTools());
 
-  // Native file & shell tools
+  // Native file, shell & git tools (git is filtered out unless the run
+  // resolved a trusted coding workspace).
   tools.push(...createFileTools());
   tools.push(...createShellTools());
+  tools.push(...createGitTools());
 
   // UI interaction tools (cursor, click, navigate)
   tools.push(...createUiTools());
