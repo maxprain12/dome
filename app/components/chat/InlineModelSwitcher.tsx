@@ -98,6 +98,107 @@ async function loadDynamicModelOptions(
   }
 }
 
+function modelIdFromConfig(
+  provider: AIProviderType,
+  cfg: { ollamaModel?: string | null; model?: string | null },
+): string {
+  if (provider === 'ollama') return cfg.ollamaModel ?? '';
+  return cfg.model ?? '';
+}
+
+function pushUniqueModelOption(
+  out: ModelOption[],
+  seen: Set<string>,
+  id: string,
+  label?: string,
+): void {
+  if (!id || seen.has(id)) return;
+  seen.add(id);
+  out.push({ id, label: label ?? id });
+}
+
+type BuildModelOptionsInput = {
+  provider: AIProviderType;
+  catalog: ModelOption[];
+  customIds: string[];
+  ollamaIds: string[];
+  dynamicOpts: ModelOption[];
+  currentModelId: string;
+  visibleIds: string[];
+};
+
+function collectRawModelOptions(input: BuildModelOptionsInput): ModelOption[] {
+  const { provider, catalog, customIds, ollamaIds, dynamicOpts, currentModelId } = input;
+  const seen = new Set<string>();
+  const out: ModelOption[] = [];
+  for (const c of catalog) pushUniqueModelOption(out, seen, c.id, c.label);
+  for (const c of customIds) pushUniqueModelOption(out, seen, c, c);
+  if (provider === 'ollama') {
+    for (const o of ollamaIds) pushUniqueModelOption(out, seen, o, o);
+  }
+  if (DYNAMIC_FETCH_PROVIDERS.includes(provider)) {
+    for (const o of dynamicOpts) pushUniqueModelOption(out, seen, o.id, o.label);
+  }
+  if (currentModelId) pushUniqueModelOption(out, seen, currentModelId, currentModelId);
+  return out;
+}
+
+function filterOptionsByVisibility(
+  provider: AIProviderType,
+  options: ModelOption[],
+  visibleIds: string[],
+): ModelOption[] {
+  // Dome: la lista ya viene filtrada por plan desde el provider; el filtro
+  // local de "modelos visibles" no aplica (el default sería solo dome/auto).
+  if (provider === 'dome') return options;
+
+  const defs = options.map((o) => ({
+    id: o.id,
+    name: o.label,
+    reasoning: false,
+    input: ['text'] as ModelInputType[],
+    contextWindow: 0,
+    maxTokens: 0,
+  }));
+  const ids = visibleIds.length > 0 ? visibleIds : getDefaultVisibleModelIds(provider);
+  const filtered = filterModelsByVisibleIds(defs, ids);
+  const allowed = new Set(filtered.map((m) => m.id));
+  return options.filter((o) => allowed.has(o.id));
+}
+
+function buildModelOptions(input: BuildModelOptionsInput): ModelOption[] {
+  return filterOptionsByVisibility(input.provider, collectRawModelOptions(input), input.visibleIds);
+}
+
+function catalogOptionsForProvider(provider: AIProviderType | null): ModelOption[] {
+  if (!provider) return [];
+  const defs = PROVIDERS[provider]?.models ?? [];
+  return defs.map((m) => ({ id: m.id, label: m.name }));
+}
+
+function isSwitcherVisible(
+  enabled: boolean,
+  provider: AIProviderType | null,
+  catalogLength: number,
+  dynamicOptsLength: number,
+): boolean {
+  if (!enabled || !provider) return false;
+  if (provider === 'dome') {
+    // Mostrar el selector en cuanto el plan ofrezca más modelos que dome/auto.
+    return catalogLength > 1 || dynamicOptsLength > 0;
+  }
+  return true;
+}
+
+function resolveSelectedLabel(
+  options: ModelOption[],
+  currentModelId: string,
+  fallback: string,
+): string {
+  const hit = options.find((o) => o.id === currentModelId);
+  return hit?.label ?? currentModelId ?? fallback;
+}
+
 interface InlineModelSwitcherProps {
   /** When false, nothing is rendered. */
   enabled?: boolean;
@@ -125,7 +226,7 @@ export function InlineModelSwitcher({ enabled = true, dropDirection = 'above' }:
     }
     const p = resolveConfiguredProvider(cfg.provider);
     setConfigProvider(p);
-    setCurrentModelId(p === 'ollama' ? cfg.ollamaModel ?? '' : cfg.model ?? '');
+    setCurrentModelId(modelIdFromConfig(p, cfg));
     setCustomMap(await getCustomModelsByProvider());
     setVisibleIds(await getVisibleModelIds(p));
     setOllamaIds(await loadOllamaModelIds(p));
@@ -147,63 +248,31 @@ export function InlineModelSwitcher({ enabled = true, dropDirection = 'above' }:
   }, [refresh]);
 
   const provider = configProvider;
-  const catalog: ModelOption[] = useMemo(() => {
-    if (!provider) return [];
-    const defs = PROVIDERS[provider]?.models ?? [];
-    return defs.map((m) => ({ id: m.id, label: m.name }));
-  }, [provider]);
+  const catalog: ModelOption[] = useMemo(() => catalogOptionsForProvider(provider), [provider]);
 
   const options: ModelOption[] = useMemo(() => {
     if (!provider) return [];
-    const customIds = customMap[provider] ?? [];
-    const seen = new Set<string>();
-    const out: ModelOption[] = [];
-    const push = (id: string, label?: string) => {
-      if (!id || seen.has(id)) return;
-      seen.add(id);
-      out.push({ id, label: label ?? id });
-    };
-    for (const c of catalog) push(c.id, c.label);
-    for (const c of customIds) push(c, c);
-    if (provider === 'ollama') {
-      for (const o of ollamaIds) push(o, o);
-    }
-    if (DYNAMIC_FETCH_PROVIDERS.includes(provider)) {
-      for (const o of dynamicOpts) push(o.id, o.label);
-    }
-    if (currentModelId) push(currentModelId, currentModelId);
-
-    // Dome: la lista ya viene filtrada por plan desde el provider; el filtro
-    // local de "modelos visibles" no aplica (el default sería solo dome/auto).
-    if (provider === 'dome') return out;
-
-    const defs = out.map((o) => ({
-      id: o.id,
-      name: o.label,
-      reasoning: false,
-      input: ['text'] as ModelInputType[],
-      contextWindow: 0,
-      maxTokens: 0,
-    }));
-    const filtered = filterModelsByVisibleIds(defs, visibleIds.length ? visibleIds : getDefaultVisibleModelIds(provider));
-    const allowed = new Set(filtered.map((m) => m.id));
-    return out.filter((o) => allowed.has(o.id));
+    return buildModelOptions({
+      provider,
+      catalog,
+      customIds: customMap[provider] ?? [],
+      ollamaIds,
+      dynamicOpts,
+      currentModelId,
+      visibleIds,
+    });
   }, [provider, catalog, customMap, ollamaIds, dynamicOpts, currentModelId, visibleIds]);
 
   const allowProviderSettings = provider != null && provider !== 'dome';
-  const visible = useMemo(() => {
-    if (!enabled || !provider) return false;
-    if (provider === 'dome') {
-      // Mostrar el selector en cuanto el plan ofrezca más modelos que dome/auto.
-      return catalog.length > 1 || dynamicOpts.length > 0;
-    }
-    return true;
-  }, [enabled, provider, catalog.length, dynamicOpts.length]);
+  const visible = useMemo(
+    () => isSwitcherVisible(enabled, provider, catalog.length, dynamicOpts.length),
+    [enabled, provider, catalog.length, dynamicOpts.length],
+  );
 
-  const selectedLabel = useMemo(() => {
-    const hit = options.find((o) => o.id === currentModelId);
-    return hit?.label ?? currentModelId ?? t('chat.model_switcher_title');
-  }, [options, currentModelId, t]);
+  const selectedLabel = useMemo(
+    () => resolveSelectedLabel(options, currentModelId, t('chat.model_switcher_title')),
+    [options, currentModelId, t],
+  );
 
   const pickModel = useCallback(
     async (id: string) => {
