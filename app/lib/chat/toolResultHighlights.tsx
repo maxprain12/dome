@@ -11,7 +11,24 @@ type TFunction = (key: string, opts?: Record<string, unknown> & { defaultValue?:
 
 type CalendarHighlight = NonNullable<ReturnType<typeof extractCalendarEventFromToolResult>>;
 
+/** True when a tool payload reports success via either convention. */
+function isSuccessPayload(parsed: Record<string, unknown>): boolean {
+  return parsed.success === true || parsed.status === 'success';
+}
+
+/** Narrow a truthy object-like value (same guard as the pre-refactor `&& typeof === 'object'`). */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') return null;
+  return value as Record<string, unknown>;
+}
+
+function calendarTimeLabel(cal: CalendarHighlight): string {
+  if (!cal.endLabel || cal.endLabel === cal.startLabel) return cal.startLabel;
+  return `${cal.startLabel} → ${cal.endLabel}`;
+}
+
 function renderCalendarHighlight(cal: CalendarHighlight, t: TFunction): ReactNode {
+  const title = cal.title || t('chat.calendar_event_untitled', { defaultValue: 'Evento' });
   return (
     <div
       className="rounded-md border p-2.5 flex flex-col gap-y-1"
@@ -22,12 +39,11 @@ function renderCalendarHighlight(cal: CalendarHighlight, t: TFunction): ReactNod
     >
       <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
         <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 shrink-0 text-primary" aria-hidden />
-        <span className="truncate">{cal.title || t('chat.calendar_event_untitled', { defaultValue: 'Evento' })}</span>
+        <span className="truncate">{title}</span>
       </div>
       {cal.startLabel ? (
         <p className="text-[12px] text-muted-foreground">
-          {cal.startLabel}
-          {cal.endLabel && cal.endLabel !== cal.startLabel ? ` → ${cal.endLabel}` : ''}
+          {calendarTimeLabel(cal)}
         </p>
       ) : null}
       {cal.location ? (
@@ -103,6 +119,33 @@ function renderImageHighlight(parsed: Record<string, unknown>): ReactNode | null
   );
 }
 
+function tryFlashcardHighlight(
+  toolName: string,
+  parsed: Record<string, unknown>,
+  t: TFunction,
+): ReactNode | null {
+  if (toolName !== 'flashcard_create') return null;
+  if (!isSuccessPayload(parsed)) return null;
+  const deck = asRecord(parsed.deck);
+  if (!deck) return null;
+  return renderFlashcardHighlight(deck, t);
+}
+
+function tryResourceHighlight(
+  toolName: string,
+  parsed: Record<string, unknown>,
+): ReactNode | null {
+  if (toolName !== 'resource_create') return null;
+  if (!isSuccessPayload(parsed)) return null;
+  const resource = asRecord(parsed.resource);
+  if (!resource) return null;
+  return renderResourceHighlight(resource);
+}
+
+/**
+ * Inline success card for calendar / flashcard / resource / image tool results.
+ * Dispatch only — per-type rendering lives in helpers (S3776).
+ */
 export function renderToolSuccessHighlight(
   toolName: string,
   rawResult: unknown,
@@ -114,16 +157,12 @@ export function renderToolSuccessHighlight(
   const parsed = unwrapToolResultPayload(rawResult);
   if (!parsed) return null;
 
-  const n = (toolName || '').toLowerCase();
-  const ok = parsed.success === true || parsed.status === 'success';
+  const n = toolName.toLowerCase();
+  const flashcard = tryFlashcardHighlight(n, parsed, t);
+  if (flashcard) return flashcard;
 
-  if (n === 'flashcard_create' && ok && parsed.deck && typeof parsed.deck === 'object') {
-    return renderFlashcardHighlight(parsed.deck as Record<string, unknown>, t);
-  }
-
-  if (n === 'resource_create' && ok && parsed.resource && typeof parsed.resource === 'object') {
-    return renderResourceHighlight(parsed.resource as Record<string, unknown>);
-  }
+  const resource = tryResourceHighlight(n, parsed);
+  if (resource) return resource;
 
   return renderImageHighlight(parsed);
 }
