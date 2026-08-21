@@ -962,63 +962,60 @@ function convertAssistantMessage(
 	return assistantMsg;
 }
 
-/**
- * Convert a run of consecutive toolResult messages starting at startIndex.
- * Returns the converted messages (tool results plus, when images are present,
- * an optional synthetic assistant bridge and a user message carrying the
- * images), the index of the last consumed message, and the effective lastRole.
- */
-function convertToolResultGroup(
-	transformedMessages: Message[],
-	startIndex: number,
-	model: Model<"openai-completions">,
+type ToolResultImageBlock = { type: "image_url"; image_url: { url: string } };
+
+/** Build a single OpenAI tool-role message from a Dome toolResult. */
+function buildToolResultMessage(
+	toolMsg: ToolResultMessage,
 	compat: ResolvedOpenAICompletionsCompat,
-): { messages: ChatCompletionMessageParam[]; endIndex: number; lastRole: "user" | "toolResult" } {
-	const messages: ChatCompletionMessageParam[] = [];
-	const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
-	let j = startIndex;
-
-	for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
-		const toolMsg = transformedMessages[j] as ToolResultMessage;
-
-		// Extract text and image content
-		const textResult = toolMsg.content
-			.filter(isTextContentBlock)
-			.map((block) => block.text)
-			.join("\n");
-		const hasImages = toolMsg.content.some((c) => c.type === "image");
-
-		// Always send tool result with text (or placeholder if only images)
-		const hasText = textResult.length > 0;
-		// Some providers require the 'name' field in tool results
-		const toolResultMsg: ChatCompletionToolMessageParam = {
-			role: "tool",
-			content: sanitizeSurrogates(hasText ? textResult : "(see attached image)"),
-			tool_call_id: toolMsg.toolCallId,
-		};
-		if (compat.requiresToolResultName && toolMsg.toolName) {
-			(toolResultMsg as any).name = toolMsg.toolName;
-		}
-		messages.push(toolResultMsg);
-
-		if (hasImages && model.input.includes("image")) {
-			for (const block of toolMsg.content) {
-				if (isImageContentBlock(block)) {
-					imageBlocks.push({
-						type: "image_url",
-						image_url: {
-							url: `data:${block.mimeType};base64,${block.data}`,
-						},
-					});
-				}
-			}
-		}
+): ChatCompletionToolMessageParam {
+	const textResult = toolMsg.content
+		.filter(isTextContentBlock)
+		.map((block) => block.text)
+		.join("\n");
+	// Always send tool result with text (or placeholder if only images)
+	const hasText = textResult.length > 0;
+	const toolResultMsg: ChatCompletionToolMessageParam = {
+		role: "tool",
+		content: sanitizeSurrogates(hasText ? textResult : "(see attached image)"),
+		tool_call_id: toolMsg.toolCallId,
+	};
+	// Some providers require the 'name' field in tool results
+	if (compat.requiresToolResultName && toolMsg.toolName) {
+		(toolResultMsg as { name?: string }).name = toolMsg.toolName;
 	}
+	return toolResultMsg;
+}
 
-	if (imageBlocks.length === 0) {
-		return { messages, endIndex: j - 1, lastRole: "toolResult" };
+/** Collect image parts from a tool result when the model accepts image input. */
+function appendImagesFromToolResult(
+	toolMsg: ToolResultMessage,
+	model: Model<"openai-completions">,
+	imageBlocks: ToolResultImageBlock[],
+): void {
+	if (!toolMsg.content.some((c) => c.type === "image")) return;
+	if (!model.input.includes("image")) return;
+	for (const block of toolMsg.content) {
+		if (!isImageContentBlock(block)) continue;
+		imageBlocks.push({
+			type: "image_url",
+			image_url: {
+				url: `data:${block.mimeType};base64,${block.data}`,
+			},
+		});
 	}
+}
 
+/**
+ * When tool results included images, optionally bridge with a synthetic
+ * assistant turn and attach the images on a follow-up user message.
+ */
+function appendToolResultImageFollowUp(
+	messages: ChatCompletionMessageParam[],
+	imageBlocks: ToolResultImageBlock[],
+	compat: ResolvedOpenAICompletionsCompat,
+): "user" | "toolResult" {
+	if (imageBlocks.length === 0) return "toolResult";
 	if (compat.requiresAssistantAfterToolResult) {
 		messages.push({
 			role: "assistant",
@@ -1035,7 +1032,33 @@ function convertToolResultGroup(
 			...imageBlocks,
 		],
 	});
-	return { messages, endIndex: j - 1, lastRole: "user" };
+	return "user";
+}
+
+/**
+ * Convert a run of consecutive toolResult messages starting at startIndex.
+ * Returns the converted messages (tool results plus, when images are present,
+ * an optional synthetic assistant bridge and a user message carrying the
+ * images), the index of the last consumed message, and the effective lastRole.
+ */
+function convertToolResultGroup(
+	transformedMessages: Message[],
+	startIndex: number,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+): { messages: ChatCompletionMessageParam[]; endIndex: number; lastRole: "user" | "toolResult" } {
+	const messages: ChatCompletionMessageParam[] = [];
+	const imageBlocks: ToolResultImageBlock[] = [];
+	let j = startIndex;
+
+	for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
+		const toolMsg = transformedMessages[j] as ToolResultMessage;
+		messages.push(buildToolResultMessage(toolMsg, compat));
+		appendImagesFromToolResult(toolMsg, model, imageBlocks);
+	}
+
+	const lastRole = appendToolResultImageFollowUp(messages, imageBlocks, compat);
+	return { messages, endIndex: j - 1, lastRole };
 }
 
 function addSystemPrompt(
