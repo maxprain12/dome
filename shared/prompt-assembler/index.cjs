@@ -112,13 +112,17 @@ const PINNED_SOURCE_TOOL_HINTS = new Map([
   ["email", " \u2192 email_read"],
   ["issue", " \u2192 github_get_issue"]
 ]);
+function pinnedSourceMetaString(meta, prefix, key) {
+  const value = meta && meta[key];
+  return typeof value === "string" ? ` ${prefix}=${value}` : "";
+}
 function pinnedSourceLineParts(src) {
   const meta = src.meta;
   const kind = src.kind;
-  const repo = kind === "issue" && meta && typeof meta.fullName === "string" ? ` repo=${meta.fullName}` : "";
-  const folder = kind === "email" && meta && typeof meta.folder === "string" ? ` folder=${meta.folder}` : "";
-  const provider = kind === "social_post" && meta && typeof meta.provider === "string" ? ` provider=${meta.provider}` : "";
-  const status = kind === "social_post" && meta && typeof meta.status === "string" ? ` status=${meta.status}` : "";
+  const repo = kind === "issue" ? pinnedSourceMetaString(meta, "repo", "fullName") : "";
+  const folder = kind === "email" ? pinnedSourceMetaString(meta, "folder", "folder") : "";
+  const provider = kind === "social_post" ? pinnedSourceMetaString(meta, "provider", "provider") : "";
+  const status = kind === "social_post" ? pinnedSourceMetaString(meta, "status", "status") : "";
   const body = meta && typeof meta.body === "string" && meta.body.trim() ? `
   body: ${meta.body.trim().slice(0, 2e3)}` : "";
   const toolHint = PINNED_SOURCE_TOOL_HINTS.get(kind) || "";
