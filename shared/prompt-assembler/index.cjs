@@ -108,6 +108,23 @@ You are speaking aloud in a live voice conversation. Follow these rules:
 - Avoid filler phrases like "of course!", "certainly!".
 - Respond in ${langName}.`;
 }
+function formatPinnedPersonLine(person) {
+  const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+  return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+}
+function formatPinnedSourceLine(src) {
+  const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
+  const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
+  const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
+  const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+  const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
+  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
+  const toolHint = PINNED_SOURCE_TOOL_HINTS[src.kind] || "";
+  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+}
+function formatPinnedResourceLine(r) {
+  return `- ${r.id}: ${r.title} (${r.type})`;
+}
 function formatVolatileSourceContext(opts = {}) {
   const blocks = [];
   blocks.push("Source (session):");
@@ -124,33 +141,21 @@ ${opts.uiContext.trim()}`);
 ${opts.userMemory.trim()}`);
   }
   if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
-    const lines = opts.pinnedPeople.map((person) => {
-      const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
-      return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
-    }).join("\n");
+    const lines = opts.pinnedPeople.map(formatPinnedPersonLine).join("\n");
     blocks.push(
       `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
 ${lines}`
     );
   }
   if (opts.pinnedSources && opts.pinnedSources.length > 0) {
-    const lines = opts.pinnedSources.map((src) => {
-      const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
-      const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
-      const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
-      const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
-      const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
-  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
-      const toolHint = PINNED_SOURCE_TOOL_HINTS[src.kind] || "";
-      return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
-    }).join("\n");
+    const lines = opts.pinnedSources.map(formatPinnedSourceLine).join("\n");
     blocks.push(
       `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
 ${lines}`
     );
   }
   if (opts.pinnedResources && opts.pinnedResources.length > 0) {
-    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+    const lines = opts.pinnedResources.map(formatPinnedResourceLine).join("\n");
     blocks.push(
       `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
 ${lines}`
