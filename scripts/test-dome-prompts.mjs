@@ -141,3 +141,52 @@ for (const c of EDITOR_CASES) {
     assert.equal(got, want);
   });
 }
+
+// ---------------------------------------------------------------------------
+// formatVolatileSourceContext — parity for shared-compatible shapes (no
+// packages-only workspace/localPath field — that is covered in
+// packages/prompts/test/assembler.test.mjs).
+// ---------------------------------------------------------------------------
+
+const VOLATILE_CASES = [
+  {
+    name: 'formatVolatileSourceContext — empty',
+    opts: {},
+  },
+  {
+    name: 'formatVolatileSourceContext — labels + people + sources + resources',
+    opts: {
+      dateLine: 'Monday',
+      uiContext: 'Library',
+      userMemory: 'Prefers ES',
+      taskLine: 'Summarize',
+      pinnedPeople: [
+        {
+          id: 'p1',
+          title: 'Ada',
+          identities: [{ source: 'github', externalId: 'ada', displayLabel: 'Ada L' }],
+        },
+      ],
+      pinnedSources: [
+        { kind: 'issue', id: '1', title: 'Bug', meta: { fullName: 'org/repo', body: 'details' } },
+        { kind: 'email', id: 'e1', title: 'Hi', meta: { folder: 'INBOX' } },
+        {
+          kind: 'social_post',
+          id: 's1',
+          title: 'Post',
+          meta: { provider: 'x', status: 'draft' },
+        },
+      ],
+      pinnedResources: [{ id: 'r1', title: 'Doc', type: 'pdf' }],
+      activeResource: { id: 'ar1', title: 'Active', type: 'note' },
+    },
+  },
+];
+
+for (const c of VOLATILE_CASES) {
+  test(c.name, () => {
+    const got = pkg.formatVolatileSourceContext(c.opts);
+    const want = legacy.formatVolatileSourceContext(c.opts);
+    assert.equal(got, want);
+  });
+}
