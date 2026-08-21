@@ -12,6 +12,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   AlertDiamondIcon,
@@ -84,6 +85,207 @@ function findSentFolder(folders: EmailFolderRow[]): string | null {
   return null;
 }
 
+/** Sync subtitle under the mail hub title — extracted for S3776. */
+function emailSyncDescription(
+  syncError: string | null,
+  syncing: boolean,
+  lastSyncAt: number | null,
+  t: TFunction,
+): string {
+  if (syncError) return t('email.sync_error', { error: syncError });
+  if (syncing) return t('email.syncing');
+  if (lastSyncAt) {
+    return t('email.agent_subtitle_synced', {
+      time: new Date(lastSyncAt).toLocaleString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: 'numeric',
+        month: 'short',
+      }),
+    });
+  }
+  return t('email.agent_subtitle');
+}
+
+function EmailLoadingState() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex h-full min-h-[120px] flex-1 items-center justify-center bg-background">
+      <ListState variant="loading" loadingLabel={t('common.loading')} compact />
+    </div>
+  );
+}
+
+function EmailEmptyAccountState({ onConnect }: { onConnect: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-1 items-center justify-center p-8">
+      <HubSurface
+        icon={Mail01Icon}
+        title={t('email.empty.title')}
+        description={t('email.empty.description')}
+        className="max-w-md"
+      >
+        <Button type="button" onClick={onConnect}>
+          {t('email.empty.connect')}
+        </Button>
+      </HubSurface>
+    </div>
+  );
+}
+
+function EmailSyncStatusBadge({
+  syncError,
+  syncing,
+  loading,
+}: {
+  syncError: string | null;
+  syncing: boolean;
+  loading: boolean;
+}) {
+  const { t } = useTranslation();
+  if (syncError) {
+    return <Badge variant="destructive">{t('email.sync_badge_error')}</Badge>;
+  }
+  if (syncing || loading) {
+    return <Badge variant="secondary">{t('email.sync_badge_syncing')}</Badge>;
+  }
+  return null;
+}
+
+type EmailFolderPickerProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  folderOptions: EmailFolderRow[];
+  currentFolder: EmailFolderRow | undefined;
+  onSelectFolder: (name: string) => void;
+};
+
+/** Folder command menu in the mail toolbar — extracted for S3776. */
+function EmailFolderPicker({
+  open,
+  onOpenChange,
+  folderOptions,
+  currentFolder,
+  onSelectFolder,
+}: EmailFolderPickerProps) {
+  const { t } = useTranslation();
+  const CurrentFolderIcon = currentFolder ? folderIcon(currentFolder.name) : Folder01Icon;
+
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-w-0 max-w-[10rem] justify-between gap-1.5 @[48rem]/email:max-w-xs"
+            aria-label={t('email.folders.openMenu')}
+          />
+        }
+      >
+        <HugeiconsIcon icon={CurrentFolderIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">
+          {currentFolder ? emailFolderLabel(currentFolder.name, t) : t('email.folders.title')}
+        </span>
+        <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-56 gap-0 overflow-hidden p-0">
+        <Command>
+          <CommandInput placeholder={t('email.folders.title')} />
+          <CommandList>
+            <CommandEmpty>{t('email.no_messages')}</CommandEmpty>
+            <CommandGroup>
+              {folderOptions.map((f) => {
+                const icon = folderIcon(f.name);
+                return (
+                  <CommandItem
+                    key={f.name}
+                    value={`${f.name} ${emailFolderLabel(f.name, t)}`}
+                    onSelect={() => onSelectFolder(f.name)}
+                  >
+                    <HugeiconsIcon icon={icon} className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{emailFolderLabel(f.name, t)}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+type EmailComposeState = { mode: 'new' | 'reply'; replyTo?: MailEnvelope };
+
+type EmailDetailSidePanelProps = {
+  composing: EmailComposeState | null;
+  selected: MailEnvelope | null;
+  readingId: string | null;
+  error: EmailErrorInfo | null;
+  folder: string;
+  message: unknown;
+  projectId: string;
+  onCloseCompose: () => void;
+  onCloseDetail: () => void;
+  onReply: () => void;
+  onAskMany: () => void;
+  onSent: () => void;
+};
+
+/** Compose / read pane beside the dashboard — extracted for S3776. */
+function EmailDetailSidePanel({
+  composing,
+  selected,
+  readingId,
+  error,
+  folder,
+  message,
+  projectId,
+  onCloseCompose,
+  onCloseDetail,
+  onReply,
+  onAskMany,
+  onSent,
+}: EmailDetailSidePanelProps) {
+  if (!composing && !selected) return null;
+
+  return (
+    <div
+      className={cn(
+        'flex h-full min-h-0 w-full flex-col border-l bg-background studio-view-enter',
+        composing
+          ? 'absolute inset-0 z-10 min-[720px]:static min-[720px]:inset-auto min-[720px]:z-auto min-[720px]:min-w-0 min-[720px]:flex-1 min-[720px]:max-w-2xl'
+          : 'absolute inset-0 z-10 md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]',
+      )}
+    >
+      {composing ? (
+        <MailComposePanel
+          mode={composing.mode}
+          replyTo={composing.replyTo}
+          folder={folder}
+          projectId={projectId}
+          onClose={onCloseCompose}
+          onSent={onSent}
+        />
+      ) : selected ? (
+        <MailDetailPanel
+          selected={selected}
+          reading={readingId === selected.id}
+          error={error}
+          folder={folder}
+          message={message}
+          onClose={onCloseDetail}
+          onReply={onReply}
+          onAskMany={onAskMany}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export default function EmailView() {
   const { t } = useTranslation();
   const openSettingsTab = useTabStore((s) => s.openSettingsTab);
@@ -99,9 +301,7 @@ export default function EmailView() {
   const [query, setQuery] = useState('');
   const [folder, setFolder] = useState('INBOX');
   const [folders, setFolders] = useState<EmailFolderRow[]>([]);
-  const [composing, setComposing] = useState<null | { mode: 'new' | 'reply'; replyTo?: MailEnvelope }>(
-    null,
-  );
+  const [composing, setComposing] = useState<EmailComposeState | null>(null);
   const [error, setError] = useState<EmailErrorInfo | null>(null);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [filter, setFilter] = useState<MailFilter>('all');
@@ -295,7 +495,6 @@ export default function EmailView() {
   }, [folders, folder]);
 
   const currentFolder = folderOptions.find((f) => f.name === folder) ?? folderOptions[0];
-  const CurrentFolderIcon = currentFolder ? folderIcon(currentFolder.name) : Folder01Icon;
 
   const changeFolder = (next: string) => {
     setFolder(next);
@@ -511,47 +710,33 @@ export default function EmailView() {
     [inbox, query],
   );
 
-  if (hasAccount === null) {
-    return (
-      <div className="flex h-full min-h-[120px] flex-1 items-center justify-center bg-background">
-        <ListState variant="loading" loadingLabel={t('common.loading')} compact />
-      </div>
-    );
-  }
+  if (hasAccount === null) return <EmailLoadingState />;
+  if (hasAccount === false) return <EmailEmptyAccountState onConnect={openSettingsTab} />;
 
-  if (hasAccount === false) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-8">
-        <HubSurface
-          icon={Mail01Icon}
-          title={t('email.empty.title')}
-          description={t('email.empty.description')}
-          className="max-w-md"
-        >
-          <Button type="button" onClick={openSettingsTab}>
-            {t('email.empty.connect')}
-          </Button>
-        </HubSurface>
-      </div>
-    );
-  }
-
-  const syncDescription = syncError
-    ? t('email.sync_error', { error: syncError })
-    : syncing
-      ? t('email.syncing')
-      : lastSyncAt
-        ? t('email.agent_subtitle_synced', {
-            time: new Date(lastSyncAt).toLocaleString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-              day: 'numeric',
-              month: 'short',
-            }),
-          })
-        : t('email.agent_subtitle');
-
+  const syncDescription = emailSyncDescription(syncError, syncing, lastSyncAt, t);
   const detailOpen = composing != null || selected != null;
+
+  const startCompose = () => {
+    setSelected(null);
+    setMessage(null);
+    setComposing({ mode: 'new' });
+  };
+
+  const handleSent = () => {
+    setComposing(null);
+    refreshInbox().catch(() => {});
+    refreshSent(folders).catch(() => {});
+  };
+
+  const handleAskMany = () => {
+    if (!selected) return;
+    askManyAbout(
+      selected,
+      t('email.agent_prompt_about', {
+        subject: selected.subject || t('email.no_subject'),
+      }),
+    );
+  };
 
   return (
     <div className="@container/email flex h-full min-h-0 flex-col text-foreground">
@@ -562,12 +747,16 @@ export default function EmailView() {
           className="w-full"
           actions={
             <>
-              {syncError ? (
-                <Badge variant="destructive">{t('email.sync_badge_error')}</Badge>
-              ) : syncing || loading ? (
-                <Badge variant="secondary">{t('email.sync_badge_syncing')}</Badge>
-              ) : null}
-              <Button type="button" variant="outline" size="sm" disabled={syncing} onClick={() => void syncNow()}>
+              <EmailSyncStatusBadge syncError={syncError} syncing={syncing} loading={loading} />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={syncing}
+                onClick={() => {
+                  syncNow().catch(() => {});
+                }}
+              >
                 {syncing ? (
                   <Spinner data-icon="inline-start" />
                 ) : (
@@ -575,15 +764,7 @@ export default function EmailView() {
                 )}
                 <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setSelected(null);
-                  setMessage(null);
-                  setComposing({ mode: 'new' });
-                }}
-              >
+              <Button type="button" size="sm" onClick={startCompose}>
                 <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
                 <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
               </Button>
@@ -592,54 +773,21 @@ export default function EmailView() {
         />
 
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Popover open={folderMenuOpen} onOpenChange={setFolderMenuOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-w-0 max-w-[10rem] justify-between gap-1.5 @[48rem]/email:max-w-xs"
-                  aria-label={t('email.folders.openMenu')}
-                />
-              }
-            >
-              <HugeiconsIcon icon={CurrentFolderIcon} className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">
-                {currentFolder ? emailFolderLabel(currentFolder.name, t) : t('email.folders.title')}
-              </span>
-              <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" />
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-56 gap-0 overflow-hidden p-0">
-              <Command>
-                <CommandInput placeholder={t('email.folders.title')} />
-                <CommandList>
-                  <CommandEmpty>{t('email.no_messages')}</CommandEmpty>
-                  <CommandGroup>
-                    {folderOptions.map((f) => {
-                      const icon = folderIcon(f.name);
-                      return (
-                        <CommandItem
-                          key={f.name}
-                          value={`${f.name} ${emailFolderLabel(f.name, t)}`}
-                          onSelect={() => changeFolder(f.name)}
-                        >
-                          <HugeiconsIcon icon={icon} className="size-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{emailFolderLabel(f.name, t)}</span>
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <EmailFolderPicker
+            open={folderMenuOpen}
+            onOpenChange={setFolderMenuOpen}
+            folderOptions={folderOptions}
+            currentFolder={currentFolder}
+            onSelectFolder={changeFolder}
+          />
 
           <HubSearch
             className="min-w-0 flex-1 basis-[12rem]"
             value={query}
             onChange={setQuery}
-            onSubmit={() => void runSearch(query)}
+            onSubmit={() => {
+              runSearch(query).catch(() => {});
+            }}
             placeholder={t('email.agent_search')}
             aria-label={t('email.agent_search')}
             clearLabel={t('common.cancel')}
@@ -668,57 +816,33 @@ export default function EmailView() {
             onOpen={(env) => {
               const openInSent =
                 filter === 'recent_sent' || (sentFolderName != null && sentIds.has(env.id));
-              void openMessage(env, openInSent ? sentFolderName ?? undefined : undefined);
+              openMessage(env, openInSent ? sentFolderName ?? undefined : undefined).catch(() => {});
             }}
             resultCount={matchedCount}
           />
         </div>
 
         {detailOpen ? (
-          <div
-            className={cn(
-              'flex h-full min-h-0 w-full flex-col border-l bg-background studio-view-enter',
-              composing
-                ? 'absolute inset-0 z-10 min-[720px]:static min-[720px]:inset-auto min-[720px]:z-auto min-[720px]:min-w-0 min-[720px]:flex-1 min-[720px]:max-w-2xl'
-                : 'absolute inset-0 z-10 md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]',
-            )}
-          >
-            {composing ? (
-              <MailComposePanel
-                mode={composing.mode}
-                replyTo={composing.replyTo}
-                folder={folder}
-                projectId={projectId}
-                onClose={() => setComposing(null)}
-                onSent={() => {
-                  setComposing(null);
-                  void refreshInbox();
-                  void refreshSent(folders);
-                }}
-              />
-            ) : selected ? (
-              <MailDetailPanel
-                selected={selected}
-                reading={readingId === selected.id}
-                error={error}
-                folder={folder}
-                message={message}
-                onClose={() => {
-                  setSelected(null);
-                  setMessage(null);
-                }}
-                onReply={() => setComposing({ mode: 'reply', replyTo: selected })}
-                onAskMany={() =>
-                  askManyAbout(
-                    selected,
-                    t('email.agent_prompt_about', {
-                      subject: selected.subject || t('email.no_subject'),
-                    }),
-                  )
-                }
-              />
-            ) : null}
-          </div>
+          <EmailDetailSidePanel
+            composing={composing}
+            selected={selected}
+            readingId={readingId}
+            error={error}
+            folder={folder}
+            message={message}
+            projectId={projectId}
+            onCloseCompose={() => setComposing(null)}
+            onCloseDetail={() => {
+              setSelected(null);
+              setMessage(null);
+            }}
+            onReply={() => {
+              if (!selected) return;
+              setComposing({ mode: 'reply', replyTo: selected });
+            }}
+            onAskMany={handleAskMany}
+            onSent={handleSent}
+          />
         ) : null}
       </div>
     </div>
