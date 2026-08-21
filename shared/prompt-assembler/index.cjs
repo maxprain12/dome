@@ -61,6 +61,11 @@ const VOICE_LANGUAGE_NAMES = {
   fr: "French",
   pt: "Portuguese"
 };
+const PINNED_SOURCE_TOOL_HINTS = {
+  social_post: " \u2192 social_post_get",
+  email: " \u2192 email_read",
+  issue: " \u2192 github_get_issue"
+};
 const CORE_SECTION_KEYS_LIST = [
   "constraintsLanguage",
   "appContext",
@@ -103,87 +108,63 @@ You are speaking aloud in a live voice conversation. Follow these rules:
 - Avoid filler phrases like "of course!", "certainly!".
 - Respond in ${langName}.`;
 }
-function formatPinnedPersonLine(person) {
-  const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
-  return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
-}
-const PINNED_SOURCE_TOOL_HINTS = new Map([
-  ["social_post", " \u2192 social_post_get"],
-  ["email", " \u2192 email_read"],
-  ["issue", " \u2192 github_get_issue"]
-]);
-function pinnedSourceMetaString(meta, prefix, key) {
-  const value = meta && meta[key];
-  return typeof value === "string" ? ` ${prefix}=${value}` : "";
-}
-function pinnedSourceBody(meta) {
-  if (!meta || typeof meta.body !== "string" || !meta.body.trim()) return "";
-  return `
-  body: ${meta.body.trim().slice(0, 2e3)}`;
-}
-function pinnedSourceLineParts(src) {
-  const meta = src.meta;
-  const kind = src.kind;
-  const repo = kind === "issue" ? pinnedSourceMetaString(meta, "repo", "fullName") : "";
-  const folder = kind === "email" ? pinnedSourceMetaString(meta, "folder", "folder") : "";
-  const provider = kind === "social_post" ? pinnedSourceMetaString(meta, "provider", "provider") : "";
-  const status = kind === "social_post" ? pinnedSourceMetaString(meta, "status", "status") : "";
-  const body = pinnedSourceBody(meta);
-  const toolHint = PINNED_SOURCE_TOOL_HINTS.get(kind) || "";
-  return [repo, folder, provider, status, body, toolHint];
-}
-function formatPinnedSourceLine(src) {
-  const [repo, folder, provider, status, body, toolHint] = pinnedSourceLineParts(src);
-  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
-}
-function pushVolatileLabel(blocks, header, value) {
-  if (typeof value === "string" && value.trim()) {
-    blocks.push(`${header}\n${value.trim()}`);
-  }
-}
-function pushVolatileListBlock(blocks, header, items, lineFn) {
-  if (items?.length) {
-    const lines = items.map(lineFn).join("\n");
-    blocks.push(`${header}\n${lines}`);
-  }
-}
-function volatileListCount(items) {
-  return items?.length || 0;
-}
-function formatActiveResourceLine(activeResource) {
-  if (!activeResource?.id) return null;
-  const type = activeResource.type ? ` / ${activeResource.type}` : "";
-  return `**active-resource** \u2014 ${activeResource.id}${type}\n"${activeResource.title}". Call resource_get_active() to read content when needed.`;
-}
-function defaultTaskLine(taskLine) {
-  return taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
-}
 function formatVolatileSourceContext(opts = {}) {
-  const blocks = ["Source (session):"];
-  pushVolatileLabel(blocks, "**session-date**", opts.dateLine);
-  pushVolatileLabel(blocks, "**ui-context**", opts.uiContext);
-  pushVolatileLabel(blocks, "**user-memory**", opts.userMemory);
-  pushVolatileListBlock(
-    blocks,
-    `**mentioned-people** \u2014 ${volatileListCount(opts.pinnedPeople)} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.`,
-    opts.pinnedPeople,
-    formatPinnedPersonLine
-  );
-  pushVolatileListBlock(
-    blocks,
-    `**mentioned-sources** \u2014 ${volatileListCount(opts.pinnedSources)} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.`,
-    opts.pinnedSources,
-    formatPinnedSourceLine
-  );
-  pushVolatileListBlock(
-    blocks,
-    `**pinned-resources** \u2014 ${volatileListCount(opts.pinnedResources)} item(s). Use resource_get_pinned(id); do not search by title.`,
-    opts.pinnedResources,
-    (r) => `- ${r.id}: ${r.title} (${r.type})`
-  );
-  const activeLine = formatActiveResourceLine(opts.activeResource);
-  if (activeLine) blocks.push(activeLine);
-  blocks.push(`Task: ${defaultTaskLine(opts.taskLine)}`);
+  const blocks = [];
+  blocks.push("Source (session):");
+  if (opts.dateLine?.trim()) {
+    blocks.push(`**session-date**
+${opts.dateLine.trim()}`);
+  }
+  if (opts.uiContext?.trim()) {
+    blocks.push(`**ui-context**
+${opts.uiContext.trim()}`);
+  }
+  if (opts.userMemory?.trim()) {
+    blocks.push(`**user-memory**
+${opts.userMemory.trim()}`);
+  }
+  if (opts.pinnedPeople && opts.pinnedPeople.length > 0) {
+    const lines = opts.pinnedPeople.map((person) => {
+      const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
+      return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-people** \u2014 ${opts.pinnedPeople.length} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.
+${lines}`
+    );
+  }
+  if (opts.pinnedSources && opts.pinnedSources.length > 0) {
+    const lines = opts.pinnedSources.map((src) => {
+      const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
+      const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
+      const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
+      const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+      const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
+  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
+      const toolHint = PINNED_SOURCE_TOOL_HINTS[src.kind] || "";
+      return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
+    }).join("\n");
+    blocks.push(
+      `**mentioned-sources** \u2014 ${opts.pinnedSources.length} item(s). Content may be inlined below each id. Use the domain get tool (social_post_get / email_read / github_get_issue) before claiming a pin is missing.
+${lines}`
+    );
+  }
+  if (opts.pinnedResources && opts.pinnedResources.length > 0) {
+    const lines = opts.pinnedResources.map((r) => `- ${r.id}: ${r.title} (${r.type})`).join("\n");
+    blocks.push(
+      `**pinned-resources** \u2014 ${opts.pinnedResources.length} item(s). Use resource_get_pinned(id); do not search by title.
+${lines}`
+    );
+  }
+  if (opts.activeResource?.id) {
+    const type = opts.activeResource.type ? ` / ${opts.activeResource.type}` : "";
+    blocks.push(
+      `**active-resource** \u2014 ${opts.activeResource.id}${type}
+"${opts.activeResource.title}". Call resource_get_active() to read content when needed.`
+    );
+  }
+  const task = opts.taskLine?.trim() || "Respond to the user message using the sources above only when relevant.";
+  blocks.push(`Task: ${task}`);
   return blocks.join("\n\n");
 }
 function buildDomeSystemPrompt(options, coreSections) {
