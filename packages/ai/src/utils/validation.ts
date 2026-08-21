@@ -202,7 +202,8 @@ function coerceWithUnionSchema(value: unknown, schemas: JsonSchemaObject[]): unk
 	return value;
 }
 
-function coerceWithJsonSchema(value: unknown, schema: JsonSchemaObject): unknown {
+/** Apply allOf / anyOf / oneOf composition before type-level coercion. */
+function applyCompositionCoercion(value: unknown, schema: JsonSchemaObject): unknown {
 	let nextValue = value;
 
 	if (Array.isArray(schema.allOf)) {
@@ -219,28 +220,49 @@ function coerceWithJsonSchema(value: unknown, schema: JsonSchemaObject): unknown
 		nextValue = coerceWithUnionSchema(nextValue, schema.oneOf);
 	}
 
-	const schemaTypes = getSchemaTypes(schema);
+	return nextValue;
+}
+
+/** Coerce a value to the first schema type that changes it, unless it already matches a union member. */
+function coerceValueToSchemaTypes(value: unknown, schemaTypes: string[]): unknown {
 	const matchesUnionMember =
-		schemaTypes.length > 1 && schemaTypes.some((schemaType) => matchesJsonType(nextValue, schemaType));
-	if (schemaTypes.length > 0 && !matchesUnionMember) {
-		for (const schemaType of schemaTypes) {
-			const candidate = coercePrimitiveByType(nextValue, schemaType);
-			if (candidate !== nextValue) {
-				nextValue = candidate;
-				break;
-			}
+		schemaTypes.length > 1 && schemaTypes.some((schemaType) => matchesJsonType(value, schemaType));
+	if (schemaTypes.length === 0 || matchesUnionMember) {
+		return value;
+	}
+
+	for (const schemaType of schemaTypes) {
+		const candidate = coercePrimitiveByType(value, schemaType);
+		if (candidate !== value) {
+			return candidate;
 		}
 	}
 
-	if (schemaTypes.includes("object") && isRecord(nextValue) && !Array.isArray(nextValue)) {
-		applySchemaObjectCoercion(nextValue, schema);
+	return value;
+}
+
+/** Mutate object/array values in place according to schema structure. */
+function applyStructuralCoercion(
+	value: unknown,
+	schema: JsonSchemaObject,
+	schemaTypes: string[],
+): unknown {
+	if (schemaTypes.includes("object") && isRecord(value) && !Array.isArray(value)) {
+		applySchemaObjectCoercion(value, schema);
 	}
 
-	if (schemaTypes.includes("array") && Array.isArray(nextValue)) {
-		applySchemaArrayCoercion(nextValue, schema);
+	if (schemaTypes.includes("array") && Array.isArray(value)) {
+		applySchemaArrayCoercion(value, schema);
 	}
 
-	return nextValue;
+	return value;
+}
+
+function coerceWithJsonSchema(value: unknown, schema: JsonSchemaObject): unknown {
+	const afterComposition = applyCompositionCoercion(value, schema);
+	const schemaTypes = getSchemaTypes(schema);
+	const afterTypes = coerceValueToSchemaTypes(afterComposition, schemaTypes);
+	return applyStructuralCoercion(afterTypes, schema, schemaTypes);
 }
 
 function getValidator(schema: Tool["parameters"]): ReturnType<typeof Compile> {
