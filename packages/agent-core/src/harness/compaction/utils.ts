@@ -20,33 +20,45 @@ export function createFileOps(): FileOperations {
 	};
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function isToolCallBlock(block: unknown): block is ToolCall {
+	if (!isRecord(block)) return false;
+	if (block.type !== "toolCall") return false;
+	if (typeof block.name !== "string") return false;
+	return isRecord(block.arguments);
+}
+
+function toolCallPath(args: Record<string, unknown>): string | undefined {
+	return typeof args.path === "string" ? args.path : undefined;
+}
+
+function recordToolCallFileOp(name: string, path: string, fileOps: FileOperations): void {
+	switch (name) {
+		case "read":
+			fileOps.read.add(path);
+			break;
+		case "write":
+			fileOps.written.add(path);
+			break;
+		case "edit":
+			fileOps.edited.add(path);
+			break;
+	}
+}
+
 /** Add file operations from assistant tool calls to an accumulator. */
 export function extractFileOpsFromMessage(message: AgentMessage, fileOps: FileOperations): void {
 	if (message.role !== "assistant") return;
 	if (!("content" in message) || !Array.isArray(message.content)) return;
 
 	for (const block of message.content) {
-		if (typeof block !== "object" || block === null) continue;
-		if (!("type" in block) || block.type !== "toolCall") continue;
-		if (!("arguments" in block) || !("name" in block)) continue;
-
-		const args = block.arguments as Record<string, unknown> | undefined;
-		if (!args) continue;
-
-		const path = typeof args.path === "string" ? args.path : undefined;
+		if (!isToolCallBlock(block)) continue;
+		const path = toolCallPath(block.arguments);
 		if (!path) continue;
-
-		switch (block.name) {
-			case "read":
-				fileOps.read.add(path);
-				break;
-			case "write":
-				fileOps.written.add(path);
-				break;
-			case "edit":
-				fileOps.edited.add(path);
-				break;
-		}
+		recordToolCallFileOp(block.name, path, fileOps);
 	}
 }
 
@@ -107,11 +119,17 @@ function serializeUserMessage(msg: Extract<Message, { role: "user" }>): string[]
 	return content ? [`[User]: ${content}`] : [];
 }
 
-function serializeAssistantMessage(msg: Extract<Message, { role: "assistant" }>): string[] {
+interface AssistantContentParts {
+	textParts: string[];
+	thinkingParts: string[];
+	toolCalls: string[];
+}
+
+function collectAssistantContentParts(content: Extract<Message, { role: "assistant" }>["content"]): AssistantContentParts {
 	const textParts: string[] = [];
 	const thinkingParts: string[] = [];
 	const toolCalls: string[] = [];
-	for (const block of msg.content) {
+	for (const block of content) {
 		switch (block.type) {
 			case "text":
 				textParts.push(block.text);
@@ -124,17 +142,25 @@ function serializeAssistantMessage(msg: Extract<Message, { role: "assistant" }>)
 				break;
 		}
 	}
-	const parts: string[] = [];
-	if (thinkingParts.length > 0) {
-		parts.push(`[Assistant thinking]: ${thinkingParts.join("\n")}`);
+	return { textParts, thinkingParts, toolCalls };
+}
+
+function formatAssistantContentParts(parts: AssistantContentParts): string[] {
+	const lines: string[] = [];
+	if (parts.thinkingParts.length > 0) {
+		lines.push(`[Assistant thinking]: ${parts.thinkingParts.join("\n")}`);
 	}
-	if (textParts.length > 0) {
-		parts.push(`[Assistant]: ${textParts.join("\n")}`);
+	if (parts.textParts.length > 0) {
+		lines.push(`[Assistant]: ${parts.textParts.join("\n")}`);
 	}
-	if (toolCalls.length > 0) {
-		parts.push(`[Assistant tool calls]: ${toolCalls.join("; ")}`);
+	if (parts.toolCalls.length > 0) {
+		lines.push(`[Assistant tool calls]: ${parts.toolCalls.join("; ")}`);
 	}
-	return parts;
+	return lines;
+}
+
+function serializeAssistantMessage(msg: Extract<Message, { role: "assistant" }>): string[] {
+	return formatAssistantContentParts(collectAssistantContentParts(msg.content));
 }
 
 function serializeToolResultMessage(msg: Extract<Message, { role: "toolResult" }>): string[] {
