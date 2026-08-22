@@ -29,6 +29,50 @@ const BOOTSTRAP_DOMAIN_ORDER = [
   'calendar',
 ];
 
+async function fetchRemoteProfile(database) {
+  try {
+    const profile = await domeOauth.getRemoteProfile(database);
+    return Boolean(profile?.name?.trim());
+  } catch (err) {
+    console.warn('[post-login-bootstrap] profile fetch failed:', err?.message);
+    return false;
+  }
+}
+
+async function restoreOrderedDomains(deps, domains, emit) {
+  let hadRemote = false;
+  for (let i = 0; i < domains.length; i += 1) {
+    const domain = domains[i];
+    emit({ phase: 'domain', domain, index: i, total: domains.length });
+    try {
+      const result = await domainSync.syncDomain(deps, domain);
+      if (result && typeof result === 'object' && Number(result.applied) > 0) {
+        hadRemote = true;
+      }
+    } catch (err) {
+      console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
+    }
+  }
+  return hadRemote;
+}
+
+async function hydrateCloudBlobs(deps, ent, db, emit) {
+  if (!ent.entitlements.features.includes('cloud_sync') || !db) return;
+  emit({ phase: 'files' });
+  try {
+    const blobSync = require('./blob-sync.cjs');
+    await blobSync.run(deps);
+  } catch (err) {
+    console.warn('[post-login-bootstrap] blob hydration failed:', err?.message);
+  }
+  try {
+    const manySessionSync = require('./many-session-sync.cjs');
+    await manySessionSync.restoreMissingSessions(deps, db);
+  } catch (err) {
+    console.warn('[post-login-bootstrap] session restore failed:', err?.message);
+  }
+}
+
 /**
  * @param {object} deps
  * @param {object} deps.database
@@ -43,60 +87,31 @@ async function runPostLoginBootstrap(deps) {
   await sessionMgr.refreshSessionIfNeeded();
 
   const ent = await planGate.getEntitlements(database, { forceRefresh: true });
-  let hadRemoteData = false;
+  let hadRemoteData = await fetchRemoteProfile(database);
 
-  try {
-    const profile = await domeOauth.getRemoteProfile(database);
-    if (profile?.name?.trim()) hadRemoteData = true;
-  } catch (err) {
-    console.warn('[post-login-bootstrap] profile fetch failed:', err?.message);
+  if (!ent.entitlements.showCloudUi) {
+    return { hadRemoteData, entitlements: ent.entitlements };
   }
 
-  if (ent.entitlements.showCloudUi) {
-    const db = database.getDB?.();
-    const settingsBefore = db ? settingsSyncBridge.countSyncedSettings(db) : 0;
-    const emit = (payload) => windowManager?.broadcast?.('domain-sync:progress', payload);
+  const db = database.getDB?.();
+  const settingsBefore = db ? settingsSyncBridge.countSyncedSettings(db) : 0;
+  const emit = (payload) => windowManager?.broadcast?.('domain-sync:progress', payload);
 
-    const domains = BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
-      ent.entitlements.features.includes(planGate.featureForDomain(d)),
-    );
-    emit({ phase: 'start', domains });
+  const domains = BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
+    ent.entitlements.features.includes(planGate.featureForDomain(d)),
+  );
+  emit({ phase: 'start', domains });
 
-    for (let i = 0; i < domains.length; i += 1) {
-      const domain = domains[i];
-      emit({ phase: 'domain', domain, index: i, total: domains.length });
-      try {
-        const result = await domainSync.syncDomain(deps, domain);
-        if (result && typeof result === 'object' && Number(result.applied) > 0) {
-          hadRemoteData = true;
-        }
-      } catch (err) {
-        console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
-      }
-    }
+  if (await restoreOrderedDomains(deps, domains, emit)) {
+    hadRemoteData = true;
+  }
 
-    // Bytes: vault files + Many session bodies referenced by the pulled manifests.
-    if (ent.entitlements.features.includes('cloud_sync') && db) {
-      emit({ phase: 'files' });
-      try {
-        const blobSync = require('./blob-sync.cjs');
-        await blobSync.run(deps);
-      } catch (err) {
-        console.warn('[post-login-bootstrap] blob hydration failed:', err?.message);
-      }
-      try {
-        const manySessionSync = require('./many-session-sync.cjs');
-        await manySessionSync.restoreMissingSessions(deps, db);
-      } catch (err) {
-        console.warn('[post-login-bootstrap] session restore failed:', err?.message);
-      }
-    }
+  await hydrateCloudBlobs(deps, ent, db, emit);
 
-    emit({ phase: 'done' });
+  emit({ phase: 'done' });
 
-    if (db && settingsSyncBridge.countSyncedSettings(db) > settingsBefore) {
-      hadRemoteData = true;
-    }
+  if (db && settingsSyncBridge.countSyncedSettings(db) > settingsBefore) {
+    hadRemoteData = true;
   }
 
   return { hadRemoteData, entitlements: ent.entitlements };
