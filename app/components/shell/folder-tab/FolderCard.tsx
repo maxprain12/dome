@@ -476,6 +476,33 @@ function deriveCardPresentation(
   };
 }
 
+/** PDF first-page / loading — extracted for S3776. `undefined` = continue cover chain. */
+function pdfCoverPreview(
+  p: CardPresentation,
+  visual: ResourceVisualPreview,
+): ReactNode | undefined {
+  // PDF first-page render (lazy IPC) — prefer over generic icon.
+  if (p.pdfDataUrl) return <PdfPageThumb dataUrl={p.pdfDataUrl} />;
+  if (p.isPdfCard && visual.loading) return <PreviewLoading />;
+  return undefined;
+}
+
+/** Note markdown / text / loading — extracted for S3776. `undefined` = continue cover chain. */
+function noteCoverPreview(
+  p: CardPresentation,
+  visual: ResourceVisualPreview,
+  searchQuery?: string,
+): ReactNode | undefined {
+  if (!p.isNoteCard) return undefined;
+  if (p.noteMarkdown) {
+    return searchQuery
+      ? <NoteTextThumb text={p.noteMarkdown} searchQuery={searchQuery} />
+      : <NoteMarkdownThumb markdown={p.noteMarkdown} title={p.displayTitle} />;
+  }
+  if (visual.loading) return <PreviewLoading />;
+  return undefined;
+}
+
 function CoverPreviewContent({
   item,
   isFolderCard,
@@ -502,13 +529,8 @@ function CoverPreviewContent({
   if (p.artifactTemplate) {
     return <ArtifactThumb template={p.artifactTemplate} data={visual.artifact?.data ?? null} />;
   }
-  // PDF first-page render (lazy IPC) — prefer over generic icon.
-  if (p.pdfDataUrl) {
-    return <PdfPageThumb dataUrl={p.pdfDataUrl} />;
-  }
-  if (p.isPdfCard && visual.loading) {
-    return <PreviewLoading />;
-  }
+  const pdfPreview = pdfCoverPreview(p, visual);
+  if (pdfPreview !== undefined) return pdfPreview;
   if (p.coverImage) {
     return (
       <img
@@ -523,14 +545,8 @@ function CoverPreviewContent({
   if (p.isSheetCard && p.snippet) {
     return <SpreadsheetThumb snippet={p.snippet} />;
   }
-  if (p.isNoteCard) {
-    if (p.noteMarkdown) {
-      return searchQuery
-        ? <NoteTextThumb text={p.noteMarkdown} searchQuery={searchQuery} />
-        : <NoteMarkdownThumb markdown={p.noteMarkdown} title={p.displayTitle} />;
-    }
-    if (visual.loading) return <PreviewLoading />;
-  }
+  const notePreview = noteCoverPreview(p, visual, searchQuery);
+  if (notePreview !== undefined) return notePreview;
   if (p.snippet && !p.isSheetCard) {
     return <NoteTextThumb text={p.snippet} searchQuery={searchQuery} />;
   }
