@@ -38,6 +38,17 @@ const noteMarkdown = require('../services/note-markdown.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
 const { progress: studioProgress, createRunId } = require('../services/studio-progress.cjs');
 const { secureTimestampId } = require('../core/secure-id.cjs');
+const {
+  validateImportFileArgs,
+  resolveImportExtension,
+  resolveImportEffectiveType,
+  writeImportTempFile,
+  extractImportedContentText,
+  createImportedResourceRecord,
+  moveImportedResourceToFolder,
+  scheduleImportedResourceIndex,
+  unlinkImportTempFile,
+} = require('./import-file-to-library-helpers.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -4045,12 +4056,8 @@ async function emailReplyMessage({ message_id, body, folder } = {}, toolContext)
 async function importFileToLibrary(args = {}) {
   try {
     const { title, content, content_base64, mime_type, filename, project_id, folder_id } = args;
-    if (!title || !title.trim()) {
-      return { success: false, error: 'title is required' };
-    }
-    if (!content && !content_base64) {
-      return { success: false, error: 'content or content_base64 is required' };
-    }
+    const validationError = validateImportFileArgs({ title, content, content_base64 });
+    if (validationError) return validationError;
 
     const fs = require('node:fs');
     const path = require('node:path');
@@ -4059,38 +4066,14 @@ async function importFileToLibrary(args = {}) {
     const fileStorage = require('../storage/file-storage.cjs');
     const documentExtractor = require('../documents/document-extractor.cjs');
 
-    // Determine extension
-    const ext = filename
-      ? path.extname(filename).toLowerCase()
-      : mime_type?.includes('pdf') ? '.pdf'
-      : mime_type?.includes('docx') || mime_type?.includes('wordprocessingml') ? '.docx'
-      : '.txt';
-
-    // Write to temp file
+    const ext = resolveImportExtension(filename, mime_type, path);
     const tmpName = `dome-mcp-import-${Date.now()}${ext}`;
     const tempPath = path.join(os.tmpdir(), tmpName);
     try {
-      if (content_base64) {
-        fs.writeFileSync(tempPath, Buffer.from(content_base64, 'base64'));
-      } else {
-        fs.writeFileSync(tempPath, content || '', 'utf8');
-      }
-
-      // Determine resource type
-      let effectiveType = 'note';
-      if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
-      else if (
-        ext === '.docx'
-        || ext === '.doc'
-        || mime_type?.includes('wordprocessingml')
-        || mime_type?.includes('msword')
-      ) {
-        effectiveType = 'document';
-      }
-
+      writeImportTempFile(fs, tempPath, content, content_base64);
+      const effectiveType = resolveImportEffectiveType(ext, mime_type);
       const importResult = await fileStorage.importFile(tempPath, effectiveType);
 
-      // Check duplicate
       const queries = database.getQueries();
       const existing = queries.findByHash?.get(importResult.hash);
       if (existing) {
@@ -4101,58 +4084,41 @@ async function importFileToLibrary(args = {}) {
         };
       }
 
-      // Extract text
       const fullPath = fileStorage.getFullPath(importResult.internalPath);
-      let contentText = (!content_base64 ? content : null) || null;
-      try {
-        if (effectiveType === 'pdf') {
-          contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-        } else if (effectiveType === 'document' && (ext === '.docx' || ext === '.doc')) {
-          contentText = await documentExtractor.extractDocxText(fullPath, 50000);
-        } else if (effectiveType === 'note') {
-          contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
-        }
-      } catch { /* keep original text content */ }
+      const contentText = await extractImportedContentText({
+        documentExtractor,
+        fullPath,
+        effectiveType,
+        ext,
+        importMimeType: importResult.mimeType,
+        content,
+        contentBase64: content_base64,
+      });
 
-      // Create resource
       const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
       const now = Date.now();
       const db = database.getDB();
       const effectiveProjectId = project_id || null;
 
-      queries.createResourceWithFile.run(
+      createImportedResourceRecord(queries, {
         resourceId,
-        effectiveProjectId,
+        projectId: effectiveProjectId,
         effectiveType,
-        title.trim(),
+        title,
         contentText,
-        null,
-        importResult.internalPath,
-        importResult.mimeType || mime_type || null,
-        importResult.size,
-        importResult.hash,
-        null,
-        filename || importResult.originalName || null,
-        null,
+        importResult,
+        mimeType: mime_type,
+        filename,
         now,
-        now
-      );
-
-      if (folder_id && queries.moveResourceToFolder) {
-        queries.moveResourceToFolder.run(folder_id, now, resourceId);
-      }
+      });
+      moveImportedResourceToFolder(queries, folder_id, resourceId, now);
 
       const resource = queries.getResourceById.get(resourceId);
-
-      // Schedule indexing
-      semanticIndexScheduler.init(database);
-      if (resource && semanticIndexScheduler.shouldIndex(resource)) {
-        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-      }
+      scheduleImportedResourceIndex(semanticIndexScheduler, database, resource, resourceId);
 
       return { success: true, resource };
     } finally {
-      try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+      unlinkImportTempFile(fs, tempPath);
     }
   } catch (error) {
     console.error('[AI Tools] importFileToLibrary error:', error);
