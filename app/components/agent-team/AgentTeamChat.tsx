@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -9,6 +10,7 @@ import type { AgentTeam, ManyAgent } from '@/types';
 import { getAgentTeamById } from '@/lib/agent-team/api';
 import { getManyAgentById } from '@/lib/agents/api';
 import { useAgentTeamStore } from '@/lib/store/useAgentTeamStore';
+import type { TeamChatStatus } from '@/lib/store/useAgentTeamStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
@@ -30,11 +32,352 @@ import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
 import { Spinner } from '@/components/ui/spinner';
+
 interface AgentTeamChatProps {
   teamId: string;
 }
 
 const notNull = <T,>(value: T | null): value is T => value !== null;
+
+type PendingTraceEntry = {
+  type: 'tool_call' | 'tool_result';
+  toolName?: string | null;
+  toolArgs?: Record<string, unknown>;
+  result?: unknown;
+  mcpServerId?: string | null;
+  decision?: string | null;
+};
+
+type TeamStreamChunkData = {
+  streamId: string;
+  type?: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'interrupt';
+  toolCall?: { id: string; name: string; arguments: string };
+  toolCallId?: string;
+  result?: string;
+  isError?: boolean;
+  chunk?: string;
+  done?: boolean;
+  agentName?: string | null;
+};
+
+type TeamStreamMutableState = {
+  accumulated: string;
+  streamingToolCalls: ToolCallData[];
+  pendingTraceEntries: PendingTraceEntry[];
+};
+
+type TeamChatHistoryItem = { role: string; content: string };
+
+/** Map store messages + current user turn into the team stream history payload. */
+function buildTeamHistoryMessages(
+  messages: TeamChatHistoryItem[],
+  userMessage: string,
+): Array<{ role: string; content: string }> {
+  const historyMessages = messages.slice(-20).map((m) => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.content,
+  }));
+  historyMessages.push({ role: 'user', content: userMessage });
+  return historyMessages;
+}
+
+/** Create/reuse the team DB session and persist the user message when DB is available. */
+async function ensureTeamSessionAndUserMessage(opts: {
+  team: AgentTeam;
+  streamId: string;
+  userMessage: string;
+  currentSessionId: string | null;
+  effectiveResourceId: string | null;
+  teamProjectId: string;
+  pathname: string;
+  homeSidebarSection: string | null;
+  currentFolderId: string | null;
+  currentResourceTitle: string | null;
+  dbSessionIdRef: { current: string | null };
+}): Promise<void> {
+  if (!db.isAvailable()) return;
+
+  const sessionResult = await db.createChatSession({
+    id: opts.currentSessionId || `${opts.team.id}:${Date.now()}`,
+    agentId: null,
+    resourceId: opts.effectiveResourceId ?? null,
+    mode: 'team',
+    contextId: opts.team.id,
+    title: opts.team.name,
+    threadId: opts.streamId,
+    toolIds: [],
+    mcpServerIds: opts.team.mcpServerIds ?? [],
+    projectId: opts.teamProjectId,
+  });
+  if (!sessionResult.success || !sessionResult.data) return;
+
+  opts.dbSessionIdRef.current = sessionResult.data.id;
+  await db.addChatMessage({
+    sessionId: sessionResult.data.id,
+    role: 'user',
+    content: opts.userMessage,
+    metadata: {
+      teamId: opts.team.id,
+      mode: 'team',
+      pathname: opts.pathname,
+      homeSidebarSection: opts.homeSidebarSection,
+      currentFolderId: opts.currentFolderId,
+      currentResourceId: opts.effectiveResourceId,
+      currentResourceTitle: opts.currentResourceTitle,
+    },
+  });
+}
+
+async function loadTeamConfiguredMcpServers(
+  teamMcpServerIds: string[],
+  disabledMcpIds: Set<string>,
+): Promise<MCPServerConfig[]> {
+  if (teamMcpServerIds.length === 0) return [];
+  return (await loadMcpServersSetting()).filter((server) => !disabledMcpIds.has(server.name));
+}
+
+function parseStreamingToolArgs(raw: string | undefined): Record<string, unknown> {
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function applyTeamAgentNameFromChunk(
+  agentName: string | null | undefined,
+  setStatus: (status: TeamChatStatus) => void,
+  setActiveAgentLabel: (label: string | null) => void,
+  currentAgentLabelRef: { current: string | null },
+): void {
+  if (agentName === undefined) return;
+  if (agentName) {
+    setStatus('delegating');
+    setActiveAgentLabel(agentName);
+    currentAgentLabelRef.current = agentName;
+    return;
+  }
+  setStatus('synthesizing');
+  setActiveAgentLabel(null);
+  currentAgentLabelRef.current = 'Síntesis';
+}
+
+function handleTeamToolCallChunk(
+  data: TeamStreamChunkData,
+  state: TeamStreamMutableState,
+  configuredMcpServers: MCPServerConfig[],
+  currentAgentLabelRef: { current: string | null },
+  setStreamingMessage: Dispatch<SetStateAction<ChatMessageData | null>>,
+): void {
+  if (data.type !== 'tool_call' || !data.toolCall) return;
+
+  const args = parseStreamingToolArgs(data.toolCall.arguments);
+  const toolCallEntry: ToolCallData = {
+    id: data.toolCall.id,
+    name: data.toolCall.name,
+    arguments: args,
+    status: 'running',
+  };
+  state.streamingToolCalls = [...state.streamingToolCalls, toolCallEntry];
+  const mcpServer = inferMcpServerForTool(configuredMcpServers, data.toolCall.name);
+  state.pendingTraceEntries.push({
+    type: 'tool_call',
+    toolName: data.toolCall.name,
+    toolArgs: args,
+    mcpServerId: mcpServer?.name ?? null,
+    decision: data.agentName ?? undefined,
+  });
+  setStreamingMessage((prev) => ({
+    id: prev?.id || `team-stream-${Date.now()}`,
+    role: 'assistant',
+    content: state.accumulated,
+    timestamp: prev?.timestamp || Date.now(),
+    isStreaming: true,
+    toolCalls: state.streamingToolCalls,
+    agentLabel: currentAgentLabelRef.current ?? undefined,
+    streamingLabel: data.agentName ? `${data.agentName} ejecutando tools...` : 'Ejecutando tools...',
+  }));
+}
+
+function updateToolCallFromResult(
+  toolCalls: ToolCallData[],
+  toolCallId: string | undefined,
+  data: TeamStreamChunkData,
+): ToolCallData[] {
+  if (!toolCallId) return toolCalls;
+  return toolCalls.map((toolCall) => {
+    if (toolCall.id !== toolCallId) return toolCall;
+    if (data.isError) {
+      return { ...toolCall, status: 'error', result: data.result ?? '', error: data.result ?? '' };
+    }
+    return { ...toolCall, status: 'success', result: data.result ?? '' };
+  });
+}
+
+function handleTeamToolResultChunk(
+  data: TeamStreamChunkData,
+  state: TeamStreamMutableState,
+  configuredMcpServers: MCPServerConfig[],
+  setStreamingMessage: Dispatch<SetStateAction<ChatMessageData | null>>,
+): void {
+  if (data.type !== 'tool_result') return;
+
+  state.streamingToolCalls = updateToolCallFromResult(
+    state.streamingToolCalls,
+    data.toolCallId,
+    data,
+  );
+  const matchingTool = state.streamingToolCalls.find((toolCall) => toolCall.id === data.toolCallId);
+  const mcpServer = matchingTool
+    ? inferMcpServerForTool(configuredMcpServers, matchingTool.name)
+    : undefined;
+  state.pendingTraceEntries.push({
+    type: 'tool_result',
+    toolName: matchingTool?.name ?? data.agentName ?? null,
+    result: data.result ?? '',
+    mcpServerId: mcpServer?.name ?? null,
+  });
+  setStreamingMessage((prev) =>
+    prev
+      ? {
+          ...prev,
+          toolCalls: state.streamingToolCalls,
+        }
+      : null
+  );
+}
+
+function handleTeamTextChunk(
+  data: TeamStreamChunkData,
+  state: TeamStreamMutableState,
+  currentAgentLabelRef: { current: string | null },
+  setStreamingMessage: Dispatch<SetStateAction<ChatMessageData | null>>,
+): void {
+  if (!data.chunk) return;
+  state.accumulated += data.chunk;
+  setStreamingMessage((prev) => ({
+    id: prev?.id || `team-stream-${Date.now()}`,
+    role: 'assistant',
+    content: state.accumulated,
+    timestamp: prev?.timestamp || Date.now(),
+    isStreaming: true,
+    toolCalls: state.streamingToolCalls,
+    agentLabel: currentAgentLabelRef.current ?? 'Síntesis',
+  }));
+}
+
+/** Stream chunk listener for a single team send; complexity lives here, not in handleSend. */
+function createTeamStreamChunkHandler(opts: {
+  streamId: string;
+  state: TeamStreamMutableState;
+  configuredMcpServers: MCPServerConfig[];
+  setStatus: (status: TeamChatStatus) => void;
+  setActiveAgentLabel: (label: string | null) => void;
+  currentAgentLabelRef: { current: string | null };
+  setStreamingMessage: Dispatch<SetStateAction<ChatMessageData | null>>;
+}): (data: TeamStreamChunkData) => void {
+  return (data) => {
+    if (data.streamId !== opts.streamId) return;
+    if (data.done) return;
+    applyTeamAgentNameFromChunk(
+      data.agentName,
+      opts.setStatus,
+      opts.setActiveAgentLabel,
+      opts.currentAgentLabelRef,
+    );
+    handleTeamToolCallChunk(
+      data,
+      opts.state,
+      opts.configuredMcpServers,
+      opts.currentAgentLabelRef,
+      opts.setStreamingMessage,
+    );
+    handleTeamToolResultChunk(
+      data,
+      opts.state,
+      opts.configuredMcpServers,
+      opts.setStreamingMessage,
+    );
+    handleTeamTextChunk(
+      data,
+      opts.state,
+      opts.currentAgentLabelRef,
+      opts.setStreamingMessage,
+    );
+  };
+}
+
+async function persistTeamAssistantTurn(opts: {
+  teamId: string;
+  state: TeamStreamMutableState;
+  currentAgentLabel: string | null;
+  dbSessionId: string | null;
+  addMessage: (message: {
+    role: 'assistant';
+    content: string;
+    toolCalls: ToolCallData[];
+    agentName?: string;
+    phase?: 'synthesis';
+  }) => void;
+}): Promise<void> {
+  if (!opts.state.accumulated) return;
+
+  opts.addMessage({
+    role: 'assistant',
+    content: opts.state.accumulated,
+    toolCalls: opts.state.streamingToolCalls,
+    agentName: opts.currentAgentLabel ?? undefined,
+    phase: opts.currentAgentLabel ? 'synthesis' : undefined,
+  });
+
+  if (!opts.dbSessionId) return;
+
+  const messageResult = await db.addChatMessage({
+    sessionId: opts.dbSessionId,
+    role: 'assistant',
+    content: opts.state.accumulated,
+    toolCalls: opts.state.streamingToolCalls,
+    metadata: {
+      mode: 'team',
+      teamId: opts.teamId,
+    },
+  });
+  const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
+  for (const trace of opts.state.pendingTraceEntries) {
+    await db.appendChatTrace({
+      sessionId: opts.dbSessionId,
+      messageId,
+      type: trace.type,
+      toolName: trace.toolName,
+      toolArgs: trace.toolArgs,
+      result: trace.result,
+      mcpServerId: trace.mcpServerId,
+      decision: trace.decision,
+    });
+  }
+}
+
+function reportTeamSendError(
+  aborted: boolean,
+  err: unknown,
+  addMessage: (message: { role: 'assistant'; content: string; agentName: string }) => void,
+): void {
+  if (aborted) return;
+  const errMsg = err instanceof Error ? err.message : 'Error desconocido';
+  showToast('error', errMsg);
+  addMessage({ role: 'assistant', content: `Error: ${errMsg}`, agentName: 'Sistema' });
+}
+
+function agentLabelForTeamMessage(message: {
+  agentName?: string;
+  phase?: string;
+}): string | undefined {
+  if (message.agentName) return message.agentName;
+  if (message.phase === 'planning') return 'Planificación';
+  if (message.phase === 'delegation') return 'Delegación';
+  if (message.phase === 'synthesis') return 'Síntesis';
+  return undefined;
+}
 
 export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const { t } = useTranslation();
@@ -106,158 +449,51 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     addMessage({ role: 'user', content: userMessage });
     scrollToBottom();
 
-      const streamId = `team-${Date.now()}`;
-      streamIdRef.current = streamId;
+    const streamId = `team-${Date.now()}`;
+    streamIdRef.current = streamId;
 
     try {
       if (!window.electron?.ai) {
         throw new Error('AI no disponible');
       }
 
-      const historyMessages = messages.slice(-20).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content,
-      }));
-      historyMessages.push({ role: 'user', content: userMessage });
+      const historyMessages = buildTeamHistoryMessages(messages, userMessage);
 
-      if (db.isAvailable()) {
-        const sessionResult = await db.createChatSession({
-          id: currentSessionId || `${team.id}:${Date.now()}`,
-          agentId: null,
-          resourceId: effectiveResourceId ?? null,
-          mode: 'team',
-          contextId: team.id,
-          title: team.name,
-          threadId: streamId,
-          toolIds: [],
-          mcpServerIds: team.mcpServerIds ?? [],
-          projectId: teamProjectId,
-        });
-        if (sessionResult.success && sessionResult.data) {
-          dbSessionIdRef.current = sessionResult.data.id;
-          await db.addChatMessage({
-            sessionId: sessionResult.data.id,
-            role: 'user',
-            content: userMessage,
-            metadata: {
-              teamId: team.id,
-              mode: 'team',
-              pathname,
-              homeSidebarSection,
-              currentFolderId,
-              currentResourceId: effectiveResourceId,
-              currentResourceTitle: currentResource?.title ?? null,
-            },
-          });
-        }
-      }
-
-      let accumulated = '';
-      let streamingToolCalls: ToolCallData[] = [];
-      const pendingTraceEntries: Array<{
-        type: 'tool_call' | 'tool_result';
-        toolName?: string | null;
-        toolArgs?: Record<string, unknown>;
-        result?: unknown;
-        mcpServerId?: string | null;
-        decision?: string | null;
-      }> = [];
-      const configuredMcpServers: MCPServerConfig[] = teamMcpServerIds.length > 0
-        ? (await loadMcpServersSetting()).filter((server) => !disabledMcpIds.has(server.name))
-        : [];
-
-      const unsubChunk = window.electron.ai.onStreamChunk((data) => {
-        if (data.streamId !== streamId) return;
-        if (data.done) return;
-        if (data.agentName !== undefined) {
-          if (data.agentName) {
-            setStatus('delegating');
-            setActiveAgentLabel(data.agentName);
-            currentAgentLabelRef.current = data.agentName;
-          } else {
-            setStatus('synthesizing');
-            setActiveAgentLabel(null);
-            currentAgentLabelRef.current = 'Síntesis';
-          }
-        }
-        if (data.type === 'tool_call' && data.toolCall) {
-          const args = (() => {
-            try {
-              return typeof data.toolCall?.arguments === 'string'
-                ? JSON.parse(data.toolCall.arguments)
-                : {};
-            } catch {
-              return {};
-            }
-          })();
-          const toolCallEntry: ToolCallData = {
-            id: data.toolCall.id,
-            name: data.toolCall.name,
-            arguments: args,
-            status: 'running',
-          };
-          streamingToolCalls = [...streamingToolCalls, toolCallEntry];
-          const mcpServer = inferMcpServerForTool(configuredMcpServers, data.toolCall.name);
-          pendingTraceEntries.push({
-            type: 'tool_call',
-            toolName: data.toolCall.name,
-            toolArgs: args,
-            mcpServerId: mcpServer?.name ?? null,
-            decision: data.agentName ?? undefined,
-          });
-          setStreamingMessage((prev) => ({
-            id: prev?.id || `team-stream-${Date.now()}`,
-            role: 'assistant',
-            content: accumulated,
-            timestamp: prev?.timestamp || Date.now(),
-            isStreaming: true,
-            toolCalls: streamingToolCalls,
-            agentLabel: currentAgentLabelRef.current ?? undefined,
-            streamingLabel: data.agentName ? `${data.agentName} ejecutando tools...` : 'Ejecutando tools...',
-          }));
-        }
-        if (data.type === 'tool_result') {
-          if (data.toolCallId) {
-            streamingToolCalls = streamingToolCalls.map((toolCall) =>
-              toolCall.id === data.toolCallId
-                ? data.isError
-                  ? { ...toolCall, status: 'error', result: data.result ?? '', error: data.result ?? '' }
-                  : { ...toolCall, status: 'success', result: data.result ?? '' }
-                : toolCall
-            );
-          }
-          const matchingTool = streamingToolCalls.find((toolCall) => toolCall.id === data.toolCallId);
-          const mcpServer = matchingTool
-            ? inferMcpServerForTool(configuredMcpServers, matchingTool.name)
-            : undefined;
-          pendingTraceEntries.push({
-            type: 'tool_result',
-            toolName: matchingTool?.name ?? data.agentName ?? null,
-            result: data.result ?? '',
-            mcpServerId: mcpServer?.name ?? null,
-          });
-          setStreamingMessage((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  toolCalls: streamingToolCalls,
-                }
-              : null
-          );
-        }
-        if (data.chunk) {
-          accumulated += data.chunk;
-          setStreamingMessage((prev) => ({
-            id: prev?.id || `team-stream-${Date.now()}`,
-            role: 'assistant',
-            content: accumulated,
-            timestamp: prev?.timestamp || Date.now(),
-            isStreaming: true,
-            toolCalls: streamingToolCalls,
-            agentLabel: currentAgentLabelRef.current ?? 'Síntesis',
-          }));
-        }
+      await ensureTeamSessionAndUserMessage({
+        team,
+        streamId,
+        userMessage,
+        currentSessionId,
+        effectiveResourceId: effectiveResourceId ?? null,
+        teamProjectId,
+        pathname,
+        homeSidebarSection,
+        currentFolderId,
+        currentResourceTitle: currentResource?.title ?? null,
+        dbSessionIdRef,
       });
+
+      const state: TeamStreamMutableState = {
+        accumulated: '',
+        streamingToolCalls: [],
+        pendingTraceEntries: [],
+      };
+      const configuredMcpServers = await loadTeamConfiguredMcpServers(
+        teamMcpServerIds,
+        disabledMcpIds,
+      );
+
+      const unsubChunk = window.electron.ai.onStreamChunk(
+        createTeamStreamChunkHandler({
+          streamId,
+          state,
+          configuredMcpServers,
+          setStatus,
+          setActiveAgentLabel,
+          currentAgentLabelRef,
+          setStreamingMessage,
+        }),
+      );
 
       try {
         await window.electron.invoke('ai:team:stream', {
@@ -283,46 +519,15 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
 
       unsubChunk();
       setStreamingMessage(null);
-      if (accumulated) {
-        addMessage({
-          role: 'assistant',
-          content: accumulated,
-          toolCalls: streamingToolCalls,
-          agentName: currentAgentLabelRef.current ?? undefined,
-          phase: currentAgentLabelRef.current ? 'synthesis' : undefined,
-        });
-      }
-      if (dbSessionIdRef.current && accumulated) {
-        const messageResult = await db.addChatMessage({
-          sessionId: dbSessionIdRef.current,
-          role: 'assistant',
-          content: accumulated,
-          toolCalls: streamingToolCalls,
-          metadata: {
-            mode: 'team',
-            teamId: team.id,
-          },
-        });
-        const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
-        for (const trace of pendingTraceEntries) {
-          await db.appendChatTrace({
-            sessionId: dbSessionIdRef.current,
-            messageId,
-            type: trace.type,
-            toolName: trace.toolName,
-            toolArgs: trace.toolArgs,
-            result: trace.result,
-            mcpServerId: trace.mcpServerId,
-            decision: trace.decision,
-          });
-        }
-      }
+      await persistTeamAssistantTurn({
+        teamId: team.id,
+        state,
+        currentAgentLabel: currentAgentLabelRef.current,
+        dbSessionId: dbSessionIdRef.current,
+        addMessage,
+      });
     } catch (err) {
-      if (!controller.signal.aborted) {
-        const errMsg = err instanceof Error ? err.message : 'Error desconocido';
-        showToast('error', errMsg);
-        addMessage({ role: 'assistant', content: `Error: ${errMsg}`, agentName: 'Sistema' });
-      }
+      reportTeamSendError(controller.signal.aborted, err, addMessage);
     } finally {
       setIsLoading(false);
       setStatus('idle');
@@ -379,15 +584,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           timestamp: message.timestamp,
           toolCalls,
           citationMap: buildCitationMap(toolCalls),
-          agentLabel:
-            message.agentName ||
-            (message.phase === 'planning'
-              ? 'Planificación'
-              : message.phase === 'delegation'
-                ? 'Delegación'
-                : message.phase === 'synthesis'
-                  ? 'Síntesis'
-                  : undefined),
+          agentLabel: agentLabelForTeamMessage(message),
         };
       }),
     [messages]
@@ -519,7 +716,9 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           setInput={setInput}
           inputRef={inputRef}
           isLoading={isLoading}
-          onSend={() => void handleSend()}
+          onSend={() => {
+            handleSend().catch(() => {});
+          }}
           onAbort={handleStop}
           placeholder={`Chatear con ${team.name}...`}
           mcpServerIds={teamMcpServerIds}
