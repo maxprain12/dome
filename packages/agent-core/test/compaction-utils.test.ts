@@ -48,6 +48,23 @@ describe('extractFileOpsFromMessage / computeFileLists', () => {
     expect(readFiles).toEqual(['a.ts']);
     expect(modifiedFiles).toEqual(['b.ts', 'c.ts']);
   });
+
+  it('ignores non-assistant messages, non-array content, and malformed tool-call blocks', () => {
+    const fileOps = createFileOps();
+    extractFileOpsFromMessage({ role: 'toolResult', toolCallId: 't', toolName: 'read', content: [], isError: false, timestamp: 1 } as AgentMessage, fileOps);
+    extractFileOpsFromMessage({ role: 'assistant', timestamp: 1 } as AgentMessage, fileOps);
+    extractFileOpsFromMessage(
+      assistant([
+        null,
+        { type: 'toolCall', id: 'x', name: 1, arguments: { path: 'bad.ts' } },
+        { type: 'toolCall', id: 'y', name: 'read', arguments: null },
+        { type: 'toolCall', id: 'z', name: 'other', arguments: { path: 'skip.ts' } },
+      ] as never) as AgentMessage,
+      fileOps,
+    );
+
+    expect(computeFileLists(fileOps)).toEqual({ readFiles: [], modifiedFiles: [] });
+  });
 });
 
 describe('formatFileOperations', () => {

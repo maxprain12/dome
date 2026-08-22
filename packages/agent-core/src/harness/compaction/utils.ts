@@ -49,16 +49,27 @@ function recordToolCallFileOp(name: string, path: string, fileOps: FileOperation
 	}
 }
 
+/** Assistant message content blocks, or null when the message cannot yield file ops. */
+function assistantContentBlocks(message: AgentMessage): unknown[] | null {
+	if (message.role !== "assistant") return null;
+	if (!("content" in message) || !Array.isArray(message.content)) return null;
+	return message.content;
+}
+
+function applyToolCallFileOp(block: ToolCall, fileOps: FileOperations): void {
+	const path = toolCallPath(block.arguments);
+	if (!path) return;
+	recordToolCallFileOp(block.name, path, fileOps);
+}
+
 /** Add file operations from assistant tool calls to an accumulator. */
 export function extractFileOpsFromMessage(message: AgentMessage, fileOps: FileOperations): void {
-	if (message.role !== "assistant") return;
-	if (!("content" in message) || !Array.isArray(message.content)) return;
+	const content = assistantContentBlocks(message);
+	if (!content) return;
 
-	for (const block of message.content) {
+	for (const block of content) {
 		if (!isToolCallBlock(block)) continue;
-		const path = toolCallPath(block.arguments);
-		if (!path) continue;
-		recordToolCallFileOp(block.name, path, fileOps);
+		applyToolCallFileOp(block, fileOps);
 	}
 }
 
