@@ -50,6 +50,27 @@ function computeFullSyncPercent(progress: FullSyncProgressPayload | null): numbe
   return Math.min(100, Math.round((progress.resourceIndex / progress.resourcesTotal) * 100));
 }
 
+/** Phase + optional resource title for the full-sync progress line — extracted for S3776. */
+function fullSyncProgressLabel(progress: FullSyncProgressPayload, t: TranslateFn): string {
+  const phase =
+    progress.phase === 'embeddings' ? t('settings.indexing.full_sync_phase_embeddings') : '…';
+  if (!progress.title) return phase;
+  return `${phase} · ${t('settings.indexing.full_sync_progress_res', {
+    current: progress.resourceIndex,
+    total: progress.resourcesTotal,
+    title: progress.title,
+  })}`;
+}
+
+/** Optional embedding-error suffix after a successful full sync — extracted for S3776. */
+function fullSyncDoneErrorSuffix(
+  result: { totalResources: number; embeddingFailed: number },
+  t: TranslateFn,
+): string | null {
+  if (result.totalResources <= 0 || result.embeddingFailed <= 0) return null;
+  return ` ${t('settings.indexing.full_sync_summary_errors', { emb: result.embeddingFailed })}`;
+}
+
 /** Embedding index status: initial load, 8s polling, and live progress events. */
 function useEmbeddingStatus(pausePolling: boolean) {
   const [embedStatus, setEmbedStatus] = useState<SemanticIndexingStatusPayload | null>(null);
@@ -185,6 +206,248 @@ function useSemanticReindex({
   return { embedReindexBusy, handleSemanticReindexAll };
 }
 
+/** Full-sync trigger button — extracted for S3776. */
+function FullSyncButton({
+  busy,
+  libraryBusy,
+  onFullSync,
+}: {
+  busy: boolean;
+  libraryBusy: boolean;
+  onFullSync: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Button type="button" size="sm" disabled={libraryBusy} onClick={onFullSync}>
+      {busy ? (
+        <Spinner data-icon="inline-start" />
+      ) : (
+        <HugeiconsIcon icon={Layers01Icon} data-icon="inline-start" />
+      )}
+      {busy ? t('settings.indexing.full_sync_running') : t('settings.indexing.full_sync_btn')}
+    </Button>
+  );
+}
+
+/** In-progress full-sync bar — extracted for S3776. */
+function FullSyncProgressBlock({
+  progress,
+  percent,
+}: {
+  progress: FullSyncProgressPayload | null;
+  percent: number;
+}) {
+  const { t } = useTranslation();
+  if (!progress || progress.phase === 'finished' || progress.resourcesTotal <= 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="truncate text-muted-foreground">{fullSyncProgressLabel(progress, t)}</span>
+        <span className="shrink-0 font-medium text-primary">{percent}%</span>
+      </div>
+      <Progress value={percent} className="h-1.5" />
+    </div>
+  );
+}
+
+/** Post full-sync success note — extracted for S3776. */
+function FullSyncDoneAlert({
+  result,
+  busy,
+}: {
+  result: { totalResources: number; embeddingFailed: number } | null;
+  busy: boolean;
+}) {
+  const { t } = useTranslation();
+  if (!result || busy) return null;
+  return (
+    <Alert role="note">
+      <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden />
+      <AlertDescription className="text-xs">
+        {t('settings.indexing.full_sync_done')}
+        {fullSyncDoneErrorSuffix(result, t)}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/** Refresh + reindex actions for the embeddings group — extracted for S3776. */
+function EmbeddingsGroupActions({
+  libraryBusy,
+  embedReindexBusy,
+  onRefresh,
+  onReindex,
+}: {
+  libraryBusy: boolean;
+  embedReindexBusy: boolean;
+  onRefresh: () => void;
+  onReindex: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <Button type="button" variant="outline" size="sm" onClick={onRefresh} disabled={libraryBusy}>
+        <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+        {t('settings.embeddings.refresh')}
+      </Button>
+      <Button type="button" size="sm" onClick={onReindex} disabled={libraryBusy}>
+        {embedReindexBusy ? (
+          <Spinner data-icon="inline-start" />
+        ) : (
+          <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+        )}
+        {embedReindexBusy
+          ? t('settings.embeddings.reindexing')
+          : t('settings.embeddings.reindex')}
+      </Button>
+    </>
+  );
+}
+
+/** Active model / dimensions line — extracted for S3776. */
+function EmbeddingModelMeta({ status }: { status: SemanticIndexingStatusPayload }) {
+  const { t } = useTranslation();
+  if (!status.modelVersion) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground">
+      <span className="font-medium">{t('settings.ai.embeddings.status.model_active')}:</span>{' '}
+      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">{status.modelVersion}</code>
+      {status.dimensions != null ? (
+        <span className="ml-2">
+          ({status.dimensions} {t('settings.ai.embeddings.status.dimensions').toLowerCase()})
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+/** Stat cards for indexable / indexed / pending / chunks — extracted for S3776. */
+function EmbeddingStatsGrid({ status }: { status: SemanticIndexingStatusPayload }) {
+  const { t } = useTranslation();
+  const cells = [
+    { label: t('settings.embeddings.total'), value: status.indexableTotal, warning: false },
+    { label: t('settings.embeddings.indexed'), value: status.indexedResourceCount, warning: false },
+    {
+      label: t('settings.embeddings.pending'),
+      value: status.pendingCount,
+      warning: status.pendingCount > 0,
+    },
+    { label: t('settings.embeddings.chunks'), value: status.chunksTotal, warning: false },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+      {cells.map(({ label, value, warning }) => (
+        <div key={label} className="rounded-lg border bg-background p-3">
+          <p
+            className={cn(
+              'text-2xl font-bold tabular-nums',
+              warning ? 'text-warning' : 'text-primary',
+            )}
+          >
+            {value}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Empty library / stats / coverage alerts — extracted for S3776. */
+function EmbeddingLibraryBody({ status }: { status: SemanticIndexingStatusPayload }) {
+  const { t } = useTranslation();
+  if (status.indexableTotal === 0) {
+    return (
+      <Alert role="note">
+        <HugeiconsIcon icon={SparklesIcon} aria-hidden />
+        <AlertDescription className="text-xs">{t('settings.embeddings.empty_library')}</AlertDescription>
+      </Alert>
+    );
+  }
+  return (
+    <>
+      <EmbeddingStatsGrid status={status} />
+      {status.allIndexed ? (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <HugeiconsIcon icon={CheckmarkCircle02Icon} className="shrink-0 text-primary" />
+          {t('settings.embeddings.all_indexed')}
+        </p>
+      ) : (
+        <Alert role="note">
+          <HugeiconsIcon icon={SparklesIcon} aria-hidden />
+          <AlertDescription className="text-xs">
+            {t('settings.embeddings.pending_label', { count: status.pendingCount })}
+          </AlertDescription>
+        </Alert>
+      )}
+    </>
+  );
+}
+
+/** Embeddings status panel body — extracted for S3776. */
+function EmbeddingsStatusPanel({
+  embedStatus,
+  embedLoading,
+  embedError,
+  embedProgress,
+  embedReindexBusy,
+}: {
+  embedStatus: SemanticIndexingStatusPayload | null;
+  embedLoading: boolean;
+  embedError: string | null;
+  embedProgress: { done: number; total: number } | null;
+  embedReindexBusy: boolean;
+}) {
+  const { t } = useTranslation();
+  const showNotConfigured = Boolean(embedStatus && embedStatus.configured === false && !embedLoading);
+  const showStatus = Boolean(embedStatus && !embedLoading);
+  const showReindexProgress = Boolean(
+    embedProgress && embedProgress.total > 0 && embedReindexBusy,
+  );
+
+  return (
+    <div className="flex flex-col gap-3 px-4 py-4">
+      {showNotConfigured ? (
+        <Alert role="note">
+          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+          <AlertDescription className="text-xs">
+            {t('settings.ai.embeddings.status.not_configured')}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {embedLoading ? (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Spinner />
+          {t('settings.embeddings.loading')}
+        </p>
+      ) : null}
+
+      {embedError ? (
+        <Alert variant="destructive" role="note">
+          <HugeiconsIcon icon={AlertCircleIcon} aria-hidden />
+          <AlertDescription className="text-xs">{embedError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {showStatus && embedStatus ? (
+        <>
+          <EmbeddingModelMeta status={embedStatus} />
+          <EmbeddingLibraryBody status={embedStatus} />
+          {showReindexProgress && embedProgress ? (
+            <p className="text-xs text-muted-foreground">
+              {t('settings.embeddings.progress', {
+                done: embedProgress.done,
+                total: embedProgress.total,
+              })}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export default function IndexingSection() {
   const { t } = useTranslation();
   const [pausePolling, setPausePolling] = useState(false);
@@ -236,53 +499,17 @@ export default function IndexingSection() {
           title={t('settings.indexing.full_sync_title')}
           description={t('settings.indexing.full_sync_hint')}
           control={
-            <Button type="button" size="sm" disabled={libraryBusy} onClick={() => handleFullSync()}>
-              {fullSyncBusy ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <HugeiconsIcon icon={Layers01Icon} data-icon="inline-start" />
-              )}
-              {fullSyncBusy
-                ? t('settings.indexing.full_sync_running')
-                : t('settings.indexing.full_sync_btn')}
-            </Button>
+            <FullSyncButton
+              busy={fullSyncBusy}
+              libraryBusy={libraryBusy}
+              onFullSync={() => {
+                handleFullSync().catch(() => {});
+              }}
+            />
           }
         >
-          {fullSyncProgress &&
-          fullSyncProgress.phase !== 'finished' &&
-          fullSyncProgress.resourcesTotal > 0 ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate text-muted-foreground">
-                  {fullSyncProgress.phase === 'embeddings'
-                    ? t('settings.indexing.full_sync_phase_embeddings')
-                    : '…'}
-                  {fullSyncProgress.title
-                    ? ` · ${t('settings.indexing.full_sync_progress_res', {
-                        current: fullSyncProgress.resourceIndex,
-                        total: fullSyncProgress.resourcesTotal,
-                        title: fullSyncProgress.title,
-                      })}`
-                    : null}
-                </span>
-                <span className="shrink-0 font-medium text-primary">{fullSyncPercent}%</span>
-              </div>
-              <Progress value={fullSyncPercent} className="h-1.5" />
-            </div>
-          ) : null}
-          {fullSyncResult && !fullSyncBusy ? (
-            <Alert role="note">
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden />
-              <AlertDescription className="text-xs">
-                {t('settings.indexing.full_sync_done')}
-                {fullSyncResult.totalResources > 0 && fullSyncResult.embeddingFailed > 0
-                  ? ` ${t('settings.indexing.full_sync_summary_errors', {
-                      emb: fullSyncResult.embeddingFailed,
-                    })}`
-                  : null}
-              </AlertDescription>
-            </Alert>
-          ) : null}
+          <FullSyncProgressBlock progress={fullSyncProgress} percent={fullSyncPercent} />
+          <FullSyncDoneAlert result={fullSyncResult} busy={fullSyncBusy} />
         </SettingsRow>
       </SettingsGroup>
 
@@ -291,157 +518,24 @@ export default function IndexingSection() {
         description={t('settings.embeddings.section_hint')}
         actions={
           !embedLoading ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={libraryBusy}
-              >
-                <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-                {t('settings.embeddings.refresh')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => handleSemanticReindexAll()}
-                disabled={libraryBusy}
-              >
-                {embedReindexBusy ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
-                )}
-                {embedReindexBusy
-                  ? t('settings.embeddings.reindexing')
-                  : t('settings.embeddings.reindex')}
-              </Button>
-            </>
+            <EmbeddingsGroupActions
+              libraryBusy={libraryBusy}
+              embedReindexBusy={embedReindexBusy}
+              onRefresh={handleRefresh}
+              onReindex={() => {
+                handleSemanticReindexAll().catch(() => {});
+              }}
+            />
           ) : undefined
         }
       >
-        <div className="flex flex-col gap-3 px-4 py-4">
-          {embedStatus && embedStatus.configured === false && !embedLoading ? (
-            <Alert role="note">
-              <HugeiconsIcon icon={Alert02Icon} aria-hidden />
-              <AlertDescription className="text-xs">
-                {t('settings.ai.embeddings.status.not_configured')}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {embedLoading ? (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Spinner />
-              {t('settings.embeddings.loading')}
-            </p>
-          ) : null}
-
-          {embedError ? (
-            <Alert variant="destructive" role="note">
-              <HugeiconsIcon icon={AlertCircleIcon} aria-hidden />
-              <AlertDescription className="text-xs">{embedError}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          {embedStatus && !embedLoading ? (
-            <>
-              {embedStatus.modelVersion ? (
-                <p className="text-[11px] text-muted-foreground">
-                  <span className="font-medium">
-                    {t('settings.ai.embeddings.status.model_active')}:
-                  </span>{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
-                    {embedStatus.modelVersion}
-                  </code>
-                  {embedStatus.dimensions != null ? (
-                    <span className="ml-2">
-                      ({embedStatus.dimensions}{' '}
-                      {t('settings.ai.embeddings.status.dimensions').toLowerCase()})
-                    </span>
-                  ) : null}
-                </p>
-              ) : null}
-
-              {embedStatus.indexableTotal === 0 ? (
-                <Alert role="note">
-                  <HugeiconsIcon icon={SparklesIcon} aria-hidden />
-                  <AlertDescription className="text-xs">
-                    {t('settings.embeddings.empty_library')}
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-                    {[
-                      {
-                        label: t('settings.embeddings.total'),
-                        value: embedStatus.indexableTotal,
-                        warning: false,
-                      },
-                      {
-                        label: t('settings.embeddings.indexed'),
-                        value: embedStatus.indexedResourceCount,
-                        warning: false,
-                      },
-                      {
-                        label: t('settings.embeddings.pending'),
-                        value: embedStatus.pendingCount,
-                        warning: embedStatus.pendingCount > 0,
-                      },
-                      {
-                        label: t('settings.embeddings.chunks'),
-                        value: embedStatus.chunksTotal,
-                        warning: false,
-                      },
-                    ].map(({ label, value, warning }) => (
-                      <div key={label} className="rounded-lg border bg-background p-3">
-                        <p
-                          className={cn(
-                            'text-2xl font-bold tabular-nums',
-                            warning ? 'text-warning' : 'text-primary',
-                          )}
-                        >
-                          {value}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {embedStatus.allIndexed ? (
-                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <HugeiconsIcon
-                        icon={CheckmarkCircle02Icon}
-                        className="shrink-0 text-primary"
-                      />
-                      {t('settings.embeddings.all_indexed')}
-                    </p>
-                  ) : (
-                    <Alert role="note">
-                      <HugeiconsIcon icon={SparklesIcon} aria-hidden />
-                      <AlertDescription className="text-xs">
-                        {t('settings.embeddings.pending_label', {
-                          count: embedStatus.pendingCount,
-                        })}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </>
-              )}
-
-              {embedProgress && embedProgress.total > 0 && embedReindexBusy ? (
-                <p className="text-xs text-muted-foreground">
-                  {t('settings.embeddings.progress', {
-                    done: embedProgress.done,
-                    total: embedProgress.total,
-                  })}
-                </p>
-              ) : null}
-            </>
-          ) : null}
-        </div>
+        <EmbeddingsStatusPanel
+          embedStatus={embedStatus}
+          embedLoading={embedLoading}
+          embedError={embedError}
+          embedProgress={embedProgress}
+          embedReindexBusy={embedReindexBusy}
+        />
       </SettingsGroup>
 
       {lastError ? (
