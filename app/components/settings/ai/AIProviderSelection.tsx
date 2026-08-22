@@ -53,6 +53,90 @@ interface ProviderChoiceProps {
   configureLabel?: string;
 }
 
+interface ProviderStatusBadgesProps {
+  local?: boolean;
+  configured?: boolean;
+  featured?: boolean;
+  oauth?: boolean;
+}
+
+/** Offline / connected / featured / needs-key badges — extracted for S3776. */
+function ProviderStatusBadges({
+  local,
+  configured,
+  featured,
+  oauth = false,
+}: ProviderStatusBadgesProps) {
+  const { t } = useTranslation();
+
+  if (local) {
+    return (
+      <Badge variant="outline">
+        <HugeiconsIcon icon={HardDriveIcon} data-icon="inline-start" />
+        {t('onboarding.offline')}
+      </Badge>
+    );
+  }
+
+  if (configured) {
+    return (
+      <Badge variant="secondary">
+        <HugeiconsIcon icon={oauth ? LockIcon : Key01Icon} data-icon="inline-start" />
+        {oauth ? t('settings.ai.status_connected') : t('settings.ai.key_saved')}
+      </Badge>
+    );
+  }
+
+  if (featured) {
+    return (
+      <>
+        <Badge variant="outline">
+          <HugeiconsIcon icon={LockIcon} data-icon="inline-start" />
+          {t('settings.ai.private')}
+        </Badge>
+        <Badge variant="outline">
+          <HugeiconsIcon icon={ZapIcon} data-icon="inline-start" />
+          {t('settings.ai.fast')}
+        </Badge>
+      </>
+    );
+  }
+
+  return (
+    <Badge variant="outline">
+      <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
+      {oauth ? t('settings.ai.status_disconnected') : t('settings.ai.api_key_required')}
+    </Badge>
+  );
+}
+
+/** Gear button to open visible-models curation — extracted for S3776. */
+function ProviderConfigureButton({
+  onConfigure,
+  configureLabel,
+}: {
+  onConfigure?: () => void;
+  configureLabel?: string;
+}) {
+  if (!onConfigure) return null;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className="absolute right-2 top-2"
+      aria-label={configureLabel}
+      title={configureLabel}
+      onClick={onConfigure}
+    >
+      <HugeiconsIcon icon={Settings01Icon} />
+    </Button>
+  );
+}
+
+const PROVIDER_ICON_SHELL =
+  'flex size-8 shrink-0 items-center justify-center rounded-lg';
+
 /** One selectable provider card: brand mark, name, status badges, gear to curate models. */
 function ProviderChoice({
   value,
@@ -68,7 +152,6 @@ function ProviderChoice({
   onConfigure,
   configureLabel,
 }: ProviderChoiceProps) {
-  const { t } = useTranslation();
   return (
     <div className="relative min-w-0">
       <ToggleGroupItem
@@ -85,11 +168,10 @@ function ProviderChoice({
       >
         <span className="flex min-w-0 items-center gap-2">
           <span
-            className={
-              selected
-                ? 'flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-lime'
-                : 'flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted'
-            }
+            className={cn(
+              PROVIDER_ICON_SHELL,
+              selected ? 'bg-brand-lime' : 'bg-muted',
+            )}
           >
             <ProviderBrandIcon provider={value} size={17} />
           </span>
@@ -100,50 +182,15 @@ function ProviderChoice({
           {description}
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
-          {local ? (
-            <Badge variant="outline">
-              <HugeiconsIcon icon={HardDriveIcon} data-icon="inline-start" />
-              {t('onboarding.offline')}
-            </Badge>
-          ) : configured ? (
-            <Badge variant="secondary">
-              <HugeiconsIcon icon={oauth ? LockIcon : Key01Icon} data-icon="inline-start" />
-              {oauth ? t('settings.ai.status_connected') : t('settings.ai.key_saved')}
-            </Badge>
-          ) : featured ? (
-            <>
-              <Badge variant="outline">
-                <HugeiconsIcon icon={LockIcon} data-icon="inline-start" />
-                {t('settings.ai.private')}
-              </Badge>
-              <Badge variant="outline">
-                <HugeiconsIcon icon={ZapIcon} data-icon="inline-start" />
-                {t('settings.ai.fast')}
-              </Badge>
-            </>
-          ) : (
-            <Badge variant="outline">
-              <HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />
-              {oauth
-                ? t('settings.ai.status_disconnected')
-                : t('settings.ai.api_key_required')}
-            </Badge>
-          )}
+          <ProviderStatusBadges
+            local={local}
+            configured={configured}
+            featured={featured}
+            oauth={oauth}
+          />
         </span>
       </ToggleGroupItem>
-      {onConfigure ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute right-2 top-2"
-          aria-label={configureLabel}
-          title={configureLabel}
-          onClick={onConfigure}
-        >
-          <HugeiconsIcon icon={Settings01Icon} />
-        </Button>
-      ) : null}
+      <ProviderConfigureButton onConfigure={onConfigure} configureLabel={configureLabel} />
     </div>
   );
 }
