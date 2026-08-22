@@ -124,107 +124,161 @@ function googleModel(id: string): Model<'google-generative-ai'> {
   };
 }
 
+/** Prefer catalog entry; otherwise build an OpenAI-completions model. */
+function catalogOrOpenAiCompletions(
+  catalogProvider: KnownProvider,
+  modelId: string,
+  provider: KnownProvider | string,
+  baseUrl: string,
+  compat?: OpenAICompletionsCompat,
+): Model<Api> {
+  const fromCatalog = getModel(catalogProvider, modelId as never);
+  if (fromCatalog) return fromCatalog;
+  return openAiCompletionsModel(modelId, provider, baseUrl, compat);
+}
+
+function withOptionalBaseUrl<T extends Model<Api>>(model: T, baseUrl?: string): T {
+  return baseUrl ? { ...model, baseUrl } : model;
+}
+
+function resolveOpenaiModel(modelId: string, baseUrl?: string): Model<Api> {
+  return catalogOrOpenAiCompletions('openai', modelId, 'openai', baseUrl || 'https://api.openai.com/v1');
+}
+
+function resolveOpenaiCodexModel(modelId: string, baseUrl?: string): Model<Api> {
+  const fromCodex = getModel('openai-codex', modelId as never);
+  if (fromCodex) {
+    return withOptionalBaseUrl(fromCodex, baseUrl);
+  }
+  // Same model ids as OpenAI API / ChatGPT (GPT-5.6 Sol/Terra/Luna) — Codex Responses.
+  return {
+    id: modelId,
+    name: modelId,
+    api: 'openai-codex-responses',
+    provider: 'openai-codex',
+    baseUrl: baseUrl || 'https://chatgpt.com/backend-api',
+    reasoning: true,
+    input: ['text', 'image'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 1_050_000,
+    maxTokens: 128_000,
+  };
+}
+
+function ollamaBaseUrl(baseUrl?: string): string {
+  if (!baseUrl) return OLLAMA_DEFAULT;
+  if (baseUrl.endsWith('/v1')) return baseUrl;
+  return `${baseUrl.replace(/\/$/, '')}/v1`;
+}
+
+function resolveOllamaModel(modelId: string, baseUrl?: string): Model<'openai-completions'> {
+  return openAiCompletionsModel(modelId, 'ollama', ollamaBaseUrl(baseUrl), {
+    supportsUsageInStreaming: false,
+    supportsStore: false,
+  });
+}
+
+function resolveOpenrouterModel(modelId: string, baseUrl?: string): Model<Api> {
+  return catalogOrOpenAiCompletions('openrouter', modelId, 'openrouter', baseUrl || OPENROUTER_DEFAULT, {
+    thinkingFormat: 'openrouter',
+  });
+}
+
+function resolveCopilotModel(modelId: string, baseUrl?: string): Model<Api> {
+  const fromCatalog = getModel('github-copilot', modelId as never);
+  if (fromCatalog) {
+    return withOptionalBaseUrl(fromCatalog, baseUrl);
+  }
+  return {
+    id: modelId,
+    name: modelId,
+    api: 'openai-responses',
+    provider: 'github-copilot',
+    baseUrl: baseUrl || 'https://api.githubcopilot.com',
+    reasoning: false,
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 8192,
+  };
+}
+
+function resolveDomeProviderModel(modelId: string, baseUrl?: string): Model<'openai-completions'> {
+  return openAiCompletionsModel(modelId || 'dome/auto', 'minimax', baseUrl || MINIMAX_OPENAI, {
+    supportsUsageInStreaming: true,
+    supportsStore: false,
+    maxTokensField: 'max_tokens',
+  });
+}
+
+function resolveOpencodeModel(modelId: string, baseUrl?: string): Model<Api> {
+  return catalogOrOpenAiCompletions('opencode', modelId, 'opencode', baseUrl || OPENCODE_DEFAULT);
+}
+
+function resolveOpencodeGoModel(modelId: string, baseUrl?: string): Model<Api> {
+  return catalogOrOpenAiCompletions(
+    'opencode-go',
+    modelId,
+    'opencode-go',
+    baseUrl || OPENCODE_GO_DEFAULT,
+  );
+}
+
+function resolveOpenAiCompatProvider(
+  provider: 'deepseek' | 'moonshot' | 'qwen',
+  modelId: string,
+  baseUrl: string | undefined,
+  defaultBaseUrl: string,
+): Model<'openai-completions'> {
+  return openAiCompletionsModel(modelId, provider, baseUrl || defaultBaseUrl);
+}
+
+function resolveDefaultProviderModel(
+  provider: string,
+  modelId: string,
+  baseUrl?: string,
+): Model<Api> {
+  return catalogOrOpenAiCompletions(
+    provider as KnownProvider,
+    modelId,
+    provider,
+    baseUrl || OPENROUTER_DEFAULT,
+  );
+}
+
+type DomeModelResolver = (modelId: string, baseUrl?: string) => Model<Api>;
+
+/** Known Dome Settings providers → Model builders (default handled separately). */
+const DOME_PROVIDER_RESOLVERS: Record<string, DomeModelResolver> = {
+  openai: resolveOpenaiModel,
+  anthropic: (modelId) => anthropicModel(modelId),
+  // Same Anthropic Messages API; OAuth vs API key is detected from the token shape.
+  'claude-oauth': (modelId) => anthropicModel(modelId),
+  'openai-codex': resolveOpenaiCodexModel,
+  google: (modelId) => googleModel(modelId),
+  ollama: resolveOllamaModel,
+  openrouter: resolveOpenrouterModel,
+  copilot: resolveCopilotModel,
+  minimax: (modelId, baseUrl) => minimaxModel(modelId, baseUrl),
+  dome: resolveDomeProviderModel,
+  deepseek: (modelId, baseUrl) =>
+    resolveOpenAiCompatProvider('deepseek', modelId, baseUrl, DEEPSEEK_DEFAULT),
+  moonshot: (modelId, baseUrl) =>
+    resolveOpenAiCompatProvider('moonshot', modelId, baseUrl, MOONSHOT_DEFAULT),
+  qwen: (modelId, baseUrl) => resolveOpenAiCompatProvider('qwen', modelId, baseUrl, QWEN_DEFAULT),
+  opencode: resolveOpencodeModel,
+  'opencode-go': resolveOpencodeGoModel,
+};
+
 /**
  * Map Dome Settings provider + model id to a provider `Model` for `stream()` / `complete()`.
  */
 export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
   const { provider, model, baseUrl } = opts;
   const modelId = model || 'gpt-4o-mini';
-
-  switch (provider) {
-    case 'openai': {
-      const fromCatalog = getModel('openai', modelId as never);
-      if (fromCatalog) return fromCatalog;
-      return openAiCompletionsModel(modelId, 'openai', baseUrl || 'https://api.openai.com/v1');
-    }
-    case 'anthropic':
-      return anthropicModel(modelId);
-    case 'claude-oauth':
-      // Same Anthropic Messages API; OAuth vs API key is detected from the token shape.
-      return anthropicModel(modelId);
-    case 'openai-codex': {
-      const fromCodex = getModel('openai-codex', modelId as never);
-      if (fromCodex) {
-        return baseUrl ? { ...fromCodex, baseUrl } : fromCodex;
-      }
-      // Same model ids as OpenAI API / ChatGPT (GPT-5.6 Sol/Terra/Luna) — Codex Responses.
-      return {
-        id: modelId,
-        name: modelId,
-        api: 'openai-codex-responses',
-        provider: 'openai-codex',
-        baseUrl: baseUrl || 'https://chatgpt.com/backend-api',
-        reasoning: true,
-        input: ['text', 'image'],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 1_050_000,
-        maxTokens: 128_000,
-      };
-    }
-    case 'google':
-      return googleModel(modelId);
-    case 'ollama':
-      return openAiCompletionsModel(
-        modelId,
-        'ollama',
-        baseUrl ? (baseUrl.endsWith('/v1') ? baseUrl : `${baseUrl.replace(/\/$/, '')}/v1`) : OLLAMA_DEFAULT,
-        { supportsUsageInStreaming: false, supportsStore: false },
-      );
-    case 'openrouter': {
-      const fromCatalog = getModel('openrouter', modelId as never);
-      if (fromCatalog) return fromCatalog;
-      return openAiCompletionsModel(modelId, 'openrouter', baseUrl || OPENROUTER_DEFAULT, {
-        thinkingFormat: 'openrouter',
-      });
-    }
-    case 'copilot': {
-      const fromCatalog = getModel('github-copilot', modelId as never);
-      if (fromCatalog) {
-        return baseUrl ? { ...fromCatalog, baseUrl } : fromCatalog;
-      }
-      return {
-        id: modelId,
-        name: modelId,
-        api: 'openai-responses',
-        provider: 'github-copilot',
-        baseUrl: baseUrl || 'https://api.githubcopilot.com',
-        reasoning: false,
-        input: ['text'],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128_000,
-        maxTokens: 8192,
-      };
-    }
-    case 'minimax':
-      return minimaxModel(modelId, baseUrl);
-    case 'dome':
-      return openAiCompletionsModel(modelId || 'dome/auto', 'minimax', baseUrl || MINIMAX_OPENAI, {
-        supportsUsageInStreaming: true,
-        supportsStore: false,
-        maxTokensField: 'max_tokens',
-      });
-    case 'deepseek':
-      return openAiCompletionsModel(modelId, 'deepseek', baseUrl || DEEPSEEK_DEFAULT);
-    case 'moonshot':
-      return openAiCompletionsModel(modelId, 'moonshot', baseUrl || MOONSHOT_DEFAULT);
-    case 'qwen':
-      return openAiCompletionsModel(modelId, 'qwen', baseUrl || QWEN_DEFAULT);
-    case 'opencode': {
-      const fromCatalog = getModel('opencode', modelId as never);
-      if (fromCatalog) return fromCatalog;
-      return openAiCompletionsModel(modelId, 'opencode', baseUrl || OPENCODE_DEFAULT);
-    }
-    case 'opencode-go': {
-      const fromCatalog = getModel('opencode-go', modelId as never);
-      if (fromCatalog) return fromCatalog;
-      return openAiCompletionsModel(modelId, 'opencode-go', baseUrl || OPENCODE_GO_DEFAULT);
-    }
-    default: {
-      const fromCatalog = getModel(provider as KnownProvider, modelId as never);
-      if (fromCatalog) return fromCatalog;
-      return openAiCompletionsModel(modelId, provider, baseUrl || OPENROUTER_DEFAULT);
-    }
-  }
+  const resolve = DOME_PROVIDER_RESOLVERS[provider];
+  if (resolve) return resolve(modelId, baseUrl);
+  return resolveDefaultProviderModel(provider, modelId, baseUrl);
 }
 
 /** Legacy llm-service usage shape. */
