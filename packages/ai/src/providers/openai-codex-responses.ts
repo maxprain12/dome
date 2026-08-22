@@ -1311,6 +1311,71 @@ async function* startWebSocketOutputOnFirstEvent(
 	}
 }
 
+function isCachedWebSocketTransport(transport: OpenAICodexResponsesOptions["transport"]): boolean {
+	return transport === "websocket-cached" || transport === "auto";
+}
+
+function resolveWebSocketStreamRequestBody(
+	useCachedContext: boolean,
+	entry: CachedWebSocketConnection | undefined,
+	fullBody: RequestBody,
+): RequestBody {
+	return useCachedContext && entry ? buildCachedWebSocketRequestBody(entry, fullBody) : fullBody;
+}
+
+/** Exported for unit tests — mutates WS stream request debug counters in place. */
+export function recordWebSocketStreamRequestStats(
+	stats: OpenAICodexWebSocketDebugStats | undefined,
+	reused: boolean,
+	useCachedContext: boolean,
+	requestBody: {
+		store?: boolean;
+		input?: ReadonlyArray<unknown>;
+		previous_response_id?: string;
+	},
+): void {
+	if (!stats) return;
+	stats.requests++;
+	if (reused) stats.connectionsReused++;
+	else stats.connectionsCreated++;
+	if (useCachedContext) stats.cachedContextRequests++;
+	if (requestBody.store === true) stats.storeTrueRequests++;
+	stats.lastInputItems = requestBody.input?.length ?? 0;
+	if (requestBody.previous_response_id) {
+		stats.deltaRequests++;
+		stats.lastDeltaInputItems = requestBody.input?.length ?? 0;
+		stats.lastPreviousResponseId = requestBody.previous_response_id;
+	} else {
+		stats.fullContextRequests++;
+		stats.lastDeltaInputItems = undefined;
+		stats.lastPreviousResponseId = undefined;
+	}
+}
+
+function storeWebSocketContinuationIfNeeded(
+	useCachedContext: boolean,
+	entry: CachedWebSocketConnection | undefined,
+	output: AssistantMessage,
+	model: Model<"openai-codex-responses">,
+	fullBody: RequestBody,
+): void {
+	if (!useCachedContext || !entry || !output.responseId) return;
+	const responseItems = convertResponsesMessages(model, { messages: [output] }, CODEX_TOOL_CALL_PROVIDERS, {
+		includeSystemPrompt: false,
+	}).filter((item) => item.type !== "function_call_output");
+	entry.continuation = {
+		lastRequestBody: fullBody,
+		lastResponseId: output.responseId,
+		lastResponseItems: responseItems,
+	};
+}
+
+function clearWebSocketContinuation(entry: CachedWebSocketConnection | undefined): void {
+	if (entry) {
+		entry.continuation = undefined;
+	}
+}
+
 async function processWebSocketStream(
 	url: string,
 	body: RequestBody,
@@ -1331,29 +1396,13 @@ async function processWebSocketStream(
 		websocketConnectTimeoutMs,
 	);
 	let keepConnection = true;
-	const useCachedContext = options?.transport === "websocket-cached" || options?.transport === "auto";
+	const useCachedContext = isCachedWebSocketTransport(options?.transport);
 	// ChatGPT Codex Responses rejects `store: true` ("Store must be set to false").
 	// WebSocket continuation still works via connection-scoped previous_response_id state.
 	const fullBody = body;
-	const requestBody = useCachedContext && entry ? buildCachedWebSocketRequestBody(entry, fullBody) : fullBody;
+	const requestBody = resolveWebSocketStreamRequestBody(useCachedContext, entry, fullBody);
 	const stats = options?.sessionId ? getOrCreateWebSocketDebugStats(options.sessionId) : undefined;
-	if (stats) {
-		stats.requests++;
-		if (reused) stats.connectionsReused++;
-		else stats.connectionsCreated++;
-		if (useCachedContext) stats.cachedContextRequests++;
-		if (requestBody.store === true) stats.storeTrueRequests++;
-		stats.lastInputItems = requestBody.input?.length ?? 0;
-		if (requestBody.previous_response_id) {
-			stats.deltaRequests++;
-			stats.lastDeltaInputItems = requestBody.input?.length ?? 0;
-			stats.lastPreviousResponseId = requestBody.previous_response_id;
-		} else {
-			stats.fullContextRequests++;
-			stats.lastDeltaInputItems = undefined;
-			stats.lastPreviousResponseId = undefined;
-		}
-	}
+	recordWebSocketStreamRequestStats(stats, reused, useCachedContext, requestBody);
 	try {
 		socket.send(JSON.stringify({ type: "response.create", ...requestBody }));
 		await processResponsesStream(
@@ -1374,20 +1423,11 @@ async function processWebSocketStream(
 		);
 		if (options?.signal?.aborted) {
 			keepConnection = false;
-		} else if (useCachedContext && entry && output.responseId) {
-			const responseItems = convertResponsesMessages(model, { messages: [output] }, CODEX_TOOL_CALL_PROVIDERS, {
-				includeSystemPrompt: false,
-			}).filter((item) => item.type !== "function_call_output");
-			entry.continuation = {
-				lastRequestBody: fullBody,
-				lastResponseId: output.responseId,
-				lastResponseItems: responseItems,
-			};
+		} else {
+			storeWebSocketContinuationIfNeeded(useCachedContext, entry, output, model, fullBody);
 		}
 	} catch (error) {
-		if (entry) {
-			entry.continuation = undefined;
-		}
+		clearWebSocketContinuation(entry);
 		keepConnection = false;
 		throw error;
 	} finally {
