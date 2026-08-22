@@ -19,6 +19,8 @@ type LegacyMessage = {
   };
 };
 
+type LegacyImageAttachment = NonNullable<NonNullable<LegacyMessage['attachments']>['images']>[number];
+
 function contentToUserContent(content: unknown): UserMessage['content'] {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
@@ -93,6 +95,80 @@ export function mapThinkingLevel(
   return undefined;
 }
 
+function ensureUserContentBlocks(content: UserMessage['content']): UserMessage['content'] {
+  if (typeof content !== 'string') return content;
+  return content ? [{ type: 'text' as const, text: content }] : [];
+}
+
+function appendDataUrlImages(
+  content: UserMessage['content'],
+  images: LegacyImageAttachment[],
+): UserMessage['content'] {
+  const blocks = ensureUserContentBlocks(content);
+  if (!Array.isArray(blocks)) return content;
+  for (const img of images) {
+    const match = /^data:([^;]+);base64,(.+)$/.exec(img.dataUrl || '');
+    if (match) {
+      blocks.push({ type: 'image' as const, mimeType: match[1]!, data: match[2]! });
+    }
+  }
+  return blocks;
+}
+
+function legacyUserToMessage(m: LegacyMessage, timestamp: number): UserMessage {
+  let content = contentToUserContent(m.content);
+  const images = m.attachments?.images;
+  if (images?.length) {
+    content = appendDataUrlImages(content, images);
+  }
+  return {
+    role: 'user',
+    content,
+    timestamp,
+  };
+}
+
+function isLegacyAssistantLike(m: LegacyMessage): boolean {
+  if (m.role === 'assistant') return true;
+  return 'text' in m && m.role !== 'user' && m.role !== 'tool' && m.role !== 'toolResult';
+}
+
+function toolResultText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  return JSON.stringify(content ?? '');
+}
+
+function legacyToolToMessage(m: LegacyMessage, timestamp: number): ToolResultMessage {
+  return {
+    role: 'toolResult',
+    toolCallId: m.toolCallId || 'tool',
+    toolName: m.name || 'tool',
+    content: [{ type: 'text', text: toolResultText(m.content) }],
+    isError: false,
+    timestamp,
+  };
+}
+
+/** Convert one legacy chat message into context messages (may append zero or one). */
+function appendLegacyMessage(m: LegacyMessage, contextMessages: Message[], now: number): void {
+  if (!m || typeof m !== 'object') return;
+  if (m.role === 'system') return;
+
+  if (m.role === 'user') {
+    contextMessages.push(legacyUserToMessage(m, now));
+    return;
+  }
+
+  if (isLegacyAssistantLike(m)) {
+    contextMessages.push(legacyAssistantToMessage(m, now));
+    return;
+  }
+
+  if (m.role === 'tool' || m.role === 'toolResult') {
+    contextMessages.push(legacyToolToMessage(m, now));
+  }
+}
+
 export function legacyMessagesToContext(
   systemPrompt: string,
   messages: LegacyMessage[],
@@ -102,49 +178,7 @@ export function legacyMessagesToContext(
   const now = Date.now();
 
   for (const m of messages ?? []) {
-    if (!m || typeof m !== 'object') continue;
-    if (m.role === 'system') continue;
-
-    if (m.role === 'user') {
-      let content = contentToUserContent(m.content);
-      if (m.attachments?.images?.length) {
-        if (typeof content === 'string') {
-          content = content ? [{ type: 'text' as const, text: content }] : [];
-        }
-        if (Array.isArray(content)) {
-          for (const img of m.attachments.images) {
-            const url = img.dataUrl;
-            const match = /^data:([^;]+);base64,(.+)$/.exec(url || '');
-            if (match) {
-              content.push({ type: 'image' as const, mimeType: match[1]!, data: match[2]! });
-            }
-          }
-        }
-      }
-      contextMessages.push({
-        role: 'user',
-        content,
-        timestamp: now,
-      });
-      continue;
-    }
-
-    if (m.role === 'assistant' || ('text' in m && m.role !== 'user' && m.role !== 'tool' && m.role !== 'toolResult')) {
-      contextMessages.push(legacyAssistantToMessage(m, now));
-      continue;
-    }
-
-    if (m.role === 'tool' || m.role === 'toolResult') {
-      const toolMsg: ToolResultMessage = {
-        role: 'toolResult',
-        toolCallId: m.toolCallId || 'tool',
-        toolName: m.name || 'tool',
-        content: [{ type: 'text', text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '') }],
-        isError: false,
-        timestamp: now,
-      };
-      contextMessages.push(toolMsg);
-    }
+    appendLegacyMessage(m, contextMessages, now);
   }
 
   return {
