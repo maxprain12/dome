@@ -799,6 +799,187 @@ function CardMenuLayers({
   );
 }
 
+/** Notes / artifacts stack preview + footer; media/PDF/sheets keep overlay caption. */
+function shouldUseStackedMeta(isFolderCard: boolean, p: CardPresentation): boolean {
+  return isFolderCard || p.isNoteCard || Boolean(p.artifactTemplate);
+}
+
+/** Root class list for a folder/resource card — extracted for S3776. */
+function folderCardRootClassName(opts: {
+  isFolderCard: boolean;
+  useStackedMeta: boolean;
+  p: CardPresentation;
+  searchFocused?: boolean;
+  selected: boolean;
+  menuOpen: boolean;
+  isLast?: boolean;
+}): string {
+  const { isFolderCard, useStackedMeta, p, searchFocused, selected, menuOpen, isLast } = opts;
+  return cn(
+    'dome-fs-card',
+    isFolderCard ? 'dome-fs-card--folder' : 'dome-fs-card--resource',
+    useStackedMeta && !isFolderCard && 'dome-fs-card--stacked',
+    p.isMediaCard && 'dome-fs-card--media',
+    p.isSheetCard && 'dome-fs-card--sheet',
+    p.isNoteCard && 'dome-fs-card--note',
+    p.isPdfCard && 'dome-fs-card--pdf',
+    p.artifactTemplate && 'dome-fs-card--artifact-card',
+    searchFocused && 'dome-fs-card--focused',
+    selected && 'dome-fs-card--selected',
+    menuOpen && 'dome-fs-card--menu-open',
+    isLast && 'dome-fs-card--last',
+  );
+}
+
+function commitFolderCardRename(
+  renameValue: string,
+  currentTitle: string | undefined,
+  onRename: (next: string) => void,
+): void {
+  const trimmed = renameValue.trim();
+  if (trimmed && trimmed !== currentTitle) onRename(trimmed);
+}
+
+function activateFolderCard(
+  e: React.MouseEvent,
+  renaming: boolean,
+  onToggleSelect: (e: React.MouseEvent) => void,
+  onOpen: () => void,
+): void {
+  if (renaming) return;
+  if (e.metaKey || e.ctrlKey) {
+    e.preventDefault();
+    onToggleSelect(e);
+    return;
+  }
+  onOpen();
+}
+
+function colorPickerPosFromButton(btn: HTMLButtonElement): { top: number; left: number } {
+  const rect = btn.getBoundingClientRect();
+  const popoverWidth = 220;
+  const left = Math.min(
+    Math.max(8, rect.right - popoverWidth),
+    window.innerWidth - popoverWidth - 8,
+  );
+  const top = Math.min(rect.bottom + 6, window.innerHeight - 120);
+  return { top, left };
+}
+
+/** Folder / stacked / compact body branches — extracted so FolderCardImpl stays under S3776. */
+function FolderCardBody({
+  item,
+  isFolderCard,
+  renaming,
+  useStackedMeta,
+  p,
+  visual,
+  searchQuery,
+  previewRef,
+  chrome,
+  stackedFooter,
+  onActivate,
+}: {
+  item: Resource;
+  isFolderCard: boolean;
+  renaming: boolean;
+  useStackedMeta: boolean;
+  p: CardPresentation;
+  visual: ResourceVisualPreview;
+  searchQuery?: string;
+  previewRef: React.Ref<HTMLDivElement>;
+  chrome: ReactNode;
+  stackedFooter: ReactNode;
+  onActivate: (e: React.MouseEvent) => void;
+}) {
+  if (isFolderCard) {
+    return (
+      <>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+        <div
+          className="dome-fs-card__cover dome-fs-card__cover--folder cursor-pointer"
+          onClick={onActivate}
+          style={p.hasCustomFolderColor
+            ? { background: `color-mix(in srgb, ${p.typeColor} 14%, var(--card))` }
+            : undefined}
+        >
+          {chrome}
+          <CoverPreviewContent
+            item={item}
+            isFolderCard
+            p={p}
+            visual={visual}
+            searchQuery={searchQuery}
+          />
+        </div>
+        {stackedFooter}
+      </>
+    );
+  }
+
+  if (renaming) return stackedFooter;
+
+  if (useStackedMeta) {
+    return (
+      <>
+        <div ref={previewRef} className="dome-fs-card__surface">
+          <Button
+            type="button"
+            variant="ghost"
+            className={cn(
+              'dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked h-auto',
+              p.artifactTemplate && 'dome-fs-card__cover--artifact',
+            )}
+            onClick={onActivate}
+            aria-label={p.displayTitle}
+          >
+            {chrome}
+            <CoverPreviewContent
+              item={item}
+              isFolderCard={false}
+              p={p}
+              visual={visual}
+              searchQuery={searchQuery}
+            />
+          </Button>
+        </div>
+        {stackedFooter}
+      </>
+    );
+  }
+
+  return (
+    <div ref={previewRef} className="dome-fs-card__surface">
+      <Button
+        type="button"
+        variant="ghost"
+        className={cn(
+          'dome-fs-card__cover dome-fs-card__cover--resource h-auto',
+          p.artifactTemplate && 'dome-fs-card__cover--artifact',
+        )}
+        onClick={onActivate}
+        aria-label={p.displayTitle}
+      >
+        {chrome}
+        <CoverPreviewContent
+          item={item}
+          isFolderCard={false}
+          p={p}
+          visual={visual}
+          searchQuery={searchQuery}
+        />
+        {p.isVideoCard ? (
+          <span className="dome-fs-card__play-badge" aria-hidden>
+            <HugeiconsIcon icon={PlayIcon} fill="currentColor" strokeWidth={0} />
+          </span>
+        ) : null}
+        <div className="dome-fs-card__scrim" aria-hidden />
+        <ResourceCaption p={p} searchQuery={searchQuery} />
+      </Button>
+    </div>
+  );
+}
+
 function FolderCardImpl({
   item,
   isFolder,
@@ -845,33 +1026,20 @@ function FolderCardImpl({
   const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
   const isFolderCard = isFolder;
   const p = deriveCardPresentation(item, isFolder, visual, searchQuery, t);
+  const useStackedMeta = shouldUseStackedMeta(isFolderCard, p);
 
   const commitRename = () => {
-    const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== item.title) onRename(trimmed);
+    commitFolderCardRename(renameValue, item.title, onRename);
     setRenaming(false);
   };
 
   const handleCardActivate = (e: React.MouseEvent) => {
-    if (renaming) return;
-    if (e.metaKey || e.ctrlKey) {
-      e.preventDefault();
-      onToggleSelect(e);
-      return;
-    }
-    onOpen();
+    activateFolderCard(e, renaming, onToggleSelect, onOpen);
   };
 
   const openColorPicker = () => {
     if (!menuBtnRef.current) return;
-    const rect = menuBtnRef.current.getBoundingClientRect();
-    const popoverWidth = 220;
-    const left = Math.min(
-      Math.max(8, rect.right - popoverWidth),
-      window.innerWidth - popoverWidth - 8,
-    );
-    const top = Math.min(rect.bottom + 6, window.innerHeight - 120);
-    setColorPickerPos({ top, left });
+    setColorPickerPos(colorPickerPosFromButton(menuBtnRef.current));
   };
 
   const chrome = (
@@ -888,10 +1056,6 @@ function FolderCardImpl({
       t={t}
     />
   );
-
-  // Notes / artifacts: preview + footer (titles can be long — never overlay).
-  // Media / PDF / sheets keep the compact overlay caption.
-  const useStackedMeta = isFolderCard || p.isNoteCard || Boolean(p.artifactTemplate);
 
   const stackedFooter = (
     <FolderFooter
@@ -911,20 +1075,15 @@ function FolderCardImpl({
   return (
     <div
       ref={cardRef}
-      className={cn(
-        'dome-fs-card',
-        isFolderCard ? 'dome-fs-card--folder' : 'dome-fs-card--resource',
-        useStackedMeta && !isFolderCard && 'dome-fs-card--stacked',
-        p.isMediaCard && 'dome-fs-card--media',
-        p.isSheetCard && 'dome-fs-card--sheet',
-        p.isNoteCard && 'dome-fs-card--note',
-        p.isPdfCard && 'dome-fs-card--pdf',
-        p.artifactTemplate && 'dome-fs-card--artifact-card',
-        searchFocused && 'dome-fs-card--focused',
-        selected && 'dome-fs-card--selected',
-        menuOpen && 'dome-fs-card--menu-open',
-        isLast && 'dome-fs-card--last',
-      )}
+      className={folderCardRootClassName({
+        isFolderCard,
+        useStackedMeta,
+        p,
+        searchFocused,
+        selected,
+        menuOpen,
+        isLast,
+      })}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onContextMenu={(e) => {
@@ -934,90 +1093,19 @@ function FolderCardImpl({
         setMenuOpen(true);
       }}
     >
-      {isFolderCard ? (
-        <>
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-          <div
-            className="dome-fs-card__cover dome-fs-card__cover--folder cursor-pointer"
-            onClick={handleCardActivate}
-            style={p.hasCustomFolderColor
-              ? { background: `color-mix(in srgb, ${p.typeColor} 14%, var(--card))` }
-              : undefined}
-          >
-            {chrome}
-            <CoverPreviewContent
-              item={item}
-              isFolderCard
-              p={p}
-              visual={visual}
-              searchQuery={searchQuery}
-            />
-          </div>
-          {stackedFooter}
-        </>
-      ) : renaming ? (
-        stackedFooter
-      ) : useStackedMeta ? (
-        <>
-          <div
-            ref={previewRef as unknown as React.Ref<HTMLDivElement>}
-            className="dome-fs-card__surface"
-          >
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(
-                'dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked h-auto',
-                p.artifactTemplate && 'dome-fs-card__cover--artifact',
-              )}
-              onClick={handleCardActivate}
-              aria-label={p.displayTitle}
-            >
-              {chrome}
-              <CoverPreviewContent
-                item={item}
-                isFolderCard={false}
-                p={p}
-                visual={visual}
-                searchQuery={searchQuery}
-              />
-            </Button>
-          </div>
-          {stackedFooter}
-        </>
-      ) : (
-        <div
-          ref={previewRef as unknown as React.Ref<HTMLDivElement>}
-          className="dome-fs-card__surface"
-        >
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn(
-              'dome-fs-card__cover dome-fs-card__cover--resource h-auto',
-              p.artifactTemplate && 'dome-fs-card__cover--artifact',
-            )}
-            onClick={handleCardActivate}
-            aria-label={p.displayTitle}
-          >
-            {chrome}
-            <CoverPreviewContent
-              item={item}
-              isFolderCard={false}
-              p={p}
-              visual={visual}
-              searchQuery={searchQuery}
-            />
-            {p.isVideoCard ? (
-              <span className="dome-fs-card__play-badge" aria-hidden>
-                <HugeiconsIcon icon={PlayIcon} fill="currentColor" strokeWidth={0} />
-              </span>
-            ) : null}
-            <div className="dome-fs-card__scrim" aria-hidden />
-            <ResourceCaption p={p} searchQuery={searchQuery} />
-          </Button>
-        </div>
-      )}
+      <FolderCardBody
+        item={item}
+        isFolderCard={isFolderCard}
+        renaming={renaming}
+        useStackedMeta={useStackedMeta}
+        p={p}
+        visual={visual}
+        searchQuery={searchQuery}
+        previewRef={previewRef as unknown as React.Ref<HTMLDivElement>}
+        chrome={chrome}
+        stackedFooter={stackedFooter}
+        onActivate={handleCardActivate}
+      />
 
       <CardMenuLayers
         item={item}
