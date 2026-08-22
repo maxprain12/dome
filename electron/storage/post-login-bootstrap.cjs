@@ -30,71 +30,124 @@ const BOOTSTRAP_DOMAIN_ORDER = [
 ];
 
 /**
+ * Best-effort remote profile probe — a non-empty name means cloud data exists.
+ * Extracted so `runPostLoginBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} database
+ * @returns {Promise<boolean>}
+ */
+async function probeHadRemoteProfile(database) {
+  try {
+    const profile = await domeOauth.getRemoteProfile(database);
+    return Boolean(profile?.name?.trim());
+  } catch (err) {
+    console.warn('[post-login-bootstrap] profile fetch failed:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * Pull each bootstrap domain in order; returns true if any apply count > 0.
+ * Extracted so `runPostLoginBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} deps
+ * @param {string[]} domains
+ * @param {(payload: object) => void} emit
+ * @returns {Promise<boolean>}
+ */
+async function syncBootstrapDomains(deps, domains, emit) {
+  let appliedAny = false;
+  for (let i = 0; i < domains.length; i += 1) {
+    const domain = domains[i];
+    emit({ phase: 'domain', domain, index: i, total: domains.length });
+    try {
+      const result = await domainSync.syncDomain(deps, domain);
+      if (result && typeof result === 'object' && Number(result.applied) > 0) {
+        appliedAny = true;
+      }
+    } catch (err) {
+      console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
+    }
+  }
+  return appliedAny;
+}
+
+/**
+ * Vault file bytes + Many session bodies after domain manifests are local.
+ * Extracted so `runPostLoginBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} deps
+ * @param {object} db
+ * @param {(payload: object) => void} emit
+ * @returns {Promise<void>}
+ */
+async function hydrateBootstrapBlobs(deps, db, emit) {
+  emit({ phase: 'files' });
+  try {
+    const blobSync = require('./blob-sync.cjs');
+    await blobSync.run(deps);
+  } catch (err) {
+    console.warn('[post-login-bootstrap] blob hydration failed:', err?.message);
+  }
+  try {
+    const manySessionSync = require('./many-session-sync.cjs');
+    await manySessionSync.restoreMissingSessions(deps, db);
+  } catch (err) {
+    console.warn('[post-login-bootstrap] session restore failed:', err?.message);
+  }
+}
+
+/**
+ * Cloud-UI restore path: ordered domain pulls, optional blob hydration, settings delta.
+ * Extracted so `runPostLoginBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} deps
+ * @param {object} entitlements
+ * @returns {Promise<boolean>} whether remote data was applied
+ */
+async function restoreCloudUiBootstrap(deps, entitlements) {
+  const { database, windowManager } = deps;
+  const db = database.getDB?.();
+  const settingsBefore = db ? settingsSyncBridge.countSyncedSettings(db) : 0;
+  const emit = (payload) => windowManager?.broadcast?.('domain-sync:progress', payload);
+
+  const domains = BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
+    entitlements.features.includes(planGate.featureForDomain(d)),
+  );
+  emit({ phase: 'start', domains });
+
+  let hadRemoteData = await syncBootstrapDomains(deps, domains, emit);
+
+  if (entitlements.features.includes('cloud_sync') && db) {
+    await hydrateBootstrapBlobs(deps, db, emit);
+  }
+
+  emit({ phase: 'done' });
+
+  if (db && settingsSyncBridge.countSyncedSettings(db) > settingsBefore) {
+    hadRemoteData = true;
+  }
+  return hadRemoteData;
+}
+
+/**
  * @param {object} deps
  * @param {object} deps.database
  * @param {object} [deps.windowManager]
  * @returns {Promise<{ hadRemoteData: boolean, entitlements?: object }>}
  */
 async function runPostLoginBootstrap(deps) {
-  const { database, windowManager } = deps;
+  const { database } = deps;
   planGate.invalidateEntitlementsCache();
 
   const sessionMgr = require('../auth/dome-session-manager.cjs');
   await sessionMgr.refreshSessionIfNeeded();
 
   const ent = await planGate.getEntitlements(database, { forceRefresh: true });
-  let hadRemoteData = false;
-
-  try {
-    const profile = await domeOauth.getRemoteProfile(database);
-    if (profile?.name?.trim()) hadRemoteData = true;
-  } catch (err) {
-    console.warn('[post-login-bootstrap] profile fetch failed:', err?.message);
-  }
+  let hadRemoteData = await probeHadRemoteProfile(database);
 
   if (ent.entitlements.showCloudUi) {
-    const db = database.getDB?.();
-    const settingsBefore = db ? settingsSyncBridge.countSyncedSettings(db) : 0;
-    const emit = (payload) => windowManager?.broadcast?.('domain-sync:progress', payload);
-
-    const domains = BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
-      ent.entitlements.features.includes(planGate.featureForDomain(d)),
-    );
-    emit({ phase: 'start', domains });
-
-    for (let i = 0; i < domains.length; i += 1) {
-      const domain = domains[i];
-      emit({ phase: 'domain', domain, index: i, total: domains.length });
-      try {
-        const result = await domainSync.syncDomain(deps, domain);
-        if (result && typeof result === 'object' && Number(result.applied) > 0) {
-          hadRemoteData = true;
-        }
-      } catch (err) {
-        console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
-      }
-    }
-
-    // Bytes: vault files + Many session bodies referenced by the pulled manifests.
-    if (ent.entitlements.features.includes('cloud_sync') && db) {
-      emit({ phase: 'files' });
-      try {
-        const blobSync = require('./blob-sync.cjs');
-        await blobSync.run(deps);
-      } catch (err) {
-        console.warn('[post-login-bootstrap] blob hydration failed:', err?.message);
-      }
-      try {
-        const manySessionSync = require('./many-session-sync.cjs');
-        await manySessionSync.restoreMissingSessions(deps, db);
-      } catch (err) {
-        console.warn('[post-login-bootstrap] session restore failed:', err?.message);
-      }
-    }
-
-    emit({ phase: 'done' });
-
-    if (db && settingsSyncBridge.countSyncedSettings(db) > settingsBefore) {
+    if (await restoreCloudUiBootstrap(deps, ent.entitlements)) {
       hadRemoteData = true;
     }
   }
@@ -102,4 +155,11 @@ async function runPostLoginBootstrap(deps) {
   return { hadRemoteData, entitlements: ent.entitlements };
 }
 
-module.exports = { runPostLoginBootstrap, BOOTSTRAP_DOMAIN_ORDER };
+module.exports = {
+  runPostLoginBootstrap,
+  BOOTSTRAP_DOMAIN_ORDER,
+  probeHadRemoteProfile,
+  syncBootstrapDomains,
+  hydrateBootstrapBlobs,
+  restoreCloudUiBootstrap,
+};
