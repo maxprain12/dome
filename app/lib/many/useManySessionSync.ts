@@ -16,6 +16,68 @@ import { syncManyDeletedIdsFromDb } from '@/lib/store/manySessionStorage';
 
 const SESSION_LOAD_RETRY_MS = [0, 250, 600, 1200] as const;
 
+type ManyThreadMessages = Awaited<ReturnType<typeof fetchManyMessagesFromThread>>;
+type ApplyThreadLoadResult = 'applied' | 'retry' | 'skip';
+
+function isManySessionLoadStale(
+  cancelled: boolean,
+  expectedSessionId: string,
+  currentSessionId: string | null,
+): boolean {
+  return cancelled || currentSessionId !== expectedSessionId;
+}
+
+/** Fetch JSONL messages; `null` means retry the next delay. */
+async function fetchManyThreadMessagesForLoad(
+  sessionId: string,
+): Promise<ManyThreadMessages | null> {
+  try {
+    return await fetchManyMessagesFromThread(sessionId);
+  } catch (error) {
+    console.warn('[Many] Could not load session from JSONL:', error);
+    return null;
+  }
+}
+
+/**
+ * Merge a thread snapshot into the store when safe.
+ * Extracted so `loadWithRetry` stays under Sonar S3776.
+ */
+function applyManyThreadMessagesToSession(
+  sessionId: string,
+  threadMessages: ManyThreadMessages,
+  hydrateSession: (session: ManyChatSession) => void,
+): ApplyThreadLoadResult {
+  if (threadMessages.length === 0) {
+    if (useManyStore.getState().messages.length > 0) return 'skip';
+    return 'retry';
+  }
+
+  const store = useManyStore.getState();
+  // Don't clobber an in-flight turn with a partial JSONL snapshot.
+  if (store.activeRunBySessionId[sessionId]) return 'skip';
+
+  const localMessages = store.messages;
+  if (localMessages.length > threadMessages.length) return 'skip';
+
+  const merged = mergeManySessionMessages(localMessages, threadMessages);
+  const localSession = store.sessions.find((s) => s.id === sessionId);
+  const firstUser = merged.find((m) => m.role === 'user')?.content ?? '';
+  hydrateSession({
+    id: sessionId,
+    title: deriveManySessionTitle({
+      storedTitle: localSession?.title,
+      messages: merged,
+      firstUser,
+    }),
+    messages: merged,
+    createdAt: localSession?.createdAt ?? merged[0]?.timestamp ?? Date.now(),
+    updatedAt: merged[merged.length - 1]?.timestamp ?? localSession?.updatedAt,
+    pinned: localSession?.pinned,
+  } satisfies ManyChatSession);
+  return 'applied';
+}
+
 export interface UseManySessionSyncOptions {
   chatProjectId: string;
   showHistory: boolean;
@@ -94,43 +156,14 @@ export function useManySessionSync({ chatProjectId, showHistory }: UseManySessio
     const loadWithRetry = async () => {
       for (const delay of SESSION_LOAD_RETRY_MS) {
         if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-        if (cancelled || currentSessionIdRef.current !== sessionId) return;
+        if (isManySessionLoadStale(cancelled, sessionId, currentSessionIdRef.current)) return;
 
-        let threadMessages: Awaited<ReturnType<typeof fetchManyMessagesFromThread>> = [];
-        try {
-          threadMessages = await fetchManyMessagesFromThread(sessionId);
-        } catch (error) {
-          console.warn('[Many] Could not load session from JSONL:', error);
-          continue;
-        }
-        if (cancelled || currentSessionIdRef.current !== sessionId) return;
-        if (threadMessages.length === 0) {
-          if (useManyStore.getState().messages.length > 0) return;
-          continue;
-        }
+        const threadMessages = await fetchManyThreadMessagesForLoad(sessionId);
+        if (threadMessages === null) continue;
+        if (isManySessionLoadStale(cancelled, sessionId, currentSessionIdRef.current)) return;
 
-        const store = useManyStore.getState();
-        // Don't clobber an in-flight turn with a partial JSONL snapshot.
-        if (store.activeRunBySessionId[sessionId]) return;
-
-        const localMessages = store.messages;
-        if (localMessages.length > threadMessages.length) return;
-
-        const merged = mergeManySessionMessages(localMessages, threadMessages);
-        const localSession = store.sessions.find((s) => s.id === sessionId);
-        const firstUser = merged.find((m) => m.role === 'user')?.content ?? '';
-        hydrateSession({
-          id: sessionId,
-          title: deriveManySessionTitle({
-            storedTitle: localSession?.title,
-            messages: merged,
-            firstUser,
-          }),
-          messages: merged,
-          createdAt: localSession?.createdAt ?? merged[0]?.timestamp ?? Date.now(),
-          updatedAt: merged[merged.length - 1]?.timestamp ?? localSession?.updatedAt,
-          pinned: localSession?.pinned,
-        } satisfies ManyChatSession);
+        const result = applyManyThreadMessagesToSession(sessionId, threadMessages, hydrateSession);
+        if (result === 'retry') continue;
         return;
       }
     };
