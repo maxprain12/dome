@@ -334,6 +334,187 @@ function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers
 // The card chrome (bg, border, shadow, radius) comes from PopoverContent.
 const menuShellClass = 'flex max-h-[min(400px,60vh)] w-full flex-col overflow-hidden';
 
+/** Sub-view title for nested plus-menu chrome — extracted for S3776. */
+function plusMenuSubTitle(
+  view: PlusMenuView,
+  t: (key: string) => string,
+  toolsSectionLabelKey: NonNullable<ChatComposerPlusMenuContentProps['toolsSectionLabelKey']>,
+): string {
+  if (view === 'skills') return t('chat.plus_skills');
+  if (view === 'tools') return t(toolsSectionLabelKey);
+  return '';
+}
+
+/** Close-only top bar (root / flat) — extracted for S3776. */
+function PlusMenuCloseOnlyBar({ onClose, label }: { onClose?: () => void; label: string }) {
+  if (!onClose) return null;
+  return (
+    <div className="flex shrink-0 justify-end border-b border-border px-2 py-0.5">
+      <PlusMenuCloseButton onClose={onClose} label={label} />
+    </div>
+  );
+}
+
+/** Back + title (+ optional close) for nested sub-views — extracted for S3776. */
+function PlusMenuSubViewHeader({
+  subTitle,
+  onBack,
+  backLabel,
+  onCloseMenu,
+  closeLabel,
+}: {
+  subTitle: string;
+  onBack: () => void;
+  backLabel: string;
+  onCloseMenu?: () => void;
+  closeLabel: string;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b border-border p-2">
+      <Button type="button" variant="ghost" size="icon-sm" onClick={onBack} aria-label={backLabel}>
+        <HugeiconsIcon icon={ChevronLeftIcon} />
+      </Button>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">{subTitle}</span>
+      {onCloseMenu ? <PlusMenuCloseButton onClose={onCloseMenu} label={closeLabel} /> : null}
+    </div>
+  );
+}
+
+/** Nested menu chrome: sub-view header or root close bar — extracted for S3776. */
+function PlusMenuNestedChrome({
+  view,
+  subTitle,
+  onBack,
+  backLabel,
+  onCloseMenu,
+  closeLabel,
+}: {
+  view: PlusMenuView;
+  subTitle: string;
+  onBack: () => void;
+  backLabel: string;
+  onCloseMenu?: () => void;
+  closeLabel: string;
+}) {
+  if (view !== 'root') {
+    return (
+      <PlusMenuSubViewHeader
+        subTitle={subTitle}
+        onBack={onBack}
+        backLabel={backLabel}
+        onCloseMenu={onCloseMenu}
+        closeLabel={closeLabel}
+      />
+    );
+  }
+  return <PlusMenuCloseOnlyBar onClose={onCloseMenu} label={closeLabel} />;
+}
+
+type PlusMenuScrollBodyProps = {
+  t: (key: string) => string;
+  showAttach: boolean;
+  onAttach: () => void;
+  showAddContext: boolean;
+  onAddContext: () => void;
+  showSlashSkills: boolean;
+  onSlashSkills?: () => void;
+  showHashMcp: boolean;
+  onHashMcp?: () => void;
+  showSkillsNav: boolean;
+  skillsHandlers: ChatComposerSkillsHandlers | null;
+  setView: (view: PlusMenuView) => void;
+  showToolsNav: boolean;
+  disableQuick?: boolean;
+  manyCapabilities?: ManyCapabilitiesBlockProps | null;
+};
+
+/** Quick actions + optional capabilities (root / flat scroll body) — extracted for S3776. */
+function PlusMenuRootScrollBody(p: PlusMenuScrollBodyProps) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
+      <PlusMenuQuickActions
+        t={p.t}
+        showAttach={p.showAttach}
+        onAttach={p.onAttach}
+        showAddContext={p.showAddContext}
+        onAddContext={p.onAddContext}
+        showSlashSkills={p.showSlashSkills}
+        onSlashSkills={p.onSlashSkills}
+        showHashMcp={p.showHashMcp}
+        onHashMcp={p.onHashMcp}
+        showSkillsNav={p.showSkillsNav}
+        skillsHandlers={p.skillsHandlers}
+        setView={p.setView}
+        showToolsNav={p.showToolsNav}
+        disableQuick={p.disableQuick}
+      />
+      {p.manyCapabilities ? (
+        <PlusMenuCapabilitiesSection manyCapabilities={p.manyCapabilities} t={p.t} />
+      ) : null}
+    </div>
+  );
+}
+
+/** Flat layout (no skills/tools nav) — extracted for S3776. */
+function PlusMenuFlatLayout({
+  t,
+  onCloseMenu,
+  manyCapabilities,
+  setView,
+  ...quick
+}: PlusMenuScrollBodyProps & { onCloseMenu?: () => void }) {
+  return (
+    <div className={menuShellClass}>
+      <PlusMenuCloseOnlyBar onClose={onCloseMenu} label={t('common.close')} />
+      <PlusMenuRootScrollBody
+        t={t}
+        {...quick}
+        setView={setView}
+        showSkillsNav={false}
+        skillsHandlers={null}
+        showToolsNav={false}
+        manyCapabilities={manyCapabilities}
+      />
+    </div>
+  );
+}
+
+/** Nested scroll body: root / skills / tools panes — extracted for S3776. */
+function PlusMenuNestedScrollBody({
+  view,
+  onCloseMenu,
+  toolsSlot,
+  ...root
+}: PlusMenuScrollBodyProps & {
+  view: PlusMenuView;
+  onCloseMenu?: () => void;
+  toolsSlot?: React.ReactNode;
+}) {
+  if (view === 'skills' && root.skillsHandlers) {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
+        <PlusMenuSkillsList
+          handlers={{
+            ...root.skillsHandlers,
+            onCloseMenu: root.skillsHandlers.onCloseMenu ?? onCloseMenu,
+          }}
+        />
+      </div>
+    );
+  }
+  if (view === 'tools' && toolsSlot) {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
+        <div className="px-0 pb-0.5">{toolsSlot}</div>
+      </div>
+    );
+  }
+  if (view === 'root') {
+    return <PlusMenuRootScrollBody {...root} />;
+  }
+  return <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2" />;
+}
+
 export function ChatComposerPlusMenuContent({
   showAttach,
   onAttach,
@@ -356,101 +537,39 @@ export function ChatComposerPlusMenuContent({
 
   const showSkillsNav = Boolean(skillsHandlers);
   const showToolsNav = Boolean(toolsSlot);
+  const quickProps: PlusMenuScrollBodyProps = {
+    t,
+    showAttach,
+    onAttach,
+    showAddContext,
+    onAddContext,
+    showSlashSkills,
+    onSlashSkills,
+    showHashMcp,
+    onHashMcp,
+    showSkillsNav,
+    skillsHandlers,
+    setView,
+    showToolsNav,
+    disableQuick,
+    manyCapabilities,
+  };
 
   if (menuLayout === 'flat') {
-    return (
-      <div className={menuShellClass}>
-        {onCloseMenu ? (
-          <div className="flex shrink-0 justify-end border-b border-border px-2 py-0.5">
-            <PlusMenuCloseButton onClose={onCloseMenu} label={t('common.close')} />
-          </div>
-        ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
-          <PlusMenuQuickActions
-            t={t}
-            showAttach={showAttach}
-            onAttach={onAttach}
-            showAddContext={showAddContext}
-            onAddContext={onAddContext}
-            showSlashSkills={showSlashSkills}
-            onSlashSkills={onSlashSkills}
-            showHashMcp={showHashMcp}
-            onHashMcp={onHashMcp}
-            showSkillsNav={false}
-            skillsHandlers={null}
-            setView={setView}
-            showToolsNav={false}
-            disableQuick={disableQuick}
-          />
-          {manyCapabilities ? <PlusMenuCapabilitiesSection manyCapabilities={manyCapabilities} t={t} /> : null}
-        </div>
-      </div>
-    );
+    return <PlusMenuFlatLayout {...quickProps} onCloseMenu={onCloseMenu} />;
   }
-
-  const subTitle =
-    view === 'skills'
-      ? t('chat.plus_skills')
-      : view === 'tools'
-        ? t(toolsSectionLabelKey)
-        : '';
 
   return (
     <div className={menuShellClass}>
-      {view !== 'root' ? (
-        <div className="flex shrink-0 items-center gap-1 border-b border-border p-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setView('root')}
-            aria-label={t('chat.plus_menu_back')}
-          >
-            <HugeiconsIcon icon={ChevronLeftIcon} />
-          </Button>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{subTitle}</span>
-          {onCloseMenu ? <PlusMenuCloseButton onClose={onCloseMenu} label={t('common.close')} /> : null}
-        </div>
-      ) : onCloseMenu ? (
-        <div className="flex shrink-0 justify-end border-b border-border px-2 py-0.5">
-          <PlusMenuCloseButton onClose={onCloseMenu} label={t('common.close')} />
-        </div>
-      ) : null}
-
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
-        {view === 'root' ? (
-          <>
-            <PlusMenuQuickActions
-              t={t}
-              showAttach={showAttach}
-              onAttach={onAttach}
-              showAddContext={showAddContext}
-              onAddContext={onAddContext}
-              showSlashSkills={showSlashSkills}
-              onSlashSkills={onSlashSkills}
-              showHashMcp={showHashMcp}
-              onHashMcp={onHashMcp}
-              showSkillsNav={showSkillsNav}
-              skillsHandlers={skillsHandlers}
-              setView={setView}
-              showToolsNav={showToolsNav}
-              disableQuick={disableQuick}
-            />
-            {manyCapabilities ? <PlusMenuCapabilitiesSection manyCapabilities={manyCapabilities} t={t} /> : null}
-          </>
-        ) : null}
-
-        {view === 'skills' && skillsHandlers ? (
-          <PlusMenuSkillsList
-            handlers={{
-              ...skillsHandlers,
-              onCloseMenu: skillsHandlers.onCloseMenu ?? onCloseMenu,
-            }}
-          />
-        ) : null}
-
-        {view === 'tools' && toolsSlot ? <div className="px-0 pb-0.5">{toolsSlot}</div> : null}
-      </div>
+      <PlusMenuNestedChrome
+        view={view}
+        subTitle={plusMenuSubTitle(view, t, toolsSectionLabelKey)}
+        onBack={() => setView('root')}
+        backLabel={t('chat.plus_menu_back')}
+        onCloseMenu={onCloseMenu}
+        closeLabel={t('common.close')}
+      />
+      <PlusMenuNestedScrollBody {...quickProps} view={view} onCloseMenu={onCloseMenu} toolsSlot={toolsSlot} />
     </div>
   );
 }
