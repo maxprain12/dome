@@ -288,6 +288,46 @@ export function truncateTail(content: string, options: TruncationOptions = {}): 
 	};
 }
 
+/** UTF-8 byte length for a non-surrogate BMP code unit. */
+function bmpUtf8ByteLength(code: number): number {
+	if (code <= 0x7f) return 1;
+	if (code <= 0x7ff) return 2;
+	return 3;
+}
+
+interface Utf8CharFromEnd {
+	characterStart: number;
+	characterBytes: number;
+	unpairedSurrogate: boolean;
+}
+
+/**
+ * Read one UTF-8 character ending at `endExclusive` (exclusive index), walking backwards.
+ * Surrogate pairs count as 4 bytes; unpaired surrogates as 3 (replacement later).
+ */
+function readUtf8CharFromEnd(str: string, endExclusive: number): Utf8CharFromEnd {
+	const characterStart = endExclusive - 1;
+	const code = str.charCodeAt(characterStart);
+
+	if (code >= 0xdc00 && code <= 0xdfff && characterStart > 0) {
+		const previous = str.charCodeAt(characterStart - 1);
+		if (previous >= 0xd800 && previous <= 0xdbff) {
+			return { characterStart: characterStart - 1, characterBytes: 4, unpairedSurrogate: false };
+		}
+		return { characterStart, characterBytes: 3, unpairedSurrogate: true };
+	}
+
+	if (code >= 0xd800 && code <= 0xdfff) {
+		return { characterStart, characterBytes: 3, unpairedSurrogate: true };
+	}
+
+	return {
+		characterStart,
+		characterBytes: bmpUtf8ByteLength(code),
+		unpairedSurrogate: false,
+	};
+}
+
 /**
  * Truncate a string to fit within a byte limit (from the end).
  * Handles multi-byte UTF-8 characters correctly.
@@ -299,25 +339,7 @@ function truncateStringToBytesFromEnd(str: string, maxBytes: number): string {
 	let start = str.length;
 	let needsReplacement = false;
 	for (let i = str.length; i > 0; ) {
-		let characterStart = i - 1;
-		const code = str.charCodeAt(characterStart);
-		let characterBytes: number;
-		let unpairedSurrogate = false;
-		if (code >= 0xdc00 && code <= 0xdfff && characterStart > 0) {
-			const previous = str.charCodeAt(characterStart - 1);
-			if (previous >= 0xd800 && previous <= 0xdbff) {
-				characterStart--;
-				characterBytes = 4;
-			} else {
-				characterBytes = 3;
-				unpairedSurrogate = true;
-			}
-		} else if (code >= 0xd800 && code <= 0xdfff) {
-			characterBytes = 3;
-			unpairedSurrogate = true;
-		} else {
-			characterBytes = code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
-		}
+		const { characterStart, characterBytes, unpairedSurrogate } = readUtf8CharFromEnd(str, i);
 		if (outputBytes + characterBytes > maxBytes) break;
 		outputBytes += characterBytes;
 		start = characterStart;
