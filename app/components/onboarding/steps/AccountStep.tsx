@@ -35,6 +35,65 @@ const ERROR_CODE_TO_KEY: Record<string, string> = {
 
 const MIN_PASSWORD_LENGTH = 8;
 
+type AccountComplete = AccountStepProps['onComplete'];
+type NativeLoginResult = Awaited<ReturnType<NonNullable<typeof window.electron>['domeAuth']['nativeLogin']>>;
+
+/** Map native-login error codes to i18n keys — extracted for S3776. */
+function accountAuthErrorKey(errorCode: string | undefined): string {
+  if (!errorCode) return 'onboarding.account_error_generic';
+  return ERROR_CODE_TO_KEY[errorCode] ?? 'onboarding.account_error_generic';
+}
+
+/**
+ * Choice-view "Next": local complete or switch to login/register.
+ * Extracted so `handleNext` stays under Sonar S3776.
+ */
+function applyAccountChoice(
+  choice: AccountChoice | null,
+  onComplete: AccountComplete,
+  goToAuthSubView: (view: 'login' | 'register') => void,
+): void {
+  if (choice === 'local') {
+    onComplete({ mode: 'local' });
+    return;
+  }
+  if (choice === 'login' || choice === 'register') {
+    goToAuthSubView(choice);
+  }
+}
+
+/**
+ * Apply nativeLogin success / pending / error without nesting in `handleNext`.
+ * Extracted for S3776.
+ */
+function applyNativeLoginResult(
+  result: NativeLoginResult,
+  opts: {
+    trimmedEmail: string;
+    trimmedName: string;
+    isRegister: boolean;
+    onComplete: AccountComplete;
+    setError: (key: string) => void;
+    setPendingConfirmation: (value: boolean) => void;
+  },
+): void {
+  if (!result.success) {
+    opts.setError(accountAuthErrorKey(result.errorCode));
+    return;
+  }
+  if (result.pendingConfirmation) {
+    opts.setPendingConfirmation(true);
+    return;
+  }
+  opts.onComplete({
+    mode: 'account',
+    email: result.email ?? opts.trimmedEmail,
+    name: result.name ?? (opts.isRegister ? opts.trimmedName : undefined),
+    hadRemoteData: Boolean(result.hadRemoteData),
+    alreadyOnboarded: Boolean(result.alreadyOnboarded),
+  });
+}
+
 export default function AccountStep({ onComplete, onValidationChange, onSubViewChange }: AccountStepProps) {
   const { t } = useTranslation();
   const [subView, setSubView] = useState<SubView>('choice');
@@ -70,58 +129,37 @@ export default function AccountStep({ onComplete, onValidationChange, onSubViewC
 
   const handleNext = useCallback(async () => {
     if (subView === 'choice') {
-      if (choice === 'local') {
-        onComplete({ mode: 'local' });
-        return;
-      }
-      if (choice === 'login') {
-        setSubView('login');
+      applyAccountChoice(choice, onComplete, (view) => {
+        setSubView(view);
         setError(null);
-        return;
-      }
-      if (choice === 'register') {
-        setSubView('register');
-        setError(null);
-        return;
-      }
+      });
       return;
     }
 
     const isRegister = subView === 'register';
-    const formNameValid = isRegister ? nameValid : true;
-
-    if (!emailValid || !passwordValid || !formNameValid) {
+    if (!emailValid || !passwordValid || (isRegister && !nameValid)) {
       setTouched({ name: true, email: true, password: true });
       return;
     }
 
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
     setIsSubmitting(true);
     setError(null);
     try {
       const result = await window.electron.domeAuth.nativeLogin(
-        email.trim(),
+        trimmedEmail,
         password,
         isRegister,
-        isRegister ? name.trim() : undefined,
+        isRegister ? trimmedName : undefined,
       );
-      if (!result.success) {
-        setError(
-          result.errorCode
-            ? ERROR_CODE_TO_KEY[result.errorCode] ?? 'onboarding.account_error_generic'
-            : 'onboarding.account_error_generic',
-        );
-        return;
-      }
-      if (result.pendingConfirmation) {
-        setPendingConfirmation(true);
-        return;
-      }
-      onComplete({
-        mode: 'account',
-        email: result.email ?? email.trim(),
-        name: result.name ?? (isRegister ? name.trim() : undefined),
-        hadRemoteData: Boolean(result.hadRemoteData),
-        alreadyOnboarded: Boolean(result.alreadyOnboarded),
+      applyNativeLoginResult(result, {
+        trimmedEmail,
+        trimmedName,
+        isRegister,
+        onComplete,
+        setError,
+        setPendingConfirmation,
       });
     } catch {
       setError('onboarding.account_error_generic');
