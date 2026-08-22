@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import type { ReactNode, Dispatch, SetStateAction, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -543,6 +544,438 @@ function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
   );
 }
 
+
+/** Map all-day / timed local inputs to ISO bounds — extracted for S3776. */
+function resolveEventSaveRange(
+  allDay: boolean,
+  startAt: string,
+  endAt: string,
+): { startIso: string; endIso: string } {
+  if (allDay) {
+    return {
+      startIso: localDateTimeToIso(`${startAt.slice(0, 10)}T00:00`),
+      endIso: localDateTimeToIso(`${endAt.slice(0, 10)}T23:59`),
+    };
+  }
+  const startIso = localDateTimeToIso(startAt);
+  let endIso = localDateTimeToIso(endAt);
+  if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+    endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
+  }
+  return { startIso, endIso };
+}
+
+/** Accent label for local read-only chrome — extracted for S3776. */
+function localEventAccentLabel(
+  event: CalendarEvent,
+  pipelineInfo: PipelineDetail | null,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (event.calendar_title) return event.calendar_title;
+  if (pipelineInfo) return pipelineInfo.pipelineName ?? t('tabs.pipelines');
+  if (isSocialEvent(event)) return t('tabs.social');
+  return 'Local';
+}
+
+/** Header icon for local read-only chrome — extracted for S3776. */
+function localEventHeaderIcon(
+  event: CalendarEvent,
+  pipelineInfo: PipelineDetail | null,
+): ReactNode {
+  if (pipelineInfo) {
+    return <HugeiconsIcon icon={WorkflowSquare01Icon} />;
+  }
+  if (isSocialEvent(event)) {
+    return <HugeiconsIcon icon={Share08Icon} />;
+  }
+  return <HugeiconsIcon icon={Calendar03Icon} />;
+}
+
+function EventScheduleFields({
+  allDay,
+  startAt,
+  endAt,
+  onStartAtChange,
+  onEndAtChange,
+  onStartDateChange,
+  onEndDateChange,
+}: {
+  allDay: boolean;
+  startAt: string;
+  endAt: string;
+  onStartAtChange: (next: string) => void;
+  onEndAtChange: (next: string) => void;
+  onStartDateChange: (d: string) => void;
+  onEndDateChange: (d: string) => void;
+}) {
+  const { t } = useTranslation();
+  if (!allDay) {
+    return (
+      <>
+        <DateTimePicker
+          id="event-modal-start-dt"
+          label={t('calendarPage.event_start')}
+          value={startAt}
+          onChange={onStartAtChange}
+        />
+        <DateTimePicker
+          id="event-modal-end-dt"
+          label={t('calendarPage.event_end')}
+          value={endAt}
+          onChange={onEndAtChange}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <DatePicker
+        id="event-modal-start-date"
+        label={t('calendarPage.start_date')}
+        value={startAt.slice(0, 10)}
+        onChange={onStartDateChange}
+        clearable={false}
+      />
+      <DatePicker
+        id="event-modal-end-date"
+        label={t('calendarPage.end_date')}
+        value={endAt.slice(0, 10)}
+        onChange={onEndDateChange}
+        clearable={false}
+      />
+    </>
+  );
+}
+
+function GithubEventModalView({
+  event,
+  githubUrl,
+  accent,
+  onClose,
+}: {
+  event: CalendarEvent;
+  githubUrl: string | null;
+  accent: string;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  return (
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={event.calendar_title ?? 'GitHub'}
+        title={event.title}
+        description={formatEventWhen(event, i18n.language)}
+        icon={<HugeiconsIcon icon={GithubIcon} />}
+        footer={
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            {githubUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => { window.electron?.invoke?.('open-external-url', githubUrl);
+                }}
+              >
+                <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
+                {t('github.calendar_view_on_github')}
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" onClick={onClose}>
+              {t('common.close', { defaultValue: 'Cerrar' })}
+            </Button>
+          </div>
+        }
+      >
+        <GithubEventBody event={event} githubUrl={githubUrl} />
+      </EventDetailChrome>
+  );
+}
+
+function LocalEventReadOnlyView({
+  event,
+  accent,
+  pipelineInfo,
+  linkedTitles,
+  deleting,
+  locale,
+  onClose,
+  onEdit,
+  onDelete,
+  onOpenPipeline,
+  onOpenSocial,
+  onOpenResource,
+}: {
+  event: CalendarEvent;
+  accent: string;
+  pipelineInfo: PipelineDetail | null;
+  linkedTitles: Record<string, string>;
+  deleting: boolean;
+  locale: string;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete?: () => void;
+  onOpenPipeline: () => void;
+  onOpenSocial: () => void;
+  onOpenResource: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const accentLabel = localEventAccentLabel(event, pipelineInfo, t);
+  const headerIcon = localEventHeaderIcon(event, pipelineInfo);
+
+  return (
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={accentLabel}
+        title={event.title}
+        description={formatEventWhen(event, locale)}
+        icon={headerIcon}
+        footer={
+          <>
+            {onDelete ? (
+              <DeleteEventAction deleting={deleting} onConfirm={() => onDelete?.()} />
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" onClick={onEdit} size="sm">
+                <HugeiconsIcon icon={PencilEdit02Icon} className="size-4" />
+                {t('common.edit', { defaultValue: 'Edit' })}
+              </Button>
+              <Button onClick={onClose} size="sm">
+                {t('common.close', { defaultValue: 'Close' })}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <LocalEventDetail
+          event={event}
+          locale={locale}
+          pipeline={pipelineInfo}
+          linkedTitles={linkedTitles}
+          onOpenPipeline={onOpenPipeline}
+          onOpenSocial={onOpenSocial}
+          onOpenResource={onOpenResource}
+        />
+      </EventDetailChrome>
+    
+  );
+}
+
+function EventEditFormView({
+  event,
+  accent,
+  title,
+  setTitle,
+  description,
+  setDescription,
+  location,
+  setLocation,
+  allDay,
+  setAllDay,
+  startAt,
+  setStartAt,
+  endAt,
+  setEndAt,
+  updateStartAt,
+  updateEndAt,
+  resourceIds,
+  setResourceIds,
+  personIds,
+  setPersonIds,
+  linkedTitles,
+  setLinkedTitles,
+  linkedTypes: _linkedTypes,
+  setLinkedTypes,
+  pickerOpen,
+  setPickerOpen,
+  projectId,
+  saving,
+  deleting,
+  onClose,
+  onDelete,
+  handleSubmit,
+  handleDelete,
+  openLinkedResource,
+}: {
+  event?: CalendarEvent | null;
+  accent: string;
+  title: string;
+  setTitle: (v: string) => void;
+  description: string;
+  setDescription: (v: string) => void;
+  location: string;
+  setLocation: (v: string) => void;
+  allDay: boolean;
+  setAllDay: (v: boolean) => void;
+  startAt: string;
+  setStartAt: (v: string) => void;
+  endAt: string;
+  setEndAt: (v: string) => void;
+  updateStartAt: (v: string) => void;
+  updateEndAt: (v: string) => void;
+  resourceIds: string[];
+  setResourceIds: Dispatch<SetStateAction<string[]>>;
+  personIds: string[];
+  setPersonIds: Dispatch<SetStateAction<string[]>>;
+  linkedTitles: Record<string, string>;
+  setLinkedTitles: Dispatch<SetStateAction<Record<string, string>>>;
+  linkedTypes: Record<string, string>;
+  setLinkedTypes: Dispatch<SetStateAction<Record<string, string>>>;
+  pickerOpen: boolean;
+  setPickerOpen: (v: boolean) => void;
+  projectId: string;
+  saving: boolean;
+  deleting: boolean;
+  onClose: () => void;
+  onDelete?: (eventId: string) => Promise<void>;
+  handleSubmit: (e: FormEvent) => void;
+  handleDelete: () => void;
+  openLinkedResource: (id: string) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  return (
+    <>
+      <EventDetailChrome
+        onClose={onClose}
+        accent={accent}
+        accentLabel={
+          event?.calendar_title
+          ?? (event ? 'Local' : t('calendarPage.new_event_short'))
+        }
+        title={event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
+        description={event ? formatEventWhen(event, i18n.language) : undefined}
+        icon={<HugeiconsIcon icon={Calendar03Icon} />}
+        badges={
+          allDay ? (
+            <Badge variant="outline" className="font-normal">
+              {t('calendarPage.all_day')}
+            </Badge>
+          ) : undefined
+        }
+        footer={
+          <>
+            {event && onDelete ? (
+              <DeleteEventAction deleting={deleting} onConfirm={() => handleDelete()} />
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                form="event-modal-form"
+                size="sm"
+                disabled={saving || !title.trim()}
+                loading={saving}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <form id="event-modal-form" onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-4">
+          <Field className="min-w-0 gap-1.5">
+            <FieldLabel htmlFor="event-modal-title-input" className="text-xs">
+              {t('common.name')}
+            </FieldLabel>
+            <Input
+              id="event-modal-title-input"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t('calendarPage.event_title_placeholder')}
+              required
+              className="min-w-0"
+            />
+          </Field>
+
+          <Field className="min-w-0 gap-1.5">
+            <FieldLabel htmlFor="event-modal-location" className="text-xs">
+              {t('common.location')}
+            </FieldLabel>
+            <Input
+              id="event-modal-location"
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={t('calendarPage.event_location_placeholder')}
+              className="min-w-0"
+            />
+          </Field>
+
+          <FieldLabel className="flex items-center gap-2 text-sm font-normal">
+            <Checkbox
+              checked={allDay}
+              onCheckedChange={(checked) => setAllDay(checked === true)}
+            />
+            {t('calendarPage.all_day')}
+          </FieldLabel>
+
+          <EventScheduleFields
+            allDay={allDay}
+            startAt={startAt}
+            endAt={endAt}
+            onStartAtChange={updateStartAt}
+            onEndAtChange={updateEndAt}
+            onStartDateChange={(d) => setStartAt(`${d}T00:00`)}
+            onEndDateChange={(d) => setEndAt(`${d}T23:59`)}
+          />
+
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="event-modal-description" className="text-xs">
+              {t('common.description')}
+            </FieldLabel>
+            <Textarea
+              id="event-modal-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="resize-none"
+              placeholder={t('calendarPage.event_notes_placeholder')}
+            />
+          </Field>
+
+          <LinkedResourcesSection
+            resourceIds={resourceIds}
+            titles={linkedTitles}
+            editable
+            onOpen={openLinkedResource}
+            onRemove={(id) => setResourceIds((prev) => prev.filter((x) => x !== id))}
+            onAdd={() => setPickerOpen(true)}
+          />
+
+          <PeoplePicker
+            projectId={projectId}
+            personIds={personIds}
+            onChange={setPersonIds}
+            editable
+            namespace="calendarPage"
+          />
+        </form>
+      </EventDetailChrome>
+      <ResourcePickerModal
+        opened={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        projectId={projectId}
+        title={t('calendarPage.link_resource')}
+        onSelect={(resource: Resource) => {
+          setResourceIds((prev) => (prev.includes(resource.id) ? prev : [...prev, resource.id]));
+          setLinkedTitles((prev) => ({ ...prev, [resource.id]: resource.title }));
+          setLinkedTypes((prev) => ({ ...prev, [resource.id]: resource.type }));
+          setPickerOpen(false);
+        }}
+      />
+    </>
+  
+  );
+}
+
 interface EventModalProps {
   event?: CalendarEvent | null;
   initialDate?: Date;
@@ -691,18 +1124,7 @@ export default function EventModal({
     if (!title.trim()) return;
     setSaving(true);
     try {
-      let startIso: string;
-      let endIso: string;
-      if (allDay) {
-        startIso = localDateTimeToIso(`${startAt.slice(0, 10)}T00:00`);
-        endIso = localDateTimeToIso(`${endAt.slice(0, 10)}T23:59`);
-      } else {
-        startIso = localDateTimeToIso(startAt);
-        endIso = localDateTimeToIso(endAt);
-        if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
-          endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
-        }
-      }
+      const { startIso, endIso } = resolveEventSaveRange(allDay, startAt, endAt);
       await onSave({
         title: title.trim(),
         description: description.trim() || undefined,
@@ -736,263 +1158,81 @@ export default function EventModal({
     }
   };
 
+
   const accent = event?.calendar_color ?? 'var(--primary)';
 
   if (githubEvent && event) {
     return (
-      <EventDetailChrome
-        onClose={onClose}
+      <GithubEventModalView
+        event={event}
+        githubUrl={githubUrl}
         accent={accent}
-        accentLabel={event.calendar_title ?? 'GitHub'}
-        title={event.title}
-        description={formatEventWhen(event, i18n.language)}
-        icon={<HugeiconsIcon icon={GithubIcon} />}
-        footer={
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            {githubUrl ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => { window.electron?.invoke?.('open-external-url', githubUrl);
-                }}
-              >
-                <HugeiconsIcon icon={ExternalLinkIcon} data-icon="inline-start" />
-                {t('github.calendar_view_on_github')}
-              </Button>
-            ) : null}
-            <Button type="button" size="sm" onClick={onClose}>
-              {t('common.close', { defaultValue: 'Cerrar' })}
-            </Button>
-          </div>
-        }
-      >
-        <GithubEventBody event={event} githubUrl={githubUrl} />
-      </EventDetailChrome>
+        onClose={onClose}
+      />
     );
   }
 
-  // Read-only detail view for existing (non-GitHub) events. "Edit" switches to
-  // the form; pipeline-sourced events show extended, relevant info.
   if (event && !editing) {
-    const accentLabel =
-      event.calendar_title
-      ?? (pipelineInfo
-        ? (pipelineInfo.pipelineName ?? t('tabs.pipelines'))
-        : isSocialEvent(event)
-          ? t('tabs.social')
-          : 'Local');
-    const headerIcon = pipelineInfo
-      ? <HugeiconsIcon icon={WorkflowSquare01Icon} />
-      : isSocialEvent(event)
-        ? <HugeiconsIcon icon={Share08Icon} />
-        : <HugeiconsIcon icon={Calendar03Icon} />;
-
     return (
-      <EventDetailChrome
-        onClose={onClose}
+      <LocalEventReadOnlyView
+        event={event}
         accent={accent}
-        accentLabel={accentLabel}
-        title={event.title}
-        description={formatEventWhen(event, i18n.language)}
-        icon={headerIcon}
-        footer={
-          <>
-            {onDelete ? (
-              <DeleteEventAction deleting={deleting} onConfirm={() => handleDelete()} />
-            ) : (
-              <span />
-            )}
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditing(true)} size="sm">
-                <HugeiconsIcon icon={PencilEdit02Icon} className="size-4" />
-                {t('common.edit', { defaultValue: 'Edit' })}
-              </Button>
-              <Button onClick={onClose} size="sm">
-                {t('common.close', { defaultValue: 'Close' })}
-              </Button>
-            </div>
-          </>
-        }
-      >
-        <LocalEventDetail
-          event={event}
-          locale={i18n.language}
-          pipeline={pipelineInfo}
-          linkedTitles={linkedTitles}
-          onOpenPipeline={() => {
-            openPipelinesTab();
-            onClose();
-          }}
-          onOpenSocial={() => {
-            openSocialTab();
-            onClose();
-          }}
-          onOpenResource={openLinkedResource}
-        />
-      </EventDetailChrome>
+        pipelineInfo={pipelineInfo}
+        linkedTitles={linkedTitles}
+        deleting={deleting}
+        locale={i18n.language}
+        onClose={onClose}
+        onEdit={() => setEditing(true)}
+        onDelete={onDelete ? () => { void handleDelete(); } : undefined}
+        onOpenPipeline={() => {
+          openPipelinesTab();
+          onClose();
+        }}
+        onOpenSocial={() => {
+          openSocialTab();
+          onClose();
+        }}
+        onOpenResource={openLinkedResource}
+      />
     );
   }
 
   return (
-    <>
-      <EventDetailChrome
-        onClose={onClose}
-        accent={accent}
-        accentLabel={
-          event?.calendar_title
-          ?? (event ? 'Local' : t('calendarPage.new_event_short'))
-        }
-        title={event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
-        description={event ? formatEventWhen(event, i18n.language) : undefined}
-        icon={<HugeiconsIcon icon={Calendar03Icon} />}
-        badges={
-          allDay ? (
-            <Badge variant="outline" className="font-normal">
-              {t('calendarPage.all_day')}
-            </Badge>
-          ) : undefined
-        }
-        footer={
-          <>
-            {event && onDelete ? (
-              <DeleteEventAction deleting={deleting} onConfirm={() => handleDelete()} />
-            ) : (
-              <span />
-            )}
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                type="submit"
-                form="event-modal-form"
-                size="sm"
-                disabled={saving || !title.trim()}
-                loading={saving}
-              >
-                {t('common.save')}
-              </Button>
-            </div>
-          </>
-        }
-      >
-        <form id="event-modal-form" onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-4">
-          <Field className="min-w-0 gap-1.5">
-            <FieldLabel htmlFor="event-modal-title-input" className="text-xs">
-              {t('common.name')}
-            </FieldLabel>
-            <Input
-              id="event-modal-title-input"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('calendarPage.event_title_placeholder')}
-              required
-              className="min-w-0"
-            />
-          </Field>
-
-          <Field className="min-w-0 gap-1.5">
-            <FieldLabel htmlFor="event-modal-location" className="text-xs">
-              {t('common.location')}
-            </FieldLabel>
-            <Input
-              id="event-modal-location"
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder={t('calendarPage.event_location_placeholder')}
-              className="min-w-0"
-            />
-          </Field>
-
-          <FieldLabel className="flex items-center gap-2 text-sm font-normal">
-            <Checkbox
-              checked={allDay}
-              onCheckedChange={(checked) => setAllDay(checked === true)}
-            />
-            {t('calendarPage.all_day')}
-          </FieldLabel>
-
-          {!allDay ? (
-            <>
-              <DateTimePicker
-                id="event-modal-start-dt"
-                label={t('calendarPage.event_start')}
-                value={startAt}
-                onChange={updateStartAt}
-              />
-              <DateTimePicker
-                id="event-modal-end-dt"
-                label={t('calendarPage.event_end')}
-                value={endAt}
-                onChange={updateEndAt}
-              />
-            </>
-          ) : (
-            <>
-              <DatePicker
-                id="event-modal-start-date"
-                label={t('calendarPage.start_date')}
-                value={startAt.slice(0, 10)}
-                onChange={(d) => setStartAt(`${d}T00:00`)}
-                clearable={false}
-              />
-              <DatePicker
-                id="event-modal-end-date"
-                label={t('calendarPage.end_date')}
-                value={endAt.slice(0, 10)}
-                onChange={(d) => setEndAt(`${d}T23:59`)}
-                clearable={false}
-              />
-            </>
-          )}
-
-          <Field className="gap-1.5">
-            <FieldLabel htmlFor="event-modal-description" className="text-xs">
-              {t('common.description')}
-            </FieldLabel>
-            <Textarea
-              id="event-modal-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="resize-none"
-              placeholder={t('calendarPage.event_notes_placeholder')}
-            />
-          </Field>
-
-          <LinkedResourcesSection
-            resourceIds={resourceIds}
-            titles={linkedTitles}
-            editable
-            onOpen={openLinkedResource}
-            onRemove={(id) => setResourceIds((prev) => prev.filter((x) => x !== id))}
-            onAdd={() => setPickerOpen(true)}
-          />
-
-          <PeoplePicker
-            projectId={projectId}
-            personIds={personIds}
-            onChange={setPersonIds}
-            editable
-            namespace="calendarPage"
-          />
-        </form>
-      </EventDetailChrome>
-      <ResourcePickerModal
-        opened={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        projectId={projectId}
-        title={t('calendarPage.link_resource')}
-        onSelect={(resource: Resource) => {
-          setResourceIds((prev) => (prev.includes(resource.id) ? prev : [...prev, resource.id]));
-          setLinkedTitles((prev) => ({ ...prev, [resource.id]: resource.title }));
-          setLinkedTypes((prev) => ({ ...prev, [resource.id]: resource.type }));
-          setPickerOpen(false);
-        }}
-      />
-    </>
+    <EventEditFormView
+      event={event}
+      accent={accent}
+      title={title}
+      setTitle={setTitle}
+      description={description}
+      setDescription={setDescription}
+      location={location}
+      setLocation={setLocation}
+      allDay={allDay}
+      setAllDay={setAllDay}
+      startAt={startAt}
+      setStartAt={setStartAt}
+      endAt={endAt}
+      setEndAt={setEndAt}
+      updateStartAt={updateStartAt}
+      updateEndAt={updateEndAt}
+      resourceIds={resourceIds}
+      setResourceIds={setResourceIds}
+      personIds={personIds}
+      setPersonIds={setPersonIds}
+      linkedTitles={linkedTitles}
+      setLinkedTitles={setLinkedTitles}
+      linkedTypes={linkedTypes}
+      setLinkedTypes={setLinkedTypes}
+      pickerOpen={pickerOpen}
+      setPickerOpen={setPickerOpen}
+      projectId={projectId}
+      saving={saving}
+      deleting={deleting}
+      onClose={onClose}
+      onDelete={onDelete}
+      handleSubmit={handleSubmit}
+      handleDelete={handleDelete}
+      openLinkedResource={openLinkedResource}
+    />
   );
 }
