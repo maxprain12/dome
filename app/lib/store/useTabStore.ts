@@ -165,40 +165,68 @@ function generateTabId() {
 
 const STORAGE_KEY = 'dome:tabs-v1';
 
+function defaultTabsState(): { tabs: DomeTab[]; activeTabId: string } {
+  return { tabs: [HOME_TAB], activeTabId: HOME_TAB_ID };
+}
+
+/**
+ * Drop project-scoped tabs from a different project so documents generated in
+ * project A never resurface when Dome reopens in project B. Unscoped tabs
+ * (settings, calendar, …) survive. Extracted so `loadStoredTabs` stays under S3776.
+ * @internal Exported for unit tests (S3776 helpers).
+ */
+export function filterTabsForActiveProject(
+  tabs: DomeTab[],
+  activeProjectId?: string | null,
+): DomeTab[] {
+  if (activeProjectId == null) return tabs;
+  return tabs.filter((t) => !isProjectScopedTab(t) || t.projectId === activeProjectId);
+}
+
+/** Home is pinned and must survive any cleanup. @internal Exported for unit tests (S3776 helpers). */
+export function ensureHomeTab(tabs: DomeTab[]): DomeTab[] {
+  if (tabs.some((t) => t.id === HOME_TAB_ID)) return tabs;
+  return [HOME_TAB, ...tabs];
+}
+
+/**
+ * Prefer the stored active id when it still exists so ContentRouter never
+ * shows an endless Loading spinner on startup.
+ * @internal Exported for unit tests (S3776 helpers).
+ */
+export function resolveStoredActiveTabId(tabs: DomeTab[], storedActiveId: unknown): string {
+  const candidate = (storedActiveId as string | null | undefined) ?? HOME_TAB_ID;
+  return tabs.some((t) => t.id === candidate) ? candidate : HOME_TAB_ID;
+}
+
+/**
+ * Hydrate tabs + activeTabId from a parsed localStorage payload.
+ * Extracted so `loadStoredTabs` stays under Sonar S3776.
+ * @internal Exported for unit tests (S3776 helpers).
+ */
+export function tabsFromParsedPayload(
+  parsed: { tabs: DomeTab[]; activeTabId?: unknown },
+  activeProjectId?: string | null,
+): { tabs: DomeTab[]; activeTabId: string } {
+  if (parsed.tabs.length === 0) return defaultTabsState();
+  const tabs = ensureHomeTab(filterTabsForActiveProject(parsed.tabs, activeProjectId));
+  return { tabs, activeTabId: resolveStoredActiveTabId(tabs, parsed.activeTabId) };
+}
+
 function loadStoredTabs(activeProjectId?: string | null): { tabs: DomeTab[]; activeTabId: string } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
-        let storedTabs = parsed.tabs as DomeTab[];
-        // Drop project-scoped tabs from a different project so documents
-        // generated in project A never resurface when the user reopens
-        // Dome in project B. Unscoped tabs (settings, calendar, …) survive.
-        if (activeProjectId != null) {
-          storedTabs = storedTabs.filter(
-            (t) => !isProjectScopedTab(t) || t.projectId === activeProjectId,
-          );
-        }
-        // Ensure the home tab is always present (pinned, must survive any cleanup)
-        const hasHome = storedTabs.some((t) => t.id === HOME_TAB_ID);
-        const tabs = hasHome ? storedTabs : [HOME_TAB, ...storedTabs];
-        // Ensure activeTabId points to an existing tab so ContentRouter never
-        // shows an endless <Loading /> spinner on startup
-        const storedActiveId = parsed.activeTabId ?? HOME_TAB_ID;
-        const activeTabId = tabs.some((t) => t.id === storedActiveId)
-          ? storedActiveId
-          : HOME_TAB_ID;
-        return { tabs, activeTabId };
-      }
-      if (Array.isArray(parsed.tabs) && parsed.tabs.length === 0) {
-        return { tabs: [HOME_TAB], activeTabId: HOME_TAB_ID };
-      }
-    }
+    if (!raw) return defaultTabsState();
+    const parsed = JSON.parse(raw) as { tabs?: unknown; activeTabId?: unknown };
+    if (!Array.isArray(parsed.tabs)) return defaultTabsState();
+    return tabsFromParsedPayload(
+      { tabs: parsed.tabs as DomeTab[], activeTabId: parsed.activeTabId },
+      activeProjectId,
+    );
   } catch {
     // ignore
   }
-  return { tabs: [HOME_TAB], activeTabId: HOME_TAB_ID };
+  return defaultTabsState();
 }
 
 function saveTabs(tabs: DomeTab[], activeTabId: string) {
