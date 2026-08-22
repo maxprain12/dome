@@ -1080,7 +1080,240 @@ function isValidToolCallName(name: unknown): name is string {
 	return typeof name === "string" && name.trim().length > 0;
 }
 
-function convertMessages(
+/** Returns null when the message converts to empty content and must be skipped. */
+function convertUserMessage(msg: Extract<Message, { role: "user" }>): MessageParam | null {
+	if (typeof msg.content === "string") {
+		if (msg.content.trim().length === 0) return null;
+		return {
+			role: "user",
+			content: sanitizeSurrogates(msg.content),
+		};
+	}
+
+	const blocks: ContentBlockParam[] = msg.content.map((item) => {
+		if (item.type === "text") {
+			return {
+				type: "text",
+				text: sanitizeSurrogates(item.text),
+			};
+		}
+		return {
+			type: "image",
+			source: {
+				type: "base64",
+				media_type: item.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+				data: item.data,
+			},
+		};
+	});
+	const filteredBlocks = blocks.filter((b) => (b.type === "text" ? b.text.trim().length > 0 : true));
+	if (filteredBlocks.length === 0) return null;
+	return {
+		role: "user",
+		content: filteredBlocks,
+	};
+}
+
+function appendThinkingBlock(
+	blocks: ContentBlockParam[],
+	block: ThinkingContent,
+	allowEmptySignature: boolean,
+): void {
+	// Redacted thinking: pass the opaque payload back as redacted_thinking
+	if (block.redacted) {
+		blocks.push({
+			type: "redacted_thinking",
+			data: block.thinkingSignature!,
+		});
+		return;
+	}
+	if (block.thinking.trim().length === 0) return;
+	// If thinking signature is missing/empty (e.g., from aborted stream),
+	// convert to plain text for Anthropic. Some compatible providers emit
+	// and accept empty signatures, so let marked models preserve the block.
+	if (!block.thinkingSignature || block.thinkingSignature.trim().length === 0) {
+		blocks.push(
+			allowEmptySignature
+				? {
+						type: "thinking",
+						thinking: sanitizeSurrogates(block.thinking),
+						signature: "",
+					}
+				: {
+						type: "text",
+						text: sanitizeSurrogates(block.thinking),
+					},
+		);
+		return;
+	}
+	blocks.push({
+		type: "thinking",
+		thinking: sanitizeSurrogates(block.thinking),
+		signature: block.thinkingSignature,
+	});
+}
+
+/**
+ * Returns null when the assistant message has no emit-able blocks.
+ * Callers still need the empty-toolCall branch for MiniMax orphan tracking.
+ */
+function convertAssistantMessage(
+	msg: AssistantMessage,
+	isOAuthToken: boolean,
+	allowEmptySignature: boolean,
+): { message: MessageParam; includedToolUseIds: Set<string> } | null {
+	const blocks: ContentBlockParam[] = [];
+	const includedToolUseIds = new Set<string>();
+
+	for (const block of msg.content) {
+		if (block.type === "text") {
+			if (block.text.trim().length === 0) continue;
+			blocks.push({
+				type: "text",
+				text: sanitizeSurrogates(block.text),
+			});
+			continue;
+		}
+		if (block.type === "thinking") {
+			appendThinkingBlock(blocks, block, allowEmptySignature);
+			continue;
+		}
+		if (block.type !== "toolCall") continue;
+		const toolName = isOAuthToken ? toClaudeCodeName(block.name) : block.name;
+		// MiniMax rejects tool_use blocks with an empty name (error 2013).
+		if (!isValidToolCallName(toolName)) continue;
+		includedToolUseIds.add(block.id);
+		blocks.push({
+			type: "tool_use",
+			id: block.id,
+			name: toolName,
+			input: block.arguments ?? {},
+		});
+	}
+
+	if (blocks.length === 0) return null;
+	return {
+		message: {
+			role: "assistant",
+			content: blocks,
+		},
+		includedToolUseIds,
+	};
+}
+
+/**
+ * Convert a run of consecutive toolResult messages starting at startIndex.
+ * Orphan results (tool_use dropped above) are skipped to avoid MiniMax 2013.
+ */
+function convertToolResultGroup(
+	transformedMessages: Message[],
+	startIndex: number,
+	lastIncludedToolUseIds: Set<string>,
+): { message: MessageParam | null; endIndex: number } {
+	const toolResults: ContentBlockParam[] = [];
+	let j = startIndex;
+
+	while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
+		const toolMsg = transformedMessages[j] as ToolResultMessage;
+		j++;
+		if (!lastIncludedToolUseIds.has(toolMsg.toolCallId)) continue;
+		toolResults.push({
+			type: "tool_result",
+			tool_use_id: toolMsg.toolCallId,
+			content: convertContentBlocks(toolMsg.content),
+			is_error: toolMsg.isError,
+		});
+	}
+
+	const endIndex = j - 1;
+	if (toolResults.length === 0) {
+		return { message: null, endIndex };
+	}
+	return {
+		message: {
+			role: "user",
+			content: toolResults,
+		},
+		endIndex,
+	};
+}
+
+/** Stamp cache_control on the last user message to cache conversation history. */
+function applyCacheControlToLastUserMessage(
+	params: MessageParam[],
+	cacheControl: CacheControlEphemeral,
+): void {
+	if (params.length === 0) return;
+	const lastMessage = params[params.length - 1];
+	if (lastMessage.role !== "user") return;
+
+	if (Array.isArray(lastMessage.content)) {
+		const lastBlock = lastMessage.content[lastMessage.content.length - 1];
+		if (
+			lastBlock &&
+			(lastBlock.type === "text" || lastBlock.type === "image" || lastBlock.type === "tool_result")
+		) {
+			(lastBlock as { cache_control?: CacheControlEphemeral }).cache_control = cacheControl;
+		}
+		return;
+	}
+
+	if (typeof lastMessage.content === "string") {
+		lastMessage.content = [
+			{
+				type: "text",
+				text: lastMessage.content,
+				cache_control: cacheControl,
+			},
+		] as ContentBlockParam[];
+	}
+}
+
+/**
+ * Process a single transformed message and append converted params.
+ * Returns the index of the last consumed message and updated tool_use id set.
+ */
+function processMessage(
+	transformedMessages: Message[],
+	index: number,
+	lastIncludedToolUseIds: Set<string>,
+	isOAuthToken: boolean,
+	allowEmptySignature: boolean,
+	params: MessageParam[],
+): { index: number; lastIncludedToolUseIds: Set<string> } {
+	const msg = transformedMessages[index];
+
+	switch (msg.role) {
+		case "user": {
+			const userMsg = convertUserMessage(msg);
+			if (userMsg) params.push(userMsg);
+			return { index, lastIncludedToolUseIds };
+		}
+		case "assistant": {
+			const converted = convertAssistantMessage(msg, isOAuthToken, allowEmptySignature);
+			if (!converted) {
+				if (msg.content.some((block) => block.type === "toolCall")) {
+					return { index, lastIncludedToolUseIds: new Set() };
+				}
+				return { index, lastIncludedToolUseIds };
+			}
+			params.push(converted.message);
+			return { index, lastIncludedToolUseIds: converted.includedToolUseIds };
+		}
+		case "toolResult": {
+			const group = convertToolResultGroup(transformedMessages, index, lastIncludedToolUseIds);
+			if (group.message) params.push(group.message);
+			return { index: group.endIndex, lastIncludedToolUseIds };
+		}
+		default: {
+			const _exhaustive: never = msg;
+			void _exhaustive;
+			return { index, lastIncludedToolUseIds };
+		}
+	}
+}
+
+export function convertMessages(
 	messages: Message[],
 	model: Model<"anthropic-messages">,
 	isOAuthToken: boolean,
@@ -1096,182 +1329,20 @@ function convertMessages(
 	let lastIncludedToolUseIds = new Set<string>();
 
 	for (let i = 0; i < transformedMessages.length; i++) {
-		const msg = transformedMessages[i];
-
-		if (msg.role === "user") {
-			if (typeof msg.content === "string") {
-				if (msg.content.trim().length > 0) {
-					params.push({
-						role: "user",
-						content: sanitizeSurrogates(msg.content),
-					});
-				}
-			} else {
-				const blocks: ContentBlockParam[] = msg.content.map((item) => {
-					if (item.type === "text") {
-						return {
-							type: "text",
-							text: sanitizeSurrogates(item.text),
-						};
-					} else {
-						return {
-							type: "image",
-							source: {
-								type: "base64",
-								media_type: item.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-								data: item.data,
-							},
-						};
-					}
-				});
-				const filteredBlocks = blocks.filter((b) => {
-					if (b.type === "text") {
-						return b.text.trim().length > 0;
-					}
-					return true;
-				});
-				if (filteredBlocks.length === 0) continue;
-				params.push({
-					role: "user",
-					content: filteredBlocks,
-				});
-			}
-		} else if (msg.role === "assistant") {
-			const blocks: ContentBlockParam[] = [];
-			const includedToolUseIds = new Set<string>();
-
-			for (const block of msg.content) {
-				if (block.type === "text") {
-					if (block.text.trim().length === 0) continue;
-					blocks.push({
-						type: "text",
-						text: sanitizeSurrogates(block.text),
-					});
-				} else if (block.type === "thinking") {
-					// Redacted thinking: pass the opaque payload back as redacted_thinking
-					if (block.redacted) {
-						blocks.push({
-							type: "redacted_thinking",
-							data: block.thinkingSignature!,
-						});
-						continue;
-					}
-					if (block.thinking.trim().length === 0) continue;
-					// If thinking signature is missing/empty (e.g., from aborted stream),
-					// convert to plain text for Anthropic. Some compatible providers emit
-					// and accept empty signatures, so let marked models preserve the block.
-					if (!block.thinkingSignature || block.thinkingSignature.trim().length === 0) {
-						blocks.push(
-							allowEmptySignature
-								? {
-										type: "thinking",
-										thinking: sanitizeSurrogates(block.thinking),
-										signature: "",
-									}
-								: {
-										type: "text",
-										text: sanitizeSurrogates(block.thinking),
-									},
-						);
-					} else {
-						blocks.push({
-							type: "thinking",
-							thinking: sanitizeSurrogates(block.thinking),
-							signature: block.thinkingSignature,
-						});
-					}
-				} else if (block.type === "toolCall") {
-					const toolName = isOAuthToken ? toClaudeCodeName(block.name) : block.name;
-					// MiniMax rejects tool_use blocks with an empty name (error 2013).
-					if (!isValidToolCallName(toolName)) continue;
-					includedToolUseIds.add(block.id);
-					blocks.push({
-						type: "tool_use",
-						id: block.id,
-						name: toolName,
-						input: block.arguments ?? {},
-					});
-				}
-			}
-			if (blocks.length === 0) {
-				if (msg.content.some((block) => block.type === "toolCall")) {
-					lastIncludedToolUseIds = new Set();
-				}
-				continue;
-			}
-			lastIncludedToolUseIds = includedToolUseIds;
-			params.push({
-				role: "assistant",
-				content: blocks,
-			});
-		} else if (msg.role === "toolResult") {
-			if (!lastIncludedToolUseIds.has(msg.toolCallId)) {
-				// Orphan result (e.g. tool_use dropped above) — skip to avoid MiniMax 2013.
-				continue;
-			}
-			// Collect all consecutive toolResult messages, needed for z.ai Anthropic endpoint
-			const toolResults: ContentBlockParam[] = [];
-
-			// Add the current tool result
-			toolResults.push({
-				type: "tool_result",
-				tool_use_id: msg.toolCallId,
-				content: convertContentBlocks(msg.content),
-				is_error: msg.isError,
-			});
-
-			// Look ahead for consecutive toolResult messages
-			let j = i + 1;
-			while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
-				const nextMsg = transformedMessages[j] as ToolResultMessage; // We know it's a toolResult
-				if (!lastIncludedToolUseIds.has(nextMsg.toolCallId)) {
-					j++;
-					continue;
-				}
-				toolResults.push({
-					type: "tool_result",
-					tool_use_id: nextMsg.toolCallId,
-					content: convertContentBlocks(nextMsg.content),
-					is_error: nextMsg.isError,
-				});
-				j++;
-			}
-
-			// Skip the messages we've already processed
-			i = j - 1;
-
-			if (toolResults.length === 0) continue;
-
-			// Add a single user message with all tool results
-			params.push({
-				role: "user",
-				content: toolResults,
-			});
-		}
+		const result = processMessage(
+			transformedMessages,
+			i,
+			lastIncludedToolUseIds,
+			isOAuthToken,
+			allowEmptySignature,
+			params,
+		);
+		i = result.index;
+		lastIncludedToolUseIds = result.lastIncludedToolUseIds;
 	}
 
-	// Add cache_control to the last user message to cache conversation history
-	if (cacheControl && params.length > 0) {
-		const lastMessage = params[params.length - 1];
-		if (lastMessage.role === "user") {
-			if (Array.isArray(lastMessage.content)) {
-				const lastBlock = lastMessage.content[lastMessage.content.length - 1];
-				if (
-					lastBlock &&
-					(lastBlock.type === "text" || lastBlock.type === "image" || lastBlock.type === "tool_result")
-				) {
-					(lastBlock as any).cache_control = cacheControl;
-				}
-			} else if (typeof lastMessage.content === "string") {
-				lastMessage.content = [
-					{
-						type: "text",
-						text: lastMessage.content,
-						cache_control: cacheControl,
-					},
-				] as any;
-			}
-		}
+	if (cacheControl) {
+		applyCacheControlToLastUserMessage(params, cacheControl);
 	}
 
 	return params;
