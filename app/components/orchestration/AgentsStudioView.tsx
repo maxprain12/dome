@@ -77,6 +77,90 @@ function isToday(ts: number | null | undefined): boolean {
   );
 }
 
+function filterAgentsByFolder(agents: ManyAgent[], folderFilter: string): ManyAgent[] {
+  if (folderFilter === 'favorites') return agents.filter((a) => a.favorite);
+  if (folderFilter === 'root') return agents.filter((a) => !a.folderId);
+  if (folderFilter !== 'all') return agents.filter((a) => a.folderId === folderFilter);
+  return agents;
+}
+
+function filterAgentsByQuery(agents: ManyAgent[], q: string): ManyAgent[] {
+  if (!q) return agents;
+  return agents.filter(
+    (a) => a.name.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q),
+  );
+}
+
+function compareAgentsForLibrary(a: ManyAgent, b: ManyAgent): number {
+  const fav = (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
+  if (fav !== 0) return fav;
+  return b.updatedAt - a.updatedAt;
+}
+
+function filterAndSortVisibleAgents(
+  agents: ManyAgent[],
+  folderFilter: string,
+  q: string,
+): ManyAgent[] {
+  const filtered = filterAgentsByQuery(filterAgentsByFolder(agents, folderFilter), q);
+  return [...filtered].sort(compareAgentsForLibrary);
+}
+
+function upsertAgentInList(prev: ManyAgent[], agent: ManyAgent): ManyAgent[] {
+  const exists = prev.some((a) => a.id === agent.id);
+  if (exists) return prev.map((a) => (a.id === agent.id ? agent : a));
+  return [agent, ...prev];
+}
+
+function buildAgentFolderChips(
+  folders: DomeAgentFolder[],
+  labels: { all: string; favorites: string; ungrouped: string },
+): Array<{ value: string; label: string }> {
+  return [
+    { value: 'all', label: labels.all },
+    { value: 'favorites', label: labels.favorites },
+    ...(folders.length > 0 ? [{ value: 'root', label: labels.ungrouped }] : []),
+    ...folders.map((f) => ({ value: f.id, label: f.name })),
+  ];
+}
+
+type AgentsStudioModeViewProps = {
+  mode: Exclude<ViewMode, { kind: 'library' }>;
+  projectId: string;
+  onBackToLibrary: () => void;
+  onAgentSaved: (agent: ManyAgent) => void;
+};
+
+/** Chat / edit / new sub-screens — extracted so AgentsStudioView stays under S3776. */
+function AgentsStudioModeView({
+  mode,
+  projectId,
+  onBackToLibrary,
+  onAgentSaved,
+}: AgentsStudioModeViewProps) {
+  if (mode.kind === 'chat') {
+    return (
+      <div key={`chat-${mode.agentId}`} className="h-full studio-view-enter">
+        <AgentChatView agentId={mode.agentId} onBack={onBackToLibrary} />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      key={mode.kind === 'edit' ? `edit-${mode.agent.id}` : 'new'}
+      className="flex h-full flex-col studio-view-enter"
+    >
+      <AgentEditor
+        initialAgent={mode.kind === 'edit' ? mode.agent : undefined}
+        projectId={projectId}
+        onComplete={onAgentSaved}
+        onCancel={onBackToLibrary}
+      />
+    </div>
+  );
+}
+
 /** Agents section — redesigned library with live KPIs, card grid and in-tab chat. */
 export default function AgentsStudioView() {
   const { t } = useTranslation();
@@ -111,23 +195,10 @@ export default function AgentsStudioView() {
   });
 
   const q = search.trim().toLowerCase();
-  const visibleAgents = useMemo(() => {
-    let list = agents;
-    if (folderFilter === 'favorites') list = list.filter((a) => a.favorite);
-    else if (folderFilter === 'root') list = list.filter((a) => !a.folderId);
-    else if (folderFilter !== 'all') list = list.filter((a) => a.folderId === folderFilter);
-    if (q) {
-      list = list.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q),
-      );
-    }
-    return [...list].sort((a, b) => {
-      const fav = (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
-      if (fav !== 0) return fav;
-      return b.updatedAt - a.updatedAt;
-    });
-  }, [agents, folderFilter, q]);
+  const visibleAgents = useMemo(
+    () => filterAndSortVisibleAgents(agents, folderFilter, q),
+    [agents, folderFilter, q],
+  );
 
   const stats: DomainStat[] = [
     { id: 'stat_agents', label: t('orchestration.agents.stat_agents'), value: agents.length, tone: 'accent' },
@@ -241,40 +312,26 @@ export default function AgentsStudioView() {
   };
 
   // ── Sub-screens ─────────────────────────────────────────────────────────────
-  if (mode.kind === 'chat') {
+  if (mode.kind !== 'library') {
     return (
-      <div key={`chat-${mode.agentId}`} className="h-full studio-view-enter">
-        <AgentChatView agentId={mode.agentId} onBack={() => setMode({ kind: 'library' })} />
-      </div>
+      <AgentsStudioModeView
+        mode={mode}
+        projectId={projectId}
+        onBackToLibrary={() => setMode({ kind: 'library' })}
+        onAgentSaved={(agent) => {
+          setMode({ kind: 'library' });
+          setAgents((prev) => upsertAgentInList(prev, agent));
+          notifyHubAgentsChanged();
+        }}
+      />
     );
   }
 
-  if (mode.kind === 'edit' || mode.kind === 'new') {
-    return (
-      <div key={mode.kind === 'edit' ? `edit-${mode.agent.id}` : 'new'} className="flex h-full flex-col studio-view-enter">
-        <AgentEditor
-          initialAgent={mode.kind === 'edit' ? mode.agent : undefined}
-          projectId={projectId}
-          onComplete={(agent) => {
-            setMode({ kind: 'library' });
-            setAgents((prev) => {
-              const exists = prev.some((a) => a.id === agent.id);
-              return exists ? prev.map((a) => (a.id === agent.id ? agent : a)) : [agent, ...prev];
-            });
-            notifyHubAgentsChanged();
-          }}
-          onCancel={() => setMode({ kind: 'library' })}
-        />
-      </div>
-    );
-  }
-
-  const folderChips = [
-    { value: 'all', label: t('orchestration.filter_all') },
-    { value: 'favorites', label: t('orchestration.agents.filter_favorites') },
-    ...(folders.length > 0 ? [{ value: 'root', label: t('orchestration.filter_ungrouped') }] : []),
-    ...folders.map((f) => ({ value: f.id, label: f.name })),
-  ];
+  const folderChips = buildAgentFolderChips(folders, {
+    all: t('orchestration.filter_all'),
+    favorites: t('orchestration.agents.filter_favorites'),
+    ungrouped: t('orchestration.filter_ungrouped'),
+  });
 
   return (
     <div
@@ -293,7 +350,9 @@ export default function AgentsStudioView() {
                 accept=".json,application/json"
                 className="hidden"
                 aria-label={t('automationHub.import_btn')}
-                onChange={(e) => void handleImportFile(e)}
+                onChange={(e) => {
+                  void handleImportFile(e).catch(() => {});
+                }}
               />
               <Button
                 variant="outline"
@@ -425,7 +484,9 @@ export default function AgentsStudioView() {
                 {
                   label: t('orchestration.agents.duplicate'),
                   icon: <HugeiconsIcon icon={CopyIcon} className="size-3.5" />,
-                  onClick: () => void duplicateAgent(agent),
+                  onClick: () => {
+                    void duplicateAgent(agent).catch(() => {});
+                  },
                 },
                 {
                   label: t('agents.automations'),
@@ -591,7 +652,9 @@ export default function AgentsStudioView() {
         variant="danger"
         confirmLabel={t('ui.delete')}
         cancelLabel={t('ui.cancel')}
-        onConfirm={() => void confirmDelete()}
+        onConfirm={() => {
+          void confirmDelete().catch(() => {});
+        }}
         onCancel={() => setDeleteTarget(null)}
       />
     </div>
