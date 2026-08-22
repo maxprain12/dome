@@ -323,86 +323,139 @@ export type HubImportSummary = {
   automationsCreated: number;
 };
 
+type HubImportFail = { success: false; error: string };
+
+/** Create agents with fresh IDs; returns old→new id map. Extracted for S3776. */
+async function importAgentsFromBundle(
+  agents: ManyAgent[],
+  projectId: string,
+): Promise<{ success: true; agentIdMap: Map<string, string> } | HubImportFail> {
+  const agentIdMap = new Map<string, string>();
+  for (const a of agents) {
+    const oldId = a.id;
+    const result = await createManyAgent({
+      name: a.name,
+      description: a.description ?? '',
+      systemInstructions: a.systemInstructions ?? '',
+      toolIds: Array.isArray(a.toolIds) ? [...a.toolIds] : [],
+      mcpServerIds: Array.isArray(a.mcpServerIds) ? [...a.mcpServerIds] : [],
+      skillIds: Array.isArray(a.skillIds) ? [...a.skillIds] : [],
+      iconIndex: typeof a.iconIndex === 'number' ? a.iconIndex : 1,
+      favorite: a.favorite === true,
+      projectId,
+    });
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error ?? 'Failed to create agent' };
+    }
+    agentIdMap.set(oldId, result.data.id);
+  }
+  return { success: true, agentIdMap };
+}
+
+/** Create workflows with remapped agent node ids. Extracted for S3776. */
+async function importWorkflowsFromBundle(
+  workflows: CanvasWorkflow[],
+  projectId: string,
+  agentIdMap: Map<string, string>,
+): Promise<{ success: true; workflowIdMap: Map<string, string> } | HubImportFail> {
+  const workflowIdMap = new Map<string, string>();
+  for (const wf of workflows) {
+    const remapped = remapWorkflowNodes(wf, agentIdMap);
+    const result = await createWorkflow({
+      name: remapped.name,
+      description: remapped.description ?? '',
+      nodes: remapped.nodes,
+      edges: remapped.edges,
+      projectId,
+      folderId: null,
+    });
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error ?? 'Failed to create workflow' };
+    }
+    workflowIdMap.set(wf.id, result.data.id);
+  }
+  return { success: true, workflowIdMap };
+}
+
+function resolveImportedAutomationTargetId(
+  auto: AutomationDefinition,
+  agentIdMap: Map<string, string>,
+  workflowIdMap: Map<string, string>,
+): string {
+  if (auto.targetType === 'agent') {
+    return agentIdMap.get(auto.targetId) ?? auto.targetId;
+  }
+  if (auto.targetType === 'workflow') {
+    return workflowIdMap.get(auto.targetId) ?? auto.targetId;
+  }
+  return auto.targetId;
+}
+
+/** Persist automations with remapped agent/workflow targets. Extracted for S3776. */
+async function importAutomationsFromBundle(
+  automations: AutomationDefinition[],
+  projectId: string,
+  agentIdMap: Map<string, string>,
+  workflowIdMap: Map<string, string>,
+): Promise<number> {
+  let automationsCreated = 0;
+  for (const auto of automations) {
+    const targetId = resolveImportedAutomationTargetId(auto, agentIdMap, workflowIdMap);
+    await saveAutomation({
+      projectId,
+      title: auto.title,
+      description: auto.description,
+      targetType: auto.targetType,
+      targetId,
+      triggerType: auto.triggerType,
+      schedule: auto.schedule ?? null,
+      inputTemplate: auto.inputTemplate ?? null,
+      outputMode: auto.outputMode ?? 'chat_only',
+      enabled: auto.enabled !== false,
+    });
+    automationsCreated += 1;
+  }
+  return automationsCreated;
+}
+
 /**
  * Import bundle into the given project. Creates new IDs for agents, workflows, and automations.
  */
 export async function importHubBundle(
   bundle: DomeHubExportBundle,
   projectId: string,
-): Promise<{ success: true; summary: HubImportSummary } | { success: false; error: string }> {
+): Promise<{ success: true; summary: HubImportSummary } | HubImportFail> {
   try {
     if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
 
     await mergeMcpServers(bundle.mcpServers ?? []);
     await mergeSkills(bundle.skills ?? []);
 
-    const agentIdMap = new Map<string, string>();
-    for (const a of bundle.agents ?? []) {
-      const oldId = a.id;
-      const result = await createManyAgent({
-        name: a.name,
-        description: a.description ?? '',
-        systemInstructions: a.systemInstructions ?? '',
-        toolIds: Array.isArray(a.toolIds) ? [...a.toolIds] : [],
-        mcpServerIds: Array.isArray(a.mcpServerIds) ? [...a.mcpServerIds] : [],
-        skillIds: Array.isArray(a.skillIds) ? [...a.skillIds] : [],
-        iconIndex: typeof a.iconIndex === 'number' ? a.iconIndex : 1,
-        favorite: a.favorite === true,
-        projectId,
-      });
-      if (!result.success || !result.data) {
-        return { success: false, error: result.error ?? 'Failed to create agent' };
-      }
-      agentIdMap.set(oldId, result.data.id);
-    }
+    const agentsResult = await importAgentsFromBundle(bundle.agents ?? [], projectId);
+    if (!agentsResult.success) return agentsResult;
 
-    const workflowIdMap = new Map<string, string>();
-    for (const wf of bundle.workflows ?? []) {
-      const remapped = remapWorkflowNodes(wf, agentIdMap);
-      const result = await createWorkflow({
-        name: remapped.name,
-        description: remapped.description ?? '',
-        nodes: remapped.nodes,
-        edges: remapped.edges,
-        projectId,
-        folderId: null,
-      });
-      if (!result.success || !result.data) {
-        return { success: false, error: result.error ?? 'Failed to create workflow' };
-      }
-      workflowIdMap.set(wf.id, result.data.id);
-    }
+    const workflowsResult = await importWorkflowsFromBundle(
+      bundle.workflows ?? [],
+      projectId,
+      agentsResult.agentIdMap,
+    );
+    if (!workflowsResult.success) return workflowsResult;
 
-    let automationsCreated = 0;
-    for (const auto of bundle.automations ?? []) {
-      let targetId = auto.targetId;
-      if (auto.targetType === 'agent') {
-        targetId = agentIdMap.get(auto.targetId) ?? auto.targetId;
-      } else if (auto.targetType === 'workflow') {
-        targetId = workflowIdMap.get(auto.targetId) ?? auto.targetId;
-      }
+    const automationsCreated = await importAutomationsFromBundle(
+      bundle.automations ?? [],
+      projectId,
+      agentsResult.agentIdMap,
+      workflowsResult.workflowIdMap,
+    );
 
-      await saveAutomation({
-        projectId,
-        title: auto.title,
-        description: auto.description,
-        targetType: auto.targetType,
-        targetId,
-        triggerType: auto.triggerType,
-        schedule: auto.schedule ?? null,
-        inputTemplate: auto.inputTemplate ?? null,
-        outputMode: auto.outputMode ?? 'chat_only',
-        enabled: auto.enabled !== false,
-      });
-      automationsCreated += 1;
-    }
-
-    const summary: HubImportSummary = {
-      agentsCreated: bundle.agents?.length ?? 0,
-      workflowsCreated: bundle.workflows?.length ?? 0,
-      automationsCreated,
+    return {
+      success: true,
+      summary: {
+        agentsCreated: bundle.agents?.length ?? 0,
+        workflowsCreated: bundle.workflows?.length ?? 0,
+        automationsCreated,
+      },
     };
-    return { success: true, summary };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
   }
