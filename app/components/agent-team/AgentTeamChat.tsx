@@ -716,7 +716,9 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           setInput={setInput}
           inputRef={inputRef}
           isLoading={isLoading}
-          onSend={() => void handleSend()}
+          onSend={() => {
+            handleSend().catch(() => {});
+          }}
           onAbort={handleStop}
           placeholder={`Chatear con ${team.name}...`}
           mcpServerIds={teamMcpServerIds}
