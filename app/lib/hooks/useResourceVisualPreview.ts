@@ -212,20 +212,41 @@ function setBounded<K, V>(map: Map<K, V>, key: K, value: V): void {
   }
 }
 
+/** Depth-gated entry for artifact snippet extraction — kept trivial for S3776. */
 function firstStringish(value: unknown, depth = 0): string | null {
   if (depth > 4 || value == null) return null;
-  if (typeof value === 'string') return nonEmptyString(value);
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  if (Array.isArray(value)) return firstStringishFromValues(value, depth);
-  if (typeof value === 'object') {
-    return firstStringishFromValues(Object.values(value as Record<string, unknown>), depth);
+  return coerceFirstStringish(value, depth);
+}
+
+/** Dispatch by typeof — extracted so `firstStringish` stays under S3776. */
+function coerceFirstStringish(value: NonNullable<unknown>, depth: number): string | null {
+  switch (typeof value) {
+    case 'string':
+      return nonEmptyString(value);
+    case 'number':
+      return finiteNumberString(value);
+    case 'object':
+      return firstStringishFromObject(value, depth);
+    default:
+      return null;
   }
-  return null;
 }
 
 function nonEmptyString(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function finiteNumberString(value: number): string | null {
+  return Number.isFinite(value) ? String(value) : null;
+}
+
+/** Arrays and plain objects share the same depth-first string walk. */
+function firstStringishFromObject(value: object, depth: number): string | null {
+  const values = Array.isArray(value)
+    ? value
+    : Object.values(value as Record<string, unknown>);
+  return firstStringishFromValues(values, depth);
 }
 
 function firstStringishFromValues(values: unknown[], depth: number): string | null {
