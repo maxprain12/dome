@@ -53,54 +53,76 @@ export function parsePersistedArtifactCreateResult(result: unknown): PersistedAr
   return { resourceId, title, artifactType };
 }
 
+const LEGACY_ARTIFACT_TYPES: ArtifactType[] = [
+  'pdf_summary',
+  'table',
+  'action_items',
+  'chart',
+  'code',
+  'list',
+  'created_entity',
+  'docling_images',
+];
+
+/** Coerce a tool result string/object into a parsed value (or null). */
+function coerceToolResultJson(result: unknown): unknown | null {
+  if (typeof result === 'string') {
+    try {
+      return JSON.parse(result);
+    } catch {
+      return null;
+    }
+  }
+  if (result && typeof result === 'object') return result;
+  return null;
+}
+
+/** Pull `artifact` from MCP-style `content[0].text` JSON, if present. */
+function artifactFromContentBlocks(content: unknown): AnyArtifact | undefined {
+  if (!Array.isArray(content)) return undefined;
+  const textContent = (content[0] as { text?: unknown } | undefined)?.text;
+  if (typeof textContent !== 'string') return undefined;
+  try {
+    const parsed = JSON.parse(textContent);
+    if (parsed?.artifact) return parsed.artifact as AnyArtifact;
+  } catch {
+    /* Not JSON */
+  }
+  return undefined;
+}
+
+/** Pull `artifact` from a nested `details` object, if present. */
+function artifactFromDetails(details: unknown): AnyArtifact | undefined {
+  if (!details || typeof details !== 'object') return undefined;
+  const nested = (details as Record<string, unknown>).artifact;
+  return nested ? (nested as AnyArtifact) : undefined;
+}
+
+/** Resolve an artifact payload from the common tool-result shapes. */
+function extractArtifactPayload(obj: Record<string, unknown>): AnyArtifact | undefined {
+  if (obj.artifact && typeof obj.artifact === 'object') return obj.artifact as AnyArtifact;
+  return artifactFromContentBlocks(obj.content) ?? artifactFromDetails(obj.details);
+}
+
+/** Accept Zod-validated or known legacy artifact types; reject everything else. */
+function validateArtifactCandidate(artifact: AnyArtifact): AnyArtifact | null {
+  const artifactType = (artifact as { type?: string }).type as ArtifactType | undefined;
+  if (!artifactType) return null;
+  if (ZOD_VALIDATED_ARTIFACT_TYPES.has(artifactType)) {
+    const validated = tryParseArtifact(artifactType, artifact);
+    return validated.ok ? (validated.value as AnyArtifact) : null;
+  }
+  return LEGACY_ARTIFACT_TYPES.includes(artifactType) ? artifact : null;
+}
+
 /** Parse result as artifact */
 export function parseArtifactResult(result: unknown): AnyArtifact | null {
   if (!result) return null;
-  let parsed: unknown;
-  if (typeof result === 'string') {
-    try { parsed = JSON.parse(result); } catch { return null; }
-  } else if (result && typeof result === 'object') {
-    parsed = result;
-  } else {
-    return null;
-  }
+  const parsed = coerceToolResultJson(result);
   if (!parsed || typeof parsed !== 'object') return null;
-  const obj = parsed as Record<string, unknown>;
-  let artifact: AnyArtifact | undefined;
-  if (obj.artifact && typeof obj.artifact === 'object') artifact = obj.artifact as AnyArtifact;
-  if (!artifact && obj.content && Array.isArray(obj.content)) {
-    const textContent = obj.content[0]?.text;
-    if (typeof textContent === 'string') {
-      try {
-        const p = JSON.parse(textContent);
-        if (p.artifact) artifact = p.artifact as AnyArtifact;
-      } catch { /* Not JSON */ }
-    }
-  }
-  if (!artifact && obj.details && typeof obj.details === 'object') {
-    const details = obj.details as Record<string, unknown>;
-    if (details.artifact) artifact = details.artifact as AnyArtifact;
-  }
+  const artifact = extractArtifactPayload(parsed as Record<string, unknown>);
   if (!artifact) return null;
-  const artifactType = (artifact as { type?: string }).type as ArtifactType | undefined;
-  if (!artifactType) return null;
-  const legacyTypes: ArtifactType[] = [
-    'pdf_summary',
-    'table',
-    'action_items',
-    'chart',
-    'code',
-    'list',
-    'created_entity',
-    'docling_images',
-  ];
-  if (ZOD_VALIDATED_ARTIFACT_TYPES.has(artifactType)) {
-    const validated = tryParseArtifact(artifactType, artifact);
-    if (!validated.ok) return null;
-    return validated.value as AnyArtifact;
-  }
-  if (!legacyTypes.includes(artifactType)) return null;
-  return artifact;
+  return validateArtifactCandidate(artifact);
 }
 
 export interface ResourceItem {

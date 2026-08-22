@@ -1,5 +1,59 @@
 import { describe, expect, it } from 'vitest';
-import { smartToolSummary, formatArgsSummary } from './toolResultParsers';
+import { smartToolSummary, formatArgsSummary, parseArtifactResult } from './toolResultParsers';
+
+describe('parseArtifactResult', () => {
+  const legacyList = { type: 'list', title: 'Items', items: [{ text: 'a' }] };
+  const htmlArtifact = { type: 'html', title: 'Preview', html: '<p>hi</p>' };
+
+  it('returns null for empty or non-object results', () => {
+    expect(parseArtifactResult(null)).toBeNull();
+    expect(parseArtifactResult(undefined)).toBeNull();
+    expect(parseArtifactResult(42)).toBeNull();
+    expect(parseArtifactResult('not-json')).toBeNull();
+    expect(parseArtifactResult('{"ok":true}')).toBeNull();
+  });
+
+  it('reads a top-level artifact object (object or JSON string)', () => {
+    expect(parseArtifactResult({ artifact: legacyList })).toEqual(legacyList);
+    expect(parseArtifactResult(JSON.stringify({ artifact: legacyList }))).toEqual(legacyList);
+  });
+
+  it('reads artifact nested in MCP content[0].text JSON', () => {
+    expect(
+      parseArtifactResult({
+        content: [{ text: JSON.stringify({ artifact: legacyList }) }],
+      }),
+    ).toEqual(legacyList);
+  });
+
+  it('reads artifact nested under details', () => {
+    expect(parseArtifactResult({ details: { artifact: legacyList } })).toEqual(legacyList);
+  });
+
+  it('prefers top-level artifact over content/details fallbacks', () => {
+    const other = { type: 'chart', title: 'Other' };
+    expect(
+      parseArtifactResult({
+        artifact: legacyList,
+        content: [{ text: JSON.stringify({ artifact: other }) }],
+        details: { artifact: other },
+      }),
+    ).toEqual(legacyList);
+  });
+
+  it('validates Zod artifact types and rejects invalid payloads', () => {
+    expect(parseArtifactResult({ artifact: htmlArtifact })).toEqual(htmlArtifact);
+    expect(parseArtifactResult({ artifact: { type: 'html' } })).toBeNull();
+  });
+
+  it('rejects unknown artifact types', () => {
+    expect(parseArtifactResult({ artifact: { type: 'not_a_real_type' } })).toBeNull();
+  });
+
+  it('ignores unparsable content text without failing', () => {
+    expect(parseArtifactResult({ content: [{ text: 'not-json' }] })).toBeNull();
+  });
+});
 
 describe('smartToolSummary', () => {
   it('shows only the tail of a long absolute path', () => {
