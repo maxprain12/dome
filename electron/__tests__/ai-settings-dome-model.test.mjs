@@ -1,9 +1,14 @@
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { coerceDomeCloudModel, resolveEffectiveProvider } = require('../ai/ai-settings.cjs');
+const {
+  coerceDomeCloudModel,
+  resolveEffectiveProvider,
+  resolveSubscriptionOAuthSettings,
+} = require('../ai/ai-settings.cjs');
+const { DEFAULT_MODELS } = require('../ai/model-factory.cjs');
 
 describe('coerceDomeCloudModel', () => {
   it('keeps dome/auto and OpenRouter-shaped catalog ids', () => {
@@ -31,5 +36,70 @@ describe('resolveEffectiveProvider', () => {
   it('uses Dome only when ai_provider is dome (or custom_api_key fallback to openai)', () => {
     assert.equal(resolveEffectiveProvider('dome_cloud', 'dome'), 'dome');
     assert.equal(resolveEffectiveProvider('custom_api_key', 'dome'), 'openai');
+  });
+});
+
+function makeQueries(aiModel) {
+  return {
+    getSetting: {
+      get(key) {
+        if (key === 'ai_model') return aiModel == null ? undefined : { value: aiModel };
+        return undefined;
+      },
+    },
+  };
+}
+
+describe('resolveSubscriptionOAuthSettings', () => {
+  it('returns live token and baseUrl when getAccessToken succeeds', async () => {
+    const oauthModule = {
+      DEFAULT_BASE_URL: 'https://api.example.test',
+      getAccessToken: mock.fn(async () => ({
+        token: 'tok-live',
+        baseUrl: 'https://live.example.test',
+      })),
+    };
+
+    const result = await resolveSubscriptionOAuthSettings(
+      {},
+      makeQueries('claude-sonnet-5'),
+      'claude-oauth',
+      oauthModule,
+      'dome_cloud',
+    );
+
+    assert.deepEqual(result, {
+      provider: 'claude-oauth',
+      apiKey: 'tok-live',
+      model: 'claude-sonnet-5',
+      baseUrl: 'https://live.example.test',
+      billingMode: 'dome_cloud',
+    });
+    assert.equal(oauthModule.getAccessToken.mock.callCount(), 1);
+  });
+
+  it('falls back to DEFAULT_BASE_URL without a key when getAccessToken throws', async () => {
+    const oauthModule = {
+      DEFAULT_BASE_URL: 'https://chatgpt.com/backend-api',
+      getAccessToken: mock.fn(async () => {
+        throw new Error('not signed in');
+      }),
+    };
+
+    const result = await resolveSubscriptionOAuthSettings(
+      {},
+      makeQueries(undefined),
+      'openai-codex',
+      oauthModule,
+      'dome_cloud',
+    );
+
+    assert.deepEqual(result, {
+      provider: 'openai-codex',
+      apiKey: undefined,
+      model: DEFAULT_MODELS['openai-codex'],
+      baseUrl: 'https://chatgpt.com/backend-api',
+      billingMode: 'dome_cloud',
+    });
   });
 });
