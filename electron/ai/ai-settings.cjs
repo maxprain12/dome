@@ -70,6 +70,34 @@ function resolveEffectiveProvider(billingMode, configuredProvider) {
 }
 
 /**
+ * Claude Pro/Max and ChatGPT Codex share the same settings shape: try live
+ * OAuth token, otherwise return the provider default base URL without a key.
+ * Extracted so `getAISettings` stays under Sonar S3776.
+ *
+ * @param {import('../core/database.cjs')} database
+ * @param {{ getSetting: { get: (key: string) => { value?: string } | undefined } }} queries
+ * @param {'claude-oauth' | 'openai-codex'} provider
+ * @param {{ getAccessToken: (db: unknown) => Promise<{ token: string, baseUrl: string }>, DEFAULT_BASE_URL: string }} oauthModule
+ * @param {string} billingMode
+ * @returns {Promise<{ provider: string, apiKey?: string, model?: string, baseUrl?: string, billingMode?: string }>}
+ */
+async function resolveSubscriptionOAuthSettings(database, queries, provider, oauthModule, billingMode) {
+  const model = queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider];
+  try {
+    const { token, baseUrl } = await oauthModule.getAccessToken(database);
+    return { provider, apiKey: token, model, baseUrl, billingMode };
+  } catch {
+    return {
+      provider,
+      apiKey: undefined,
+      model,
+      baseUrl: oauthModule.DEFAULT_BASE_URL,
+      billingMode,
+    };
+  }
+}
+
+/**
  * Unified AI settings for ipc/ai, agent-team, run-engine, etc.
  *
  * @param {import('../core/database.cjs')} database
@@ -117,37 +145,23 @@ async function getAISettings(database) {
   }
 
   if (provider === 'claude-oauth') {
-    const claudeOAuth = require('../auth/claude-oauth.cjs');
-    const model = queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS['claude-oauth'];
-    try {
-      const { token, baseUrl } = await claudeOAuth.getAccessToken(database);
-      return { provider: 'claude-oauth', apiKey: token, model, baseUrl, billingMode };
-    } catch {
-      return {
-        provider: 'claude-oauth',
-        apiKey: undefined,
-        model,
-        baseUrl: claudeOAuth.DEFAULT_BASE_URL,
-        billingMode,
-      };
-    }
+    return resolveSubscriptionOAuthSettings(
+      database,
+      queries,
+      provider,
+      require('../auth/claude-oauth.cjs'),
+      billingMode,
+    );
   }
 
   if (provider === 'openai-codex') {
-    const openaiCodexOAuth = require('../auth/openai-codex-oauth.cjs');
-    const model = queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS['openai-codex'];
-    try {
-      const { token, baseUrl } = await openaiCodexOAuth.getAccessToken(database);
-      return { provider: 'openai-codex', apiKey: token, model, baseUrl, billingMode };
-    } catch {
-      return {
-        provider: 'openai-codex',
-        apiKey: undefined,
-        model,
-        baseUrl: openaiCodexOAuth.DEFAULT_BASE_URL,
-        billingMode,
-      };
-    }
+    return resolveSubscriptionOAuthSettings(
+      database,
+      queries,
+      provider,
+      require('../auth/openai-codex-oauth.cjs'),
+      billingMode,
+    );
   }
 
   return {
@@ -159,4 +173,9 @@ async function getAISettings(database) {
   };
 }
 
-module.exports = { getAISettings, coerceDomeCloudModel, resolveEffectiveProvider };
+module.exports = {
+  getAISettings,
+  coerceDomeCloudModel,
+  resolveEffectiveProvider,
+  resolveSubscriptionOAuthSettings,
+};
