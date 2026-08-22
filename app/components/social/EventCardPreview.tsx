@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import {
   normalizeEventCardDesign,
   normalizeHex,
 } from './eventCardDesign';
-import type { EventCardDesign } from './socialTypes';
+import type { EventCardDesign, EventCardFontWeight, EventCardLayout } from './socialTypes';
 
 /** Cover strip locked to 1125×294 so Wallet banners are not cropped. */
 export function EventCardCoverStrip({
@@ -137,6 +137,157 @@ function QrBlock({
   );
 }
 
+type PreviewTone = {
+  background: string;
+  foreground: string;
+  label: string;
+  titleFamily: string;
+  bodyFamily: string;
+  titleWeight: EventCardFontWeight;
+  bodyWeight: EventCardFontWeight;
+};
+
+/** Venue / address / description / CTA — extracted for S3776. */
+function EventCardMeta({
+  form,
+  tone,
+}: {
+  form: EventCardPreviewForm;
+  tone: PreviewTone;
+}) {
+  const { foreground, label, background, bodyFamily, bodyWeight } = tone;
+  const venueLine = form.venueName || form.address;
+  const ctaWeight = bodyWeight === '400' ? '500' : bodyWeight;
+
+  return (
+    <>
+      <p className="text-sm" style={{ color: foreground, fontFamily: bodyFamily, fontWeight: bodyWeight }}>
+        {new Date(form.startsAt).toLocaleString()}
+      </p>
+      {venueLine ? (
+        <p className="text-sm" style={{ color: foreground, fontFamily: bodyFamily, fontWeight: bodyWeight }}>
+          {venueLine}
+        </p>
+      ) : null}
+      {form.description ? (
+        <p
+          className="text-sm opacity-80"
+          style={{ color: foreground, fontFamily: bodyFamily, fontWeight: bodyWeight }}
+        >
+          {form.description}
+        </p>
+      ) : null}
+      {form.ctaLabel ? (
+        <span
+          className="inline-flex w-fit rounded-md px-3 py-1.5 text-sm"
+          style={{
+            backgroundColor: label,
+            color: background,
+            fontFamily: bodyFamily,
+            fontWeight: ctaWeight,
+          }}
+        >
+          {form.ctaLabel}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+/** Apple / Google Wallet status badges — extracted for S3776. */
+function EventCardWalletRow({
+  wallet,
+  labelColor,
+  setupRequired,
+}: {
+  wallet: { appleConfigured: boolean; googleConfigured: boolean };
+  labelColor: string;
+  setupRequired: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Badge variant="outline" className="border-current/30 bg-transparent" style={{ color: labelColor }}>
+        Apple Wallet · {wallet.appleConfigured ? 'OK' : setupRequired}
+      </Badge>
+      <Badge variant="outline" className="border-current/30 bg-transparent" style={{ color: labelColor }}>
+        Google Wallet · {wallet.googleConfigured ? 'OK' : setupRequired}
+      </Badge>
+    </div>
+  );
+}
+
+/** Logo + brand label — extracted for S3776. */
+function EventCardBrandRow({
+  logoUrl,
+  brand,
+  labelColor,
+  bodyFamily,
+}: {
+  logoUrl?: string | null;
+  brand: string;
+  labelColor: string;
+  bodyFamily: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt=""
+          className="size-8 shrink-0 rounded-md object-cover ring-1 ring-white/20"
+        />
+      ) : null}
+      <CardDescription style={{ color: labelColor, fontFamily: bodyFamily }}>{brand}</CardDescription>
+    </div>
+  );
+}
+
+const PREVIEW_CARD_CLASS =
+  'order-1 self-start overflow-hidden border-0 ring-0 @[70rem]/event-cards:sticky @[70rem]/event-cards:top-0 @[70rem]/event-cards:order-2';
+
+/** Classic / hero / compact body (non-split) — extracted for S3776. */
+function EventCardClassicBody({
+  layout,
+  meta,
+  qr,
+  walletRow,
+  showQr,
+  publicUrl,
+  labelColor,
+}: {
+  layout: EventCardLayout;
+  meta: ReactNode;
+  qr: ReactNode;
+  walletRow: ReactNode;
+  showQr: boolean;
+  publicUrl: string | null;
+  labelColor: string;
+}) {
+  const compact = layout === 'compact';
+
+  return (
+    <CardContent className={cn('flex flex-col gap-3', compact && 'gap-2 pt-0')}>
+      {compact ? (
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-2">{meta}</div>
+          {qr}
+        </div>
+      ) : (
+        <>
+          {meta}
+          {qr ? <div className="flex justify-center py-1">{qr}</div> : null}
+        </>
+      )}
+      {walletRow}
+      {!showQr && publicUrl ? (
+        <p className="break-all text-xs opacity-70" style={{ color: labelColor }}>
+          {publicUrl}
+        </p>
+      ) : null}
+    </CardContent>
+  );
+}
+
 export function EventCardPreview({
   form,
   wallet,
@@ -160,6 +311,16 @@ export function EventCardPreview({
   const rounded = design.qrStyle !== 'square';
   const layout = design.layout ?? 'classic';
   const brand = design.brandName || form.organizer || t('social.events.brand');
+  const tone: PreviewTone = {
+    background,
+    foreground,
+    label,
+    titleFamily,
+    bodyFamily,
+    titleWeight: design.titleWeight ?? '600',
+    bodyWeight: design.bodyWeight ?? '400',
+  };
+
   const cover = (
     <EventCardCoverStrip
       coverUrl={design.coverUrl}
@@ -168,77 +329,34 @@ export function EventCardPreview({
     />
   );
 
+  const qrPlaceholder = publicUrl
+    ? t('social.events.qr_loading')
+    : t('social.events.qr_draft_placeholder');
   const qr = showQr ? (
     <QrBlock
       dataUrl={qrDataUrl}
       rounded={rounded}
       label={t('social.events.qr_label')}
-      placeholder={
-        publicUrl
-          ? t('social.events.qr_loading')
-          : t('social.events.qr_draft_placeholder')
-      }
+      placeholder={qrPlaceholder}
     />
   ) : null;
 
-  const meta = (
-    <>
-      <p className="text-sm" style={{ color: foreground, fontFamily: bodyFamily, fontWeight: design.bodyWeight }}>
-        {new Date(form.startsAt).toLocaleString()}
-      </p>
-      {form.venueName || form.address ? (
-        <p className="text-sm" style={{ color: foreground, fontFamily: bodyFamily, fontWeight: design.bodyWeight }}>
-          {form.venueName || form.address}
-        </p>
-      ) : null}
-      {form.description ? (
-        <p
-          className="text-sm opacity-80"
-          style={{ color: foreground, fontFamily: bodyFamily, fontWeight: design.bodyWeight }}
-        >
-          {form.description}
-        </p>
-      ) : null}
-      {form.ctaLabel ? (
-        <span
-          className="inline-flex w-fit rounded-md px-3 py-1.5 text-sm"
-          style={{
-            backgroundColor: label,
-            color: background,
-            fontFamily: bodyFamily,
-            fontWeight: design.bodyWeight === '400' ? '500' : design.bodyWeight,
-          }}
-        >
-          {form.ctaLabel}
-        </span>
-      ) : null}
-    </>
-  );
-
+  const meta = <EventCardMeta form={form} tone={tone} />;
   const walletRow = (
-    <div className="flex flex-wrap gap-2">
-      <Badge variant="outline" className="border-current/30 bg-transparent" style={{ color: label }}>
-        Apple Wallet · {wallet.appleConfigured ? 'OK' : t('social.events.setup_required')}
-      </Badge>
-      <Badge variant="outline" className="border-current/30 bg-transparent" style={{ color: label }}>
-        Google Wallet · {wallet.googleConfigured ? 'OK' : t('social.events.setup_required')}
-      </Badge>
-    </div>
+    <EventCardWalletRow
+      wallet={wallet}
+      labelColor={label}
+      setupRequired={t('social.events.setup_required')}
+    />
   );
-
   const brandRow = (
-    <div className="flex items-center gap-2">
-      {design.logoUrl ? (
-        <img
-          src={design.logoUrl}
-          alt=""
-          className="size-8 shrink-0 rounded-md object-cover ring-1 ring-white/20"
-        />
-      ) : null}
-      <CardDescription style={{ color: label, fontFamily: bodyFamily }}>{brand}</CardDescription>
-    </div>
+    <EventCardBrandRow
+      logoUrl={design.logoUrl}
+      brand={brand}
+      labelColor={label}
+      bodyFamily={bodyFamily}
+    />
   );
-
   const title = (
     <CardTitle
       className={cn(layout === 'compact' ? 'text-lg' : 'text-xl')}
@@ -255,10 +373,7 @@ export function EventCardPreview({
   if (layout === 'split_qr') {
     return (
       <Card
-        className={cn(
-          'order-1 self-start overflow-hidden border-0 ring-0 @[70rem]/event-cards:sticky @[70rem]/event-cards:top-0 @[70rem]/event-cards:order-2',
-          className,
-        )}
+        className={cn(PREVIEW_CARD_CLASS, className)}
         style={{ backgroundColor: background, color: foreground }}
       >
         {cover}
@@ -277,10 +392,7 @@ export function EventCardPreview({
 
   return (
     <Card
-      className={cn(
-        'order-1 self-start overflow-hidden border-0 ring-0 @[70rem]/event-cards:sticky @[70rem]/event-cards:top-0 @[70rem]/event-cards:order-2',
-        className,
-      )}
+      className={cn(PREVIEW_CARD_CLASS, className)}
       style={{ backgroundColor: background, color: foreground }}
     >
       {cover}
@@ -288,25 +400,15 @@ export function EventCardPreview({
         {brandRow}
         {title}
       </CardHeader>
-      <CardContent className={cn('flex flex-col gap-3', layout === 'compact' && 'gap-2 pt-0')}>
-        {layout === 'compact' ? (
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-col gap-2">{meta}</div>
-            {qr}
-          </div>
-        ) : (
-          <>
-            {meta}
-            {qr ? <div className="flex justify-center py-1">{qr}</div> : null}
-          </>
-        )}
-        {walletRow}
-        {!showQr && publicUrl ? (
-          <p className="break-all text-xs opacity-70" style={{ color: label }}>
-            {publicUrl}
-          </p>
-        ) : null}
-      </CardContent>
+      <EventCardClassicBody
+        layout={layout}
+        meta={meta}
+        qr={qr}
+        walletRow={walletRow}
+        showQr={showQr}
+        publicUrl={publicUrl}
+        labelColor={label}
+      />
     </Card>
   );
 }
