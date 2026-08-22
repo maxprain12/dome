@@ -222,41 +222,65 @@ type SheetPreview = {
   rows: string[][];
 };
 
+const SHEET_HEADER_RE = /^\[Sheet:\s*([^\]]+)\]\s*/i;
+
+function splitSnippetCells(line: string): string[] {
+  return line.split(',').map((c) => c.trim()).slice(0, 4);
+}
+
+/** Strip optional `[Sheet: name]` prefix; null if body is empty. */
+function spreadsheetBodyAndSheet(
+  trimmed: string,
+): { sheet: string | null; body: string } | null {
+  const sheetMatch = trimmed.match(SHEET_HEADER_RE);
+  const body = (sheetMatch ? trimmed.slice(sheetMatch[0].length) : trimmed).trim();
+  if (!body) return null;
+  return { sheet: sheetMatch?.[1]?.trim() ?? null, body };
+}
+
+/** Newline rows, or flattened dumps: "headers 1,row… 2,row…". */
+function spreadsheetSnippetLines(body: string): string[] {
+  let lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    lines = body.split(/\s+(?=\d+,)/).map((l) => l.trim()).filter(Boolean);
+  }
+  return lines;
+}
+
+/** Align cells to header width; drop leading numeric index when present. */
+function alignSpreadsheetRow(line: string, headerCount: number): string[] {
+  const cells = splitSnippetCells(line);
+  if (cells.length > headerCount && /^\d+$/.test(cells[0] ?? '')) {
+    return cells.slice(1, headerCount + 1);
+  }
+  return cells.slice(0, headerCount);
+}
+
+function parseSpreadsheetRows(lines: string[], headers: string[]): string[][] {
+  return lines
+    .slice(1, 4)
+    .map((line) => alignSpreadsheetRow(line, headers.length))
+    .filter((r) => r.some(Boolean));
+}
+
 /** Turn a spreadsheet text dump into a small table preview. */
 function parseSpreadsheetSnippet(snippet: string): SheetPreview | null {
   const trimmed = snippet.trim();
   if (!trimmed) return null;
 
-  const sheetMatch = trimmed.match(/^\[Sheet:\s*([^\]]+)\]\s*/i);
-  const body = (sheetMatch ? trimmed.slice(sheetMatch[0].length) : trimmed).trim();
-  if (!body) return null;
+  const extracted = spreadsheetBodyAndSheet(trimmed);
+  if (!extracted) return null;
 
-  let lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 2) {
-    // Flattened dumps: "headers 1,row… 2,row…"
-    lines = body.split(/\s+(?=\d+,)/).map((l) => l.trim()).filter(Boolean);
-  }
+  const lines = spreadsheetSnippetLines(extracted.body);
   if (lines.length === 0) return null;
 
-  const splitCells = (line: string) =>
-    line.split(',').map((c) => c.trim()).slice(0, 4);
-
-  const headers = splitCells(lines[0]).slice(0, 3);
+  const headers = splitSnippetCells(lines[0]).slice(0, 3);
   if (headers.length === 0) return null;
 
-  const rows = lines.slice(1, 4).map((line) => {
-    const cells = splitCells(line);
-    // Drop leading numeric index column when headers don't look like an ID list
-    if (cells.length > headers.length && /^\d+$/.test(cells[0] ?? '')) {
-      return cells.slice(1, headers.length + 1);
-    }
-    return cells.slice(0, headers.length);
-  }).filter((r) => r.some(Boolean));
-
   return {
-    sheet: sheetMatch?.[1]?.trim() ?? null,
+    sheet: extracted.sheet,
     headers,
-    rows,
+    rows: parseSpreadsheetRows(lines, headers),
   };
 }
 
