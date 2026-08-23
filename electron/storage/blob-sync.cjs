@@ -369,22 +369,15 @@ function needsVaultHashLookup(blob, existingSet, db, queries) {
 }
 
 /**
- * Process one upload batch: stat-dedupe against the provider, resolve any
- * missing local paths by content-hashing the vault, then upload each blob.
- * Extracted from `runUploadQueue` to keep it under the cognitive-complexity
- * threshold. Translates provider errors and rate-limit into early-exit flags
- * that the caller can fold into its cumulative counters.
+ * Ask the provider which hashes it already holds. Returns the `existing` set
+ * on success, or `{ error }` when the stat call fails — the caller folds the
+ * error into its cycle counters and aborts the batch.
  * @param {object} deps
- * @param {import('better-sqlite3').Database} db
- * @param {Array<object>} batch
  * @param {string} base
- * @param {import('better-sqlite3').Statement} markUploaded
- * @param {import('better-sqlite3').Statement} markSkipped
- * @returns {Promise<{ uploaded: number, deduped: number, rateLimited?: boolean, error?: string }>}
+ * @param {Array<object>} batch
+ * @returns {Promise<{ existing: Set<string> } | { error: string }>}
  */
-async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipped) {
-  const queries = deps.database.getQueries?.();
-
+async function statProviderBatch(deps, base, batch) {
   const statRes = await domeOauth.fetchWithDomeAuth(deps.database, `${base}/api/v1/files/stat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -392,22 +385,37 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
   });
   if (!statRes.ok) {
     console.warn('[blob-sync] stat failed:', statRes.status);
-    return { uploaded: 0, deduped: 0, error: `stat_${statRes.status}` };
+    return { error: `stat_${statRes.status}` };
   }
   const { existing } = await statRes.json();
-  const existingSet = new Set(existing || []);
+  return { existing: new Set(existing || []) };
+}
 
-  // Resolver por contenido los hashes sin mapeo directo (espejos .md/.html)
-  // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
-  const unresolved = new Set(
+/**
+ * Hashes whose manifest row lacks both a provider match and a column lookup
+ * (`.md`/`.html` mirrors born from a content hash, not a `file_hash` column).
+ * One vault scan covers the whole batch — populate `pathByHash` once.
+ * @param {Array<object>} batch
+ * @param {Set<string>} existingSet
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} [queries]
+ * @returns {Set<string>}
+ */
+function collectUnresolvedHashes(batch, existingSet, db, queries) {
+  return new Set(
     batch
       .filter((b) => needsVaultHashLookup(b, existingSet, db, queries))
       .map((b) => b.hash),
   );
-  if (unresolved.size) {
-    await scanVaultForHashes(db, queries, unresolved);
-  }
+}
 
+/**
+ * Upload-loop body for one batch: walks every blob, returns cumulative
+ * counts. Early-exit signals (rate limit / quota / error) bubble up via the
+ * return value's `rateLimited` / `error` fields.
+ * @returns {Promise<{ uploaded: number, deduped: number, rateLimited?: boolean, error?: string }>}
+ */
+async function uploadBatchBlobs(deps, db, batch, base, existingSet, queries, markUploaded, markSkipped) {
   const counts = { uploaded: 0, deduped: 0 };
   for (const blob of batch) {
     const outcome = await uploadPendingBlob(
@@ -427,6 +435,37 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
 }
 
 /**
+ * Process one upload batch: stat-dedupe against the provider, resolve any
+ * missing local paths by content-hashing the vault, then upload each blob.
+ * Extracted from `runUploadQueue` to keep it under the cognitive-complexity
+ * threshold. Translates provider errors and rate-limit into early-exit flags
+ * that the caller can fold into its cumulative counters.
+ * @param {object} deps
+ * @param {import('better-sqlite3').Database} db
+ * @param {Array<object>} batch
+ * @param {string} base
+ * @param {import('better-sqlite3').Statement} markUploaded
+ * @param {import('better-sqlite3').Statement} markSkipped
+ * @returns {Promise<{ uploaded: number, deduped: number, rateLimited?: boolean, error?: string }>}
+ */
+async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipped) {
+  const queries = deps.database.getQueries?.();
+
+  const stat = await statProviderBatch(deps, base, batch);
+  if (stat.error) return { uploaded: 0, deduped: 0, error: stat.error };
+  const existingSet = stat.existing;
+
+  // Resolver por contenido los hashes sin mapeo directo (espejos .md/.html)
+  // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
+  const unresolved = collectUnresolvedHashes(batch, existingSet, db, queries);
+  if (unresolved.size) {
+    await scanVaultForHashes(db, queries, unresolved);
+  }
+
+  return uploadBatchBlobs(deps, db, batch, base, existingSet, queries, markUploaded, markSkipped);
+}
+
+/**
  * Drop manifest rows whose hash is not a full sha256 (defense in depth: a
  * malformed hash would 422 the entire stat batch and block all uploads).
  * Returns null when no valid blobs remain so the caller can short-circuit.
@@ -439,6 +478,20 @@ function pendingBlobsWithValidHashes(rows) {
     console.warn(`[blob-sync] skipping ${rows.length - pending.length} manifest rows with invalid hash`);
   }
   return pending.length ? pending : null;
+}
+
+/**
+ * Fold one batch's result into the cumulative counters and decide whether the
+ * outer loop must abort (rate limit / error) or keep walking batches.
+ * Returns null to continue, or a final-result object to short-circuit.
+ * @returns {{ uploaded: number, deduped: number, rateLimited?: boolean, error?: string } | null}
+ */
+function foldBatchResult(totals, result) {
+  totals.uploaded += result.uploaded;
+  totals.deduped += result.deduped;
+  if (result.rateLimited) return { ...totals, rateLimited: true };
+  if (result.error) return { ...totals, error: result.error };
+  return null;
 }
 
 /**
@@ -463,20 +516,17 @@ async function runUploadQueue(deps, db) {
     "UPDATE vault_blobs SET upload_state = 'skipped' WHERE id = ?",
   );
 
-  let uploaded = 0;
-  let deduped = 0;
+  const totals = { uploaded: 0, deduped: 0 };
   for (let i = 0; i < pending.length; i += STAT_BATCH) {
     const batch = pending.slice(i, i + STAT_BATCH);
     const result = await processUploadBatch(deps, db, batch, base, markUploaded, markSkipped);
-    uploaded += result.uploaded;
-    deduped += result.deduped;
-    if (result.rateLimited) return { uploaded, deduped, rateLimited: true };
-    if (result.error) return { uploaded, deduped, error: result.error };
+    const earlyExit = foldBatchResult(totals, result);
+    if (earlyExit) return earlyExit;
   }
-  if (uploaded || deduped) {
-    console.log(`[blob-sync] uploads done: ${uploaded} uploaded, ${deduped} deduped`);
+  if (totals.uploaded || totals.deduped) {
+    console.log(`[blob-sync] uploads done: ${totals.uploaded} uploaded, ${totals.deduped} deduped`);
   }
-  return { uploaded, deduped };
+  return totals;
 }
 
 /**
@@ -581,23 +631,31 @@ async function performBlobPut(blob, url, localFile) {
     duplex: 'half',
   });
   const putRes = await withTransientFetchRetry(putOnce, `put ${blob.hash.slice(0, 12)}`);
-  if (!putRes.ok) {
-    const detail = await putRes.text().catch(() => '');
-    // Supabase envuelve el "Payload too large" (límite GLOBAL de subida
-    // del proyecto, aparte del límite del bucket) en un HTTP 400.
-    // Sin marcarlo, cada tick re-streamearía el archivo entero para
-    // volver a fallar (134 MB/min de egress desperdiciado).
-    if (putRes.status === 413 || /payload too large|exceeded the maximum/i.test(detail)) {
-      console.warn(
-        `[blob-sync] ${blob.original_name || blob.hash.slice(0, 12)} supera el límite global de subida de Supabase Storage ` +
-        '(Settings → Storage → Upload file size limit). Se reintentará al reiniciar la app.',
-      );
-      return 'too-large';
-    }
-    console.warn('[blob-sync] upload failed:', putRes.status, blob.hash.slice(0, 12), detail.slice(0, 200));
-    return 'error';
+  if (putRes.ok) return 'ok';
+  return classifyPutFailure(blob, putRes);
+}
+
+/**
+ * Decide whether a failed PUT is the global Supabase "payload too large" limit
+ * (must skip — retrying re-streams the whole file for nothing) or a generic
+ * upload error (caller decides whether to retry next tick).
+ * @returns {Promise<'too-large' | 'error'>}
+ */
+async function classifyPutFailure(blob, putRes) {
+  const detail = await putRes.text().catch(() => '');
+  // Supabase envuelve el "Payload too large" (límite GLOBAL de subida
+  // del proyecto, aparte del límite del bucket) en un HTTP 400.
+  // Sin marcarlo, cada tick re-streamearía el archivo entero para
+  // volver a fallar (134 MB/min de egress desperdiciado).
+  if (putRes.status === 413 || /payload too large|exceeded the maximum/i.test(detail)) {
+    console.warn(
+      `[blob-sync] ${blob.original_name || blob.hash.slice(0, 12)} supera el límite global de subida de Supabase Storage ` +
+      '(Settings → Storage → Upload file size limit). Se reintentará al reiniciar la app.',
+    );
+    return 'too-large';
   }
-  return 'ok';
+  console.warn('[blob-sync] upload failed:', putRes.status, blob.hash.slice(0, 12), detail.slice(0, 200));
+  return 'error';
 }
 
 /**
@@ -903,17 +961,28 @@ async function hydrateMissingFiles(deps, db) {
   const blobByPrefix = db.prepare("SELECT * FROM vault_blobs WHERE hash LIKE ? || '%' LIMIT 1");
   const blobByHash = db.prepare('SELECT * FROM vault_blobs WHERE hash = ? LIMIT 1');
 
-  let hydrated = 0;
-  for (const resource of resources) {
-    if (await hydrateOneResource(deps, resource, base, queries, blobByPrefix, blobByHash)) {
-      hydrated += 1;
-    }
-  }
+  const hydrated = await countHydratedResources(deps, resources, base, queries, blobByPrefix, blobByHash);
   if (hydrated > 0) {
     console.log(`[blob-sync] hydrated ${hydrated} missing files`);
     deps.windowManager?.broadcast?.('resource:updated', { source: 'blob-sync' });
   }
   return hydrated;
+}
+
+/**
+ * Walk every candidate resource, counting the ones `hydrateOneResource`
+ * successfully restored. Returning a single integer keeps the caller free
+ * of loop / await boilerplate.
+ * @returns {Promise<number>}
+ */
+async function countHydratedResources(deps, resources, base, queries, blobByPrefix, blobByHash) {
+  let count = 0;
+  for (const resource of resources) {
+    if (await hydrateOneResource(deps, resource, base, queries, blobByPrefix, blobByHash)) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /**
@@ -927,22 +996,36 @@ async function run(deps) {
   if (!db) return { skipped: true };
   running = true;
   try {
-    // Si el usuario subió el límite de Supabase/plan, el reinicio de la app
-    // reintenta los saltados sin quedarse atascado en bucle dentro de la sesión.
-    if (!requeuedSkippedThisSession) {
-      requeuedSkippedThisSession = true;
-      db.prepare("UPDATE vault_blobs SET upload_state = 'pending' WHERE upload_state = 'skipped'").run();
-    }
-    await ingestLocalFiles(db, deps.database.getQueries?.());
-    const upload = await runUploadQueue(deps, db);
-    const hydrated = await hydrateMissingFiles(deps, db);
-    return { success: true, ...upload, hydrated };
+    return await runCyclePhases(deps, db);
   } catch (err) {
     console.warn('[blob-sync] cycle failed:', err?.message);
     return { success: false, error: err?.message };
   } finally {
     running = false;
   }
+}
+
+/**
+ * Run the three cycle phases back-to-back. The skipped-row requeue happens
+ * once per session so a Supabase-plan upgrade retries large blobs on the
+ * next launch instead of thrashing every tick.
+ */
+async function runCyclePhases(deps, db) {
+  requeueSkippedOncePerSession(db);
+  await ingestLocalFiles(db, deps.database.getQueries?.());
+  const upload = await runUploadQueue(deps, db);
+  const hydrated = await hydrateMissingFiles(deps, db);
+  return { success: true, ...upload, hydrated };
+}
+
+/**
+ * Re-queue `skipped` rows once per app session so a plan/limit bump is
+ * picked up after a restart (without burning egress every tick).
+ */
+function requeueSkippedOncePerSession(db) {
+  if (requeuedSkippedThisSession) return;
+  requeuedSkippedThisSession = true;
+  db.prepare("UPDATE vault_blobs SET upload_state = 'pending' WHERE upload_state = 'skipped'").run();
 }
 
 module.exports = {

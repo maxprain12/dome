@@ -60,16 +60,30 @@ async function syncBootstrapDomains(deps, domains, emit) {
   for (let i = 0; i < domains.length; i += 1) {
     const domain = domains[i];
     emit({ phase: 'domain', domain, index: i, total: domains.length });
-    try {
-      const result = await domainSync.syncDomain(deps, domain);
-      if (result && typeof result === 'object' && Number(result.applied) > 0) {
-        appliedAny = true;
-      }
-    } catch (err) {
-      console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
+    if (await syncOneBootstrapDomain(deps, domain)) {
+      appliedAny = true;
     }
   }
   return appliedAny;
+}
+
+/**
+ * Sync a single bootstrap domain — swallows the error (logged) so a failing
+ * domain never blocks the rest of the ordered restore. Returns true when the
+ * domain applied any remote rows locally.
+ *
+ * @param {object} deps
+ * @param {string} domain
+ * @returns {Promise<boolean>}
+ */
+async function syncOneBootstrapDomain(deps, domain) {
+  try {
+    const result = await domainSync.syncDomain(deps, domain);
+    return Boolean(result && typeof result === 'object' && Number(result.applied) > 0);
+  } catch (err) {
+    console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
+    return false;
+  }
 }
 
 /**
