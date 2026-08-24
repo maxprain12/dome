@@ -47,6 +47,35 @@ async function probeHadRemoteProfile(database) {
 }
 
 /**
+ * True if a syncDomain result represents applied remote writes.
+ * Extracted so `syncBootstrapDomains` stays under Sonar S3776.
+ *
+ * @param {unknown} result
+ * @returns {boolean}
+ */
+function hasAppliedSyncResult(result) {
+  return Boolean(result && typeof result === 'object' && Number(result.applied) > 0);
+}
+
+/**
+ * Run syncDomain for one bootstrap domain, swallowing errors so a single
+ * failure does not abort the bootstrap. Extracted so `syncBootstrapDomains`
+ * stays under Sonar S3776.
+ *
+ * @param {object} deps
+ * @param {string} domain
+ * @returns {Promise<unknown>}
+ */
+async function syncOneBootstrapDomain(deps, domain) {
+  try {
+    return await domainSync.syncDomain(deps, domain);
+  } catch (err) {
+    console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
+    return null;
+  }
+}
+
+/**
  * Pull each bootstrap domain in order; returns true if any apply count > 0.
  * Extracted so `runPostLoginBootstrap` stays under Sonar S3776.
  *
@@ -60,16 +89,44 @@ async function syncBootstrapDomains(deps, domains, emit) {
   for (let i = 0; i < domains.length; i += 1) {
     const domain = domains[i];
     emit({ phase: 'domain', domain, index: i, total: domains.length });
-    try {
-      const result = await domainSync.syncDomain(deps, domain);
-      if (result && typeof result === 'object' && Number(result.applied) > 0) {
-        appliedAny = true;
-      }
-    } catch (err) {
-      console.warn(`[post-login-bootstrap] ${domain} sync failed:`, err?.message);
+    if (hasAppliedSyncResult(await syncOneBootstrapDomain(deps, domain))) {
+      appliedAny = true;
     }
   }
   return appliedAny;
+}
+
+/**
+ * Vault file byte hydration after domain manifests are local. Extracted so
+ * `hydrateBootstrapBlobs` stays under Sonar S3776.
+ *
+ * @param {object} deps
+ * @returns {Promise<void>}
+ */
+async function hydrateVaultBlobsSafe(deps) {
+  try {
+    const blobSync = require('./blob-sync.cjs');
+    await blobSync.run(deps);
+  } catch (err) {
+    console.warn('[post-login-bootstrap] blob hydration failed:', err?.message);
+  }
+}
+
+/**
+ * Many session body restore after domain manifests are local. Extracted so
+ * `hydrateBootstrapBlobs` stays under Sonar S3776.
+ *
+ * @param {object} deps
+ * @param {object} db
+ * @returns {Promise<void>}
+ */
+async function restoreMissingSessionsSafe(deps, db) {
+  try {
+    const manySessionSync = require('./many-session-sync.cjs');
+    await manySessionSync.restoreMissingSessions(deps, db);
+  } catch (err) {
+    console.warn('[post-login-bootstrap] session restore failed:', err?.message);
+  }
 }
 
 /**
@@ -83,18 +140,45 @@ async function syncBootstrapDomains(deps, domains, emit) {
  */
 async function hydrateBootstrapBlobs(deps, db, emit) {
   emit({ phase: 'files' });
-  try {
-    const blobSync = require('./blob-sync.cjs');
-    await blobSync.run(deps);
-  } catch (err) {
-    console.warn('[post-login-bootstrap] blob hydration failed:', err?.message);
-  }
-  try {
-    const manySessionSync = require('./many-session-sync.cjs');
-    await manySessionSync.restoreMissingSessions(deps, db);
-  } catch (err) {
-    console.warn('[post-login-bootstrap] session restore failed:', err?.message);
-  }
+  await hydrateVaultBlobsSafe(deps);
+  await restoreMissingSessionsSafe(deps, db);
+}
+
+/**
+ * Domains the current plan allows in the bootstrap order. Extracted so
+ * `restoreCloudUiBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} entitlements
+ * @returns {string[]}
+ */
+function selectEnabledBootstrapDomains(entitlements) {
+  return BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
+    entitlements.features.includes(planGate.featureForDomain(d)),
+  );
+}
+
+/**
+ * Whether the plan has cloud_sync and a local db is available for hydration.
+ * Extracted so `restoreCloudUiBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} entitlements
+ * @param {object | null | undefined} db
+ * @returns {boolean}
+ */
+function shouldHydrateBlobs(entitlements, db) {
+  return Boolean(db) && entitlements.features.includes('cloud_sync');
+}
+
+/**
+ * Whether the settings table grew during this bootstrap run. Extracted so
+ * `restoreCloudUiBootstrap` stays under Sonar S3776.
+ *
+ * @param {object | null | undefined} db
+ * @param {number} before
+ * @returns {boolean}
+ */
+function settingsCountGrew(db, before) {
+  return Boolean(db) && settingsSyncBridge.countSyncedSettings(db) > before;
 }
 
 /**
@@ -110,21 +194,19 @@ async function restoreCloudUiBootstrap(deps, entitlements) {
   const db = database.getDB?.();
   const settingsBefore = db ? settingsSyncBridge.countSyncedSettings(db) : 0;
   const emit = (payload) => windowManager?.broadcast?.('domain-sync:progress', payload);
+  const domains = selectEnabledBootstrapDomains(entitlements);
 
-  const domains = BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
-    entitlements.features.includes(planGate.featureForDomain(d)),
-  );
   emit({ phase: 'start', domains });
 
   let hadRemoteData = await syncBootstrapDomains(deps, domains, emit);
 
-  if (entitlements.features.includes('cloud_sync') && db) {
+  if (shouldHydrateBlobs(entitlements, db)) {
     await hydrateBootstrapBlobs(deps, db, emit);
   }
 
   emit({ phase: 'done' });
 
-  if (db && settingsSyncBridge.countSyncedSettings(db) > settingsBefore) {
+  if (settingsCountGrew(db, settingsBefore)) {
     hadRemoteData = true;
   }
   return hadRemoteData;
