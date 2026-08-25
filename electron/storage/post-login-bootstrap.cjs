@@ -98,6 +98,43 @@ async function hydrateBootstrapBlobs(deps, db, emit) {
 }
 
 /**
+ * Domains the current entitlement unlocks, in dependency order.
+ * Extracted so `restoreCloudUiBootstrap` stays under Sonar S3776.
+ *
+ * @param {string[]} features
+ * @returns {string[]}
+ */
+function selectBootstrapDomains(features) {
+  return BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
+    features.includes(planGate.featureForDomain(d)),
+  );
+}
+
+/**
+ * Vault + session hydration only when both a db handle and the cloud_sync flag are present.
+ * Extracted so `restoreCloudUiBootstrap` stays under Sonar S3776.
+ *
+ * @param {object} entitlements
+ * @param {object | undefined | null} db
+ * @returns {boolean}
+ */
+function shouldHydrateBlobs(entitlements, db) {
+  return Boolean(db) && entitlements.features.includes('cloud_sync');
+}
+
+/**
+ * Settings delta landed from the cloud during this restore (count grew).
+ * Extracted so `restoreCloudUiBootstrap` stays under Sonar S3776.
+ *
+ * @param {object | undefined | null} db
+ * @param {number} settingsBefore
+ * @returns {boolean}
+ */
+function settingsLandedFromCloud(db, settingsBefore) {
+  return Boolean(db) && settingsSyncBridge.countSyncedSettings(db) > settingsBefore;
+}
+
+/**
  * Cloud-UI restore path: ordered domain pulls, optional blob hydration, settings delta.
  * Extracted so `runPostLoginBootstrap` stays under Sonar S3776.
  *
@@ -111,20 +148,18 @@ async function restoreCloudUiBootstrap(deps, entitlements) {
   const settingsBefore = db ? settingsSyncBridge.countSyncedSettings(db) : 0;
   const emit = (payload) => windowManager?.broadcast?.('domain-sync:progress', payload);
 
-  const domains = BOOTSTRAP_DOMAIN_ORDER.filter((d) =>
-    entitlements.features.includes(planGate.featureForDomain(d)),
-  );
+  const domains = selectBootstrapDomains(entitlements.features);
   emit({ phase: 'start', domains });
 
   let hadRemoteData = await syncBootstrapDomains(deps, domains, emit);
 
-  if (entitlements.features.includes('cloud_sync') && db) {
+  if (shouldHydrateBlobs(entitlements, db)) {
     await hydrateBootstrapBlobs(deps, db, emit);
   }
 
   emit({ phase: 'done' });
 
-  if (db && settingsSyncBridge.countSyncedSettings(db) > settingsBefore) {
+  if (settingsLandedFromCloud(db, settingsBefore)) {
     hadRemoteData = true;
   }
   return hadRemoteData;
