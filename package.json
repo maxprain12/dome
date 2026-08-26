@@ -72,7 +72,7 @@
     "test:coverage": "pnpm run build:packages && pnpm run test:coverage:electron && pnpm run test:coverage:renderer && pnpm run test:coverage:agent-core && pnpm run test:coverage:ai && node scripts/sonar/merge-coverage.mjs",
     "sonar:review-hotspots": "node scripts/sonar/review-hotspots.mjs",
     "test:sonar-hotspots": "node --test scripts/sonar/__tests__/review-hotspots.test.mjs",
-    "test:sonar-quality-loop": "node --test scripts/sonar/__tests__/batch-eligibility.test.mjs scripts/sonar/__tests__/sync-dedupe-closed.test.mjs scripts/sonar/__tests__/resolve-loop-mode.test.mjs scripts/jenkins/__tests__/run-fast-gates.test.mjs",
+    "test:sonar-quality-loop": "node --test scripts/sonar/__tests__/batch-eligibility.test.mjs scripts/sonar/__tests__/sync-dedupe-closed.test.mjs scripts/sonar/__tests__/resolve-loop-mode.test.mjs scripts/jenkins/__tests__/run-fast-gates.test.mjs scripts/jenkins/__tests__/run-sonar-scanner.test.mjs",
     "sonar:resolve-mode": "node scripts/sonar/resolve-loop-mode.mjs",
     "sonar:pick-coverage": "node scripts/sonar/pick-coverage-batch.mjs",
     "sonar:fetch-issues": "node scripts/sonar/fetch-issues.mjs",
