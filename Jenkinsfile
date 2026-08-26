@@ -106,15 +106,8 @@ pipeline {
     stage('SonarQube analysis') {
       steps {
         withSonarQubeEnv('SonarQube') {
-          sh '''
-            set -eux
-            if [ ! -s coverage/lcov.info ]; then
-              echo "WARN: coverage/lcov.info missing or empty — running scanner without fresh coverage"
-              mkdir -p coverage
-              touch coverage/lcov.info
-            fi
-            pnpm --package=@sonar/scan dlx sonar-scanner
-          '''
+          // @sonar/scan v5 only ships sonar-scanner-npm (sonar-scanner alias removed → ENOENT on PATH).
+          sh 'bash scripts/jenkins/run-sonar-scanner.sh'
         }
       }
     }

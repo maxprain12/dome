@@ -6,7 +6,7 @@ Automated correction loop: SonarQube → GitHub Issues → OpenCode CLI (MiniMax
 
 | Component | Role |
 |-----------|------|
-| Jenkins `dome-sonar` | Sonar analysis on push to `main` (`test:coverage` → lcov + pattern guards + scanner) |
+| Jenkins `dome-sonar` | Sonar analysis on push to `main` (`test:coverage` → lcov + pattern guards + scanner via `scripts/jenkins/run-sonar-scanner.sh` → `pnpm --package=@sonar/scan dlx sonar-scanner-npm`) |
 | Jenkins `dome-quality-loop` | Cron hourly with **modes** (`issues` / `coverage` / `hotspots`): OpenCode fixer or coverage tests → PR; post always reviews hotspots + closes resolved |
 | OpenCode CLI | `sonar-fix` (issues), `sonar-coverage` (tests), `sonar-reviewer` (read-only) |
 
