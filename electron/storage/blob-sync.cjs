@@ -754,6 +754,38 @@ async function resolveAndRecordVaultHash(resource, queries, wantedHashes) {
 }
 
 /**
+ * In-memory path lookup populated by `ingestOneResource` and the lazy vault
+ * scan. Returns the cached absolute path when it still exists on disk.
+ * @param {{ hash: string }} blob
+ * @returns {string | null}
+ */
+function knownBlobFilePath(blob) {
+  const known = pathByHash.get(blob.hash);
+  return known && fs.existsSync(known) ? known : null;
+}
+
+/**
+ * DB lookup by exact `file_hash`: resolves the resource's backing file via
+ * `vault_path`/`internal_path` and returns the absolute path only when it
+ * still exists on disk.
+ * @param {import('better-sqlite3').Database} db
+ * @param {{ hash: string }} blob
+ * @param {object} [queries]
+ * @returns {string | null}
+ */
+function dbBlobFilePath(db, blob, queries) {
+  const byHash = db
+    .prepare(
+      `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
+       WHERE file_hash = ? LIMIT 1`,
+    )
+    .get(blob.hash);
+  if (!byHash) return null;
+  const fullPath = resolveResourceAbsPath(byHash, queries);
+  return fullPath && fs.existsSync(fullPath) ? fullPath : null;
+}
+
+/**
  * Locate the local file whose content matches a manifest row: by exact
  * `file_hash` (vault files), by the 16-char filename prefix (managed files),
  * or a Many session body sharing this pipeline.
@@ -763,24 +795,12 @@ async function resolveAndRecordVaultHash(resource, queries, wantedHashes) {
  * @returns {string | null} absolute path
  */
 function findLocalFileForHash(db, blob, queries) {
-  const known = pathByHash.get(blob.hash);
-  if (known && fs.existsSync(known)) return known;
-
-  const byHash = db
-    .prepare(
-      `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
-       WHERE file_hash = ? LIMIT 1`,
-    )
-    .get(blob.hash);
-  if (byHash) {
-    const fullPath = resolveResourceAbsPath(byHash, queries);
-    if (fullPath && fs.existsSync(fullPath)) return fullPath;
-  }
-
-  const prefixPath = findResourceByPrefixPath(db, blob.hash);
-  if (prefixPath) return prefixPath;
-
-  return findManySessionFile(db, blob.hash);
+  return (
+    knownBlobFilePath(blob) ||
+    dbBlobFilePath(db, blob, queries) ||
+    findResourceByPrefixPath(db, blob.hash) ||
+    findManySessionFile(db, blob.hash)
+  );
 }
 
 /**
