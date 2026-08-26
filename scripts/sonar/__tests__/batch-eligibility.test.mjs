@@ -26,9 +26,28 @@ describe('isOpenSonarStatus', () => {
 });
 
 describe('sonarLineHash / isStaleSonarHash', () => {
-  it('matches MD5 of the line content', () => {
+  it('matches MD5 of the line content with spaces and tabs stripped', () => {
     const line = 'function syncBlobs() {';
-    assert.equal(sonarLineHash(line), crypto.createHash('md5').update(line, 'utf8').digest('hex'));
+    const stripped = line.replace(/[\t ]/g, '');
+    assert.equal(sonarLineHash(line), crypto.createHash('md5').update(stripped, 'utf8').digest('hex'));
+  });
+
+  it('hashes spaced and compact lines the same', () => {
+    const spaced = 'export default function CardDetailModal({';
+    const compact = 'exportdefaultfunctionCardDetailModal({';
+    assert.equal(sonarLineHash(spaced), sonarLineHash(compact));
+  });
+
+  it('returns empty hash for whitespace-only lines', () => {
+    assert.equal(sonarLineHash('   \t  '), '');
+  });
+
+  it('matches live CardDetailModal Sonar issue hash (strip spaces, not raw MD5)', () => {
+    const line = 'export default function CardDetailModal({';
+    const sonarHash = '8e63e3367d6c970b1c72383f66e94e8d';
+    const rawMd5 = crypto.createHash('md5').update(line, 'utf8').digest('hex');
+    assert.equal(sonarLineHash(line), sonarHash);
+    assert.notEqual(sonarLineHash(line), rawMd5);
   });
 
   it('detects stale hash when disk line differs', () => {
