@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatBatchPrTitle, fastGatesAllowPr } from './batch-eligibility.mjs';
 import { githubRepo, parseArgs } from './lib.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -41,9 +42,15 @@ function readJsonIfExists(rel) {
 const fastGates = readJsonIfExists('.quality-loop/fast-gates.json');
 const review = readJsonIfExists('.quality-loop/review-verdict.json');
 
-const gateRows = fastGates
-  ? `| Fast gates | ${fastGates.overall || 'unknown'} |`
-  : '| Fast gates | (not run) |';
+if (!fastGatesAllowPr(fastGates)) {
+  const overall = fastGates?.overall ?? '(missing fast-gates.json)';
+  console.error(
+    `create-batch-pr: refusing to open PR — Fast gates overall must be "pass" (got ${overall})`,
+  );
+  process.exit(1);
+}
+
+const gateRows = `| Fast gates | ${fastGates.overall} |`;
 
 const reviewRow = review
   ? `| LLM reviewer | ${review.verdict || 'unknown'} |`
@@ -104,9 +111,7 @@ const bodyFile = path.join(root, '.quality-loop', 'pr-body.md');
 fs.mkdirSync(path.dirname(bodyFile), { recursive: true });
 fs.writeFileSync(bodyFile, body);
 
-const prTitle = isCoverage
-  ? 'test(sonar): coverage growth batch'
-  : 'fix(sonar): quality loop batch';
+const prTitle = formatBatchPrTitle(batch);
 
 const repo = githubRepo();
 const prUrl = execFileSync(

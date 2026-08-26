@@ -31,7 +31,27 @@ Automated correction loop: SonarQube → GitHub Issues → OpenCode CLI (MiniMax
 
 Every run (even if Fast gates fail) **post always**:
 1. `sonar:review-hotspots --apply` (SAFE / ACKNOWLEDGED classifier)
-2. `sonar:close-resolved`
+2. `sonar:close-resolved` — **bidirectional**: GH closed → Sonar RESOLVED; Sonar FIXED/CLOSED → close open GH issues (needs `GITHUB_TOKEN` via `github-quality-loop`)
+
+### Stale-issue guards (`pick-batch`)
+
+Before clustering, issues are skipped when:
+
+| Reason | Meaning |
+|--------|---------|
+| Sonar status not OPEN/CONFIRMED/REOPENED (or resolution FIXED/…) | Already done in Sonar |
+| `issue.hash` ≠ MD5 of current line on disk | Analysis is stale vs `main` |
+| Sonar key already on a **closed** GitHub issue | Do not re-pick / refile |
+| Sonar key cited by a **merged** PR | Already shipped |
+| File touched on `main` by `fix(sonar)` within 30 days | Recent refactor |
+
+Empty batch after filters → **job SUCCESS** (nothing to fix). Sync/dedupe also consider OPEN+CLOSED so keys are never recreated after close.
+
+### Fast gates honesty
+
+`run-fast-gates.sh` exports gate RCs into the Node process that writes `.quality-loop/fast-gates.json` (env vars **before** `node`, not trailing argv). `create-batch-pr.mjs` **refuses** to open a PR unless `overall === "pass"`, and titles include rule + file (e.g. `fix(sonar): S3776 blob-sync.cjs`).
+
+Agent clean tree after OpenCode → **SUCCESS skip** (already fixed), not FAILURE.
 
 ### Credentials (Manage Jenkins → Credentials)
 
