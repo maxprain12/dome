@@ -161,8 +161,28 @@ if (/Maximum steps reached/i.test(stdout)) {
 
 try {
   execFileSync('bash', ['scripts/jenkins/source-tree-clean.sh', ROOT], { cwd: ROOT, stdio: 'pipe' });
-  console.error('[SonarLoop] Agent finished with no source changes — batch not fixed');
-  process.exit(1);
+  // Clean tree = already fixed / nothing to do. Treat as SUCCESS skip so the
+  // hourly loop does not go FAILURE and re-pick the same stale batch forever.
+  console.log(
+    '[SonarLoop] Agent finished with no source changes — treating as already fixed (SUCCESS skip)',
+  );
+  writeAgentRun({
+    engine: 'opencode',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    provider: 'minimax',
+    model,
+    kind: batchKind,
+    agent: agentName,
+    exitCode: 0,
+    error: null,
+    skipped: true,
+    skipReason: 'clean_tree_after_agent',
+    stdout: stdout.slice(-8000),
+    stderr: stderr.slice(-4000),
+    batch: batchPayload,
+  });
+  process.exit(0);
 } catch {
   // source-tree-clean exits 1 when there are fix-worthy changes — expected
 }

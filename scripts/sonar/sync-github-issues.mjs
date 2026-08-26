@@ -2,6 +2,10 @@
 /**
  * Sync SonarQube OPEN issues → GitHub Issues (dedupe by sonarKey in body).
  *
+ * Dedupe considers OPEN **and** CLOSED GitHub issues (and optionally merged-PR
+ * citations via the same key set) so a key already filed then closed is never
+ * recreated while Sonar is still stale/OPEN.
+ *
  * Usage:
  *   SONAR_TOKEN=... GITHUB_TOKEN=... node scripts/sonar/sync-github-issues.mjs [--severity=HIGH,MAJOR] [--max=50]
  *
@@ -29,15 +33,19 @@ const severityFilter = args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH';
 const maxOpen = Number(args.max || 50);
 const dryRun = args['dry-run'] === 'true';
 
-/** @type {Set<string>} */
+/** @type {Set<string>} keys seen on any GitHub sonar issue (open or closed) */
 const existingKeys = new Set();
 let openSonarCount = 0;
 
-async function loadExistingGithubIssues() {
+/**
+ * @param {'open' | 'closed' | 'all'} state
+ * @param {(issue: Record<string, unknown>, key: string | null) => void} onIssue
+ */
+async function forEachGithubSonarIssue(state, onIssue) {
   let page = 1;
   while (true) {
     const data = await githubFetch('GET', `/repos/${githubRepo()}/issues`, {
-      state: 'open',
+      state,
       labels: 'sonar',
       per_page: '100',
       page: String(page),
@@ -45,13 +53,19 @@ async function loadExistingGithubIssues() {
     if (!data || data.length === 0) break;
     for (const issue of data) {
       if (issue.pull_request) continue;
-      openSonarCount++;
       const key = extractSonarKey(issue.body || '');
-      if (key) existingKeys.add(key);
+      onIssue(issue, key);
     }
     if (data.length < 100) break;
     page++;
   }
+}
+
+async function loadExistingGithubIssues() {
+  await forEachGithubSonarIssue('all', (issue, key) => {
+    if (issue.state !== 'closed') openSonarCount++;
+    if (key) existingKeys.add(key);
+  });
 }
 
 /** @param {string} name */
@@ -107,8 +121,8 @@ async function createGithubIssue(issue) {
 await loadExistingGithubIssues();
 const createBudget = Math.max(0, maxOpen - openSonarCount);
 console.log(
-  `Found ${existingKeys.size} existing open GitHub issues with sonarKey ` +
-    `(${openSonarCount} total open with label sonar, cap ${maxOpen}, create budget ${createBudget})`,
+  `Found ${existingKeys.size} existing GitHub sonarKey(s) (open+closed); ` +
+    `${openSonarCount} open with label sonar, cap ${maxOpen}, create budget ${createBudget}`,
 );
 
 if (createBudget === 0) {

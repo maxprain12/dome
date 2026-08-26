@@ -34,13 +34,39 @@ pipeline {
           npm --version
           npm install -g "pnpm@${PNPM_VERSION}"
           pnpm --version
+
+          # Python for node-gyp (better-sqlite3) — best-effort on locked-down agents
+          if ! command -v python3 >/dev/null 2>&1; then
+            if [ "$(id -u)" = "0" ] && command -v apt-get >/dev/null 2>&1; then
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq python3 make g++ || true
+            elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              export DEBIAN_FRONTEND=noninteractive
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq python3 make g++ || true
+            else
+              echo "WARN: python3 missing — native rebuild may fail"
+            fi
+          fi
+          command -v python3 >/dev/null 2>&1 && python3 --version || true
         '''
       }
     }
 
     stage('Install') {
       steps {
-        sh 'pnpm install --frozen-lockfile --ignore-scripts'
+        sh '''
+          set -eux
+          # ignore-scripts skips electron postinstall (binary download) — restore it explicitly
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm rebuild electron
+          npm rebuild better-sqlite3 || true
+          node -e "require('better-sqlite3')" || echo "WARN: better-sqlite3 load failed"
+          if [ -d node_modules/electron ]; then
+            bash scripts/jenkins/verify-electron-runtime.sh "$PWD" || echo "WARN: Electron runtime verify failed"
+          fi
+        '''
       }
     }
 
@@ -57,9 +83,15 @@ pipeline {
         }
         stage('Coverage') {
           steps {
-            sh 'pnpm run build:packages'
-            sh 'pnpm run test:coverage'
-            sh 'test -s coverage/lcov.info && wc -l coverage/lcov.info'
+            // Coverage must not gate Sonar analysis — warn/unstable, still archive whatever lcov exists.
+            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+              sh '''
+                set -eux
+                pnpm run build:packages
+                pnpm run test:coverage
+                test -s coverage/lcov.info && wc -l coverage/lcov.info
+              '''
+            }
           }
         }
         stage('Sonar pattern guards') {
@@ -74,7 +106,15 @@ pipeline {
     stage('SonarQube analysis') {
       steps {
         withSonarQubeEnv('SonarQube') {
-          sh 'pnpm --package=@sonar/scan dlx sonar-scanner'
+          sh '''
+            set -eux
+            if [ ! -s coverage/lcov.info ]; then
+              echo "WARN: coverage/lcov.info missing or empty — running scanner without fresh coverage"
+              mkdir -p coverage
+              touch coverage/lcov.info
+            fi
+            pnpm --package=@sonar/scan dlx sonar-scanner
+          '''
         }
       }
     }

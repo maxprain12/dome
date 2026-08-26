@@ -78,6 +78,22 @@ pipeline {
       steps {
         sh '''
           set -eux
+          # Python for node-gyp (better-sqlite3) — best-effort
+          if ! command -v python3 >/dev/null 2>&1; then
+            if [ "$(id -u)" = "0" ] && command -v apt-get >/dev/null 2>&1; then
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq python3 make g++ || true
+            elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              export DEBIAN_FRONTEND=noninteractive
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq python3 make g++ || true
+            else
+              echo "WARN: python3 missing — better-sqlite3 rebuild may fail"
+            fi
+          fi
+          command -v python3 >/dev/null 2>&1 && python3 --version || true
+
           pnpm install --frozen-lockfile --ignore-scripts
           pnpm run build:packages
           npm rebuild better-sqlite3
@@ -176,13 +192,29 @@ pipeline {
         sh '''
           set -eux
           pnpm run sonar:validate-batch -- --batch=.quality-loop/batch.json
+          # Empty batch (all skipped as already-fixed/stale) → SUCCESS, skip fixer stages
+          COUNT="$(node -e "try{const j=require('./.quality-loop/batch.json');process.stdout.write(String(j.count||0))}catch{process.stdout.write('0')}")"
+          echo "batch.count=${COUNT}"
+          if [ "$COUNT" = "0" ]; then
+            mkdir -p .quality-loop
+            echo '{"fixCount":0,"deferCount":0,"allDeferred":true,"source":"empty-batch"}' > .quality-loop/triage-applied.json
+            echo "Empty/already-fixed batch — nothing to fix this hour (SUCCESS)"
+          fi
         '''
       }
     }
 
     stage('Batch triage (OpenCode)') {
       when {
-        expression { return env.SONAR_LOOP_MODE_RESOLVED == 'issues' }
+        allOf {
+          expression { return env.SONAR_LOOP_MODE_RESOLVED == 'issues' }
+          expression {
+            return sh(
+              script: '''node -e "try{const j=require('./.quality-loop/batch.json');process.exit((j.count||0)>0?0:1)}catch{process.exit(1)}"''',
+              returnStatus: true,
+            ) == 0
+          }
+        }
       }
       steps {
         withCredentials([
@@ -350,13 +382,18 @@ pipeline {
           sh '''
             set -eux
             KIND="$(node -e "try{const j=require('./.quality-loop/batch.json');process.stdout.write(j.kind==='coverage'?'coverage':'issues')}catch{process.stdout.write('issues')}")"
+            TITLE="$(node --input-type=module -e "
+              import { formatBatchPrTitle } from './scripts/sonar/batch-eligibility.mjs';
+              import fs from 'node:fs';
+              const b = JSON.parse(fs.readFileSync('.quality-loop/batch.json','utf8'));
+              process.stdout.write(formatBatchPrTitle(b));
+            ")"
             if [ "$KIND" = "coverage" ]; then
               BRANCH="test/sonar-coverage-$(date +%Y%m%d-%H%M)"
-              MSG="test(sonar): coverage growth batch $(date -Iseconds)"
             else
               BRANCH="fix/sonar-batch-$(date +%Y%m%d-%H%M)"
-              MSG="fix(sonar): quality loop batch $(date -Iseconds)"
             fi
+            MSG="${TITLE} $(date -Iseconds)"
             git config user.email "jenkins@dowi.es"
             git config user.name "Jenkins Quality Loop"
             git checkout -b "$BRANCH"
@@ -382,15 +419,20 @@ pipeline {
       script {
         try {
           withSonarQubeEnv('SonarQube') {
-            sh '''
-              set +e
-              echo "=== post: review security hotspots ==="
-              pnpm run sonar:review-hotspots -- --apply=true \
-                || node scripts/sonar/review-hotspots.mjs --apply=true \
-                || true
-              echo "=== post: close resolved Sonar issues ==="
-              pnpm run sonar:close-resolved -- --since-days=14 || true
-            '''
+            withCredentials([
+              string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+            ]) {
+              sh '''
+                set +e
+                bash scripts/jenkins/gh-auth-env.sh || true
+                echo "=== post: review security hotspots ==="
+                pnpm run sonar:review-hotspots -- --apply=true \
+                  || node scripts/sonar/review-hotspots.mjs --apply=true \
+                  || true
+                echo "=== post: close resolved (Sonar ↔ GitHub) ==="
+                pnpm run sonar:close-resolved -- --since-days=14 || true
+              '''
+            }
           }
         } catch (err) {
           echo "post Sonar maintenance skipped/failed: ${err}"

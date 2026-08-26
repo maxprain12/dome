@@ -54,7 +54,10 @@ for rc in "$typecheck_rc" "$lint_rc" "$scope_rc" "$diff_rc"; do
   fi
 done
 
-node --input-type=module -e "
+# Env vars MUST precede `node` — trailing `KEY=val` after the command are
+# positional argv, not process.env (that bug wrote overall:fail with null gates).
+TS="$TS" OVERALL="$overall" TC="$typecheck_rc" LINT="$lint_rc" SCOPE="$scope_rc" DIFF="$diff_rc" \
+  node --input-type=module -e "
 import fs from 'node:fs';
 const payload = {
   timestamp: process.env.TS,
@@ -67,8 +70,7 @@ const payload = {
   },
 };
 fs.writeFileSync('.quality-loop/fast-gates.json', JSON.stringify(payload, null, 2) + '\n');
-" \
-  TS="$TS" OVERALL="$overall" TC="$typecheck_rc" LINT="$lint_rc" SCOPE="$scope_rc" DIFF="$diff_rc"
+"
 
 if [ "$overall" -ne 0 ]; then
   {

@@ -54,8 +54,10 @@ try {
 
 const issues = payload.batch || [];
 if (issues.length === 0) {
-  console.error('Batch is empty — nothing to fix');
-  process.exit(1);
+  // Empty after pick-batch skip filters (stale / already fixed) is SUCCESS —
+  // nothing actionable this hour; do not fail the Jenkins job.
+  console.log('validate-batch: OK (empty batch — nothing to fix)');
+  process.exit(0);
 }
 
 const isCoverage = payload.kind === 'coverage';
