@@ -15,11 +15,14 @@ export const OPEN_SONAR_STATUSES = new Set(['OPEN', 'CONFIRMED', 'REOPENED']);
 export const DEFAULT_RECENT_FIX_DAYS = 30;
 
 /**
- * Sonar stores MD5 of the source line (DigestUtils.md5Hex).
+ * Sonar stores MD5 of the source line with spaces/tabs removed
+ * (SourceLineHashesComputer: StringUtils.replaceChars(line, "\t ", "")).
  * @param {string} lineContent
  */
 export function sonarLineHash(lineContent) {
-  return crypto.createHash('md5').update(String(lineContent), 'utf8').digest('hex');
+  const reduced = String(lineContent).replace(/[\t ]/g, '');
+  if (!reduced) return '';
+  return crypto.createHash('md5').update(reduced, 'utf8').digest('hex');
 }
 
 /**
