@@ -6,6 +6,10 @@ const vaultStore = require('../../storage/vault-store.cjs');
 const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer, isMaskedSecret } = require('../../core/settings-secrets.cjs');
+const {
+  executeResourcesUpdate,
+  retryResourcesUpdateAfterCorruption,
+} = require('./resource-update-helpers.cjs');
 
 /** Accept `{ resourceId, … }` (preload) or positional args (dev browser IPC shim). */
 function pickPairPayload(arg1, arg2, keyA, keyB) {
@@ -531,177 +535,25 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   ipcMain.handle('db:resources:update', (event, resource) => {
     try {
       validateSender(event, windowManager);
-      const queries = database.getQueries();
-      const current = queries.getResourceById.get(resource.id);
-      if (!current) {
-        return { success: false, error: 'Resource not found' };
-      }
-
-      // Merge partial updates: only overwrite fields explicitly provided
-      // Fallbacks ensure we never pass null to NOT NULL columns (e.g. title)
-      const mergedTitle = (resource.title !== undefined ? resource.title : current.title) ?? 'Untitled';
-      const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
-      let mergedMetadata = null;
-      if (resource.metadata !== undefined) {
-        mergedMetadata = typeof resource.metadata === 'object' && resource.metadata !== null
-          ? JSON.stringify(resource.metadata)
-          : resource.metadata;
-      } else {
-        mergedMetadata = current.metadata;
-      }
-      const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
-
-      queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
-
-      // Vault reconciliation: keep the on-disk Markdown tree + search caches in
-      // sync with this DB write (covers AI/tool edits as well as renderer saves).
-      try {
-        if (current.type === 'folder') {
-          if (
-            (resource.title !== undefined && resource.title !== current.title)
-            || (resource.folder_id !== undefined && resource.folder_id !== current.folder_id)
-          ) {
-            vaultStore.relocateFolder(resource.id, { database, fileStorage });
-          }
-        } else if (current.type === 'note') {
-        // AI agent writes markdown to vault mirror directly via writeNoteMarkdownFromAgent;
-        // refresh content_text from vault on the next mirror write or editor save.
-          if (resource.content !== undefined) {
-            try {
-              const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
-              const raw = String(mergedContent || '');
-              let text = '';
-              if (raw.trim().startsWith('{')) {
-                try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
-              }
-              if (!text) text = stripTags(raw);
-              database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
-            } catch { /* non-fatal */ }
-          }
-          if (resource.title !== undefined && resource.title !== current.title) {
-            vaultStore.relocateResource(resource.id, { database, fileStorage });
-          }
-        } else if (current.type === 'url') {
-          // Rewrites the .url file at the title-derived path (rename + content).
-          if (
-            (resource.title !== undefined && resource.title !== current.title)
-            || (resource.content !== undefined && resource.content !== current.content)
-          ) {
-            vaultStore.writeUrlMirror({ id: resource.id }, { database, fileStorage });
-          }
-        } else if (current.type === 'notebook') {
-          if (
-            (resource.title !== undefined && resource.title !== current.title)
-            || (resource.content !== undefined && resource.content !== current.content)
-          ) {
-            vaultStore.writeNotebookMirror({ id: resource.id }, { database, fileStorage });
-          }
-        } else if (current.type === 'artifact') {
-          // Title-derived path; relocateResource also moves the .dome sidecar.
-          if (resource.title !== undefined && resource.title !== current.title) {
-            vaultStore.relocateResource(resource.id, { database, fileStorage });
-          }
-        } else if (current.vault_path) {
-          // Binary file types: renaming in Dome renames the file on disk too.
-          if (resource.title !== undefined && resource.title !== current.title) {
-            vaultStore.renameResourceFileToTitle(resource.id, { database, fileStorage });
-          }
-        }
-      } catch (e) { console.warn('[DB] vault reconcile (update) failed:', e?.message); }
-
-      // Broadcast evento a todas las ventanas (merged values)
-      const mergedResource = {
-        ...current,
-        title: mergedTitle,
-        content: mergedContent,
-        metadata: mergedMetadata,
-        updated_at: mergedUpdatedAt,
-      };
-      windowManager.broadcast('resource:updated', {
-        id: resource.id,
-        updates: mergedResource,
+      return executeResourcesUpdate(resource, {
+        database,
+        fileStorage,
+        windowManager,
+        maybeScheduleKbReindex,
+        semanticIndexScheduler,
+        vaultStore,
       });
-
-      maybeScheduleKbReindex(resource.id, mergedResource, current);
-      semanticIndexScheduler.scheduleSemanticReindex(resource.id);
-
-      return { success: true, data: mergedResource };
     } catch (error) {
       console.error('[DB] Error updating resource:', error);
-
-      // Try to handle corruption errors
       const handled = database.handleCorruptionError(error);
       if (handled) {
-        // Retry the operation after repair (merged values from above scope)
-        try {
-          const queries = database.getQueries();
-          const current = queries.getResourceById.get(resource.id);
-          if (!current) return { success: false, error: 'Resource not found' };
-          const mergedTitle = (resource.title !== undefined ? resource.title : current.title) ?? 'Untitled';
-          const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
-          let mergedMetadata = null;
-          if (resource.metadata !== undefined) {
-            mergedMetadata = typeof resource.metadata === 'object' && resource.metadata !== null
-              ? JSON.stringify(resource.metadata) : resource.metadata;
-          } else {
-            mergedMetadata = current.metadata;
-          }
-          const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
-          queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
-          const mergedResource = {
-            ...current,
-            title: mergedTitle,
-            content: mergedContent,
-            metadata: mergedMetadata,
-            updated_at: mergedUpdatedAt,
-          };
-          windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
-          maybeScheduleKbReindex(resource.id, mergedResource, current);
-          semanticIndexScheduler.scheduleSemanticReindex(resource.id);
-          return { success: true, data: mergedResource };
-        } catch (retryError) {
-          console.error('[DB] Error retrying after repair:', retryError);
-          if (retryError.code === 'SQLITE_CORRUPT' || retryError.code === 'SQLITE_CORRUPT_VTAB') {
-            console.warn('[DB] Corruption persists, attempting more aggressive repair...');
-            database.invalidateQueries();
-            const repairedAgain = database.repairFTSTables();
-            if (repairedAgain) {
-              try {
-                const queries = database.getQueries();
-                const current = queries.getResourceById.get(resource.id);
-                if (!current) return { success: false, error: 'Resource not found' };
-                const mergedTitle = resource.title !== undefined ? resource.title : current.title;
-                const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
-                let mergedMetadata = null;
-                if (resource.metadata !== undefined) {
-                  mergedMetadata = typeof resource.metadata === 'object' && resource.metadata !== null
-                    ? JSON.stringify(resource.metadata) : resource.metadata;
-                } else {
-                  mergedMetadata = current.metadata;
-                }
-                const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
-                queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
-                const mergedResource = {
-                  ...current,
-                  title: mergedTitle,
-                  content: mergedContent,
-                  metadata: mergedMetadata,
-                  updated_at: mergedUpdatedAt,
-                };
-                windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
-                maybeScheduleKbReindex(resource.id, mergedResource, current);
-                semanticIndexScheduler.scheduleSemanticReindex(resource.id);
-                return { success: true, data: mergedResource };
-              } catch (finalError) {
-                console.error('[DB] Error after second repair attempt:', finalError);
-                return { success: false, error: finalError.message };
-              }
-            }
-          }
-          return { success: false, error: retryError.message };
-        }
+        return retryResourcesUpdateAfterCorruption(resource, {
+          database,
+          windowManager,
+          maybeScheduleKbReindex,
+          semanticIndexScheduler,
+        });
       }
-
       return { success: false, error: error.message };
     }
   });
