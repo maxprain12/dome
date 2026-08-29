@@ -673,13 +673,17 @@ function shouldPersistCancelledPartial(context, params, aborted) {
   return context.fullResponse.trim().length > 0 || context.toolCalls.length > 0;
 }
 
+function updateToolCallsOnAbort(context, aborted) {
+  for (const entry of context.toolCalls) {
+    if (entry.status === 'running') entry.status = aborted ? 'cancelled' : 'error';
+  }
+}
+
 async function finalizeAgentRunError(runId, params, context, error, aborted) {
   if (context.autoSpeak) {
     streamingTts.cancel(runId);
   }
-  for (const entry of context.toolCalls) {
-    if (entry.status === 'running') entry.status = aborted ? 'cancelled' : 'error';
-  }
+  updateToolCallsOnAbort(context, aborted);
   finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
   appendRunStep({
     runId,
