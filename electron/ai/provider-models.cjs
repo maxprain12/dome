@@ -227,6 +227,34 @@ async function fetchAnthropicModels(apiKey) {
 }
 
 /**
+ * Normalize a single Google API model row into a NormalizedModel, or return null to skip.
+ * @param {unknown} row
+ * @param {Set<string>} curated
+ * @returns {NormalizedModel | null}
+ */
+function normalizeGoogleModelRow(row, curated) {
+  if (!row || typeof row !== 'object') return null;
+  const r = /** @type {Record<string, unknown>} */ (row);
+  const methods = Array.isArray(r.supportedGenerationMethods) ? r.supportedGenerationMethods : [];
+  if (!methods.includes('generateContent')) return null;
+  const rawName = typeof r.name === 'string' ? r.name : '';
+  const id = rawName.replace(/^models\//, '');
+  if (!id) return null;
+  const displayName = typeof r.displayName === 'string' ? r.displayName : id;
+  const ctx = Number(r.inputTokenLimit);
+  const input = /** @type {Array<'text'|'image'>} */ (['text']);
+  if (String(r.description || '').toLowerCase().includes('vision') || id.includes('vision')) {
+    input.push('image');
+  }
+  return makeModel(id, displayName, {
+    curated: curated.has(id),
+    contextWindow: Number.isFinite(ctx) && ctx > 0 ? ctx : 1000000,
+    api: 'google-generative',
+    description: typeof r.description === 'string' ? r.description : undefined,
+  });
+}
+
+/**
  * @param {string} apiKey
  * @returns {Promise<{ success: boolean, models?: NormalizedModel[], error?: string }>}
  */
@@ -241,25 +269,8 @@ async function fetchGoogleModels(apiKey) {
   const curated = CURATED_IDS.google;
   const models = [];
   for (const row of data) {
-    if (!row || typeof row !== 'object') continue;
-    const r = /** @type {Record<string, unknown>} */ (row);
-    const methods = Array.isArray(r.supportedGenerationMethods) ? r.supportedGenerationMethods : [];
-    if (!methods.includes('generateContent')) continue;
-    const rawName = typeof r.name === 'string' ? r.name : '';
-    const id = rawName.replace(/^models\//, '');
-    if (!id) continue;
-    const displayName = typeof r.displayName === 'string' ? r.displayName : id;
-    const ctx = Number(r.inputTokenLimit);
-    const input = /** @type {Array<'text'|'image'>} */ (['text']);
-    if (String(r.description || '').toLowerCase().includes('vision') || id.includes('vision')) {
-      input.push('image');
-    }
-    models.push(makeModel(id, displayName, {
-      curated: curated.has(id),
-      contextWindow: Number.isFinite(ctx) && ctx > 0 ? ctx : 1000000,
-      api: 'google-generative',
-      description: typeof r.description === 'string' ? r.description : undefined,
-    }));
+    const model = normalizeGoogleModelRow(row, curated);
+    if (model) models.push(model);
   }
   models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   return { success: true, models };
