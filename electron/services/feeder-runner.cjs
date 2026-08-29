@@ -343,6 +343,196 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
 }
 
 /**
+ * Map a feeder interpreter to its on-disk script extension. `curl` callers
+ * never write a script file (handled separately), so it's not in this map.
+ * @param {string} interpreter
+ */
+function interpreterScriptExtension(interpreter) {
+  if (interpreter === 'python3') return '.py';
+  if (interpreter === 'node') return '.js';
+  return '.sh';
+}
+
+/**
+ * Materialize the feeder script into the workspace so the child interpreter
+ * can exec/eval it. Returns null for `curl` (no script file needed).
+ * @param {Record<string, unknown>} feeder
+ * @param {string} workspace
+ * @param {string} scriptSource
+ */
+async function prepareInterpreterScript(feeder, workspace, scriptSource) {
+  if (feeder.interpreter === 'curl') return null;
+  const scriptPath = path.join(workspace, `feeder${interpreterScriptExtension(feeder.interpreter)}`);
+  await fsp.writeFile(scriptPath, scriptSource, 'utf8');
+  if (feeder.interpreter !== 'node') {
+    await fsp.chmod(scriptPath, 0o700);
+  }
+  return scriptPath;
+}
+
+/**
+ * Pick the most informative error message for a non-zero process result.
+ * Prefers stderr (where Node/Python normally write tracebacks); falls back
+ * to a stdout tail so the user sees more than "Process exited with code 1".
+ * @param {string} capturedStdout
+ * @param {string} capturedStderr
+ */
+function buildProcessFailureHint(capturedStdout, capturedStderr) {
+  if (capturedStderr.trim().length > 0) return capturedStderr.trim();
+  if (capturedStdout.trim().length > 0) return `(no stderr; stdout tail) ${capturedStdout.slice(-1200)}`;
+  return '';
+}
+
+/**
+ * Throw an Error describing why the child process failed. Returns void on
+ * success so callers can use a single linear call site.
+ * @param {{ killed?: boolean, exitCode?: number|null, spawnError?: string }} result
+ * @param {string} capturedStdout
+ * @param {string} capturedStderr
+ * @param {number} timeoutMs
+ */
+function assertProcessSucceeded(result, capturedStdout, capturedStderr, timeoutMs) {
+  if (result.killed) {
+    const tail = capturedStdout ? ` (last stdout: ${capturedStdout.slice(-400)})` : '';
+    throw new Error(`Feeder timed out after ${timeoutMs}ms${tail}`);
+  }
+  if (result.exitCode !== 0) {
+    const hint = buildProcessFailureHint(capturedStdout, capturedStderr);
+    const head = result.spawnError || `Process exited with code ${result.exitCode}`;
+    throw new Error(hint ? `${head}\n${hint}` : head);
+  }
+}
+
+/**
+ * Resolve the JSON payload produced by a feeder run — either stdout
+ * directly or the contents of $OUTPUT_FILE when configured.
+ * @param {Record<string, unknown>} feeder
+ * @param {string} capturedStdout
+ * @param {Record<string, string>} env
+ */
+async function loadFeederOutput(feeder, capturedStdout, env) {
+  if (feeder.outputMode !== 'output_file') return capturedStdout;
+  try {
+    return await fsp.readFile(env.OUTPUT_FILE, 'utf8');
+  } catch (readErr) {
+    throw new Error(
+      `Feeder finished with exit 0 but OUTPUT_FILE (${env.OUTPUT_FILE}) was not created: ${readErr?.message || readErr}`,
+    );
+  }
+}
+
+/**
+ * Throw if the feeder produced unparseable JSON, including a sample of the
+ * raw output to make debugging easier.
+ * @param {unknown} parsed
+ * @param {string} jsonText
+ * @param {Record<string, unknown>} feeder
+ */
+function validateParsedJson(parsed, jsonText, feeder) {
+  if (parsed != null) return;
+  const sample = String(jsonText || '').slice(0, 1200);
+  throw new Error(
+    sample
+      ? `Feeder did not produce valid JSON (mode=${feeder.outputMode}). Output sample:\n${sample}`
+      : `Feeder did not produce valid JSON output (mode=${feeder.outputMode}) — output was empty.`,
+  );
+}
+
+/**
+ * Persist the success state of a feeder run: DB updates, broadcast, and
+ * sidecar writes. Returns the updated run record.
+ * @param {Record<string, unknown>} runRecord
+ * @param {ReturnType<import('../core/database.cjs')['getQueries']>} queries
+ * @param {{ runId: string, feederId: string, result: { exitCode?: number|null }, stdoutExcerpt: string, stderrExcerpt: string, parsed: unknown }} ctx
+ */
+function completeRunRecord(runRecord, queries, ctx) {
+  const dataBytes = Buffer.byteLength(JSON.stringify(ctx.parsed), 'utf8');
+  const finishedAt = Date.now();
+  queries.updateFeederRun.run(
+    finishedAt,
+    'completed',
+    ctx.result.exitCode ?? 0,
+    ctx.stdoutExcerpt,
+    ctx.stderrExcerpt,
+    dataBytes,
+    ctx.runId,
+  );
+  queries.updateFeederLastRun.run(finishedAt, 'completed', null, finishedAt, ctx.feederId);
+  return {
+    ...runRecord,
+    finishedAt,
+    status: 'completed',
+    exitCode: ctx.result.exitCode ?? 0,
+    stdoutExcerpt: ctx.stdoutExcerpt,
+    stderrExcerpt: ctx.stderrExcerpt,
+    dataBytes,
+  };
+}
+
+/**
+ * Persist the failure state of a feeder run: DB updates, console error,
+ * broadcast, and run sidecar. Returns the updated run record.
+ * @param {{
+ *   database: import('../core/database.cjs'),
+ *   fileStorage: typeof fileStorage,
+ *   windowManager: { broadcast?: Function },
+ *   queries: ReturnType<import('../core/database.cjs')['getQueries']>,
+ *   runRecord: Record<string, unknown>,
+ *   runId: string,
+ *   feederId: string,
+ *   feederName: string,
+ *   capturedStdout: string,
+ *   capturedStderr: string,
+ *   capturedExitCode: number|null,
+ *   secretValues: string[],
+ *   err: unknown,
+ * }} ctx
+ */
+async function persistFailedRun(ctx) {
+  const finishedAt = Date.now();
+  const message = ctx.err?.message || String(ctx.err);
+  // Preserve whatever the process actually emitted — the previous
+  // implementation overwrote stdout with '' on failure, which made
+  // debugging Node feeders very hard.
+  const stdoutExcerpt = redactSecrets(buildExcerpt(ctx.capturedStdout), ctx.secretValues);
+  const stderrExcerpt = redactSecrets(
+    buildExcerpt(ctx.capturedStderr || message),
+    ctx.secretValues,
+  );
+  const exitCode = ctx.capturedExitCode ?? 1;
+  ctx.queries.updateFeederRun.run(
+    finishedAt,
+    'failed',
+    exitCode,
+    stdoutExcerpt,
+    stderrExcerpt,
+    0,
+    ctx.runId,
+  );
+  ctx.queries.updateFeederLastRun.run(finishedAt, 'failed', message, finishedAt, ctx.feederId);
+  const failed = {
+    ...ctx.runRecord,
+    finishedAt,
+    status: 'failed',
+    exitCode,
+    stdoutExcerpt,
+    stderrExcerpt,
+  };
+  console.error(
+    `[Feeders] run failed feeder="${ctx.feederName}" id=${ctx.feederId} exit=${exitCode}\n  message: ${message}\n  stdout(tail): ${ctx.capturedStdout.slice(-600)}\n  stderr(tail): ${ctx.capturedStderr.slice(-600)}`,
+  );
+  if (ctx.windowManager?.broadcast) {
+    ctx.windowManager.broadcast('feeder:run-completed', {
+      feederId: ctx.feederId,
+      run: failed,
+      error: message,
+    });
+  }
+  await writeFeederRunSidecar(ctx.database, ctx.fileStorage, ctx.feederId, failed);
+  return failed;
+}
+
+/**
  * @param {import('../core/database.cjs')} database
  * @param {{ broadcast?: Function }} windowManager
  * @param {string} feederId
@@ -402,21 +592,8 @@ async function runFeederLocked(database, windowManager, feederId, feeder, opts) 
     const { env, secretValues: resolvedSecrets } = await resolveFeederEnv(vault, feeder, workspace);
     secretValues = resolvedSecrets;
 
-    let scriptPath = null;
     const scriptSource = readFeederScript(database, fileStorage, feederId) || String(feeder.script || '');
-    if (feeder.interpreter !== 'curl') {
-      const ext =
-        feeder.interpreter === 'python3'
-          ? '.py'
-          : feeder.interpreter === 'node'
-            ? '.js'
-            : '.sh';
-      scriptPath = path.join(workspace, `feeder${ext}`);
-      await fsp.writeFile(scriptPath, scriptSource, 'utf8');
-      if (feeder.interpreter !== 'node') {
-        await fsp.chmod(scriptPath, 0o700);
-      }
-    }
+    const scriptPath = await prepareInterpreterScript(feeder, workspace, scriptSource);
 
     const spawnCfg = await buildSpawnConfig(feeder.interpreter, scriptPath || '', feeder);
     const procEnv = { ...env, ...(spawnCfg.envFix || {}) };
@@ -434,46 +611,11 @@ async function runFeederLocked(database, windowManager, feederId, feeder, opts) 
     const stdoutExcerpt = redactSecrets(buildExcerpt(capturedStdout), secretValues);
     const stderrExcerpt = redactSecrets(buildExcerpt(capturedStderr), secretValues);
 
-    if (result.killed) {
-      throw new Error(
-        `Feeder timed out after ${timeoutMs}ms` +
-          (capturedStdout ? ` (last stdout: ${capturedStdout.slice(-400)})` : ''),
-      );
-    }
-    if (result.exitCode !== 0) {
-      // Prefer stderr (where Node/Python normally write tracebacks), but Node
-      // scripts often emit errors to stdout — surface that too so the user
-      // sees more than "Process exited with code 1".
-      const hint =
-        capturedStderr.trim().length > 0
-          ? capturedStderr.trim()
-          : capturedStdout.trim().length > 0
-            ? `(no stderr; stdout tail) ${capturedStdout.slice(-1200)}`
-            : '';
-      const head = result.spawnError || `Process exited with code ${result.exitCode}`;
-      throw new Error(hint ? `${head}\n${hint}` : head);
-    }
+    assertProcessSucceeded(result, capturedStdout, capturedStderr, timeoutMs);
 
-    let jsonText = capturedStdout;
-    if (feeder.outputMode === 'output_file') {
-      try {
-        jsonText = await fsp.readFile(env.OUTPUT_FILE, 'utf8');
-      } catch (readErr) {
-        throw new Error(
-          `Feeder finished with exit 0 but OUTPUT_FILE (${env.OUTPUT_FILE}) was not created: ${readErr?.message || readErr}`,
-        );
-      }
-    }
-
+    const jsonText = await loadFeederOutput(feeder, capturedStdout, env);
     const parsed = parseFeederJsonOutput(jsonText, feeder.outputMode);
-    if (parsed == null) {
-      const sample = String(jsonText || '').slice(0, 1200);
-      throw new Error(
-        sample
-          ? `Feeder did not produce valid JSON (mode=${feeder.outputMode}). Output sample:\n${sample}`
-          : `Feeder did not produce valid JSON output (mode=${feeder.outputMode}) — output was empty.`,
-      );
-    }
+    validateParsedJson(parsed, jsonText, feeder);
 
     applyDataToArtifact(database, windowManager, {
       artifactResourceId: feeder.artifactResourceId,
@@ -484,28 +626,14 @@ async function runFeederLocked(database, windowManager, feederId, feeder, opts) 
       automationId: opts.automationId ?? null,
     });
 
-    const dataBytes = Buffer.byteLength(JSON.stringify(parsed), 'utf8');
-    const finishedAt = Date.now();
-    queries.updateFeederRun.run(
-      finishedAt,
-      'completed',
-      result.exitCode ?? 0,
-      stdoutExcerpt,
-      stderrExcerpt,
-      dataBytes,
+    runRecord = completeRunRecord(runRecord, queries, {
       runId,
-    );
-    queries.updateFeederLastRun.run(finishedAt, 'completed', null, finishedAt, feederId);
-
-    runRecord = {
-      ...runRecord,
-      finishedAt,
-      status: 'completed',
-      exitCode: result.exitCode ?? 0,
+      feederId,
+      result,
       stdoutExcerpt,
       stderrExcerpt,
-      dataBytes,
-    };
+      parsed,
+    });
 
     if (windowManager?.broadcast) {
       windowManager.broadcast('feeder:run-completed', { feederId, run: runRecord });
@@ -517,42 +645,21 @@ async function runFeederLocked(database, windowManager, feederId, feeder, opts) 
 
     return { success: true, run: runRecord, feeder };
   } catch (err) {
-    const finishedAt = Date.now();
-    const message = err?.message || String(err);
-    // Preserve whatever the process actually emitted — the previous
-    // implementation overwrote stdout with '' on failure, which made
-    // debugging Node feeders very hard.
-    const stdoutExcerpt = redactSecrets(buildExcerpt(capturedStdout), secretValues);
-    const stderrExcerpt = redactSecrets(
-      buildExcerpt(capturedStderr || message),
-      secretValues,
-    );
-    const exitCode = capturedExitCode ?? 1;
-    queries.updateFeederRun.run(
-      finishedAt,
-      'failed',
-      exitCode,
-      stdoutExcerpt,
-      stderrExcerpt,
-      0,
+    runRecord = await persistFailedRun({
+      database,
+      fileStorage,
+      windowManager,
+      queries,
+      runRecord,
       runId,
-    );
-    queries.updateFeederLastRun.run(finishedAt, 'failed', message, finishedAt, feederId);
-    runRecord = {
-      ...runRecord,
-      finishedAt,
-      status: 'failed',
-      exitCode,
-      stdoutExcerpt,
-      stderrExcerpt,
-    };
-    console.error(
-      `[Feeders] run failed feeder="${feeder.name}" id=${feederId} exit=${exitCode}\n  message: ${message}\n  stdout(tail): ${capturedStdout.slice(-600)}\n  stderr(tail): ${capturedStderr.slice(-600)}`,
-    );
-    if (windowManager?.broadcast) {
-      windowManager.broadcast('feeder:run-completed', { feederId, run: runRecord, error: message });
-    }
-    await writeFeederRunSidecar(database, fileStorage, feederId, runRecord);
+      feederId,
+      feederName: feeder.name,
+      capturedStdout,
+      capturedStderr,
+      capturedExitCode,
+      secretValues,
+      err,
+    });
     throw err;
   }
 }
