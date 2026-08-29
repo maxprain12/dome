@@ -48,6 +48,169 @@ function isPlainObject(v) {
 }
 
 /**
+ * @param {unknown} items
+ * @param {string} listStyle
+ * @returns {string}
+ */
+function renderBulletList(items, listStyle) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  let html = `<ul style="${listStyle}">`;
+  let bi = 0;
+  for (const item of items) {
+    if (bi >= MAX_BULLETS) break;
+    bi += 1;
+    if (typeof item !== 'string') continue;
+    html += `<li style="margin-bottom:var(--space-1);">${clipStr(item, 2000)}</li>`;
+  }
+  html += `</ul>`;
+  return html;
+}
+
+/**
+ * @param {Record<string, unknown>} b
+ * @returns {string}
+ */
+function renderParagraphBlock(b) {
+  const text = typeof b.text === 'string' ? clipStr(b.text, MAX_STRING_LEN) : '';
+  if (!text) return '';
+  return `<p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.6;color:var(--foreground);">${text}</p>`;
+}
+
+/**
+ * @param {Record<string, unknown>} b
+ * @returns {string}
+ */
+function renderNumberedBlock(b) {
+  const num = typeof b.number === 'number' && b.number >= 0 ? Math.floor(b.number) : 0;
+  const bt = typeof b.title === 'string' ? clipStr(b.title, 500) : '';
+  const body = typeof b.body === 'string' ? clipStr(b.body, MAX_STRING_LEN) : '';
+  let html = `<div style="margin-bottom:var(--space-4);">`;
+  html += `<div style="display:flex;gap:var(--space-2);align-items:flex-start;">`;
+  html += `<span style="flex-shrink:0;font-size:14px;font-weight:600;color:var(--primary);">${num || ''}</span>`;
+  html += `<div style="flex:1;min-width:0;">`;
+  if (bt) {
+    html += `<div style="font-size:14px;font-weight:600;color:var(--foreground);margin-bottom:var(--space-2);">${bt}</div>`;
+  }
+  if (body) {
+    html += `<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted-foreground);">${body}</p>`;
+  }
+  html += renderBulletList(
+    b.bullets,
+    'margin:var(--space-2) 0 0;padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;',
+  );
+  html += `</div></div></div>`;
+  return html;
+}
+
+/**
+ * @param {Record<string, unknown>} b
+ * @returns {string}
+ */
+function renderBulletsBlock(b) {
+  return renderBulletList(
+    b.items,
+    'margin:0 0 var(--space-3);padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;',
+  );
+}
+
+/**
+ * @param {Record<string, unknown>} b
+ * @returns {string}
+ */
+function renderCodeBlock(b) {
+  const text = typeof b.text === 'string' ? clipStr(b.text, 8000) : '';
+  if (!text) return '';
+  return `<pre style="margin:0 0 var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;line-height:1.5;color:var(--foreground);white-space:pre-wrap;word-break:break-word;">${text}</pre>`;
+}
+
+/**
+ * @param {Record<string, unknown>} b
+ * @returns {string}
+ */
+function renderBlock(b) {
+  const type = typeof b.type === 'string' ? b.type : '';
+  if (type === 'paragraph') return renderParagraphBlock(b);
+  if (type === 'numbered') return renderNumberedBlock(b);
+  if (type === 'bullets') return renderBulletsBlock(b);
+  if (type === 'code') return renderCodeBlock(b);
+  return '';
+}
+
+/**
+ * @param {string} kicker
+ * @param {string} badge
+ * @param {string} badgeTone
+ * @returns {string}
+ */
+function renderSectionHeader(kicker, badge, badgeTone) {
+  if (!kicker && !badge) return '';
+  const badgeClass = `dome-design-badge dome-design-badge--${badgeTone}`;
+  let html = `<header style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap;">`;
+  if (kicker) {
+    html += `<span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted-foreground);">${kicker}</span>`;
+  } else {
+    html += `<span></span>`;
+  }
+  if (badge) {
+    html += `<span class="${badgeClass}" style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:var(--radius-full);white-space:nowrap;">${badge}</span>`;
+  }
+  html += `</header>`;
+  return html;
+}
+
+/**
+ * @param {Record<string, unknown>} s
+ * @returns {string}
+ */
+function renderSection(s) {
+  const kicker = typeof s.kicker === 'string' ? clipStr(s.kicker, 400) : '';
+  const badge = typeof s.badge === 'string' ? clipStr(s.badge, 80) : '';
+  const badgeTone =
+    typeof s.badge_tone === 'string' && BADGE_TONES.has(s.badge_tone) ? s.badge_tone : 'neutral';
+
+  let html = `<article class="dome-design-card" style="margin-bottom:var(--space-4);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);">`;
+  html += renderSectionHeader(kicker, badge, badgeTone);
+
+  const blocks = s.blocks;
+  if (!Array.isArray(blocks)) {
+    html += `</article>`;
+    return html;
+  }
+
+  let bCount = 0;
+  for (const blk of blocks) {
+    if (bCount >= MAX_BLOCKS_PER_SECTION) break;
+    if (!isPlainObject(blk)) continue;
+    bCount += 1;
+    html += renderBlock(/** @type {Record<string, unknown>} */ (blk));
+  }
+
+  html += `</article>`;
+  return html;
+}
+
+/**
+ * @param {unknown} panelVal
+ * @returns {string}
+ */
+function renderPanel(panelVal) {
+  if (!isPlainObject(panelVal)) return '';
+  const p = /** @type {Record<string, unknown>} */ (panelVal);
+  const sections = p.sections;
+  if (!Array.isArray(sections)) return '';
+
+  let html = '';
+  let secCount = 0;
+  for (const sec of sections) {
+    if (secCount >= MAX_SECTIONS_PER_PANEL) break;
+    if (!isPlainObject(sec)) continue;
+    secCount += 1;
+    html += renderSection(/** @type {Record<string, unknown>} */ (sec));
+  }
+  return html;
+}
+
+/**
  * @param {unknown} spec
  * @returns {{ ok: true, html: string, data: Record<string, unknown> } | { ok: false, error: string }}
  */
@@ -108,115 +271,6 @@ function buildArtifactDesignLayout(spec) {
       ? o.active_tab.trim().replace(/[^a-zA-Z0-9_-]/g, '')
       : firstTabId;
   if (!tabs.some((x) => x.id === activeTab)) activeTab = firstTabId;
-
-  /** @param {unknown} panelVal
-   * @returns {string}
-   */
-  function renderPanel(panelVal) {
-    if (!isPlainObject(panelVal)) return '';
-    const p = /** @type {Record<string, unknown>} */ (panelVal);
-    const sections = p.sections;
-    if (!Array.isArray(sections)) return '';
-
-    let html = '';
-    let secCount = 0;
-    for (const sec of sections) {
-      if (secCount >= MAX_SECTIONS_PER_PANEL) break;
-      if (!isPlainObject(sec)) continue;
-      secCount += 1;
-      const s = /** @type {Record<string, unknown>} */ (sec);
-      const kicker = typeof s.kicker === 'string' ? clipStr(s.kicker, 400) : '';
-      const badge = typeof s.badge === 'string' ? clipStr(s.badge, 80) : '';
-      const badgeTone =
-        typeof s.badge_tone === 'string' && BADGE_TONES.has(s.badge_tone) ? s.badge_tone : 'neutral';
-
-      const badgeClass = `dome-design-badge dome-design-badge--${badgeTone}`;
-
-      html += `<article class="dome-design-card" style="margin-bottom:var(--space-4);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);">`;
-      if (kicker || badge) {
-        html += `<header style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap;">`;
-        if (kicker) {
-          html += `<span style="font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted-foreground);">${kicker}</span>`;
-        } else {
-          html += `<span></span>`;
-        }
-        if (badge) {
-          html += `<span class="${badgeClass}" style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:var(--radius-full);white-space:nowrap;">${badge}</span>`;
-        }
-        html += `</header>`;
-      }
-
-      const blocks = s.blocks;
-      if (!Array.isArray(blocks)) {
-        html += `</article>`;
-        continue;
-      }
-
-      let bCount = 0;
-      for (const blk of blocks) {
-        if (bCount >= MAX_BLOCKS_PER_SECTION) break;
-        if (!isPlainObject(blk)) continue;
-        bCount += 1;
-        const b = /** @type {Record<string, unknown>} */ (blk);
-        const type = typeof b.type === 'string' ? b.type : '';
-
-        if (type === 'paragraph') {
-          const text = typeof b.text === 'string' ? clipStr(b.text, MAX_STRING_LEN) : '';
-          if (text) {
-            html += `<p style="margin:0 0 var(--space-3);font-size:14px;line-height:1.6;color:var(--foreground);">${text}</p>`;
-          }
-        } else if (type === 'numbered') {
-          const num = typeof b.number === 'number' && b.number >= 0 ? Math.floor(b.number) : 0;
-          const bt = typeof b.title === 'string' ? clipStr(b.title, 500) : '';
-          const body = typeof b.body === 'string' ? clipStr(b.body, MAX_STRING_LEN) : '';
-          html += `<div style="margin-bottom:var(--space-4);">`;
-          html += `<div style="display:flex;gap:var(--space-2);align-items:flex-start;">`;
-          html += `<span style="flex-shrink:0;font-size:14px;font-weight:600;color:var(--primary);">${num || ''}</span>`;
-          html += `<div style="flex:1;min-width:0;">`;
-          if (bt) {
-            html += `<div style="font-size:14px;font-weight:600;color:var(--foreground);margin-bottom:var(--space-2);">${bt}</div>`;
-          }
-          if (body) {
-            html += `<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted-foreground);">${body}</p>`;
-          }
-          const bullets = b.bullets;
-          if (Array.isArray(bullets) && bullets.length > 0) {
-            html += `<ul style="margin:var(--space-2) 0 0;padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;">`;
-            let bi = 0;
-            for (const item of bullets) {
-              if (bi >= MAX_BULLETS) break;
-              bi += 1;
-              if (typeof item !== 'string') continue;
-              html += `<li style="margin-bottom:var(--space-1);">${clipStr(item, 2000)}</li>`;
-            }
-            html += `</ul>`;
-          }
-          html += `</div></div></div>`;
-        } else if (type === 'bullets') {
-          const items = b.items;
-          if (Array.isArray(items) && items.length > 0) {
-            html += `<ul style="margin:0 0 var(--space-3);padding-left:var(--space-5);color:var(--muted-foreground);font-size:14px;line-height:1.5;">`;
-            let bi = 0;
-            for (const item of items) {
-              if (bi >= MAX_BULLETS) break;
-              bi += 1;
-              if (typeof item !== 'string') continue;
-              html += `<li style="margin-bottom:var(--space-1);">${clipStr(item, 2000)}</li>`;
-            }
-            html += `</ul>`;
-          }
-        } else if (type === 'code') {
-          const text = typeof b.text === 'string' ? clipStr(b.text, 8000) : '';
-          if (text) {
-            html += `<pre style="margin:0 0 var(--space-3);padding:var(--space-3);border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;line-height:1.5;color:var(--foreground);white-space:pre-wrap;word-break:break-word;">${text}</pre>`;
-          }
-        }
-      }
-
-      html += `</article>`;
-    }
-    return html;
-  }
 
   let bodyHtml = '';
   bodyHtml += `<div class="dome-design-root" style="padding:var(--space-4);max-width:920px;margin:0 auto;">`;
@@ -317,4 +371,23 @@ function buildArtifactDesignLayout(spec) {
   return { ok: true, html, data };
 }
 
-module.exports = { buildArtifactDesignLayout, escapeHtml };
+module.exports = {
+  buildArtifactDesignLayout,
+  escapeHtml,
+  // Test surface for extracted S3776 helpers (behavior-preserving).
+  renderPanel,
+  renderSection,
+  renderBlock,
+  renderParagraphBlock,
+  renderNumberedBlock,
+  renderBulletsBlock,
+  renderCodeBlock,
+  renderSectionHeader,
+  renderBulletList,
+  clipStr,
+  MAX_SECTIONS_PER_PANEL,
+  MAX_BLOCKS_PER_SECTION,
+  MAX_BULLETS,
+  MAX_TABS,
+  BADGE_TONES,
+};
