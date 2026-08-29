@@ -235,68 +235,106 @@ async function dispatchStageRun(item, stage, useMany, runInput) {
 }
 
 /**
+ * Delegate report runs (Many-generated card reports) to the dedicated module.
+ * Returns true when the report module handled the run, false otherwise (including
+ * the case where the require/hook itself threw — we keep the rest of the
+ * terminal handling going rather than silently dropping the run).
+ */
+function reportModuleHandledTerminal(run) {
+  try {
+    return require('./pipeline-report.cjs').handleTerminal(run);
+  } catch (e) {
+    console.warn('[PipelineRunner] report terminal hook failed:', e?.message);
+    return false;
+  }
+}
+
+function findItemForTerminalRun(run, q) {
+  if (!q || !run?.id) return null;
+  return q.getPipelineItemByRunId.get(run.id);
+}
+
+/**
+ * Map a terminal run to the values persisted on the item. Prefer the agent's
+ * FULL response (outputText) over the short summary, so the card's
+ * last_output / report / activity carry the complete answer — the summary
+ * alone was hiding most of the agent's output.
+ */
+function resolveTerminalResult(run, item) {
+  const isCompleted = run.status === 'completed';
+  const status = isCompleted ? 'ready' : 'failed';
+  const fullOutput = run.outputText && run.outputText.trim()
+    ? run.outputText
+    : (run.summary || item.last_output);
+  const output = isCompleted
+    ? fullOutput
+    : (run.error || item.last_output);
+  return { status, output };
+}
+
+function logTerminalOutcome(item, run, status, output) {
+  if (!_logEvent) return;
+  // Keep `summary` short for the collapsed row; stash the full markdown
+  // output in `detail.output` so the Activity tab can render it in full.
+  _logEvent(item.id, status === 'ready' ? 'run_completed' : 'run_failed', {
+    actor: 'system',
+    summary: (output || '').slice(0, 140),
+    detail: output ? { output } : undefined,
+    runId: run.id,
+  });
+}
+
+function persistTerminalResult(item, run, result, q, now) {
+  q.updatePipelineItemExecStatus.run(result.status, 'auto', run.id, result.output ?? null, now, item.id);
+  logTerminalOutcome(item, run, result.status, result.output);
+}
+
+function findNextPipelineStage(item, q) {
+  const stages = q.listStagesByPipeline.all(item.pipeline_id);
+  const idx = stages.findIndex((s) => s.id === item.stage_id);
+  return stages[idx + 1];
+}
+
+function advanceItemToStage(item, next, q, now) {
+  const destCount = q.listItemsByStage.all(next.id).length;
+  q.updatePipelineItemStageAndPosition.run(next.id, destCount, now, item.id);
+  if (_logEvent) {
+    _logEvent(item.id, 'auto_advanced', { actor: 'system', summary: 'Auto-advanced to: ' + (next.title || '') });
+  }
+  if (next.execution_policy === 'auto_agent') {
+    triggerStageRun(item.id).catch((e) => {
+      console.warn('[PipelineRunner] auto-run after advance failed:', e?.message);
+    });
+  }
+}
+
+function maybeAutoAdvanceItem(item, q, now) {
+  try {
+    const stage = q.getPipelineStageById.get(item.stage_id);
+    const config = parseJson(stage?.config_json, {});
+    if (!config?.advanceOnComplete || stage.is_terminal) return;
+    const next = findNextPipelineStage(item, q);
+    if (!next) return;
+    advanceItemToStage(item, next, q, now);
+  } catch (e) {
+    console.warn('[PipelineRunner] auto-advance failed:', e?.message);
+  }
+}
+
+/**
  * run-store `onRunTerminal` hook. Maps the finished run back to its pipeline
  * item (by current_run_id) and updates exec_status + last_output. Optionally
  * auto-advances the item to the next stage when configured.
  */
 function onRunTerminal(run) {
-  // Report runs (Many-generated card reports) are handled by a dedicated
-  // module; if this run was one of them, stop here.
-  try {
-    if (require('./pipeline-report.cjs').handleTerminal(run)) return;
-  } catch (e) {
-    console.warn('[PipelineRunner] report terminal hook failed:', e?.message);
-  }
+  if (reportModuleHandledTerminal(run)) return;
   const q = queries();
-  if (!q || !run?.id) return;
-  const item = q.getPipelineItemByRunId.get(run.id);
+  const item = findItemForTerminalRun(run, q);
   if (!item) return;
   const now = Date.now();
-  const status = run.status === 'completed' ? 'ready' : 'failed';
-  // Prefer the agent's FULL response (outputText) over the short summary, so the
-  // card's last_output / report / activity carry the complete answer — the
-  // summary alone was hiding most of the agent's output.
-  const fullOutput = run.outputText && run.outputText.trim()
-    ? run.outputText
-    : (run.summary || item.last_output);
-  const output = run.status === 'completed'
-    ? fullOutput
-    : (run.error || item.last_output);
-  q.updatePipelineItemExecStatus.run(status, 'auto', run.id, output ?? null, now, item.id);
-  if (_logEvent) {
-    // Keep `summary` short for the collapsed row; stash the full markdown
-    // output in `detail.output` so the Activity tab can render it in full.
-    _logEvent(item.id, status === 'ready' ? 'run_completed' : 'run_failed', {
-      actor: 'system',
-      summary: (output || '').slice(0, 140),
-      detail: output ? { output } : undefined,
-      runId: run.id,
-    });
-  }
-
-  if (status === 'ready') {
-    try {
-      const stage = q.getPipelineStageById.get(item.stage_id);
-      const config = parseJson(stage?.config_json, {});
-      if (config && config.advanceOnComplete && !stage.is_terminal) {
-        const stages = q.listStagesByPipeline.all(item.pipeline_id);
-        const idx = stages.findIndex((s) => s.id === item.stage_id);
-        const next = stages[idx + 1];
-        if (next) {
-          const destCount = q.listItemsByStage.all(next.id).length;
-          q.updatePipelineItemStageAndPosition.run(next.id, destCount, now, item.id);
-          if (_logEvent) _logEvent(item.id, 'auto_advanced', { actor: 'system', summary: 'Auto-advanced to: ' + (next.title || '') });
-          if (next.execution_policy === 'auto_agent') { triggerStageRun(item.id).catch((e) => {
-              console.warn('[PipelineRunner] auto-run after advance failed:', e?.message);
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[PipelineRunner] auto-advance failed:', e?.message);
-    }
-  }
-
+  const result = resolveTerminalResult(run, item);
+  persistTerminalResult(item, run, result, q, now);
+  if (result.status === 'ready') maybeAutoAdvanceItem(item, q, now);
   emitItem(mapItem(q.getPipelineItemById.get(item.id)));
 }
 
