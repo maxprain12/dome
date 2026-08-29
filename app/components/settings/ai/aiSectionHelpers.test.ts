@@ -20,7 +20,7 @@ describe('aiSectionHelpers', () => {
       api_key: '',
       ollama_base_url: 'http://localhost:11434',
       ollama_model: 'llama3.2',
-    } as AISettings);
+    } as unknown as AISettings);
     expect(loaded.provider).toBe('ollama');
     // llama3.2 is not in the static Ollama catalog → treated as custom (same as before).
     expect(loaded.customModel).toBe(true);
@@ -29,7 +29,7 @@ describe('aiSectionHelpers', () => {
       provider: 'openai',
       model: 'openai/gpt-5.6-sol',
       api_key: 'k',
-    } as AISettings);
+    } as unknown as AISettings);
     expect(withSlash.provider).toBe('openai');
     expect(withSlash.model).toBe('openai/gpt-5.6-sol');
     expect(withSlash.customModel).toBe(true);
