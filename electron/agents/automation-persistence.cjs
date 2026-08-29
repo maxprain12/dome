@@ -38,31 +38,35 @@ function attachAutomationArtifactBindings(automation) {
   return { ...automation, artifactBindings };
 }
 
+function persistAutomationArtifactBinding(b, automationId, ts, queries) {
+  if (!b || !b.artifactResourceId) return;
+  const res = queries.getResourceById.get(String(b.artifactResourceId));
+  if (!res || res.type !== 'artifact') return;
+  const policy = ['replace', 'merge_shallow', 'merge_deep', 'append_array'].includes(b.updatePolicy)
+    ? b.updatePolicy
+    : 'replace';
+  const extract = ['json_fence', 'full_output'].includes(b.extractMode) ? b.extractMode : 'json_fence';
+  queries.insertAutomationArtifactBinding.run(
+    typeof b.id === 'string' && b.id.length >= 32 ? b.id : crypto.randomUUID(),
+    automationId,
+    String(b.artifactResourceId),
+    String(b.slot || 'default'),
+    policy,
+    b.transformHint != null ? String(b.transformHint) : null,
+    extract,
+    b.enabled === false ? 0 : 1,
+    ts,
+    ts,
+  );
+}
+
 function replaceAutomationArtifactBindings(automationId, rawBindings) {
   const queries = getQueries();
   const ts = now();
   queries.deleteAutomationArtifactBindingsByAutomation.run(automationId);
   if (!Array.isArray(rawBindings)) return;
   for (const b of rawBindings) {
-    if (!b || !b.artifactResourceId) continue;
-    const res = queries.getResourceById.get(String(b.artifactResourceId));
-    if (!res || res.type !== 'artifact') continue;
-    const policy = ['replace', 'merge_shallow', 'merge_deep', 'append_array'].includes(b.updatePolicy)
-      ? b.updatePolicy
-      : 'replace';
-    const extract = ['json_fence', 'full_output'].includes(b.extractMode) ? b.extractMode : 'json_fence';
-    queries.insertAutomationArtifactBinding.run(
-      typeof b.id === 'string' && b.id.length >= 32 ? b.id : crypto.randomUUID(),
-      automationId,
-      String(b.artifactResourceId),
-      String(b.slot || 'default'),
-      policy,
-      b.transformHint != null ? String(b.transformHint) : null,
-      extract,
-      b.enabled === false ? 0 : 1,
-      ts,
-      ts,
-    );
+    persistAutomationArtifactBinding(b, automationId, ts, queries);
   }
 }
 
