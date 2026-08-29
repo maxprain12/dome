@@ -771,6 +771,28 @@ function sleep(ms) {
 }
 
 /**
+ * Compute wait time (ms) before retrying a 429 push response. Honors the
+ * server's Retry-After header (or JSON body) when present and finite;
+ * otherwise falls back to exponential backoff (2s * 2^attempt) capped at 30s.
+ * @param {Response} res
+ * @param {number} attempt
+ */
+async function computePushBackoffMs(res, attempt) {
+  let retryAfterSec = Number(res.headers?.get?.('retry-after'));
+  if (!Number.isFinite(retryAfterSec) || retryAfterSec <= 0) {
+    try {
+      retryAfterSec = Number((await res.json())?.retryAfter);
+    } catch {
+      retryAfterSec = 0;
+    }
+  }
+  return Math.min(
+    Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 2000 * 2 ** attempt,
+    30_000,
+  );
+}
+
+/**
  * POST one push payload with 429 backoff. Marks the batch's tombstones synced
  * on success. Does NOT touch domain_sync_state — callers own cursor/lastPushAt.
  * @param {object} deps
@@ -799,18 +821,7 @@ async function sendPushRequest(deps, db, domain, rows, tombstones) {
       body,
     });
     if (res.status === 429 && attempt < PUSH_429_MAX_RETRIES) {
-      let retryAfterSec = Number(res.headers?.get?.('retry-after'));
-      if (!Number.isFinite(retryAfterSec) || retryAfterSec <= 0) {
-        try {
-          retryAfterSec = Number((await res.json())?.retryAfter);
-        } catch {
-          retryAfterSec = 0;
-        }
-      }
-      const waitMs = Math.min(
-        Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 2000 * 2 ** attempt,
-        30_000,
-      );
+      const waitMs = await computePushBackoffMs(res, attempt);
       console.warn(`[domain-sync] push 429 for ${domain}, retrying in ${waitMs}ms`);
       await sleep(waitMs);
       continue;
