@@ -40,9 +40,14 @@ function emptyOutput(): AssistantMessage {
 	};
 }
 
-async function* eventsOf(...events: ResponseStreamEvent[]): AsyncIterable<ResponseStreamEvent> {
+/** Test fixtures omit SDK bookkeeping fields (sequence_number, indexes). */
+function asStreamEvent(event: object): ResponseStreamEvent {
+	return event as unknown as ResponseStreamEvent;
+}
+
+async function* eventsOf(...events: object[]): AsyncIterable<ResponseStreamEvent> {
 	for (const event of events) {
-		yield event;
+		yield asStreamEvent(event);
 	}
 }
 
@@ -75,19 +80,19 @@ describe("processResponsesStream", () => {
 				{
 					type: "response.created",
 					response: { id: "resp_1" },
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.output_item.added",
 					item: messageItem,
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.content_part.added",
 					part: { type: "output_text", text: "", annotations: [] },
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.output_text.delta",
 					delta: "Hello",
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.output_item.done",
 					item: {
@@ -95,7 +100,7 @@ describe("processResponsesStream", () => {
 						status: "completed",
 						content: [{ type: "output_text", text: "Hello", annotations: [] }],
 					},
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.completed",
 					response: {
@@ -108,7 +113,7 @@ describe("processResponsesStream", () => {
 							input_tokens_details: { cached_tokens: 4 },
 						},
 					},
-				} as ResponseStreamEvent,
+				},
 			),
 			output,
 			stream,
@@ -163,23 +168,23 @@ describe("processResponsesStream", () => {
 				{
 					type: "response.output_item.added",
 					item: toolItem,
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.function_call_arguments.delta",
 					delta: '{"x":',
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.function_call_arguments.delta",
 					delta: "1}",
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.function_call_arguments.done",
 					arguments: '{"x":1}',
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.output_item.done",
 					item: { ...toolItem, arguments: '{"x":1}', status: "completed" },
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.completed",
 					response: {
@@ -191,7 +196,7 @@ describe("processResponsesStream", () => {
 							total_tokens: 7,
 						},
 					},
-				} as ResponseStreamEvent,
+				},
 			),
 			output,
 			stream,
@@ -242,23 +247,23 @@ describe("processResponsesStream", () => {
 				{
 					type: "response.output_item.added",
 					item: reasoningItem,
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.reasoning_summary_part.added",
 					part: { type: "summary_text", text: "" },
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.reasoning_summary_text.delta",
 					delta: "think",
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.output_item.done",
 					item: doneItem,
-				} as ResponseStreamEvent,
+				},
 				{
 					type: "response.completed",
 					response: { id: "resp_r", status: "completed" },
-				} as ResponseStreamEvent,
+				},
 			),
 			output,
 			stream,
@@ -301,7 +306,7 @@ describe("processResponsesStream", () => {
 						total_tokens: 11,
 					},
 				},
-			} as ResponseStreamEvent),
+			}),
 			output,
 			stream,
 			model,
@@ -325,7 +330,7 @@ describe("processResponsesStream", () => {
 
 		await expect(
 			processResponsesStream(
-				eventsOf({ type: "error", code: "E1", message: "boom" } as ResponseStreamEvent),
+				eventsOf({ type: "error", code: "E1", message: "boom" }),
 				emptyOutput(),
 				new AssistantMessageEventStream(),
 				model,
@@ -339,7 +344,7 @@ describe("processResponsesStream", () => {
 					response: {
 						error: { code: "failed", message: "nope" },
 					},
-				} as ResponseStreamEvent),
+				}),
 				emptyOutput(),
 				new AssistantMessageEventStream(),
 				model,
