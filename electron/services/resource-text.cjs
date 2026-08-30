@@ -31,44 +31,99 @@ const PM_BLOCK_TYPES = new Set([
  * @returns {string}
  */
 function extractPlainTextFromProseMirror(docRoot) {
-  if (!docRoot || typeof docRoot !== 'object') return '';
+  if (!isPlainObject(docRoot)) return '';
   const parts = [];
-  const root = /** @type {Record<string, unknown>} */ (docRoot);
+  const stack = buildInitialStack(docRoot);
+  while (stack.length) {
+    processStackItem(stack, parts);
+  }
+  return parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** @param {unknown} value */
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object';
+}
+
+/**
+ * @param {Record<string, unknown>} docRoot
+ * @returns {Array<{ t: 'node' | 'end'; n?: Record<string, unknown> }>}
+ */
+function buildInitialStack(docRoot) {
+  const root = docRoot;
   const top = root.type === 'doc' && Array.isArray(root.content) ? root.content : [docRoot];
   /** @type {Array<{ t: 'node' | 'end'; n?: Record<string, unknown> }>} */
   const stack = [];
-  const pushNode = (n) => stack.push({ t: 'node', n });
-  const pushEnd = (n) => stack.push({ t: 'end', n });
   for (let i = top.length - 1; i >= 0; i--) {
-    pushNode(/** @type {Record<string, unknown>} */ (top[i]));
+    stack.push({ t: 'node', n: /** @type {Record<string, unknown>} */ (top[i]) });
   }
+  return stack;
+}
 
-  while (stack.length) {
-    const item = stack.pop();
-    if (!item) continue;
-    if (item.t === 'end') {
-      const n = item.n;
-      if (n && PM_BLOCK_TYPES.has(String(n.type))) {
-        parts.push('\n');
-      }
-      continue;
-    }
-    const node = item.n;
-    if (!node || typeof node !== 'object') continue;
-    if (typeof node.text === 'string') parts.push(node.text);
-    if (node.type === 'hardBreak') parts.push('\n');
-    const ch = node.content;
-    if (Array.isArray(ch) && ch.length > 0) {
-      pushEnd(node);
-      for (let i = ch.length - 1; i >= 0; i--) {
-        const c = ch[i];
-        if (c && typeof c === 'object') pushNode(/** @type {Record<string, unknown>} */ (c));
-      }
-    } else if (PM_BLOCK_TYPES.has(String(node.type))) {
-      parts.push('\n');
-    }
+/**
+ * @param {Array<{ t: 'node' | 'end'; n?: Record<string, unknown> }>} stack
+ * @param {string[]} parts
+ */
+function processStackItem(stack, parts) {
+  const item = stack.pop();
+  if (!item) return;
+  if (item.t === 'end') {
+    appendBlockNewlineIfNeeded(item.n, parts);
+    return;
   }
-  return parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+  processNode(item.n, stack, parts);
+}
+
+/**
+ * @param {Record<string, unknown> | undefined} node
+ * @param {string[]} parts
+ */
+function appendBlockNewlineIfNeeded(node, parts) {
+  if (node && PM_BLOCK_TYPES.has(String(node.type))) {
+    parts.push('\n');
+  }
+}
+
+/**
+ * @param {Record<string, unknown> | undefined} node
+ * @param {Array<{ t: 'node' | 'end'; n?: Record<string, unknown> }>} stack
+ * @param {string[]} parts
+ */
+function processNode(node, stack, parts) {
+  if (!isPlainObject(node)) return;
+  appendNodeText(node, parts);
+  pushChildrenOntoStack(node, stack, parts);
+}
+
+/**
+ * @param {Record<string, unknown>} node
+ * @param {string[]} parts
+ */
+function appendNodeText(node, parts) {
+  if (typeof node.text === 'string') parts.push(node.text);
+  if (node.type === 'hardBreak') parts.push('\n');
+}
+
+/**
+ * @param {Record<string, unknown>} node
+ * @param {Array<{ t: 'node' | 'end'; n?: Record<string, unknown> }>} stack
+ * @param {string[]} parts
+ */
+function pushChildrenOntoStack(node, stack, parts) {
+  const ch = node.content;
+  if (Array.isArray(ch) && ch.length > 0) {
+    stack.push({ t: 'end', n: node });
+    for (let i = ch.length - 1; i >= 0; i--) {
+      const c = ch[i];
+      if (c && typeof c === 'object') {
+        stack.push({ t: 'node', n: /** @type {Record<string, unknown>} */ (c) });
+      }
+    }
+    return;
+  }
+  if (PM_BLOCK_TYPES.has(String(node.type))) {
+    parts.push('\n');
+  }
 }
 
 /**
