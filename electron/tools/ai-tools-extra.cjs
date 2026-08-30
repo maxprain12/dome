@@ -501,50 +501,88 @@ async function gatherStudioMindmapContext(args = {}, resourceGetFn, resourceList
   };
 }
 
-async function gatherStudioQuizContext(args = {}, resourceGetFn, resourceListFn) {
+/**
+ * Pull studio context inputs (project id, source ids, question count, difficulty)
+ * into a single normalized record for the quiz generator.
+ */
+function parseStudioQuizArgs(args) {
   const projectId = typeof args.project_id === 'string' ? args.project_id.trim() : '';
   const sourceIds = Array.isArray(args.source_ids) ? args.source_ids.filter((x) => typeof x === 'string') : [];
   const numQuestions = Math.max(1, Math.min(20, Math.floor(Number(args.num_questions) || 5)));
   const difficulty = ['easy', 'medium', 'hard'].includes(String(args.difficulty || '').toLowerCase())
     ? String(args.difficulty).toLowerCase()
     : 'medium';
+  return { projectId, sourceIds, numQuestions, difficulty };
+}
 
-  const sourceContent = [];
+/**
+ * Fetch a single resource and shape it for the studio quiz response. Pulls
+ * `fetchLen` characters from the server but trims the exposed excerpt to
+ * `sliceLen` so the agent only sees the trimmed body.
+ */
+async function fetchQuizSourceItem(resourceGetFn, id, fetchLen, sliceLen) {
+  try {
+    const result = await resourceGetFn(id, { includeContent: true, maxContentLength: fetchLen });
+    if (!result?.success || !result.resource) return null;
+    return {
+      id: result.resource.id,
+      title: result.resource.title,
+      content: String(
+        result.resource.content || result.resource.transcription || result.resource.summary || '',
+      ).slice(0, sliceLen),
+    };
+  } catch { /* skip */ }
+  return null;
+}
 
-  if (sourceIds.length > 0 && resourceGetFn) {
-    for (const sourceId of sourceIds) {
-      try {
-        const result = await resourceGetFn(sourceId, { includeContent: true, maxContentLength: 8000 });
-        if (result?.success && result.resource) {
-          sourceContent.push({
-            id: result.resource.id,
-            title: result.resource.title,
-            content: String(
-              result.resource.content || result.resource.transcription || result.resource.summary || '',
-            ).slice(0, 3000),
-          });
-        }
-      } catch { /* skip */ }
-    }
-  } else if (projectId && resourceListFn && resourceGetFn) {
-    const listResult = await resourceListFn({ project_id: projectId, limit: 5, sort: 'updated_at' });
-    if (listResult?.success && Array.isArray(listResult.resources)) {
-      for (const r of listResult.resources) {
-        try {
-          const result = await resourceGetFn(r.id, { includeContent: true, maxContentLength: 5000 });
-          if (result?.success && result.resource) {
-            sourceContent.push({
-              id: result.resource.id,
-              title: result.resource.title,
-              content: String(
-                result.resource.content || result.resource.transcription || result.resource.summary || '',
-              ).slice(0, 3000),
-            });
-          }
-        } catch { /* skip */ }
-      }
-    }
+/**
+ * Fetch each explicit `sourceId` and keep the successful results.
+ */
+async function gatherQuizSourcesByIds(resourceGetFn, sourceIds, fetchLen, sliceLen) {
+  const items = [];
+  for (const id of sourceIds) {
+    const item = await fetchQuizSourceItem(resourceGetFn, id, fetchLen, sliceLen);
+    if (item) items.push(item);
   }
+  return items;
+}
+
+/**
+ * List the most recent resources for a project and fetch each one's excerpt.
+ */
+async function gatherQuizSourcesByProject(resourceListFn, resourceGetFn, projectId, limit, fetchLen, sliceLen) {
+  const listResult = await resourceListFn({ project_id: projectId, limit, sort: 'updated_at' });
+  if (!listResult?.success || !Array.isArray(listResult.resources)) return [];
+  const items = [];
+  for (const r of listResult.resources) {
+    const item = await fetchQuizSourceItem(resourceGetFn, r.id, fetchLen, sliceLen);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
+/**
+ * Pick the right source-gathering strategy: explicit source ids first,
+ * otherwise fall back to listing recent resources for the project.
+ */
+async function gatherStudioQuizSources({ projectId, sourceIds, resourceGetFn, resourceListFn }) {
+  if (sourceIds.length > 0 && resourceGetFn) {
+    return gatherQuizSourcesByIds(resourceGetFn, sourceIds, 8000, 3000);
+  }
+  if (projectId && resourceListFn && resourceGetFn) {
+    return gatherQuizSourcesByProject(resourceListFn, resourceGetFn, projectId, 5, 5000, 3000);
+  }
+  return [];
+}
+
+async function gatherStudioQuizContext(args = {}, resourceGetFn, resourceListFn) {
+  const { projectId, sourceIds, numQuestions, difficulty } = parseStudioQuizArgs(args);
+  const sourceContent = await gatherStudioQuizSources({
+    projectId,
+    sourceIds,
+    resourceGetFn,
+    resourceListFn,
+  });
 
   if (sourceContent.length === 0) {
     return {
