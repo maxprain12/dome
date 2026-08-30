@@ -21,10 +21,31 @@ const fs = require('fs');
 const vaultStore = require('./vault-store.cjs');
 const { ensureResourceMirror, noteContentToMarkdown } = require('./vault-sync.cjs');
 
+/**
+ * Restore a binary/legacy mirror by re-importing its internal copy. When no
+ * source file remains, clear vault_path so the row stops pointing at a ghost
+ * path. Returns 'restored' | 'cleared'.
+ */
+function restoreBinaryMirror(resource, deps) {
+  const db = deps.database.getDB();
+
+  if (resource.internal_path) {
+    const src = deps.fileStorage.getFullPath(resource.internal_path);
+    if (fs.existsSync(src)) {
+      const imported = vaultStore.importFileToVault(src, resource, deps);
+      db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
+        .run(imported.vaultPath, imported.contentHash, imported.size, resource.id);
+      return 'restored';
+    }
+  }
+  // File is gone and we have no copy — stop pointing at a ghost path.
+  db.prepare('UPDATE resources SET vault_path = NULL WHERE id = ?').run(resource.id);
+  return 'cleared';
+}
+
 /** Restore a single missing mirror from DB state. Returns 'restored' | 'cleared' | 'skipped'. */
 function restoreMissingMirror(resource, { database, fileStorage }) {
   const deps = { database, fileStorage };
-  const db = database.getDB();
 
   switch (resource.type) {
     case 'folder': {
@@ -44,20 +65,8 @@ function restoreMissingMirror(resource, { database, fileStorage }) {
       return vaultStore.writeNotebookMirror({ id: resource.id }, deps).success ? 'restored' : 'skipped';
     case 'artifact':
       return vaultStore.writeArtifactHtmlMirror({ id: resource.id }, deps).success ? 'restored' : 'skipped';
-    default: {
-      if (resource.internal_path) {
-        const src = fileStorage.getFullPath(resource.internal_path);
-        if (fs.existsSync(src)) {
-          const imported = vaultStore.importFileToVault(src, resource, deps);
-          db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
-            .run(imported.vaultPath, imported.contentHash, imported.size, resource.id);
-          return 'restored';
-        }
-      }
-      // File is gone and we have no copy — stop pointing at a ghost path.
-      db.prepare('UPDATE resources SET vault_path = NULL WHERE id = ?').run(resource.id);
-      return 'cleared';
-    }
+    default:
+      return restoreBinaryMirror(resource, deps);
   }
 }
 
