@@ -1276,14 +1276,17 @@ async function openHarnessForThread(opts) {
   });
 }
 
-async function runDomeAgent(surface, opts) {
-  console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
+/**
+ * Normalize `opts.messages`, fold in any image attachments, and decide what
+ * `userPrompt` should be (text fallback when only images are present).
+ */
+async function prepareRunDomeInputs(opts) {
   const ai = await import('@dome/ai');
+  const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
+  const { attachmentsToImageContent } = require('../ai/image-attach.cjs');
   const rawNonSystem = (Array.isArray(opts.messages) ? opts.messages : []).filter(
     (m) => m && m.role !== 'system',
   );
-  const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
-  const { attachmentsToImageContent } = require('../ai/image-attach.cjs');
   const normalizedNonSystem = normalizeMessagesForProvider(rawNonSystem, {
     provider: opts.provider,
     modelId: opts.model,
@@ -1298,90 +1301,132 @@ async function runDomeAgent(surface, opts) {
   if (!userPrompt.trim() && promptImages.length > 0) {
     userPrompt = '(see attached image)';
   }
+  return { userPrompt, promptImages };
+}
 
-  if (process.env.DOME_GUARDRAILS === '1') {
-    const reason = detectHarmfulContent(userPrompt);
-    if (reason) {
-      if (typeof opts.onChunk === 'function') {
-        opts.onChunk({ type: 'text', text: reason });
-        opts.onChunk({ type: 'done' });
-      }
-      return reason;
-    }
+/**
+ * If guardrails are enabled and the prompt is harmful, emit the rejection
+ * chunk and return the rejection reason. Returns `null` when the run should
+ * continue normally.
+ */
+function applyGuardrailsEarlyReturn(userPrompt, opts) {
+  if (process.env.DOME_GUARDRAILS !== '1') return null;
+  const reason = detectHarmfulContent(userPrompt);
+  if (!reason) return null;
+  if (typeof opts.onChunk === 'function') {
+    opts.onChunk({ type: 'text', text: reason });
+    opts.onChunk({ type: 'done' });
   }
+  return reason;
+}
+
+/**
+ * Build and emit a budget breakdown; never let budget telemetry break a run.
+ */
+async function tryEmitBudgetSafely(setup, opts, logLabel) {
+  if (typeof opts.onChunk !== 'function') return;
+  try {
+    const breakdown = await buildBudgetBreakdown(setup, {
+      userMemory: opts.userMemory,
+    });
+    emitBudgetChunk(opts.onChunk, breakdown);
+  } catch (budgetErr) {
+    console.warn(`[AgentRuntime] ${logLabel}:`, budgetErr?.message || budgetErr);
+  }
+}
+
+/**
+ * If the assistant turn ended in error, emit the chunk and throw; otherwise a
+ * no-op so the caller can keep its flow flat.
+ */
+function throwIfAssistantError(assistant, finalText, opts) {
+  if (assistant?.stopReason !== 'error') return;
+  const errText = finalText || assistant.errorMessage || 'Agent error';
+  if (typeof opts.onChunk === 'function') {
+    opts.onChunk({ type: 'error', error: errText });
+  }
+  throw new Error(errText);
+}
+
+/**
+ * Detect whether an error from the agent loop looks like an abort/cancel.
+ */
+function isAbortedRun(opts, err) {
+  if (opts.signal?.aborted) return true;
+  if (err?.name === 'AbortError') return true;
+  const msg = `${err?.message || ''}`.toLowerCase();
+  return msg.includes('terminated') || msg.includes('abort');
+}
+
+/**
+ * Emit a HITL interrupt chunk (when applicable) and return the interrupt
+ * payload so the caller can resolve with it.
+ */
+function forwardHitlInterrupt(err, threadId, opts) {
+  const payload = buildInterruptPayload(err.toolCall, err.reviewConfigs, threadId);
+  if (typeof opts.onChunk === 'function') {
+    opts.onChunk({
+      type: 'interrupt',
+      actionRequests: payload.actionRequests,
+      reviewConfigs: payload.reviewConfigs,
+      threadId: payload.threadId,
+      pendingToolCall: payload.pendingToolCall,
+    });
+  }
+  return payload;
+}
+
+/**
+ * Log the error, emit an `error` chunk when appropriate, and either return
+ * the HITL payload (so the caller can resolve) or throw the right error.
+ */
+function handleRunError(err, threadId, opts) {
+  if (err instanceof HitlInterruptError) {
+    return forwardHitlInterrupt(err, threadId, opts);
+  }
+  const aborted = isAbortedRun(opts, err);
+  if (aborted) {
+    console.log('[AgentRuntime] run cancelled:', err?.message || 'aborted');
+  } else {
+    console.error('[AgentRuntime] run failed:', err?.message || err);
+  }
+  if (typeof opts.onChunk === 'function' && err?.message && !aborted) {
+    opts.onChunk({ type: 'error', error: err.message });
+  }
+  if (aborted) {
+    const abortErr = new Error('Run cancelled');
+    abortErr.name = 'AbortError';
+    throw abortErr;
+  }
+  throw err;
+}
+
+async function runDomeAgent(surface, opts) {
+  console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
+
+  const { userPrompt, promptImages } = await prepareRunDomeInputs(opts);
+
+  const guardrailReason = applyGuardrailsEarlyReturn(userPrompt, opts);
+  if (guardrailReason !== null) return guardrailReason;
 
   const setup = await setupHarness(surface, opts);
   const { harness, threadId, cleanup } = setup;
 
   try {
-    if (typeof opts.onChunk === 'function') {
-      try {
-        const breakdown = await buildBudgetBreakdown(setup, {
-          userMemory: opts.userMemory,
-        });
-        emitBudgetChunk(opts.onChunk, breakdown);
-      } catch (budgetErr) {
-        console.warn('[AgentRuntime] budget telemetry skipped:', budgetErr?.message || budgetErr);
-      }
-    }
+    await tryEmitBudgetSafely(setup, opts, 'budget telemetry skipped');
     const assistant = await harness.prompt(
       userPrompt,
       promptImages.length > 0 ? { images: promptImages } : undefined,
     );
     const finalText = assistantText(assistant);
-    if (assistant?.stopReason === 'error') {
-      const errText = finalText || assistant.errorMessage || 'Agent error';
-      if (typeof opts.onChunk === 'function') {
-        opts.onChunk({ type: 'error', error: errText });
-      }
-      throw new Error(errText);
-    }
+    throwIfAssistantError(assistant, finalText, opts);
     // Re-measure once the turn is done. The pre-turn reading is taken against an
     // empty session, so the indicator showed only the static segments (system,
     // tools, skills) and reported the conversation as zero however long it got.
-    if (typeof opts.onChunk === 'function') {
-      try {
-        emitBudgetChunk(
-          opts.onChunk,
-          await buildBudgetBreakdown(setup, { userMemory: opts.userMemory }),
-        );
-      } catch (budgetErr) {
-        console.warn('[AgentRuntime] post-turn budget skipped:', budgetErr?.message || budgetErr);
-      }
-    }
+    await tryEmitBudgetSafely(setup, opts, 'post-turn budget skipped');
     return finalText;
   } catch (err) {
-    if (err instanceof HitlInterruptError) {
-      const payload = buildInterruptPayload(err.toolCall, err.reviewConfigs, threadId);
-      if (typeof opts.onChunk === 'function') {
-        opts.onChunk({
-          type: 'interrupt',
-          actionRequests: payload.actionRequests,
-          reviewConfigs: payload.reviewConfigs,
-          threadId: payload.threadId,
-          pendingToolCall: payload.pendingToolCall,
-        });
-      }
-      return payload;
-    }
-    const aborted = opts.signal?.aborted
-      || err?.name === 'AbortError'
-      || `${err?.message || ''}`.toLowerCase().includes('terminated')
-      || `${err?.message || ''}`.toLowerCase().includes('abort');
-    if (aborted) {
-      console.log('[AgentRuntime] run cancelled:', err?.message || 'aborted');
-    } else {
-      console.error('[AgentRuntime] run failed:', err?.message || err);
-    }
-    if (typeof opts.onChunk === 'function' && err?.message && !aborted) {
-      opts.onChunk({ type: 'error', error: err.message });
-    }
-    if (aborted) {
-      const abortErr = new Error('Run cancelled');
-      abortErr.name = 'AbortError';
-      throw abortErr;
-    }
-    throw err;
+    return handleRunError(err, threadId, opts);
   } finally {
     cleanup();
   }
