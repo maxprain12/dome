@@ -271,22 +271,11 @@ function validateQuizContent(raw) {
 }
 
 /**
- * @param {unknown} raw
+ * @param {unknown[]} nodesRaw
+ * @param {string[]} errors
+ * @returns {Map<string, { id: string, label: string, description?: string }>}
  */
-function validateMindmapContent(raw) {
-  const errors = [];
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return { ok: false, content: null, normalized: null, errors: ['mindmap: content must be an object'] };
-  }
-
-  const input = /** @type {Record<string, unknown>} */ (raw);
-  const nodesRaw = input.nodes;
-  const edgesRaw = input.edges;
-
-  if (!Array.isArray(nodesRaw) || nodesRaw.length === 0) {
-    return { ok: false, content: null, normalized: null, errors: ['mindmap: nodes array is required'] };
-  }
-
+function buildMindmapNodes(nodesRaw, errors) {
   /** @type {Map<string, { id: string, label: string, description?: string }>} */
   const nodeMap = new Map();
   for (let i = 0; i < nodesRaw.length; i++) {
@@ -305,27 +294,67 @@ function validateMindmapContent(raw) {
     const description = trimString(node.description);
     nodeMap.set(id, description ? { id, label, description } : { id, label });
   }
+  return nodeMap;
+}
+
+/**
+ * @param {unknown} e
+ * @param {number} i
+ * @param {Map<string, unknown>} nodeMap
+ * @returns {{ id: string, source: string, target: string, label?: string }|null}
+ */
+function normalizeMindmapEdge(e, i, nodeMap) {
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  const edge = /** @type {Record<string, unknown>} */ (e);
+  const source = trimString(edge.source);
+  const target = trimString(edge.target);
+  if (!source || !target) return null;
+  if (!nodeMap.has(source) || !nodeMap.has(target)) return null;
+  const id = trimString(edge.id) || `edge-${i + 1}`;
+  const label = trimString(edge.label);
+  return label ? { id, source, target, label } : { id, source, target };
+}
+
+/**
+ * @param {unknown} edgesRaw
+ * @param {Map<string, unknown>} nodeMap
+ * @returns {Array<{ id: string, source: string, target: string, label?: string }>}
+ */
+function buildMindmapEdges(edgesRaw, nodeMap) {
+  /** @type {Array<{ id: string, source: string, target: string, label?: string }>} */
+  const edges = [];
+  if (!Array.isArray(edgesRaw)) return edges;
+  for (let i = 0; i < edgesRaw.length; i++) {
+    const edge = normalizeMindmapEdge(edgesRaw[i], i, nodeMap);
+    if (edge) edges.push(edge);
+  }
+  return edges;
+}
+
+/**
+ * @param {unknown} raw
+ */
+function validateMindmapContent(raw) {
+  const errors = [];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, content: null, normalized: null, errors: ['mindmap: content must be an object'] };
+  }
+
+  const input = /** @type {Record<string, unknown>} */ (raw);
+  const nodesRaw = input.nodes;
+  const edgesRaw = input.edges;
+
+  if (!Array.isArray(nodesRaw) || nodesRaw.length === 0) {
+    return { ok: false, content: null, normalized: null, errors: ['mindmap: nodes array is required'] };
+  }
+
+  const nodeMap = buildMindmapNodes(nodesRaw, errors);
 
   if (nodeMap.size === 0) {
     return { ok: false, content: null, normalized: null, errors: errors.length ? errors : ['mindmap: no valid nodes'] };
   }
 
-  /** @type {Array<{ id: string, source: string, target: string, label?: string }>} */
-  const edges = [];
-  if (Array.isArray(edgesRaw)) {
-    for (let i = 0; i < edgesRaw.length; i++) {
-      const e = edgesRaw[i];
-      if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
-      const edge = /** @type {Record<string, unknown>} */ (e);
-      const source = trimString(edge.source);
-      const target = trimString(edge.target);
-      if (!source || !target) continue;
-      if (!nodeMap.has(source) || !nodeMap.has(target)) continue;
-      const id = trimString(edge.id) || `edge-${i + 1}`;
-      const label = trimString(edge.label);
-      edges.push(label ? { id, source, target, label } : { id, source, target });
-    }
-  }
+  const edges = buildMindmapEdges(edgesRaw, nodeMap);
 
   const normalized = {
     type: 'mindmap',
