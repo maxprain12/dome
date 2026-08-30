@@ -22,6 +22,60 @@ function duplicateTitle(title, suffix) {
 }
 
 /**
+ * Write a vault mirror for the duplicated resource based on its type.
+ * Kept separate from duplicateResourceTree to keep cognitive complexity low.
+ */
+function duplicateMirror(src, srcId, newId, copy, deps, queries, db, suffix, now) {
+  const { database, fileStorage } = deps;
+  switch (src.type) {
+    case 'folder': {
+      vaultStore.createFolderOnDisk(newId, { database, fileStorage });
+      const children = queries.getResourcesByFolder.all(srcId);
+      for (const child of children) {
+        duplicateResourceTree(child.id, deps, { suffix, _parentFolderId: newId, _keepTitle: true });
+      }
+      break;
+    }
+    case 'note': {
+      let md = null;
+      const srcAbs = vaultStore.vaultAbsPathForResource(src, queries, fileStorage);
+      if (srcAbs && fs.existsSync(srcAbs)) {
+        md = vaultStore.stripFrontmatter(fs.readFileSync(srcAbs, 'utf8'));
+      }
+      if (md == null) md = noteContentToMarkdown(src) ?? '';
+      vaultStore.writeNoteMarkdown({ id: newId, markdown: md }, { database, fileStorage });
+      break;
+    }
+    case 'artifact': {
+      const artifact = queries.getArtifactByResourceId.get(srcId);
+      if (artifact) {
+        queries.createArtifact.run(
+          crypto.randomUUID(), newId, artifact.artifact_type, artifact.template,
+          artifact.state, artifact.linked_resource_id ?? null, now, now,
+        );
+        vaultStore.writeArtifactHtmlMirror({ id: newId }, { database, fileStorage });
+      }
+      break;
+    }
+    case 'url':
+      vaultStore.writeUrlMirror({ id: newId }, { database, fileStorage });
+      break;
+    case 'notebook':
+      vaultStore.writeNotebookMirror({ id: newId }, { database, fileStorage });
+      break;
+    default: {
+      const srcAbs = vaultStore.getResourceFilePath(src, queries, fileStorage);
+      if (srcAbs && fs.existsSync(srcAbs)) {
+        const imported = vaultStore.importFileToVault(srcAbs, copy, { database, fileStorage });
+        db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
+          .run(imported.vaultPath, imported.contentHash, imported.size, newId);
+      }
+      break;
+    }
+  }
+}
+
+/**
  * @param {string} srcId resource to duplicate
  * @param {{ database, fileStorage, windowManager }} deps
  * @param {{ suffix?: string, _parentFolderId?: string, _keepTitle?: boolean }} [opts]
@@ -57,52 +111,7 @@ function duplicateResourceTree(srcId, deps, opts = {}) {
   const copy = queries.getResourceById.get(newId);
 
   try {
-    switch (src.type) {
-      case 'folder': {
-        vaultStore.createFolderOnDisk(newId, { database, fileStorage });
-        const children = queries.getResourcesByFolder.all(srcId);
-        for (const child of children) {
-          duplicateResourceTree(child.id, deps, { suffix, _parentFolderId: newId, _keepTitle: true });
-        }
-        break;
-      }
-      case 'note': {
-        let md = null;
-        const srcAbs = vaultStore.vaultAbsPathForResource(src, queries, fileStorage);
-        if (srcAbs && fs.existsSync(srcAbs)) {
-          md = vaultStore.stripFrontmatter(fs.readFileSync(srcAbs, 'utf8'));
-        }
-        if (md == null) md = noteContentToMarkdown(src) ?? '';
-        vaultStore.writeNoteMarkdown({ id: newId, markdown: md }, { database, fileStorage });
-        break;
-      }
-      case 'artifact': {
-        const artifact = queries.getArtifactByResourceId.get(srcId);
-        if (artifact) {
-          queries.createArtifact.run(
-            crypto.randomUUID(), newId, artifact.artifact_type, artifact.template,
-            artifact.state, artifact.linked_resource_id ?? null, now, now,
-          );
-          vaultStore.writeArtifactHtmlMirror({ id: newId }, { database, fileStorage });
-        }
-        break;
-      }
-      case 'url':
-        vaultStore.writeUrlMirror({ id: newId }, { database, fileStorage });
-        break;
-      case 'notebook':
-        vaultStore.writeNotebookMirror({ id: newId }, { database, fileStorage });
-        break;
-      default: {
-        const srcAbs = vaultStore.getResourceFilePath(src, queries, fileStorage);
-        if (srcAbs && fs.existsSync(srcAbs)) {
-          const imported = vaultStore.importFileToVault(srcAbs, copy, { database, fileStorage });
-          db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
-            .run(imported.vaultPath, imported.contentHash, imported.size, newId);
-        }
-        break;
-      }
-    }
+    duplicateMirror(src, srcId, newId, copy, deps, queries, db, suffix, now);
   } catch (e) {
     console.warn('[ResourceDuplicate] mirror copy failed:', e?.message);
   }
