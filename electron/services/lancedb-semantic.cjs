@@ -257,6 +257,58 @@ async function listIndexedResourceIdsExcluding(excludeId) {
 }
 
 /**
+ * Build the model-version filter parts for vector search, optionally narrowed by resource type.
+ * @param {Set<string> | null} filterTypes
+ */
+function buildVectorFilterParts(filterTypes) {
+  const parts = [`model_version == '${esc(activeModelVersion())}'`];
+  if (filterTypes && filterTypes.size > 0) {
+    const types = [...filterTypes].map((t) => `'${esc(t)}'`);
+    parts.push(`res_type IN (${types.join(',')})`);
+  }
+  return parts;
+}
+
+/**
+ * Convert a raw LanceDB row into a normalized scored hit.
+ * @param {any} row
+ */
+function rowToScoredHit(row) {
+  const d = typeof row._distance === 'number' ? row._distance : Number(row._distance ?? 0);
+  const score = Math.max(-1, Math.min(1, 1 - d / 2));
+  const pnRaw = row.page_number != null ? Number(row.page_number) : null;
+  const pn = Number.isFinite(pnRaw) && pnRaw >= 0 ? pnRaw : null;
+  const cs = row.char_start != null && Number(row.char_start) >= 0 ? Number(row.char_start) : null;
+  const ce = row.char_end != null && Number(row.char_end) >= 0 ? Number(row.char_end) : null;
+  return {
+    resource_id: String(row.resource_id),
+    chunk_index: Number(row.chunk_index),
+    char_start: cs,
+    char_end: ce,
+    page_number: pn,
+    snippet: String(row.text || '').slice(0, 400),
+    score,
+    title: String(row.res_title || 'Untitled'),
+    type: String(row.res_type || 'note'),
+  };
+}
+
+/**
+ * Keep only the highest-scoring hit per resource_id.
+ * @param {Array<{ resource_id: string, score: number }>} items
+ * @returns {Map<string, { resource_id: string, score: number }>}
+ */
+function pickBestHitPerResource(items) {
+  /** @type {Map<string, (typeof items)[0]>} */
+  const best = new Map();
+  for (const item of items) {
+    const prev = best.get(item.resource_id);
+    if (!prev || item.score > prev.score) best.set(item.resource_id, item);
+  }
+  return best;
+}
+
+/**
  * @param {Float32Array} qVec
  * @param {number} limit
  * @param {Set<string> | null} filterTypes
@@ -266,44 +318,13 @@ async function searchSemanticVector(qVec, limit, filterTypes) {
   const lim = Math.max(1, Math.min(100, limit || 20));
   const pool = lim * 8;
   const q = Array.from(qVec);
-  const parts = [`model_version == '${esc(activeModelVersion())}'`];
-  if (filterTypes && filterTypes.size > 0) {
-    const types = [...filterTypes].map((t) => `'${esc(t)}'`);
-    parts.push(`res_type IN (${types.join(',')})`);
-  }
-  const pred = parts.join(' AND ');
+  const pred = buildVectorFilterParts(filterTypes).join(' AND ');
   const rows = await _chunks.vectorSearch(q).distanceType('cosine').filter(pred).limit(pool).toArray();
 
-  /** @type {{ resource_id: string, chunk_index: number, char_start: number | null, char_end: number | null, page_number: number | null, snippet: string, score: number, title: string, type: string }[]} */
-  const scored = [];
-  for (const row of rows) {
-    const d = typeof row._distance === 'number' ? row._distance : Number(row._distance ?? 0);
-    const score = Math.max(-1, Math.min(1, 1 - d / 2));
-    const pnRaw = row.page_number != null ? Number(row.page_number) : null;
-    const pn = Number.isFinite(pnRaw) && pnRaw >= 0 ? pnRaw : null;
-    const cs = row.char_start != null && Number(row.char_start) >= 0 ? Number(row.char_start) : null;
-    const ce = row.char_end != null && Number(row.char_end) >= 0 ? Number(row.char_end) : null;
-    scored.push({
-      resource_id: String(row.resource_id),
-      chunk_index: Number(row.chunk_index),
-      char_start: cs,
-      char_end: ce,
-      page_number: pn,
-      snippet: String(row.text || '').slice(0, 400),
-      score,
-      title: String(row.res_title || 'Untitled'),
-      type: String(row.res_type || 'note'),
-    });
-  }
-
+  const scored = rows.map(rowToScoredHit);
   scored.sort((a, b) => b.score - a.score);
   const topPool = scored.slice(0, lim * 4);
-  /** @type {Map<string, (typeof scored)[0]>} */
-  const bestByResource = new Map();
-  for (const hit of topPool) {
-    const prev = bestByResource.get(hit.resource_id);
-    if (!prev || hit.score > prev.score) bestByResource.set(hit.resource_id, hit);
-  }
+  const bestByResource = pickBestHitPerResource(topPool);
   return Array.from(bestByResource.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, lim);
