@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-08-29T12:55:53.433Z
+> Última generación: 2026-08-30T17:33:42.627Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -597,18 +597,18 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `threads:list` | `electron/ipc/agents/threads.cjs:151` |
 | `threads:navigate-tree` | `electron/ipc/agents/threads.cjs:345` |
 | `threads:update-state` | `electron/ipc/agents/threads.cjs:284` |
-| `transcription:get-active` | `electron/ipc/media/transcription.cjs:401` |
-| `transcription:get-permissions` | `electron/ipc/media/transcription.cjs:242` |
-| `transcription:get-settings` | `electron/ipc/media/transcription.cjs:145` |
-| `transcription:list-capture-sources` | `electron/ipc/media/transcription.cjs:290` |
-| `transcription:request-mic` | `electron/ipc/media/transcription.cjs:259` |
-| `transcription:request-screen` | `electron/ipc/media/transcription.cjs:273` |
-| `transcription:resource-to-note` | `electron/ipc/media/transcription.cjs:412` |
-| `transcription:session-append` | `electron/ipc/media/transcription.cjs:379` |
-| `transcription:session-control` | `electron/ipc/media/transcription.cjs:390` |
-| `transcription:session-start` | `electron/ipc/media/transcription.cjs:351` |
-| `transcription:set-display-media-source` | `electron/ipc/media/transcription.cjs:340` |
-| `transcription:set-settings` | `electron/ipc/media/transcription.cjs:154` |
+| `transcription:get-active` | `electron/ipc/media/transcription.cjs:469` |
+| `transcription:get-permissions` | `electron/ipc/media/transcription.cjs:310` |
+| `transcription:get-settings` | `electron/ipc/media/transcription.cjs:282` |
+| `transcription:list-capture-sources` | `electron/ipc/media/transcription.cjs:358` |
+| `transcription:request-mic` | `electron/ipc/media/transcription.cjs:327` |
+| `transcription:request-screen` | `electron/ipc/media/transcription.cjs:341` |
+| `transcription:resource-to-note` | `electron/ipc/media/transcription.cjs:480` |
+| `transcription:session-append` | `electron/ipc/media/transcription.cjs:447` |
+| `transcription:session-control` | `electron/ipc/media/transcription.cjs:458` |
+| `transcription:session-start` | `electron/ipc/media/transcription.cjs:419` |
+| `transcription:set-display-media-source` | `electron/ipc/media/transcription.cjs:408` |
+| `transcription:set-settings` | `electron/ipc/media/transcription.cjs:291` |
 | `updater:check` | `electron/ipc/core/updater.cjs:9` |
 | `updater:download` | `electron/ipc/core/updater.cjs:20` |
 | `updater:install` | `electron/ipc/core/updater.cjs:31` |

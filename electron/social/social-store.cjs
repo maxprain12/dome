@@ -494,29 +494,26 @@ function createSocialStore(database) {
     return serializePost(q().getSocialPostById.get(postId));
   }
 
-  function updatePost(postId, patch = {}) {
-    const row = q().getSocialPostById.get(postId);
-    if (!row) throw new Error(`Social post not found: ${postId}`);
-    if (row.status === 'published') throw new Error('Cannot edit a published post');
-    let campaign = row.campaign;
-    let campaignId = row.campaign_id || null;
-    if (patch.campaignId !== undefined || patch.campaign !== undefined) {
-      const clear =
-        (patch.campaignId === null || patch.campaignId === '') &&
-        (patch.campaign === null || patch.campaign === '' || patch.campaign === undefined);
-      if (clear && patch.campaignId !== undefined) {
-        campaign = null;
-        campaignId = null;
-      } else {
-        const ref = resolveCampaignRef({
-          campaignId: patch.campaignId || null,
-          campaign: patch.campaignId ? null : patch.campaign,
-        });
-        campaign = ref.campaign;
-        campaignId = ref.campaignId;
-      }
+  /** Resolve campaign fields from a patch; returns { campaign, campaignId } to write. */
+  function resolveCampaignPatch(patch, row) {
+    if (patch.campaignId === undefined && patch.campaign === undefined) {
+      return { campaign: row.campaign, campaignId: row.campaign_id || null };
     }
-    const next = {
+    const emptyId = patch.campaignId == null || patch.campaignId === '';
+    const emptyName = patch.campaign == null || patch.campaign === '';
+    if (patch.campaignId !== undefined && emptyId && emptyName) {
+      return { campaign: null, campaignId: null };
+    }
+    const ref = resolveCampaignRef({
+      campaignId: emptyId ? null : patch.campaignId,
+      campaign: patch.campaignId ? null : patch.campaign,
+    });
+    return { campaign: ref.campaign, campaignId: ref.campaignId };
+  }
+
+  /** Build the merged `next` row state from patch + existing row + campaign fields. */
+  function buildPatchNext(patch, row, campaign, campaignId) {
+    return {
       accountId: patch.accountId !== undefined ? patch.accountId : row.account_id,
       body: patch.body !== undefined ? String(patch.body) : row.body,
       media: patch.media !== undefined ? JSON.stringify(patch.media || []) : row.media,
@@ -528,11 +525,23 @@ function createSocialStore(database) {
       eventCardPublicUrl: patch.eventCardPublicUrl !== undefined ? patch.eventCardPublicUrl : row.event_card_public_url,
       scheduledAt: patch.scheduledAt !== undefined ? patch.scheduledAt : row.scheduled_at,
     };
-    let status = patch.status !== undefined ? patch.status : row.status;
-    if (patch.status === undefined) {
-      if (next.scheduledAt && row.status === 'draft') status = 'scheduled';
-      if (!next.scheduledAt && row.status === 'scheduled') status = 'draft';
-    }
+  }
+
+  /** Resolve post status: explicit patch wins, otherwise auto-derive from scheduledAt. */
+  function resolvePostStatus(patch, row, next) {
+    if (patch.status !== undefined) return patch.status;
+    if (next.scheduledAt && row.status === 'draft') return 'scheduled';
+    if (!next.scheduledAt && row.status === 'scheduled') return 'draft';
+    return row.status;
+  }
+
+  function updatePost(postId, patch = {}) {
+    const row = q().getSocialPostById.get(postId);
+    if (!row) throw new Error(`Social post not found: ${postId}`);
+    if (row.status === 'published') throw new Error('Cannot edit a published post');
+    const { campaign, campaignId } = resolveCampaignPatch(patch, row);
+    const next = buildPatchNext(patch, row, campaign, campaignId);
+    const status = resolvePostStatus(patch, row, next);
     q().updateSocialPostContent.run(
       next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign, next.campaignId, next.eventCardId, next.eventCardPublicUrl,
       next.scheduledAt, status, Date.now(), postId
