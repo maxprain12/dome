@@ -126,6 +126,143 @@ function getSettingsPayload(database) {
   };
 }
 
+// ─── set-settings: spec-driven persistence ───────────────────────────────
+// Each spec maps a payload field to a small apply function. Adding a new
+// setting only requires one entry here — the handler stays linear.
+
+const VALID_STT_PROVIDERS = new Set(['groq', 'openai', 'custom']);
+const MIN_PAUSE_THRESHOLD = 0.4;
+const MAX_PAUSE_THRESHOLD = 8;
+const DEFAULT_PAUSE_THRESHOLD = 1.35;
+const MIN_CHUNK_SEC = 2;
+const MAX_CHUNK_SEC = 60;
+const DEFAULT_CHUNK_SEC = 4;
+const DEFAULT_SUMMARY_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'whisper-1';
+
+function applySttProvider(queries, payload, now) {
+  const raw = String(payload.sttProvider).trim().toLowerCase();
+  const normalized = raw === 'local-gemma' ? 'openai' : raw;
+  if (VALID_STT_PROVIDERS.has(normalized)) {
+    queries.setSetting.run('transcription_stt_provider', normalized, now);
+  }
+}
+
+function applyModel(queries, payload, now) {
+  const m = String(payload.model).trim() || DEFAULT_MODEL;
+  queries.setSetting.run('transcription_model', m, now);
+}
+
+function applyLanguage(queries, payload, now) {
+  queries.setSetting.run(
+    'transcription_language',
+    payload.language ? String(payload.language).trim() : '',
+    now,
+  );
+}
+
+function applyOpenaiKey(queries, payload /* now unused — writeSettingSecret stamps its own time */) {
+  writeSettingSecret(queries, 'transcription_openai_api_key', payload.dedicatedOpenaiKey);
+}
+
+function applyGroqKey(queries, payload /* now unused — writeSettingSecret stamps its own time */) {
+  writeSettingSecret(queries, 'transcription_groq_api_key', payload.groqApiKey);
+}
+
+function applyGlobalShortcut(queries, payload, now) {
+  queries.setSetting.run(
+    'transcription_global_shortcut',
+    String(payload.globalShortcut || '').trim(),
+    now,
+  );
+}
+
+function applyGlobalShortcutEnabled(queries, payload, now) {
+  const on = payload.globalShortcutEnabled === true || payload.globalShortcutEnabled === '1';
+  queries.setSetting.run('transcription_global_shortcut_enabled', on ? '1' : '0', now);
+}
+
+function applyApiBaseUrl(queries, payload, now) {
+  const u = payload.apiBaseUrl == null ? '' : String(payload.apiBaseUrl).trim();
+  queries.setSetting.run('transcription_api_base_url', u, now);
+}
+
+function applyPrompt(queries, payload, now) {
+  const p = payload.prompt == null ? '' : String(payload.prompt).trim();
+  queries.setSetting.run('transcription_prompt', p, now);
+}
+
+function applyPauseThreshold(queries, payload, now) {
+  const raw = payload.pauseThresholdSec;
+  if (raw === '' || raw === null) {
+    queries.setSetting.run('transcription_pause_threshold_sec', '', now);
+    return;
+  }
+  const num = Number(raw);
+  const clamped = Number.isFinite(num)
+    ? Math.min(MAX_PAUSE_THRESHOLD, Math.max(MIN_PAUSE_THRESHOLD, num))
+    : DEFAULT_PAUSE_THRESHOLD;
+  queries.setSetting.run('transcription_pause_threshold_sec', String(clamped), now);
+}
+
+function applyDefaultSources(queries, payload, now) {
+  const valid = Array.isArray(payload.defaultSources)
+    ? payload.defaultSources.filter((s) => s === 'mic' || s === 'system')
+    : [];
+  queries.setSetting.run(
+    'transcription_default_sources',
+    JSON.stringify(valid.length ? valid : ['mic']),
+    now,
+  );
+}
+
+function applyLiveTranscriptDefault(queries, payload, now) {
+  const on = payload.liveTranscriptDefault === true || payload.liveTranscriptDefault === '1';
+  queries.setSetting.run('transcription_live_transcript_default', on ? '1' : '0', now);
+}
+
+function applyAutoSummary(queries, payload, now) {
+  const on = payload.autoSummary === true || payload.autoSummary === '1';
+  queries.setSetting.run('transcription_auto_summary', on ? '1' : '0', now);
+}
+
+function applyChunkSec(queries, payload, now) {
+  const n = Number(payload.chunkSec);
+  const sec = Number.isFinite(n)
+    ? Math.min(MAX_CHUNK_SEC, Math.max(MIN_CHUNK_SEC, Math.round(n)))
+    : DEFAULT_CHUNK_SEC;
+  queries.setSetting.run('transcription_chunk_sec', String(sec), now);
+}
+
+function applySummaryModel(queries, payload, now) {
+  const m = payload.summaryModel == null ? '' : String(payload.summaryModel).trim();
+  queries.setSetting.run('transcription_summary_model', m || DEFAULT_SUMMARY_MODEL, now);
+}
+
+const SETTINGS_SPECS = [
+  { field: 'sttProvider', present: (p) => p.sttProvider != null, apply: applySttProvider },
+  { field: 'model', present: (p) => p.model != null, apply: applyModel },
+  { field: 'language', present: (p) => p.language !== undefined, apply: applyLanguage },
+  { field: 'dedicatedOpenaiKey', present: (p) => p.dedicatedOpenaiKey !== undefined, apply: applyOpenaiKey },
+  { field: 'groqApiKey', present: (p) => p.groqApiKey !== undefined, apply: applyGroqKey },
+  { field: 'globalShortcut', present: (p) => p.globalShortcut !== undefined, apply: applyGlobalShortcut },
+  { field: 'globalShortcutEnabled', present: (p) => p.globalShortcutEnabled !== undefined, apply: applyGlobalShortcutEnabled },
+  { field: 'apiBaseUrl', present: (p) => p.apiBaseUrl !== undefined, apply: applyApiBaseUrl },
+  { field: 'prompt', present: (p) => p.prompt !== undefined, apply: applyPrompt },
+  { field: 'pauseThresholdSec', present: (p) => p.pauseThresholdSec !== undefined, apply: applyPauseThreshold },
+  { field: 'defaultSources', present: (p) => p.defaultSources !== undefined, apply: applyDefaultSources },
+  { field: 'liveTranscriptDefault', present: (p) => p.liveTranscriptDefault !== undefined, apply: applyLiveTranscriptDefault },
+  { field: 'autoSummary', present: (p) => p.autoSummary !== undefined, apply: applyAutoSummary },
+  { field: 'chunkSec', present: (p) => p.chunkSec !== undefined, apply: applyChunkSec },
+  { field: 'summaryModel', present: (p) => p.summaryModel !== undefined, apply: applySummaryModel },
+];
+
+function applySetSettings(queries, payload, now) {
+  for (const spec of SETTINGS_SPECS) {
+    if (spec.present(payload)) spec.apply(queries, payload, now);
+  }
+}
+
 function register({
   ipcMain,
   windowManager,
@@ -156,76 +293,7 @@ function register({
     try {
       const queries = database.getQueries();
       const now = Date.now();
-
-      if (payload.sttProvider != null) {
-        let p = String(payload.sttProvider).trim().toLowerCase();
-        if (p === 'local-gemma') p = 'openai';
-        if (p === 'groq' || p === 'openai' || p === 'custom') {
-          queries.setSetting.run('transcription_stt_provider', p, now);
-        }
-      }
-      if (payload.model != null) {
-        const m = String(payload.model).trim() || 'whisper-1';
-        queries.setSetting.run('transcription_model', m, now);
-      }
-      if (payload.language !== undefined) {
-        queries.setSetting.run('transcription_language', payload.language ? String(payload.language).trim() : '', now);
-      }
-      if (payload.dedicatedOpenaiKey !== undefined) {
-        writeSettingSecret(queries, 'transcription_openai_api_key', payload.dedicatedOpenaiKey);
-      }
-      if (payload.groqApiKey !== undefined) {
-        writeSettingSecret(queries, 'transcription_groq_api_key', payload.groqApiKey);
-      }
-      if (payload.globalShortcut !== undefined) {
-        queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut || '').trim(), now);
-      }
-      if (payload.globalShortcutEnabled !== undefined) {
-        const on = payload.globalShortcutEnabled === true || payload.globalShortcutEnabled === '1';
-        queries.setSetting.run('transcription_global_shortcut_enabled', on ? '1' : '0', now);
-      }
-      if (payload.apiBaseUrl !== undefined) {
-        const u = payload.apiBaseUrl == null ? '' : String(payload.apiBaseUrl).trim();
-        queries.setSetting.run('transcription_api_base_url', u, now);
-      }
-      if (payload.prompt !== undefined) {
-        const p = payload.prompt == null ? '' : String(payload.prompt).trim();
-        queries.setSetting.run('transcription_prompt', p, now);
-      }
-      if (payload.pauseThresholdSec !== undefined) {
-        const raw = payload.pauseThresholdSec;
-        if (raw === '' || raw === null) {
-          queries.setSetting.run('transcription_pause_threshold_sec', '', now);
-        } else {
-          const num = Number(raw);
-          const clamped = Number.isFinite(num) ? Math.min(8, Math.max(0.4, num)) : 1.35;
-          queries.setSetting.run('transcription_pause_threshold_sec', String(clamped), now);
-        }
-      }
-      if (payload.defaultSources !== undefined) {
-        const valid = Array.isArray(payload.defaultSources)
-          ? payload.defaultSources.filter((s) => s === 'mic' || s === 'system')
-          : [];
-        queries.setSetting.run('transcription_default_sources', JSON.stringify(valid.length ? valid : ['mic']), now);
-      }
-      if (payload.liveTranscriptDefault !== undefined) {
-        const on = payload.liveTranscriptDefault === true || payload.liveTranscriptDefault === '1';
-        queries.setSetting.run('transcription_live_transcript_default', on ? '1' : '0', now);
-      }
-      if (payload.autoSummary !== undefined) {
-        const on = payload.autoSummary === true || payload.autoSummary === '1';
-        queries.setSetting.run('transcription_auto_summary', on ? '1' : '0', now);
-      }
-      if (payload.chunkSec !== undefined) {
-        const n = Number(payload.chunkSec);
-        const sec = Number.isFinite(n) ? Math.min(60, Math.max(2, Math.round(n))) : 4;
-        queries.setSetting.run('transcription_chunk_sec', String(sec), now);
-      }
-      if (payload.summaryModel !== undefined) {
-        const m = payload.summaryModel == null ? '' : String(payload.summaryModel).trim();
-        queries.setSetting.run('transcription_summary_model', m || 'gpt-4o-mini', now);
-      }
-
+      applySetSettings(queries, payload, now);
       try {
         transcriptionShortcut.registerFromDatabase(database, windowManager);
       } catch (regErr) {
