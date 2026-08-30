@@ -21,6 +21,54 @@ function makeGenerateText(q, windowManager) {
 }
 
 /**
+ * Read an image resource from disk and return a data URL, or null when unavailable.
+ * Kept at module scope to keep the caller's nesting depth low.
+ * @param {{ file_mime_type?: string | null }} row
+ * @param {ReturnType<import('../core/database.cjs').getQueries>} q
+ * @param {typeof import('../storage/file-storage.cjs')} fileStorage
+ * @returns {string | null}
+ */
+function loadImageDataUrl(row, q, fileStorage) {
+  const fs = require('node:fs');
+  const vaultStore = require('../storage/vault-store.cjs');
+  const fullPath = vaultStore.getResourceFilePath(row, q, fileStorage);
+  if (!fullPath || !fs.existsSync(fullPath)) return null;
+  const mime = row.file_mime_type || 'image/png';
+  return `data:${mime};base64,${fs.readFileSync(fullPath).toString('base64')}`;
+}
+
+/**
+ * Persist the auto-generated title and metadata blob on the resource row.
+ * Kept at module scope to keep the caller's nesting depth low.
+ * @param {ReturnType<import('../core/database.cjs').getQueries>} q
+ * @param {string} resourceId
+ * @param {{ content: unknown, metadata?: string | null }} row
+ * @param {{ title?: string, summary?: string | null, tags?: unknown }} meta
+ * @param {string} newTitle
+ */
+function applyAutoMetadata(q, resourceId, row, meta, newTitle) {
+  let metaObj = {};
+  try {
+    metaObj = JSON.parse(row.metadata || '{}');
+  } catch {
+    metaObj = {};
+  }
+  metaObj.dome_auto_metadata = {
+    summary: meta.summary || null,
+    tags: Array.isArray(meta.tags) ? meta.tags : [],
+    at: Date.now(),
+  };
+  if (metaObj.dome_gemma_auto) delete metaObj.dome_gemma_auto;
+  q.updateResource.run(
+    newTitle,
+    row.content,
+    JSON.stringify(metaObj),
+    Date.now(),
+    resourceId,
+  );
+}
+
+/**
  * After resource create/import, suggest title/summary via cloud LLM (non-blocking).
  * @param {string} resourceId
  * @param {{ database: typeof import('../core/database.cjs'), fileStorage: typeof import('../storage/file-storage.cjs'), windowManager: { broadcast: Function } }} deps
@@ -40,18 +88,12 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
         const title = String(row.title || '').trim();
         if (title && title.toLowerCase() !== 'untitled') return;
 
-        const fs = require('node:fs');
         const { getIndexableText } = require('../services/resource-text.cjs');
 
         let imageDataUrl = null;
         let body = '';
         if (row.type === 'image') {
-          const vaultStore = require('../storage/vault-store.cjs');
-          const fullPath = vaultStore.getResourceFilePath(row, q, fileStorage);
-          if (fullPath && fs.existsSync(fullPath)) {
-            const mime = row.file_mime_type || 'image/png';
-            imageDataUrl = `data:${mime};base64,${fs.readFileSync(fullPath).toString('base64')}`;
-          }
+          imageDataUrl = loadImageDataUrl(row, q, fileStorage);
         } else {
           const idx = getIndexableText(row, q);
           body = idx.text || String(row.content || '').slice(0, 8000);
@@ -69,26 +111,7 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
         const newTitle = String(meta.title || '').trim();
         if (!newTitle) return;
 
-        let metaObj = {};
-        try {
-          metaObj = JSON.parse(row.metadata || '{}');
-        } catch {
-          metaObj = {};
-        }
-        metaObj.dome_auto_metadata = {
-          summary: meta.summary || null,
-          tags: Array.isArray(meta.tags) ? meta.tags : [],
-          at: Date.now(),
-        };
-        if (metaObj.dome_gemma_auto) delete metaObj.dome_gemma_auto;
-
-        q.updateResource.run(
-          newTitle,
-          row.content,
-          JSON.stringify(metaObj),
-          Date.now(),
-          resourceId,
-        );
+        applyAutoMetadata(q, resourceId, row, meta, newTitle);
 
         try {
           windowManager.broadcast('resource:updated', { id: resourceId, title: newTitle });
