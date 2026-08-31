@@ -75,6 +75,18 @@ function diffMiddle(a, b) {
   if (a.length === 0) return b.map((text) => ({ type: 'insert', text }));
   if (b.length === 0) return a.map((text) => ({ type: 'delete', text }));
 
+  return myersWalk(a, b);
+}
+
+/**
+ * Walk the Myers edit graph up to MAX_EDIT_DISTANCE, returning ops.
+ * Extracted from {@link diffMiddle} to keep its cognitive complexity low.
+ *
+ * @param {string[]} a
+ * @param {string[]} b
+ * @returns {Array<{ type: 'equal' | 'delete' | 'insert', text: string }>}
+ */
+function myersWalk(a, b) {
   const n = a.length;
   const m = b.length;
   const max = Math.min(n + m, MAX_EDIT_DISTANCE);
@@ -86,25 +98,37 @@ function diffMiddle(a, b) {
   for (let d = 0; d <= max; d += 1) {
     trace.push(v.slice());
     for (let k = -d; k <= d; k += 2) {
-      const idx = k + offset;
-      let x;
-      if (k === -d || (k !== d && v[idx - 1] < v[idx + 1])) {
-        x = v[idx + 1]; // move down (insertion from b)
-      } else {
-        x = v[idx - 1] + 1; // move right (deletion from a)
+      if (advanceDiagonal(v, offset, k, d, a, b, n, m)) {
+        return backtrack(trace, a, b, d, offset);
       }
-      let y = x - k;
-      while (x < n && y < m && a[x] === b[y]) {
-        x += 1;
-        y += 1;
-      }
-      v[idx] = x;
-      if (x >= n && y >= m) return backtrack(trace, a, b, d, offset);
     }
   }
 
   // Past the cap: correct, just coarse.
   return blockReplace(a, b);
+}
+
+/**
+ * Move the (x, y) frontier one step along diagonal `k` at edit-distance `d`,
+ * extending through any run of equal lines. Mutates `v[idx]`.
+ *
+ * @returns {boolean} true once both files are fully consumed
+ */
+function advanceDiagonal(v, offset, k, d, a, b, n, m) {
+  const idx = k + offset;
+  let x;
+  if (k === -d || (k !== d && v[idx - 1] < v[idx + 1])) {
+    x = v[idx + 1]; // move down (insertion from b)
+  } else {
+    x = v[idx - 1] + 1; // move right (deletion from a)
+  }
+  let y = x - k;
+  while (x < n && y < m && a[x] === b[y]) {
+    x += 1;
+    y += 1;
+  }
+  v[idx] = x;
+  return x >= n && y >= m;
 }
 
 function backtrack(trace, a, b, d, offset) {
