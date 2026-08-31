@@ -27,16 +27,15 @@ export function useAgentNodeIconSync(hubProjectId: string) {
       }
       if (updates.length === 0) return;
 
+      const iconByNodeId = new Map(updates.map((u) => [u.nodeId, u.iconIndex]));
       const currentNodes = useCanvasStore.getState().nodes;
       const newNodes = currentNodes.map((n) => {
-        const upd = updates.find((u) => u.nodeId === n.id);
-        if (upd && n.data?.type === 'agent') {
-          return {
-            ...n,
-            data: { ...n.data, agentIconIndex: upd.iconIndex } as AgentNodeData,
-          };
-        }
-        return n;
+        const iconIndex = iconByNodeId.get(n.id);
+        if (iconIndex == null || n.data?.type !== 'agent') return n;
+        return {
+          ...n,
+          data: { ...n.data, agentIconIndex: iconIndex } as AgentNodeData,
+        };
       });
       setNodes(newNodes);
     });

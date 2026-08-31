@@ -152,88 +152,94 @@ async function fetchFromGitHubSource(source) {
  * Fetch skills from skills.sh API
  * API endpoint: https://skills.sh/api/skills
  * Returns JSON with skills array
+ *
+ * Tries each known endpoint in order. Resolves with parsed skills array on the
+ * first 200 response, or with [] when all endpoints fail. Mirrors the original
+ * recursion (which silently swallowed earlier failures and only logged the
+ * last attempt's outcome).
  */
 async function fetchFromSkillsSh(category = 'all') {
-  return new Promise((resolve, reject) => {
-    // Try alternative endpoints if the main one fails
-    const endpoints = [
-      'https://skills.sh/api/skills',
-      'https://skills.sh/api/search',
-      'https://api.skills.sh/v1/skills'
-    ];
-    
-    let currentIndex = 0;
-    
-    function tryEndpoint(urlStr) {
+  const endpoints = [
+    'https://skills.sh/api/skills',
+    'https://skills.sh/api/search',
+    'https://api.skills.sh/v1/skills'
+  ];
+
+  let lastResult;
+  for (const urlStr of endpoints) {
+    lastResult = await fetchSkillsShEndpoint(urlStr, category);
+    if (lastResult.body !== undefined) {
+      return parseSkillsShResponse(lastResult.body);
+    }
+  }
+
+  if (lastResult && lastResult.error) {
+    console.warn('[Marketplace] All skills.sh endpoints failed:', lastResult.error);
+  } else if (lastResult && lastResult.status != null) {
+    console.warn(`[Marketplace] skills.sh returned ${lastResult.status}, using fallback`);
+  }
+  return [];
+}
+
+/**
+ * Issue a single skills.sh request. Resolves with one of:
+ *   - { body } on a successful 200 response
+ *   - { status } on a non-200 response (consumed via res.resume)
+ *   - { error } on a transport error
+ *   - {} on timeout or invalid URL
+ */
+function fetchSkillsShEndpoint(urlStr, category) {
+  return new Promise((resolve) => {
+    try {
       const url = new URL(urlStr);
       if (category && category !== 'all') {
         url.searchParams.set('category', category);
       }
-      
       const protocol = url.protocol === 'https:' ? https : http;
-      
-      const req = protocol.get(url, { headers: { 'User-Agent': 'Dome-Marketplace/1.0', 'Accept': 'application/json' } }, (res) => {
-        if (res.statusCode !== 200) {
-          // Try next endpoint
-          if (currentIndex < endpoints.length - 1) {
-            currentIndex++;
-            tryEndpoint(endpoints[currentIndex]);
-            return;
-          }
-          // All endpoints failed, resolve with empty array instead of rejecting
-          console.warn(`[Marketplace] skills.sh returned ${res.statusCode}, using fallback`);
-          resolve([]);
-          return;
-        }
-        
-        const chunks = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', () => {
-          try {
-            const data = JSON.parse(Buffer.concat(chunks).toString());
-            // Handle different response formats
-            if (Array.isArray(data)) {
-              resolve(data);
-            } else if (data.skills && Array.isArray(data.skills)) {
-              resolve(data.skills);
-            } else if (data.results && Array.isArray(data.results)) {
-              resolve(data.results);
-            } else {
-              console.warn('[Marketplace] Unknown skills.sh response format:', Object.keys(data));
-              resolve([]);
-            }
-          } catch (err) {
-            console.warn('[Marketplace] Failed to parse skills.sh response:', err.message);
-            resolve([]);
-          }
-        });
-      });
-      
-      req.on('error', (err) => {
-        // Try next endpoint on error
-        if (currentIndex < endpoints.length - 1) {
-          currentIndex++;
-          tryEndpoint(endpoints[currentIndex]);
-        } else {
-          console.warn('[Marketplace] All skills.sh endpoints failed:', err.message);
-          resolve([]);
-        }
-      });
-      
+      const req = protocol.get(
+        url,
+        { headers: { 'User-Agent': 'Dome-Marketplace/1.0', 'Accept': 'application/json' } },
+        (res) => collectSkillsShResponse(res, resolve),
+      );
+      req.on('error', (err) => resolve({ error: err.message }));
       req.setTimeout(10000, () => {
         req.destroy();
-        // Try next endpoint on timeout
-        if (currentIndex < endpoints.length - 1) {
-          currentIndex++;
-          tryEndpoint(endpoints[currentIndex]);
-        } else {
-          resolve([]);
-        }
+        resolve({});
       });
+    } catch (_) {
+      resolve({ error: 'invalid url' });
     }
-    
-    tryEndpoint(endpoints[0]);
   });
+}
+
+/**
+ * Handle the response stream from a skills.sh endpoint.
+ */
+function collectSkillsShResponse(res, resolve) {
+  if (res.statusCode !== 200) {
+    res.resume();
+    return resolve({ status: res.statusCode });
+  }
+  const chunks = [];
+  res.on('data', (chunk) => chunks.push(chunk));
+  res.on('end', () => resolve({ body: Buffer.concat(chunks).toString() }));
+}
+
+/**
+ * Parse a raw skills.sh response body into a skills array.
+ */
+function parseSkillsShResponse(body) {
+  try {
+    const data = JSON.parse(body);
+    if (Array.isArray(data)) return data;
+    if (data.skills && Array.isArray(data.skills)) return data.skills;
+    if (data.results && Array.isArray(data.results)) return data.results;
+    console.warn('[Marketplace] Unknown skills.sh response format:', Object.keys(data));
+    return [];
+  } catch (err) {
+    console.warn('[Marketplace] Failed to parse skills.sh response:', err.message);
+    return [];
+  }
 }
 
 /**
