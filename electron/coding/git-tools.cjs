@@ -69,6 +69,41 @@ function clipLines(text, maxLines = DIFF_MAX_LINES) {
 }
 
 /**
+ * Parse the `## branch...upstream [ahead N, behind M]` header line.
+ */
+function parseBranchHeader(header) {
+  const branch = header.split('...')[0].trim();
+  const aheadMatch = header.match(/ahead (\d+)/);
+  const behindMatch = header.match(/behind (\d+)/);
+  const ahead = aheadMatch ? Number(aheadMatch[1]) : 0;
+  const behind = behindMatch ? Number(behindMatch[1]) : 0;
+  return { branch, ahead, behind };
+}
+
+/**
+ * Parse one `XY path` (or `XY from -> to`) file-status line.
+ */
+function parseFileLine(line) {
+  const indexStatus = line[0];
+  const workTreeStatus = line[1];
+  let filePath = line.slice(3);
+  let renamedFrom = null;
+  if (filePath.includes(' -> ')) {
+    const [from, to] = filePath.split(' -> ');
+    renamedFrom = from;
+    filePath = to;
+  }
+  return {
+    path: filePath,
+    staged: indexStatus !== ' ' && indexStatus !== '?',
+    untracked: indexStatus === '?',
+    indexStatus: indexStatus === ' ' ? null : indexStatus,
+    workTreeStatus: workTreeStatus === ' ' ? null : workTreeStatus,
+    renamedFrom,
+  };
+}
+
+/**
  * Parse `git status --porcelain=v1 -b` into something the model can reason over
  * without re-deriving the two-letter status codes.
  */
@@ -81,31 +116,13 @@ function parseStatus(output) {
   for (const line of String(output ?? '').split('\n')) {
     if (!line.trim()) continue;
     if (line.startsWith('## ')) {
-      const header = line.slice(3);
-      branch = header.split('...')[0].trim();
-      const aheadMatch = header.match(/ahead (\d+)/);
-      const behindMatch = header.match(/behind (\d+)/);
-      if (aheadMatch) ahead = Number(aheadMatch[1]);
-      if (behindMatch) behind = Number(behindMatch[1]);
+      const parsed = parseBranchHeader(line.slice(3));
+      branch = parsed.branch;
+      ahead = parsed.ahead;
+      behind = parsed.behind;
       continue;
     }
-    const indexStatus = line[0];
-    const workTreeStatus = line[1];
-    let filePath = line.slice(3);
-    let renamedFrom = null;
-    if (filePath.includes(' -> ')) {
-      const [from, to] = filePath.split(' -> ');
-      renamedFrom = from;
-      filePath = to;
-    }
-    files.push({
-      path: filePath,
-      staged: indexStatus !== ' ' && indexStatus !== '?',
-      untracked: indexStatus === '?',
-      indexStatus: indexStatus === ' ' ? null : indexStatus,
-      workTreeStatus: workTreeStatus === ' ' ? null : workTreeStatus,
-      renamedFrom,
-    });
+    files.push(parseFileLine(line));
   }
 
   return { branch, ahead, behind, files };
