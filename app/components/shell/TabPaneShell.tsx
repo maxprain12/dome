@@ -29,6 +29,12 @@ export function useTabPaneReadySignal() {
   return useContext(TabPaneReadyContext);
 }
 
+function runAfterDoubleFrame(fn: () => void): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => fn());
+  });
+}
+
 /** Mount inside tab content tree; signals ready once loading markers disappear. */
 export function TabContentReadyNotifier() {
   const ctx = useContext(TabPaneReadyContext);
@@ -51,10 +57,8 @@ export function TabContentReadyNotifier() {
       const loading = pane?.querySelector('[data-tab-loading]');
       if (!loading || attempts >= maxAttempts) {
         signaledRef.current = true;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (!cancelled) ctx.signalReady();
-          });
+        runAfterDoubleFrame(() => {
+          if (!cancelled) ctx.signalReady();
         });
         return;
       }
