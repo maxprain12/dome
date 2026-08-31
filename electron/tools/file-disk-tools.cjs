@@ -191,6 +191,37 @@ function matchGlob(filePath, glob) {
   return re.test(base) || re.test(posix);
 }
 
+/**
+ * Convert an absolute file path into a path relative to the search root,
+ * using forward slashes for portable display in rg output. Falls back to the
+ * basename when the relative path escapes the search root or `path.relative`
+ * throws (e.g. on different drives on Windows).
+ */
+function relativePosixPath(full, searchPath) {
+  try {
+    const relative = nodePath.relative(searchPath, full);
+    if (relative && !relative.startsWith('..')) return relative.split(nodePath.sep).join('/');
+  } catch { /* ignore */ }
+  return nodePath.basename(full);
+}
+
+/**
+ * For a match at `matchIdx`, push the surrounding context window into
+ * `outputLines` in `rel:LINENO:[+-]TEXT` format. Each emitted line is
+ * `truncateLine`-clipped; the caller is notified via `markLineTruncated()`
+ * whenever any line was cut so it can flag the result.
+ */
+function appendContextLines(lines, matchIdx, context, rel, outputLines, markLineTruncated) {
+  const start = Math.max(0, matchIdx - context);
+  const end = Math.min(lines.length - 1, matchIdx + context);
+  for (let j = start; j <= end; j += 1) {
+    const { text: clipped, wasTruncated } = truncateLine(lines[j]);
+    if (wasTruncated) markLineTruncated();
+    const prefix = j === matchIdx ? '' : (j < matchIdx ? '-' : '+');
+    outputLines.push(`${rel}:${j + 1}:${prefix}${clipped}`);
+  }
+}
+
 async function fileGrepWithRg(args, rgPath) {
   const pattern = typeof args.pattern === 'string' ? args.pattern : '';
   const searchPath = nodePath.resolve(
@@ -339,24 +370,13 @@ async function fileGrepFallback(args) {
       return true;
     }
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-    const rel = (() => {
-      try {
-        const relative = nodePath.relative(searchPath, full);
-        if (relative && !relative.startsWith('..')) return relative.split(nodePath.sep).join('/');
-      } catch { /* ignore */ }
-      return nodePath.basename(full);
-    })();
+    const rel = relativePosixPath(full, searchPath);
 
     for (let i = 0; i < lines.length; i += 1) {
       if (!re.test(lines[i])) continue;
-      const start = Math.max(0, i - context);
-      const end = Math.min(lines.length - 1, i + context);
-      for (let j = start; j <= end; j += 1) {
-        const { text: clipped, wasTruncated } = truncateLine(lines[j]);
-        if (wasTruncated) linesTruncated = true;
-        const prefix = j === i ? '' : (j < i ? '-' : '+');
-        outputLines.push(`${rel}:${j + 1}:${prefix}${clipped}`);
-      }
+      appendContextLines(lines, i, context, rel, outputLines, () => {
+        linesTruncated = true;
+      });
       matchCount += 1;
       if (matchCount >= limit) {
         matchLimitReached = true;
