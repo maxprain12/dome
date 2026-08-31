@@ -180,6 +180,26 @@ function createFolderOnDisk(folderId, { database, fileStorage }) {
 }
 
 /**
+ * Rewrite `vault_path` for every descendant of `folder` from the `prevRel`
+ * prefix to the `desiredRel` prefix. Used after rename/move to keep nested
+ * rows consistent with the on-disk tree.
+ */
+function rewriteDescendantVaultPaths(db, folder, prevRel, desiredRel) {
+  const oldPrefix = `${prevRel}/`;
+  const newPrefix = `${desiredRel}/`;
+  const descendants = db
+    .prepare(
+      "SELECT id, vault_path FROM resources WHERE project_id = ? AND vault_path LIKE ? ESCAPE '\\' AND id != ?",
+    )
+    .all(folder.project_id, `${prevRel}/%`, folder.id);
+  for (const d of descendants) {
+    if (!d.vault_path || !d.vault_path.startsWith(oldPrefix)) continue;
+    const next = newPrefix + d.vault_path.slice(oldPrefix.length);
+    db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?').run(next, d.id);
+  }
+}
+
+/**
  * Rename/move a folder directory on disk and update vault_path for the folder
  * and every descendant (files + subfolders) by prefix replacement.
  */
@@ -215,18 +235,7 @@ function relocateFolder(folderId, { database, fileStorage }) {
     db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?').run(desiredRel, folderId);
 
     if (prevRel) {
-      const oldPrefix = `${prevRel}/`;
-      const newPrefix = `${desiredRel}/`;
-      const descendants = db
-        .prepare(
-          "SELECT id, vault_path FROM resources WHERE project_id = ? AND vault_path LIKE ? ESCAPE '\\' AND id != ?",
-        )
-        .all(folder.project_id, `${prevRel}/%`, folderId);
-      for (const d of descendants) {
-        if (!d.vault_path || !d.vault_path.startsWith(oldPrefix)) continue;
-        const next = newPrefix + d.vault_path.slice(oldPrefix.length);
-        db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?').run(next, d.id);
-      }
+      rewriteDescendantVaultPaths(db, folder, prevRel, desiredRel);
     } else {
       relocateDescendants(folderId, { database, fileStorage });
     }
