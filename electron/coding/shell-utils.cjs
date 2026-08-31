@@ -96,6 +96,26 @@ function findBashOnPath() {
 }
 
 /**
+ * Resolve a Windows shell: Git Bash under Program Files (x86) → on PATH → cmd.exe.
+ * @returns {{ shell: string, args: string[] }}
+ */
+function getWindowsShellConfig() {
+  const candidates = [];
+  if (process.env.ProgramFiles) {
+    candidates.push(`${process.env.ProgramFiles}\\Git\\bin\\bash.exe`);
+  }
+  if (process.env['ProgramFiles(x86)']) {
+    candidates.push(`${process.env['ProgramFiles(x86)']}\\Git\\bin\\bash.exe`);
+  }
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return { shell: candidate, args: ['-c'] };
+  }
+  const onPath = findBashOnPath();
+  if (onPath) return { shell: onPath, args: ['-c'] };
+  return { shell: 'cmd.exe', args: ['/d', '/s', '/c'] };
+}
+
+/**
  * Resolve the shell to run commands with.
  * Order: explicit path → Git Bash / bash on PATH (Windows) → /bin/bash → sh.
  * @param {string} [customShellPath]
@@ -107,21 +127,7 @@ function getShellConfig(customShellPath) {
     throw new Error(`Custom shell path not found: ${customShellPath}`);
   }
 
-  if (process.platform === 'win32') {
-    const candidates = [];
-    if (process.env.ProgramFiles) {
-      candidates.push(`${process.env.ProgramFiles}\\Git\\bin\\bash.exe`);
-    }
-    if (process.env['ProgramFiles(x86)']) {
-      candidates.push(`${process.env['ProgramFiles(x86)']}\\Git\\bin\\bash.exe`);
-    }
-    for (const candidate of candidates) {
-      if (fs.existsSync(candidate)) return { shell: candidate, args: ['-c'] };
-    }
-    const onPath = findBashOnPath();
-    if (onPath) return { shell: onPath, args: ['-c'] };
-    return { shell: 'cmd.exe', args: ['/d', '/s', '/c'] };
-  }
+  if (process.platform === 'win32') return getWindowsShellConfig();
 
   if (fs.existsSync('/bin/bash')) return { shell: '/bin/bash', args: ['-c'] };
   const onPath = findBashOnPath();
