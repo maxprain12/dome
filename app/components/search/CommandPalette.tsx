@@ -152,21 +152,23 @@ export default function CommandPalette() {
   }, [resetSearch]);
 
   useEffect(() => {
+    const focusInput = () => {
+      window.setTimeout(() => inputRef.current?.focus(), 40);
+    };
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsOpen((prev) => {
-          if (prev) {
-            setFilter('all');
-            resetSearch();
-            return false;
-          }
+      if (!((e.metaKey || e.ctrlKey) && e.key === 'k')) return;
+      e.preventDefault();
+      setIsOpen((prev) => {
+        if (prev) {
           setFilter('all');
           resetSearch();
-          window.setTimeout(() => inputRef.current?.focus(), 40);
-          return true;
-        });
-      }
+          return false;
+        }
+        setFilter('all');
+        resetSearch();
+        focusInput();
+        return true;
+      });
     };
     const onOpenEvent = () => open();
     document.addEventListener('keydown', onKey);
