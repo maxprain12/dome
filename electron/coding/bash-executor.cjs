@@ -54,6 +54,51 @@ const MAX_BUFFERED_BYTES = DEFAULT_MAX_BYTES * 2;
  */
 
 /**
+ * Wire up timeout / abort-signal / output handlers on a spawned child, await
+ * its exit, and tear everything down — even if an error is thrown while
+ * setting handlers up. Kept as a separate function so `executeBash` stays
+ * readable.
+ *
+ * @param {import('node:child_process').ChildProcess} child
+ * @param {{ timeoutSeconds?: number, signal?: AbortSignal }} options
+ * @param {() => void} onAbort
+ * @param {(chunk: Buffer | string) => void} onData
+ * @returns {Promise<{ exitCode: number | undefined, spawnError: Error | undefined, timedOut: boolean }>}
+ */
+async function runChildToCompletion(child, options, onAbort, onData) {
+  let timedOut = false;
+  let timeoutHandle;
+  let exitCode;
+  let spawnError;
+  try {
+    const timeoutSeconds = Number(options.timeoutSeconds);
+    if (Number.isFinite(timeoutSeconds) && timeoutSeconds > 0) {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        if (child.pid) killProcessTree(child.pid);
+      }, timeoutSeconds * 1000);
+    }
+
+    child.stdout?.on('data', onData);
+    child.stderr?.on('data', onData);
+
+    if (options.signal) {
+      if (options.signal.aborted) onAbort();
+      else options.signal.addEventListener('abort', onAbort, { once: true });
+    }
+
+    exitCode = await waitForChildProcess(child);
+  } catch (err) {
+    spawnError = err;
+  } finally {
+    if (child.pid) untrackDetachedChildPid(child.pid);
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (options.signal) options.signal.removeEventListener('abort', onAbort);
+  }
+  return { exitCode, spawnError, timedOut };
+}
+
+/**
  * Spawn a command through the platform shell and stream its output.
  *
  * @param {string} command
@@ -135,39 +180,16 @@ async function executeBash(command, cwd, options = {}) {
   });
   if (child.pid) trackDetachedChildPid(child.pid);
 
-  let timedOut = false;
-  let timeoutHandle;
   const onAbort = () => {
     if (child.pid) killProcessTree(child.pid);
   };
 
-  let exitCode;
-  let spawnError;
-  try {
-    const timeoutSeconds = Number(options.timeoutSeconds);
-    if (Number.isFinite(timeoutSeconds) && timeoutSeconds > 0) {
-      timeoutHandle = setTimeout(() => {
-        timedOut = true;
-        if (child.pid) killProcessTree(child.pid);
-      }, timeoutSeconds * 1000);
-    }
-
-    child.stdout?.on('data', onData);
-    child.stderr?.on('data', onData);
-
-    if (options.signal) {
-      if (options.signal.aborted) onAbort();
-      else options.signal.addEventListener('abort', onAbort, { once: true });
-    }
-
-    exitCode = await waitForChildProcess(child);
-  } catch (err) {
-    spawnError = err;
-  } finally {
-    if (child.pid) untrackDetachedChildPid(child.pid);
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-    if (options.signal) options.signal.removeEventListener('abort', onAbort);
-  }
+  const { exitCode, spawnError, timedOut } = await runChildToCompletion(
+    child,
+    options,
+    onAbort,
+    onData,
+  );
 
   const cancelled = options.signal?.aborted ?? false;
   const full = chunks.join('');
