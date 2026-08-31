@@ -32,8 +32,7 @@ function statusIcon(step: PersistentRunStep) {
     case 'cancelled':
       return <HugeiconsIcon icon={CancelCircleIcon} className="size-3.5 text-destructive" aria-hidden />;
     default: {
-      const exhaustive: never = step.status;
-      void exhaustive;
+      const _exhaustive: never = step.status;
       return <HugeiconsIcon icon={CircleIcon} className="size-3.5 text-muted-foreground" aria-hidden />;
     }
   }
