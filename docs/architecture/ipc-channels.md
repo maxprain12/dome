@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-08-30T17:33:42.627Z
+> Última generación: 2026-08-31T09:33:23.398Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -368,21 +368,21 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `kbllm:syncProject` | `electron/ipc/ai/kb-llm.cjs:75` |
 | `learn:getKpis` | `electron/ipc/learn/learn.cjs:5` |
 | `learn:getStreak` | `electron/ipc/learn/learn.cjs:17` |
-| `marketplace:browse-skill-repo` | `electron/ipc/integrations/marketplace.cjs:809` |
-| `marketplace:fetch-agents` | `electron/ipc/integrations/marketplace.cjs:491` |
-| `marketplace:fetch-all` | `electron/ipc/integrations/marketplace.cjs:455` |
-| `marketplace:fetch-mcp` | `electron/ipc/integrations/marketplace.cjs:527` |
-| `marketplace:fetch-plugins` | `electron/ipc/integrations/marketplace.cjs:563` |
-| `marketplace:fetch-skills` | `electron/ipc/integrations/marketplace.cjs:545` |
-| `marketplace:fetch-workflows` | `electron/ipc/integrations/marketplace.cjs:509` |
-| `marketplace:get-config` | `electron/ipc/integrations/marketplace.cjs:580` |
-| `marketplace:install-plugin` | `electron/ipc/integrations/marketplace.cjs:662` |
-| `marketplace:install-skill` | `electron/ipc/integrations/marketplace.cjs:697` |
-| `marketplace:install-skill-from-url` | `electron/ipc/integrations/marketplace.cjs:789` |
-| `marketplace:rate-limit` | `electron/ipc/integrations/marketplace.cjs:650` |
-| `marketplace:refresh` | `electron/ipc/integrations/marketplace.cjs:610` |
-| `marketplace:uninstall-skill` | `electron/ipc/integrations/marketplace.cjs:835` |
-| `marketplace:update-config` | `electron/ipc/integrations/marketplace.cjs:591` |
+| `marketplace:browse-skill-repo` | `electron/ipc/integrations/marketplace.cjs:815` |
+| `marketplace:fetch-agents` | `electron/ipc/integrations/marketplace.cjs:497` |
+| `marketplace:fetch-all` | `electron/ipc/integrations/marketplace.cjs:461` |
+| `marketplace:fetch-mcp` | `electron/ipc/integrations/marketplace.cjs:533` |
+| `marketplace:fetch-plugins` | `electron/ipc/integrations/marketplace.cjs:569` |
+| `marketplace:fetch-skills` | `electron/ipc/integrations/marketplace.cjs:551` |
+| `marketplace:fetch-workflows` | `electron/ipc/integrations/marketplace.cjs:515` |
+| `marketplace:get-config` | `electron/ipc/integrations/marketplace.cjs:586` |
+| `marketplace:install-plugin` | `electron/ipc/integrations/marketplace.cjs:668` |
+| `marketplace:install-skill` | `electron/ipc/integrations/marketplace.cjs:703` |
+| `marketplace:install-skill-from-url` | `electron/ipc/integrations/marketplace.cjs:795` |
+| `marketplace:rate-limit` | `electron/ipc/integrations/marketplace.cjs:656` |
+| `marketplace:refresh` | `electron/ipc/integrations/marketplace.cjs:616` |
+| `marketplace:uninstall-skill` | `electron/ipc/integrations/marketplace.cjs:841` |
+| `marketplace:update-config` | `electron/ipc/integrations/marketplace.cjs:597` |
 | `mcp:getOAuthProviders` | `electron/ipc/integrations/mcp.cjs:84` |
 | `mcp:startOAuthFlow` | `electron/ipc/integrations/mcp.cjs:65` |
 | `mcp:testConnection` | `electron/ipc/integrations/mcp.cjs:13` |
