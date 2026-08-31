@@ -117,35 +117,54 @@ function uniqueToolCalls(chunks) {
   return calls;
 }
 
-function validateBehavior(behavior, chunks) {
-  if (!behavior) return null;
-  const calls = uniqueToolCalls(chunks);
+function checkBehaviorMaxToolCalls(behavior, calls) {
   if (behavior.max_tool_calls != null && calls.length > behavior.max_tool_calls) {
     return { pass: false, layer: 'structural', reason: `Behavior exceeded max tool calls (${calls.length} > ${behavior.max_tool_calls})` };
   }
-  if (behavior.max_attempts_per_tool != null) {
-    const counts = new Map();
-    for (const call of calls) counts.set(call.name, (counts.get(call.name) || 0) + 1);
-    const excessive = [...counts.entries()].find(([, count]) => count > behavior.max_attempts_per_tool);
-    if (excessive) {
-      return { pass: false, layer: 'structural', reason: `Behavior repeated tool ${excessive[0]} ${excessive[1]} times` };
-    }
-  }
-  if (behavior.max_turns != null) {
-    const turns = (chunks || []).filter((chunk) => chunk.type === 'harness' && chunk.event === 'turn_start').length;
-    if (turns > behavior.max_turns) {
-      return { pass: false, layer: 'structural', reason: `Behavior exceeded max turns (${turns} > ${behavior.max_turns})` };
-    }
-  }
+  return null;
+}
+
+function checkBehaviorMaxAttemptsPerTool(behavior, calls) {
+  if (behavior.max_attempts_per_tool == null) return null;
+  const counts = new Map();
+  for (const call of calls) counts.set(call.name, (counts.get(call.name) || 0) + 1);
+  const excessive = [...counts.entries()].find(([, count]) => count > behavior.max_attempts_per_tool);
+  if (!excessive) return null;
+  return { pass: false, layer: 'structural', reason: `Behavior repeated tool ${excessive[0]} ${excessive[1]} times` };
+}
+
+function checkBehaviorMaxTurns(behavior, chunks) {
+  if (behavior.max_turns == null) return null;
+  const turns = (chunks || []).filter((chunk) => chunk.type === 'harness' && chunk.event === 'turn_start').length;
+  if (turns <= behavior.max_turns) return null;
+  return { pass: false, layer: 'structural', reason: `Behavior exceeded max turns (${turns} > ${behavior.max_turns})` };
+}
+
+function checkBehaviorRequireToolResult(behavior, chunks) {
   if (behavior.require_tool_result && !(chunks || []).some((chunk) => chunk.type === 'tool_result')) {
     return { pass: false, layer: 'structural', reason: 'Behavior finalized without a tool result' };
   }
-  if (behavior.require_text_after_last_tool) {
-    const lastTool = (chunks || []).findLastIndex((chunk) => chunk.type === 'tool_result');
-    const hasLaterText = lastTool >= 0 && (chunks || []).slice(lastTool + 1).some((chunk) => chunk.type === 'text' && String(chunk.text || '').trim());
-    if (!hasLaterText) return { pass: false, layer: 'structural', reason: 'Behavior produced no final text after the last tool result' };
-  }
   return null;
+}
+
+function checkBehaviorTextAfterLastTool(behavior, chunks) {
+  if (!behavior.require_text_after_last_tool) return null;
+  const lastTool = (chunks || []).findLastIndex((chunk) => chunk.type === 'tool_result');
+  const hasLaterText = lastTool >= 0 && (chunks || []).slice(lastTool + 1).some((chunk) => chunk.type === 'text' && String(chunk.text || '').trim());
+  if (hasLaterText) return null;
+  return { pass: false, layer: 'structural', reason: 'Behavior produced no final text after the last tool result' };
+}
+
+function validateBehavior(behavior, chunks) {
+  if (!behavior) return null;
+  const calls = uniqueToolCalls(chunks);
+  return (
+    checkBehaviorMaxToolCalls(behavior, calls) ||
+    checkBehaviorMaxAttemptsPerTool(behavior, calls) ||
+    checkBehaviorMaxTurns(behavior, chunks) ||
+    checkBehaviorRequireToolResult(behavior, chunks) ||
+    checkBehaviorTextAfterLastTool(behavior, chunks)
+  );
 }
 
 function deriveOutcome(execution, structural, judge, optional, execFailed) {
