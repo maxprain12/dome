@@ -71,6 +71,56 @@ function waitForCaptureEvent(win, channel, timeoutMs) {
   });
 }
 
+/**
+ * Initialize the capture page by streaming the PPTX buffer and validating the result.
+ * @returns {Promise<{ success: boolean, slideCount?: number, error?: string }>}
+ */
+async function initializeCapture(win, pptxPath) {
+  const pptxBuffer = fs.readFileSync(pptxPath);
+  const pptxBase64 = pptxBuffer.toString('base64');
+
+  const initDonePromise = waitForCaptureEvent(win, 'ppt-capture:init-done', INIT_TIMEOUT_MS);
+  win.webContents.send('ppt-capture:init', pptxBase64);
+  const initResult = await initDonePromise;
+
+  if (!initResult || initResult.error) {
+    return { success: false, error: initResult?.error || 'Failed to initialize PPT capture' };
+  }
+
+  const slideCount = initResult.slideCount;
+  if (!slideCount || typeof slideCount !== 'number' || slideCount <= 0) {
+    return { success: false, error: 'No slides found in the presentation' };
+  }
+
+  return { success: true, slideCount };
+}
+
+/**
+ * Render (when needed) and capture a single slide, returning the PNG base64.
+ * @returns {Promise<{ success: boolean, image_base64?: string, error?: string }>}
+ */
+async function captureSlide(win, index, isFirstSlide) {
+  if (!isFirstSlide) {
+    const renderDonePromise = waitForCaptureEvent(win, 'ppt-capture:render-done', RENDER_TIMEOUT_MS);
+    win.webContents.send('ppt-capture:render-slide', index);
+    const renderResult = await renderDonePromise;
+    if (!renderResult || renderResult.error) {
+      return { success: false, error: renderResult?.error || `Failed to render slide ${index}` };
+    }
+  }
+
+  await new Promise((r) => setTimeout(r, RENDER_SETTLE_MS));
+
+  const image = await win.webContents.capturePage({
+    x: 0,
+    y: 0,
+    width: SLIDE_W,
+    height: SLIDE_H,
+  });
+
+  return { success: true, image_base64: image.toPNG().toString('base64') };
+}
+
 async function extractPptSlideImagesInner(pptxPath) {
   if (!fs.existsSync(pptxPath)) {
     return { success: false, error: 'PPTX file not found' };
@@ -106,23 +156,12 @@ async function extractPptSlideImagesInner(pptxPath) {
     await win.loadURL(url);
     await readyPromise;
 
-    const pptxBuffer = fs.readFileSync(pptxPath);
-    const pptxBase64 = pptxBuffer.toString('base64');
-
-    const initDonePromise = waitForCaptureEvent(win, 'ppt-capture:init-done', INIT_TIMEOUT_MS);
-    win.webContents.send('ppt-capture:init', pptxBase64);
-    const initResult = await initDonePromise;
-
-    if (!initResult || initResult.error) {
-      return { success: false, error: initResult?.error || 'Failed to initialize PPT capture' };
+    const init = await initializeCapture(win, pptxPath);
+    if (!init.success) {
+      return { success: false, error: init.error };
     }
 
-    const slideCount = initResult.slideCount;
-    if (!slideCount || typeof slideCount !== 'number' || slideCount <= 0) {
-      return { success: false, error: 'No slides found in the presentation' };
-    }
-
-    const total = Math.min(slideCount, MAX_SLIDES);
+    const total = Math.min(init.slideCount, MAX_SLIDES);
     const slides = [];
 
     for (let i = 0; i < total; i++) {
@@ -130,27 +169,14 @@ async function extractPptSlideImagesInner(pptxPath) {
         return { success: false, error: 'Capture window was destroyed during extraction' };
       }
 
-      if (i > 0) {
-        const renderDonePromise = waitForCaptureEvent(win, 'ppt-capture:render-done', RENDER_TIMEOUT_MS);
-        win.webContents.send('ppt-capture:render-slide', i);
-        const renderResult = await renderDonePromise;
-        if (!renderResult || renderResult.error) {
-          return { success: false, error: renderResult?.error || `Failed to render slide ${i}` };
-        }
+      const result = await captureSlide(win, i, i === 0);
+      if (!result.success) {
+        return { success: false, error: result.error };
       }
-
-      await new Promise((r) => setTimeout(r, RENDER_SETTLE_MS));
-
-      const image = await win.webContents.capturePage({
-        x: 0,
-        y: 0,
-        width: SLIDE_W,
-        height: SLIDE_H,
-      });
 
       slides.push({
         index: i,
-        image_base64: image.toPNG().toString('base64'),
+        image_base64: result.image_base64,
       });
     }
 

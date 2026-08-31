@@ -204,6 +204,90 @@ function setEnabled(pluginId, enabled) {
 }
 
 /**
+ * Download the GitHub release zipball at `zipUrl` into an in-memory Buffer.
+ * @returns {Promise<Buffer>}
+ */
+function downloadReleaseZip(zipUrl) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      zipUrl,
+      { headers: { 'User-Agent': 'Dome-Plugin/1.0' } },
+      (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          reject(new Error(`Download failed: ${res.statusCode}`));
+          return;
+        }
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(60000, () => {
+      req.destroy();
+      reject(new Error('Download timeout'));
+    });
+  });
+}
+
+/**
+ * Extract a zip buffer into a temp directory and deploy it as the plugin
+ * `repoName`, validating its manifest and enabling it.
+ * @returns {{ success: boolean, plugin?: object, error?: string }}
+ */
+function deployReleaseBuffer(zipBuffer, repoName) {
+  const AdmZip = require('adm-zip');
+  const zip = new AdmZip(zipBuffer);
+
+  // Extract to temp directory
+  const tempDir = path.join(getPluginsDir(), '_temp');
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true });
+  }
+  zip.extractAllTo(tempDir, true);
+
+  // Find the extracted folder
+  const entries = fs.readdirSync(tempDir, { withFileTypes: true });
+  const extractedDir = entries.find((e) => e.isDirectory());
+
+  if (!extractedDir) {
+    fs.rmSync(tempDir, { recursive: true });
+    return { success: false, error: 'Invalid release format' };
+  }
+
+  // Move to plugins directory with repo name as ID
+  const destDir = path.join(getPluginsDir(), repoName);
+  if (fs.existsSync(destDir)) {
+    fs.rmSync(destDir, { recursive: true });
+  }
+
+  fs.renameSync(path.join(tempDir, extractedDir.name), destDir);
+  fs.rmSync(tempDir, { recursive: true });
+
+  // Check for manifest
+  const manifestPath = path.join(destDir, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    fs.rmSync(destDir, { recursive: true });
+    return { success: false, error: 'No manifest.json found in release' };
+  }
+
+  // Read and validate manifest
+  const raw = fs.readFileSync(manifestPath, 'utf8');
+  const manifest = JSON.parse(raw);
+  const { valid, error } = validateManifest(manifest);
+
+  if (!valid) {
+    fs.rmSync(destDir, { recursive: true });
+    return { success: false, error: `Invalid manifest: ${error}` };
+  }
+
+  fs.writeFileSync(path.join(destDir, '.enabled'), '1');
+  return { success: true, plugin: { ...manifest, dir: destDir, enabled: true } };
+}
+
+/**
  * Install plugin from GitHub repo
  * Downloads the latest release and extracts to plugins directory
  * @param {string} repo - Repository in format "owner/repo"
@@ -221,97 +305,20 @@ async function installFromRepo(repo) {
 
   ensurePluginsDir();
 
-  const https = require('https');
   const { URL } = require('url');
 
   try {
     // Get repo info to find the latest release
     const githubClient = require('./github-client.cjs');
     const release = await githubClient.getLatestRelease(owner, repoName);
-    
+
     if (!release || !release.zipball_url) {
       return { success: false, error: 'No releases found' };
     }
 
-    // Download the zipball
     const zipUrl = new URL(release.zipball_url);
-    
-    return new Promise((resolve) => {
-      const req = https.get(zipUrl, { headers: { 'User-Agent': 'Dome-Plugin/1.0' } }, (res) => {
-        if (res.statusCode !== 200) {
-          resolve({ success: false, error: `Download failed: ${res.statusCode}` });
-          return;
-        }
-        
-        const chunks = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', async () => {
-          try {
-            const AdmZip = require('adm-zip');
-            const zip = new AdmZip(Buffer.concat(chunks));
-            
-            // Extract to temp directory
-            const tempDir = path.join(getPluginsDir(), '_temp');
-            if (fs.existsSync(tempDir)) {
-              fs.rmSync(tempDir, { recursive: true });
-            }
-            zip.extractAllTo(tempDir, true);
-            
-            // Find the extracted folder
-            const entries = fs.readdirSync(tempDir, { withFileTypes: true });
-            const extractedDir = entries.find(e => e.isDirectory());
-            
-            if (!extractedDir) {
-              fs.rmSync(tempDir, { recursive: true });
-              resolve({ success: false, error: 'Invalid release format' });
-              return;
-            }
-            
-            // Move to plugins directory with repo name as ID
-            const destDir = path.join(getPluginsDir(), repoName);
-            if (fs.existsSync(destDir)) {
-              fs.rmSync(destDir, { recursive: true });
-            }
-            
-            fs.renameSync(path.join(tempDir, extractedDir.name), destDir);
-            fs.rmSync(tempDir, { recursive: true });
-            
-            // Check for manifest
-            const manifestPath = path.join(destDir, 'manifest.json');
-            if (!fs.existsSync(manifestPath)) {
-              fs.rmSync(destDir, { recursive: true });
-              resolve({ success: false, error: 'No manifest.json found in release' });
-              return;
-            }
-            
-            // Read and validate manifest
-            const raw = fs.readFileSync(manifestPath, 'utf8');
-            const manifest = JSON.parse(raw);
-            const { valid, error } = validateManifest(manifest);
-            
-            if (!valid) {
-              fs.rmSync(destDir, { recursive: true });
-              resolve({ success: false, error: `Invalid manifest: ${error}` });
-              return;
-            }
-            
-            fs.writeFileSync(path.join(destDir, '.enabled'), '1');
-            resolve({ success: true, plugin: { ...manifest, dir: destDir, enabled: true } });
-          } catch (err) {
-            resolve({ success: false, error: err.message });
-          }
-        });
-      });
-      
-      req.on('error', (err) => {
-        resolve({ success: false, error: err.message });
-      });
-      
-      req.setTimeout(60000, () => {
-        req.destroy();
-        resolve({ success: false, error: 'Download timeout' });
-      });
-    });
+    const zipBuffer = await downloadReleaseZip(zipUrl);
+    return deployReleaseBuffer(zipBuffer, repoName);
   } catch (err) {
     return { success: false, error: err.message };
   }
