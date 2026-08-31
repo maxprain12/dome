@@ -113,14 +113,55 @@ async function startDeviceFlow() {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function validateDeviceCode(deviceCode) {
+  if (typeof deviceCode !== 'string' || !deviceCode) {
+    throw new Error('Missing device code');
+  }
+}
+
+function requestDeviceToken(deviceCode) {
+  return fetchJson(ACCESS_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
+    },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      device_code: deviceCode,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+    }),
+  });
+}
+
+function classifyPollResponse(raw) {
+  if (raw && typeof raw.access_token === 'string') return 'granted';
+  if (raw && typeof raw.error === 'string') {
+    if (raw.error === 'authorization_pending') return 'pending';
+    if (raw.error === 'slow_down') return 'slow_down';
+    return 'error';
+  }
+  return 'unknown';
+}
+
+async function persistGrantedToken(raw) {
+  writeSettingSecret(getQueries(), TOKEN_SETTING, raw.access_token);
+  const login = await fetchLogin(raw.access_token).catch(() => null);
+  if (login) setSetting(LOGIN_SETTING, login);
+  return { success: true, login };
+}
+
+function describeDeviceError(raw) {
+  return `Device flow failed: ${raw.error}${raw.error_description ? `: ${raw.error_description}` : ''}`;
+}
+
 /**
  * Poll GitHub until the user authorizes the device. On success the OAuth token
  * is stored encrypted in settings and { success: true, login } is returned.
  */
 async function pollForAccessToken({ deviceCode, interval = 5, expiresIn = 900 } = {}) {
-  if (typeof deviceCode !== 'string' || !deviceCode) {
-    throw new Error('Missing device code');
-  }
+  validateDeviceCode(deviceCode);
   let intervalMs = Math.max(interval, 1) * 1000;
   const deadline = Date.now() + expiresIn * 1000;
 
@@ -128,38 +169,20 @@ async function pollForAccessToken({ deviceCode, interval = 5, expiresIn = 900 } 
     await sleep(intervalMs);
     let raw;
     try {
-      raw = await fetchJson(ACCESS_TOKEN_URL, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': USER_AGENT,
-        },
-        body: new URLSearchParams({
-          client_id: CLIENT_ID,
-          device_code: deviceCode,
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
-      });
+      raw = await requestDeviceToken(deviceCode);
     } catch (err) {
       console.warn('[github-oauth] poll error:', err?.message || err);
       continue;
     }
 
-    if (raw && typeof raw.access_token === 'string') {
-      writeSettingSecret(getQueries(), TOKEN_SETTING, raw.access_token);
-      const login = await fetchLogin(raw.access_token).catch(() => null);
-      if (login) setSetting(LOGIN_SETTING, login);
-      return { success: true, login };
+    const status = classifyPollResponse(raw);
+    if (status === 'granted') return persistGrantedToken(raw);
+    if (status === 'pending') continue;
+    if (status === 'slow_down') {
+      intervalMs += 5000;
+      continue;
     }
-    if (raw && typeof raw.error === 'string') {
-      if (raw.error === 'authorization_pending') continue;
-      if (raw.error === 'slow_down') {
-        intervalMs += 5000;
-        continue;
-      }
-      throw new Error(`Device flow failed: ${raw.error}${raw.error_description ? `: ${raw.error_description}` : ''}`);
-    }
+    if (status === 'error') throw new Error(describeDeviceError(raw));
   }
   throw new Error('Device flow timed out');
 }
