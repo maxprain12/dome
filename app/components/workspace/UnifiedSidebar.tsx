@@ -57,6 +57,15 @@ interface UnifiedSidebarProps {
   collapsed: boolean;
 }
 
+/** Pick a fallback project after the active one was deleted (default first, else first). */
+async function selectFallbackProjectAfterDelete(): Promise<void> {
+  const all = await window.electron.db.projects.getAll();
+  if (!all?.success || !all.data) return;
+  const list = all.data as Project[];
+  const dome = list.find((p) => p.id === 'default');
+  useAppStore.getState().setCurrentProject(dome ?? list[0] ?? null);
+}
+
 /** Icon + label navigation row used throughout the sidebar (primary + secondary sections). */
 function SidebarNavButton({
   icon,
@@ -440,13 +449,8 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     const onProjectDeleted = (payload: { id?: string }) => { fetchProjectsRef.current();
       const deletedId = payload?.id;
       const cur = useAppStore.getState().currentProject;
-      if (deletedId && cur?.id === deletedId) { window.electron.db.projects.getAll().then((all) => {
-          if (all?.success && all.data) {
-            const list = all.data as Project[];
-            const dome = list.find((p) => p.id === 'default');
-            useAppStore.getState().setCurrentProject(dome ?? list[0] ?? null);
-          }
-        });
+      if (deletedId && cur?.id === deletedId) {
+        void selectFallbackProjectAfterDelete();
       }
       void fetchResourcesRef.current({ silent: true });
     };

@@ -98,6 +98,15 @@ function mergeRunIntoSelected(prev: PersistentRun | null, run: PersistentRun): P
     : prev;
 }
 
+/** Bump `updatedAt` for the run matching `runId`; leaves other entries untouched. */
+function applyRunTimestamp(
+  prev: PersistentRun[],
+  runId: string,
+  updatedAt: number,
+): PersistentRun[] {
+  return prev.map((run) => (run.id === runId ? { ...run, updatedAt } : run));
+}
+
 function targetLabelForRun(run: PersistentRun, t: (key: string) => string): string {
   switch (run.ownerType) {
     case 'agent':
@@ -202,9 +211,7 @@ export default function RunsStudioView() {
 
     const unsubStep = onRunStep(({ step }) => {
       if (selectedRunIdRef.current === step.runId) scheduleRefreshSelectedRun(step.runId);
-      setAllRuns((prev) =>
-        prev.map((run) => (run.id === step.runId ? { ...run, updatedAt: step.updatedAt ?? Date.now() } : run)),
-      );
+      setAllRuns((prev) => applyRunTimestamp(prev, step.runId, step.updatedAt ?? Date.now()));
     });
 
     return () => {
