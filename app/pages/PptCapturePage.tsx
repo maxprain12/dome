@@ -24,6 +24,22 @@ const waitTwoPaintCycles = (): Promise<void> =>
     });
   });
 
+/** Apply the captured light color to slide text after two paint cycles. */
+const finalizeRenderSlide = (
+  container: HTMLDivElement,
+  resolve: (value: boolean) => void,
+): void => {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const lightColor = (window as unknown as Record<string, unknown>).__pptLightColor as
+        | string
+        | undefined ?? PPT_SLIDE_LIGHT_DEFAULT;
+      fixDarkSlideTextColors(container, lightColor);
+      resolve(true);
+    }),
+  );
+};
+
 interface PptxTheme {
   clrScheme?: {
     lt1?: string;
@@ -125,13 +141,7 @@ export default function PptCapturePage() {
         if (!previewer || !containerRef.current) return Promise.resolve(false);
         previewer.renderSingleSlide?.(index);
         return new Promise((resolve) => {
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-              const lightColor = (window as unknown as Record<string, unknown>).__pptLightColor as string ?? PPT_SLIDE_LIGHT_DEFAULT;
-              fixDarkSlideTextColors(containerRef.current!, lightColor);
-              resolve(true);
-            }),
-          );
+          finalizeRenderSlide(containerRef.current!, resolve);
         });
       },
     };
