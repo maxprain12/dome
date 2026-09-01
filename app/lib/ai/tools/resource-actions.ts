@@ -141,6 +141,67 @@ const ResourceMoveToFolderSchema = Type.Object({
 // Helper
 // =============================================================================
 
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeResourceType(type: string): string {
+  // Redirect legacy 'document' type to note so agents never create Word resources.
+  return type === 'document' ? 'note' : type;
+}
+
+interface NotebookCellInput {
+  cell_type: string;
+  source: string;
+}
+
+function resolveNotebookContent(
+  cells: NotebookCellInput[] | undefined,
+  content: string | undefined,
+  title: string
+): string | undefined {
+  if (Array.isArray(cells) && cells.length > 0) {
+    return buildNotebookContentFromCells(cells);
+  }
+  if (!content || !content.trim()) {
+    return buildNotebookContentFromCells([
+      { cell_type: 'markdown', source: `# ${title}\n\nWrite and run Python code.` },
+      { cell_type: 'code', source: 'print("Hello from Python!")' },
+    ]);
+  }
+  return content;
+}
+
+function resolveUrlContent(
+  metadata: Record<string, unknown> | undefined,
+  content: string | undefined
+): string | undefined {
+  const url = metadata?.url;
+  if (typeof url === 'string' && url.trim()) {
+    return content || '';
+  }
+  return content;
+}
+
+function resolveContentByType(
+  normalizedType: string,
+  content: string | undefined,
+  cells: NotebookCellInput[] | undefined,
+  title: string,
+  metadata: Record<string, unknown> | undefined
+): string | undefined {
+  if (normalizedType === 'notebook') {
+    return resolveNotebookContent(cells, content, title);
+  }
+  if (normalizedType === 'url') {
+    return resolveUrlContent(metadata, content);
+  }
+  if (normalizedType === 'folder') {
+    return '';
+  }
+  return content || '';
+}
+
 // =============================================================================
 // Tool Factories
 // =============================================================================
@@ -216,8 +277,7 @@ export function createResourceCreateTool(): AnyAgentTool {
         }
 
         const validTypes = ['notebook', 'url', 'folder', 'note'];
-        // Redirect legacy 'document' type to note so agents never create Word resources.
-        const normalizedType = type === 'document' ? 'note' : type;
+        const normalizedType = normalizeResourceType(type);
         if (!validTypes.includes(normalizedType)) {
           return jsonResult({
             status: 'error',
@@ -225,27 +285,7 @@ export function createResourceCreateTool(): AnyAgentTool {
           });
         }
 
-        if (normalizedType === 'notebook') {
-          if (Array.isArray(cells) && cells.length > 0) {
-            content = buildNotebookContentFromCells(cells);
-          } else if (!content || !content.trim()) {
-            content = buildNotebookContentFromCells([
-              { cell_type: 'markdown', source: `# ${title}\n\nWrite and run Python code.` },
-              { cell_type: 'code', source: 'print("Hello from Python!")' },
-            ]);
-          }
-        } else if (normalizedType === 'url') {
-          const url = metadata?.url;
-          if (typeof url === 'string' && url.trim()) {
-            content = content || '';
-          }
-        } else if (normalizedType === 'note') {
-          content = content || '';
-        } else if (normalizedType === 'folder') {
-          content = '';
-        } else {
-          content = content || '';
-        }
+        content = resolveContentByType(normalizedType, content, cells, title, metadata);
 
         const createPayload: Record<string, unknown> = {
           title,
@@ -273,8 +313,7 @@ export function createResourceCreateTool(): AnyAgentTool {
           resource: result.resource,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return jsonResult({ status: 'error', error: message });
+        return jsonResult({ status: 'error', error: formatErrorMessage(error) });
       }
     },
   };
