@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-08-31T09:33:23.398Z
+> Última generación: 2026-09-01T03:30:22.926Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -400,16 +400,16 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `notes:readMirror` | `electron/ipc/data/notes.cjs:36` |
 | `notes:vaultDir` | `electron/ipc/data/notes.cjs:48` |
 | `notes:writeMirror` | `electron/ipc/data/notes.cjs:24` |
-| `ollama:chat` | `electron/ipc/ai/ollama.cjs:122` |
+| `ollama:chat` | `electron/ipc/ai/ollama.cjs:149` |
 | `ollama:check-availability` | `electron/ipc/ai/ollama.cjs:14` |
 | `ollama:generate-embedding` | `electron/ipc/ai/ollama.cjs:54` |
 | `ollama:generate-summary` | `electron/ipc/ai/ollama.cjs:88` |
 | `ollama:list-models` | `electron/ipc/ai/ollama.cjs:34` |
-| `ollama:manager:download` | `electron/ipc/ai/ollama.cjs:251` |
-| `ollama:manager:start` | `electron/ipc/ai/ollama.cjs:192` |
-| `ollama:manager:status` | `electron/ipc/ai/ollama.cjs:228` |
-| `ollama:manager:stop` | `electron/ipc/ai/ollama.cjs:210` |
-| `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:269` |
+| `ollama:manager:download` | `electron/ipc/ai/ollama.cjs:255` |
+| `ollama:manager:start` | `electron/ipc/ai/ollama.cjs:196` |
+| `ollama:manager:status` | `electron/ipc/ai/ollama.cjs:232` |
+| `ollama:manager:stop` | `electron/ipc/ai/ollama.cjs:214` |
+| `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:273` |
 | `open-external-url` | `electron/ipc/core/system.cjs:173` |
 | `open-path` | `electron/ipc/core/system.cjs:147` |
 | `openai-codex:auth:disconnect` | `electron/ipc/integrations/openai-codex-oauth.cjs:58` |

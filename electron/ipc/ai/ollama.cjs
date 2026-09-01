@@ -116,6 +116,33 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
     }
   });
 
+  function validateChatMessages(messages) {
+    if (!Array.isArray(messages)) {
+      throw new Error('Messages must be an array');
+    }
+    if (messages.length === 0) {
+      throw new Error('Messages array cannot be empty');
+    }
+    if (messages.length > 100) {
+      throw new Error('Too many messages. Maximum 100 messages');
+    }
+    // Validar estructura de cada mensaje
+    for (const msg of messages) {
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+        throw new Error('Each message must be an object');
+      }
+      if (typeof msg.role !== 'string' || !['system', 'user', 'assistant'].includes(msg.role)) {
+        throw new Error('Message role must be "system", "user", or "assistant"');
+      }
+      if (typeof msg.content !== 'string') {
+        throw new Error('Message content must be a string');
+      }
+      if (msg.content.length > 100000) {
+        throw new Error('Message content too long. Maximum 100000 characters per message');
+      }
+    }
+  }
+
   /**
    * Chat with Ollama
    */
@@ -126,30 +153,7 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
 
     try {
       // Validar messages
-      if (!Array.isArray(messages)) {
-        throw new Error('Messages must be an array');
-      }
-      if (messages.length === 0) {
-        throw new Error('Messages array cannot be empty');
-      }
-      if (messages.length > 100) {
-        throw new Error('Too many messages. Maximum 100 messages');
-      }
-      // Validar estructura de cada mensaje
-      for (const msg of messages) {
-        if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
-          throw new Error('Each message must be an object');
-        }
-        if (typeof msg.role !== 'string' || !['system', 'user', 'assistant'].includes(msg.role)) {
-          throw new Error('Message role must be "system", "user", or "assistant"');
-        }
-        if (typeof msg.content !== 'string') {
-          throw new Error('Message content must be a string');
-        }
-        if (msg.content.length > 100000) {
-          throw new Error('Message content too long. Maximum 100000 characters per message');
-        }
-      }
+      validateChatMessages(messages);
       // Validar model si se proporciona
       if (model !== undefined && (typeof model !== 'string' || model.length > 200)) {
         throw new Error('Model must be a string with max 200 characters');
