@@ -238,84 +238,105 @@ export function extractTextFromRegion(
   viewport: pdfjsLib.PageViewport,
   pdfRect: { x: number; y: number; width: number; height: number }
 ): string {
-  const textItems: Array<{ str: string; y: number; x: number; width: number }> = [];
-  const { items } = textContent;
+  const textItems = collectIntersectingItems(textContent, pdfRect);
+  textItems.sort(compareTextItems);
+  return joinTextItems(textItems).trim();
+}
 
+type CollectedTextItem = { str: string; y: number; x: number; width: number };
+type PDFTextSource = Awaited<ReturnType<typeof getPageTextContent>>;
+type PDFTextSourceItem = PDFTextSource['items'][number];
+
+function collectIntersectingItems(
+  textContent: PDFTextSource,
+  pdfRect: { x: number; y: number; width: number; height: number }
+): CollectedTextItem[] {
   // PDF coordinate system: origin at bottom-left, Y increases upward
   // pdfRect.y is the bottom edge (min Y), pdfRect.y + pdfRect.height is the top edge (max Y)
-  const rectBottomY = pdfRect.y;
-  const rectTopY = pdfRect.y + pdfRect.height;
   const rectLeftX = pdfRect.x;
   const rectRightX = pdfRect.x + pdfRect.width;
-
-  for (const item of items) {
-    if (!('transform' in item) || !item.transform || !item.str || !item.str.trim()) continue;
-
-    // Transform matrix: [a, b, c, d, e, f]
-    // e = x translation, f = y translation (in PDF coordinates, bottom-left origin)
-    const [a, b, c, d, e, f] = item.transform;
-
-    // Get text item position and dimensions in PDF coordinates
-    const itemX = e;
-    const itemY = f; // Bottom edge of text item in PDF coordinates
-    const itemWidth = item.width || 0;
-    const itemHeight = item.height || 0;
-    const itemTopY = itemY + itemHeight; // Top edge of text item
-
-    // Check if text item intersects with rectangle
-    // X intersection: item overlaps horizontally
-    const intersectsX = itemX < rectRightX && itemX + itemWidth > rectLeftX;
-    // Y intersection: item overlaps vertically (in PDF coords, higher Y = higher on page)
-    const intersectsY = itemY < rectTopY && itemTopY > rectBottomY;
-
-    if (intersectsX && intersectsY) {
-      // Store in PDF coordinates for sorting
-      textItems.push({
-        str: item.str,
-        y: itemY, // Bottom edge in PDF coordinates
-        x: itemX,
-        width: itemWidth,
-      });
-    }
+  const rectBottomY = pdfRect.y;
+  const rectTopY = pdfRect.y + pdfRect.height;
+  const textItems: CollectedTextItem[] = [];
+  for (const rawItem of textContent.items) {
+    const collected = collectTextItem(rawItem, rectLeftX, rectRightX, rectBottomY, rectTopY);
+    if (collected) textItems.push(collected);
   }
+  return textItems;
+}
 
-  // Sort by Y position (higher Y = higher on page = top to bottom visually) and X position (left to right)
-  textItems.sort((a, b) => {
-    const yDiff = b.y - a.y; // Higher Y first (top to bottom visually)
-    if (Math.abs(yDiff) > 5) {
-      return yDiff;
-    }
-    // Same line, sort by X (left to right)
-    return a.x - b.x;
-  });
+function collectTextItem(
+  rawItem: PDFTextSourceItem,
+  rectLeftX: number,
+  rectRightX: number,
+  rectBottomY: number,
+  rectTopY: number
+): CollectedTextItem | null {
+  if (!('transform' in rawItem) || !rawItem.transform || !rawItem.str || !rawItem.str.trim()) {
+    return null;
+  }
+  // Transform matrix: [a, b, c, d, e, f]
+  // e = x translation, f = y translation (in PDF coordinates, bottom-left origin)
+  const itemX = rawItem.transform[4];
+  const itemY = rawItem.transform[5]; // Bottom edge of text item in PDF coordinates
+  const itemWidth = rawItem.width || 0;
+  const itemHeight = rawItem.height || 0;
+  const itemTopY = itemY + itemHeight; // Top edge of text item
+  const intersectsRegion =
+    itemX < rectRightX &&
+    itemX + itemWidth > rectLeftX &&
+    itemY < rectTopY &&
+    itemTopY > rectBottomY;
+  if (!intersectsRegion) return null;
+  // Store in PDF coordinates for sorting
+  return { str: rawItem.str, y: itemY, x: itemX, width: itemWidth };
+}
 
-  // Join text items, preserving line breaks and word spacing
+// Sort by Y position (higher Y = higher on page = top to bottom visually)
+// and X position (left to right) for items on the same line.
+function compareTextItems(a: CollectedTextItem, b: CollectedTextItem): number {
+  const yDiff = b.y - a.y; // Higher Y first (top to bottom visually)
+  if (Math.abs(yDiff) > 5) {
+    return yDiff;
+  }
+  // Same line, sort by X (left to right)
+  return a.x - b.x;
+}
+
+// Join text items, preserving line breaks and word spacing.
+function joinTextItems(textItems: CollectedTextItem[]): string {
   let result = '';
   let lastY = -Infinity;
   let lastXEnd = -Infinity;
-
   for (const item of textItems) {
-    const isNewLine = Math.abs(item.y - lastY) > 5;
-    const itemXEnd = item.x + item.width;
-    const gap = item.x - lastXEnd;
-
-    if (isNewLine) {
-      // New line - add space before if not first item
-      if (result) result += ' ';
-      result += item.str;
-    } else if (gap > 3) {
-      // Significant gap between items - likely a space
-      result += ' ' + item.str;
-    } else {
-      // Same word/line - check if we need a space
-      const needsSpace = result && !result.endsWith(' ') && !item.str.startsWith(' ');
-      result += (needsSpace ? ' ' : '') + item.str;
-    }
+    result = appendJoinedItem(result, item, lastY, lastXEnd);
     lastY = item.y;
-    lastXEnd = itemXEnd;
+    lastXEnd = item.x + item.width;
   }
+  return result;
+}
 
-  return result.trim();
+function appendJoinedItem(
+  result: string,
+  item: CollectedTextItem,
+  lastY: number,
+  lastXEnd: number
+): string {
+  const isNewLine = Math.abs(item.y - lastY) > 5;
+  const gap = item.x - lastXEnd;
+  if (isNewLine) {
+    // New line - add space before if not first item
+    if (result) result += ' ';
+    result += item.str;
+  } else if (gap > 3) {
+    // Significant gap between items - likely a space
+    result += ' ' + item.str;
+  } else {
+    // Same word/line - check if we need a space
+    const needsSpace = result && !result.endsWith(' ') && !item.str.startsWith(' ');
+    result += (needsSpace ? ' ' : '') + item.str;
+  }
+  return result;
 }
 
 /**

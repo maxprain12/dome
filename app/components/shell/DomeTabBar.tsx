@@ -410,27 +410,40 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
   }, [activeTabId, stripTabs.length]);
 
   useEffect(() => {
+    const handleTabSwitch = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || stripTabs.length < 2) return;
+      event.preventDefault();
+      const current = Math.max(0, stripTabs.findIndex((tab) => tab.id === activeTabId));
+      const next = event.shiftKey
+        ? (current - 1 + stripTabs.length) % stripTabs.length
+        : (current + 1) % stripTabs.length;
+      activateTab(stripTabs[next].id);
+    };
+
+    const handleDigitShortcut = (event: KeyboardEvent) => {
+      if (!/^[1-9]$/.test(event.key) || event.shiftKey || event.altKey) return;
+      const index = Number(event.key) === 9 ? stripTabs.length - 1 : Number(event.key) - 1;
+      if (!stripTabs[index]) return;
+      event.preventDefault();
+      activateTab(stripTabs[index].id);
+    };
+
+    const handleCloseShortcut = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'w' || event.shiftKey || event.altKey) return;
+      const active = tabs.find((tab) => tab.id === activeTabId);
+      if (!active || active.pinned || active.id === HOME_TAB_ID) return;
+      event.preventDefault();
+      closeTab(active.id);
+    };
+
     const handleShortcut = (event: KeyboardEvent) => {
       if (!event.metaKey && !event.ctrlKey) return;
-      if (event.key === 'Tab' && stripTabs.length >= 2) {
-        event.preventDefault();
-        const current = Math.max(0, stripTabs.findIndex((tab) => tab.id === activeTabId));
-        const next = event.shiftKey
-          ? (current - 1 + stripTabs.length) % stripTabs.length
-          : (current + 1) % stripTabs.length;
-        activateTab(stripTabs[next].id);
-      } else if (/^[1-9]$/.test(event.key) && !event.shiftKey && !event.altKey) {
-        const index = Number(event.key) === 9 ? stripTabs.length - 1 : Number(event.key) - 1;
-        if (stripTabs[index]) {
-          event.preventDefault();
-          activateTab(stripTabs[index].id);
-        }
-      } else if (event.key.toLowerCase() === 'w' && !event.shiftKey && !event.altKey) {
-        const active = tabs.find((tab) => tab.id === activeTabId);
-        if (active && !active.pinned && active.id !== HOME_TAB_ID) {
-          event.preventDefault();
-          closeTab(active.id);
-        }
+      if (event.key === 'Tab') {
+        handleTabSwitch(event);
+      } else if (/^[1-9]$/.test(event.key)) {
+        handleDigitShortcut(event);
+      } else if (event.key.toLowerCase() === 'w') {
+        handleCloseShortcut(event);
       }
     };
     window.addEventListener('keydown', handleShortcut);
