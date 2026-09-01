@@ -368,115 +368,197 @@ export function StepDetailPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div
-        className="shrink-0 border-b px-4 py-2.5"
-        style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
-      >
-        <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-            <span className="tabular-nums">
-              {t('runLog.detail_trace_step_of', { current: stepOrdinal, total: totalSteps })}
-            </span>
-            <span aria-hidden>·</span>
-            <span>{getStepBadgeLabel(step, t)}</span>
-          </div>
-          <h2 className="text-sm font-medium break-words leading-snug text-foreground">
-            {headerTitle}
-          </h2>
-        </div>
-        {workflowAgentCtx ? (
-          <p className="mt-1.5 text-[11px] break-words text-muted-foreground">
-            {t('runLog.detail_workflow_under_agent', { name: workflowAgentCtx })}
-          </p>
-        ) : null}
-        <p className="mt-1 text-[11px] break-words text-muted-foreground">
-          {formatRunDate(step.createdAt)}
-          {' · '}
-          {t('runLog.detail_relative_time', { seconds: offsetSec })}
-          {step.updatedAt !== step.createdAt ? (
-            <>
-              {' · '}
-              {formatRunDate(step.updatedAt)}
-            </>
-          ) : null}
-        </p>
-      </div>
+      <StepDetailHeader
+        step={step}
+        stepOrdinal={stepOrdinal}
+        totalSteps={totalSteps}
+        workflowAgentCtx={workflowAgentCtx}
+        headerTitle={headerTitle}
+        offsetSec={offsetSec}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-y-3">
         {hasArgs ? (
-          <CollapsibleRow
-            expanded={argsOpen}
-            onExpandedChange={setArgsOpen}
-            triggerClassName="px-0 py-1 bg-transparent hover:bg-transparent"
-            trigger={
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-foreground">
-                {t('runLog.detail_args')}
-              </p>
-            }
-          >
-            <div
-              className="mt-1 rounded-lg border p-2.5 text-[11px] font-mono overflow-x-auto max-h-48 overflow-y-auto"
-              style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
-            >
-              <JsonPrettyPrinterRoot value={toolArgs} />
-            </div>
-          </CollapsibleRow>
+          <StepArgsView toolArgs={toolArgs} argsOpen={argsOpen} setArgsOpen={setArgsOpen} />
         ) : null}
-
         {isTool && step.content ? (
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-foreground">
-                {t('runLog.detail_result')}
-              </p>
-              <Button type="button"
-  variant="outline"
-  onClick={() => setShowRaw(!showRaw)}
-  size="xs">
-                {showRaw ? t('runLog.view_pretty') : t('runLog.view_raw')}
-              </Button>
-            </div>
-            {showRaw ? (
-              <pre
-                className="rounded-lg border p-3 text-[11px] font-mono overflow-auto max-h-72 whitespace-pre-wrap break-all"
-                style={{ borderColor: 'var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
-              >
-                {typeof step.content === 'string' ? step.content : JSON.stringify(step.content, null, 2)}
-              </pre>
-            ) : parsedContent !== null && typeof parsedContent === 'object' ? (
-              <div
-                className="rounded-lg border p-3 text-[11px] font-mono overflow-auto max-h-72"
-                style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
-              >
-                <JsonPrettyPrinterRoot value={parsedContent} />
-              </div>
-            ) : (
-              <div
-                className="rounded-lg border p-3 text-sm overflow-auto max-h-72 break-words"
-                style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
-              >
-                <MarkdownRenderer content={String(step.content)} />
-              </div>
-            )}
-          </div>
+          <StepToolResultView
+            step={step}
+            parsedContent={parsedContent}
+            showRaw={showRaw}
+            setShowRaw={setShowRaw}
+          />
         ) : null}
-
-        {!isTool && step.content ? (
-          <div
-            className="rounded-lg border p-3 text-sm min-w-0 overflow-x-auto"
-            style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
-          >
-            <MarkdownRenderer
-              content={typeof step.content === 'string' ? step.content : JSON.stringify(step.content, null, 2)}
-            />
-          </div>
-        ) : null}
-
-        {!step.content && !hasArgs ? (
-          <p className="text-xs text-muted-foreground">
-            {t('runLog.detail_select_hint')}
-          </p>
-        ) : null}
+        {!isTool && step.content ? <StepPlainContentView step={step} /> : null}
+        {!step.content && !hasArgs ? <StepEmptyHint /> : null}
       </div>
     </div>
   );
+}
+
+function StepDetailHeader({
+  step,
+  stepOrdinal,
+  totalSteps,
+  workflowAgentCtx,
+  headerTitle,
+  offsetSec,
+}: {
+  step: PersistentRunStep;
+  stepOrdinal: number;
+  totalSteps: number;
+  workflowAgentCtx: string | null;
+  headerTitle: string;
+  offsetSec: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="shrink-0 border-b px-4 py-2.5"
+      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+    >
+      <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+          <span className="tabular-nums">
+            {t('runLog.detail_trace_step_of', { current: stepOrdinal, total: totalSteps })}
+          </span>
+          <span aria-hidden>·</span>
+          <span>{getStepBadgeLabel(step, t)}</span>
+        </div>
+        <h2 className="text-sm font-medium break-words leading-snug text-foreground">
+          {headerTitle}
+        </h2>
+      </div>
+      {workflowAgentCtx ? (
+        <p className="mt-1.5 text-[11px] break-words text-muted-foreground">
+          {t('runLog.detail_workflow_under_agent', { name: workflowAgentCtx })}
+        </p>
+      ) : null}
+      <p className="mt-1 text-[11px] break-words text-muted-foreground">
+        {formatRunDate(step.createdAt)}
+        {' · '}
+        {t('runLog.detail_relative_time', { seconds: offsetSec })}
+        {step.updatedAt !== step.createdAt ? (
+          <>
+            {' · '}
+            {formatRunDate(step.updatedAt)}
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+function StepArgsView({
+  toolArgs,
+  argsOpen,
+  setArgsOpen,
+}: {
+  toolArgs: Record<string, unknown>;
+  argsOpen: boolean;
+  setArgsOpen: (next: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <CollapsibleRow
+      expanded={argsOpen}
+      onExpandedChange={setArgsOpen}
+      triggerClassName="px-0 py-1 bg-transparent hover:bg-transparent"
+      trigger={
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-foreground">
+          {t('runLog.detail_args')}
+        </p>
+      }
+    >
+      <div
+        className="mt-1 rounded-lg border p-2.5 text-[11px] font-mono overflow-x-auto max-h-48 overflow-y-auto"
+        style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+      >
+        <JsonPrettyPrinterRoot value={toolArgs} />
+      </div>
+    </CollapsibleRow>
+  );
+}
+
+function StepToolResultView({
+  step,
+  parsedContent,
+  showRaw,
+  setShowRaw,
+}: {
+  step: PersistentRunStep;
+  parsedContent: unknown;
+  showRaw: boolean;
+  setShowRaw: (next: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-foreground">
+          {t('runLog.detail_result')}
+        </p>
+        <Button type="button" variant="outline" onClick={() => setShowRaw(!showRaw)} size="xs">
+          {showRaw ? t('runLog.view_pretty') : t('runLog.view_raw')}
+        </Button>
+      </div>
+      {showRaw ? (
+        <RawContentBlock step={step} />
+      ) : parsedContent !== null && typeof parsedContent === 'object' ? (
+        <PrettyJsonBlock value={parsedContent} />
+      ) : (
+        <MarkdownBlock step={step} />
+      )}
+    </div>
+  );
+}
+
+function RawContentBlock({ step }: { step: PersistentRunStep }) {
+  return (
+    <pre
+      className="rounded-lg border p-3 text-[11px] font-mono overflow-auto max-h-72 whitespace-pre-wrap break-all"
+      style={{ borderColor: 'var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
+    >
+      {typeof step.content === 'string' ? step.content : JSON.stringify(step.content, null, 2)}
+    </pre>
+  );
+}
+
+function PrettyJsonBlock({ value }: { value: unknown }) {
+  return (
+    <div
+      className="rounded-lg border p-3 text-[11px] font-mono overflow-auto max-h-72"
+      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+    >
+      <JsonPrettyPrinterRoot value={value} />
+    </div>
+  );
+}
+
+function MarkdownBlock({ step }: { step: PersistentRunStep }) {
+  return (
+    <div
+      className="rounded-lg border p-3 text-sm overflow-auto max-h-72 break-words"
+      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+    >
+      <MarkdownRenderer content={String(step.content)} />
+    </div>
+  );
+}
+
+function StepPlainContentView({ step }: { step: PersistentRunStep }) {
+  return (
+    <div
+      className="rounded-lg border p-3 text-sm min-w-0 overflow-x-auto"
+      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+    >
+      <MarkdownRenderer
+        content={typeof step.content === 'string' ? step.content : JSON.stringify(step.content, null, 2)}
+      />
+    </div>
+  );
+}
+
+function StepEmptyHint() {
+  const { t } = useTranslation();
+  return <p className="text-xs text-muted-foreground">{t('runLog.detail_select_hint')}</p>;
 }
