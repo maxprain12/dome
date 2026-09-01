@@ -160,40 +160,75 @@ function fieldLabel(type) {
 }
 
 /**
+ * Render one entry from data.fields[]. Returns null when the entry is invalid
+ * or produces no output.
+ */
+function renderFieldEntry(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const type = raw.type === 'todos' || raw.type === 'note' ? raw.type : 'description';
+  if (type === 'todos') {
+    const checklist = renderTodos(raw.todos);
+    if (checklist) return `#### ${fieldLabel(type)}\n${checklist}`;
+    return null;
+  }
+  const text = typeof raw.text === 'string' ? raw.text.trim() : '';
+  if (text) return `#### ${fieldLabel(type)}\n${text}`;
+  return null;
+}
+
+/**
+ * Render data.fields[] into an ordered array of markdown sections.
+ */
+function renderFieldsArray(fields) {
+  if (!Array.isArray(fields) || fields.length === 0) return [];
+  const parts = [];
+  for (const raw of fields) {
+    const block = renderFieldEntry(raw);
+    if (block) parts.push(block);
+  }
+  return parts;
+}
+
+/**
+ * Render legacy text/todos fallback when fields[] is missing or empty.
+ */
+function renderLegacyContent(data) {
+  const parts = [];
+  if (typeof data.text === 'string' && data.text.trim()) {
+    parts.push(`#### Descripción\n${data.text.trim()}`);
+  }
+  const todos = renderTodos(data.todos);
+  if (todos) parts.push(`#### Tareas\n${todos}`);
+  return parts;
+}
+
+/**
+ * Render leftover keys (excluding fields[]) as a JSON dump.
+ * Returns null when data has no extra keys to render.
+ */
+function renderFallbackDataBlock(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (Object.keys(data).length === 0) return null;
+  const { fields: _fields, ...rest } = data;
+  if (Object.keys(rest).length === 0) return null;
+  return `#### Datos\n${JSON.stringify(rest, null, 2)}`;
+}
+
+/**
  * Render all card content: data.fields[] (description, note, todos) or legacy text/todos.
  */
 function renderCardFields(data) {
   if (!data || typeof data !== 'object') return '';
 
-  const parts = [];
+  const parts = renderFieldsArray(data.fields);
 
-  if (Array.isArray(data.fields) && data.fields.length > 0) {
-    for (const raw of data.fields) {
-      if (!raw || typeof raw !== 'object') continue;
-      const type = raw.type === 'todos' || raw.type === 'note' ? raw.type : 'description';
-      if (type === 'todos') {
-        const checklist = renderTodos(raw.todos);
-        if (checklist) parts.push(`#### ${fieldLabel(type)}\n${checklist}`);
-      } else {
-        const text = typeof raw.text === 'string' ? raw.text.trim() : '';
-        if (text) parts.push(`#### ${fieldLabel(type)}\n${text}`);
-      }
-    }
+  if (parts.length === 0) {
+    parts.push(...renderLegacyContent(data));
   }
 
   if (parts.length === 0) {
-    if (typeof data.text === 'string' && data.text.trim()) {
-      parts.push(`#### Descripción\n${data.text.trim()}`);
-    }
-    const todos = renderTodos(data.todos);
-    if (todos) parts.push(`#### Tareas\n${todos}`);
-  }
-
-  if (parts.length === 0 && Object.keys(data).length > 0) {
-    const { fields: _fields, ...rest } = data;
-    if (Object.keys(rest).length > 0) {
-      parts.push(`#### Datos\n${JSON.stringify(rest, null, 2)}`);
-    }
+    const fallback = renderFallbackDataBlock(data);
+    if (fallback) parts.push(fallback);
   }
 
   return parts.join('\n\n');
