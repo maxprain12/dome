@@ -15,6 +15,7 @@ import {
 	type ConverseStreamMetadataEvent,
 	ImageFormat,
 	type Message,
+	type ReasoningContentBlockDelta,
 	type SystemContentBlock,
 	type ToolChoice,
 	type ToolConfiguration,
@@ -416,52 +417,85 @@ function handleContentBlockDelta(
 ): void {
 	const contentBlockIndex = event.contentBlockIndex!;
 	const delta = event.delta;
-	let index = blocks.findIndex((b) => b.index === contentBlockIndex);
-	let block = blocks[index];
+	const index = blocks.findIndex((b) => b.index === contentBlockIndex);
+	const block = blocks[index];
 
 	if (delta?.text !== undefined) {
-		// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
-		if (!block) {
-			const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
-			output.content.push(newBlock);
-			index = blocks.length - 1;
-			block = blocks[index];
-			stream.push({ type: "text_start", contentIndex: index, partial: output });
-		}
-		if (block.type === "text") {
-			block.text += delta.text;
-			stream.push({ type: "text_delta", contentIndex: index, delta: delta.text, partial: output });
-		}
+		applyTextDelta(contentBlockIndex, delta.text, block, index, blocks, output, stream);
 	} else if (delta?.toolUse && block?.type === "toolCall") {
-		block.partialJson = (block.partialJson || "") + (delta.toolUse.input || "");
-		block.arguments = parseStreamingJson(block.partialJson);
-		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input || "", partial: output });
+		applyToolUseDelta(block, index, delta.toolUse, output, stream);
 	} else if (delta?.reasoningContent) {
-		let thinkingBlock = block;
-		let thinkingIndex = index;
+		applyReasoningDelta(contentBlockIndex, delta.reasoningContent, block, index, blocks, output, stream);
+	}
+}
 
-		if (!thinkingBlock) {
-			const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
-			output.content.push(newBlock);
-			thinkingIndex = blocks.length - 1;
-			thinkingBlock = blocks[thinkingIndex];
-			stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
+function applyTextDelta(
+	contentBlockIndex: number,
+	text: string,
+	block: Block | undefined,
+	index: number,
+	blocks: Block[],
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	let resolved = block;
+
+	// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
+	if (!resolved) {
+		resolved = { type: "text", text: "", index: contentBlockIndex };
+		output.content.push(resolved);
+		index = blocks.length - 1;
+		stream.push({ type: "text_start", contentIndex: index, partial: output });
+	}
+
+	if (resolved.type === "text") {
+		resolved.text += text;
+		stream.push({ type: "text_delta", contentIndex: index, delta: text, partial: output });
+	}
+}
+
+function applyToolUseDelta(
+	block: Extract<Block, { type: "toolCall" }>,
+	index: number,
+	toolUse: { input?: string },
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	block.partialJson = (block.partialJson || "") + (toolUse.input || "");
+	block.arguments = parseStreamingJson(block.partialJson);
+	stream.push({ type: "toolcall_delta", contentIndex: index, delta: toolUse.input || "", partial: output });
+}
+
+function applyReasoningDelta(
+	contentBlockIndex: number,
+	reasoningContent: ReasoningContentBlockDelta,
+	block: Block | undefined,
+	index: number,
+	blocks: Block[],
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	let resolved = block;
+
+	if (!resolved) {
+		resolved = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
+		output.content.push(resolved);
+		index = blocks.length - 1;
+		stream.push({ type: "thinking_start", contentIndex: index, partial: output });
+	}
+
+	if (resolved.type === "thinking") {
+		if (reasoningContent.text) {
+			resolved.thinking += reasoningContent.text;
+			stream.push({
+				type: "thinking_delta",
+				contentIndex: index,
+				delta: reasoningContent.text,
+				partial: output,
+			});
 		}
-
-		if (thinkingBlock?.type === "thinking") {
-			if (delta.reasoningContent.text) {
-				thinkingBlock.thinking += delta.reasoningContent.text;
-				stream.push({
-					type: "thinking_delta",
-					contentIndex: thinkingIndex,
-					delta: delta.reasoningContent.text,
-					partial: output,
-				});
-			}
-			if (delta.reasoningContent.signature) {
-				thinkingBlock.thinkingSignature =
-					(thinkingBlock.thinkingSignature || "") + delta.reasoningContent.signature;
-			}
+		if (reasoningContent.signature) {
+			resolved.thinkingSignature = (resolved.thinkingSignature || "") + reasoningContent.signature;
 		}
 	}
 }
