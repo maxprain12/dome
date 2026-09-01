@@ -381,8 +381,10 @@ function initWorker() {}
 /** @deprecated — no-op */
 function disposeWorker() {}
 
-/** @deprecated — no-op */
-function configureTransformersEnv() {}
+/** @deprecated — no-op; kept for backwards-compatible exports */
+function configureTransformersEnv() {
+  void 0;
+}
 
 module.exports = {
   EMBEDDINGS_NOT_CONFIGURED,
