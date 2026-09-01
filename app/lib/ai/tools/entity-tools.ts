@@ -175,6 +175,75 @@ const AutomationCreateSchema = Type.Object({
   })),
 });
 
+type AutomationTargetType = 'agent' | 'workflow' | 'feeder';
+type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
+type AutomationOutputMode = 'chat_only' | 'studio_output' | 'mixed';
+type AutomationCadence = 'daily' | 'weekly' | 'cron-lite';
+type AutomationSchedule = {
+  cadence?: AutomationCadence;
+  hour?: number;
+  weekday?: number | null;
+  intervalMinutes?: number;
+} | null;
+
+function normalizeTargetType(raw: string): AutomationTargetType {
+  return raw === 'workflow' || raw === 'feeder' ? raw : 'agent';
+}
+
+function readAutomationParams(params: Record<string, unknown>): {
+  title: string;
+  description: string;
+  targetType: AutomationTargetType;
+  targetId: string;
+  triggerType: AutomationTriggerType;
+  isFeederTarget: boolean;
+  prompt: string;
+  outputMode: AutomationOutputMode;
+  enabled: boolean;
+} {
+  const title = readStringParam(params, 'title', { required: true });
+  const description = readStringParam(params, 'description') ?? '';
+  const targetType = normalizeTargetType(readStringParam(params, 'target_type') ?? 'agent');
+  const targetId = readStringParam(params, 'target_id', { required: true });
+  const triggerType = (readStringParam(params, 'trigger_type') ?? 'manual') as AutomationTriggerType;
+  const isFeederTarget = targetType === 'feeder';
+  const prompt = readStringParam(params, 'prompt') ?? '';
+  const outputMode = (readStringParam(params, 'output_mode') ?? 'chat_only') as AutomationOutputMode;
+  const enabled = typeof params.enabled === 'boolean' ? params.enabled : true;
+  return { title, description, targetType, targetId, triggerType, isFeederTarget, prompt, outputMode, enabled };
+}
+
+function normalizeCadence(raw: string, hasIntervalMinutes: boolean): AutomationCadence {
+  const base: AutomationCadence =
+    raw === 'weekly' || raw === 'cron-lite' ? raw : 'daily';
+  // Common LLM mistake: providing interval_minutes without cadence='cron-lite'.
+  // Treat the presence of interval_minutes as an unambiguous signal for cron-lite.
+  return hasIntervalMinutes && base !== 'cron-lite' ? 'cron-lite' : base;
+}
+
+function buildAutomationSchedule(input: unknown): AutomationSchedule {
+  if (!input || typeof input !== 'object') return null;
+  const s = input as Record<string, unknown>;
+  const cadence = normalizeCadence(String(s.cadence ?? 'daily'), typeof s.interval_minutes === 'number');
+  // Feeders / cron-lite are minute-based; hour gate would suppress ticks if >0.
+  const hour = cadence === 'cron-lite'
+    ? 0
+    : typeof s.hour === 'number' ? Math.max(0, Math.min(23, s.hour)) : 0;
+  return {
+    cadence,
+    hour,
+    weekday: typeof s.weekday === 'number' ? s.weekday : null,
+    intervalMinutes:
+      typeof s.interval_minutes === 'number' ? Math.max(1, s.interval_minutes) : undefined,
+  };
+}
+
+function describeAutomationSchedule(schedule: AutomationSchedule): string | undefined {
+  if (!schedule) return undefined;
+  if (schedule.cadence === 'cron-lite') return `every ${schedule.intervalMinutes ?? '?'} min`;
+  return schedule.cadence;
+}
+
 export function createAutomationCreateTool(): AnyAgentTool {
   return {
     label: 'Create Automation',
@@ -187,45 +256,18 @@ export function createAutomationCreateTool(): AnyAgentTool {
     execute: async (_toolCallId, args) => {
       try {
         const params = args as Record<string, unknown>;
-        const title = readStringParam(params, 'title', { required: true });
-        const description = readStringParam(params, 'description') ?? '';
-        const rawTargetType = readStringParam(params, 'target_type') ?? 'agent';
-        const targetType: 'agent' | 'workflow' | 'feeder' =
-          rawTargetType === 'workflow' || rawTargetType === 'feeder' ? rawTargetType : 'agent';
-        const targetId = readStringParam(params, 'target_id', { required: true });
-        const triggerType = (readStringParam(params, 'trigger_type') ?? 'manual') as 'manual' | 'schedule' | 'contextual';
-        const isFeederTarget = targetType === 'feeder';
-        const prompt = readStringParam(params, 'prompt') ?? '';
-        const outputMode = (readStringParam(params, 'output_mode') ?? 'chat_only') as 'chat_only' | 'studio_output' | 'mixed';
-        const enabled = typeof params.enabled === 'boolean' ? params.enabled : true;
-
-        let schedule: {
-          cadence?: 'daily' | 'weekly' | 'cron-lite';
-          hour?: number;
-          weekday?: number | null;
-          intervalMinutes?: number;
-        } | null = null;
-        if (triggerType === 'schedule' && params.schedule && typeof params.schedule === 'object') {
-          const s = params.schedule as Record<string, unknown>;
-          const rawCadence = String(s.cadence ?? 'daily');
-          let cadence: 'daily' | 'weekly' | 'cron-lite' =
-            rawCadence === 'weekly' || rawCadence === 'cron-lite' ? rawCadence : 'daily';
-          // Common LLM mistake: providing interval_minutes without cadence='cron-lite'.
-          // Treat the presence of interval_minutes as an unambiguous signal for cron-lite.
-          if (typeof s.interval_minutes === 'number' && cadence !== 'cron-lite') {
-            cadence = 'cron-lite';
-          }
-          schedule = {
-            cadence,
-            // Feeders / cron-lite are minute-based; hour gate would suppress ticks if >0.
-            hour: cadence === 'cron-lite'
-              ? 0
-              : typeof s.hour === 'number' ? Math.max(0, Math.min(23, s.hour)) : 0,
-            weekday: typeof s.weekday === 'number' ? s.weekday : null,
-            intervalMinutes:
-              typeof s.interval_minutes === 'number' ? Math.max(1, s.interval_minutes) : undefined,
-          };
-        }
+        const {
+          title,
+          description,
+          targetType,
+          targetId,
+          triggerType,
+          isFeederTarget,
+          prompt,
+          outputMode,
+          enabled,
+        } = readAutomationParams(params);
+        const schedule = triggerType === 'schedule' ? buildAutomationSchedule(params.schedule) : null;
 
         const automation = await saveAutomation({
           title,
@@ -250,11 +292,7 @@ export function createAutomationCreateTool(): AnyAgentTool {
               target: targetType,
               trigger: triggerType,
               output: isFeederTarget ? 'feeder-merge' : outputMode,
-              schedule: schedule
-                ? schedule.cadence === 'cron-lite'
-                  ? `every ${schedule.intervalMinutes ?? '?'} min`
-                  : schedule.cadence
-                : undefined,
+              schedule: describeAutomationSchedule(schedule),
               status: enabled ? 'Active' : 'Paused',
             },
           })}`
