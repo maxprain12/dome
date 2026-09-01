@@ -68,6 +68,44 @@ function filterOutById<T extends { id: string }>(items: T[], id: string): T[] {
   return next;
 }
 
+/** True if `items` already contains an entry whose `id` matches. */
+function includesInteractionId(items: ParsedInteraction[], id: string): boolean {
+  for (const item of items) {
+    if (item.id === id) return true;
+  }
+  return false;
+}
+
+/** Prepend `interaction` to `prev` unless an item with the same id already exists. */
+function prependUniqueInteraction(prev: ParsedInteraction[], interaction: Interaction): ParsedInteraction[] {
+  if (includesInteractionId(prev, interaction.id)) return prev;
+  return [parseInteraction(interaction), ...prev];
+}
+
+/** Build a single updated interaction from a partial update payload. */
+function mergeInteractionUpdate(prev: ParsedInteraction[], id: string, updates: Partial<Interaction>): ParsedInteraction[] {
+  return prev.map((item) => {
+    if (item.id !== id) return item;
+    const nextPosition = updates.position_data
+      ? (typeof updates.position_data === 'string'
+          ? JSON.parse(updates.position_data) as Record<string, unknown>
+          : updates.position_data)
+      : item.position_data;
+    const nextMetadata = updates.metadata
+      ? (typeof updates.metadata === 'string'
+          ? JSON.parse(updates.metadata) as Record<string, unknown>
+          : updates.metadata)
+      : item.metadata;
+    return {
+      ...item,
+      ...updates,
+      position_data: nextPosition,
+      metadata: nextMetadata,
+      updated_at: Date.now(),
+    };
+  });
+}
+
 export function useInteractions(resourceId: string): UseInteractionsResult {
   const [interactions, setInteractions] = useState<ParsedInteraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,55 +149,24 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     if (typeof window === 'undefined' || !window.electron) return;
 
     // Listener: Interacción creada
-    const unsubscribeCreate = window.electron.on('interaction:created',
-      (interaction: Interaction) => {
-        // Solo agregar si pertenece a este recurso
-        if (interaction.resource_id === resourceId) {
-          setInteractions(prev => {
-            // Evitar duplicados
-            if (prev.some(i => i.id === interaction.id)) return prev;
-            // Agregar al inicio (más reciente primero)
-            const parsed = parseInteraction(interaction);
-            return [parsed, ...prev];
-          });
-        }
-      }
-    );
+    const handleCreated = (interaction: Interaction) => {
+      if (interaction.resource_id !== resourceId) return;
+      setInteractions((prev) => prependUniqueInteraction(prev, interaction));
+    };
 
     // Listener: Interacción actualizada
-    const unsubscribeUpdate = window.electron.on('interaction:updated',
-      ({ id, updates }: { id: string, updates: Partial<Interaction> }) => {
-        setInteractions(prev =>
-          prev.map(i => {
-            if (i.id === id) {
-              return {
-                ...i,
-                ...updates,
-                position_data: updates.position_data
-                  ? (typeof updates.position_data === 'string'
-                      ? JSON.parse(updates.position_data) as Record<string, unknown>
-                      : updates.position_data)
-                  : i.position_data,
-                metadata: updates.metadata
-                  ? (typeof updates.metadata === 'string'
-                      ? JSON.parse(updates.metadata) as Record<string, unknown>
-                      : updates.metadata)
-                  : i.metadata,
-                updated_at: Date.now()
-              };
-            }
-            return i;
-          })
-        );
-      }
-    );
+    const handleUpdated = ({ id, updates }: { id: string; updates: Partial<Interaction> }) => {
+      setInteractions((prev) => mergeInteractionUpdate(prev, id, updates));
+    };
 
     // Listener: Interacción eliminada
-    const unsubscribeDelete = window.electron.on('interaction:deleted',
-      ({ id }: { id: string }) => {
-        setInteractions((prev) => filterOutById(prev, id));
-      }
-    );
+    const handleDeleted = ({ id }: { id: string }) => {
+      setInteractions((prev) => filterOutById(prev, id));
+    };
+
+    const unsubscribeCreate = window.electron.on('interaction:created', handleCreated);
+    const unsubscribeUpdate = window.electron.on('interaction:updated', handleUpdated);
+    const unsubscribeDelete = window.electron.on('interaction:deleted', handleDeleted);
 
     // Cleanup todas las suscripciones al desmontar
     return () => {
