@@ -227,10 +227,17 @@ export default function CardDetailModal({
 
   const activityFetchKey = `${tab}:${item.id}:${eventsReloadKey}`;
   const prevActivityFetchKeyRef = useRef(activityFetchKey);
-  if (tab === 'activity' && activityFetchKey !== prevActivityFetchKeyRef.current) {
+
+  // Reset the loading spinner whenever the activity tab is reopened or the
+  // event log is explicitly reloaded. The actual fetch happens in the effect
+  // below; this mirrors the previous inline branch to keep render behavior
+  // identical while reducing the main function's cognitive load.
+  const syncActivityFetchEffect = (): void => {
+    if (tab !== 'activity') return;
+    if (activityFetchKey === prevActivityFetchKeyRef.current) return;
     prevActivityFetchKeyRef.current = activityFetchKey;
     setEventsLoading(true);
-  }
+  };
 
   useEffect(() => {
     if (tab !== 'activity') return;
@@ -274,16 +281,25 @@ export default function CardDetailModal({
 
   const execStatusKey = `${item.execStatus}:${item.updatedAt}`;
   const prevExecStatusKeyRef = useRef(execStatusKey);
-  if (execStatusKey !== prevExecStatusKeyRef.current) {
-    prevExecStatusKeyRef.current = execStatusKey;
-    if (item.execStatus === 'running') {
-      setLaunching(false);
-    }
+
+  // Mirror the terminal-state effects of a finished agent run: clear the
+  // launching spinner and refresh the activity log.
+  const applyExecStatusTransition = (): void => {
+    if (item.execStatus === 'running') setLaunching(false);
     if (item.execStatus === 'ready' || item.execStatus === 'failed') {
       setLaunching(false);
       setEventsReloadKey((k) => k + 1);
     }
-  }
+  };
+
+  const syncExecStatusEffect = (): void => {
+    if (execStatusKey === prevExecStatusKeyRef.current) return;
+    prevExecStatusKeyRef.current = execStatusKey;
+    applyExecStatusTransition();
+  };
+
+  syncActivityFetchEffect();
+  syncExecStatusEffect();
 
   const addField = (type: CardField['type']) => {
     const id = newFieldId();
@@ -470,68 +486,72 @@ export default function CardDetailModal({
     },
   ];
 
-  const footer = editing ? (
+  const renderDeleteFooterButton = (): ReactNode => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-destructive hover:text-destructive"
+      onClick={() => setConfirmDelete(true)}
+    >
+      <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+      {t('pipelines.delete')}
+    </Button>
+  );
+
+  const renderRunButton = (): ReactNode => (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => handleRun()}
+      disabled={generating || agentBusy || saving}
+    >
+      {agentBusy ? (
+        <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" />
+      ) : (
+        <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />
+      )}
+      {launching
+        ? t('pipelines.run_launching')
+        : isRunning
+          ? t('pipelines.status_running')
+          : t('pipelines.run_now')}
+    </Button>
+  );
+
+  const renderGenerateReportButton = (): ReactNode => (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => generateReport()}
+      disabled={saving || agentBusy}
+    >
+      {generating ? (
+        <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" />
+      ) : (
+        <HugeiconsIcon icon={File02Icon} data-icon="inline-start" />
+      )}
+      {t('pipelines.generate_report')}
+    </Button>
+  );
+
+  const renderEditFooter = (): ReactNode => (
     <div className="flex w-full flex-wrap items-center gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:text-destructive"
-        onClick={() => setConfirmDelete(true)}
-      >
-        <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
-        {t('pipelines.delete')}
-      </Button>
+      {renderDeleteFooterButton()}
       <div className="min-w-2 flex-1" />
       <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
         {t('pipelines.cancel')}
       </Button>
-      {canRun ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleRun()}
-          disabled={generating || agentBusy || saving}
-        >
-          {agentBusy ? (
-            <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" />
-          ) : (
-            <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />
-          )}
-          {launching
-            ? t('pipelines.run_launching')
-            : isRunning
-              ? t('pipelines.status_running')
-              : t('pipelines.run_now')}
-        </Button>
-      ) : null}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => generateReport()}
-        disabled={saving || agentBusy}
-      >
-        {generating ? (
-          <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" />
-        ) : (
-          <HugeiconsIcon icon={File02Icon} data-icon="inline-start" />
-        )}
-        {t('pipelines.generate_report')}
-      </Button>
+      {canRun ? renderRunButton() : null}
+      {renderGenerateReportButton()}
       <Button size="sm" onClick={() => save()} disabled={saving || agentBusy}>
         {saving ? t('pipelines.saving') : t('pipelines.save')}
       </Button>
     </div>
-  ) : (
+  );
+
+  const renderReadOnlyFooter = (): ReactNode => (
     <div className="flex w-full flex-wrap items-center gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:text-destructive"
-        onClick={() => setConfirmDelete(true)}
-      >
-        <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
-        {t('pipelines.delete')}
-      </Button>
+      {renderDeleteFooterButton()}
       <div className="min-w-2 flex-1" />
       <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
         <HugeiconsIcon icon={PencilIcon} data-icon="inline-start" />
@@ -543,7 +563,281 @@ export default function CardDetailModal({
     </div>
   );
 
-  const body = editing ? (
+  const renderFooter = (): ReactNode =>
+    editing ? renderEditFooter() : renderReadOnlyFooter();
+
+  const renderTodoRow = (f: CardField, td: TodoItem): ReactNode => (
+    <div
+      key={td.id}
+      className="flex items-center gap-2 rounded-lg border bg-muted/50 px-2 py-1.5"
+    >
+      <Button
+        type="button"
+        role="checkbox"
+        aria-checked={td.done}
+        onClick={() => updateTodo(f.id, td.id, { done: !td.done })}
+        className={cn(
+          'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors',
+          td.done
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-input bg-transparent',
+        )}
+      >
+        {td.done && (
+          <HugeiconsIcon icon={CheckIcon} size={13} aria-hidden />
+        )}
+      </Button>
+      <Input
+        value={td.text}
+        onChange={(e) => updateTodo(f.id, td.id, { text: e.target.value })}
+        placeholder={t('pipelines.card_todo_placeholder')}
+        aria-label={t('pipelines.card_todo_placeholder')}
+        className={cn(
+          'min-w-0 flex-1 bg-transparent text-sm outline-none',
+          td.done && 'text-muted-foreground line-through',
+        )}
+      />
+      <Button
+        variant="ghost"
+        aria-label={t('pipelines.delete')}
+        className="text-muted-foreground hover:text-destructive"
+        onClick={() => removeTodo(f.id, td.id)}
+        size="icon-xs"
+      >
+        <HugeiconsIcon icon={Cancel01Icon} size={14} />
+      </Button>
+    </div>
+  );
+
+  const renderTodosFieldBody = (f: CardField): ReactNode => (
+    <div className="flex flex-col gap-1.5">
+      {(f.todos ?? []).length === 0 && (
+        <span className="py-2 text-xs text-muted-foreground">
+          {t('pipelines.card_todo_empty')}
+        </span>
+      )}
+      {(f.todos ?? []).map((td) => renderTodoRow(f, td))}
+      <Button variant="outline" onClick={() => addTodo(f.id)} size="sm">
+        <HugeiconsIcon icon={PlusSignIcon} size={14} />
+        {t('pipelines.card_add_todo')}
+      </Button>
+    </div>
+  );
+
+  const renderDescriptionFieldBody = (f: CardField): ReactNode => {
+    if (!descView[f.id]) {
+      return (
+        <Textarea
+          className="min-h-24 resize-y resize-y text-sm"
+          value={f.text ?? ''}
+          onChange={(e) => updateField(f.id, { text: e.target.value })}
+          rows={5}
+          placeholder={t('pipelines.card_data_placeholder')}
+        />
+      );
+    }
+    if (!(f.text ?? '').trim()) {
+      return (
+        <span className="py-2 text-xs text-muted-foreground">
+          {t('pipelines.card_data_placeholder')}
+        </span>
+      );
+    }
+    return (
+      <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-60 overflow-y-auto text-foreground')}>
+        <MarkdownRenderer content={f.text ?? ''} />
+      </div>
+    );
+  };
+
+  const renderField = (f: CardField): ReactNode => (
+    <div
+      key={f.id}
+      className="mb-2 flex flex-col gap-1.5 rounded-xl border bg-card p-3"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          {fieldLabel(f.type)}
+        </span>
+        <div className="flex items-center gap-1">
+          {f.type === 'description' && (
+            <Button
+              variant="ghost"
+              aria-label={
+                descView[f.id]
+                  ? t('pipelines.edit_mode')
+                  : t('pipelines.view_mode')
+              }
+              onClick={() => toggleDescView(f.id)}
+              size="icon-xs"
+            >
+              {descView[f.id] ? (
+                <HugeiconsIcon icon={PencilIcon} size={14} />
+              ) : (
+                <HugeiconsIcon icon={EyeIcon} size={14} />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            aria-label={t('pipelines.remove_field')}
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => removeField(f.id)}
+            size="icon-xs"
+          >
+            <HugeiconsIcon icon={Cancel01Icon} size={14} />
+          </Button>
+        </div>
+      </div>
+
+      {f.type === 'description' && renderDescriptionFieldBody(f)}
+      {f.type === 'note' && (
+        <Textarea
+          className="min-h-24 resize-y resize-y text-sm"
+          value={f.text ?? ''}
+          onChange={(e) => updateField(f.id, { text: e.target.value })}
+          rows={3}
+          placeholder={t('pipelines.card_data_placeholder')}
+        />
+      )}
+      {f.type === 'todos' && renderTodosFieldBody(f)}
+    </div>
+  );
+
+  const renderAddFieldMenu = (): ReactNode => (
+    <div className="mb-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+          <HugeiconsIcon icon={PlusSignIcon} size={14} />
+          {t('pipelines.add_field')}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-40"><DropdownMenuGroup>
+          {addFieldItems.map((menuItem) => (
+            <DropdownMenuItem key={menuItem.label} onClick={menuItem.onClick}>
+              {menuItem.icon}
+              {menuItem.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup></DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  const renderLastOutputSection = (): ReactNode =>
+    item.lastOutput ? (
+      <section className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{t('pipelines.history')}</p>
+        <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}>
+          <MarkdownRenderer content={item.lastOutput} />
+        </div>
+      </section>
+    ) : null;
+
+  const renderDetailsTab = (): ReactNode => (
+    <>
+      {fields.length === 0 && (
+        <span className="py-2 text-xs text-muted-foreground">{t('pipelines.field_empty')}</span>
+      )}
+      {fields.map(renderField)}
+      {renderAddFieldMenu()}
+      {renderLastOutputSection()}
+    </>
+  );
+
+  const renderEvent = (ev: PipelineItemEvent): ReactNode => {
+    const { icon: eventIcon, colorClass } = eventVisual(ev.eventType);
+    const actorLabel =
+      ev.actor && ev.actor !== 'system' && ev.actor !== 'user'
+        ? ev.actor
+        : null;
+    // Full agent output is stored in detail.output (the summary is only a
+    // short preview). Render markdown for run results.
+    const detailOutput =
+      ev.detail && typeof ev.detail.output === 'string' ? ev.detail.output : null;
+    const richBody =
+      detailOutput ??
+      (ev.eventType === 'run_completed' || ev.eventType === 'run_failed'
+        ? ev.summary ?? null
+        : null);
+    const reportResourceId =
+      ev.eventType === 'report_generated' &&
+      ev.detail &&
+      typeof ev.detail.resourceId === 'string'
+        ? ev.detail.resourceId
+        : null;
+    const reportTitle =
+      ev.detail && typeof ev.detail.title === 'string'
+        ? ev.detail.title
+        : t('pipelines.open_report');
+    return (
+      <div
+        key={ev.id}
+        className="flex items-start gap-2 rounded-xl border bg-card px-2 py-1.5"
+      >
+        <HugeiconsIcon icon={eventIcon} size={16} className={cn('mt-0.5 shrink-0', colorClass)} />
+        <div className="min-w-0 flex-1 flex-col gap-0.5">
+          {richBody ? (
+            <div className="max-h-56 overflow-y-auto text-sm text-foreground">
+              <MarkdownRenderer content={richBody} />
+            </div>
+          ) : (
+            <span className="text-sm text-foreground">{ev.summary ?? ev.eventType}</span>
+          )}
+          {actorLabel && (
+            <span className="text-[11px] text-muted-foreground">{actorLabel}</span>
+          )}
+          {reportResourceId && (
+            <Button
+              type="button"
+              onClick={() =>
+                setSummary({
+                  resourceId: reportResourceId,
+                  title: reportTitle,
+                  runId: ev.runId ?? undefined,
+                })
+              }
+              className="mt-0.5 inline-flex cursor-pointer items-center gap-1 self-start border-none bg-transparent text-[11px] font-medium text-primary"
+            >
+              <HugeiconsIcon icon={ExternalLinkIcon} size={11} />
+              {t('pipelines.view_summary')}
+            </Button>
+          )}
+        </div>
+        <span className="shrink-0 text-[11px] text-muted-foreground">
+          {new Date(ev.createdAt).toLocaleDateString(undefined, {
+            dateStyle: 'medium',
+          })}
+        </span>
+      </div>
+    );
+  };
+
+  const renderActivityTab = (): ReactNode => (
+    <div className="flex flex-col gap-2">
+      {item.calendarEventId && (
+        <Button
+          type="button"
+          onClick={() => openCalendarTab()}
+          className="flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-2 py-1.5 text-left"
+        >
+          <HugeiconsIcon icon={CalendarClockIcon} size={16} className="shrink-0 text-primary" />
+          <span className="flex-1 text-sm text-foreground">
+            {t('pipelines.open_calendar_event')}
+          </span>
+          <HugeiconsIcon icon={ExternalLinkIcon} size={12} className="text-muted-foreground" />
+        </Button>
+      )}
+      {eventsLoading && (
+        <span className="py-2 text-xs text-muted-foreground">{t('pipelines.saving')}</span>
+      )}
+      {!eventsLoading && events.length === 0 && (
+        <span className="py-2 text-xs text-muted-foreground">{t('pipelines.activity_empty')}</span>
+      )}
+      {!eventsLoading && events.map(renderEvent)}
+    </div>
+  );
+
+  const renderEditBody = (): ReactNode => (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="card-title">{t('pipelines.card_title_placeholder')}</Label>
@@ -576,14 +870,33 @@ export default function CardDetailModal({
         editable
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="min-w-0"><TabsList aria-label={t('pipelines.tab_details')} className="h-auto w-full max-w-full flex-wrap">{(tabOptions).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="min-w-0">
+        <TabsList aria-label={t('pipelines.tab_details')} className="h-auto w-full max-w-full flex-wrap">
+          {tabOptions.map((opt: { value: string; label: string; icon?: ReactNode }) => (
+            <TabsTrigger
+              key={opt.value}
+              value={opt.value}
+              className="min-w-0 flex-1 px-2.5 py-1 text-xs"
+            >
+              {opt.icon != null ? (
+                <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span>
+              ) : null}
+              <span className="truncate">{opt.label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {agentBusy && (
         <output
           className="flex items-center gap-2 rounded-xl border border-primary/30 bg-muted px-3 py-2"
           aria-live="polite"
         >
-          <HugeiconsIcon icon={Loading03Icon} className="size-4 shrink-0 animate-spin text-primary" aria-hidden />
+          <HugeiconsIcon
+            icon={Loading03Icon}
+            className="size-4 shrink-0 animate-spin text-primary"
+            aria-hidden
+          />
           <span className="text-sm font-medium text-foreground">
             {launching ? t('pipelines.run_launching') : t('pipelines.agent_running_overlay')}
           </span>
@@ -598,258 +911,36 @@ export default function CardDetailModal({
           </div>
         )}
 
-        <div
-          className={cn(
-            generating && 'pointer-events-none opacity-40 blur-[2px]',
-          )}
-        >
-          {tab === 'details' && (
-            <>
-              {fields.length === 0 && (
-                <span className="py-2 text-xs text-muted-foreground">{t('pipelines.field_empty')}</span>
-              )}
-
-              {fields.map((f) => (
-                <div
-                  key={f.id}
-                  className="mb-2 flex flex-col gap-1.5 rounded-xl border bg-card p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {fieldLabel(f.type)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {f.type === 'description' && (
-                        <Button variant="ghost" aria-label={
-                            descView[f.id]
-                              ? t('pipelines.edit_mode')
-                              : t('pipelines.view_mode')
-                          } onClick={() => toggleDescView(f.id)} size="icon-xs">
-                          {descView[f.id] ? <HugeiconsIcon icon={PencilIcon} size={14} /> : <HugeiconsIcon icon={EyeIcon} size={14} />}
-                        </Button>
-                      )}
-                      <Button variant="ghost" aria-label={t('pipelines.remove_field')} className="text-muted-foreground hover:text-destructive" onClick={() => removeField(f.id)} size="icon-xs">
-                        <HugeiconsIcon icon={Cancel01Icon} size={14} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {f.type === 'description' &&
-                    (descView[f.id] ? (
-                      (f.text ?? '').trim() ? (
-                        <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-60 overflow-y-auto text-foreground')}>
-                          <MarkdownRenderer content={f.text ?? ''} />
-                        </div>
-                      ) : (
-                        <span className="py-2 text-xs text-muted-foreground">
-                          {t('pipelines.card_data_placeholder')}
-                        </span>
-                      )
-                    ) : (
-                      <Textarea className="min-h-24 resize-y resize-y text-sm" value={f.text ?? ''} onChange={(e) => updateField(f.id, { text: e.target.value })} rows={5} placeholder={t('pipelines.card_data_placeholder')} />
-                    ))}
-
-                  {f.type === 'note' && (
-                    <Textarea className="min-h-24 resize-y resize-y text-sm" value={f.text ?? ''} onChange={(e) => updateField(f.id, { text: e.target.value })} rows={3} placeholder={t('pipelines.card_data_placeholder')} />
-                  )}
-
-                  {f.type === 'todos' && (
-                    <div className="flex flex-col gap-1.5">
-                      {(f.todos ?? []).length === 0 && (
-                        <span className="py-2 text-xs text-muted-foreground">
-                          {t('pipelines.card_todo_empty')}
-                        </span>
-                      )}
-                      {(f.todos ?? []).map((td) => (
-                        <div
-                          key={td.id}
-                          className="flex items-center gap-2 rounded-lg border bg-muted/50 px-2 py-1.5"
-                        >
-                          <Button
-                            type="button"
-                            role="checkbox"
-                            aria-checked={td.done}
-                            onClick={() =>
-                              updateTodo(f.id, td.id, { done: !td.done })
-                            }
-                            className={cn(
-                              'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors',
-                              td.done
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'border-input bg-transparent',
-                            )}
-                          >
-                            {td.done && (
-                              <HugeiconsIcon icon={CheckIcon} size={13} aria-hidden />
-                            )}
-                          </Button>
-                          <Input
-                            value={td.text}
-                            onChange={(e) =>
-                              updateTodo(f.id, td.id, { text: e.target.value })
-                            }
-                            placeholder={t('pipelines.card_todo_placeholder')}
-                            aria-label={t('pipelines.card_todo_placeholder')}
-                            className={cn(
-                              'min-w-0 flex-1 bg-transparent text-sm outline-none',
-                              td.done && 'text-muted-foreground line-through',
-                            )}
-                          />
-                          <Button variant="ghost" aria-label={t('pipelines.delete')} className="text-muted-foreground hover:text-destructive" onClick={() => removeTodo(f.id, td.id)} size="icon-xs">
-                            <HugeiconsIcon icon={Cancel01Icon} size={14} />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button variant="outline" onClick={() => addTodo(f.id)} size="sm">
-                        <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                        {t('pipelines.card_add_todo')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="mb-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-                    <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                    {t('pipelines.add_field')}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-40"><DropdownMenuGroup>
-                    {addFieldItems.map((menuItem) => (
-                      <DropdownMenuItem key={menuItem.label} onClick={menuItem.onClick}>
-                        {menuItem.icon}
-                        {menuItem.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup></DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {item.lastOutput && (
-                <section className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">{t('pipelines.history')}</p>
-                  <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}>
-                    <MarkdownRenderer content={item.lastOutput} />
-                  </div>
-                </section>
-              )}
-            </>
-          )}
-
-          {tab === 'activity' && (
-            <div className="flex flex-col gap-2">
-              {item.calendarEventId && (
-                <Button
-                  type="button"
-                  onClick={() => openCalendarTab()}
-                  className="flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-2 py-1.5 text-left"
-                >
-                  <HugeiconsIcon icon={CalendarClockIcon} size={16} className="shrink-0 text-primary" />
-                  <span className="flex-1 text-sm text-foreground">
-                    {t('pipelines.open_calendar_event')}
-                  </span>
-                  <HugeiconsIcon icon={ExternalLinkIcon} size={12} className="text-muted-foreground" />
-                </Button>
-              )}
-              {eventsLoading && (
-                <span className="py-2 text-xs text-muted-foreground">{t('pipelines.saving')}</span>
-              )}
-              {!eventsLoading && events.length === 0 && (
-                <span className="py-2 text-xs text-muted-foreground">{t('pipelines.activity_empty')}</span>
-              )}
-              {!eventsLoading &&
-                events.map((ev) => {
-                  const { icon: eventIcon, colorClass } = eventVisual(ev.eventType);
-                  const actorLabel =
-                    ev.actor && ev.actor !== 'system' && ev.actor !== 'user'
-                      ? ev.actor
-                      : null;
-                  // Full agent output is stored in detail.output (the summary
-                  // is only a short preview). Render markdown for run results.
-                  const detailOutput =
-                    ev.detail && typeof ev.detail.output === 'string' ? ev.detail.output : null;
-                  const richBody =
-                    detailOutput ??
-                    (ev.eventType === 'run_completed' || ev.eventType === 'run_failed'
-                      ? ev.summary ?? null
-                      : null);
-                  const reportResourceId =
-                    ev.eventType === 'report_generated' &&
-                    ev.detail &&
-                    typeof ev.detail.resourceId === 'string'
-                      ? ev.detail.resourceId
-                      : null;
-                  const reportTitle =
-                    ev.detail && typeof ev.detail.title === 'string' ? ev.detail.title : t('pipelines.open_report');
-                  return (
-                    <div
-                      key={ev.id}
-                      className="flex items-start gap-2 rounded-xl border bg-card px-2 py-1.5"
-                    >
-                      <HugeiconsIcon icon={eventIcon} size={16} className={cn('mt-0.5 shrink-0', colorClass)} />
-                      <div className="min-w-0 flex-1 flex-col gap-0.5">
-                        {richBody ? (
-                          <div className="max-h-56 overflow-y-auto text-sm text-foreground">
-                            <MarkdownRenderer content={richBody} />
-                          </div>
-                        ) : (
-                          <span className="text-sm text-foreground">{ev.summary ?? ev.eventType}</span>
-                        )}
-                        {actorLabel && (
-                          <span className="text-[11px] text-muted-foreground">{actorLabel}</span>
-                        )}
-                        {reportResourceId && (
-                          <Button
-                            type="button"
-                            onClick={() =>
-                              setSummary({
-                                resourceId: reportResourceId,
-                                title: reportTitle,
-                                runId: ev.runId ?? undefined,
-                              })
-                            }
-                            className="mt-0.5 inline-flex cursor-pointer items-center gap-1 self-start border-none bg-transparent text-[11px] font-medium text-primary"
-                          >
-                            <HugeiconsIcon icon={ExternalLinkIcon} size={11} />
-                            {t('pipelines.view_summary')}
-                          </Button>
-                        )}
-                      </div>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
-                        {new Date(ev.createdAt).toLocaleDateString(undefined, {
-                          dateStyle: 'medium',
-                        })}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
+        <div className={cn(generating && 'pointer-events-none opacity-40 blur-[2px]')}>
+          {tab === 'details' ? renderDetailsTab() : renderActivityTab()}
         </div>
       </div>
     </div>
-  ) : (
+  );
+
+  const renderMetaItem = (meta: { label: string; value: string; icon?: ReactNode }): ReactNode => (
+    <div
+      key={meta.label}
+      className="min-w-0 rounded-xl border border-border bg-muted/40 px-3 py-2"
+    >
+      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {meta.label}
+      </dt>
+      <dd className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-foreground">
+        {meta.icon ? (
+          <span className="mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-3.5">{meta.icon}</span>
+        ) : null}
+        <span className="min-w-0 break-words" title={String(meta.value)}>
+          {meta.value}
+        </span>
+      </dd>
+    </div>
+  );
+
+  const renderReadOnlyBody = (): ReactNode => (
     <div className="flex flex-col gap-5">
       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {metaItems.map((meta) => (
-          <div
-            key={meta.label}
-            className="min-w-0 rounded-xl border border-border bg-muted/40 px-3 py-2"
-          >
-            <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {meta.label}
-            </dt>
-            <dd className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-foreground">
-              {meta.icon ? (
-                <span className="mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-3.5">{meta.icon}</span>
-              ) : null}
-              <span className="min-w-0 break-words" title={String(meta.value)}>
-                {meta.value}
-              </span>
-            </dd>
-          </div>
-        ))}
+        {metaItems.map(renderMetaItem)}
       </dl>
       {descriptionMarkdown ? (
         <>
@@ -882,6 +973,9 @@ export default function CardDetailModal({
     </div>
   );
 
+  const renderBody = (): ReactNode =>
+    editing ? renderEditBody() : renderReadOnlyBody();
+
   if (summary) {
     return (
       <RunSummaryModal
@@ -904,10 +998,10 @@ export default function CardDetailModal({
         onClose={onClose}
         title={headerTitle}
         badges={badgeLabel ? <ColorPill>{badgeLabel}</ColorPill> : undefined}
-        footer={footer}
+        footer={renderFooter()}
         containerName="pipeline-card"
       >
-        {body}
+        {renderBody()}
       </InlineDetailCard>
       <ConfirmDialog
         isOpen={confirmDelete}
