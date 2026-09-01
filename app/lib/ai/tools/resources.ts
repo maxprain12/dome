@@ -184,6 +184,77 @@ function clampLimit(value: number | undefined, defaultVal: number, maxVal: numbe
   return Math.max(1, Math.min(maxVal, Math.floor(value)));
 }
 
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+interface ResourceDetail {
+  id: string;
+  title: string;
+  type: string;
+  project_id: string;
+  content?: string;
+  content_truncated?: boolean;
+  full_length?: number;
+  content_format?: string;
+  transcription?: string;
+  transcription_truncated?: boolean;
+  summary?: string;
+  created_at: number;
+  updated_at: number;
+  metadata?: Record<string, unknown>;
+}
+
+function addContentFields(response: Record<string, unknown>, resource: ResourceDetail): void {
+  if (resource.content) {
+    response.content = resource.content;
+    if (resource.content_truncated) {
+      response.content_truncated = true;
+      response.full_length = resource.full_length;
+    }
+  }
+  if (resource.content_format) {
+    response.content_format = resource.content_format;
+  }
+}
+
+function addTranscriptionFields(response: Record<string, unknown>, resource: ResourceDetail): void {
+  if (resource.transcription) {
+    response.transcription = resource.transcription;
+    if (resource.transcription_truncated) {
+      response.transcription_truncated = true;
+    }
+  }
+}
+
+function addMetadataFields(response: Record<string, unknown>, metadata: Record<string, unknown>): void {
+  if (metadata.duration) response.duration = metadata.duration;
+  if (metadata.pages) response.pages = metadata.pages;
+  if (metadata.word_count) response.word_count = metadata.word_count;
+  if (metadata.url) response.original_url = metadata.url;
+}
+
+function buildResourceResponse(resource: ResourceDetail): Record<string, unknown> {
+  const response: Record<string, unknown> = {
+    status: 'success',
+    id: resource.id,
+    title: resource.title,
+    type: resource.type,
+    project_id: resource.project_id,
+    created_at: new Date(resource.created_at).toISOString(),
+    updated_at: new Date(resource.updated_at).toISOString(),
+  };
+  addContentFields(response, resource);
+  addTranscriptionFields(response, resource);
+  if (resource.summary) {
+    response.summary = resource.summary;
+  }
+  if (resource.metadata) {
+    addMetadataFields(response, resource.metadata);
+  }
+  return response;
+}
+
 // =============================================================================
 // Tool Factories
 // =============================================================================
@@ -297,56 +368,11 @@ export function createResourceGetTool(): AnyAgentTool {
           });
         }
 
-        const response: Record<string, unknown> = {
-          status: 'success',
-          id: resource.id,
-          title: resource.title,
-          type: resource.type,
-          project_id: resource.project_id,
-          created_at: new Date(resource.created_at).toISOString(),
-          updated_at: new Date(resource.updated_at).toISOString(),
-        };
-
-        // Add content if available
-        if (resource.content) {
-          response.content = resource.content;
-          if (resource.content_truncated) {
-            response.content_truncated = true;
-            response.full_length = resource.full_length;
-          }
-        }
-        if ((resource as { content_format?: string }).content_format) {
-          response.content_format = (resource as { content_format?: string }).content_format;
-        }
-
-        // Add transcription if available (for audio/video)
-        if (resource.transcription) {
-          response.transcription = resource.transcription;
-          if (resource.transcription_truncated) {
-            response.transcription_truncated = true;
-          }
-        }
-
-        // Add summary if available
-        if (resource.summary) {
-          response.summary = resource.summary;
-        }
-
-        // Add relevant metadata
-        if (resource.metadata) {
-          const meta = resource.metadata;
-          if (meta.duration) response.duration = meta.duration;
-          if (meta.pages) response.pages = meta.pages;
-          if (meta.word_count) response.word_count = meta.word_count;
-          if (meta.url) response.original_url = meta.url;
-        }
-
-        return jsonResult(response);
+        return jsonResult(buildResourceResponse(resource));
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         return jsonResult({
           status: 'error',
-          error: message,
+          error: formatErrorMessage(error),
         });
       }
     },
