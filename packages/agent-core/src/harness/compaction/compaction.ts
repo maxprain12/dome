@@ -325,6 +325,65 @@ export interface CutPointResult {
 	isSplitTurn: boolean;
 }
 
+/**
+ * Pick a candidate cut index by walking entries from the most recent backwards
+ * until the accumulated recent-token budget is reached.
+ */
+function selectCutIndexByTokenBudget(
+	entries: SessionTreeEntry[],
+	startIndex: number,
+	endIndex: number,
+	cutPoints: number[],
+	keepRecentTokens: number,
+): number {
+	let cutIndex = cutPoints[0];
+	let accumulatedTokens = 0;
+	for (let i = endIndex - 1; i >= startIndex; i--) {
+		const entry = entries[i];
+		if (entry.type !== "message") continue;
+		accumulatedTokens += estimateTokens(entry.message as AgentMessage);
+		if (accumulatedTokens < keepRecentTokens) continue;
+		for (let c = 0; c < cutPoints.length; c++) {
+			if (cutPoints[c] >= i) {
+				cutIndex = cutPoints[c];
+				break;
+			}
+		}
+		break;
+	}
+	return cutIndex;
+}
+
+/**
+ * Step the cut index back to the nearest preceding "real" entry so we don't
+ * leave the cut landing on a marker (e.g. compaction) entry.
+ */
+function adjustCutIndexBackward(entries: SessionTreeEntry[], startIndex: number, cutIndex: number): number {
+	let index = cutIndex;
+	while (index > startIndex) {
+		const prevEntry = entries[index - 1];
+		if (prevEntry.type === "compaction" || prevEntry.type === "message") break;
+		index--;
+	}
+	return index;
+}
+
+/** Build the final {@link CutPointResult} for a selected cut index. */
+function buildCutPointResult(
+	entries: SessionTreeEntry[],
+	startIndex: number,
+	cutIndex: number,
+): CutPointResult {
+	const cutEntry = entries[cutIndex];
+	const isUserMessage = cutEntry.type === "message" && cutEntry.message.role === "user";
+	const turnStartIndex = isUserMessage ? -1 : findTurnStartIndex(entries, cutIndex, startIndex);
+	return {
+		firstKeptEntryIndex: cutIndex,
+		turnStartIndex,
+		isSplitTurn: !isUserMessage && turnStartIndex !== -1,
+	};
+}
+
 /** Find the compaction cut point that keeps approximately the requested recent-token budget. */
 export function findCutPoint(
 	entries: SessionTreeEntry[],
@@ -337,43 +396,10 @@ export function findCutPoint(
 	if (cutPoints.length === 0) {
 		return { firstKeptEntryIndex: startIndex, turnStartIndex: -1, isSplitTurn: false };
 	}
-	let accumulatedTokens = 0;
-	let cutIndex = cutPoints[0];
 
-	for (let i = endIndex - 1; i >= startIndex; i--) {
-		const entry = entries[i];
-		if (entry.type !== "message") continue;
-		const messageTokens = estimateTokens(entry.message as AgentMessage);
-		accumulatedTokens += messageTokens;
-		if (accumulatedTokens >= keepRecentTokens) {
-			for (let c = 0; c < cutPoints.length; c++) {
-				if (cutPoints[c] >= i) {
-					cutIndex = cutPoints[c];
-					break;
-				}
-			}
-			break;
-		}
-	}
-	while (cutIndex > startIndex) {
-		const prevEntry = entries[cutIndex - 1];
-		if (prevEntry.type === "compaction") {
-			break;
-		}
-		if (prevEntry.type === "message") {
-			break;
-		}
-		cutIndex--;
-	}
-	const cutEntry = entries[cutIndex];
-	const isUserMessage = cutEntry.type === "message" && cutEntry.message.role === "user";
-	const turnStartIndex = isUserMessage ? -1 : findTurnStartIndex(entries, cutIndex, startIndex);
-
-	return {
-		firstKeptEntryIndex: cutIndex,
-		turnStartIndex,
-		isSplitTurn: !isUserMessage && turnStartIndex !== -1,
-	};
+	const initialIndex = selectCutIndexByTokenBudget(entries, startIndex, endIndex, cutPoints, keepRecentTokens);
+	const adjustedIndex = adjustCutIndexBackward(entries, startIndex, initialIndex);
+	return buildCutPointResult(entries, startIndex, adjustedIndex);
 }
 
 export const SUMMARIZATION_SYSTEM_PROMPT = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI coding assistant, then produce a structured summary following the exact format specified.
