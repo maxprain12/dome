@@ -65,6 +65,8 @@ interface UnifiedItem {
   raw: MarketplaceAgent | WorkflowTemplate | MCPManifest | SkillManifest | AvailablePlugin;
 }
 
+type ActionMeta = { label: string; onAction?: () => void; disabled?: boolean };
+
 // ─── Type config ──────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG = {
@@ -77,6 +79,454 @@ const TYPE_CONFIG = {
 } satisfies Record<FilterType, { icon: IconSvgElement; label: string }>;
 
 const COMPLEMENT_TYPES: Exclude<FilterType, 'all' | 'skills'>[] = ['agents', 'workflows', 'mcp', 'plugins'];
+
+function computeCatalogCount(
+  mainTab: MainTab,
+  totalByType: Record<string, number>,
+): number {
+  if (mainTab === 'skills') return totalByType.skills ?? 0;
+  return COMPLEMENT_TYPES.reduce((n, type) => n + (totalByType[type] ?? 0), 0);
+}
+
+function buildComplementTypeOptions(
+  t: (key: string) => string,
+  totalByType: Record<string, number>,
+): { value: FilterType; label: string }[] {
+  const types: FilterType[] = ['all', 'agents', 'workflows', 'mcp', 'plugins'];
+  const labels: Record<FilterType, string> = {
+    all: t('marketplace.type_all'),
+    agents: t('marketplace.type_agents'),
+    workflows: t('marketplace.type_workflows'),
+    mcp: t('marketplace.type_mcp'),
+    skills: t('marketplace.type_skills'),
+    plugins: t('marketplace.type_plugins'),
+  };
+  const complementCount = COMPLEMENT_TYPES.reduce((n, type) => n + (totalByType[type] ?? 0), 0);
+  return types.map((type) => ({
+    value: type,
+    label: `${labels[type]} (${type === 'all' ? complementCount : totalByType[type] ?? 0})`,
+  }));
+}
+
+function hasInstalledUpdate(
+  installed: Record<string, { version?: string }>,
+  id: string,
+  currentVersion: string | undefined,
+): boolean {
+  const record = installed[id];
+  if (!record?.version) return false;
+  return currentVersion !== undefined && record.version !== currentVersion;
+}
+
+function MarketplaceHeader({
+  loading,
+  initialLoading,
+  catalogCount,
+  mainTab,
+  onMainTabChange,
+  scopeFilter,
+  onScopeFilterChange,
+  searchQuery,
+  onSearchChange,
+  onRefresh,
+}: {
+  loading: boolean;
+  initialLoading: boolean;
+  catalogCount: number;
+  mainTab: MainTab;
+  onMainTabChange: (tab: MainTab) => void;
+  scopeFilter: ScopeFilter;
+  onScopeFilterChange: (scope: ScopeFilter) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  onRefresh: () => void;
+}) {
+  const { t } = useTranslation();
+
+  const subtitle = initialLoading
+    ? t('marketplace.loading')
+    : t('marketplace.subtitle_count', { count: catalogCount });
+
+  const refreshLabel = t('marketplace.refresh');
+  const spinnerNode = <Spinner data-icon="inline-start" />;
+  const refreshIconNode = <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />;
+
+  return (
+    <HubPageHeader className="gap-y-3 px-5 py-4 sm:px-5">
+      <HubHeader
+        title={t('marketplace.title')}
+        description={subtitle}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            {loading ? spinnerNode : refreshIconNode}
+            {refreshLabel}
+          </Button>
+        }
+      />
+      <Tabs
+        value={mainTab}
+        onValueChange={(v) => onMainTabChange(v as MainTab)}
+      >
+        <TabsList>
+          <TabsTrigger value="complements">{t('marketplace.tab_complements')}</TabsTrigger>
+          <TabsTrigger value="skills">{t('marketplace.tab_skills')}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <div className="flex flex-wrap items-center gap-3">
+        <HubSearch
+          className="min-w-[14rem] max-w-md flex-1"
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder={t('marketplace.search_placeholder')}
+          aria-label={t('marketplace.search_placeholder')}
+          clearLabel={t('common.cancel')}
+        />
+        <ToggleGroup
+          value={[scopeFilter]}
+          onValueChange={(values) => {
+            const next = values[0] as ScopeFilter | undefined;
+            if (next) onScopeFilterChange(next);
+          }}
+        >
+          <ToggleGroupItem value="public">{t('marketplace.scope_public')}</ToggleGroupItem>
+          <ToggleGroupItem value="personal">{t('marketplace.scope_personal')}</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+    </HubPageHeader>
+  );
+}
+
+function InstalledStripSection({
+  items,
+  onItemClick,
+}: {
+  items: UnifiedItem[];
+  onItemClick: (item: UnifiedItem) => void;
+}) {
+  const { t } = useTranslation();
+  if (items.length === 0) return null;
+
+  return (
+    <section className="mb-6 flex flex-col gap-2">
+      <HubSectionLabel>{t('marketplace.installed_row')}</HubSectionLabel>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => {
+          const clickable = item.type === 'agents' || item.type === 'workflows';
+          return (
+            <button
+              key={`installed-${item.type}-${item.id}`}
+              type="button"
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs',
+                clickable && 'hover:bg-accent',
+              )}
+              onClick={() => onItemClick(item)}
+              disabled={!clickable}
+              title={item.name}
+            >
+              <HugeiconsIcon
+                icon={TYPE_CONFIG[item.type].icon}
+                className="size-3.5 text-muted-foreground"
+              />
+              <span className="max-w-[10rem] truncate">{item.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ComplementFilterBar({
+  filterType,
+  setFilterType,
+  setFilterCategory,
+  availableCategories,
+  filterCategory,
+  setFilterCategoryDirect,
+  categoryLabel,
+  options,
+}: {
+  filterType: FilterType;
+  setFilterType: (value: FilterType) => void;
+  setFilterCategory: (value: string) => void;
+  availableCategories: string[];
+  filterCategory: string;
+  setFilterCategoryDirect: (value: string) => void;
+  categoryLabel: (cat: string) => string;
+  options: { value: FilterType; label: string }[];
+}) {
+  const { t } = useTranslation();
+  const showCategoryBar = availableCategories.length > 0;
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-2">
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          type="button"
+          size="xs"
+          variant={filterType === option.value ? 'default' : 'outline'}
+          className="rounded-full text-xs"
+          onClick={() => {
+            setFilterType(option.value);
+            setFilterCategory('all');
+          }}
+        >
+          {option.label}
+        </Button>
+      ))}
+      {showCategoryBar && (
+        <>
+          <span className="mx-1 self-center text-xs text-muted-foreground">·</span>
+          <Button
+            type="button"
+            size="xs"
+            variant={filterCategory === 'all' ? 'secondary' : 'outline'}
+            className="rounded-full text-xs"
+            onClick={() => setFilterCategoryDirect('all')}
+          >
+            {t('marketplace.category_all')}
+          </Button>
+          {availableCategories.map((cat) => (
+            <Button
+              key={cat}
+              type="button"
+              size="xs"
+              variant={filterCategory === cat ? 'secondary' : 'outline'}
+              className="rounded-full text-xs"
+              onClick={() => setFilterCategoryDirect(cat)}
+            >
+              {categoryLabel(cat)}
+            </Button>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FeaturedItemsSection({
+  items,
+  getActionMeta,
+  openItemDetail,
+}: {
+  items: UnifiedItem[];
+  getActionMeta: (item: UnifiedItem) => ActionMeta;
+  openItemDetail: (item: UnifiedItem) => void;
+}) {
+  const { t } = useTranslation();
+  if (items.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <HubSectionLabel>{t('marketplace.featured')}</HubSectionLabel>
+        <Badge variant="secondary">{items.length}</Badge>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => {
+          const meta = getActionMeta(item);
+          return (
+            <div
+              key={`featured-${item.type}-${item.id}`}
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('button')) return;
+                openItemDetail(item);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') openItemDetail(item);
+              }}
+              className="cursor-pointer"
+            >
+              <InstallCard
+                icon={TYPE_CONFIG[item.type].icon}
+                title={item.name}
+                description={item.description}
+                actionLabel={meta.label}
+                onAction={meta.onAction}
+                actionDisabled={meta.disabled}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RegularItemsSection({
+  items,
+  mainTab,
+  getActionMeta,
+  openItemDetail,
+}: {
+  items: UnifiedItem[];
+  mainTab: MainTab;
+  getActionMeta: (item: UnifiedItem) => ActionMeta;
+  openItemDetail: (item: UnifiedItem) => void;
+}) {
+  const { t } = useTranslation();
+  const heading = mainTab === 'skills' ? t('marketplace.tab_skills') : t('marketplace.all_items');
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <HubSectionLabel>{heading}</HubSectionLabel>
+        <Badge variant="secondary">{items.length}</Badge>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => {
+          const meta = getActionMeta(item);
+          const clickable = item.type === 'agents' || item.type === 'workflows';
+          return (
+            <div
+              key={`${item.type}-${item.id}`}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('button')) return;
+                openItemDetail(item);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') openItemDetail(item);
+              }}
+              className={cn(clickable && 'cursor-pointer')}
+            >
+              <InstallCard
+                icon={TYPE_CONFIG[item.type].icon}
+                title={item.name}
+                description={item.description}
+                actionLabel={meta.label}
+                onAction={meta.onAction}
+                actionDisabled={meta.disabled}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function CatalogBody({
+  initialLoading,
+  featuredItems,
+  regularItems,
+  mainTab,
+  getActionMeta,
+  openItemDetail,
+}: {
+  initialLoading: boolean;
+  featuredItems: UnifiedItem[];
+  regularItems: UnifiedItem[];
+  mainTab: MainTab;
+  getActionMeta: (item: UnifiedItem) => ActionMeta;
+  openItemDetail: (item: UnifiedItem) => void;
+}) {
+  const { t } = useTranslation();
+  if (initialLoading) {
+    return (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <Skeleton key={index} className="h-44" />
+        ))}
+      </div>
+    );
+  }
+  if (regularItems.length === 0 && featuredItems.length === 0) {
+    return (
+      <Empty className="h-full min-h-48">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={Store01Icon} />
+          </EmptyMedia>
+          <EmptyTitle>{t('marketplace.no_results')}</EmptyTitle>
+          <EmptyDescription>{t('marketplace.no_results_hint')}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-6">
+      <FeaturedItemsSection
+        items={featuredItems}
+        getActionMeta={getActionMeta}
+        openItemDetail={openItemDetail}
+      />
+      <RegularItemsSection
+        items={regularItems}
+        mainTab={mainTab}
+        getActionMeta={getActionMeta}
+        openItemDetail={openItemDetail}
+      />
+    </div>
+  );
+}
+
+function MarketplaceAgentDetailModal({
+  agent,
+  installedIds,
+  installedAgentRecords,
+  installingId,
+  onInstall,
+  onClose,
+}: {
+  agent: MarketplaceAgent;
+  installedIds: string[];
+  installedAgentRecords: Record<string, { version?: string }>;
+  installingId: string | null;
+  onInstall: (agent: MarketplaceAgent) => void;
+  onClose: () => void;
+}) {
+  return (
+    <MarketplaceAgentDetail
+      agent={agent}
+      isInstalled={installedIds.includes(agent.id)}
+      hasUpdate={hasInstalledUpdate(installedAgentRecords, agent.id, agent.version)}
+      isInstalling={installingId === agent.id}
+      onInstall={onInstall}
+      onClose={onClose}
+    />
+  );
+}
+
+function WorkflowDetailModal({
+  workflow,
+  installedWorkflowIds,
+  installedWorkflowRecords,
+  installingWorkflowId,
+  onInstall,
+  onClose,
+}: {
+  workflow: WorkflowTemplate;
+  installedWorkflowIds: string[];
+  installedWorkflowRecords: Record<string, { version?: string }>;
+  installingWorkflowId: string | null;
+  onInstall: (workflow: WorkflowTemplate) => void;
+  onClose: () => void;
+}) {
+  return (
+    <WorkflowDetail
+      workflow={workflow}
+      isInstalled={installedWorkflowIds.includes(workflow.id)}
+      hasUpdate={hasInstalledUpdate(installedWorkflowRecords, workflow.id, workflow.version)}
+      isInstalling={installingWorkflowId === workflow.id}
+      onInstall={onInstall}
+      onClose={onClose}
+    />
+  );
+}
+
+// ─── MarketplaceView ──────────────────────────────────────────────────────────
 
 export default function MarketplaceView() {
   const { t } = useTranslation();
@@ -455,25 +905,18 @@ export default function MarketplaceView() {
     return counts;
   }, [allItems]);
 
-  const complementTypeOptions = useMemo(() => {
-    const types: FilterType[] = ['all', 'agents', 'workflows', 'mcp', 'plugins'];
-    const labels: Record<FilterType, string> = {
-      all: t('marketplace.type_all'),
-      agents: t('marketplace.type_agents'),
-      workflows: t('marketplace.type_workflows'),
-      mcp: t('marketplace.type_mcp'),
-      skills: t('marketplace.type_skills'),
-      plugins: t('marketplace.type_plugins'),
-    };
-    const complementCount = COMPLEMENT_TYPES.reduce((n, type) => n + (totalByType[type] ?? 0), 0);
-    return types.map((type) => ({
-      value: type,
-      label: `${labels[type]} (${type === 'all' ? complementCount : totalByType[type] ?? 0})`,
-    }));
-  }, [t, totalByType]);
+  const complementTypeOptions = useMemo(
+    () => buildComplementTypeOptions(t, totalByType),
+    [t, totalByType],
+  );
+
+  const catalogCount = useMemo(
+    () => computeCatalogCount(mainTab, totalByType),
+    [mainTab, totalByType],
+  );
 
   // ── Card action meta for InstallCard ──────────────────
-  function getActionMeta(item: UnifiedItem): { label: string; onAction?: () => void; disabled?: boolean } {
+  function getActionMeta(item: UnifiedItem): ActionMeta {
     if (item.type === 'agents') {
       const agent = item.raw as MarketplaceAgent;
       const isInstalled = installedIds.includes(agent.id);
@@ -555,252 +998,73 @@ export default function MarketplaceView() {
     else if (item.type === 'workflows') setSelectedWorkflow(item.raw as WorkflowTemplate);
   };
 
-  const showFeatured = featuredItems.length > 0;
-  const catalogCount = mainTab === 'skills' ? (totalByType.skills ?? 0) : COMPLEMENT_TYPES.reduce((n, type) => n + (totalByType[type] ?? 0), 0);
-
   return (
     <>
       <div className="flex h-full min-h-0 flex-col">
-        <HubPageHeader className="gap-y-3 px-5 py-4 sm:px-5">
-          <HubHeader
-            title={t('marketplace.title')}
-            description={
-              initialLoading
-                ? t('marketplace.loading')
-                : t('marketplace.subtitle_count', { count: catalogCount })
-            }
-            actions={
-              <Button type="button" variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={loading}>
-                {loading ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />}
-                {t('marketplace.refresh')}
-              </Button>
-            }
-          />
-          <Tabs
-            value={mainTab}
-            onValueChange={(v) => {
-              setMainTab(v as MainTab);
-              setFilterType('all');
-              setFilterCategory('all');
-            }}
-          >
-            <TabsList>
-              <TabsTrigger value="complements">{t('marketplace.tab_complements')}</TabsTrigger>
-              <TabsTrigger value="skills">{t('marketplace.tab_skills')}</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <div className="flex flex-wrap items-center gap-3">
-            <HubSearch
-              className="min-w-[14rem] max-w-md flex-1"
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder={t('marketplace.search_placeholder')}
-              aria-label={t('marketplace.search_placeholder')}
-              clearLabel={t('common.cancel')}
-            />
-            <ToggleGroup
-              value={[scopeFilter]}
-              onValueChange={(values) => {
-                const next = values[0] as ScopeFilter | undefined;
-                if (next) setScopeFilter(next);
-              }}
-            >
-              <ToggleGroupItem value="public">{t('marketplace.scope_public')}</ToggleGroupItem>
-              <ToggleGroupItem value="personal">{t('marketplace.scope_personal')}</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </HubPageHeader>
+        <MarketplaceHeader
+          loading={loading}
+          initialLoading={initialLoading}
+          catalogCount={catalogCount}
+          mainTab={mainTab}
+          onMainTabChange={(tab) => {
+            setMainTab(tab);
+            setFilterType('all');
+            setFilterCategory('all');
+          }}
+          scopeFilter={scopeFilter}
+          onScopeFilterChange={setScopeFilter}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onRefresh={() => void handleRefresh()}
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {installedStrip.length > 0 ? (
-            <section className="mb-6 flex flex-col gap-2">
-              <HubSectionLabel>{t('marketplace.installed_row')}</HubSectionLabel>
-              <div className="flex flex-wrap gap-2">
-                {installedStrip.map((item) => (
-                  <button
-                    key={`installed-${item.type}-${item.id}`}
-                    type="button"
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs',
-                      (item.type === 'agents' || item.type === 'workflows') && 'hover:bg-accent',
-                    )}
-                    onClick={() => openItemDetail(item)}
-                    disabled={item.type !== 'agents' && item.type !== 'workflows'}
-                    title={item.name}
-                  >
-                    <HugeiconsIcon icon={TYPE_CONFIG[item.type].icon} className="size-3.5 text-muted-foreground" />
-                    <span className="max-w-[10rem] truncate">{item.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <InstalledStripSection items={installedStrip} onItemClick={openItemDetail} />
 
-          {mainTab === 'complements' ? (
-            <div className="mb-4 flex flex-wrap gap-2">
-              {complementTypeOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  size="xs"
-                  variant={filterType === option.value ? 'default' : 'outline'}
-                  className="rounded-full text-xs"
-                  onClick={() => {
-                    setFilterType(option.value);
-                    setFilterCategory('all');
-                  }}
-                >
-                  {option.label}
-                </Button>
-              ))}
-              {availableCategories.length > 0 ? (
-                <>
-                  <span className="mx-1 self-center text-xs text-muted-foreground">·</span>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant={filterCategory === 'all' ? 'secondary' : 'outline'}
-                    className="rounded-full text-xs"
-                    onClick={() => setFilterCategory('all')}
-                  >
-                    {t('marketplace.category_all')}
-                  </Button>
-                  {availableCategories.map((cat) => (
-                    <Button
-                      key={cat}
-                      type="button"
-                      size="xs"
-                      variant={filterCategory === cat ? 'secondary' : 'outline'}
-                      className="rounded-full text-xs"
-                      onClick={() => setFilterCategory(cat)}
-                    >
-                      {categoryLabel(cat)}
-                    </Button>
-                  ))}
-                </>
-              ) : null}
-            </div>
-          ) : null}
-
-          {initialLoading ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <Skeleton key={index} className="h-44" />
-              ))}
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <Empty className="h-full min-h-48">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon icon={Store01Icon} />
-                </EmptyMedia>
-                <EmptyTitle>{t('marketplace.no_results')}</EmptyTitle>
-                <EmptyDescription>{t('marketplace.no_results_hint')}</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {showFeatured ? (
-                <section className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
-                    <HubSectionLabel>{t('marketplace.featured')}</HubSectionLabel>
-                    <Badge variant="secondary">{featuredItems.length}</Badge>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {featuredItems.map((item) => {
-                      const meta = getActionMeta(item);
-                      return (
-                        <div
-                          key={`featured-${item.type}-${item.id}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            if ((e.target as HTMLElement).closest('button')) return;
-                            openItemDetail(item);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') openItemDetail(item);
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <InstallCard
-                            icon={TYPE_CONFIG[item.type].icon}
-                            title={item.name}
-                            description={item.description}
-                            actionLabel={meta.label}
-                            onAction={meta.onAction}
-                            actionDisabled={meta.disabled}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ) : null}
-              <section className="flex flex-col gap-3">
-                <div className="flex items-center gap-2">
-                  <HubSectionLabel>
-                    {mainTab === 'skills' ? t('marketplace.tab_skills') : t('marketplace.all_items')}
-                  </HubSectionLabel>
-                  <Badge variant="secondary">{regularItems.length}</Badge>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {regularItems.map((item) => {
-                    const meta = getActionMeta(item);
-                    return (
-                      <div
-                        key={`${item.type}-${item.id}`}
-                        role={item.type === 'agents' || item.type === 'workflows' ? 'button' : undefined}
-                        tabIndex={item.type === 'agents' || item.type === 'workflows' ? 0 : undefined}
-                        onClick={(e) => {
-                          if ((e.target as HTMLElement).closest('button')) return;
-                          openItemDetail(item);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') openItemDetail(item);
-                        }}
-                        className={cn(
-                          (item.type === 'agents' || item.type === 'workflows') && 'cursor-pointer',
-                        )}
-                      >
-                        <InstallCard
-                          icon={TYPE_CONFIG[item.type].icon}
-                          title={item.name}
-                          description={item.description}
-                          actionLabel={meta.label}
-                          onAction={meta.onAction}
-                          actionDisabled={meta.disabled}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
+          {mainTab === 'complements' && (
+            <ComplementFilterBar
+              filterType={filterType}
+              setFilterType={setFilterType}
+              setFilterCategory={setFilterCategory}
+              availableCategories={availableCategories}
+              filterCategory={filterCategory}
+              setFilterCategoryDirect={setFilterCategory}
+              categoryLabel={categoryLabel}
+              options={complementTypeOptions}
+            />
           )}
+
+          <CatalogBody
+            initialLoading={initialLoading}
+            featuredItems={featuredItems}
+            regularItems={regularItems}
+            mainTab={mainTab}
+            getActionMeta={getActionMeta}
+            openItemDetail={openItemDetail}
+          />
         </div>
       </div>
 
-      {selectedAgent ? (
-        <MarketplaceAgentDetail
+      {selectedAgent && (
+        <MarketplaceAgentDetailModal
           agent={selectedAgent}
-          isInstalled={installedIds.includes(selectedAgent.id)}
-          hasUpdate={(() => { const r = installedAgentRecords[selectedAgent.id]; return r?.version != null && r.version !== selectedAgent.version; })()}
-          isInstalling={installingId === selectedAgent.id}
+          installedIds={installedIds}
+          installedAgentRecords={installedAgentRecords}
+          installingId={installingId}
           onInstall={handleInstallAgent}
           onClose={() => setSelectedAgent(null)}
         />
-      ) : null}
-      {selectedWorkflow ? (
-        <WorkflowDetail
+      )}
+      {selectedWorkflow && (
+        <WorkflowDetailModal
           workflow={selectedWorkflow}
-          isInstalled={installedWorkflowIds.includes(selectedWorkflow.id)}
-          hasUpdate={(() => { const r = installedWorkflowRecords[selectedWorkflow.id]; return r?.version != null && r.version !== selectedWorkflow.version; })()}
-          isInstalling={installingWorkflowId === selectedWorkflow.id}
+          installedWorkflowIds={installedWorkflowIds}
+          installedWorkflowRecords={installedWorkflowRecords}
+          installingWorkflowId={installingWorkflowId}
           onInstall={handleInstallWorkflow}
           onClose={() => setSelectedWorkflow(null)}
         />
-      ) : null}
+      )}
     </>
   );
 }

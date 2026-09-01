@@ -139,60 +139,64 @@ export function toAnthropicSchema(schema: TSchema): Record<string, unknown> {
   return normalized;
 }
 
-/**
- * Recursively sanitize a schema for Gemini API compatibility.
- * Gemini rejects: const, additionalProperties, and some anyOf/oneOf patterns.
- */
-function sanitizeForGemini(schema: Record<string, unknown>): Record<string, unknown> {
-  if (!schema || typeof schema !== 'object') return schema;
-  const out: Record<string, unknown> = {};
+// Gemini rejects: const, additionalProperties, and some anyOf/oneOf patterns.
+// The helpers below split sanitizeForGemini's branches into small pure functions.
 
-  // Skip unsupported keywords
-  if ('additionalProperties' in schema) {
-    /* Gemini does not support additionalProperties */
-  }
+function convertConstToEnum(schema: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!('const' in schema)) return undefined;
+  const out: Record<string, unknown> = {
+    type: schema.type ?? 'string',
+    enum: [(schema as { const: unknown }).const],
+  };
+  if (schema.description) out.description = schema.description;
+  return out;
+}
 
-  // Convert const to enum (Gemini supports enum, not const)
-  if ('const' in schema) {
-    out.type = schema.type ?? 'string';
-    out.enum = [(schema as { const: unknown }).const];
-    if (schema.description) out.description = schema.description;
-    return out;
-  }
+function isNullVariant(branch: unknown): boolean {
+  if (branch == null || typeof branch !== 'object') return false;
+  const b = branch as { type?: string; const?: unknown };
+  return b.type === 'null' || ('const' in b && b.const === null);
+}
 
-  // Convert anyOf/oneOf to Gemini-compatible format
+function buildUnionFromConsts(
+  schema: Record<string, unknown>,
+  union: Record<string, unknown>[],
+  consts: unknown[],
+): Record<string, unknown> {
+  const hasNull = union.some(isNullVariant);
+  const out: Record<string, unknown> = {
+    type: 'string',
+    enum: hasNull ? [...consts, null] : [...consts],
+  };
+  if (schema.description) out.description = schema.description;
+  return out;
+}
+
+function buildUnionFromFirst(
+  schema: Record<string, unknown>,
+  firstNonNull: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = sanitizeForGemini(firstNonNull);
+  if (schema.description && !out.description) out.description = schema.description;
+  return out;
+}
+
+function convertUnionToEnum(schema: Record<string, unknown>): Record<string, unknown> | undefined {
   const union = (schema.anyOf ?? schema.oneOf) as Record<string, unknown>[] | undefined;
-  if (Array.isArray(union) && union.length > 0) {
-    const consts = union
-      .filter((b): b is Record<string, unknown> => b != null && typeof b === 'object' && 'const' in b)
-      .map((b) => b.const);
-    const hasNull = union.some(
-      (b) => b != null && typeof b === 'object' && ((b as { type?: string }).type === 'null' || (b as { const?: unknown }).const === null),
-    );
-    const firstNonNull = union.find(
-      (b) =>
-        b != null &&
-        typeof b === 'object' &&
-        (b as { type?: string }).type !== 'null' &&
-        !('const' in b && (b as { const: unknown }).const === null),
-    );
+  if (!Array.isArray(union) || union.length === 0) return undefined;
 
-    if (consts.length > 0) {
-      out.type = 'string';
-      out.enum = hasNull ? [...consts, null] : [...consts];
-      if (schema.description) out.description = schema.description;
-      return out;
-    }
-    if (firstNonNull && typeof firstNonNull === 'object') {
-      const sanitized = sanitizeForGemini(firstNonNull as Record<string, unknown>);
-      Object.assign(out, sanitized);
-      if (schema.description && !out.description) out.description = schema.description;
-      return out;
-    }
-    return { type: 'string', description: (schema.description as string) ?? '' };
-  }
+  const consts = union
+    .filter((b): b is Record<string, unknown> => b != null && typeof b === 'object' && 'const' in b)
+    .map((b) => b.const);
+  if (consts.length > 0) return buildUnionFromConsts(schema, union, consts);
 
-  // Copy supported fields
+  const firstNonNull = union.find((b) => !isNullVariant(b));
+  if (firstNonNull && typeof firstNonNull === 'object') return buildUnionFromFirst(schema, firstNonNull);
+
+  return { type: 'string', description: (schema.description as string) ?? '' };
+}
+
+function copySupportedFields(schema: Record<string, unknown>, out: Record<string, unknown>): void {
   if (schema.type) out.type = schema.type;
   if (schema.description) out.description = schema.description;
   if (schema.title) out.title = schema.title;
@@ -200,22 +204,42 @@ function sanitizeForGemini(schema: Record<string, unknown>): Record<string, unkn
   if (schema.minimum !== undefined) out.minimum = schema.minimum;
   if (schema.maximum !== undefined) out.maximum = schema.maximum;
   if (schema.default !== undefined) out.default = schema.default;
+}
 
-  // Recursively sanitize properties (objects)
-  if (schema.properties && typeof schema.properties === 'object') {
-    out.properties = {};
-    for (const [k, v] of Object.entries(schema.properties)) {
-      (out.properties as Record<string, unknown>)[k] = sanitizeForGemini(v as Record<string, unknown>);
-    }
+function sanitizeProperties(schema: Record<string, unknown>, out: Record<string, unknown>): void {
+  if (!schema.properties || typeof schema.properties !== 'object') return;
+  const sanitized: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(schema.properties)) {
+    sanitized[k] = sanitizeForGemini(v as Record<string, unknown>);
   }
+  out.properties = sanitized;
+}
 
-  // Recursively sanitize items (arrays)
-  if (schema.items) {
-    out.items = Array.isArray(schema.items)
-      ? (schema.items as Record<string, unknown>[]).map((item) => sanitizeForGemini(item))
-      : sanitizeForGemini(schema.items as Record<string, unknown>);
-  }
+function sanitizeItems(schema: Record<string, unknown>, out: Record<string, unknown>): void {
+  if (!schema.items) return;
+  out.items = Array.isArray(schema.items)
+    ? (schema.items as Record<string, unknown>[]).map((item) => sanitizeForGemini(item))
+    : sanitizeForGemini(schema.items as Record<string, unknown>);
+}
 
+/**
+ * Recursively sanitize a schema for Gemini API compatibility.
+ * Gemini rejects: const, additionalProperties, and some anyOf/oneOf patterns.
+ */
+function sanitizeForGemini(schema: Record<string, unknown>): Record<string, unknown> {
+  if (!schema || typeof schema !== 'object') return schema;
+  // Gemini does not support additionalProperties; it is simply not copied.
+
+  const fromConst = convertConstToEnum(schema);
+  if (fromConst) return fromConst;
+
+  const fromUnion = convertUnionToEnum(schema);
+  if (fromUnion) return fromUnion;
+
+  const out: Record<string, unknown> = {};
+  copySupportedFields(schema, out);
+  sanitizeProperties(schema, out);
+  sanitizeItems(schema, out);
   if (Array.isArray(schema.required)) out.required = schema.required;
 
   return out;
