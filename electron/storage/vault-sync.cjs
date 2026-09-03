@@ -86,6 +86,46 @@ function noteContentToMarkdown(resource) {
   return cached || '';
 }
 
+function _mirrorFolder(resource, resourceId, { database, fileStorage }) {
+  if (resource.vault_path) return true;
+  return vaultStore.createFolderOnDisk(resourceId, { database, fileStorage }).success === true;
+}
+
+function _mirrorNote(resource, resourceId, { database, fileStorage }) {
+  if (resource.vault_path) return true;
+  const md = noteContentToMarkdown(resource);
+  if (md === null) return false; // HTML legacy — converted on first editor save
+  return vaultStore.writeNoteMarkdown({ id: resourceId, markdown: md }, { database, fileStorage }).success === true;
+}
+
+function _mirrorUrl(resource, resourceId, { database, fileStorage }) {
+  if (resource.vault_path) return true;
+  return vaultStore.writeUrlMirror({ id: resourceId }, { database, fileStorage }).success === true;
+}
+
+function _mirrorNotebook(resource, resourceId, { database, fileStorage }) {
+  if (resource.vault_path) return true;
+  return vaultStore.writeNotebookMirror({ id: resourceId }, { database, fileStorage }).success === true;
+}
+
+function _mirrorArtifact(resource, resourceId, { database, fileStorage }) {
+  if (resource.vault_path) return true;
+  return vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage }).success === true;
+}
+
+function _mirrorBinary(resource, resourceId, { database, fileStorage }) {
+  if (resource.vault_path) return true;
+  if (!resource.internal_path) return false;
+  const fs = require('fs');
+  const src = fileStorage.getFullPath(resource.internal_path);
+  if (!fs.existsSync(src)) return false;
+  const imported = vaultStore.importFileToVault(src, resource, { database, fileStorage });
+  database.getDB()
+    .prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
+    .run(imported.vaultPath, imported.contentHash, imported.size, resourceId);
+  return true;
+}
+
 /**
  * Make sure a resource has its on-disk representation in the vault — the
  * workspace tree must be identical to the filesystem. Used after create and
@@ -95,46 +135,15 @@ function ensureResourceMirror(resourceId, { database, fileStorage }) {
   const queries = database.getQueries();
   const resource = queries.getResourceById.get(resourceId);
   if (!resource) return false;
-
+  const ctx = { database, fileStorage };
   try {
     switch (resource.type) {
-      case 'folder': {
-        if (!resource.vault_path) {
-          return vaultStore.createFolderOnDisk(resourceId, { database, fileStorage }).success === true;
-        }
-        return true;
-      }
-      case 'note': {
-        if (resource.vault_path) return true;
-        const md = noteContentToMarkdown(resource);
-        if (md === null) return false; // HTML legacy — converted on first editor save
-        return vaultStore.writeNoteMarkdown({ id: resourceId, markdown: md }, { database, fileStorage }).success === true;
-      }
-      case 'url': {
-        if (resource.vault_path) return true;
-        return vaultStore.writeUrlMirror({ id: resourceId }, { database, fileStorage }).success === true;
-      }
-      case 'notebook': {
-        if (resource.vault_path) return true;
-        return vaultStore.writeNotebookMirror({ id: resourceId }, { database, fileStorage }).success === true;
-      }
-      case 'artifact': {
-        if (resource.vault_path) return true;
-        return vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage }).success === true;
-      }
-      default: {
-        // Binary types: copy the legacy internal file into the vault.
-        if (resource.vault_path) return true;
-        if (!resource.internal_path) return false;
-        const fs = require('fs');
-        const src = fileStorage.getFullPath(resource.internal_path);
-        if (!fs.existsSync(src)) return false;
-        const imported = vaultStore.importFileToVault(src, resource, { database, fileStorage });
-        database.getDB()
-          .prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
-          .run(imported.vaultPath, imported.contentHash, imported.size, resourceId);
-        return true;
-      }
+      case 'folder': return _mirrorFolder(resource, resourceId, ctx);
+      case 'note': return _mirrorNote(resource, resourceId, ctx);
+      case 'url': return _mirrorUrl(resource, resourceId, ctx);
+      case 'notebook': return _mirrorNotebook(resource, resourceId, ctx);
+      case 'artifact': return _mirrorArtifact(resource, resourceId, ctx);
+      default: return _mirrorBinary(resource, resourceId, ctx);
     }
   } catch (e) {
     console.warn('[VaultSync] ensureResourceMirror failed:', e?.message);
