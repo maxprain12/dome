@@ -12,6 +12,7 @@ import {
   Mail01Icon,
   PlusSignIcon,
   Settings01Icon,
+  Share08Icon,
   Store01Icon,
   Upload04Icon,
   UserIcon,
@@ -30,6 +31,7 @@ interface BuildNavOptions {
   openGitHubTab: () => void;
   openEmailTab: () => void;
   openPeopleTab: () => void;
+  openSocialTab: () => void;
   openPipelinesTab: () => void;
   openAgentsTab: () => void;
   openWorkflowsTab: () => void;
@@ -55,12 +57,13 @@ export function buildNavigationDestinations(opts: BuildNavOptions): PaletteRow[]
   const items: Array<{ key: string; row: PaletteRow }> = [
     { key: 'library', row: wrap('library', opts.t('workspace.home'), Home01Icon, opts.goHome) },
     { key: 'projects', row: wrap('projects', opts.t('tabs.projects'), Layers01Icon, opts.openProjectsTab) },
+    { key: 'people', row: wrap('people', opts.t('people.tab_title'), UserIcon, opts.openPeopleTab) },
+    { key: 'email', row: wrap('email', opts.t('email.tab_title'), Mail01Icon, opts.openEmailTab) },
+    { key: 'social', row: wrap('social', opts.t('social.tab_title'), Share08Icon, opts.openSocialTab) },
     { key: 'calendar', row: wrap('calendar', opts.t('workspace.calendar'), Calendar03Icon, opts.openCalendarTab) },
     { key: 'github', row: wrap('github', opts.t('github.tab_title'), Task01Icon, opts.openGitHubTab) },
-    { key: 'email', row: wrap('email', opts.t('email.tab_title'), Mail01Icon, opts.openEmailTab) },
-    { key: 'people', row: wrap('people', opts.t('people.tab_title'), UserIcon, opts.openPeopleTab) },
-    { key: 'pipelines', row: wrap('pipelines', opts.t('tabs.pipelines'), FolderKanbanIcon, opts.openPipelinesTab) },
     { key: 'agents', row: wrap('agents', opts.t('automationHub.tab_agents'), BotIcon, opts.openAgentsTab) },
+    { key: 'pipelines', row: wrap('pipelines', opts.t('tabs.pipelines'), FolderKanbanIcon, opts.openPipelinesTab) },
     { key: 'workflows', row: wrap('workflows', opts.t('automationHub.tab_workflows'), WorkflowSquare01Icon, opts.openWorkflowsTab) },
     { key: 'automations', row: wrap('automations', opts.t('automationHub.tab_automations'), ZapIcon, opts.openAutomationsTab) },
     { key: 'runs', row: wrap('runs', opts.t('automationHub.tab_runs'), Activity01Icon, opts.openRunsTab) },

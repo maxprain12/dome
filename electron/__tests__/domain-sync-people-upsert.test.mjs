@@ -21,9 +21,12 @@ describe('domain-sync people upsert', () => {
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL DEFAULT 'default',
         display_name TEXT NOT NULL,
+        primary_email TEXT,
         avatar_url TEXT,
+        notes TEXT,
         lead_status TEXT NOT NULL DEFAULT 'lead',
         profile_json TEXT,
+        discovered_via TEXT,
         updated_at INTEGER NOT NULL
       );
       CREATE TABLE person_identities (
@@ -107,5 +110,59 @@ describe('domain-sync people upsert', () => {
       .all();
     assert.equal(rows.length, 1);
     assert.equal(rows[0].id, 'pident_cloud');
+  });
+
+  it('newer remote people row merges profile_json instead of replacing', () => {
+    const apply = domainSync.DOMAIN_SPECS?.people?.tables?.[0]?.applyRow;
+    memDb
+      .prepare(
+        `UPDATE people SET profile_json = ?, notes = 'local note', updated_at = 1 WHERE id = 'person_1'`,
+      )
+      .run(JSON.stringify({ website: 'https://local.test', occupation: 'Founder' }));
+
+    apply(memDb, {
+      id: 'person_1',
+      project_id: 'default',
+      display_name: 'Ada Voice',
+      lead_status: 'lead',
+      profile_json: { occupation: 'CEO', phone: '555' },
+      notes: '',
+      updated_at: 9,
+    });
+
+    const row = memDb.prepare(`SELECT profile_json, notes FROM people WHERE id = 'person_1'`).get();
+    const profile = JSON.parse(row.profile_json);
+    assert.equal(profile.website, 'https://local.test');
+    assert.equal(profile.occupation, 'CEO');
+    assert.equal(profile.phone, '555');
+    assert.equal(row.notes, 'local note');
+  });
+
+  it('pull skips older remote people row (LWW)', () => {
+    memDb
+      .prepare(`UPDATE people SET updated_at = 100, display_name = 'Local Rich' WHERE id = 'person_1'`)
+      .run();
+    domainSync.applyPullPayload(
+      memDb,
+      'people',
+      {
+        rows: {
+          people: [
+            {
+              id: 'person_1',
+              project_id: 'default',
+              display_name: 'Stale Cloud',
+              lead_status: 'lead',
+              profile_json: {},
+              updated_at: 2,
+              device_id: 'other-device',
+            },
+          ],
+        },
+      },
+      'local-device',
+    );
+    const person = memDb.prepare(`SELECT display_name FROM people WHERE id = 'person_1'`).get();
+    assert.equal(person.display_name, 'Local Rich');
   });
 });

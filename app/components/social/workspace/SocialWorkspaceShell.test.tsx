@@ -69,11 +69,12 @@ describe('SocialWorkspaceShell', () => {
     const user = userEvent.setup();
     render(<SocialWorkspaceShell />);
 
-    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Todas las redes' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Resumen de rendimiento' })).toBeVisible();
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveTextContent('Todo');
+    expect(screen.getByRole('combobox', { name: 'Todo' })).toHaveTextContent('Todo');
     await user.click(screen.getByRole('tab', { name: 'Contenido' }));
-    expect(screen.getByRole('heading', { name: 'Todo tu contenido, con contexto' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Contenido' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: /tarjetas/i })).not.toBeInTheDocument();
   });
 
@@ -95,8 +96,54 @@ describe('SocialWorkspaceShell', () => {
       });
     });
     expect(await screen.findByRole('heading', { name: 'Lanzamiento' })).toBeVisible();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Revisa el contenido, el rendimiento y las acciones disponibles.');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(document.querySelector('[data-slot="sheet-content"]')).not.toBeInTheDocument();
+  });
+
+  it('opens a recent post from the overview canvas into the content ficha', async () => {
+    const user = userEvent.setup();
+    workspaceData.posts = [
+      {
+        id: 'sp-recent',
+        accountId: 'acc-1',
+        provider: 'instagram',
+        status: 'published',
+        body: 'Foto del estudio',
+        media: [],
+        linkUrl: null,
+        topics: [],
+        campaign: null,
+        scheduledAt: null,
+        publishedAt: Date.now(),
+        externalPostId: 'ig-1',
+        externalUrl: null,
+        error: null,
+        notes: null,
+        createdBy: 'user',
+        groupId: null,
+        createdAt: 1,
+        updatedAt: 1,
+        metrics: {
+          id: 'm-recent',
+          postId: 'sp-recent',
+          capturedAt: 1,
+          impressions: 80,
+          likes: 12,
+          comments: 3,
+          shares: 1,
+          saves: null,
+          clicks: null,
+          followers: null,
+        },
+      },
+    ];
+
+    render(<SocialWorkspaceShell />);
+    expect(await screen.findByRole('heading', { name: 'Publicaciones recientes' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Foto del estudio/i }));
+    expect(screen.getByRole('heading', { name: 'Contenido' })).toBeVisible();
+    expect(await screen.findByRole('tab', { name: 'Resumen' })).toBeVisible();
+    workspaceData.posts = [];
   });
 
   it('opens the dedicated composer workspace', async () => {
@@ -114,7 +161,7 @@ describe('SocialWorkspaceShell', () => {
 
     await user.click(await screen.findByRole('tab', { name: 'Insights' }));
 
-    expect(screen.getByRole('heading', { name: 'Señales para decidir mejor' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Insights' })).toBeVisible();
     expect(await screen.findByText('Aún no hay informes')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Ver leads' })).toBeVisible();
     expect(window.electron.invoke).toHaveBeenCalledWith('social:reports:list');
@@ -127,8 +174,8 @@ describe('SocialWorkspaceShell', () => {
 
     await user.click(await screen.findByRole('tab', { name: 'Cuentas' }));
 
-    expect(await screen.findByRole('heading', { name: 'Cuentas y canales' })).toBeVisible();
-    expect(screen.getByText('Conecta, revisa y configura dónde se publica tu trabajo.')).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Cuentas' })).toBeVisible();
+    expect(screen.getByText('Selecciona una cuenta')).toBeVisible();
   });
 
   it('opens a post inspector with summary/comments/notes tabs and saves notes', async () => {
@@ -208,19 +255,19 @@ describe('SocialWorkspaceShell', () => {
     await user.click(await screen.findByRole('tab', { name: 'Contenido' }));
     await user.click(await screen.findByRole('button', { name: /Hola mundo Dome/i }));
 
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByRole('tab', { name: 'Resumen' })).toBeVisible();
-    expect(within(dialog).getByRole('tab', { name: /Comentarios/ })).toBeVisible();
-    expect(within(dialog).getByRole('tab', { name: 'Notas' })).toBeVisible();
-    expect(within(dialog).getByText('Hola mundo Dome')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Resumen' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /Comentarios/ })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Notas' })).toBeVisible();
+    expect(screen.getAllByText('Hola mundo Dome').length).toBeGreaterThan(0);
 
-    await user.click(within(dialog).getByRole('tab', { name: /Comentarios/ }));
-    expect(await within(dialog).findByText('Gran post')).toBeVisible();
-    expect(within(dialog).getByText('Ana')).toBeVisible();
+    await user.click(screen.getByRole('tab', { name: /Comentarios/ }));
+    expect(await screen.findByText('Gran post')).toBeVisible();
+    expect(screen.getByText('Ana')).toBeVisible();
 
-    await user.click(within(dialog).getByRole('tab', { name: 'Notas' }));
-    await user.type(within(dialog).getByLabelText('Notas internas'), 'Recordar follow-up');
-    await user.click(within(dialog).getByRole('button', { name: 'Guardar notas' }));
+    await user.click(screen.getByRole('tab', { name: 'Notas' }));
+    await user.type(screen.getByLabelText('Notas internas'), 'Recordar follow-up');
+    await user.click(screen.getByRole('button', { name: 'Guardar notas' }));
 
     await waitFor(() => {
       expect(window.electron.invoke).toHaveBeenCalledWith('social:posts:updateNotes', {

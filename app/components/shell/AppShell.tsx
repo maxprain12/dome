@@ -18,6 +18,7 @@ import SystemErrorNotifier from '@/components/shell/SystemErrorNotifier';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
 import CommandPalette from '@/components/search/CommandPalette';
+import { EntityPeekDialog } from '@/components/inspect/EntityPeekDialog';
 import { installDomeUiActionBridge } from '@/lib/shell/domeUiActionBridge';
 import {
   LAYOUT_DEFAULTS,
@@ -379,7 +380,7 @@ export default function AppShell() {
                 aria-label={t('shell.resize_right_panel', 'Redimensionar Many')}
                 disabled={!showManyInDesktopSidebar}
                 className={cn(
-                  'bg-transparent hover:bg-border',
+                  'bg-sidebar-border hover:bg-border',
                   !showManyInDesktopSidebar && 'pointer-events-none opacity-0',
                 )}
               />
@@ -455,6 +456,7 @@ export default function AppShell() {
 
       {/* Global Spotlight-style command palette (⌘K / Ctrl+K) */}
       <CommandPalette />
+      <EntityPeekDialog />
     </div>
   );
 }

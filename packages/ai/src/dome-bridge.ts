@@ -3,7 +3,7 @@
  * `Model<TApi>` records and convert usage/text shapes for llm-service.cjs callers.
  */
 
-import { getModel } from './models.js';
+import { getBuiltinModel as getModel, type BuiltinProvider } from './providers/all.js';
 import type {
   Api,
   AssistantMessage,
@@ -126,7 +126,7 @@ function googleModel(id: string): Model<'google-generative-ai'> {
 
 /** Prefer catalog entry; otherwise build an OpenAI-completions model. */
 function catalogOrOpenAiCompletions(
-  catalogProvider: KnownProvider,
+  catalogProvider: BuiltinProvider,
   modelId: string,
   provider: KnownProvider | string,
   baseUrl: string,
@@ -239,7 +239,7 @@ function resolveDefaultProviderModel(
   baseUrl?: string,
 ): Model<Api> {
   return catalogOrOpenAiCompletions(
-    provider as KnownProvider,
+    provider as BuiltinProvider,
     modelId,
     provider,
     baseUrl || OPENROUTER_DEFAULT,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupMessagesByRole } from './groupMessagesByRole';
+import { groupMessagesByRole, withLiveStreamingMessage } from './groupMessagesByRole';
 import { mergeManySessionMessages } from './mergeManySessionMessages';
 
 describe('conversation presentation model', () => {
@@ -33,5 +33,42 @@ describe('conversation presentation model', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0]?.id).toBe('persisted');
     expect(merged[0]?.toolCalls?.[0]?.result).toEqual({ ok: true });
+  });
+});
+
+describe('withLiveStreamingMessage', () => {
+  it('drops the live bubble when the store already has the same assistant turn', () => {
+    const persisted = { id: 'msg-1', role: 'assistant', content: 'Resumen del contacto' };
+    const streaming = { id: 'run-1', role: 'assistant', content: 'Resumen del contacto' };
+    expect(withLiveStreamingMessage([persisted], streaming)).toEqual([streaming]);
+  });
+
+  it('keeps only the persisted turn when persist finished first', () => {
+    const persisted = { id: 'msg-1', role: 'assistant', content: 'Resumen del contacto completo' };
+    const streaming = { id: 'run-1', role: 'assistant', content: 'Resumen del contacto' };
+    expect(withLiveStreamingMessage([persisted], streaming)).toEqual([persisted]);
+  });
+
+  it('appends the live bubble when it is a new assistant turn', () => {
+    const user = { id: 'u1', role: 'user', content: 'quién es mery?' };
+    const streaming = { id: 'run-1', role: 'assistant', content: 'Voy a revisar' };
+    expect(withLiveStreamingMessage([user], streaming)).toEqual([user, streaming]);
+  });
+
+  it('never stacks persist and stream as two assistant bubbles on the same turn', () => {
+    const persisted = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: 'Voy a buscar a la persona.',
+      toolCalls: [{ id: 't1', name: 'people_get' }],
+    };
+    const streaming = {
+      id: 'run-1',
+      role: 'assistant',
+      content: 'Voy a buscar a la persona.\n\nYa tengo la ficha.',
+      isStreaming: true,
+      toolCalls: [] as { id: string; name: string }[],
+    };
+    expect(withLiveStreamingMessage([persisted], streaming)).toEqual([streaming]);
   });
 });

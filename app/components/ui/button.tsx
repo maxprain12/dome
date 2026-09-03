@@ -6,18 +6,18 @@ import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-xs/relaxed font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[var(--duration-press)] ease-[var(--ease-out)] outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 active:not-aria-[haspopup]:scale-[0.97] motion-reduce:transition-none motion-reduce:active:not-aria-[haspopup]:scale-100 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-xs/relaxed font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[var(--duration-press)] ease-[var(--ease-out)] outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 active:not-aria-[haspopup]:scale-[0.97] motion-reduce:transition-none motion-reduce:active:not-aria-[haspopup]:scale-100 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
           "bg-primary text-primary-foreground hover:bg-primary-hover",
         outline:
-          "border-primary bg-transparent text-primary hover:bg-brand-mint aria-expanded:bg-brand-mint aria-expanded:text-primary dark:hover:bg-brand-mint",
+          "border-primary bg-transparent text-primary hover:bg-muted aria-expanded:bg-muted aria-expanded:text-primary dark:hover:bg-muted",
         secondary:
-          "border-primary bg-transparent text-primary hover:bg-brand-mint aria-expanded:bg-brand-mint aria-expanded:text-primary dark:hover:bg-brand-mint",
+          "border-primary bg-transparent text-primary hover:bg-muted aria-expanded:bg-muted aria-expanded:text-primary dark:hover:bg-muted",
         soft:
-          "bg-brand-lime text-primary hover:bg-brand-mint aria-expanded:bg-brand-mint",
+          "bg-muted text-foreground hover:bg-muted/80 aria-expanded:bg-muted",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:

@@ -76,4 +76,104 @@ describe('harnessMessagesToManyMessages — interleaving', () => {
     const reply = msgs.find((m) => m.role === 'assistant');
     expect(reply?.toolCalls).toHaveLength(1);
   });
+
+  it('round-trips user image blocks into attachments.images', () => {
+    const msgs = harnessMessagesToManyMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'mira esto' },
+          { type: 'image', data: 'abc123', mimeType: 'image/png' },
+        ],
+        timestamp: 42,
+      },
+    ]);
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]?.content).toBe('mira esto');
+    expect(msgs[0]?.attachments?.images).toHaveLength(1);
+    expect(msgs[0]?.attachments?.images[0]).toMatchObject({
+      dataUrl: 'data:image/png;base64,abc123',
+      mime: 'image/png',
+      name: 'image',
+    });
+  });
+
+  it('attaches dome.pins written after the assistant turn to the preceding user', () => {
+    const msgs = harnessMessagesToManyMessages([
+      { role: 'user', content: 'puedes decirme como he conocido a esta persona', timestamp: 100 },
+      assistant({ type: 'text', text: 'Voy a buscarla.' }),
+      {
+        role: 'toolResult',
+        toolCallId: 'tc-1',
+        toolName: 'people_get',
+        content: [{ type: 'text', text: '{"ok":true}' }],
+        timestamp: 150,
+      },
+      assistant({ type: 'text', text: 'La conociste por Instagram.' }),
+      {
+        role: 'custom',
+        customType: 'dome.pins',
+        details: {
+          messageTimestamp: 100,
+          pinnedResources: [
+            { id: 'person_fa90', title: '@mery_sugy', type: 'person', kind: 'person' },
+          ],
+        },
+      },
+      { role: 'user', content: 'modifica la ficha', timestamp: 300 },
+    ]);
+    const users = msgs.filter((m) => m.role === 'user');
+    expect(users).toHaveLength(2);
+    expect(users[0]?.pinnedResources?.[0]).toMatchObject({
+      id: 'person_fa90',
+      title: '@mery_sugy',
+    });
+    expect(users[1]?.pinnedResources).toBeUndefined();
+  });
+
+  it('attaches dome.pins custom entries to the nearest user turn', () => {
+    const msgs = harnessMessagesToManyMessages([
+      { role: 'user', content: 'qué me puedes decir de este contacto?', timestamp: 100 },
+      {
+        role: 'custom',
+        customType: 'dome.pins',
+        details: {
+          messageTimestamp: 100,
+          pinnedResources: [{ id: 'sp-1', title: 'mery_sugy', type: 'person', kind: 'person' }],
+        },
+      },
+      { role: 'assistant', content: [{ type: 'text', text: 'Es un contacto.' }], timestamp: 200 },
+    ]);
+    const user = msgs.find((m) => m.role === 'user');
+    expect(user?.pinnedResources?.[0]).toMatchObject({
+      id: 'sp-1',
+      title: 'mery_sugy',
+      type: 'person',
+    });
+  });
+
+  it('replaces a prefix assistant block when the next block restates the whole turn', () => {
+    const first = 'Voy a buscar a la persona en tu agenda de contactos.';
+    const full = `${first}\n\nYa tengo la ficha de @mery_sugy.`;
+    const msgs = harnessMessagesToManyMessages([
+      { role: 'user', content: 'quién es?' },
+      assistant({ type: 'text', text: first }),
+      assistant({ type: 'text', text: full }),
+    ]);
+    const assistantMsgs = msgs.filter((m) => m.role === 'assistant');
+    expect(assistantMsgs).toHaveLength(1);
+    expect(assistantMsgs[0]?.content).toBe(full);
+  });
+
+  it('does not concatenate a repeated assistant block of the same reply', () => {
+    const reply = 'Voy a revisar el contacto que tienes en memoria.';
+    const msgs = harnessMessagesToManyMessages([
+      { role: 'user', content: 'quién es @mery_sugy?' },
+      assistant({ type: 'text', text: reply }),
+      assistant({ type: 'text', text: reply }),
+    ]);
+    const assistantMsgs = msgs.filter((m) => m.role === 'assistant');
+    expect(assistantMsgs).toHaveLength(1);
+    expect(assistantMsgs[0]?.content).toBe(reply);
+  });
 });

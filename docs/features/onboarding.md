@@ -1,6 +1,6 @@
 # Onboarding Feature
 
-Documentation for Dome's first-run onboarding: account gate (when `VITE_ENABLE_DOME_PROVIDER=true`), profile, role, AI setup, completion flag, and init check. Lives in `app/components/onboarding/`, `app/lib/settings/index.ts`, and `electron/core/init.cjs`.
+Documentation for Dome's first-run onboarding: account gate (when `VITE_ENABLE_DOME_PROVIDER=true`), profile, **edition** (`pro` | `study` | `dev`), AI setup, completion flag, and init check. Lives in `app/components/onboarding/`, `app/lib/editions/catalog.ts`, `app/lib/settings/index.ts`, and `electron/core/init.cjs`. Product contract: [docs/product/editions.md](../product/editions.md).
 
 ---
 
@@ -12,7 +12,7 @@ Documentation for Dome's first-run onboarding: account gate (when `VITE_ENABLE_D
 interface MartinOnboardingProps {
   initialName?: string;
   initialEmail?: string;
-  onComplete: (data: { name: string; email: string; roleId: RoleId; freeText: string }) => void;
+  onComplete: (data: { name: string; email: string; roleId: EditionId; freeText: string }) => void;
   onSkip: () => void;
 }
 

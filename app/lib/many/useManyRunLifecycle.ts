@@ -6,7 +6,7 @@ import type { BudgetBreakdown, LiveTokenUsage } from '@/lib/chat/contextUsage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { useManyStore, type ManyMessage, type ManyStatus } from '@/lib/store/useManyStore';
 import { estimateLiveBudget } from '@/lib/chat/estimateLiveBudget';
-import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
+import { groupMessagesByRole, withLiveStreamingMessage } from '@/lib/chat/groupMessagesByRole';
 import { buildCitationMap } from '@/lib/utils/citations';
 import {
   getActiveRunBySession,
@@ -15,6 +15,7 @@ import {
 } from '@/lib/automations/api';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { coalesceDuplicateToolCalls, mergeTerminalToolCalls } from '@/lib/chat/coalesceToolCalls';
+import { pickTerminalAssistantText } from '@/lib/chat/applyTextDelta';
 import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
 import { streamingLabelForToolCall, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
@@ -235,58 +236,24 @@ export function useManyRunLifecycle({
           : t('chat.run_failed_generic'))
         : null;
 
-      setStreamingMessage((prev) => {
-        const metaToolCallsRaw = Array.isArray(run.metadata?.toolCalls)
-          ? (run.metadata.toolCalls as ToolCallData[])
-          : [];
-        const streamToolCalls = coalesceDuplicateToolCalls(prev?.toolCalls ?? streamSnap?.toolCalls ?? []);
-        const toolCalls = mergeTerminalToolCalls(metaToolCallsRaw, streamToolCalls);
-        if (prev) {
-          if (isFailed && errorMsg && !run.outputText) {
-            return { ...prev, isStreaming: false, toolCalls, content: prev.content ? `${prev.content}\n\n${errorMsg}` : errorMsg };
-          }
-          return { ...prev, isStreaming: false, toolCalls };
-        }
-        if (!run.outputText && toolCalls.length === 0) {
-          if (isFailed && errorMsg) {
-            return {
-              id: `run-${run.id}`,
-              role: 'assistant',
-              content: errorMsg,
-              timestamp: run.updatedAt || Date.now(),
-              isStreaming: false,
-              toolCalls: [],
-            };
-          }
-          return null;
-        }
-        return {
-          id: `run-${run.id}`,
-          role: 'assistant',
-          content: run.outputText || '',
-          timestamp: run.updatedAt || Date.now(),
-          isStreaming: false,
-          toolCalls,
-        };
-      });
       const finalToolCalls = mergeTerminalToolCalls(
         Array.isArray(run.metadata?.toolCalls) ? (run.metadata.toolCalls as ToolCallData[]) : [],
         coalesceDuplicateToolCalls(streamSnap?.toolCalls ?? []),
       );
       const finalContent =
-        (run.outputText || streamSnap?.content || '').trim() ||
+        pickTerminalAssistantText(run.outputText, streamSnap?.content) ||
         (isFailed && errorMsg ? errorMsg : '') ||
         (isCancelled ? t('many.run_stopped_partial') : '');
 
       const persistPartialToSession = () => {
         if (!finalContent && finalToolCalls.length === 0) return;
+        setStreamingMessage(null);
         const lastMessage = useManyStore.getState().messages.at(-1);
         if (
           lastMessage?.role === 'assistant' &&
           lastMessage.content.trim() === finalContent.trim() &&
           (lastMessage.toolCalls?.length ?? 0) === finalToolCalls.length
         ) {
-          setStreamingMessage(null);
           return;
         }
         addMessage({
@@ -298,7 +265,6 @@ export function useManyRunLifecycle({
           // in the gap before the session rehydrates.
           ...(streamSnap?.thinking ? { thinking: streamSnap.thinking } : {}),
         });
-        setStreamingMessage(null);
       };
 
       if (finalContent || finalToolCalls.length > 0) {
@@ -449,8 +415,7 @@ export function useManyRunLifecycle({
           ),
         }
       : null;
-    const all = liveStreamingMessage ? [...withPdfRegion, liveStreamingMessage] : withPdfRegion;
-    return groupMessagesByRole(all);
+    return groupMessagesByRole(withLiveStreamingMessage(withPdfRegion, liveStreamingMessage));
   }, [chatMessages, streamingMessage, pdfRegionStreamingMessage]);
 
   const lastUserGroupIndex = useMemo(() => {

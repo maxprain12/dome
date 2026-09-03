@@ -3705,6 +3705,9 @@ async function peopleUpsert({
   notes,
   lead_status,
   leadStatus,
+  discovered_via,
+  discoveredVia,
+  profile,
   identities,
 } = {}) {
   try {
@@ -3719,6 +3722,8 @@ async function peopleUpsert({
       primaryEmail: primary_email ?? primaryEmail,
       notes,
       leadStatus: lead_status || leadStatus,
+      discoveredVia: discovered_via || discoveredVia,
+      profile: profile && typeof profile === 'object' ? profile : undefined,
     });
     const list = Array.isArray(identities) ? identities : [];
     for (const row of list) {
@@ -3761,6 +3766,61 @@ async function peopleLinkIdentity({
       source: String(source),
       externalId: String(external_id || externalId),
       displayLabel: display_label ?? displayLabel,
+    });
+    return { success: true, source: 'people', ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleAddInteraction({
+  person_id,
+  personId,
+  kind,
+  summary,
+  ref_type,
+  refType,
+  ref_id,
+  refId,
+  project_id,
+  projectId,
+} = {}) {
+  try {
+    const id = person_id || personId;
+    if (!id || !summary) return { success: false, error: 'person_id and summary are required' };
+    const peopleStore = require('../people/people-store.cjs');
+    const interaction = peopleStore.addInteraction({
+      personId: id,
+      kind: kind || 'note',
+      summary: String(summary),
+      refType: ref_type || refType,
+      refId: ref_id || refId,
+      projectId: project_id || projectId,
+    });
+    return { success: true, source: 'people', interaction };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function peopleIngest({
+  people,
+  project_id,
+  projectId,
+  source_resource_id,
+  sourceResourceId,
+  source_kind,
+  sourceKind,
+  summary,
+} = {}) {
+  try {
+    const peopleStore = require('../people/people-store.cjs');
+    const result = peopleStore.ingestPeople({
+      people,
+      projectId: project_id || projectId || 'default',
+      sourceResourceId: source_resource_id || sourceResourceId,
+      sourceKind: source_kind || sourceKind || 'document',
+      summary,
     });
     return { success: true, source: 'people', ...result };
   } catch (err) {
@@ -5465,6 +5525,8 @@ module.exports = {
   peopleSearch,
   peopleUpsert,
   peopleLinkIdentity,
+  peopleAddInteraction,
+  peopleIngest,
   socialAccountsList,
   socialPostDraft,
   socialPostPublish,

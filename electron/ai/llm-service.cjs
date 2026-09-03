@@ -36,14 +36,34 @@ function buildImageContent(userText, imageDataUrls, opts = {}) {
  * Non-streaming completion.
  * @returns {Promise<{ text: string, usage: { inputTokens, outputTokens, totalTokens } | null }>}
  */
+async function resolveAuthOptions(ai, { provider, model, apiKey, baseUrl, options }) {
+  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  const streamOpts = buildStreamOptions(options, apiKey);
+  try {
+    const { resolveRequestAuth } = require('./resolve-request-auth.cjs');
+    const database = require('../core/database.cjs');
+    const resolved = await resolveRequestAuth(ai, { provider, resolvedModel, apiKey, database });
+    if (resolved?.apiKey) streamOpts.apiKey = resolved.apiKey;
+    if (resolved?.headers) streamOpts.headers = { ...(streamOpts.headers || {}), ...resolved.headers };
+  } catch (err) {
+    console.warn('[llm-service] resolveProviderAuth failed:', err?.message || err);
+  }
+  return { resolvedModel, streamOpts };
+}
+
 async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }) {
   const ai = await loadAi();
-  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  const { resolvedModel, streamOpts } = await resolveAuthOptions(ai, {
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    options,
+  });
   const sysMsg = (messages || []).find((m) => m.role === 'system');
   const systemPrompt =
     typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
   const context = ai.legacyMessagesToContext(systemPrompt, messages || []);
-  const streamOpts = buildStreamOptions(options, apiKey);
   const result = await ai.completeSimple(resolvedModel, context, streamOpts);
   return {
     text: ai.extractTextFromAssistantMessage(result),
@@ -56,12 +76,17 @@ async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }
  */
 async function stream({ provider, model, apiKey, baseUrl, messages, options = {}, onChunk }) {
   const ai = await loadAi();
-  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  const { resolvedModel, streamOpts } = await resolveAuthOptions(ai, {
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    options,
+  });
   const sysMsg = (messages || []).find((m) => m.role === 'system');
   const systemPrompt =
     typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
   const context = ai.legacyMessagesToContext(systemPrompt, messages || []);
-  const streamOpts = buildStreamOptions(options, apiKey);
   const eventStream = ai.streamSimple(resolvedModel, context, streamOpts);
 
   let full = '';

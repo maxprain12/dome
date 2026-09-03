@@ -44,6 +44,10 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 032 | Brand motion overlays + Button press | P1 | S | 030, 031 | DONE |
 | 033 | Full-app brand visual sweep | P0 | L | 030–032 | DONE |
 | 034 | Brand docs (palette, UI guidelines, design guide) | P1 | S | 030 | DONE |
+| 035 | People inspect + squared radius | P0 | M | 031, 032 | DONE |
+| 036 | Contacts hub (copy + directory) | P0 | M | 035 | DONE |
+| 037 | Ink accent + Contacts CRM chrome | P0 | M | 036 | DONE |
+| 038 | Socials CRM chrome (directory + ficha) | P0 | L | 037 | DONE |
 
 ## Dependency graph
 

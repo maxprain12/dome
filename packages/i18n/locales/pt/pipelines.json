@@ -181,11 +181,11 @@
   "agent_running_overlay": "Agente em execução…",
   "field_empty": "Sem campos. Adicione o primeiro.",
   "remove_field": "Remover campo",
-  "people_section": "Pessoas",
-  "people_empty": "Ainda não há pessoas vinculadas.",
-  "link_person": "Vincular pessoa",
-  "people_search_placeholder": "Buscar pessoas…",
-  "people_no_results": "Nenhuma pessoa encontrada",
-  "people_unknown": "Pessoa desconhecida",
-  "remove_person": "Remover pessoa"
+  "people_section": "Contactos",
+  "people_empty": "Ainda não há contactos vinculados.",
+  "link_person": "Vincular contacto",
+  "people_search_placeholder": "Buscar contactos…",
+  "people_no_results": "Nenhum contacto encontrado",
+  "people_unknown": "Contacto desconhecido",
+  "remove_person": "Remover contacto"
 }

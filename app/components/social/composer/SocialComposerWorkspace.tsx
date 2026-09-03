@@ -270,12 +270,9 @@ export function SocialComposerWorkspace({
 
   return (
     <div className="social-studio flex min-h-0 flex-1 flex-col bg-background">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b px-4 py-3 lg:px-6">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b px-4 py-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
-            {t('social.studio.composer.eyebrow')}
-          </p>
-          <h2 className="truncate font-heading text-xl font-semibold">
+          <h2 className="truncate text-base font-semibold">
             {post ? t('social.composer.edit_title') : t('social.composer.title')}
           </h2>
         </div>
@@ -503,7 +500,7 @@ export function SocialComposerWorkspace({
         </main>
 
         <aside className="sticky top-0 hidden h-fit border-l bg-muted/30 p-6 xl:block">
-          <p className="mb-4 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{t('social.preview.title')}</p>
+          <p className="mb-4 text-xs font-medium text-muted-foreground">{t('social.preview.title')}</p>
           <ToggleGroup value={[previewProvider]} onValueChange={(value) => { if (value[0]) setPreviewProvider(value[0] as SocialProvider); }} variant="outline" size="sm" className="mb-4">
             {providers.map((provider) => <ToggleGroupItem key={provider} value={provider}><HugeiconsIcon icon={PROVIDER_ICONS[provider]} /><span className="sr-only">{PROVIDER_LABELS[provider]}</span></ToggleGroupItem>)}
           </ToggleGroup>

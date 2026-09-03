@@ -27,6 +27,7 @@ import {
 } from '@/lib/automations/api';
 import { streamingLabelForActiveRun, streamingLabelForToolCall } from './streamingLabels';
 import { coalesceDuplicateToolCalls, applyToolResultChunk } from './coalesceToolCalls';
+import { applyTextDelta } from './applyTextDelta';
 
 export interface RunPendingApproval {
   actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
@@ -321,7 +322,7 @@ function handleTextChunk(
     prev
       ? {
           ...prev,
-          content: `${prev.content ?? ''}${payload.text ?? ''}`,
+          content: applyTextDelta(prev.content ?? '', payload.text ?? ''),
           streamingLabel: label,
         }
       : newStreamingAssistantMessage(payload.runId, payload.text ?? '', label),

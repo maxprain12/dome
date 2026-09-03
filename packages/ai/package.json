@@ -16,6 +16,18 @@
       "types": "./dist/oauth.d.ts",
       "import": "./dist/oauth.js",
       "require": "./dist/oauth.js"
+    },
+    "./compat": {
+      "types": "./dist/compat.d.ts",
+      "import": "./dist/compat.js"
+    },
+    "./providers/*": {
+      "types": "./dist/providers/*.d.ts",
+      "import": "./dist/providers/*.js"
+    },
+    "./api/*": {
+      "types": "./dist/api/*.d.ts",
+      "import": "./dist/api/*.js"
     }
   },
   "scripts": {

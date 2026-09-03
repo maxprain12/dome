@@ -13,7 +13,8 @@ export const peopleLinkIdentityDefinition: ToolDefinition = {
         person_id: { type: 'string', description: 'Target person id.' },
         source: {
           type: 'string',
-          description: 'github | email | social_x | social_linkedin | social_instagram | manual',
+          description:
+            'github | email | website | phone | document | calendar | company | social_x | social_linkedin | social_instagram | social_facebook | social_tiktok | social_youtube | manual',
         },
         external_id: { type: 'string', description: 'Stable external id (IGSID, email, login).' },
         display_label: { type: 'string', description: 'Optional display label (@handle).' },

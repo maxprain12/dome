@@ -234,7 +234,7 @@ export function formatVolatileSourceContext(opts: VolatileSourceOptions = {}): s
   pushVolatileLabel(blocks, '**user-memory**', opts.userMemory);
   pushVolatileListBlock(
     blocks,
-    `**mentioned-people** — ${opts.pinnedPeople?.length || 0} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.`,
+    `**mentioned-people** — ${opts.pinnedPeople?.length || 0} person(s). Documents and people are first-class. Use people_get / people_upsert / people_ingest / people_add_interaction to read and persist complete profiles (website, email, occupation, how you met). Resolve identities; do not invent handles.`,
     opts.pinnedPeople,
     formatPinnedPersonLine,
   );

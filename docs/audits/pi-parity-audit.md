@@ -2,17 +2,38 @@
 
 > Validación de que Dome replica los flujos de **pi** (`github.com/earendil-works/pi`): su
 > sistema de agente, su sistema de providers, y sus funciones básicas; adaptando las que lo
-> requieren. **Solo informe** — no se modificó código de producto en esta auditoría.
+> requieren.
 
-## Baseline
+## Baseline (2026-08-29)
 
 | Dato | Valor |
 |---|---|
-| pi upstream | `github.com/earendil-works/pi` (clon local en `/pi`, gitignored: `/pi/`) |
-| pi commit | `89a92207f1c9303d53d822fd9b0ac21578834cb4` (2026-06-05), `version 0.0.3` |
+| pi upstream | `github.com/earendil-works/pi` (clon local en `/pi`, gitignored) |
+| pi commit | `853a80d` (2026-08-28), monorepo **v0.84.4** |
 | Paquetes pi | `packages/{ai, agent, coding-agent, tui}` |
-| Port en Dome | `packages/ai` (= pi-ai), `packages/agent-core` (= pi-agent, rediseñado), `@dome/tools`, `@dome/prompts` + wiring en `electron/agents/agent-runtime.cjs` |
-| Estrategia | pi-ai **vendorado** (copia 1:1); pi-agent **rediseñado** ("adopt the design, not the package") |
+| Port en Dome | `packages/ai` (vendor 0.84 + puentes Dome), `packages/agent-core` (harness + JSONL v4), `@dome/tools`, `@dome/prompts` |
+| Estrategia | `@dome/ai` vendorado desde 0.84 (auth/api/compat/Models); motor de sesión JSONL **v4** con lector dual v3; TUI / coding-agent CLI / SQLite session-backend / CBOR **no** se portan |
+
+### Veredictos actuales
+
+| Capa | Veredicto | Detalle |
+|---|---|---|
+| **A — Providers / LLM I/O** | `ADAPTADO-OK` | Ya no es «copia fiel junio». PI reestructuró `auth/`, `api/`, `compat/`, `Models`. Dome conserva `dome-bridge`, `legacy-bridge`, `tool-schema`, `native-web-tools`, `ollama-mode`. Providers extra de catálogo (groq, fireworks, …) existen en código y **no** se exponen en Settings hasta un PR de UI. |
+| **B — Sesión JSONL** | `ADAPTADO-OK` | Escrituras nuevas en v4 (`kind: header`, mutations + lanes). Apertura de v3 proyecta al modelo v4 y reescribe atómicamente (backup `.v3.bak`). `buildContext()` sigue exponiendo `ctx.messages` (user/assistant/tool + `custom` pins). No se porta el backend SQLite de PI. |
+| **C — Auth per-request** | `ADAPTADO-OK` | `CredentialStore` sobre settings cifrados de Dome (`electron/ai/dome-credential-store.cjs`). `getApiKeyAndHeaders` / `llm-service` llaman `resolveProviderAuth` por request (cierra el gap Copilot/OAuth). |
+| **D — Attachments / pins** | `ADAPTADO-OK` | Imágenes JSONL (`type: image`) vuelven a `ManyMessage.attachments`. Pins como entry `custom` `dome.pins`. El bloque `mentioned-people` del system prompt sigue siendo efímero. |
+| **E — Fuera de alcance** | `NO-APLICA` | `packages/tui`, coding-agent CLI, `session-backends/sqlite-node`, protocol CBOR. |
+
+La auditoría de junio (`89a92207` / v0.0.3) queda abajo como histórico. Varios gaps de entonces (`validateToolArguments`, `tool_execution_update`, steer/followUp/nextTurn, compaction por resumen) **ya están** en `agent-core` y no aplican.
+
+---
+
+## Baseline histórico (2026-06)
+
+| Dato | Valor |
+|---|---|
+| pi commit | `89a92207f1c9303d53d822fd9b0ac21578834cb4` (2026-06-05), `version 0.0.3` |
+| Estrategia | pi-ai **vendorado** (copia 1:1); pi-agent **rediseñado** |
 
 Clasificación usada en todo el documento:
 

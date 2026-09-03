@@ -190,7 +190,7 @@ export function SocialEventInsights({ onOpenPeople, onOpenEvents }: SocialEventI
                       ? t('social.events.funnel_rate_click')
                       : null;
                 const step = (
-                  <li key={key} className="min-w-0 rounded-xl border bg-muted/40 p-4">
+                  <li key={key} className="min-w-0 rounded-xl border border-border bg-card p-4">
                     <p className="text-xs text-muted-foreground">
                       {t(`social.studio.insights.funnel_step_${key}`)}
                     </p>

@@ -29,16 +29,22 @@
 
 ## 1. ¿Qué es Dome?
 
-Dome es una aplicación de escritorio para **gestión del conocimiento e investigación académica**. Te permite:
+Dome es una aplicación de escritorio **local-first** para **founder-creadores**. Dos polos:
 
-- Guardar y organizar todo tipo de recursos: notas, PDFs, vídeos, audios, imágenes, URLs, presentaciones
-- Chatear con IA sobre tu contenido personal
-- Generar automáticamente resúmenes, quizzes, flashcards y más
-- Crear workflows de IA complejos con una interfaz visual
-- Sincronizar con Google Calendar, Google Drive y OneDrive
-- Estudiar con repetición espaciada (FSRS)
+- **Documentos** — notas, PDFs, vídeos, URLs y presentaciones, indexados para que Many pueda leerlos de verdad (**Listo para IA**).
+- **Personas** — contactos y leads con historial. El correo y las redes (LinkedIn, Instagram, X) son *canales* de esa red, no apps aparte.
 
-Dome funciona **completamente offline** con proveedores IA locales (Ollama), o conectado a la nube con OpenAI, Anthropic, Google u otros proveedores.
+Many, el asistente, trabaja con el recurso o la persona que tienes abierta: brief, post, mail, siguiente paso.
+
+Hay **tres ediciones** de la misma app (se elige al empezar y se cambia en Ajustes → Funciones):
+
+| Edición | Enfoque |
+| --- | --- |
+| **Pro** (predeterminada) | Documentos + personas + correo + social |
+| **Study** | Biblioteca + Learn (flashcards, quizzes) + calendario |
+| **Dev** | Biblioteca + GitHub + agentes |
+
+Learn, el canvas de workflows y el estilo de citas APA/MLA existen, pero no son el producto que Dome vende hacia fuera. Posicionamiento: [docs/product/positioning.md](product/positioning.md).
 
 ---
 
@@ -70,7 +76,7 @@ Presentación de Dome y sus capacidades principales.
 
 ### Paso 2 — Tu perfil
 - Introduce tu nombre y foto de perfil (opcional)
-- Define tu rol: estudiante, investigador, profesional, etc.
+- Elige **edición**: Pro (documentos y personas), Study (aprender) o Dev (GitHub y agentes)
 
 ### Paso 3 — Configurar IA
 Elige cómo quieres usar la inteligencia artificial:

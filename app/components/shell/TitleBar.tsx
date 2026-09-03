@@ -19,11 +19,9 @@ interface TitleBarProps {
 }
 
 /**
- * Unified draggable window titlebar — the single place that reserves the
- * native traffic-light / window-controls safe zone. Height and inset never
- * change with sidebar state, so nothing the app renders can ever sit behind
- * OS-drawn window controls (unlike the previous grid-based header, which
- * shrank its left inset when the sidebar collapsed).
+ * Window titlebar. The left rail cell uses `--chrome-rail-width` (same as the
+ * sidebar) so the vertical hairline is one column. Traffic-light inset lives
+ * inside that cell and does not shrink when the sidebar collapses.
  */
 export default function TitleBar({
   leftSidebarCollapsed,
@@ -43,17 +41,17 @@ export default function TitleBar({
 
   return (
     <header
-      className={cn(
-        // Shares the sidebar surface so the top-left corner + left rail read as
-        // one continuous panel (no bottom border, no internal dividers).
-        'flex h-11 shrink-0 items-stretch bg-sidebar',
-        '[-webkit-app-region:drag]',
-        // Reserve the macOS traffic-light zone (trafficLightPosition.x=18 + 3 controls + breathing room).
-        isMac && 'pl-20',
-      )}
+      className="flex h-11 shrink-0 items-stretch border-b border-sidebar-border bg-sidebar [-webkit-app-region:drag]"
       data-tour="titlebar"
     >
-      <div className="flex shrink-0 items-center gap-0.5 px-1.5 [-webkit-app-region:no-drag]">
+      {/* Rail cell shares --chrome-rail-width with the sidebar so the hairline is one column. */}
+      <div
+        className={cn(
+          'flex h-full shrink-0 items-center border-r border-sidebar-border pr-2',
+          isMac ? 'pl-20' : 'pl-2',
+          leftSidebarCollapsed ? undefined : 'w-(--chrome-rail-width) justify-end',
+        )}
+      >
         <Button
           type="button"
           variant="ghost"
@@ -73,7 +71,7 @@ export default function TitleBar({
 
       <div
         className={cn(
-          'flex shrink-0 items-center gap-0.5 px-1.5 [-webkit-app-region:no-drag]',
+          'flex h-full shrink-0 items-center gap-0.5 border-l border-sidebar-border px-2 [-webkit-app-region:no-drag]',
           needsRightInset && 'mr-[138px]',
         )}
       >

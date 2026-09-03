@@ -1,10 +1,11 @@
 {
   "title": "Funcionalidades",
   "subtitle": "Mostre ou oculte seções do Dome. As seções ocultas podem ser reativadas aqui a qualquer momento.",
-  "current_role": "Perfil",
+  "current_role": "Edição",
   "no_role": "Nenhum",
-  "reset_hint": "Restaure a visibilidade para os padrões do seu perfil.",
-  "reset_button": "Restaurar ao perfil",
+  "switch_hint": "Mudar de edição restaura a barra para os padrões dessa edição. A biblioteca não é apagada.",
+  "reset_hint": "Restaurar as seções padrão desta edição.",
+  "reset_button": "Restaurar à edição",
   "hidden_notice": "{{n}} ocultas · Configurações",
   "hidden_notice_title": "Você tem seções ocultas. Gerencie-as em Configurações → Funcionalidades.",
   "groups": {
@@ -49,6 +50,10 @@
     "social": {
       "label": "Redes sociais",
       "desc": "Gira conteúdo do LinkedIn, Instagram e X."
+    },
+    "people": {
+      "label": "Contactos",
+      "desc": "Contactos, leads e identidades de e-mail, social e GitHub."
     },
     "agents": {
       "label": "Agentes",

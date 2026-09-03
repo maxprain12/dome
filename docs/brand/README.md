@@ -4,20 +4,20 @@ Fuente de verdad visual para **Dome Desktop**, **landing** (`landing-page-dome`)
 
 ## Qué es Dome
 
-Aplicación de escritorio para gestión del conocimiento e investigación: notas, PDFs, agentes de IA, automatizaciones y búsqueda semántica, en un entorno nativo y enfocado.
+Aplicación de escritorio **local-first** para founder-creadores: documentos y personas en el mismo contexto de IA. **Dome Pro** es el producto que se vende; Study y Dev son ediciones de la misma plataforma.
 
 **Atributos:** enfoque · profundidad · herramienta profesional · privacidad / local-first.
 
-**Metáfora:** cúpula / contenedor de conocimiento. La mascota **Many** es el símbolo de producto.
+**Metáfora:** cúpula / contenedor de conocimiento y red. La mascota **Many** es el símbolo de producto.
 
 ## Símbolo y wordmark
 
 | Elemento | Uso |
 |----------|-----|
 | **Many** | Icono de app, avatares, favicon, sellos. SVG fuente: `assets/many.svg` (lime `#E0EAB4`, olive `#596037`) |
-| **Wordmark “Dome”** | Inter bold / semibold, color primary forest `#4A5D3F` (o ink en fondos invertidos). No hay SVG tipográfico aparte |
+| **Wordmark “Dome”** | Inter bold / semibold, color primary ink `#1A1A1A` (o `#F2F2F0` en fondos invertidos). No hay SVG tipográfico aparte |
 
-Do: repetir Many de forma consistente; contraste AA; un acento forest por composición.
+Do: repetir Many de forma consistente; contraste AA; un acento tinta por composición. Lima solo en el símbolo Many.
 
 Don’t: morados legacy; papel cálido marketing (`#f1ead6`); Instrument Serif como display de marca; reinventar el logo; IDs opacos en UI.
 
@@ -40,5 +40,6 @@ Ver [tokens.md](./tokens.md). Guía de producto ampliada: [../features/dome-desi
 
 ## Taglines de referencia
 
-- Knowledge under one dome.
-- Your library. Local. Focused.
+- Your library and your people, under one dome.
+- Documents. People. Local.
+- Dome Pro — knowledge and relationships your AI can actually use.

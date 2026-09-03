@@ -531,6 +531,7 @@ export function useManySend(options: UseManySendOptions) {
         const runUserMessage: ChatRunMessage = {
           ...userRunMessage,
           content: userText || userRunMessage.content,
+          ...(pinSnapshot.length > 0 ? { pinnedResources: pinSnapshot } : {}),
         };
 
         const runMessages = [

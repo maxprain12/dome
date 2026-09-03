@@ -38,10 +38,10 @@ export function AIComposerFrame({
     <div
       ref={containerRef}
       className={cn(
-        'ai-composer-frame relative flex flex-col overflow-hidden border shadow-sm transition-colors',
+        'ai-composer-frame relative flex flex-col overflow-hidden border transition-colors',
         'focus-within:border-ring focus-within:shadow-[0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)]',
         isDragging && 'ai-composer-frame-dragging border-primary',
-        isWelcomeScreen && 'ai-composer-frame-welcome shadow-lg',
+        isWelcomeScreen && 'ai-composer-frame-welcome',
       )}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}

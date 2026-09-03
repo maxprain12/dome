@@ -19,7 +19,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
-import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
+import { groupMessagesByRole, withLiveStreamingMessage } from '@/lib/chat/groupMessagesByRole';
 import { ChatStateMarker } from '@/components/chat/ChatStateMarker';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
@@ -599,8 +599,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const liveStreamingMessage = streamingMessage
       ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls) }
       : null;
-    const all = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
-    return groupMessagesByRole(all);
+    return groupMessagesByRole(withLiveStreamingMessage(chatMessages, liveStreamingMessage));
   }, [chatMessages, streamingMessage]);
 
   const handleClear = useCallback(() => {

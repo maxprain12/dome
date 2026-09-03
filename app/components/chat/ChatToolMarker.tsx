@@ -72,42 +72,46 @@ export function ChatToolMarker({
           aria-hidden
         />
       ) : null}
-      {trailing}
     </>
   );
 
-  if (expandable && onToggle) {
-    return (
-      <Marker
-        variant="border"
-        role={isPending ? 'status' : undefined}
-        className={cn('not-typeset w-full', className)}
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            aria-expanded={expanded}
-            // Auto height + top-aligned start: the marker holds a two-line
-            // label/summary, so the Button's fixed h-7 + justify-center would
-            // otherwise let the marker's border-b slice through the label text.
-            className="h-auto w-full items-start justify-start py-1.5 text-left transition-colors hover:text-foreground"
-            onClick={onToggle}
-          />
-        }
-      >
-        {markerBody}
-      </Marker>
-    );
-  }
-
-  return (
+  const marker = expandable && onToggle ? (
     <Marker
       variant="border"
       role={isPending ? 'status' : undefined}
-      className={cn('not-typeset w-full', className)}
+      className={cn('not-typeset min-w-0 w-full flex-1', className)}
+      render={
+        <Button
+          type="button"
+          variant="ghost"
+          aria-expanded={expanded}
+          // Auto height + top-aligned start: the marker holds a two-line
+          // label/summary, so the Button's fixed h-7 + justify-center would
+          // otherwise let the marker's border-b slice through the label text.
+          className="h-auto w-full items-start justify-start py-1.5 text-left transition-colors hover:text-foreground"
+          onClick={onToggle}
+        />
+      }
     >
       {markerBody}
     </Marker>
+  ) : (
+    <Marker
+      variant="border"
+      role={isPending ? 'status' : undefined}
+      className={cn('not-typeset min-w-0 w-full flex-1', className)}
+    >
+      {markerBody}
+    </Marker>
+  );
+
+  if (!trailing) return marker;
+
+  return (
+    <div className="flex w-full min-w-0 items-start gap-0.5">
+      {marker}
+      <div className="shrink-0 pt-0.5">{trailing}</div>
+    </div>
   );
 }
 

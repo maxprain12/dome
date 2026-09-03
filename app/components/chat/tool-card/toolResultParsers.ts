@@ -5,6 +5,7 @@
 
 import type { AnyArtifact, ArtifactType } from '../ArtifactCard';
 import { tryParseArtifact, ZOD_VALIDATED_ARTIFACT_TYPES } from '@/lib/chat/artifactSchemas';
+import { looksLikeOpaqueId } from '@/lib/social/socialQueues';
 import { EXT_LANG, CODEGEN_MAX_LINES, CODEGEN_MAX_CHARS } from './toolCardConfig';
 
 export function parseDocumentResult(result: unknown): Array<{ content?: string; metadata?: Record<string, unknown> }> | null {
@@ -323,5 +324,156 @@ export function getCodegenPreview(
     truncated = true;
   }
   return { path, code: preview, lang, truncated };
+}
+
+export const PEOPLE_INSPECT_TOOLS = new Set([
+  'people_get',
+  'people_upsert',
+  'people_ingest',
+  'people_link_identity',
+]);
+
+export function isPeopleInspectTool(name: string): boolean {
+  return PEOPLE_INSPECT_TOOLS.has(String(name || '').toLowerCase());
+}
+
+export function isToolDefinitionInspect(name: string): boolean {
+  return String(name || '').toLowerCase() === 'get_tool_definition';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/** Unwrap string JSON, MCP `content[0].text`, and `{ data }` envelopes. */
+export function unwrapToolResultObject(result: unknown): Record<string, unknown> | null {
+  let parsed: unknown = coerceToolResultJson(result);
+  if (!parsed) return null;
+  const root = asRecord(parsed);
+  if (root) {
+    const fromContent = Array.isArray(root.content)
+      ? coerceToolResultJson((root.content[0] as { text?: unknown } | undefined)?.text)
+      : null;
+    const fromContentObj = asRecord(fromContent);
+    if (fromContentObj) parsed = fromContentObj;
+  }
+  const obj = asRecord(parsed);
+  if (!obj) return null;
+  const data = asRecord(obj.data);
+  if (data && !obj.person && !obj.people && !obj.definition) {
+    return { ...obj, ...data };
+  }
+  return obj;
+}
+
+function readablePersonName(person: Record<string, unknown>): string {
+  const name = String(person.displayName ?? person.display_name ?? '').trim();
+  if (name && !looksLikeOpaqueId(name)) return name;
+  const email = String(person.primaryEmail ?? person.primary_email ?? person.email ?? '').trim();
+  if (email && !looksLikeOpaqueId(email)) return email;
+  return '—';
+}
+
+function readableIdentityLabel(identity: Record<string, unknown>): string {
+  const raw = String(identity.displayLabel ?? identity.display_label ?? '').trim();
+  if (raw && raw !== '—' && !looksLikeOpaqueId(raw)) return raw;
+  const ext = String(identity.externalId ?? identity.external_id ?? '').trim();
+  if (ext && !looksLikeOpaqueId(ext)) return ext;
+  const source = String(identity.source ?? '').replace(/_/g, ' ').trim();
+  return source || '—';
+}
+
+function mapIdentityRows(value: unknown): Array<{ source: string; label: string }> {
+  if (!Array.isArray(value)) return [];
+  const rows: Array<{ source: string; label: string }> = [];
+  for (const item of value) {
+    const rec = asRecord(item);
+    if (!rec) continue;
+    const source = String(rec.source ?? '').trim();
+    rows.push({ source, label: readableIdentityLabel(rec) });
+  }
+  return rows;
+}
+
+function mapPersonRow(value: unknown): PeopleToolRow | null {
+  const person = asRecord(value);
+  if (!person) return null;
+  const displayName = readablePersonName(person);
+  const emailRaw = person.primaryEmail ?? person.primary_email ?? person.email;
+  const email = typeof emailRaw === 'string' && emailRaw.trim() ? emailRaw.trim() : null;
+  const statusRaw = person.leadStatus ?? person.lead_status;
+  const leadStatus = typeof statusRaw === 'string' && statusRaw.trim() ? statusRaw.trim() : null;
+  const idRaw = person.id ?? person.personId ?? person.person_id;
+  const personId = typeof idRaw === 'string' && idRaw.trim() ? idRaw.trim() : undefined;
+  return {
+    displayName,
+    email,
+    leadStatus,
+    identities: mapIdentityRows(person.identities),
+    personId,
+  };
+}
+
+export type PeopleToolRow = {
+  displayName: string;
+  email?: string | null;
+  leadStatus?: string | null;
+  identities: Array<{ source: string; label: string }>;
+  personId?: string;
+};
+
+export type PeopleToolResultView = {
+  rows: PeopleToolRow[];
+  linked?: boolean;
+  conflict?: boolean;
+};
+
+/** Structured view for people_get / upsert / ingest / link_identity — never dumps definition JSON. */
+export function parsePeopleToolResult(result: unknown): PeopleToolResultView | null {
+  const obj = unwrapToolResultObject(result);
+  if (!obj) return null;
+
+  const people = Array.isArray(obj.people) ? obj.people : null;
+  if (people) {
+    const rows = people.map(mapPersonRow).filter((row): row is PeopleToolRow => row != null);
+    if (rows.length === 0) return null;
+    return { rows };
+  }
+
+  const person = mapPersonRow(obj.person);
+  if (person) {
+    const identity = asRecord(obj.identity);
+    if (identity && person.identities.length === 0) {
+      person.identities = mapIdentityRows([identity]);
+    }
+    return {
+      rows: [person],
+      linked: typeof obj.linked === 'boolean' ? obj.linked : undefined,
+      conflict: typeof obj.conflict === 'boolean' ? obj.conflict : undefined,
+    };
+  }
+
+  return null;
+}
+
+export type ToolDefinitionView = {
+  name: string;
+  description: string;
+};
+
+/** name + description only; schema stays on the raw result for "View JSON". */
+export function parseToolDefinitionResult(result: unknown): ToolDefinitionView | null {
+  const obj = unwrapToolResultObject(result);
+  if (!obj) return null;
+  const definition = asRecord(obj.definition) ?? obj;
+  const fn = asRecord(definition.function);
+  const name = String(fn?.name ?? definition.name ?? obj.name ?? '').trim();
+  const description = String(
+    fn?.description ?? definition.description ?? obj.description ?? '',
+  ).trim();
+  if (!name && !description) return null;
+  return { name: name || '—', description };
 }
 

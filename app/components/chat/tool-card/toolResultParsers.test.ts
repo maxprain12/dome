@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { smartToolSummary, formatArgsSummary, parseArtifactResult } from './toolResultParsers';
+import {
+  smartToolSummary,
+  formatArgsSummary,
+  parseArtifactResult,
+  parsePeopleToolResult,
+  parseToolDefinitionResult,
+} from './toolResultParsers';
 
 describe('parseArtifactResult', () => {
   const legacyList = { type: 'list', title: 'Items', items: [{ text: 'a' }] };
@@ -126,5 +132,87 @@ describe('smartToolSummary', () => {
   it('survives missing or malformed arguments', () => {
     expect(smartToolSummary('file_read', undefined as never)).toBe('');
     expect(smartToolSummary('', {})).toBe('');
+  });
+});
+
+describe('parsePeopleToolResult', () => {
+  const person = {
+    id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+    displayName: 'Mery Sugy',
+    primaryEmail: 'mery@example.com',
+    leadStatus: 'lead',
+    identities: [
+      { source: 'website', externalId: 'https://mery.example', displayLabel: 'mery.example' },
+    ],
+  };
+
+  it('reads people_get / people_upsert person rows', () => {
+    const view = parsePeopleToolResult({ success: true, source: 'people', person });
+    expect(view?.rows).toHaveLength(1);
+    expect(view?.rows[0]?.displayName).toBe('Mery Sugy');
+    expect(view?.rows[0]?.email).toBe('mery@example.com');
+    expect(view?.rows[0]?.leadStatus).toBe('lead');
+    expect(view?.rows[0]?.identities[0]?.label).toBe('mery.example');
+    expect(view?.rows[0]?.personId).toBe(person.id);
+  });
+
+  it('never uses a raw id as the display name', () => {
+    const view = parsePeopleToolResult({
+      person: { id: person.id, displayName: person.id, primaryEmail: 'ok@example.com' },
+    });
+    expect(view?.rows[0]?.displayName).toBe('ok@example.com');
+  });
+
+  it('reads people_ingest lists and MCP-wrapped JSON', () => {
+    const wrapped = {
+      content: [{ text: JSON.stringify({ people: [person], count: 1 }) }],
+    };
+    const view = parsePeopleToolResult(wrapped);
+    expect(view?.rows[0]?.displayName).toBe('Mery Sugy');
+  });
+
+  it('reads people_link_identity person + identity', () => {
+    const view = parsePeopleToolResult({
+      success: true,
+      linked: true,
+      person: { displayName: 'Ada', identities: [] },
+      identity: { source: 'email', externalId: 'ada@example.com' },
+    });
+    expect(view?.linked).toBe(true);
+    expect(view?.rows[0]?.identities[0]?.label).toBe('ada@example.com');
+  });
+
+  it('returns null for empty or unrelated payloads', () => {
+    expect(parsePeopleToolResult(null)).toBeNull();
+    expect(parsePeopleToolResult({ success: true, definition: { name: 'x' } })).toBeNull();
+  });
+});
+
+describe('parseToolDefinitionResult', () => {
+  it('reads name and description from the OpenAI-style envelope', () => {
+    const view = parseToolDefinitionResult({
+      success: true,
+      definition: {
+        type: 'function',
+        function: {
+          name: 'people_link_identity',
+          description: 'Link an identity to a person.',
+          parameters: { type: 'object', properties: { person_id: { type: 'string' } } },
+        },
+      },
+    });
+    expect(view).toEqual({
+      name: 'people_link_identity',
+      description: 'Link an identity to a person.',
+    });
+  });
+
+  it('reads a flat definition and ignores schema-only dumps without name/description', () => {
+    expect(
+      parseToolDefinitionResult({
+        definition: { name: 'web_search', description: 'Search the web' },
+      }),
+    ).toEqual({ name: 'web_search', description: 'Search the web' });
+    expect(parseToolDefinitionResult({ parameters: { type: 'object' } })).toBeNull();
   });
 });

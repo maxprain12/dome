@@ -2,8 +2,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Dome active-selection surface (sidebar / filters / list rows).
- * Mint fill + forest border + rounded pill/soft rectangle.
- * See `.claude/rules/new-color-palette.md` → “Active selection”.
+ * Paper fill + ink border.
  */
 export function selectionSurfaceClass(
   active: boolean,
@@ -15,8 +14,8 @@ export function selectionSurfaceClass(
     shape === 'chip' ? 'rounded-full' : 'rounded-xl',
     'border transition-[background-color,border-color,color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none',
     active
-      ? 'border-primary bg-brand-mint text-foreground'
-      : 'border-transparent bg-transparent text-foreground hover:bg-brand-mint/55',
+      ? 'border-primary bg-muted text-foreground'
+      : 'border-transparent bg-transparent text-foreground hover:bg-muted/70',
     className,
   );
 }

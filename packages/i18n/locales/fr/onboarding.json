@@ -15,7 +15,7 @@
   "back_label": "Retour",
   "start": "Commencer",
   "finalize": "Terminer",
-  "role_message": "Sur quoi vous concentrez-vous ? J'adapterai l'interface de Dome et me configurerai pour mieux vous aider. Vous pourrez tout modifier plus tard dans les Paramètres.",
+  "role_message": "Quelle édition de Dome vous correspond ? Pro est la valeur par défaut : documents et personnes. Study et Dev sont des apps spécialisées sur la même plateforme. Vous pourrez changer plus tard dans les Paramètres.",
   "role_about_label": "Parlez-moi de vous (facultatif)",
   "role_about_placeholder": "Je suis Alder, je me concentre sur la programmation et le suivi de mes projets…",
   "role_about_hint": "Je l'utiliserai pour adapter mon aide et ce que je retiens de vous.",

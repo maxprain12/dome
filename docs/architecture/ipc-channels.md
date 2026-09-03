@@ -417,9 +417,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `openai-codex:auth:status` | `electron/ipc/integrations/openai-codex-oauth.cjs:44` |
 | `pdf:render-page` | `electron/ipc/media/pdf-render.cjs:15` |
 | `people:addInteraction` | `electron/ipc/integrations/people.cjs:112` |
-| `people:delete` | `electron/ipc/integrations/people.cjs:123` |
-| `people:enrich` | `electron/ipc/integrations/people.cjs:140` |
+| `people:delete` | `electron/ipc/integrations/people.cjs:133` |
+| `people:enrich` | `electron/ipc/integrations/people.cjs:150` |
 | `people:get` | `electron/ipc/integrations/people.cjs:32` |
+| `people:ingest` | `electron/ipc/integrations/people.cjs:123` |
 | `people:linkIdentity` | `electron/ipc/integrations/people.cjs:71` |
 | `people:list` | `electron/ipc/integrations/people.cjs:20` |
 | `people:search` | `electron/ipc/integrations/people.cjs:47` |

@@ -2,7 +2,7 @@
  * @dome/tools — tool → family taxonomy.
  *
  * The authoritative list of tool names is
- * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` (123 tools, kept in
+ * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` (kept in
  * sync with `ai-tools-handler.cjs#TOOL_HANDLER_MAP` by
  * `scripts/verify-tool-coverage.mjs`). This map groups them by responsibility
  * so each family can be migrated into its own module incrementally
@@ -63,6 +63,8 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   people_search: 'people',
   people_upsert: 'people',
   people_link_identity: 'people',
+  people_add_interaction: 'people',
+  people_ingest: 'people',
   // calendar
   calendar_list_events: 'calendar', calendar_get_upcoming: 'calendar',
   calendar_create_event: 'calendar', calendar_update_event: 'calendar',

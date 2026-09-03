@@ -20,6 +20,7 @@
  * New in v68: source_documents + source_documents_fts (integration search).
  * New in v70: social_posts event-card link fields.
  * New in v71: social_posts.notes (internal editorial reminders).
+ * New in v74: person_identities sources (website, phone, document, calendar, extra social).
  *
  * When you change a table here, also add a migration in db/migrations.cjs so
  * existing installs converge — this file only helps brand-new databases.
@@ -908,7 +909,7 @@ function createBaseSchema(db) {
               person_id TEXT NOT NULL,
               project_id TEXT NOT NULL DEFAULT 'default',
               source TEXT NOT NULL
-                CHECK(source IN ('github', 'email', 'social_x', 'social_linkedin', 'social_instagram', 'manual')),
+                CHECK(source IN ('github', 'email', 'website', 'phone', 'document', 'calendar', 'company', 'social_x', 'social_linkedin', 'social_instagram', 'social_facebook', 'social_tiktok', 'social_youtube', 'manual')),
               external_id TEXT NOT NULL,
               display_label TEXT,
               meta_json TEXT,

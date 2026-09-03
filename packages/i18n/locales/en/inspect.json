@@ -1,0 +1,23 @@
+{
+  "open_in_people": "Open in Contacts",
+  "open_entity": "Open",
+  "open_resource": "Open resource",
+  "open_email": "Open email",
+  "open_issue": "Open issue",
+  "open_social": "Open post",
+  "loading": "Loading…",
+  "load_error": "Couldn't load this card",
+  "tool_args": "Arguments",
+  "tool_result": "Result",
+  "view_json": "View JSON",
+  "hide_json": "Hide JSON",
+  "profile": "Profile",
+  "identities": "Identities",
+  "email": "Email",
+  "website": "Website",
+  "lead_status": "Status",
+  "person_title": "Person",
+  "entity_title": "Item",
+  "tool_title": "Tool",
+  "inspect_tool": "Inspect tool"
+}

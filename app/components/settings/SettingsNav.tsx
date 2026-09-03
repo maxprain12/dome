@@ -104,12 +104,12 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
     <aside
       className={cn(
         'dome-left-sidebar flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width,opacity] duration-200 ease-out',
-        collapsed ? 'w-0 opacity-0' : 'w-62 opacity-100',
+        collapsed ? 'w-0 opacity-0' : 'w-(--chrome-rail-width) opacity-100',
       )}
       aria-hidden={collapsed}
       aria-label={t('settings.nav.sidebar')}
     >
-      <div className="shrink-0 px-2 pb-2 pt-2.5">
+      <div className="shrink-0 px-2 py-2">
         <Button
           type="button"
           variant="ghost"

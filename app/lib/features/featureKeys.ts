@@ -2,8 +2,8 @@
  * Toggleable features registry.
  *
  * Each `key` matches a nav-item `key` in `UnifiedSidebar.tsx`
- * (`primaryUnifiedNavItems` / `secondaryUnifiedNavItems`). The onboarding role
- * presets and the Settings → Features panel both operate on these keys.
+ * (`primaryUnifiedNavItems` / `secondaryUnifiedNavItems`). Edition presets
+ * (`app/lib/editions/catalog.ts`) and Settings → Features operate on these keys.
  *
  * `library` (Home/workspace) is intentionally NOT toggleable — it is always
  * visible so the user always has a way back to their resources and to Settings.
@@ -27,6 +27,7 @@ export const TOGGLEABLE_FEATURES: FeatureDef[] = [
   { key: 'calendar', labelKey: 'features.items.calendar.label', descKey: 'features.items.calendar.desc', group: 'workspace' },
   { key: 'email', labelKey: 'features.items.email.label', descKey: 'features.items.email.desc', group: 'workspace' },
   { key: 'social', labelKey: 'features.items.social.label', descKey: 'features.items.social.desc', group: 'workspace' },
+  { key: 'people', labelKey: 'features.items.people.label', descKey: 'features.items.people.desc', group: 'workspace' },
   { key: 'tags', labelKey: 'features.items.tags.label', descKey: 'features.items.tags.desc', group: 'workspace' },
   { key: 'github', labelKey: 'features.items.github.label', descKey: 'features.items.github.desc', group: 'automation' },
   { key: 'pipelines', labelKey: 'features.items.pipelines.label', descKey: 'features.items.pipelines.desc', group: 'automation' },

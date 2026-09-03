@@ -45,6 +45,7 @@ const VALID_DOMAINS = /** @type {const} */ ([
  *                                  Appended with a `WHERE deltaColumn > ?` guard by the engine.
  * @property {(db: import('better-sqlite3').Database, row: Record<string, unknown>) => void} [applyRow]
  *                                  Custom local apply (for tables whose local shape differs from the wire).
+ * @property {boolean} [lww]        When set, applyRow tables still honor last-write-wins vs local `updated_at`.
  */
 
 /**
@@ -128,6 +129,48 @@ function applyRowWithJsonText(db, table, row, jsonFields) {
  * with a different id for the same natural key must replace the local one or
  * UPSERT-by-id fails forever and push keeps bouncing 23505.
  */
+function parseJsonField(value, fallback) {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(String(value));
+  } catch {
+    return fallback;
+  }
+}
+
+function mergePlainObjects(local, remote) {
+  const a = local && typeof local === 'object' && !Array.isArray(local) ? local : {};
+  const b = remote && typeof remote === 'object' && !Array.isArray(remote) ? remote : {};
+  return { ...a, ...b };
+}
+
+/**
+ * People pull: keep local-only profile keys / notes when the remote row is sparse.
+ */
+function applyPeopleRow(db, row) {
+  const local = row?.id ? db.prepare('SELECT * FROM people WHERE id = ?').get(row.id) : null;
+  const merged = { ...row };
+  if (local) {
+    merged.profile_json = mergePlainObjects(
+      parseJsonField(local.profile_json, {}),
+      parseJsonField(row.profile_json, {}),
+    );
+    const remoteName = String(merged.display_name || '').trim();
+    if (!remoteName || remoteName === 'Unknown') merged.display_name = local.display_name;
+    if ((merged.notes == null || merged.notes === '') && local.notes) {
+      merged.notes = local.notes;
+    }
+    if ((merged.primary_email == null || merged.primary_email === '') && local.primary_email) {
+      merged.primary_email = local.primary_email;
+    }
+    if ((merged.discovered_via == null || merged.discovered_via === '') && local.discovered_via) {
+      merged.discovered_via = local.discovered_via;
+    }
+  }
+  applyRowWithJsonTextUpsert(db, 'people', merged, ['profile_json']);
+}
+
 function applyPersonIdentityRow(db, row) {
   const projectId = row.project_id || 'default';
   const source = row.source;
@@ -257,7 +300,8 @@ const DOMAIN_SPECS = {
           if (!out.display_name) out.display_name = 'Unknown';
           return out;
         },
-        applyRow: (db, row) => applyRowWithJsonText(db, 'people', row, ['profile_json']),
+        lww: true,
+        applyRow: (db, row) => applyPeopleRow(db, row),
       },
       {
         name: 'person_identities',
@@ -268,6 +312,7 @@ const DOMAIN_SPECS = {
           if (!out.project_id) out.project_id = 'default';
           return out;
         },
+        lww: true,
         applyRow: (db, row) => applyPersonIdentityRow(db, row),
       },
       {
@@ -279,6 +324,7 @@ const DOMAIN_SPECS = {
           if (!out.project_id) out.project_id = 'default';
           return out;
         },
+        lww: true,
         applyRow: (db, row) => applyRowWithJsonText(db, 'person_interactions', row, ['payload']),
       },
     ],
@@ -550,9 +596,11 @@ function applyPullPayload(db, domain, data, localDeviceId) {
   for (const tableSpec of spec.tables) {
     const remoteRows = rowsByTable[tableSpec.wire ?? tableSpec.name] ?? rowsByTable[tableSpec.name];
     if (!Array.isArray(remoteRows) || remoteRows.length === 0) continue;
-    const getLocal = tableSpec.applyRow
-      ? null
-      : db.prepare(`SELECT * FROM ${tableSpec.name} WHERE id = ?`);
+    const cols = pragmaColumns(db, tableSpec.name);
+    const getLocal =
+      cols.has('id') && (!tableSpec.applyRow || tableSpec.lww)
+        ? db.prepare(`SELECT * FROM ${tableSpec.name} WHERE id = ?`)
+        : null;
     for (const remoteRow of remoteRows) {
       if (!remoteRow?.id) continue;
       const localRow = getLocal ? getLocal.get(remoteRow.id) : undefined;

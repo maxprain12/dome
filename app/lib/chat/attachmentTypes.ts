@@ -104,6 +104,7 @@ export type ChatRunMessage = {
   role: string;
   content: string;
   attachments?: StructuredMessageAttachments;
+  pinnedResources?: Array<{ id: string; title: string; type: string; kind?: string }>;
 };
 
 export function buildUserRunMessage(

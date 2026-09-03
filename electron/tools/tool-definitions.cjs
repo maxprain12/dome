@@ -122,6 +122,8 @@ const TOOL_HANDLER_MAP = {
   people_search: 'peopleSearch',
   people_upsert: 'peopleUpsert',
   people_link_identity: 'peopleLinkIdentity',
+  people_add_interaction: 'peopleAddInteraction',
+  people_ingest: 'peopleIngest',
 
   // Social hub (LinkedIn / Instagram / X)
   social_accounts_list: 'socialAccountsList',
@@ -1135,7 +1137,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'people_upsert',
         description:
-          'Create or update a person in Dome People. Optional identities. Leads = lead_status lead. Source: People.',
+          'Create or update a person with a complete profile. Merges profile keys. Identities include website, email, social, phone. Source: People.',
         parameters: {
           type: 'object',
           properties: {
@@ -1144,13 +1146,27 @@ function getAllToolDefinitions() {
             project_id: { type: 'string' },
             primary_email: { type: 'string' },
             notes: { type: 'string' },
-            lead_status: { type: 'string', description: 'lead | customer | archived' },
+            lead_status: {
+              type: 'string',
+              description:
+                'lead | prospect | qualified | customer | partner | vendor | investor | colleague | personal | archived, or a custom slug',
+            },
+            discovered_via: { type: 'string' },
+            profile: {
+              type: 'object',
+              description:
+                'Complete freeform profile (occupation, company, website, phone, location, how_we_met, plus any other facts).',
+            },
             identities: {
               type: 'array',
               items: {
                 type: 'object',
                 properties: {
-                  source: { type: 'string' },
+                  source: {
+                    type: 'string',
+                    description:
+                      'github | email | website | phone | document | calendar | company | social_x | social_linkedin | social_instagram | social_facebook | social_tiktok | social_youtube | manual',
+                  },
                   external_id: { type: 'string' },
                   display_label: { type: 'string' },
                 },
@@ -1167,7 +1183,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'people_link_identity',
         description:
-          'Link social_instagram / email / github identity to an existing person. Source: People.',
+          'Link an identity (website, email, github, social, phone, document) to an existing person. Source: People.',
         parameters: {
           type: 'object',
           properties: {
@@ -1178,6 +1194,72 @@ function getAllToolDefinitions() {
             project_id: { type: 'string' },
           },
           required: ['person_id', 'source', 'external_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_add_interaction',
+        description:
+          'Append a timeline note or source event to a person (meeting, email, document, call). Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            person_id: { type: 'string' },
+            kind: { type: 'string', description: 'note | meeting | email | document | call | web' },
+            summary: { type: 'string' },
+            ref_type: { type: 'string' },
+            ref_id: { type: 'string' },
+            project_id: { type: 'string' },
+          },
+          required: ['person_id', 'summary'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'people_ingest',
+        description:
+          'Extract and save complete people from a document, meeting, email, or URL. Read the source first, then persist every relevant lead. Source: People.',
+        parameters: {
+          type: 'object',
+          properties: {
+            people: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  display_name: { type: 'string' },
+                  person_id: { type: 'string' },
+                  primary_email: { type: 'string' },
+                  notes: { type: 'string' },
+                  lead_status: { type: 'string' },
+                  discovered_via: { type: 'string' },
+                  profile: { type: 'object' },
+                  identities: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        source: { type: 'string' },
+                        external_id: { type: 'string' },
+                        display_label: { type: 'string' },
+                      },
+                      required: ['source', 'external_id'],
+                    },
+                  },
+                },
+                required: ['display_name'],
+              },
+            },
+            source_resource_id: { type: 'string' },
+            source_kind: { type: 'string' },
+            summary: { type: 'string' },
+            project_id: { type: 'string' },
+          },
+          required: ['people'],
         },
       },
     },

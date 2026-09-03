@@ -3,7 +3,9 @@
  * Mirrors the `window.electron.people` IPC contract (see app/types/global.d.ts).
  */
 
-export type LeadStatus = 'lead' | 'customer' | 'archived';
+import { BUILTIN_PERSON_STATUSES, type BuiltinPersonStatus } from './personStatuses';
+
+export type LeadStatus = BuiltinPersonStatus;
 
 export interface PersonIdentity {
   source: string;
@@ -51,6 +53,6 @@ export interface PersonDetail {
   interactions?: PersonInteraction[];
 }
 
-export const LEAD_STATUSES: LeadStatus[] = ['lead', 'customer', 'archived'];
+export const LEAD_STATUSES: LeadStatus[] = [...BUILTIN_PERSON_STATUSES];
 
-export type PeopleFilter = 'all' | LeadStatus;
+export type PeopleFilter = 'all' | string;

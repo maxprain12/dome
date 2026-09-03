@@ -2,7 +2,7 @@
 
 # Dome
 
-> Intelligent Desktop Application for Knowledge Management and Academic Research
+> Local-first workspace for founder-creators: your documents and your people, with an AI that can use both.
 
 [![pnpm](https://img.shields.io/badge/pnpm-F69220?style=flat&logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)](https://www.electronjs.org/)
@@ -19,7 +19,7 @@
 
 </div>
 
-Dome is an open-source desktop app for researchers, academics, and knowledge workers. Organize notes, PDFs, videos, and URLs in projects, then let AI index, search, and synthesize everything — locally or in the cloud, your choice.
+Dome is an open-source desktop app for **founder-creators**. Keep notes, PDFs, videos, and URLs in a local library, keep contacts and leads in People, and let **Many** work across both — then publish or follow up through email and social. One binary, three editions (Pro, Study, Dev).
 
 ---
 
@@ -36,27 +36,27 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 
 ---
 
+## Editions
+
+One app. Pick an edition in onboarding (or Settings → Features). See [docs/product/editions.md](docs/product/editions.md).
+
+| Edition | For | Default surfaces |
+| --- | --- | --- |
+| **Pro** (default) | Founder-creators | Library, People, Email, Social, Agents |
+| **Study** | Learners | Library, Learn / Studio, Calendar |
+| **Dev** | Builders | Library, GitHub, Agents |
+
 ## Features
 
 | | |
 |---|---|
-| **Many AI Assistant** | Dome-native agent runtime with web search, resource search, JSONL sessions, and MCP tools |
-| **Many Agents** | Custom agents with their own instructions, tools, MCP servers, and sessions |
-| **Agent Canvas** | Visual drag-and-drop workflow builder (D3 + SVG edges) |
-| **Agent Teams** | Multi-agent collaboration in a shared chat session |
-| **Studio** | Generate mindmaps, quizzes, flashcards, guides, FAQs, and timelines from your content |
-| **Semantic search** | Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB, hybrid search (vectors + FTS + graph); PDF/image text via your cloud LLM (vision) |
-| **Flashcards** | FSRS spaced repetition with AI-generated decks and 3D flip study UI |
-| **Calendar** | Google Calendar sync + AI tools to create and manage events from chat |
-| **Google Drive** | Native import with PKCE OAuth 2.0 — tokens stored locally, never on Dome servers |
-| **PDF Viewer** | Highlight, underline, comment, and annotate |
-| **PowerPoint Viewer** | Full `.pptx` rendering and presentation mode, no LibreOffice needed |
-| **Notion-style Editor** | Tiptap-based with slash commands, tables, columns, toggles, callouts |
-| **Artifact Feeders** | Scheduled sandbox scripts that feed persisted mini-apps with external JSON (Redfish, APIs, etc.) |
-| **Academic Library** | APA, MLA, Chicago, Harvard, Vancouver, IEEE citations |
-| **MCP Integration** | Connect `stdio` or `http` MCP servers; tools available to all agents |
-| **Marketplace** | Community agents, plugins, skills, and workflows |
-| **Plugins** | Pets and custom views; i18n in EN / ES / FR / PT |
+| **Documents** | Projects, Notion-style editor, PDF/PPT/video viewers, URL and YouTube ingest, hybrid semantic search, **Ready for AI** |
+| **People** | Contacts and leads with identities from email, social, and GitHub |
+| **Many** | Dome-native agent runtime grounded in the open resource *and* the open person; MCP tools |
+| **Channels** | Email (IMAP) and Social (LinkedIn / Instagram / X) attached to People — not separate products |
+| **Study edition** | Flashcards (FSRS), quizzes, Studio outputs from the library |
+| **Dev edition** | GitHub tracking plus agents / workflows when you turn them on |
+| **Local-first** | SQLite + LanceDB on disk; Ollama or your own cloud keys; Google Drive import with tokens stored locally |
 
 ---
 

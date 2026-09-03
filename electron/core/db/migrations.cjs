@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 73;
+const SCHEMA_HEAD = 74;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1293,6 +1293,50 @@ function migration73(db, version) {
   console.log('[DB] Migration 73 complete - coding workspaces');
 }
 
+const PERSON_IDENTITY_SOURCES_V74 = `'github', 'email', 'website', 'phone', 'document', 'calendar', 'company', 'social_x', 'social_linkedin', 'social_instagram', 'social_facebook', 'social_tiktok', 'social_youtube', 'manual'`;
+
+function migration74(db, version) {
+  if (version >= 74) return;
+  console.log('[DB] Running migration 74 - people identity sources');
+  const exists = db
+    .prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'person_identities'")
+    .get();
+  if (exists) {
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE person_identities_v74 (
+        id TEXT PRIMARY KEY,
+        person_id TEXT NOT NULL,
+        project_id TEXT NOT NULL DEFAULT 'default',
+        source TEXT NOT NULL
+          CHECK(source IN (${PERSON_IDENTITY_SOURCES_V74})),
+        external_id TEXT NOT NULL,
+        display_label TEXT,
+        meta_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+        UNIQUE(project_id, source, external_id)
+      )
+    `);
+    db.exec(`
+      INSERT INTO person_identities_v74
+        (id, person_id, project_id, source, external_id, display_label, meta_json, created_at, updated_at)
+      SELECT id, person_id, project_id, source, external_id, display_label, meta_json, created_at, updated_at
+      FROM person_identities
+    `);
+    db.exec('DROP TABLE person_identities');
+    db.exec('ALTER TABLE person_identities_v74 RENAME TO person_identities');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_person_identities_person ON person_identities(person_id)');
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_person_identities_external ON person_identities(project_id, source, external_id)',
+    );
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+  setSchemaVersion(db, 74);
+  console.log('[DB] Migration 74 complete - people identity sources');
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1353,6 +1397,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration71(db, version);
   migration72(db, version);
   migration73(db, version);
+  migration74(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

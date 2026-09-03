@@ -1,6 +1,5 @@
 {
-  "developer": { "label": "Programação", "desc": "Acompanhe projetos, automatize e escreva código." },
-  "study": { "label": "Estudo", "desc": "Aprenda, revise com flashcards e planeje." },
-  "research": { "label": "Pesquisa", "desc": "Sintetize fontes e escreva com citações." },
-  "generalist": { "label": "Um pouco de tudo", "desc": "Mantenha todas as funcionalidades do Dome disponíveis." }
+  "pro": { "label": "Dome Pro", "desc": "Documentos e pessoas — e-mail e social como canais da sua rede." },
+  "study": { "label": "Dome Study", "desc": "Aprenda com a biblioteca: flashcards, quizzes e calendário." },
+  "dev": { "label": "Dome Dev", "desc": "GitHub, agentes e automação sobre os seus documentos." }
 }

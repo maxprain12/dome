@@ -920,6 +920,11 @@ declare global {
         syncGithub: (projectId?: string) => Promise<{ success: boolean; error?: string }>;
         updateProfile: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { person: unknown }; error?: string }>;
         addInteraction: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: { interaction: unknown }; error?: string }>;
+        ingest: (payload: Record<string, unknown>) => Promise<{
+          success: boolean;
+          data?: { people?: unknown[]; errors?: unknown[]; count?: number };
+          error?: string;
+        }>;
         delete: (
           payload: string | { id?: string; ids?: string[] },
         ) => Promise<{

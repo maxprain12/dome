@@ -20,6 +20,7 @@ import {
 import { ResourceIconBox } from '@/components/shared/ResourceIcon';
 import { inferResourceVisualKind } from '@/lib/resources/resourceVisual';
 import type { PinnedResource } from '@/lib/store/useManyStore';
+import { useInspectStore, type InspectPinKind } from '@/lib/store/useInspectStore';
 import { cn } from '@/lib/utils';
 
 export type PinnedResourceChip = Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind'>;
@@ -87,6 +88,24 @@ export function PinnedResourceChipList({
     return t('chat.group_pinned');
   };
 
+  const openPeek = (resource: PinnedResourceChip) => {
+    if (resource.kind === 'person') {
+      useInspectStore.getState().open({
+        kind: 'person',
+        personId: resource.id,
+        title: resource.title,
+      });
+      return;
+    }
+    useInspectStore.getState().open({
+      kind: 'entity',
+      id: resource.id,
+      title: resource.title,
+      entityType: resource.type,
+      pinKind: (resource.kind ?? 'resource') as InspectPinKind,
+    });
+  };
+
   return (
     <AttachmentGroup
       className={cn(
@@ -103,19 +122,34 @@ export function PinnedResourceChipList({
           className="max-w-full"
           title={resource.title}
         >
-          <AttachmentMedia>
-            <PinMedia resource={resource} />
-          </AttachmentMedia>
-          <AttachmentContent className="min-w-0 overflow-hidden">
-            <AttachmentTitle>{resource.title}</AttachmentTitle>
-            <AttachmentDescription>{descriptionFor(resource)}</AttachmentDescription>
-          </AttachmentContent>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            onClick={() => openPeek(resource)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openPeek(resource);
+              }
+            }}
+          >
+            <AttachmentMedia>
+              <PinMedia resource={resource} />
+            </AttachmentMedia>
+            <AttachmentContent className="min-w-0 overflow-hidden">
+              <AttachmentTitle>{resource.title}</AttachmentTitle>
+              <AttachmentDescription>{descriptionFor(resource)}</AttachmentDescription>
+            </AttachmentContent>
+          </button>
           {onRemove ? (
             <AttachmentActions>
               <AttachmentAction
                 type="button"
                 aria-label={t('chat.remove_from_context')}
-                onClick={() => onRemove(resource.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(resource.id);
+                }}
               >
                 <HugeiconsIcon icon={Cancel01Icon} />
               </AttachmentAction>

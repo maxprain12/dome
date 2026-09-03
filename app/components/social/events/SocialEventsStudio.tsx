@@ -7,6 +7,7 @@ import {
   Copy01Icon,
   MagicWand01Icon,
   Megaphone02Icon,
+  PencilEdit02Icon,
   PlusSignIcon,
   QrCodeIcon,
   RefreshIcon,
@@ -21,16 +22,13 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -56,6 +54,14 @@ import type {
   SocialEventUpdate,
   SocialPost,
 } from '@/components/social/socialTypes';
+import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { ActionIcon, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
+import {
+  SocialDirectoryColumn,
+  SocialDirectoryRow,
+  SocialFichaEmpty,
+  SocialHubSplit,
+} from '@/components/social/workspace/SocialDirectoryColumn';
 
 export function SocialEventsStudio({
   accounts,
@@ -70,6 +76,7 @@ export function SocialEventsStudio({
   const [cards, setCards] = useState<SocialEventCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const response = await window.electron.invoke('social:event-cards:list');
@@ -82,7 +89,8 @@ export function SocialEventsStudio({
     setLoading(false);
   }, []);
 
-  useEffect(() => { load();
+  useEffect(() => {
+    load().catch(() => {});
     const unsubscribe = window.electron?.on?.('social:event-cards-refresh', (payload: { cards?: SocialEventCard[] }) => {
       setCards(payload?.cards ?? []);
       setLoading(false);
@@ -90,61 +98,90 @@ export function SocialEventsStudio({
     return () => unsubscribe?.();
   }, [load]);
 
-  if (loading) return <div className="flex min-h-80 items-center justify-center"><Spinner /></div>;
+  const selected = cards.find((card) => card.id === selectedId) ?? null;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 lg:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">{t('social.studio.events.eyebrow')}</p>
-          <h2 className="font-heading text-2xl font-semibold tracking-tight">{t('social.studio.events.title')}</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('social.studio.events.description')}</p>
+    <SocialHubSplit>
+      <SocialDirectoryColumn
+        title={t('social.studio.nav.events')}
+        action={
+          <Button type="button" size="sm" onClick={() => onEdit(null)}>
+            <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+            {t('social.events.create')}
+          </Button>
+        }
+        loading={loading}
+        loadingLabel={t('common.loading')}
+        empty={
+          !loading && cards.length === 0
+            ? {
+                icon: <HugeiconsIcon icon={Calendar03Icon} className="size-8" />,
+                title: t('social.events.empty'),
+                description: t('social.events.empty_description'),
+              }
+            : undefined
+        }
+      >
+        <ul className="flex flex-col">
+          {cards.map((card) => (
+            <SocialDirectoryRow
+              key={card.id}
+              selected={selectedId === card.id}
+              onClick={() => setSelectedId(card.id)}
+              title={socialEventCardLabel(card)}
+              subtitle={[
+                new Date(card.startsAt).toLocaleDateString(),
+                card.venueName || card.timezone,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            />
+          ))}
+        </ul>
+      </SocialDirectoryColumn>
+      {error ? (
+        <div className="flex flex-1 items-center justify-center p-3">
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </div>
-        <Button type="button" onClick={() => onEdit(null)}>
-          <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
-          {t('social.events.create')}
-        </Button>
-      </div>
-
-      {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
-
-      <Tabs defaultValue="cards">
-        <TabsList variant="line">
-          <TabsTrigger value="cards">{t('social.events.cards')}</TabsTrigger>
-          <TabsTrigger value="updates">{t('social.events.updates')}</TabsTrigger>
-          <TabsTrigger value="automations">{t('social.events.automations')}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="cards" className="mt-5">
-          {!cards.length ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon"><HugeiconsIcon icon={Calendar03Icon} /></EmptyMedia>
-                <EmptyTitle>{t('social.events.empty')}</EmptyTitle>
-                <EmptyDescription>{t('social.events.empty_description')}</EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent><Button type="button" onClick={() => onEdit(null)}>{t('social.events.create')}</Button></EmptyContent>
-            </Empty>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {cards.map((card) => (
-                <EventCardTile key={card.id} card={card} onEdit={() => onEdit(card)} onReload={load} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-        <TabsContent value="updates" className="mt-5">
-          <UpdatesStudio cards={cards} />
-        </TabsContent>
-        <TabsContent value="automations" className="mt-5">
-          <AutomationsStudio cards={cards} accounts={accounts} posts={posts} />
-        </TabsContent>
-      </Tabs>
-    </div>
+      ) : selected ? (
+        <EventFicha
+          card={selected}
+          cards={cards}
+          accounts={accounts}
+          posts={posts}
+          onEdit={() => onEdit(selected)}
+          onReload={load}
+        />
+      ) : (
+        <SocialFichaEmpty
+          icon={<HugeiconsIcon icon={Calendar03Icon} className="size-8" />}
+          title={t('social.studio.crm.detail_empty_event')}
+          description={t('social.studio.crm.detail_empty_event_hint')}
+        />
+      )}
+    </SocialHubSplit>
   );
 }
 
-function EventCardTile({ card, onEdit, onReload }: { card: SocialEventCard; onEdit: () => void; onReload: () => Promise<void> }) {
+function EventFicha({
+  card,
+  cards,
+  accounts,
+  posts,
+  onEdit,
+  onReload,
+}: {
+  card: SocialEventCard;
+  cards: SocialEventCard[];
+  accounts: SocialAccount[];
+  posts: SocialPost[];
+  onEdit: () => void;
+  onReload: () => Promise<void>;
+}) {
   const { t } = useTranslation();
+  const unavailable = t('social.studio.crm.unavailable');
   const run = async (channel: string, payload: unknown) => {
     const response = await window.electron.invoke(channel, payload);
     if (!response?.success) toast.error(response?.error || 'Error');
@@ -159,26 +196,94 @@ function EventCardTile({ card, onEdit, onReload }: { card: SocialEventCard; onEd
     } else if (!response.data?.cancelled) toast.success(t('social.events.exported'));
   };
   return (
-    <Card className="min-h-80">
-      <div className="mx-4 flex min-h-32 items-end rounded-xl bg-gradient-to-br from-accent via-muted to-background p-4">
-        <div className="flex flex-col gap-1">
-          <Badge variant="outline" className="w-fit">{card.organizer || t('social.events.brand')}</Badge>
-          <p className="font-heading text-xl font-semibold">{card.title}</p>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
+        <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+          <HugeiconsIcon icon={Calendar03Icon} />
+        </div>
+        <div className="flex max-w-full flex-col items-center gap-1 text-center">
+          <div className="flex max-w-full items-center gap-2">
+            <h2 className={hubFichaTitleClass}>{socialEventCardLabel(card)}</h2>
+            <Badge variant={card.status === 'published' ? 'lime' : 'outline'}>
+              {t(`social.events.status_${card.status}`)}
+            </Badge>
+          </div>
+          <p className="max-w-full truncate text-xs text-muted-foreground">
+            {new Date(card.startsAt).toLocaleString()}
+            {card.venueName ? `, ${card.venueName}` : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <ActionIcon
+            label={t('common.edit')}
+            available
+            unavailableLabel={unavailable}
+            icon={PencilEdit02Icon}
+            onClick={onEdit}
+          />
+          <ActionIcon
+            label={card.status !== 'published' ? t('social.events.publish') : t('social.events.copy_url')}
+            available
+            unavailableLabel={unavailable}
+            icon={card.status !== 'published' ? Megaphone02Icon : Copy01Icon}
+            onClick={() => {
+              if (card.status !== 'published') {
+                run('social:event-cards:publish', { cardId: card.id }).catch(() => {});
+              } else {
+                exportCard('url').catch(() => {});
+              }
+            }}
+          />
+          <ActionIcon
+            label={t('social.events.export_qr')}
+            available
+            unavailableLabel={unavailable}
+            icon={QrCodeIcon}
+            onClick={() => {
+              exportCard('qr-png').catch(() => {});
+            }}
+          />
         </div>
       </div>
-      <CardHeader>
-        <CardTitle>{socialEventCardLabel(card)}</CardTitle>
-        <CardDescription>{new Date(card.startsAt).toLocaleString()} · {card.venueName || card.timezone}</CardDescription>
-        <CardAction><Badge variant={card.status === 'published' ? 'mint' : 'secondary'}>{t(`social.events.status_${card.status}`)}</Badge></CardAction>
-      </CardHeader>
-      <CardContent className="flex-1"><p className="line-clamp-3 text-sm text-muted-foreground">{card.description || t('social.events.empty_description')}</p></CardContent>
-      <CardFooter className="flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onEdit}>{t('common.edit')}</Button>
-        {card.status !== 'published' ? <Button type="button" size="sm" onClick={() => run('social:event-cards:publish', { cardId: card.id })}>{t('social.events.publish')}</Button> : <Button type="button" size="sm" variant="outline" onClick={() => exportCard('url')}><HugeiconsIcon icon={Copy01Icon} data-icon="inline-start" />{t('social.events.copy_url')}</Button>}
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => exportCard('qr-png')}><HugeiconsIcon icon={QrCodeIcon} /><span className="sr-only">{t('social.events.export_qr')}</span></Button>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => run('social:event-cards:archive', { cardId: card.id })}><HugeiconsIcon icon={Archive02Icon} /><span className="sr-only">{t('social.events.archive')}</span></Button>
-      </CardFooter>
-    </Card>
+      <Tabs defaultValue="info" className="flex min-h-0 flex-1 flex-col gap-0">
+        <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
+          <TabsTrigger value="info">{t('social.studio.crm.tab_info')}</TabsTrigger>
+          <TabsTrigger value="updates">{t('social.events.updates')}</TabsTrigger>
+          <TabsTrigger value="automations">{t('social.events.automations')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="info" className="min-h-0 flex-1 overflow-auto p-3">
+          <SectionCard title={t('social.events.details')}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ReadField label={t('social.events.title_label')} value={card.title} />
+              <ReadField label={t('social.events.organizer')} value={card.organizer || ''} />
+              <ReadField label={t('social.events.venue')} value={card.venueName || ''} />
+              <ReadField label={t('social.events.timezone')} value={card.timezone} />
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {card.description || t('social.events.empty_description')}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                run('social:event-cards:archive', { cardId: card.id }).catch(() => {});
+              }}
+            >
+              <HugeiconsIcon icon={Archive02Icon} data-icon="inline-start" />
+              {t('social.events.archive')}
+            </Button>
+          </SectionCard>
+        </TabsContent>
+        <TabsContent value="updates" className="min-h-0 flex-1 overflow-auto p-3">
+          <UpdatesStudio cards={cards} lockedCardId={card.id} />
+        </TabsContent>
+        <TabsContent value="automations" className="min-h-0 flex-1 overflow-auto p-3">
+          <AutomationsStudio cards={cards} accounts={accounts} posts={posts} lockedCardId={card.id} />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -203,13 +308,33 @@ export function SocialEventEditor({ card, onClose, onSaved }: { card: SocialEven
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b px-4 py-3 lg:px-6"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">{t('social.studio.events.editor_eyebrow')}</p><h2 className="font-heading text-xl font-semibold">{card ? t('social.events.edit') : t('social.events.create')}</h2></div><div className="flex gap-2"><Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button type="button" onClick={() => save()} disabled={saving}>{saving ? <Spinner data-icon="inline-start" /> : null}{t('common.save')}</Button></div></header>
+      <header className="flex items-center justify-between gap-4 border-b px-4 py-3">
+        <h2 className="text-base font-semibold">{card ? t('social.events.edit') : t('social.events.create')}</h2>
+        <div className="flex gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button type="button" onClick={() => { save().catch(() => {}); }} disabled={saving}>
+            {saving ? <Spinner data-icon="inline-start" /> : null}
+            {t('common.save')}
+          </Button>
+        </div>
+      </header>
       <div className="grid min-h-0 flex-1 overflow-auto xl:grid-cols-[minmax(0,1fr)_26rem]">
         <main className="mx-auto w-full max-w-3xl p-4 lg:p-6">
           {error ? <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert> : null}
           <Card><CardHeader><CardTitle>{t('social.events.details')}</CardTitle><CardDescription>{t('social.studio.events.editor_description')}</CardDescription></CardHeader><CardContent><FieldGroup><div className="grid gap-4 md:grid-cols-2"><EventField id="event-internal" label={t('social.events.internal_name')} value={form.internalName} onChange={(value) => update('internalName', value)} /><EventField id="event-title" label={t('social.events.title_label')} value={form.title} onChange={(value) => update('title', value)} /><Field className="md:col-span-2"><FieldLabel htmlFor="event-description">{t('social.events.description_label')}</FieldLabel><Textarea id="event-description" value={form.description} onChange={(event) => update('description', event.target.value)} /></Field><EventField id="event-organizer" label={t('social.events.organizer')} value={form.organizer} onChange={(value) => update('organizer', value)} /><EventField id="event-timezone" label={t('social.events.timezone')} value={form.timezone} onChange={(value) => update('timezone', value)} /><EventField id="event-start" type="datetime-local" label={t('social.events.starts_at')} value={form.startsAt} onChange={(value) => update('startsAt', value)} /><EventField id="event-end" type="datetime-local" label={t('social.events.ends_at')} value={form.endsAt} onChange={(value) => update('endsAt', value)} /><EventField id="event-venue" label={t('social.events.venue')} value={form.venueName} onChange={(value) => update('venueName', value)} /><EventField id="event-address" label={t('social.events.address')} value={form.address} onChange={(value) => update('address', value)} /><EventField id="event-cta-label" label={t('social.events.cta_label')} value={form.ctaLabel} onChange={(value) => update('ctaLabel', value)} /><EventField id="event-cta-url" label={t('social.events.cta_url')} value={form.ctaUrl} onChange={(value) => update('ctaUrl', value)} /></div></FieldGroup></CardContent></Card>
         </main>
-        <aside className="hidden border-l bg-muted/30 p-6 xl:block"><p className="mb-4 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{t('social.events.preview')}</p><div className="flex aspect-[4/5] flex-col justify-between rounded-3xl bg-card p-7 shadow-sm ring-1 ring-foreground/10"><Badge variant="outline" className="w-fit">{form.organizer || t('social.events.brand')}</Badge><div className="flex flex-col gap-3"><p className="font-heading text-3xl font-semibold tracking-tight">{form.title || t('social.events.preview_title')}</p><p className="text-sm text-muted-foreground">{form.description || t('social.events.preview_cover_placeholder')}</p><p className="text-sm font-medium">{form.startsAt ? new Date(form.startsAt).toLocaleString() : '—'}</p><Badge variant="mint" className="w-fit">{form.venueName || form.timezone}</Badge></div></div></aside>
+        <aside className="hidden border-l bg-muted/30 p-6 xl:block">
+          <p className="mb-4 text-xs text-muted-foreground">{t('social.events.preview')}</p>
+          <div className="flex aspect-[4/5] flex-col justify-between rounded-lg border bg-card p-6">
+            <Badge variant="outline" className="w-fit">{form.organizer || t('social.events.brand')}</Badge>
+            <div className="flex flex-col gap-3">
+              <p className="text-xl font-semibold">{form.title || t('social.events.preview_title')}</p>
+              <p className="text-sm text-muted-foreground">{form.description || t('social.events.preview_cover_placeholder')}</p>
+              <p className="text-sm font-medium">{form.startsAt ? new Date(form.startsAt).toLocaleString() : '—'}</p>
+              <Badge variant="secondary" className="w-fit">{form.venueName || form.timezone}</Badge>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );
@@ -219,9 +344,9 @@ function EventField({ id, label, value, onChange, type = 'text' }: { id: string;
   return <Field><FieldLabel htmlFor={id}>{label}</FieldLabel><Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></Field>;
 }
 
-function UpdatesStudio({ cards }: { cards: SocialEventCard[] }) {
+function UpdatesStudio({ cards, lockedCardId }: { cards: SocialEventCard[]; lockedCardId?: string }) {
   const { t } = useTranslation();
-  const [cardId, setCardId] = useState(cards[0]?.id ?? '');
+  const [cardId, setCardId] = useState(lockedCardId ?? cards[0]?.id ?? '');
   const [updates, setUpdates] = useState<SocialEventUpdate[]>([]);
   const [message, setMessage] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -272,10 +397,12 @@ function UpdatesStudio({ cards }: { cards: SocialEventCard[] }) {
         </CardHeader>
         <CardContent>
           <FieldGroup>
+            {lockedCardId ? null : (
             <Field>
               <FieldLabel>{t('social.events.cards')}</FieldLabel>
               <CardPicker cards={cards} value={cardId} onChange={setCardId} />
             </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="event-update-message">{t('social.events.update_message')}</FieldLabel>
               <Textarea
@@ -350,10 +477,12 @@ function AutomationsStudio({
   cards,
   accounts,
   posts,
+  lockedCardId,
 }: {
   cards: SocialEventCard[];
   accounts: SocialAccount[];
   posts: SocialPost[];
+  lockedCardId?: string;
 }) {
   const { t } = useTranslation();
   const instagram = accounts.filter(
@@ -361,7 +490,7 @@ function AutomationsStudio({
   );
   const [rules, setRules] = useState<SocialDmRule[]>([]);
   const [accountId, setAccountId] = useState(instagram[0]?.id ?? '');
-  const [cardId, setCardId] = useState(cards[0]?.id ?? '');
+  const [cardId, setCardId] = useState(lockedCardId ?? cards[0]?.id ?? '');
   const [postId, setPostId] = useState('');
   const [keyword, setKeyword] = useState('');
   const [template, setTemplate] = useState('');
@@ -440,10 +569,12 @@ function AutomationsStudio({
                 </SelectContent>
               </Select>
             </Field>
+            {lockedCardId ? null : (
             <Field>
               <FieldLabel>{t('social.events.cards')}</FieldLabel>
               <CardPicker cards={cards} value={cardId} onChange={setCardId} />
             </Field>
+            )}
             <Field>
               <FieldLabel>{t('social.events.publication')}</FieldLabel>
               <Select
@@ -581,7 +712,7 @@ function AutomationsStudio({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={rule.status === 'active' ? 'mint' : 'outline'}>
+                      <Badge variant={rule.status === 'active' ? 'secondary' : 'outline'}>
                         {t(`social.events.status_${rule.status}`)}
                       </Badge>
                     </TableCell>

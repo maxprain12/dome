@@ -406,6 +406,23 @@ function lastRawUserMessage(messages) {
   return null;
 }
 
+const DOME_PINS_CUSTOM_TYPE = 'dome.pins';
+
+async function persistDomePins(session, lastRaw) {
+  const pins = lastRaw?.pinnedResources;
+  if (!session || !Array.isArray(pins) || pins.length === 0) return;
+  try {
+    const ctx = await session.buildContext();
+    const lastUser = [...(ctx.messages ?? [])].reverse().find((m) => m && m.role === 'user');
+    await session.appendCustomEntry(DOME_PINS_CUSTOM_TYPE, {
+      messageTimestamp: typeof lastUser?.timestamp === 'number' ? lastUser.timestamp : Date.now(),
+      pinnedResources: pins,
+    });
+  } catch (err) {
+    console.warn('[AgentRuntime] dome.pins persist skipped:', err?.message || err);
+  }
+}
+
 function detectHarmfulContent(text) {
   if (!text || typeof text !== 'string') return null;
   for (const pattern of HARMFUL_PATTERNS) {
@@ -937,6 +954,25 @@ async function setupHarness(surface, opts) {
       nativeWeb: nativeWeb.search || nativeWeb.fetch ? nativeWeb : undefined,
     },
     getApiKeyAndHeaders: async () => {
+      try {
+        const { resolveRequestAuth } = require('../ai/resolve-request-auth.cjs');
+        const resolved = await resolveRequestAuth(ai, {
+          provider,
+          resolvedModel,
+          apiKey,
+          database,
+        });
+        if (resolved?.apiKey || resolved?.headers) {
+          const headers = { ...(resolvedModel.headers || {}), ...(resolved.headers || {}) };
+          if (provider === 'copilot' || resolvedModel.provider === 'github-copilot') {
+            const { COPILOT_HEADERS } = require('../auth/github-copilot-oauth.cjs');
+            return { apiKey: resolved.apiKey || apiKey, headers: { ...COPILOT_HEADERS, ...headers } };
+          }
+          return { apiKey: resolved.apiKey || apiKey, headers };
+        }
+      } catch (err) {
+        console.warn('[AgentRuntime] resolveProviderAuth failed, using captured key:', err?.message || err);
+      }
       if (!apiKey) return undefined;
       if (provider === 'copilot' || resolvedModel.provider === 'github-copilot') {
         const { COPILOT_HEADERS } = require('../auth/github-copilot-oauth.cjs');
@@ -1410,7 +1446,7 @@ async function runDomeAgent(surface, opts) {
   if (guardrailReason !== null) return guardrailReason;
 
   const setup = await setupHarness(surface, opts);
-  const { harness, threadId, cleanup } = setup;
+  const { harness, threadId, cleanup, session } = setup;
 
   try {
     await tryEmitBudgetSafely(setup, opts, 'budget telemetry skipped');
@@ -1428,6 +1464,7 @@ async function runDomeAgent(surface, opts) {
   } catch (err) {
     return handleRunError(err, threadId, opts);
   } finally {
+    await persistDomePins(session, lastRaw);
     cleanup();
   }
 }

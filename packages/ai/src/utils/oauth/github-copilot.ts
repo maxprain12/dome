@@ -2,7 +2,7 @@
  * GitHub Copilot OAuth flow
  */
 
-import { getModels } from "../../models.js";
+import { getBuiltinModels as getModels } from "../../providers/all.js";
 import type { Api, Model } from "../../types.js";
 import { pollOAuthDeviceCodeFlow } from "./device-code.js";
 import type { OAuthCredentials, OAuthDeviceCodeInfo, OAuthLoginCallbacks, OAuthProviderInterface } from "./types.js";

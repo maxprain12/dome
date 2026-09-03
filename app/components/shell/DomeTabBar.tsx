@@ -476,7 +476,7 @@ export default function DomeTabBar({ onNewChat }: { onNewChat?: () => void }) {
           tabIndex={-1}
           onKeyDown={handleTablistKeyDown}
           className={cn(
-            'flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            'flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             fade.left && '[mask-image:linear-gradient(to_right,transparent,black_16px,black_100%)]',
             fade.right && '[mask-image:linear-gradient(to_right,black_0,black_calc(100%_-_16px),transparent_100%)]',
             fade.left && fade.right && '[mask-image:linear-gradient(to_right,transparent_0,black_16px,black_calc(100%_-_16px),transparent_100%)]',
