@@ -324,10 +324,19 @@ function handleThinkingChunk(data, runId, context, heartbeat) {
   patchRun(runId, { lastHeartbeatAt: heartbeat });
 }
 
+function applyTextDelta(current, delta) {
+  if (!delta) return current;
+  if (!current) return delta;
+  if (delta === current) return current;
+  if (delta.startsWith(current)) return delta;
+  if (current.startsWith(delta)) return current;
+  return current + delta;
+}
+
 function handleTextChunk(data, runId, context, heartbeat) {
   if (!data.text) return;
   transitionUiPhaseFromChunk(runId, context, 'text');
-  context.fullResponse += data.text;
+  context.fullResponse = applyTextDelta(context.fullResponse || '', data.text);
   emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: data.text });
   // Feed chunk to streaming TTS if this run requested autoSpeak
   if (context.autoSpeak) {

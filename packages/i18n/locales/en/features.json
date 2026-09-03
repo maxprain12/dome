@@ -1,10 +1,11 @@
 {
   "title": "Features",
   "subtitle": "Show or hide sections of Dome. Hidden sections can be turned back on here anytime.",
-  "current_role": "Profile",
+  "current_role": "Edition",
   "no_role": "None",
-  "reset_hint": "Reset visibility to your role's defaults.",
-  "reset_button": "Reset to role defaults",
+  "switch_hint": "Switching edition resets the sidebar to that edition's defaults. Your library is unchanged.",
+  "reset_hint": "Restore this edition's default sections.",
+  "reset_button": "Reset to edition defaults",
   "hidden_notice": "{{n}} hidden · Settings",
   "hidden_notice_title": "You have hidden sections. Manage them in Settings → Features.",
   "groups": {
@@ -49,6 +50,10 @@
     "social": {
       "label": "Social media",
       "desc": "Manage LinkedIn, Instagram and X content."
+    },
+    "people": {
+      "label": "Contacts",
+      "desc": "Contacts, leads, and identities from email, social, and GitHub."
     },
     "agents": {
       "label": "Agents",

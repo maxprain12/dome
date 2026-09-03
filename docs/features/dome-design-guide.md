@@ -2,7 +2,7 @@
 
 Documento de referencia para mantener coherencia entre la aplicación **Dome** (producto) y los **materiales de comunicación** (posts, presentaciones, gráficos). Los valores numéricos de color y tipografía provienen de `app/globals.css` y la hoja corporativa Dome.
 
-**Canon cross-repo:** [docs/brand/](../brand/) — landing (`landing-page-dome`) y **Dome Provider** deben seguir estos tokens (chrome `#F2F2F2`, forest `#4A5D3F`, Inter). Boards: `docs/brand/dome-brand-kit-overview.png`, `docs/brand/dome-brand-kit-applications.png`.
+**Canon cross-repo:** [docs/brand/](../brand/) — landing (`landing-page-dome`) y **Dome Provider** deben seguir estos tokens (chrome `#F4F4F5`, ink `#27272A`, Inter). Boards: `docs/brand/dome-brand-kit-overview.png`, `docs/brand/dome-brand-kit-applications.png`. Si esos repos tienen hex propios, queda fuera de este documento.
 
 ---
 
@@ -32,22 +32,22 @@ Documento de referencia para mantener coherencia entre la aplicación **Dome** (
 
 ## 3. Paleta de color oficial
 
-Identidad **forest / lime / mint / lavender**. No usar paletas moradas antiguas ni azules genéricos salvo campañas puntuales.
+Identidad **Neutral / zinc** (chroma ~0). Lime / mint / lavender solo para el símbolo Many y tintes raros. No usar paletas moradas antiguas ni azules genéricos salvo campañas puntuales.
 
 ### 3.1 Tema claro
 
 | Rol | Variable CSS | Hex | Uso |
 |-----|--------------|-----|-----|
-| Texto / ink | `--foreground` | `#1A1A1A` | Titulares, cuerpo |
-| Texto muted | `--muted-foreground` | `#8C8C8C` | Metadatos |
-| Fondo chrome | `--background` | `#F2F2F2` | Fondo app / carrusel |
-| Superficie | `--card` | `#FFFFFF` | Cards, paneles |
-| Primary / CTA | `--primary` | `#4A5D3F` | Botones, wordmark, iconos activos |
-| Hover | `--primary-hover` | `#5E7153` | Hover de CTA |
-| Lime | `--brand-lime` | `#DDE9B2` | Chips, soft buttons, cards tinted |
-| Mint | `--brand-mint` | `#EEF5E0` | Hover soft, fondos sutiles |
-| Lavender | `--brand-lavender` | `#CFD1EB` | Acento secundario / tags |
-| Borde | `--border` | `#D9D9D9` | Separadores |
+| Texto / ink | `--foreground` | `#27272A` | Titulares, cuerpo |
+| Texto muted | `--muted-foreground` | `#71717A` | Metadatos |
+| Fondo chrome | `--background` | `#F4F4F5` | Fondo app / carrusel |
+| Superficie | `--card` | `#FAFAFA` | Cards, paneles |
+| Primary / CTA | `--primary` | `#27272A` | Botones, wordmark, iconos activos |
+| Hover | `--primary-hover` | `#3F3F46` | Hover de CTA |
+| Lime | `--brand-lime` | `#DDE9B2` | Many mark, chips raros |
+| Mint | `--brand-mint` | `#EEF5E0` | Tintes raros / hover soft |
+| Lavender | `--brand-lavender` | `#CFD1EB` | Tintes raros / tags |
+| Borde | `--border` | `#E4E4E7` | Separadores |
 | Éxito | `--success` | `#5B8F42` | Estados positivos |
 | Error | `--destructive` | `#BD3F32` | Alertas reales |
 
@@ -55,20 +55,22 @@ Identidad **forest / lime / mint / lavender**. No usar paletas moradas antiguas 
 
 | Rol | Hex |
 |-----|-----|
-| Fondo | `#141612` |
-| Superficie | `#1C1F1A` |
-| Texto | `#F2F2F0` |
-| Primary (sage) | `#A8B89A` |
-| Primary hover | `#B8C6AA` |
+| Fondo | `#18181B` |
+| Superficie | `#27272A` |
+| Texto | `#FAFAFA` |
+| Primary (ink inverted) | `#FAFAFA` |
+| Primary hover | `#FFFFFF` |
 | Lime / mint / lavender | `#3A4228` / `#2A3020` / `#2E2F3A` |
+| Border | `oklch(1 0 0 / 10%)` |
 | Destructive | `#E07066` |
 | Success | `#8FBC6E` |
 
 ### 3.3 Reglas rápidas
 
-- **Primario marca:** forest `#4A5D3F` sobre `#F2F2F2` o blanco.
-- **Suaves:** lime / mint como fondos de etiqueta, no como texto largo.
-- **Botones:** pill; primary solid; secondary/outline con borde forest; soft = lime.
+- **Primario marca:** ink `#27272A` sobre `#F4F4F5` / `#FAFAFA`.
+- **Suaves:** lime / mint solo como tintes raros o Many, no como texto largo.
+- **Botones:** pill; primary solid ink; secondary/outline con borde; soft = lime.
+- **Profundidad:** borde + un escalón de surface. Sin drop-shadow.
 - **Exportación:** comprobar contraste (WebAIM, Stark, etc.).
 
 ---
@@ -111,9 +113,13 @@ Controles y listas densas: `text-xs` / `text-sm` de shadcn. No aplicar H1 40px a
 |------------|-------------|
 | Botones / chips | `rounded-full` (pill) |
 | Inputs | `rounded-md` (~8–10px) |
-| Cards | `rounded-2xl` (~16–22px con `--radius: 0.75rem`) |
+| Cards | `rounded-2xl` |
 
-### 5.3 Motion
+### 5.3 Profundidad
+
+Sin sombras. `--shadow-*` = `none` (las clases Tailwind `shadow-sm` / `md` / `lg` no pintan nada). Elevación = `border` + un escalón de `--card` sobre `--background`. Conservar anillos de foco (`0 0 0 2px var(--ring)`).
+
+### 5.4 Motion
 
 Tokens en `globals.css`: `--ease-out`, `--duration-press` (150ms), `--duration-popover` (200ms), `--duration-overlay` (250ms). Overlays shadcn y `Button` press los usan. Respetar `prefers-reduced-motion`.
 
@@ -127,8 +133,9 @@ Ver implementación en `app/components/ui/button.tsx`, `badge.tsx`, `card.tsx` y
 
 ## 7. Checklist para piezas estáticas
 
-- [ ] Forest `#4A5D3F` como acento principal (no morado legacy)
+- [ ] Ink zinc `#27272A` como acento principal (no forest legacy, no morado)
 - [ ] Inter en títulos y cuerpo
-- [ ] Contraste AA en texto sobre fondos lime/mint
+- [ ] Contraste AA: `#27272A` sobre `#F4F4F5`; `#FAFAFA` sobre `#18181B`
 - [ ] Botones con forma pill en mockups de UI
-- [ ] Dark: sage `#A8B89A`, no primary blanco puro
+- [ ] Sin drop-shadow; profundidad por borde / surface
+- [ ] Dark: ink invertido `#FAFAFA`, no oliva `#141612`

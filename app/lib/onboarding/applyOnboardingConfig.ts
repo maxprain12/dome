@@ -2,13 +2,13 @@
  * Onboarding orchestrator.
  *
  * Runs after the wizard finishes. Applies everything the user implicitly chose
- * via their role + free-text: profile, agent soul/memory, feature visibility,
+ * via their edition + free-text: profile, agent soul/memory, feature visibility,
  * and recommended skills. Every step is best-effort and isolated in try/catch —
  * a failure in one (e.g. skills install needs nothing here but personality IPC
  * could be unavailable) must never block onboarding from completing.
  */
 
-import { getRolePreset, type RoleSoulContext } from './roles';
+import { getRolePreset, resolveEditionId, type RoleSoulContext } from './roles';
 import { useFeaturesStore } from '@/lib/store/useFeaturesStore';
 import { useUserStore } from '@/lib/store/useUserStore';
 
@@ -20,12 +20,12 @@ export interface OnboardingConfigInput {
 }
 
 /** USER.md content — identity Dome injects into the agent's context. */
-function buildUserMd(ctx: RoleSoulContext, roleId: string): string {
+function buildUserMd(ctx: RoleSoulContext, editionId: string): string {
   const focus = ctx.freeText.trim();
   return `# User
 
 **Name:** ${ctx.name || '—'}
-**Primary focus (onboarding role):** ${roleId}
+**Dome edition:** ${editionId}
 
 ## About
 ${focus.length > 0 ? focus : 'No additional description provided during onboarding.'}
@@ -37,55 +37,46 @@ ${focus.length > 0 ? focus : 'No additional description provided during onboardi
 
 export async function applyOnboardingConfig(input: OnboardingConfigInput): Promise<void> {
   const { name, email, roleId, freeText } = input;
+  const editionId = resolveEditionId(roleId);
   const ctx: RoleSoulContext = { name, freeText };
-  const preset = getRolePreset(roleId);
+  const preset = getRolePreset(editionId);
 
-  // 1) Profile (name/email) — via the user store so UI stays in sync.
   try {
     await useUserStore.getState().updateUserProfile({ name, email });
   } catch (err) {
     console.warn('[onboarding] updateUserProfile failed:', err);
   }
 
-  // 2) Agent identity + soul.
   try {
-    await window.electron?.personality?.writeFile('USER.md', buildUserMd(ctx, roleId));
+    await window.electron?.personality?.writeFile('USER.md', buildUserMd(ctx, editionId));
   } catch (err) {
     console.warn('[onboarding] write USER.md failed:', err);
   }
-  if (preset) {
-    try {
-      await window.electron?.personality?.writeFile('SOUL.md', preset.buildSoul(ctx));
-    } catch (err) {
-      console.warn('[onboarding] write SOUL.md failed:', err);
-    }
-    // 3) Seed long-term memory.
-    try {
-      await window.electron?.personality?.addMemory(preset.buildMemorySeed(ctx));
-    } catch (err) {
-      console.warn('[onboarding] addMemory failed:', err);
-    }
-  }
-
-  // 4) Feature visibility from the role preset.
   try {
-    await useFeaturesStore.getState().applyRolePreset(roleId);
+    await window.electron?.personality?.writeFile('SOUL.md', preset.buildSoul(ctx));
   } catch (err) {
-    console.warn('[onboarding] applyRolePreset failed:', err);
+    console.warn('[onboarding] write SOUL.md failed:', err);
+  }
+  try {
+    await window.electron?.personality?.addMemory(preset.buildMemorySeed(ctx));
+  } catch (err) {
+    console.warn('[onboarding] addMemory failed:', err);
   }
 
-  // 5) Recommended bundled skills (best-effort, offline, non-blocking).
-  if (preset) {
-    for (const skill of preset.recommendedSkills) {
-      try {
-        await window.electron?.invoke('skills:installBundled', skill.bundledId);
-      } catch (err) {
-        console.warn(`[onboarding] install skill ${skill.bundledId} failed:`, err);
-      }
+  try {
+    await useFeaturesStore.getState().applyEdition(editionId);
+  } catch (err) {
+    console.warn('[onboarding] applyEdition failed:', err);
+  }
+
+  for (const skill of preset.recommendedSkills) {
+    try {
+      await window.electron?.invoke('skills:installBundled', skill.bundledId);
+    } catch (err) {
+      console.warn(`[onboarding] install skill ${skill.bundledId} failed:`, err);
     }
   }
 
-  // 6) Mark onboarding complete (keeps the user store flag in sync).
   try {
     await useUserStore.getState().completeOnboarding();
   } catch (err) {

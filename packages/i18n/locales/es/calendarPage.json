@@ -49,11 +49,11 @@
   "link_resource": "Vincular recurso",
   "open_in_github": "Abrir en GitHub",
   "open_in_social": "Abrir en Social",
-  "people_section": "Personas",
-  "people_empty": "Aún no hay personas vinculadas.",
-  "link_person": "Vincular persona",
-  "people_search_placeholder": "Buscar personas…",
-  "people_no_results": "No se encontraron personas",
-  "people_unknown": "Persona desconocida",
-  "remove_person": "Quitar persona"
+  "people_section": "Contactos",
+  "people_empty": "Aún no hay contactos vinculados.",
+  "link_person": "Vincular contacto",
+  "people_search_placeholder": "Buscar contactos…",
+  "people_no_results": "No se encontraron contactos",
+  "people_unknown": "Contacto desconocido",
+  "remove_person": "Quitar contacto"
 }

@@ -1,36 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Alert02Icon,
-  Building2Icon,
-  CheckmarkCircle02Icon,
   Copy01Icon,
-  InstagramIcon,
   Key01Icon,
-  Linkedin01Icon,
   RefreshIcon,
   Settings01Icon,
-  TwitterIcon,
 } from '@hugeicons/core-free-icons';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -46,12 +27,19 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialAccount, SocialProvider } from '@/components/social/socialTypes';
-import { cn } from '@/lib/utils';
+import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { ActionIcon, ProviderMark, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
+import {
+  SocialDirectoryColumn,
+  SocialDirectoryRow,
+  SocialFichaEmpty,
+  SocialHubSplit,
+} from '@/components/social/workspace/SocialDirectoryColumn';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ProviderStatus {
   provider: SocialProvider;
@@ -62,12 +50,6 @@ interface ProviderStatus {
   redirectUri: string;
   orgEnabled?: boolean;
 }
-
-const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
-  linkedin: Linkedin01Icon,
-  instagram: InstagramIcon,
-  x: TwitterIcon,
-};
 
 const PROVIDER_NAMES: Record<SocialProvider, string> = {
   linkedin: 'LinkedIn',
@@ -85,6 +67,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ProviderStatus | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [statusResponse, accountsResponse] = await Promise.all([
@@ -118,96 +101,101 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
   if (loading) {
     return (
       <div className="flex min-h-64 items-center justify-center">
-        <Spinner className="text-primary" />
+        <Spinner />
       </div>
     );
   }
 
-  const activeCount = accounts.filter((account) => account.status === 'active').length;
+  const rows: Array<
+    | { key: string; kind: 'account'; account: SocialAccount }
+    | { kind: 'provider'; key: string; provider: ProviderStatus }
+  > = [
+    ...accounts.map((account) => ({ key: `acc:${account.id}`, kind: 'account' as const, account })),
+    ...providers
+      .filter((provider) => !accounts.some((account) => account.provider === provider.provider))
+      .map((provider) => ({ key: `prov:${provider.provider}`, kind: 'provider' as const, provider })),
+  ];
+  const selected =
+    rows.find((row) => row.key === selectedKey) ?? null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-      <div
-        className={cn(
-          'flex w-full flex-col gap-6',
-          embedded ? 'p-4 lg:p-6' : 'mx-auto max-w-5xl p-6',
-        )}
-      >
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-primary">
-              <HugeiconsIcon icon={Settings01Icon} />
-              <span className="text-xs font-medium uppercase tracking-[0.16em]">
-                {t('social.studio.accounts.eyebrow')}
-              </span>
-            </div>
-            <h2 className="font-heading text-2xl font-semibold tracking-tight">
-              {t('social.studio.accounts.title')}
-            </h2>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {t('social.studio.accounts.description')}
-            </p>
-          </div>
-          <Badge variant={activeCount > 0 ? 'mint' : 'outline'}>
-            {t('social.studio.accounts.connected_count', { count: activeCount })}
-          </Badge>
-        </header>
-
-        {!encryptionAvailable ? (
-          <Alert variant="destructive">
-            <HugeiconsIcon icon={Alert02Icon} />
-            <AlertTitle>{t('social.settings.no_encryption')}</AlertTitle>
-            <AlertDescription>{t('social.settings.no_encryption')}</AlertDescription>
-          </Alert>
-        ) : null}
-        {error ? (
-          <Alert variant="destructive">
-            <HugeiconsIcon icon={Alert02Icon} />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {providers.map((provider) => (
-            <ProviderCard
-              key={provider.provider}
-              provider={provider}
-              accounts={accounts.filter((account) => account.provider === provider.provider)}
-              hasSocialCloud={cloudEntitlements.hasSocialCloud}
-              onConfigure={() => setEditing(provider)}
-              onChanged={load}
-              onError={setError}
-            />
-          ))}
-        </div>
-
-        <Card size="sm">
-          <CardHeader className="border-b">
-            <CardTitle>{t('social.settings.oauth_port')}</CardTitle>
-            <CardDescription>{t('social.settings.oauth_port_hint')}</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <Field className="min-w-40 flex-1">
-                <FieldLabel htmlFor="social-studio-oauth-port">
-                  {t('social.settings.oauth_port')}
-                </FieldLabel>
-                <Input
-                  id="social-studio-oauth-port"
-                  type="number"
-                  value={oauthPort}
-                  onChange={(event) => setOauthPort(Number(event.target.value) || 8737)}
-                  className="max-w-40"
+    <div className={embedded ? 'flex min-h-0 flex-1 overflow-hidden' : 'flex h-full min-h-0 flex-col'}>
+      <SocialHubSplit>
+        <SocialDirectoryColumn
+          title={t('social.studio.nav.accounts')}
+          empty={
+            rows.length === 0
+              ? {
+                  icon: <HugeiconsIcon icon={Settings01Icon} className="size-8" />,
+                  title: t('social.studio.accounts.not_connected'),
+                  description: t('social.studio.accounts.description'),
+                }
+              : undefined
+          }
+        >
+          <ul className="flex flex-col">
+            {rows.map((row) =>
+              row.kind === 'account' ? (
+                <SocialDirectoryRow
+                  key={row.key}
+                  selected={selectedKey === row.key}
+                  onClick={() => setSelectedKey(row.key)}
+                  mark={<ProviderMark provider={row.account.provider} />}
+                  title={socialAccountLabel(row.account)}
+                  subtitle={PROVIDER_NAMES[row.account.provider]}
                 />
-              </Field>
-              <Button type="button" variant="outline" size="sm" onClick={() => savePort()}>
-                {t('social.settings.save')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
+              ) : (
+                <SocialDirectoryRow
+                  key={row.key}
+                  selected={selectedKey === row.key}
+                  onClick={() => setSelectedKey(row.key)}
+                  mark={<ProviderMark provider={row.provider.provider} />}
+                  title={PROVIDER_NAMES[row.provider.provider]}
+                  subtitle={t('social.studio.accounts.not_connected')}
+                />
+              ),
+            )}
+          </ul>
+        </SocialDirectoryColumn>
+        {selected?.kind === 'account' ? (
+          <AccountFicha
+            account={selected.account}
+            provider={providers.find((item) => item.provider === selected.account.provider) ?? null}
+            hasSocialCloud={cloudEntitlements.hasSocialCloud}
+            oauthPort={oauthPort}
+            onOauthPort={setOauthPort}
+            onSavePort={() => { savePort().catch(() => {}); }}
+            encryptionAvailable={encryptionAvailable}
+            error={error}
+            onConfigure={() => {
+              const provider = providers.find((item) => item.provider === selected.account.provider);
+              if (provider) setEditing(provider);
+            }}
+            onChanged={load}
+            onError={setError}
+          />
+        ) : selected?.kind === 'provider' ? (
+          <AccountFicha
+            account={null}
+            provider={selected.provider}
+            hasSocialCloud={cloudEntitlements.hasSocialCloud}
+            oauthPort={oauthPort}
+            onOauthPort={setOauthPort}
+            onSavePort={() => { savePort().catch(() => {}); }}
+            encryptionAvailable={encryptionAvailable}
+            error={error}
+            onConfigure={() => setEditing(selected.provider)}
+            onChanged={load}
+            onError={setError}
+          />
+        ) : (
+          <SocialFichaEmpty
+            icon={<HugeiconsIcon icon={Settings01Icon} className="size-8" />}
+            title={t('social.studio.crm.detail_empty_account')}
+            description={t('social.studio.crm.detail_empty_account_hint')}
+          />
+        )}
+      </SocialHubSplit>
       <ProviderConfigurationDialog
         provider={editing}
         accounts={editing ? accounts.filter((account) => account.provider === editing.provider) : []}
@@ -222,117 +210,151 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
   );
 }
 
-function ProviderCard({
+function AccountFicha({
+  account,
   provider,
-  accounts,
   hasSocialCloud,
+  oauthPort,
+  onOauthPort,
+  onSavePort,
+  encryptionAvailable,
+  error,
   onConfigure,
   onChanged,
   onError,
 }: {
-  provider: ProviderStatus;
-  accounts: SocialAccount[];
+  account: SocialAccount | null;
+  provider: ProviderStatus | null;
   hasSocialCloud: boolean;
+  oauthPort: number;
+  onOauthPort: (port: number) => void;
+  onSavePort: () => void;
+  encryptionAvailable: boolean;
+  error: string | null;
   onConfigure: () => void;
   onChanged: () => Promise<void>;
   onError: (message: string | null) => void;
 }) {
   const { t } = useTranslation();
-  const icon = PROVIDER_ICONS[provider.provider];
-  const toggleCloud = async (accountId: string, enabled: boolean) => {
-    const response = await window.electron.socialCloud?.setCloudPublishing?.({ accountId, enabled });
-    if (!response?.success) onError(response?.error || t('social.settings.cloud_publishing_error'));
-    await onChanged();
-  };
-  const disconnect = async (accountId: string) => {
-    const response = await window.electron.invoke('social:disconnect', { accountId });
+  const unavailable = t('social.studio.crm.unavailable');
+  const network = account?.provider ?? provider?.provider;
+  const title = account ? socialAccountLabel(account) : network ? PROVIDER_NAMES[network] : t('social.studio.nav.accounts');
+
+  const disconnect = async () => {
+    if (!account) return;
+    const response = await window.electron.invoke('social:disconnect', { accountId: account.id });
     if (!response?.success) onError(response?.error || 'Error');
     await onChanged();
   };
-
-  const isActive = accounts.some((account) => account.status === 'active');
+  const toggleCloud = async (enabled: boolean) => {
+    if (!account) return;
+    const response = await window.electron.socialCloud?.setCloudPublishing?.({ accountId: account.id, enabled });
+    if (!response?.success) onError(response?.error || t('social.settings.cloud_publishing_error'));
+    await onChanged();
+  };
 
   return (
-    <Card className="flex min-h-64 flex-col">
-      <CardHeader className="border-b pb-(--card-spacing)">
-        <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-muted text-primary">
-          <HugeiconsIcon icon={icon} />
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
+        {network ? <ProviderMark provider={network} className="size-10 text-sm" /> : null}
+        <div className="flex max-w-full flex-col items-center gap-1 text-center">
+          <div className="flex max-w-full items-center gap-2">
+            <h2 className={hubFichaTitleClass}>{title}</h2>
+            <Badge variant={account?.status === 'active' ? 'lime' : 'outline'}>
+              {account
+                ? t(`social.studio.accounts.${account.status === 'active' ? 'active' : 'setup'}`)
+                : t('social.studio.accounts.setup')}
+            </Badge>
+          </div>
         </div>
-        <CardTitle className="text-base">{PROVIDER_NAMES[provider.provider]}</CardTitle>
-        <CardDescription>
-          {accounts.length
-            ? t('social.studio.accounts.connected_count', { count: accounts.length })
-            : t('social.studio.accounts.not_connected')}
-        </CardDescription>
-        <CardAction>
-          <Badge variant={isActive ? 'mint' : 'outline'}>
-            {isActive ? t('social.studio.accounts.active') : t('social.studio.accounts.setup')}
-          </Badge>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3 pt-4">
-        {accounts.map((account) => (
-          <div key={account.id} className="flex flex-col gap-2 rounded-xl bg-muted/50 p-3 ring-1 ring-foreground/5">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{socialAccountLabel(account)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {account.accountKind === 'organization'
-                    ? t('social.settings.account_kind_organization')
-                    : t('social.settings.account_kind_member')}
-                </p>
-              </div>
-              <HugeiconsIcon
-                icon={account.accountKind === 'organization' ? Building2Icon : CheckmarkCircle02Icon}
-                className={account.status === 'active' ? 'text-success' : 'text-destructive'}
+        <div className="flex items-center gap-1.5">
+          <ActionIcon
+            label={t('social.studio.accounts.configure', { provider: network ? PROVIDER_NAMES[network] : '' })}
+            available={Boolean(provider)}
+            unavailableLabel={unavailable}
+            icon={Settings01Icon}
+            onClick={onConfigure}
+          />
+        </div>
+      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-4 p-3">
+          {!encryptionAvailable ? (
+            <Alert variant="destructive">
+              <HugeiconsIcon icon={Alert02Icon} />
+              <AlertTitle>{t('social.settings.no_encryption')}</AlertTitle>
+              <AlertDescription>{t('social.settings.no_encryption')}</AlertDescription>
+            </Alert>
+          ) : null}
+          {error ? (
+            <Alert variant="destructive">
+              <HugeiconsIcon icon={Alert02Icon} />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          <SectionCard title={t('social.studio.crm.tab_info')}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ReadField
+                label={t('social.studio.nav.accounts')}
+                value={account ? socialAccountLabel(account) : t('social.studio.accounts.not_connected')}
+              />
+              <ReadField
+                label={t('social.settings.account_kind_member')}
+                value={
+                  account
+                    ? account.accountKind === 'organization'
+                      ? t('social.settings.account_kind_organization')
+                      : t('social.settings.account_kind_member')
+                    : ''
+                }
               />
             </div>
-            {hasSocialCloud && account.status === 'active' ? (
-              <Field orientation="horizontal">
+            {account && hasSocialCloud && account.status === 'active' ? (
+              <Field orientation="horizontal" className="mt-3">
                 <Checkbox
                   checked={Boolean(account.cloudPublishing)}
-                  onCheckedChange={(checked) => toggleCloud(account.id, checked)}
+                  onCheckedChange={(checked) => {
+                    toggleCloud(checked === true).catch(() => {});
+                  }}
                 />
                 <FieldLabel>{t('social.settings.cloud_publishing')}</FieldLabel>
               </Field>
             ) : null}
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              className="self-start"
-              onClick={() => disconnect(account.id)}
-            >
-              {t('social.settings.disconnect')}
-            </Button>
-          </div>
-        ))}
-        {!accounts.length ? (
-          <Collapsible className="rounded-xl bg-muted/40 ring-1 ring-foreground/5">
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
-              {t('social.studio.accounts.setup')}
-              <span className="text-[11px] font-normal">{t('social.studio.accounts.configure', { provider: PROVIDER_NAMES[provider.provider] })}</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="px-3 pb-3">
-              <Separator className="mb-2" />
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {t(`social.settings.hint_${provider.provider}`)}
+            {account ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  disconnect().catch(() => {});
+                }}
+              >
+                {t('social.settings.disconnect')}
+              </Button>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {network ? t(`social.settings.hint_${network}`) : null}
               </p>
-            </CollapsibleContent>
-          </Collapsible>
-        ) : null}
-      </CardContent>
-      <CardFooter className="mt-auto border-t pt-(--card-spacing)">
-        <Button
-          type="button"
-          variant={accounts.length ? 'outline' : 'default'}
-          className="w-full"
-          onClick={onConfigure}
-        >
-          {accounts.length ? t('social.studio.accounts.manage') : t('social.settings.connect')}
-        </Button>
-      </CardFooter>
-    </Card>
+            )}
+          </SectionCard>
+          <SectionCard title={t('social.settings.oauth_port')}>
+            <div className="flex flex-wrap items-end gap-2">
+              <Input
+                id="social-studio-oauth-port"
+                type="number"
+                value={oauthPort}
+                onChange={(event) => onOauthPort(Number(event.target.value) || 8737)}
+                className="max-w-40"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={onSavePort}>
+                {t('social.settings.save')}
+              </Button>
+            </div>
+          </SectionCard>
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 

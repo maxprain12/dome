@@ -23,44 +23,21 @@ if (typeof process !== "undefined" && (process.versions?.node || process.version
 	});
 }
 
-import type { KnownProvider } from "./types.js";
+import type { KnownProvider, ProviderEnv } from "./types.js";
+import { getProviderEnvValue } from "./utils/provider-env.js";
 
-let _procEnvCache: Map<string, string> | null = null;
-
-/**
- * Fallback for https://github.com/oven-sh/bun/issues/27802
- * Bun compiled binaries have an empty `process.env` inside sandbox
- * environments on Linux. We can recover the env from `/proc/self/environ`.
- */
-function getProcEnv(key: string): string | undefined {
-	if (!process.versions?.bun) return undefined;
-	if (typeof process === "undefined") return undefined;
-
-	// If process.env already has entries, the bug is not triggered.
-	if (Object.keys(process.env).length > 0) return undefined;
-
-	if (_procEnvCache === null) {
-		_procEnvCache = new Map();
-		try {
-			const { readFileSync } = require("node:fs") as typeof import("node:fs");
-			const data = readFileSync("/proc/self/environ", "utf-8");
-			for (const entry of data.split("\0")) {
-				const idx = entry.indexOf("=");
-				if (idx > 0) {
-					_procEnvCache.set(entry.slice(0, idx), entry.slice(idx + 1));
-				}
-			}
-		} catch {
-			// /proc/self/environ may not be readable.
-		}
-	}
-
-	return _procEnvCache.get(key);
-}
+export const ANTHROPIC_AUTH_TOKEN_ENV = "ANTHROPIC_AUTH_TOKEN";
+export const ANTHROPIC_OAUTH_TOKEN_ENV = "ANTHROPIC_OAUTH_TOKEN";
+export const ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY";
 
 let cachedVertexAdcCredentialsExists: boolean | null = null;
 
-function hasVertexAdcCredentials(): boolean {
+function hasVertexAdcCredentials(env?: ProviderEnv): boolean {
+	const explicitCredentialsPath = env?.GOOGLE_APPLICATION_CREDENTIALS;
+	if (explicitCredentialsPath) {
+		return _existsSync ? _existsSync(explicitCredentialsPath) : false;
+	}
+
 	if (cachedVertexAdcCredentialsExists === null) {
 		// If node modules haven't loaded yet (async import race at startup),
 		// return false WITHOUT caching so the next call retries once they're ready.
@@ -75,7 +52,7 @@ function hasVertexAdcCredentials(): boolean {
 		}
 
 		// Check GOOGLE_APPLICATION_CREDENTIALS env var first (standard way)
-		const gacPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || getProcEnv("GOOGLE_APPLICATION_CREDENTIALS");
+		const gacPath = getProviderEnvValue("GOOGLE_APPLICATION_CREDENTIALS", env);
 		if (gacPath) {
 			cachedVertexAdcCredentialsExists = _existsSync(gacPath);
 		} else {
@@ -93,13 +70,17 @@ function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
 		return ["COPILOT_GITHUB_TOKEN"];
 	}
 
-	// ANTHROPIC_OAUTH_TOKEN takes precedence over ANTHROPIC_API_KEY
+	// ANTHROPIC_AUTH_TOKEN participates in env discovery/status, but
+	// getEnvApiKey() skips it because requests must pass it as Authorization: Bearer.
 	if (provider === "anthropic") {
-		return ["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"];
+		return [ANTHROPIC_AUTH_TOKEN_ENV, ANTHROPIC_OAUTH_TOKEN_ENV, ANTHROPIC_API_KEY_ENV];
 	}
 
 	const envMap: Record<string, string> = {
 		"ant-ling": "ANT_LING_API_KEY",
+		"qwen-token-plan": "QWEN_TOKEN_PLAN_API_KEY",
+		"qwen-token-plan-cn": "QWEN_TOKEN_PLAN_CN_API_KEY",
+		"qwen-token-plan-individual": "QWEN_TOKEN_PLAN_API_KEY",
 		openai: "OPENAI_API_KEY",
 		"azure-openai-responses": "AZURE_OPENAI_API_KEY",
 		nvidia: "NVIDIA_API_KEY",
@@ -109,6 +90,7 @@ function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
 		groq: "GROQ_API_KEY",
 		cerebras: "CEREBRAS_API_KEY",
 		xai: "XAI_API_KEY",
+		radius: "RADIUS_API_KEY",
 		openrouter: "OPENROUTER_API_KEY",
 		"vercel-ai-gateway": "AI_GATEWAY_API_KEY",
 		zai: "ZAI_API_KEY",
@@ -121,6 +103,7 @@ function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
 		huggingface: "HF_TOKEN",
 		fireworks: "FIREWORKS_API_KEY",
 		together: "TOGETHER_API_KEY",
+		baseten: "BASETEN_API_KEY",
 		opencode: "OPENCODE_API_KEY",
 		"opencode-go": "OPENCODE_API_KEY",
 		"kimi-coding": "KIMI_API_KEY",
@@ -143,13 +126,13 @@ function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
  * credential sources such as AWS profiles, AWS IAM credentials, and Google
  * Application Default Credentials.
  */
-export function findEnvKeys(provider: KnownProvider): string[] | undefined;
-export function findEnvKeys(provider: string): string[] | undefined;
-export function findEnvKeys(provider: string): string[] | undefined {
+export function findEnvKeys(provider: KnownProvider, env?: ProviderEnv): string[] | undefined;
+export function findEnvKeys(provider: string, env?: ProviderEnv): string[] | undefined;
+export function findEnvKeys(provider: string, env?: ProviderEnv): string[] | undefined {
 	const envVars = getApiKeyEnvVars(provider);
 	if (!envVars) return undefined;
 
-	const found = envVars.filter((envVar) => !!process.env[envVar] || !!getProcEnv(envVar));
+	const found = envVars.filter((envVar) => !!getProviderEnvValue(envVar, env));
 	return found.length > 0 ? found : undefined;
 }
 
@@ -158,25 +141,23 @@ export function findEnvKeys(provider: string): string[] | undefined {
  *
  * Will not return API keys for providers that require OAuth tokens.
  */
-export function getEnvApiKey(provider: KnownProvider): string | undefined;
-export function getEnvApiKey(provider: string): string | undefined;
-export function getEnvApiKey(provider: string): string | undefined {
-	const envKeys = findEnvKeys(provider);
+export function getEnvApiKey(provider: KnownProvider, env?: ProviderEnv): string | undefined;
+export function getEnvApiKey(provider: string, env?: ProviderEnv): string | undefined;
+export function getEnvApiKey(provider: string, env?: ProviderEnv): string | undefined {
+	const envKeys = findEnvKeys(provider, env);
 	if (envKeys?.[0]) {
-		return process.env[envKeys[0]] || getProcEnv(envKeys[0]);
+		const apiKeyEnv = provider === "anthropic" ? envKeys.find((key) => key !== ANTHROPIC_AUTH_TOKEN_ENV) : envKeys[0];
+		if (apiKeyEnv) return getProviderEnvValue(apiKeyEnv, env);
 	}
 
 	// Vertex AI supports either an explicit API key or Application Default Credentials.
 	// Auth is configured via `gcloud auth application-default login`.
 	if (provider === "google-vertex") {
-		const hasCredentials = hasVertexAdcCredentials();
+		const hasCredentials = hasVertexAdcCredentials(env);
 		const hasProject = !!(
-			process.env.GOOGLE_CLOUD_PROJECT ||
-			process.env.GCLOUD_PROJECT ||
-			getProcEnv("GOOGLE_CLOUD_PROJECT") ||
-			getProcEnv("GCLOUD_PROJECT")
+			getProviderEnvValue("GOOGLE_CLOUD_PROJECT", env) || getProviderEnvValue("GCLOUD_PROJECT", env)
 		);
-		const hasLocation = !!(process.env.GOOGLE_CLOUD_LOCATION || getProcEnv("GOOGLE_CLOUD_LOCATION"));
+		const hasLocation = !!getProviderEnvValue("GOOGLE_CLOUD_LOCATION", env);
 
 		if (hasCredentials && hasProject && hasLocation) {
 			return "<authenticated>";
@@ -192,18 +173,12 @@ export function getEnvApiKey(provider: string): string | undefined {
 		// 5. AWS_CONTAINER_CREDENTIALS_FULL_URI - ECS task roles (full URI)
 		// 6. AWS_WEB_IDENTITY_TOKEN_FILE - IRSA (IAM Roles for Service Accounts)
 		if (
-			process.env.AWS_PROFILE ||
-			(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
-			process.env.AWS_BEARER_TOKEN_BEDROCK ||
-			process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
-			process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
-			process.env.AWS_WEB_IDENTITY_TOKEN_FILE ||
-			getProcEnv("AWS_PROFILE") ||
-			(getProcEnv("AWS_ACCESS_KEY_ID") && getProcEnv("AWS_SECRET_ACCESS_KEY")) ||
-			getProcEnv("AWS_BEARER_TOKEN_BEDROCK") ||
-			getProcEnv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI") ||
-			getProcEnv("AWS_CONTAINER_CREDENTIALS_FULL_URI") ||
-			getProcEnv("AWS_WEB_IDENTITY_TOKEN_FILE")
+			getProviderEnvValue("AWS_PROFILE", env) ||
+			(getProviderEnvValue("AWS_ACCESS_KEY_ID", env) && getProviderEnvValue("AWS_SECRET_ACCESS_KEY", env)) ||
+			getProviderEnvValue("AWS_BEARER_TOKEN_BEDROCK", env) ||
+			getProviderEnvValue("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", env) ||
+			getProviderEnvValue("AWS_CONTAINER_CREDENTIALS_FULL_URI", env) ||
+			getProviderEnvValue("AWS_WEB_IDENTITY_TOKEN_FILE", env)
 		) {
 			return "<authenticated>";
 		}

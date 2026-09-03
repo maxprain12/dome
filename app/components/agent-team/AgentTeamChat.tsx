@@ -17,7 +17,7 @@ import { db } from '@/lib/db/client';
 import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { UnifiedChatEmptyState } from '@/components/chat/UnifiedChatEmptyState';
-import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
+import { groupMessagesByRole, withLiveStreamingMessage } from '@/lib/chat/groupMessagesByRole';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
@@ -594,8 +594,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     const liveStreamingMessage = streamingMessage
       ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls) }
       : null;
-    const allMessages = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
-    return groupMessagesByRole(allMessages);
+    return groupMessagesByRole(withLiveStreamingMessage(chatMessages, liveStreamingMessage));
   }, [chatMessages, streamingMessage]);
 
   if (!team) {

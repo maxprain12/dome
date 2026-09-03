@@ -20,9 +20,9 @@
 │  Dome Desktop (Electron + Vite + React)                     │
 │  /Users/maxprain/Documents/dome                             │
 │                                                             │
-│  Aplicación de escritorio para gestión del conocimiento     │
-│  y investigación académica. Combina editor, IA, agentes,    │
-│  organización de recursos y herramientas de estudio.        │
+│  Aplicación de escritorio local-first para founder-creadores. │
+│  Documentos + personas (Dome Pro); Study y Dev como          │
+│  ediciones de la misma plataforma.                           │
 │                                                              │
 │  v2.7.7  ·  pnpm 11  ·  Electron 41  ·  TypeScript             │
 └──────────────────────────────┬──────────────────────────────┘
@@ -62,6 +62,8 @@
 | Documento | Descripción |
 |-----------|-------------|
 | [Manual Técnico](./docs/manual-tecnico.md) | Arquitectura, IPC, DB schema, AI, build, troubleshooting |
+| [Posicionamiento](./docs/product/positioning.md) | Pro / Study / Dev, dos polos |
+| [Ediciones](./docs/product/editions.md) | Matriz módulo→edición y freeze |
 | [CLAUDE.md](./CLAUDE.md) | Guía para Claude Code: reglas críticas de arquitectura |
 | [docs/ipc.md](./docs/features/ipc.md) | Whitelist de canales IPC, seguridad |
 | [docs/database.md](./docs/features/database.md) | SQLite v53, `@dome/db`, Drizzle bridge, workers |

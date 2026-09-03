@@ -4,10 +4,18 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { LayoutGridIcon, RotateLeft01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 import { useFeaturesStore } from '@/lib/store/useFeaturesStore';
 import { TOGGLEABLE_FEATURES, FEATURE_GROUPS, isFeatureVisible } from '@/lib/features/featureKeys';
-import { getRolePreset } from '@/lib/onboarding/roles';
+import { EDITION_PRESETS, getEdition, resolveEditionId } from '@/lib/editions/catalog';
 
 export default function FeaturesSection() {
   const { t } = useTranslation();
@@ -16,14 +24,16 @@ export default function FeaturesSection() {
   const loaded = useFeaturesStore((s) => s.loaded);
   const loadFeatures = useFeaturesStore((s) => s.loadFeatures);
   const setVisible = useFeaturesStore((s) => s.setVisible);
+  const applyEdition = useFeaturesStore((s) => s.applyEdition);
   const resetToRolePreset = useFeaturesStore((s) => s.resetToRolePreset);
 
   useEffect(() => {
     if (!loaded) void loadFeatures();
   }, [loaded, loadFeatures]);
 
-  const preset = getRolePreset(role);
-  const roleLabel = preset ? t(preset.labelKey) : t('features.no_role');
+  const editionId = role ? resolveEditionId(role) : null;
+  const preset = editionId ? getEdition(editionId) : null;
+  const editionLabel = preset ? t(preset.labelKey) : t('features.no_role');
 
   return (
     <SettingsSurface
@@ -33,19 +43,42 @@ export default function FeaturesSection() {
     >
       <SettingsGroup>
         <SettingsRow
-          title={
-            <>
-              {t('features.current_role')}: <strong>{roleLabel}</strong>
-            </>
+          title={t('features.current_role')}
+          description={t('features.switch_hint')}
+          control={
+            <Select
+              value={editionId ?? undefined}
+              onValueChange={(value) => {
+                if (!value) return;
+                applyEdition(value).catch(() => {});
+              }}
+            >
+              <SelectTrigger className="w-44" size="sm" aria-label={t('features.current_role')}>
+                <SelectValue>{editionLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {EDITION_PRESETS.map((edition) => (
+                    <SelectItem key={edition.id} value={edition.id}>
+                      {t(edition.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           }
-          description={t('features.reset_hint')}
+        />
+        <SettingsRow
+          title={t('features.reset_hint')}
           control={
             preset ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void resetToRolePreset()}
+                onClick={() => {
+                  resetToRolePreset().catch(() => {});
+                }}
               >
                 <HugeiconsIcon icon={RotateLeft01Icon} data-icon="inline-start" />
                 {t('features.reset_button')}
@@ -68,7 +101,9 @@ export default function FeaturesSection() {
                 control={
                   <Switch
                     checked={isFeatureVisible(visibility, feature.key)}
-                    onCheckedChange={(value) => void setVisible(feature.key, value)}
+                    onCheckedChange={(value) => {
+                      setVisible(feature.key, value).catch(() => {});
+                    }}
                     aria-label={t(feature.labelKey)}
                   />
                 }

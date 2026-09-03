@@ -49,11 +49,11 @@
   "link_resource": "Link resource",
   "open_in_github": "Open in GitHub",
   "open_in_social": "Open in Social",
-  "people_section": "People",
-  "people_empty": "No people linked yet.",
-  "link_person": "Link person",
-  "people_search_placeholder": "Search people…",
-  "people_no_results": "No people found",
-  "people_unknown": "Unknown person",
-  "remove_person": "Remove person"
+  "people_section": "Contacts",
+  "people_empty": "No contacts linked yet.",
+  "link_person": "Link contact",
+  "people_search_placeholder": "Search contacts…",
+  "people_no_results": "No contacts found",
+  "people_unknown": "Unknown contact",
+  "remove_person": "Remove contact"
 }

@@ -3,7 +3,7 @@ import { useState, useMemo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { CheckmarkCircle02Icon, File02Icon, PlusSignCircleIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
+import { CheckmarkCircle02Icon, File02Icon, InformationCircleIcon, PlusSignCircleIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard from './ArtifactCard';
 import ChatTodoList from './ChatTodoList';
@@ -58,9 +58,16 @@ import {
   parseArtifactResult,
   parsePersistedArtifactCreateResult,
   parseResourceItems,
+  parsePeopleToolResult,
+  parseToolDefinitionResult,
+  isPeopleInspectTool,
+  isToolDefinitionInspect,
   smartToolSummary,
   getCodegenPreview,
 } from './tool-card/toolResultParsers';
+import { formatToolArgValue, PeekDefinitionList } from '@/components/inspect/PeekDefinitionList';
+import { humanizePersonStatus } from '@/components/people/personStatuses';
+import { useInspectStore } from '@/lib/store/useInspectStore';
 import {
   CodegenPreview,
 } from './tool-card/ToolResultHighlights';
@@ -197,6 +204,49 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
 
     const codegen = getCodegenPreview(toolCall.name, toolCall.arguments);
     if (codegen) return <CodegenPreview preview={codegen} t={t} />;
+    if (isPeopleInspectTool(toolCall.name)) {
+      const peopleView = parsePeopleToolResult(toolCall.result);
+      if (peopleView) {
+        return (
+          <div className="mt-1 flex flex-col gap-2">
+            {peopleView.rows.map((row, index) => (
+              <PeekDefinitionList
+                key={`${row.displayName}:${index}`}
+                items={[
+                  { key: t('people.display_name_label'), value: row.displayName },
+                  ...(row.email ? [{ key: t('inspect.email'), value: row.email }] : []),
+                  ...(row.leadStatus
+                    ? [{
+                        key: t('inspect.lead_status'),
+                        value: t(`people.lead_status_${row.leadStatus}`, {
+                          defaultValue: humanizePersonStatus(row.leadStatus),
+                        }),
+                      }]
+                    : []),
+                  ...row.identities.map((identity) => ({
+                    key: identity.source.replace(/_/g, ' ') || t('inspect.identities'),
+                    value: identity.label,
+                  })),
+                ]}
+              />
+            ))}
+          </div>
+        );
+      }
+    }
+    if (isToolDefinitionInspect(toolCall.name)) {
+      const definition = parseToolDefinitionResult(toolCall.result);
+      if (definition) {
+        return (
+          <div className="mt-1 flex flex-col gap-1">
+            <p className="text-xs font-medium">{definition.name}</p>
+            {definition.description ? (
+              <p className="text-xs text-muted-foreground">{definition.description}</p>
+            ) : null}
+          </div>
+        );
+      }
+    }
     const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
     if (highlight) return <div className="mt-1">{highlight}</div>;
     return null;
@@ -374,7 +424,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   const renderJsonPrettyView = (): ReactNode => {
     if (!parsedResult || typeof parsedResult !== 'object') return null;
     return (
-      <div className="max-h-64 overflow-y-auto rounded-lg bg-muted px-2.5 py-2 font-mono text-xs">
+      <div className="max-h-64 overflow-x-auto overflow-y-auto break-words rounded-lg bg-muted px-2.5 py-2 font-mono text-xs">
         <JsonPrettyPrinterRoot value={parsedResult} />
       </div>
     );
@@ -429,17 +479,16 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     <div className="not-typeset ml-1 border-l border-border py-1 pl-3">
       {Object.keys(toolCall.arguments).length > 0 ? (
         <>
-          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Args</div>
-          <dl className="mb-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11.5px]">
-            {Object.entries(toolCall.arguments).slice(0, 4).map(([k, v]) => (
-              <div key={k} className="contents">
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="m-0 break-all text-foreground">
-                  {typeof v === 'string' ? `"${v.slice(0, 120)}"` : JSON.stringify(v)}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t('inspect.tool_args')}
+          </div>
+          <PeekDefinitionList
+            className="mb-2.5"
+            items={Object.entries(toolCall.arguments).slice(0, 4).map(([k, v]) => ({
+              key: k,
+              value: formatToolArgValue(v),
+            }))}
+          />
         </>
       ) : null}
       {!toolCall.error && hasResult ? (
@@ -469,6 +518,22 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         expanded={expanded}
         expandable={canExpand}
         onToggle={canExpand ? () => setExpanded((open) => !open) : undefined}
+        trailing={
+          !isPending ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
+              aria-label={t('inspect.inspect_tool')}
+              onClick={() => {
+                useInspectStore.getState().open({ kind: 'tool', toolCall });
+              }}
+            >
+              <HugeiconsIcon icon={InformationCircleIcon} />
+            </Button>
+          ) : null
+        }
       />
       {expandedBody}
     </div>

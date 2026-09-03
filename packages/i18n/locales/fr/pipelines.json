@@ -181,11 +181,11 @@
   "agent_running_overlay": "Agent en cours d'exécution…",
   "field_empty": "Aucun champ. Ajoutez le premier.",
   "remove_field": "Supprimer le champ",
-  "people_section": "Personnes",
-  "people_empty": "Aucune personne liée pour le moment.",
-  "link_person": "Lier une personne",
-  "people_search_placeholder": "Rechercher des personnes…",
-  "people_no_results": "Aucune personne trouvée",
-  "people_unknown": "Personne inconnue",
-  "remove_person": "Retirer la personne"
+  "people_section": "Contacts",
+  "people_empty": "Aucun contact lié pour le moment.",
+  "link_person": "Lier un contact",
+  "people_search_placeholder": "Rechercher des contacts…",
+  "people_no_results": "Aucun contact trouvé",
+  "people_unknown": "Contact inconnu",
+  "remove_person": "Retirer le contact"
 }

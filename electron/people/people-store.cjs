@@ -11,11 +11,50 @@ const { secureTimestampId } = require('../core/secure-id.cjs');
 const SOURCES = new Set([
   'github',
   'email',
+  'website',
+  'phone',
+  'document',
+  'calendar',
+  'company',
   'social_x',
   'social_linkedin',
   'social_instagram',
+  'social_facebook',
+  'social_tiktok',
+  'social_youtube',
   'manual',
 ]);
+
+const SOURCE_ALIASES = {
+  url: 'website',
+  web: 'website',
+  site: 'website',
+  homepage: 'website',
+  instagram: 'social_instagram',
+  ig: 'social_instagram',
+  linkedin: 'social_linkedin',
+  twitter: 'social_x',
+  x: 'social_x',
+  facebook: 'social_facebook',
+  fb: 'social_facebook',
+  tiktok: 'social_tiktok',
+  youtube: 'social_youtube',
+  yt: 'social_youtube',
+  tel: 'phone',
+  mobile: 'phone',
+  doc: 'document',
+  pdf: 'document',
+  resource: 'document',
+  meeting: 'calendar',
+  event: 'calendar',
+};
+
+function normalizeSource(source) {
+  const raw = String(source || '')
+    .trim()
+    .toLowerCase();
+  return SOURCE_ALIASES[raw] || raw;
+}
 
 const db = () => database.getDB();
 const now = () => Date.now();
@@ -29,10 +68,62 @@ function normalizeExternalId(source, externalId) {
   if (!raw) return '';
   if (source === 'email') return raw.toLowerCase();
   if (source === 'github' || source.startsWith('social_')) return raw.replace(/^@/, '').toLowerCase();
+  if (source === 'website') {
+    try {
+      const withProto = /:\/\//.test(raw) ? raw : `https://${raw}`;
+      const parsed = new URL(withProto);
+      return `${parsed.host}${parsed.pathname}`.replace(/\/$/, '').toLowerCase();
+    } catch {
+      return raw.toLowerCase();
+    }
+  }
+  if (source === 'phone') return raw.replace(/[\s().-]/g, '');
   return raw;
 }
 
-const LEAD_STATUSES = new Set(['lead', 'customer', 'archived']);
+const BUILTIN_LEAD_STATUSES = [
+  'lead',
+  'prospect',
+  'qualified',
+  'customer',
+  'partner',
+  'vendor',
+  'investor',
+  'colleague',
+  'personal',
+  'archived',
+];
+const LEAD_STATUSES = new Set(BUILTIN_LEAD_STATUSES);
+
+function looksLikeOpaqueStatus(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return false;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return true;
+  }
+  const hyphenated = trimmed.replace(/_/g, '-');
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(hyphenated)) {
+    return true;
+  }
+  if (/^[a-z]{1,12}-[0-9a-f]{6,}$/i.test(hyphenated)) return true;
+  if (/^soc-[a-z]+-[0-9a-f]{6,}$/i.test(hyphenated)) return true;
+  return false;
+}
+
+function normalizePersonStatus(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || looksLikeOpaqueStatus(trimmed)) return null;
+  const slug = trimmed
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 32);
+  if (!slug || slug === 'all' || looksLikeOpaqueStatus(slug)) return null;
+  return slug;
+}
 
 function parseJson(raw, fallback = null) {
   if (raw == null || raw === '') return fallback;
@@ -130,7 +221,8 @@ function listPeople(projectId, { limit = 200, leadStatus } = {}) {
   const pid = normalizeProjectId(projectId);
   const cap = Math.min(Math.max(Number(limit) || 200, 1), 500);
   let rows;
-  if (leadStatus && LEAD_STATUSES.has(leadStatus)) {
+  const statusFilter = normalizePersonStatus(leadStatus);
+  if (statusFilter) {
     rows = db()
       .prepare(
         `SELECT * FROM people
@@ -138,7 +230,7 @@ function listPeople(projectId, { limit = 200, leadStatus } = {}) {
          ORDER BY COALESCE(last_seen_at, updated_at) DESC, display_name COLLATE NOCASE ASC
          LIMIT ?`,
       )
-      .all(pid, leadStatus, cap);
+      .all(pid, statusFilter, cap);
   } else {
     rows = db()
       .prepare(
@@ -174,13 +266,16 @@ function upsertPerson({
   if (!name) throw new Error('displayName required');
   const ts = now();
   const personId = typeof id === 'string' && id ? id : secureTimestampId('person');
-  const status =
-    leadStatus && LEAD_STATUSES.has(leadStatus) ? leadStatus : 'lead';
+  const status = normalizePersonStatus(leadStatus) || 'lead';
   const profileJson =
     profile != null ? JSON.stringify(profile) : null;
 
-  const existing = db().prepare('SELECT id FROM people WHERE id = ?').get(personId);
+  const existing = db().prepare('SELECT * FROM people WHERE id = ?').get(personId);
   if (existing) {
+    const mergedProfile =
+      profile != null && typeof profile === 'object'
+        ? { ...parseJson(existing.profile_json, {}), ...profile }
+        : null;
     db()
       .prepare(
         `UPDATE people SET
@@ -203,8 +298,8 @@ function upsertPerson({
         primary_email: primaryEmail ?? null,
         avatar_url: avatarUrl ?? null,
         notes: notes ?? null,
-        lead_status: leadStatus && LEAD_STATUSES.has(leadStatus) ? leadStatus : null,
-        profile_json: profileJson,
+        lead_status: normalizePersonStatus(leadStatus),
+        profile_json: mergedProfile != null ? JSON.stringify(mergedProfile) : null,
         discovered_via: discoveredVia ?? null,
         first_seen_at: firstSeenAt ?? null,
         last_seen_at: lastSeenAt ?? ts,
@@ -252,8 +347,7 @@ function updateProfile({
   const existing = db().prepare('SELECT * FROM people WHERE id = ?').get(id);
   if (!existing) throw new Error('Person not found');
   const ts = now();
-  const nextStatus =
-    leadStatus && LEAD_STATUSES.has(leadStatus) ? leadStatus : existing.lead_status || 'lead';
+  const nextStatus = normalizePersonStatus(leadStatus) || existing.lead_status || 'lead';
   const nextProfile =
     profile != null
       ? JSON.stringify(profile)
@@ -328,6 +422,94 @@ function addInteraction({
   );
 }
 
+function interactionKindForSource(sourceKind) {
+  const kind = String(sourceKind || '').trim().toLowerCase();
+  if (kind === 'email') return 'email';
+  if (kind === 'meeting' || kind === 'calendar') return 'meeting';
+  if (kind === 'web' || kind === 'website') return 'web';
+  if (kind === 'note' || kind === 'manual') return 'note';
+  return 'document';
+}
+
+/**
+ * Persist one or more people extracted from a document, email, or meeting.
+ * Merges profile fields and links a timeline interaction to the source resource.
+ */
+function ingestPeople({
+  people,
+  projectId,
+  sourceResourceId,
+  sourceKind,
+  summary,
+} = {}) {
+  const list = Array.isArray(people) ? people : [];
+  if (list.length === 0) throw new Error('people required');
+  const pid = normalizeProjectId(projectId);
+  const out = [];
+  const errors = [];
+  for (const raw of list) {
+    if (!raw || typeof raw !== 'object') continue;
+    const displayName = String(raw.display_name || raw.displayName || '').trim();
+    if (!displayName) {
+      errors.push({ error: 'display_name required' });
+      continue;
+    }
+    try {
+      const person = upsertPerson({
+        id: raw.person_id || raw.personId || undefined,
+        projectId: pid,
+        displayName,
+        primaryEmail: raw.primary_email || raw.primaryEmail || undefined,
+        avatarUrl: raw.avatar_url || raw.avatarUrl || undefined,
+        notes: raw.notes || undefined,
+        leadStatus: raw.lead_status || raw.leadStatus || undefined,
+        profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : undefined,
+        discoveredVia:
+          raw.discovered_via ||
+          raw.discoveredVia ||
+          (sourceResourceId ? `resource:${sourceResourceId}` : sourceKind || undefined),
+      });
+      const identities = Array.isArray(raw.identities) ? raw.identities : [];
+      for (const row of identities) {
+        if (!row || typeof row !== 'object') continue;
+        const source = row.source;
+        const externalId = row.external_id || row.externalId;
+        if (!source || !externalId) continue;
+        linkIdentity({
+          personId: person.id,
+          projectId: pid,
+          source,
+          externalId,
+          displayLabel: row.display_label || row.displayLabel || undefined,
+          meta: row.meta && typeof row.meta === 'object' ? row.meta : undefined,
+        });
+      }
+      if (sourceResourceId || summary || sourceKind) {
+        addInteraction({
+          personId: person.id,
+          projectId: pid,
+          kind: interactionKindForSource(sourceKind),
+          refType: sourceResourceId ? 'resource' : null,
+          refId: sourceResourceId || null,
+          summary:
+            summary ||
+            raw.notes ||
+            `Extracted from ${sourceKind || 'document'}`,
+          payload: {
+            ingested: true,
+            sourceKind: sourceKind || 'document',
+            sourceResourceId: sourceResourceId || null,
+          },
+        });
+      }
+      out.push(getPerson(person.id, { includeInteractions: true }));
+    } catch (err) {
+      errors.push({ displayName, error: err?.message || String(err) });
+    }
+  }
+  return { people: out, errors, count: out.length };
+}
+
 /**
  * Link an identity to a person. If (project, source, external_id) exists on
  * another person, returns that existing person (no silent merge).
@@ -340,6 +522,7 @@ function linkIdentity({
   displayLabel,
   meta,
 } = {}) {
+  source = normalizeSource(source);
   if (!SOURCES.has(source)) throw new Error(`Invalid source: ${source}`);
   const ext = normalizeExternalId(source, externalId);
   if (!ext) throw new Error('externalId required');
@@ -447,6 +630,7 @@ function upsertIdentityPerson({
   primaryEmail,
   meta,
 } = {}) {
+  source = normalizeSource(source);
   if (!SOURCES.has(source)) throw new Error(`Invalid source: ${source}`);
   const pid = normalizeProjectId(projectId);
   const ext = normalizeExternalId(source, externalId);
@@ -611,10 +795,12 @@ function applyCloudPersonEnrichment(personId, cloudPerson, cloudIdentity) {
   const existing = db().prepare('SELECT * FROM people WHERE id = ?').get(personId);
   if (!existing) throw new Error('Person not found');
 
-  const profile =
+  const existingProfile = parseJson(existing.profile_json, {});
+  const cloudProfile =
     cloudPerson?.profile_json && typeof cloudPerson.profile_json === 'object'
       ? cloudPerson.profile_json
-      : parseJson(existing.profile_json, {});
+      : {};
+  const profile = { ...existingProfile, ...cloudProfile };
   updateProfile({
     id: personId,
     displayName:
@@ -784,12 +970,16 @@ function deletePeople(ids) {
 
 module.exports = {
   SOURCES,
+  SOURCE_ALIASES,
   LEAD_STATUSES,
+  BUILTIN_LEAD_STATUSES,
+  normalizePersonStatus,
   getPerson,
   listPeople,
   upsertPerson,
   updateProfile,
   addInteraction,
+  ingestPeople,
   loadInteractions,
   linkIdentity,
   upsertIdentityPerson,
@@ -799,5 +989,6 @@ module.exports = {
   deletePeople,
   applyCloudPersonEnrichment,
   normalizeExternalId,
+  normalizeSource,
   normalizeProjectId,
 };

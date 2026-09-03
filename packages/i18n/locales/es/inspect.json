@@ -1,0 +1,23 @@
+{
+  "open_in_people": "Abrir en Contactos",
+  "open_entity": "Abrir",
+  "open_resource": "Abrir recurso",
+  "open_email": "Abrir correo",
+  "open_issue": "Abrir incidencia",
+  "open_social": "Abrir publicación",
+  "loading": "Cargando…",
+  "load_error": "No se pudo cargar esta ficha",
+  "tool_args": "Argumentos",
+  "tool_result": "Resultado",
+  "view_json": "Ver JSON",
+  "hide_json": "Ocultar JSON",
+  "profile": "Perfil",
+  "identities": "Identidades",
+  "email": "Correo",
+  "website": "Web",
+  "lead_status": "Estado",
+  "person_title": "Persona",
+  "entity_title": "Elemento",
+  "tool_title": "Herramienta",
+  "inspect_tool": "Inspeccionar herramienta"
+}

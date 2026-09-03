@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { isCoreProfileKey } from './personProfileFields';
 
 interface ProfileFieldRow {
   /** Stable local key for React — independent from the (editable) field name. */
@@ -20,7 +21,9 @@ function nextRowId(): string {
 
 function profileToRows(profile: Record<string, unknown> | undefined): ProfileFieldRow[] {
   if (!profile) return [];
-  return Object.entries(profile).map(([key, value]) => ({
+  return Object.entries(profile)
+    .filter(([key]) => !isCoreProfileKey(key))
+    .map(([key, value]) => ({
     rowId: nextRowId(),
     key,
     value: typeof value === 'string' ? value : JSON.stringify(value),

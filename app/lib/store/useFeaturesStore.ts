@@ -5,11 +5,15 @@ import {
   getFeatureVisibility,
   setFeatureVisibility as persistVisibility,
 } from '@/lib/settings';
-import { getRolePreset } from '@/lib/onboarding/roles';
+import {
+  fillMissingVisibility,
+  resolveEditionId,
+  visibilityForEdition,
+} from '@/lib/editions/catalog';
 import { TOGGLEABLE_FEATURE_KEYS, isFeatureVisible } from '@/lib/features/featureKeys';
 
 interface FeaturesState {
-  /** Active role id, or null if onboarding never set one. */
+  /** Active edition id (`pro` | `study` | `dev`), or null if never set. */
   role: string | null;
   /** featureKey → visible. A missing key means visible (default). */
   visibility: Record<string, boolean>;
@@ -18,9 +22,11 @@ interface FeaturesState {
   loadFeatures: () => Promise<void>;
   /** Toggle a single feature and persist. */
   setVisible: (key: string, visible: boolean) => Promise<void>;
-  /** Apply a role's default visibility + persist role and map. */
+  /** Apply an edition's default visibility + persist edition id and map. */
+  applyEdition: (editionId: string) => Promise<void>;
+  /** @deprecated Use applyEdition */
   applyRolePreset: (roleId: string) => Promise<void>;
-  /** Re-apply the current role's preset (used by the "reset" button). */
+  /** Re-apply the current edition's preset (used by the "reset" button). */
   resetToRolePreset: () => Promise<void>;
 }
 
@@ -30,8 +36,13 @@ export const useFeaturesStore = create<FeaturesState>((set, get) => ({
   loaded: false,
 
   loadFeatures: async () => {
-    const [role, visibility] = await Promise.all([getUserRole(), getFeatureVisibility()]);
-    set({ role, visibility: visibility || {}, loaded: true });
+    const [rawRole, storedVisibility] = await Promise.all([getUserRole(), getFeatureVisibility()]);
+    const role = rawRole ? resolveEditionId(rawRole) : null;
+    if (rawRole && role && rawRole !== role) {
+      await persistUserRole(role);
+    }
+    const visibility = fillMissingVisibility(role, storedVisibility || {});
+    set({ role, visibility, loaded: true });
   },
 
   setVisible: async (key, visible) => {
@@ -40,19 +51,20 @@ export const useFeaturesStore = create<FeaturesState>((set, get) => ({
     await persistVisibility(next);
   },
 
+  applyEdition: async (editionId) => {
+    const role = resolveEditionId(editionId);
+    const visibility = visibilityForEdition(role);
+    set({ role, visibility });
+    await Promise.all([persistUserRole(role), persistVisibility(visibility)]);
+  },
+
   applyRolePreset: async (roleId) => {
-    const preset = getRolePreset(roleId);
-    const visibility: Record<string, boolean> = {};
-    for (const key of TOGGLEABLE_FEATURE_KEYS) {
-      visibility[key] = preset ? preset.visibleFeatures.includes(key) : true;
-    }
-    set({ role: roleId, visibility });
-    await Promise.all([persistUserRole(roleId), persistVisibility(visibility)]);
+    await get().applyEdition(roleId);
   },
 
   resetToRolePreset: async () => {
     const role = get().role;
-    if (role) await get().applyRolePreset(role);
+    if (role) await get().applyEdition(role);
   },
 }));
 

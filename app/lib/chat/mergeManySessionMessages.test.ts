@@ -54,4 +54,32 @@ describe('mergeManySessionMessages', () => {
     const user = merged.find((m) => m.role === 'user');
     expect(user?.pinnedResources?.[0]?.id).toBe('sp-2');
   });
+
+  it('does not overwrite pins or attachments already present on JSONL messages', () => {
+    const local: ManyMessage[] = [
+      msg({
+        role: 'user',
+        content: 'mira',
+        timestamp: 1000,
+        pinnedResources: [{ id: 'old', title: 'viejo', type: 'person', kind: 'person' }],
+      }),
+    ];
+    const db: ManyMessage[] = [
+      msg({
+        role: 'user',
+        content: 'mira',
+        timestamp: 1000,
+        pinnedResources: [{ id: 'new', title: 'nuevo', type: 'person', kind: 'person' }],
+        attachments: {
+          images: [{ dataUrl: 'data:image/png;base64,xx', mime: 'image/png', name: 'shot' }],
+          videos: [],
+        },
+      }),
+    ];
+
+    const merged = mergeManySessionMessages(local, db);
+    const user = merged.find((m) => m.role === 'user');
+    expect(user?.pinnedResources?.[0]?.id).toBe('new');
+    expect(user?.attachments?.images[0]?.name).toBe('shot');
+  });
 });

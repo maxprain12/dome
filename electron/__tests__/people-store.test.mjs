@@ -164,6 +164,56 @@ describe('people-store', () => {
     assert.equal(peopleStore.deletePerson(person.id).deleted, false);
   });
 
+  it('accepts website identity and merges profile on upsert', () => {
+    const person = peopleStore.upsertPerson({
+      projectId: 'proj-web',
+      displayName: 'Mery',
+      profile: { occupation: 'Founder' },
+    });
+    const linked = peopleStore.linkIdentity({
+      personId: person.id,
+      projectId: 'proj-web',
+      source: 'website',
+      externalId: 'https://www.erpsigpyme.com/',
+      displayLabel: 'ERP Sigpyme',
+    });
+    assert.equal(linked.conflict, false);
+    assert.equal(linked.linked, true);
+    const again = peopleStore.upsertPerson({
+      id: person.id,
+      projectId: 'proj-web',
+      displayName: 'Mery',
+      profile: { website: 'https://www.erpsigpyme.com', phone: '555' },
+    });
+    assert.equal(again.profile.occupation, 'Founder');
+    assert.equal(again.profile.website, 'https://www.erpsigpyme.com');
+    assert.equal(again.identities[0].source, 'website');
+    assert.equal(again.identities[0].externalId, 'www.erpsigpyme.com');
+  });
+
+  it('ingestPeople creates leads from a document and aliases url → website', () => {
+    const result = peopleStore.ingestPeople({
+      projectId: 'proj-doc',
+      sourceResourceId: 'res-pdf-1',
+      sourceKind: 'document',
+      summary: 'Leads from kickoff PDF',
+      people: [
+        {
+          display_name: 'Ada Voice',
+          primary_email: 'ada@example.com',
+          profile: { occupation: 'CEO', company: 'Voice Co' },
+          identities: [{ source: 'url', external_id: 'https://voice.co' }],
+        },
+      ],
+    });
+    assert.equal(result.count, 1);
+    assert.equal(result.people[0].displayName, 'Ada Voice');
+    assert.equal(result.people[0].profile.company, 'Voice Co');
+    assert.equal(result.people[0].identities[0].source, 'website');
+    assert.equal(result.people[0].interactions.length, 1);
+    assert.equal(result.people[0].interactions[0].refId, 'res-pdf-1');
+  });
+
   it('deletePeople deletes many', () => {
     const a = peopleStore.upsertPerson({ projectId: 'proj-bulk', displayName: 'A' });
     const b = peopleStore.upsertPerson({ projectId: 'proj-bulk', displayName: 'B' });
@@ -171,5 +221,20 @@ describe('people-store', () => {
     assert.equal(result.deleted, 2);
     assert.equal(result.requested, 3);
     assert.equal(peopleStore.listPeople('proj-bulk').length, 0);
+  });
+
+  it('persists builtin and custom lead statuses and filters by them', () => {
+    peopleStore.upsertPerson({ projectId: 'proj-st', displayName: 'Pat', leadStatus: 'partner' });
+    peopleStore.upsertPerson({ projectId: 'proj-st', displayName: 'Val', leadStatus: 'VIP Club' });
+    peopleStore.upsertPerson({ projectId: 'proj-st', displayName: 'Old', leadStatus: '!!!' });
+    const partners = peopleStore.listPeople('proj-st', { leadStatus: 'partner' });
+    assert.equal(partners.length, 1);
+    assert.equal(partners[0].displayName, 'Pat');
+    const vips = peopleStore.listPeople('proj-st', { leadStatus: 'vip_club' });
+    assert.equal(vips.length, 1);
+    assert.equal(vips[0].leadStatus, 'vip_club');
+    const fallback = peopleStore.listPeople('proj-st').find((p) => p.displayName === 'Old');
+    assert.equal(fallback.leadStatus, 'lead');
+    assert.equal(peopleStore.normalizePersonStatus('Inversor ángel'), 'inversor_angel');
   });
 });

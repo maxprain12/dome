@@ -19,9 +19,12 @@
  * timeline. The complete tool history then only re-materialized via the terminal
  * JSONL reload — the "everything appears at once when the chat reloads" symptom.
  *
- * Fix: MERGE instead of rebuild. The snapshot is authoritative only for the fields
- * it actually owns (`content`/`isStreaming`/`timestamp`); every delta-accumulated
- * field (`thinking`, `runSteps`, `toolCalls`) is preserved from `prev`.
+ * Fix: MERGE instead of rebuild. Heartbeat snapshots carry `outputText` (the
+ * same bytes the `text` chunks already accumulated). Writing that into the
+ * bubble and then appending the next delta printed the reply twice. The
+ * snapshot may fill `content` only when the bubble is still empty (reconnect);
+ * `isStreaming` / `timestamp` / label still come from the row. Delta-only
+ * fields (`thinking`, `runSteps`, `toolCalls`) stay on `prev`.
  *
  * pi (the upstream reference vendored in packages/agent-core) renders directly from
  * a single ordered event stream with no competing snapshot channel; this merge
@@ -60,7 +63,7 @@ export function mergeRunSnapshotIntoStreamingMessage(
     ...(prev ?? {}),
     id: prev?.id || snapshot.id,
     role: 'assistant',
-    content: snapshot.content,
+    content: prev?.content ? prev.content : snapshot.content,
     timestamp: snapshot.timestamp,
     isStreaming: snapshot.isStreaming,
     // Never regress to an empty tool list — the snapshot has none mid-run.

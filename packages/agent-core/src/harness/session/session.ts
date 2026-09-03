@@ -68,6 +68,12 @@ function appendEntryAsMessage(messages: AgentMessage[], entry: SessionTreeEntry)
 		messages.push(entry.message as AgentMessage);
 		return;
 	}
+	if (entry.type === "custom") {
+		messages.push(
+			createCustomMessage(entry.customType, "", false, entry.data, entry.timestamp),
+		);
+		return;
+	}
 	if (entry.type === "custom_message") {
 		messages.push(
 			createCustomMessage(

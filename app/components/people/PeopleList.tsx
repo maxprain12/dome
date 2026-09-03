@@ -1,17 +1,21 @@
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Delete02Icon, Search01Icon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
+import { Delete02Icon, PlusSignIcon, Search01Icon, Tag01Icon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ListState from '@/components/shared/ListState';
+import { hubDirectoryRowClass, hubPageTitleClass } from '@/components/shared/hubChrome';
 import { cn } from '@/lib/utils';
 import { resolveInstagramLead } from './instagramLead';
-import { leadStatusBadgeVariant, personDisplayLabel, personInitial } from './peopleLabels';
+import { personDirectorySubtitle, personPhone } from './peopleContactActions';
+import { personDisplayLabel, personInitial } from './peopleLabels';
+import { BUILTIN_PERSON_STATUSES, personStatusLabel, type CustomPersonStatus } from './personStatuses';
 import type { PeopleFilter, PersonSummary } from './peopleTypes';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface PeopleListProps {
   people: PersonSummary[];
@@ -26,10 +30,11 @@ interface PeopleListProps {
   onToggleChecked: (id: string, checked: boolean) => void;
   onToggleAllChecked: (checked: boolean) => void;
   onDeleteChecked: () => void;
+  onCreate: () => void;
+  onManageStatuses: () => void;
+  customs?: CustomPersonStatus[];
   deleting?: boolean;
 }
-
-const FILTERS: PeopleFilter[] = ['all', 'lead', 'customer', 'archived'];
 
 export default function PeopleList({
   people,
@@ -44,16 +49,52 @@ export default function PeopleList({
   onToggleChecked,
   onToggleAllChecked,
   onDeleteChecked,
+  onCreate,
+  onManageStatuses,
+  customs = [],
   deleting = false,
 }: PeopleListProps) {
   const { t } = useTranslation();
+  const [sortDir, setSortDir] = useState<'az' | 'za'>('az');
   const allChecked = people.length > 0 && people.every((p) => checkedIds.has(p.id));
   const someChecked = people.some((p) => checkedIds.has(p.id));
   const checkedCount = checkedIds.size;
+  const statusIds = useMemo(
+    () => [...BUILTIN_PERSON_STATUSES, ...customs.map((row) => row.id)],
+    [customs],
+  );
+  const filterItems = useMemo(
+    () => [
+      { value: 'all', label: t('people.filter_all') },
+      ...statusIds.map((id) => ({ value: id, label: personStatusLabel(id, t, customs) })),
+    ],
+    [customs, statusIds, t],
+  );
+  const filterLabel =
+    filter === 'all' ? t('people.filter_all') : personStatusLabel(filter, t, customs);
+
+  const sortedPeople = useMemo(() => {
+    const next = [...people];
+    next.sort((a, b) => {
+      const cmp = personDisplayLabel(a).localeCompare(personDisplayLabel(b), undefined, {
+        sensitivity: 'base',
+      });
+      return sortDir === 'az' ? cmp : -cmp;
+    });
+    return next;
+  }, [people, sortDir]);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col border-r sm:w-72 md:w-80">
-      <div className="flex flex-col gap-2 border-b p-2.5">
+    <div className="flex h-full min-h-0 w-full flex-col border-r md:w-96 md:basis-[36%] md:shrink-0">
+      <div className="flex items-center justify-between gap-2 px-3 pt-3">
+        <h1 className={hubPageTitleClass}>{t('people.hub_title')}</h1>
+        <Button type="button" size="sm" onClick={onCreate}>
+          <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+          {t('people.new_person')}
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2 border-b px-3 py-2.5">
         <div className="relative">
           <HugeiconsIcon
             icon={Search01Icon}
@@ -68,19 +109,53 @@ export default function PeopleList({
             className="pl-7"
           />
         </div>
-        <div className="flex flex-wrap gap-1">
-          {FILTERS.map((f) => (
-            <Button
-              key={f}
-              type="button"
-              size="sm"
-              variant={filter === f ? 'secondary' : 'outline'}
-              onClick={() => onFilterChange(f)}
-              className="h-6 px-2 text-[0.6875rem]"
-            >
-              {t(`people.filter_${f}`)}
-            </Button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          <Select
+            value={filter}
+            onValueChange={(next) => {
+              if (next) onFilterChange(next);
+            }}
+            items={filterItems}
+          >
+            <SelectTrigger size="sm" className="h-6 min-w-0 flex-1" aria-label={t('people.filter_by')}>
+              <SelectValue>{filterLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {filterItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="outline"
+            onClick={onManageStatuses}
+            aria-label={t('people.manage_statuses')}
+            title={t('people.manage_statuses')}
+          >
+            <HugeiconsIcon icon={Tag01Icon} />
+          </Button>
+          <Select
+            value={sortDir}
+            onValueChange={(next) => {
+              if (next === 'az' || next === 'za') setSortDir(next);
+            }}
+            items={[
+              { value: 'az', label: t('people.sort_az') },
+              { value: 'za', label: t('people.sort_za') },
+            ]}
+          >
+            <SelectTrigger size="sm" className="h-6 w-20 shrink-0" aria-label={t('people.sort_az')}>
+              <SelectValue>{sortDir === 'az' ? t('people.sort_az') : t('people.sort_za')}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="az">{t('people.sort_az')}</SelectItem>
+              <SelectItem value="za">{t('people.sort_za')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {people.length > 0 ? (
           <div className="flex items-center gap-2">
@@ -128,19 +203,19 @@ export default function PeopleList({
             compact
           />
         ) : (
-          <ul className="flex flex-col gap-0.5 p-1.5">
-            {people.map((person) => {
+          <ul className="flex flex-col">
+            {sortedPeople.map((person) => {
               const isChecked = checkedIds.has(person.id);
               const ig = resolveInstagramLead(person);
-              const subtitle = ig?.handle
-                ? `@${ig.handle.replace(/^@/, '')}`
-                : person.primaryEmail || null;
+              const subtitle = personDirectorySubtitle(person, ig?.handle);
+              const phone = personPhone(person);
+              const email = person.primaryEmail?.trim() || null;
               return (
-                <li key={person.id}>
+                <li key={person.id} className="border-b border-border/80 last:border-b-0">
                   <div
                     className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent',
-                      selectedId === person.id && 'bg-accent',
+                      '@container/people-row',
+                      hubDirectoryRowClass(selectedId === person.id, 'gap-2'),
                     )}
                   >
                     <Checkbox
@@ -148,11 +223,12 @@ export default function PeopleList({
                       onCheckedChange={(value) => onToggleChecked(person.id, value === true)}
                       aria-label={t('people.select_person', { name: personDisplayLabel(person) })}
                       onClick={(e) => e.stopPropagation()}
+                      className="opacity-60"
                     />
                     <button
                       type="button"
                       onClick={() => onSelect(person.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                     >
                       <Avatar size="sm">
                         {ig?.avatarUrl || person.avatarUrl ? (
@@ -164,16 +240,23 @@ export default function PeopleList({
                         <AvatarFallback>{personInitial(person)}</AvatarFallback>
                       </Avatar>
                       <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-xs font-medium">{personDisplayLabel(person)}</span>
+                        <span className="truncate text-xs font-semibold">{personDisplayLabel(person)}</span>
                         {subtitle ? (
                           <span className="truncate text-[0.6875rem] text-muted-foreground">
                             {subtitle}
                           </span>
                         ) : null}
                       </div>
-                      <Badge variant={leadStatusBadgeVariant(person.leadStatus)}>
-                        {t(`people.lead_status_${person.leadStatus ?? 'lead'}`)}
-                      </Badge>
+                      {phone || email ? (
+                        <div className="hidden min-w-0 max-w-[8.5rem] shrink-0 flex-col items-end @[16rem]/people-row:flex">
+                          {phone ? (
+                            <span className="truncate text-[0.6875rem] text-muted-foreground">{phone}</span>
+                          ) : null}
+                          {email ? (
+                            <span className="truncate text-[0.6875rem] text-muted-foreground">{email}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </button>
                   </div>
                 </li>

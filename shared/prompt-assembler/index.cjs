@@ -112,29 +112,15 @@ function formatPinnedPersonLine(person) {
   const identities = (person.identities || []).map((identity) => `${identity.source}:${identity.displayLabel || identity.externalId}`).join(", ");
   return identities ? `- ${person.id}: ${person.title} (${identities})` : `- ${person.id}: ${person.title}`;
 }
-function pinnedMetaString(meta, key) {
-  return typeof meta?.[key] === "string" ? meta[key] : null;
-}
-function pinnedSourceKindAttr(src, kind, key, attr) {
-  if (src.kind !== kind)
-    return "";
-  const value = pinnedMetaString(src.meta, key);
-  return value === null ? "" : ` ${attr}=${value}`;
-}
-function pinnedSourceBody(src) {
-  const body = pinnedMetaString(src.meta, "body")?.trim();
-  if (!body)
-    return "";
-  return `
-  body: ${body.slice(0, 2e3)}`;
-}
 function formatPinnedSourceLine(src) {
-  const repo = pinnedSourceKindAttr(src, "issue", "fullName", "repo");
-  const folder = pinnedSourceKindAttr(src, "email", "folder", "folder");
-  const provider = pinnedSourceKindAttr(src, "social_post", "provider", "provider");
-  const status = pinnedSourceKindAttr(src, "social_post", "status", "status");
+  const repo = src.kind === "issue" && typeof src.meta?.fullName === "string" ? ` repo=${src.meta.fullName}` : "";
+  const folder = src.kind === "email" && typeof src.meta?.folder === "string" ? ` folder=${src.meta.folder}` : "";
+  const provider = src.kind === "social_post" && typeof src.meta?.provider === "string" ? ` provider=${src.meta.provider}` : "";
+  const status = src.kind === "social_post" && typeof src.meta?.status === "string" ? ` status=${src.meta.status}` : "";
+  const body = typeof src.meta?.body === "string" && src.meta.body.trim() ? `
+  body: ${src.meta.body.trim().slice(0, 2e3)}` : "";
   const toolHint = PINNED_SOURCE_TOOL_HINTS[src.kind] || "";
-  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${pinnedSourceBody(src)}`;
+  return `- [${src.kind}] ${src.id}: ${src.title}${repo}${folder}${provider}${status}${toolHint}${body}`;
 }
 function formatPinnedResourceLine(r) {
   return `- ${r.id}: ${r.title} (${r.type})`;
@@ -169,7 +155,7 @@ function formatVolatileSourceContext(opts = {}) {
   pushVolatileLabel(blocks, "**user-memory**", opts.userMemory);
   pushVolatileListBlock(
     blocks,
-    `**mentioned-people** \u2014 ${opts.pinnedPeople?.length || 0} person(s). Resolve identities for email/GitHub/social tools; do not invent handles.`,
+    `**mentioned-people** \u2014 ${opts.pinnedPeople?.length || 0} person(s). Documents and people are first-class. Use people_get / people_upsert / people_ingest / people_add_interaction to read and persist complete profiles (website, email, occupation, how you met). Resolve identities; do not invent handles.`,
     opts.pinnedPeople,
     formatPinnedPersonLine
   );

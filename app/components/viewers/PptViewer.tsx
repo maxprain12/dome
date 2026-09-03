@@ -346,7 +346,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         style={{ backgroundColor: 'var(--card)', overflow: 'hidden' }}
       >
         <div
-          className="ppt-viewer-stage relative shrink-0 overflow-hidden rounded-sm bg-background shadow-[0_16px_56px_-8px_rgba(0,0,0,0.75),0_4px_20px_rgba(0,0,0,0.5)]"
+          className="ppt-viewer-stage relative shrink-0 overflow-hidden rounded-sm bg-background ring-1 ring-border"
           style={{
             width: scaledW,
             height: scaledH,

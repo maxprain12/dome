@@ -44,7 +44,7 @@ function totalRichness(messages: ManyMessage[]): number {
   return messages.reduce((sum, message) => sum + messageRichness(message), 0);
 }
 
-/** Keep composer UI fields that JSONL harness conversion never stores. */
+/** Prefer JSONL fields when present; fall back to in-memory composer state. */
 function preserveLocalUiFields(localMsg: ManyMessage, incoming: ManyMessage): ManyMessage {
   return {
     ...incoming,
@@ -89,7 +89,7 @@ function alignPreservingLocalUi(local: ManyMessage[], db: ManyMessage[]): ManyMe
 /**
  * Merge localStorage Many messages with SQLite/JSONL session rows.
  * Never drops assistant turns that exist locally when DB is incomplete.
- * Never drops pin/attachment UI fields that only live in the local store.
+ * JSONL now stores attachments and `dome.pins`; local fields are a fallback.
  */
 export function mergeManySessionMessages(local: ManyMessage[], db: ManyMessage[]): ManyMessage[] {
   if (db.length === 0) return [...local];

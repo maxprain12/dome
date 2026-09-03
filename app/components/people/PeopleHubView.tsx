@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { PlusSignIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
+import { Delete02Icon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import ListState from '@/components/shared/ListState';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { HubHeader, HubPageHeader } from '@/components/hub';
 import {
   AppModal,
   AppModalBody,
@@ -19,6 +18,8 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
 import PeopleList from './PeopleList';
 import PersonDetailPanel from './PersonDetailPanel';
+import { BUILTIN_PERSON_STATUSES, isBuiltinPersonStatus, personStatusLabel } from './personStatuses';
+import { useCustomPersonStatuses } from './useCustomPersonStatuses';
 import { usePeopleHub } from './usePeopleHub';
 
 export default function PeopleHubView() {
@@ -56,11 +57,15 @@ export default function PeopleHubView() {
     enrichErrorLabel: t('people.enrich_error'),
   });
 
+  const { customs, add: addStatus, remove: removeStatus } = useCustomPersonStatuses();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
+  const [managingStatuses, setManagingStatuses] = useState(false);
+  const [statusDraft, setStatusDraft] = useState('');
+  const [statusBusy, setStatusBusy] = useState(false);
 
   const handleCreate = async () => {
     setCreateBusy(true);
@@ -105,6 +110,22 @@ export default function PeopleHubView() {
     setPendingDeleteIds(null);
   };
 
+  useEffect(() => {
+    if (filter !== 'all' && !isBuiltinPersonStatus(filter) && !customs.some((row) => row.id === filter)) {
+      setFilter('all');
+    }
+  }, [customs, filter, setFilter]);
+
+  const handleAddStatus = async () => {
+    setStatusBusy(true);
+    try {
+      const created = await addStatus(statusDraft);
+      if (created) setStatusDraft('');
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
   // Consume a pending "focus person" intent (e.g. from the command palette) once the
   // hub mounts, and keep listening while it stays open.
   const selectPersonRefLatest = useRef(selectPersonRef.current);
@@ -127,19 +148,6 @@ export default function PeopleHubView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <HubPageHeader className="shrink-0">
-        <HubHeader
-          title={t('people.hub_title')}
-          description={t('people.hub_description')}
-          actions={
-            <Button type="button" size="sm" onClick={() => setCreating(true)}>
-              <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
-              {t('people.new_person')}
-            </Button>
-          }
-        />
-      </HubPageHeader>
-
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <PeopleList
           people={people}
@@ -154,6 +162,9 @@ export default function PeopleHubView() {
           onToggleChecked={handleToggleChecked}
           onToggleAllChecked={handleToggleAllChecked}
           onDeleteChecked={() => setPendingDeleteIds(Array.from(checkedIds))}
+          onCreate={() => setCreating(true)}
+          onManageStatuses={() => setManagingStatuses(true)}
+          customs={customs}
           deleting={deleting}
         />
 
@@ -175,6 +186,8 @@ export default function PeopleHubView() {
               }}
               onOpenPipelines={openPipelinesTab}
               onOpenCalendar={openCalendarTab}
+              customs={customs}
+              onManageStatuses={() => setManagingStatuses(true)}
             />
           ) : (
             <ListState
@@ -198,7 +211,9 @@ export default function PeopleHubView() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleCreate();
+                if (e.key === 'Enter') {
+                  handleCreate().catch(() => {});
+                }
               }}
               placeholder={t('people.new_person_placeholder')}
               aria-label={t('people.new_person_placeholder')}
@@ -210,6 +225,72 @@ export default function PeopleHubView() {
             </Button>
             <Button onClick={() => handleCreate()} disabled={!newName.trim() || createBusy}>
               {t('people.create')}
+            </Button>
+          </AppModalFooter>
+        </AppModalContent>
+      </AppModal>
+
+      <AppModal open={managingStatuses} onOpenChange={setManagingStatuses}>
+        <AppModalContent size="sm">
+          <AppModalHeader title={t('people.manage_statuses_title')} />
+          <AppModalBody>
+            <div className="flex flex-col gap-3">
+              <Input
+                value={statusDraft}
+                onChange={(e) => setStatusDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddStatus().catch(() => {});
+                  }
+                }}
+                placeholder={t('people.add_status_placeholder')}
+                aria-label={t('people.add_status_placeholder')}
+              />
+              <div className="flex flex-wrap gap-1">
+                {BUILTIN_PERSON_STATUSES.map((id) => (
+                  <span
+                    key={id}
+                    className="rounded-md border px-2 py-0.5 text-[0.6875rem] text-muted-foreground"
+                  >
+                    {personStatusLabel(id, t)}
+                  </span>
+                ))}
+              </div>
+              {customs.length > 0 ? (
+                <ul className="flex flex-col gap-1">
+                  {customs.map((row) => (
+                    <li key={row.id} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1">
+                      <span className="truncate text-xs font-medium">{row.label}</span>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={t('people.remove_status', { name: row.label })}
+                        onClick={() => {
+                          removeStatus(row.id).catch(() => {});
+                        }}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">{t('people.custom_statuses_empty')}</p>
+              )}
+            </div>
+          </AppModalBody>
+          <AppModalFooter>
+            <Button variant="outline" onClick={() => setManagingStatuses(false)}>
+              {t('people.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                handleAddStatus().catch(() => {});
+              }}
+              disabled={!statusDraft.trim() || statusBusy}
+            >
+              {t('people.add_status')}
             </Button>
           </AppModalFooter>
         </AppModalContent>

@@ -49,6 +49,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   people_search: 'Search people',
   people_upsert: 'Upsert person',
   people_link_identity: 'Link identity',
+  people_add_interaction: 'People note',
+  people_ingest: 'Ingest people',
   email_read: 'Read Email',
   // Artifacts
   artifact_create: 'Artifact Create',

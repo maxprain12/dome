@@ -1,7 +1,7 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ROLE_PRESETS, type RoleId } from '@/lib/onboarding/roles';
+import { DEFAULT_EDITION, ROLE_PRESETS, type RoleId } from '@/lib/onboarding/roles';
+
 interface RoleStepProps {
   initialRoleId?: RoleId | null;
   initialFreeText?: string;
@@ -16,21 +16,18 @@ export default function RoleStep({
   onValidationChange,
 }: RoleStepProps) {
   const { t } = useTranslation();
-  const [roleId, setRoleId] = useState<RoleId | null>(initialRoleId);
+  const [roleId, setRoleId] = useState<RoleId>(initialRoleId ?? DEFAULT_EDITION);
   const [freeText, setFreeText] = useState(initialFreeText);
-
-  const canProceed = roleId !== null;
 
   const handleNextRef = useRef<() => void>(() => {});
   const handleNext = useCallback(() => {
-    if (!roleId) return;
     onComplete({ roleId, freeText: freeText.trim() });
   }, [roleId, freeText, onComplete]);
   handleNextRef.current = handleNext;
 
   useEffect(() => {
-    onValidationChange?.(canProceed);
-  }, [canProceed, onValidationChange]);
+    onValidationChange?.(true);
+  }, [onValidationChange]);
 
   useEffect(() => {
     const handler = () => handleNextRef.current();
@@ -40,7 +37,7 @@ export default function RoleStep({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         {ROLE_PRESETS.map((role) => {
           const selected = roleId === role.id;
           return (
@@ -61,7 +58,6 @@ export default function RoleStep({
                 if (!selected) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
               }}
             >
-              <span className="text-xl leading-none select-none" aria-hidden>{role.emoji}</span>
               <span className="font-semibold text-sm text-foreground">
                 {t(role.labelKey)}
               </span>

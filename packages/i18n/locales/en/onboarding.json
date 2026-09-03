@@ -15,7 +15,7 @@
   "back_label": "Back",
   "start": "Get started",
   "finalize": "Finish",
-  "role_message": "What do you focus on? I'll tailor Dome's interface and set myself up to help you better. You can change any of this later in Settings.",
+  "role_message": "Which Dome edition fits you? Pro is the default: documents and people. Study and Dev are specialized apps on the same platform. You can switch later in Settings.",
   "role_about_label": "Tell me about you (optional)",
   "role_about_placeholder": "I'm Alder, I focus on programming and tracking my projects…",
   "role_about_hint": "I'll use this to shape how I assist you and what I remember about you.",

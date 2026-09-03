@@ -1,10 +1,11 @@
 {
   "title": "Fonctionnalités",
   "subtitle": "Affichez ou masquez des sections de Dome. Les sections masquées peuvent être réactivées ici à tout moment.",
-  "current_role": "Profil",
+  "current_role": "Édition",
   "no_role": "Aucun",
-  "reset_hint": "Réinitialiser la visibilité aux valeurs par défaut de votre profil.",
-  "reset_button": "Réinitialiser au profil",
+  "switch_hint": "Changer d'édition réinitialise la barre à ses valeurs par défaut. Votre bibliothèque n'est pas effacée.",
+  "reset_hint": "Rétablir les sections par défaut de cette édition.",
+  "reset_button": "Réinitialiser l'édition",
   "hidden_notice": "{{n}} masquées · Paramètres",
   "hidden_notice_title": "Vous avez des sections masquées. Gérez-les dans Paramètres → Fonctionnalités.",
   "groups": {
@@ -49,6 +50,10 @@
     "social": {
       "label": "Réseaux sociaux",
       "desc": "Gérez le contenu LinkedIn, Instagram et X."
+    },
+    "people": {
+      "label": "Contacts",
+      "desc": "Contacts, leads et identités e-mail, social et GitHub."
     },
     "agents": {
       "label": "Agents",

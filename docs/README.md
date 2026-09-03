@@ -2,6 +2,8 @@
 
 Documentación del proyecto Dome Desktop (**v2.7.7**). Además de este índice:
 
+- **[Posicionamiento](product/positioning.md)** — Pro / Study / Dev, dos polos, qué se vende.
+- **[Ediciones](product/editions.md)** — matriz módulo→edición, freeze, DoD.
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
 - **[Planes](plans/README.md)** — planes de ejecución versionados.

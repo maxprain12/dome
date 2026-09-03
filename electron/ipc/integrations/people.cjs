@@ -120,6 +120,16 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
+  ipcMain.handle('people:ingest', (event, payload) => {
+    if (!guard(event)) return fail('Unauthorized');
+    if (!payload || typeof payload !== 'object') return fail('Invalid payload');
+    try {
+      return ok(peopleStore.ingestPeople(payload));
+    } catch (err) {
+      return fail(err);
+    }
+  });
+
   ipcMain.handle('people:delete', (event, payload) => {
     if (!guard(event)) return fail('Unauthorized');
     try {

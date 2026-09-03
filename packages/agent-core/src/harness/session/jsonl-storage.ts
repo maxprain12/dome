@@ -1,11 +1,25 @@
-import type { FileSystem, JsonlSessionMetadata, LeafEntry, SessionStorage, SessionTreeEntry } from "../types.js";
+import type { FileSystem, JsonlSessionMetadata, SessionStorage, SessionTreeEntry } from "../types.js";
 import { SessionError, toError } from "../types.js";
+import {
+	encodeV4Header,
+	encodeV4Mutation,
+	isV3HeaderLine,
+	isV4HeaderLine,
+	parseV4Header,
+	parseV4SessionText,
+	treeEntryToV4Entry,
+	upgradeV3TextToV4,
+	type JsonlV4Header,
+} from "./jsonl-v4.js";
 import { getFileSystemResultOrThrow } from "./repo-utils.js";
 import { uuidv7 } from "./uuid.js";
 
-type JsonlSessionStorageFileSystem = Pick<FileSystem, "readTextFile" | "readTextLines" | "writeFile" | "appendFile">;
+type JsonlSessionStorageFileSystem = Pick<
+	FileSystem,
+	"readTextFile" | "readTextLines" | "writeFile" | "appendFile"
+>;
 
-interface SessionHeader {
+interface SessionHeaderV3 {
 	type: "session";
 	version: 3;
 	id: string;
@@ -56,7 +70,7 @@ function invalidEntry(filePath: string, lineNumber: number, message: string, cau
 	);
 }
 
-function parseHeaderLine(line: string, filePath: string): SessionHeader {
+function parseV3HeaderLine(line: string, filePath: string): SessionHeaderV3 {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(line);
@@ -84,7 +98,7 @@ function parseHeaderLine(line: string, filePath: string): SessionHeader {
 	};
 }
 
-function parseEntryLine(line: string, filePath: string, lineNumber: number): SessionTreeEntry {
+function parseV3EntryLine(line: string, filePath: string, lineNumber: number): SessionTreeEntry {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(line);
@@ -110,7 +124,17 @@ function leafIdAfterEntry(entry: SessionTreeEntry): string | null {
 	return entry.type === "leaf" ? entry.targetId : entry.id;
 }
 
-function headerToSessionMetadata(header: SessionHeader, path: string): JsonlSessionMetadata {
+function v4HeaderToMetadata(header: JsonlV4Header, path: string): JsonlSessionMetadata {
+	return {
+		id: header.id,
+		createdAt: new Date(header.createdAt).toISOString(),
+		cwd: header.cwd,
+		path,
+		parentSessionPath: header.parentSessionId ?? header.legacyParentSessionPath,
+	};
+}
+
+function v3HeaderToMetadata(header: SessionHeaderV3, path: string): JsonlSessionMetadata {
 	return {
 		id: header.id,
 		createdAt: header.timestamp,
@@ -129,29 +153,27 @@ export async function loadJsonlSessionMetadata(
 		`Failed to read session header ${filePath}`,
 	);
 	const line = lines[0];
-	if (line?.trim()) return headerToSessionMetadata(parseHeaderLine(line, filePath), filePath);
-	throw invalidSession(filePath, "missing session header");
+	if (!line?.trim()) throw invalidSession(filePath, "missing session header");
+	if (isV4HeaderLine(line)) {
+		return v4HeaderToMetadata(parseV4Header(line), filePath);
+	}
+	if (isV3HeaderLine(line)) {
+		return v3HeaderToMetadata(parseV3HeaderLine(line, filePath), filePath);
+	}
+	throw invalidSession(filePath, "unsupported session header");
 }
 
-async function loadJsonlStorage(
-	fs: JsonlSessionStorageFileSystem,
+function loadV3Entries(
+	content: string,
 	filePath: string,
-): Promise<{
-	header: SessionHeader;
-	entries: SessionTreeEntry[];
-	leafId: string | null;
-}> {
-	const content = getFileSystemResultOrThrow(await fs.readTextFile(filePath), `Failed to read session ${filePath}`);
+): { header: SessionHeaderV3; entries: SessionTreeEntry[]; leafId: string | null } {
 	const lines = content.split("\n").filter((line) => line.trim());
-	if (lines.length === 0) {
-		throw invalidSession(filePath, "missing session header");
-	}
-
-	const header = parseHeaderLine(lines[0]!, filePath);
+	if (lines.length === 0) throw invalidSession(filePath, "missing session header");
+	const header = parseV3HeaderLine(lines[0]!, filePath);
 	const entries: SessionTreeEntry[] = [];
 	let leafId: string | null = null;
 	for (let i = 1; i < lines.length; i++) {
-		const entry = parseEntryLine(lines[i]!, filePath, i + 1);
+		const entry = parseV3EntryLine(lines[i]!, filePath, i + 1);
 		entries.push(entry);
 		leafId = leafIdAfterEntry(entry);
 	}
@@ -166,26 +188,62 @@ export class JsonlSessionStorage implements SessionStorage<JsonlSessionMetadata>
 	private byId: Map<string, SessionTreeEntry>;
 	private labelsById: Map<string, string>;
 	private currentLeafId: string | null;
+	private nextSeq: number;
 
 	private constructor(
 		fs: JsonlSessionStorageFileSystem,
 		filePath: string,
-		header: SessionHeader,
+		header: JsonlV4Header,
 		entries: SessionTreeEntry[],
 		leafId: string | null,
+		nextSeq: number,
+		labelsById?: Map<string, string>,
 	) {
 		this.fs = fs;
 		this.filePath = filePath;
-		this.metadata = headerToSessionMetadata(header, this.filePath);
+		this.metadata = v4HeaderToMetadata(header, this.filePath);
 		this.entries = entries;
 		this.byId = new Map(entries.map((entry) => [entry.id, entry]));
-		this.labelsById = buildLabelsById(entries);
+		this.labelsById = labelsById ?? buildLabelsById(entries);
 		this.currentLeafId = leafId;
+		this.nextSeq = nextSeq;
 	}
 
 	static async open(fs: JsonlSessionStorageFileSystem, filePath: string): Promise<JsonlSessionStorage> {
-		const loaded = await loadJsonlStorage(fs, filePath);
-		return new JsonlSessionStorage(fs, filePath, loaded.header, loaded.entries, loaded.leafId);
+		const content = getFileSystemResultOrThrow(await fs.readTextFile(filePath), `Failed to read session ${filePath}`);
+		const firstLine = content.split("\n").find((line) => line.trim()) ?? "";
+		if (isV4HeaderLine(firstLine)) {
+			const snapshot = parseV4SessionText(content);
+			return new JsonlSessionStorage(
+				fs,
+				filePath,
+				snapshot.header,
+				snapshot.entries,
+				snapshot.leafId,
+				snapshot.nextSeq,
+				snapshot.labelsById,
+			);
+		}
+		if (!isV3HeaderLine(firstLine)) {
+			throw invalidSession(filePath, "unsupported session header");
+		}
+		const loaded = loadV3Entries(content, filePath);
+		const upgraded = upgradeV3TextToV4(content);
+		getFileSystemResultOrThrow(
+			await fs.writeFile(`${filePath}.v3.bak`, content),
+			`Failed to backup v3 session ${filePath}`,
+		);
+		getFileSystemResultOrThrow(await fs.writeFile(filePath, upgraded), `Failed to rewrite session ${filePath} as v4`);
+		const snapshot = parseV4SessionText(upgraded);
+		return new JsonlSessionStorage(
+			fs,
+			filePath,
+			snapshot.header,
+			snapshot.entries,
+			loaded.leafId,
+			snapshot.nextSeq,
+			snapshot.labelsById,
+		);
 	}
 
 	static async create(
@@ -197,19 +255,19 @@ export class JsonlSessionStorage implements SessionStorage<JsonlSessionMetadata>
 			parentSessionPath?: string;
 		},
 	): Promise<JsonlSessionStorage> {
-		const header: SessionHeader = {
-			type: "session",
-			version: 3,
+		const header: JsonlV4Header = {
+			kind: "header",
+			version: 4,
 			id: options.sessionId,
-			timestamp: new Date().toISOString(),
+			createdAt: Date.now(),
 			cwd: options.cwd,
-			parentSession: options.parentSessionPath,
+			...(options.parentSessionPath ? { legacyParentSessionPath: options.parentSessionPath } : {}),
 		};
 		getFileSystemResultOrThrow(
-			await fs.writeFile(filePath, `${JSON.stringify(header)}\n`),
+			await fs.writeFile(filePath, encodeV4Header(header)),
 			`Failed to create session ${filePath}`,
 		);
-		return new JsonlSessionStorage(fs, filePath, header, [], null);
+		return new JsonlSessionStorage(fs, filePath, header, [], null, 1);
 	}
 
 	async getMetadata(): Promise<JsonlSessionMetadata> {
@@ -227,19 +285,15 @@ export class JsonlSessionStorage implements SessionStorage<JsonlSessionMetadata>
 		if (leafId !== null && !this.byId.has(leafId)) {
 			throw new SessionError("not_found", `Entry ${leafId} not found`);
 		}
-		const entry: LeafEntry = {
-			type: "leaf",
-			id: generateEntryId(this.byId),
-			parentId: this.currentLeafId,
-			timestamp: new Date().toISOString(),
-			targetId: leafId,
-		};
+		const seq = this.nextSeq;
+		this.nextSeq += 1;
 		getFileSystemResultOrThrow(
-			await this.fs.appendFile(this.filePath, `${JSON.stringify(entry)}\n`),
-			`Failed to append session leaf ${entry.id}`,
+			await this.fs.appendFile(
+				this.filePath,
+				encodeV4Mutation({ kind: "lane", seq, lane: "main", leafId }),
+			),
+			`Failed to append session leaf`,
 		);
-		this.entries.push(entry);
-		this.byId.set(entry.id, entry);
 		this.currentLeafId = leafId;
 	}
 
@@ -248,8 +302,10 @@ export class JsonlSessionStorage implements SessionStorage<JsonlSessionMetadata>
 	}
 
 	async appendEntry(entry: SessionTreeEntry): Promise<void> {
+		const seq = this.nextSeq;
+		this.nextSeq += 1;
 		getFileSystemResultOrThrow(
-			await this.fs.appendFile(this.filePath, `${JSON.stringify(entry)}\n`),
+			await this.fs.appendFile(this.filePath, encodeV4Mutation({ kind: "entry", entry: treeEntryToV4Entry(entry, seq) })),
 			`Failed to append session entry ${entry.id}`,
 		);
 		this.entries.push(entry);

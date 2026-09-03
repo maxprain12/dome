@@ -5,8 +5,8 @@ export const peopleUpsertDefinition: ToolDefinition = {
   function: {
     name: 'people_upsert',
     description:
-      'Create or update a person in Dome People (canonical CRM). Optional identities ' +
-      '(social_instagram, email, github, …). Leads are people with lead_status=lead. Source: People.',
+      'Create or update a person with a complete profile. Merges profile keys. ' +
+      'Identities include website, email, social, phone, document. Source: People.',
     parameters: {
       type: 'object',
       properties: {
@@ -17,7 +17,14 @@ export const peopleUpsertDefinition: ToolDefinition = {
         notes: { type: 'string', description: 'Internal notes.' },
         lead_status: {
           type: 'string',
-          description: 'lead | customer | archived',
+          description:
+            'lead | prospect | qualified | customer | partner | vendor | investor | colleague | personal | archived, or a custom slug',
+        },
+        discovered_via: { type: 'string', description: 'How we met / source label.' },
+        profile: {
+          type: 'object',
+          description:
+            'Complete freeform profile (occupation, company, website, phone, location, how_we_met, plus any other facts). Merges with existing keys.',
         },
         identities: {
           type: 'array',
@@ -27,7 +34,8 @@ export const peopleUpsertDefinition: ToolDefinition = {
             properties: {
               source: {
                 type: 'string',
-                description: 'github | email | social_x | social_linkedin | social_instagram | manual',
+                description:
+                  'github | email | website | phone | document | calendar | company | social_x | social_linkedin | social_instagram | social_facebook | social_tiktok | social_youtube | manual',
               },
               external_id: { type: 'string' },
               display_label: { type: 'string' },

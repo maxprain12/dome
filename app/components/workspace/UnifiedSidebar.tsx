@@ -50,7 +50,6 @@ import AddResourceMenu from './sidebar/AddResourceMenu';
 import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 interface UnifiedSidebarProps {
@@ -488,7 +487,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         count?: number;
       };
 
-  /** Navegación principal: acceso diario (biblioteca, agenda, núcleo de automatización). */
+  /** Navegación principal: documentos y personas primero; canales y automatizar después. */
   const primaryUnifiedNavItems = useMemo((): UnifiedNavItem[] => {
     return [
       {
@@ -507,20 +506,12 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         onOpen: openProjectsTab,
       },
       {
-        key: 'calendar',
+        key: 'people',
         kind: 'tab',
-        tabType: 'calendar',
-        label: t('workspace.calendar'),
-        icon: Calendar03Icon,
-        onOpen: openCalendarTab,
-      },
-      {
-        key: 'github',
-        kind: 'tab',
-        tabType: 'github',
-        label: t('github.tab_title'),
-        icon: Task01Icon,
-        onOpen: openGitHubTab,
+        tabType: 'people',
+        label: t('people.tab_title'),
+        icon: UserIcon,
+        onOpen: openPeopleTab,
       },
       {
         key: 'email',
@@ -539,20 +530,20 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         onOpen: openSocialTab,
       },
       {
-        key: 'people',
+        key: 'calendar',
         kind: 'tab',
-        tabType: 'people',
-        label: t('people.tab_title'),
-        icon: UserIcon,
-        onOpen: openPeopleTab,
+        tabType: 'calendar',
+        label: t('workspace.calendar'),
+        icon: Calendar03Icon,
+        onOpen: openCalendarTab,
       },
       {
-        key: 'pipelines',
+        key: 'github',
         kind: 'tab',
-        tabType: 'pipelines',
-        label: t('tabs.pipelines'),
-        icon: WorkflowSquare01Icon,
-        onOpen: openPipelinesTab,
+        tabType: 'github',
+        label: t('github.tab_title'),
+        icon: Task01Icon,
+        onOpen: openGitHubTab,
       },
       {
         key: 'agents',
@@ -561,6 +552,14 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         label: t('tabs.agents'),
         icon: BotIcon,
         onOpen: openAgentsTab,
+      },
+      {
+        key: 'pipelines',
+        kind: 'tab',
+        tabType: 'pipelines',
+        label: t('tabs.pipelines'),
+        icon: WorkflowSquare01Icon,
+        onOpen: openPipelinesTab,
       },
       {
         key: 'workflows',
@@ -589,14 +588,14 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     ];
   }, [
     t,
-    openCalendarTab,
-    openGitHubTab,
+    openProjectsTab,
+    openPeopleTab,
     openEmailTab,
     openSocialTab,
-    openPeopleTab,
-    openProjectsTab,
-    openPipelinesTab,
+    openCalendarTab,
+    openGitHubTab,
     openAgentsTab,
+    openPipelinesTab,
     openWorkflowsTab,
     openAutomationsTab,
     openRunsTab,
@@ -667,14 +666,14 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     <aside
       className={cn(
         'dome-left-sidebar flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width,opacity] duration-200 ease-out',
-        collapsed ? 'w-0 opacity-0' : 'w-62 opacity-100',
+        collapsed ? 'w-0 opacity-0' : 'w-(--chrome-rail-width) opacity-100',
       )}
       aria-hidden={collapsed}
     >
       <div className="flex min-h-0 flex-1 flex-col">
         <ScrollArea className="min-h-0 flex-1">
           {/* Navegación principal */}
-          <nav className="flex flex-col gap-0.5 px-2 pt-2.5 pb-1.5" aria-label={t('sidebar.navigation', 'Navegación')}>
+          <nav className="flex flex-col gap-0.5 px-2 py-2" aria-label={t('sidebar.navigation', 'Navegación')}>
             {visiblePrimaryUnifiedNavItems.map((item) => (
               <SidebarNavButton
                 key={item.key}
@@ -688,11 +687,9 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
             ))}
           </nav>
 
-          <Separator className="mx-3 bg-sidebar-border" />
-
           {/* Workspace tree */}
-          <div className="py-1.5">
-            <div className="flex items-center gap-1 px-2 py-1">
+          <div className="border-t border-sidebar-border py-2">
+            <div className="flex items-center gap-1 px-2">
               <Button
                 type="button"
                 variant="ghost"
