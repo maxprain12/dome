@@ -24,6 +24,40 @@ function escapeControlCharacter(char: string): string {
 	}
 }
 
+interface EscapeSequenceResult {
+	text: string;
+	nextIndex: number;
+}
+
+/**
+ * Returns the repaired text for a backslash sequence starting at `index`.
+ * `nextIndex` is the last index consumed (the `for` loop will increment by 1).
+ */
+function buildEscapeSequence(json: string, index: number): EscapeSequenceResult {
+	const nextChar = json[index + 1];
+
+	if (nextChar === undefined) {
+		return { text: "\\\\", nextIndex: index };
+	}
+
+	if (nextChar === "u") {
+		const unicodeDigits = json.slice(index + 2, index + 6);
+		if (/^[0-9a-fA-F]{4}$/.test(unicodeDigits)) {
+			return { text: `\\u${unicodeDigits}`, nextIndex: index + 5 };
+		}
+	}
+
+	if (VALID_JSON_ESCAPES.has(nextChar)) {
+		return { text: `\\${nextChar}`, nextIndex: index + 1 };
+	}
+
+	return { text: "\\\\", nextIndex: index };
+}
+
+function repairCharInsideString(char: string): string {
+	return isControlCharacter(char) ? escapeControlCharacter(char) : char;
+}
+
 /**
  * Repairs malformed JSON string literals by:
  * - escaping raw control characters inside strings
@@ -51,32 +85,13 @@ export function repairJson(json: string): string {
 		}
 
 		if (char === "\\") {
-			const nextChar = json[index + 1];
-			if (nextChar === undefined) {
-				repaired += "\\\\";
-				continue;
-			}
-
-			if (nextChar === "u") {
-				const unicodeDigits = json.slice(index + 2, index + 6);
-				if (/^[0-9a-fA-F]{4}$/.test(unicodeDigits)) {
-					repaired += `\\u${unicodeDigits}`;
-					index += 5;
-					continue;
-				}
-			}
-
-			if (VALID_JSON_ESCAPES.has(nextChar)) {
-				repaired += `\\${nextChar}`;
-				index += 1;
-				continue;
-			}
-
-			repaired += "\\\\";
+			const result = buildEscapeSequence(json, index);
+			repaired += result.text;
+			index = result.nextIndex;
 			continue;
 		}
 
-		repaired += isControlCharacter(char) ? escapeControlCharacter(char) : char;
+		repaired += repairCharInsideString(char);
 	}
 
 	return repaired;
