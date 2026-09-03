@@ -14,16 +14,38 @@ import {
 } from '@/components/ui/select';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 import { useFeaturesStore } from '@/lib/store/useFeaturesStore';
-import { TOGGLEABLE_FEATURES, FEATURE_GROUPS, isFeatureVisible } from '@/lib/features/featureKeys';
+import { TOGGLEABLE_FEATURES, FEATURE_GROUPS, isFeatureVisible, type FeatureDef } from '@/lib/features/featureKeys';
 import { EDITION_PRESETS, getEdition, resolveEditionId } from '@/lib/editions/catalog';
+
+function FeatureRow({ feature }: { feature: FeatureDef }) {
+  const { t } = useTranslation();
+  const visibility = useFeaturesStore((s) => s.visibility);
+  const setVisible = useFeaturesStore((s) => s.setVisible);
+
+  const handleToggle = (value: boolean) => {
+    setVisible(feature.key, value).catch(() => {});
+  };
+
+  return (
+    <SettingsRow
+      title={t(feature.labelKey)}
+      description={t(feature.descKey)}
+      control={
+        <Switch
+          checked={isFeatureVisible(visibility, feature.key)}
+          onCheckedChange={handleToggle}
+          aria-label={t(feature.labelKey)}
+        />
+      }
+    />
+  );
+}
 
 export default function FeaturesSection() {
   const { t } = useTranslation();
   const role = useFeaturesStore((s) => s.role);
-  const visibility = useFeaturesStore((s) => s.visibility);
   const loaded = useFeaturesStore((s) => s.loaded);
   const loadFeatures = useFeaturesStore((s) => s.loadFeatures);
-  const setVisible = useFeaturesStore((s) => s.setVisible);
   const applyEdition = useFeaturesStore((s) => s.applyEdition);
   const resetToRolePreset = useFeaturesStore((s) => s.resetToRolePreset);
 
@@ -94,20 +116,7 @@ export default function FeaturesSection() {
         return (
           <SettingsGroup key={group.id} title={t(group.labelKey)}>
             {items.map((feature) => (
-              <SettingsRow
-                key={feature.key}
-                title={t(feature.labelKey)}
-                description={t(feature.descKey)}
-                control={
-                  <Switch
-                    checked={isFeatureVisible(visibility, feature.key)}
-                    onCheckedChange={(value) => {
-                      setVisible(feature.key, value).catch(() => {});
-                    }}
-                    aria-label={t(feature.labelKey)}
-                  />
-                }
-              />
+              <FeatureRow key={feature.key} feature={feature} />
             ))}
           </SettingsGroup>
         );
