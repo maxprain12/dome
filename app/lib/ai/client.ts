@@ -1159,76 +1159,23 @@ export async function* chatWithToolsStream(
     mcpServerIds?: string[];
     subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>;
   },
-): AsyncIterable<import('./types').ChatStreamChunk> {
+): AsyncIterable<ChatStreamChunk> {
   if (!isElectron() || !window.electron?.ai?.streamAgent) {
     throw new Error('Chat with tools requires Electron with agent runtime support');
   }
-
   const config = await getAIConfig();
   if (!config) throw new Error('AI not configured.');
 
-  const provider = config.provider as string;
-  const model = provider === 'ollama'
-    ? (config.ollamaModel || getDefaultModelId('ollama' as AIProviderType))
-    : (config.model || getDefaultModelId(provider as AIProviderType));
+  const { provider, model } = resolveAgentStreamModel(config);
   const toolDefinitions = toOpenAIToolDefinitions(tools);
-
   const streamId = generateStreamId();
-  const chunks: import('./types').ChatStreamChunk[] = [];
-  let resolveWait: (() => void) | null = null;
-  let done = false;
-  let streamError: Error | null = null;
+  const state = createAgentStreamState();
+  attachAgentStreamAbortListener(streamId, options?.signal);
 
-  if (options?.signal && window.electron?.ai?.abortAgent) {
-    options.signal.addEventListener('abort', () => {
-      window.electron.ai.abortAgent(streamId);
-    });
-  }
-
-  const unsub = window.electron!.ai.onStreamChunk((data: StreamChunkData) => {
-    if (data.streamId !== streamId) return;
-    if (data.type === 'thinking' && data.text) {
-      chunks.push({ type: 'thinking', text: data.text });
-    } else if (data.type === 'text' && data.text) {
-      chunks.push({ type: 'text', text: data.text });
-    } else if (data.type === 'tool_call' && data.toolCall) {
-      chunks.push({ type: 'tool_call', toolCall: data.toolCall });
-    } else if (data.type === 'tool_result' && data.toolCallId != null) {
-      chunks.push({ type: 'tool_result', toolCallId: data.toolCallId, result: data.result ?? '' });
-    } else if (data.type === 'done') {
-      chunks.push({ type: 'done' });
-      done = true;
-      unsub();
-    } else if (
-      data.type === 'interrupt' &&
-      Array.isArray(data.actionRequests) &&
-      data.actionRequests.length > 0
-    ) {
-      const threadId = data.threadId;
-      const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
-      chunks.push({
-        type: 'interrupt',
-        threadId,
-        actionRequests: data.actionRequests,
-        reviewConfigs,
-        submitResume: (decisions: Array<{ type: 'approve' } | { type: 'approve_all' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
-          if (threadId) {
-            void window.electron?.ai?.resumeAgent?.({ threadId, streamId, decisions });
-          }
-        },
-      });
-      // Don't set done - resume will send more chunks; keep listener active
-    } else if (data.type === 'error') {
-      streamError = new Error(data.error || 'Stream error');
-      chunks.push({ type: 'error', error: data.error ?? 'Stream error' });
-      done = true;
-      unsub();
-    }
-    if (resolveWait) {
-      resolveWait();
-      resolveWait = null;
-    }
-  });
+  let unsub: (() => void) | null = null;
+  unsub = window.electron!.ai.onStreamChunk((data) =>
+    handleAgentStreamChunk(data, streamId, state, () => unsub?.()),
+  );
 
   const invokePromise = window.electron.ai.streamAgent(
     provider as AIProviderType,
@@ -1241,35 +1188,147 @@ export async function* chatWithToolsStream(
     options?.mcpServerIds,
     options?.subagentIds,
   );
-
   invokePromise.catch((err) => {
-    streamError = err instanceof Error ? err : new Error(String(err));
-    done = true;
-    if (resolveWait) {
-      resolveWait();
-      resolveWait = null;
-    }
+    state.streamError = err instanceof Error ? err : new Error(String(err));
+    state.done = true;
+    wakeAgentStream(state);
   });
 
   try {
-    while (!done || chunks.length > 0) {
-      if (options?.signal?.aborted) break;
-      if (chunks.length > 0) {
-        const chunk = chunks.shift()!;
-        if (chunk.type === 'error' && streamError) throw streamError;
-        yield chunk;
-        if (chunk.type === 'done') break;
-        if (chunk.type === 'error') break;
-      } else if (!done) {
-        await new Promise<void>((resolve) => {
-          resolveWait = resolve;
-        });
-      }
-    }
-    if (streamError && !options?.signal?.aborted) throw streamError;
+    yield* drainAgentChunks(state, options?.signal);
+    if (state.streamError && !options?.signal?.aborted) throw state.streamError;
   } finally {
+    unsub?.();
+  }
+}
+
+/**
+ * Per-stream mutable state shared between the chunk callback and the consumer
+ * loop. Pulled out of `chatWithToolsStream` to keep its cognitive complexity
+ * within the allowed threshold.
+ */
+type AgentStreamState = {
+  chunks: ChatStreamChunk[];
+  done: boolean;
+  streamError: Error | null;
+  resolveWait: (() => void) | null;
+};
+
+function createAgentStreamState(): AgentStreamState {
+  return { chunks: [], done: false, streamError: null, resolveWait: null };
+}
+
+/** Pulled out of `chatWithToolsStream` to keep its complexity within the threshold. */
+function resolveAgentStreamModel(config: AIConfig): { provider: string; model: string } {
+  const provider = config.provider as string;
+  const model = provider === 'ollama'
+    ? config.ollamaModel || getDefaultModelId('ollama' as AIProviderType)
+    : config.model || getDefaultModelId(provider as AIProviderType);
+  return { provider, model };
+}
+
+/** Pulled out of `chatWithToolsStream` to keep its complexity within the threshold. */
+function attachAgentStreamAbortListener(
+  streamId: string,
+  signal: AbortSignal | undefined,
+): void {
+  const abortAgent = window.electron?.ai?.abortAgent;
+  if (!signal || !abortAgent) return;
+  signal.addEventListener('abort', () => {
+    abortAgent(streamId);
+  });
+}
+
+/** Wake the drain loop if it is pending; clears the resolver so we wake once. */
+function wakeAgentStream(state: AgentStreamState): void {
+  const waiter = state.resolveWait;
+  state.resolveWait = null;
+  if (waiter) waiter();
+}
+
+/**
+ * Dispatch one stream chunk into the per-stream state. The `unsub` callback is
+ * invoked for terminal chunks so the consumer can stop listening. Pulled out of
+ * `chatWithToolsStream` to keep its cognitive complexity within the threshold.
+ */
+function handleAgentStreamChunk(
+  data: StreamChunkData,
+  streamId: string,
+  state: AgentStreamState,
+  unsub: () => void,
+): void {
+  if (data.streamId !== streamId) return;
+  if (data.type === 'thinking' && data.text) {
+    state.chunks.push({ type: 'thinking', text: data.text });
+  } else if (data.type === 'text' && data.text) {
+    state.chunks.push({ type: 'text', text: data.text });
+  } else if (data.type === 'tool_call' && data.toolCall) {
+    state.chunks.push({ type: 'tool_call', toolCall: data.toolCall });
+  } else if (data.type === 'tool_result' && data.toolCallId != null) {
+    state.chunks.push({ type: 'tool_result', toolCallId: data.toolCallId, result: data.result ?? '' });
+  } else if (data.type === 'done') {
+    state.chunks.push({ type: 'done' });
+    state.done = true;
+    unsub();
+  } else if (
+    data.type === 'interrupt' &&
+    Array.isArray(data.actionRequests) &&
+    data.actionRequests.length > 0
+  ) {
+    const threadId = data.threadId;
+    const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
+    state.chunks.push({
+      type: 'interrupt',
+      threadId,
+      actionRequests: data.actionRequests,
+      reviewConfigs,
+      submitResume: (decisions: Array<{ type: 'approve' } | { type: 'approve_all' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
+        if (threadId) {
+          void window.electron?.ai?.resumeAgent?.({ threadId, streamId, decisions });
+        }
+      },
+    });
+    // Don't set done - resume will send more chunks; keep listener active
+  } else if (data.type === 'error') {
+    state.streamError = new Error(data.error || 'Stream error');
+    state.chunks.push({ type: 'error', error: data.error ?? 'Stream error' });
+    state.done = true;
     unsub();
   }
+  wakeAgentStream(state);
+}
+
+function isTerminalChunk(chunk: ChatStreamChunk): boolean {
+  return chunk.type === 'done' || chunk.type === 'error';
+}
+
+/**
+ * Yield stream chunks until the producer reports done or an error. Suspends when
+ * the producer is idle. Pulled out of `chatWithToolsStream` to keep its
+ * cognitive complexity within the allowed threshold.
+ */
+async function* drainAgentChunks(
+  state: AgentStreamState,
+  signal: AbortSignal | undefined,
+): AsyncIterable<ChatStreamChunk> {
+  while (!state.done || state.chunks.length > 0) {
+    if (signal?.aborted) break;
+    if (state.chunks.length === 0) {
+      if (!state.done) await waitForAgentChunks(state);
+      continue;
+    }
+    const chunk = state.chunks.shift()!;
+    if (chunk.type === 'error' && state.streamError) throw state.streamError;
+    yield chunk;
+    if (isTerminalChunk(chunk)) break;
+  }
+}
+
+/** Suspend the drain loop until the producer pushes at least one chunk. */
+function waitForAgentChunks(state: AgentStreamState): Promise<void> {
+  return new Promise<void>((resolve) => {
+    state.resolveWait = resolve;
+  });
 }
 
 /**
