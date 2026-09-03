@@ -54,8 +54,6 @@ export default function AIOllamaProviderConfig({
   wrapInCard = true,
   onAvailabilityChange,
 }: AIOllamaProviderConfigProps) {
-  const { t } = useTranslation();
-  const [showOllamaApiKey, setShowOllamaApiKey] = useState(false);
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
   const [checkingOllama, setCheckingOllama] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
@@ -102,194 +100,298 @@ export default function AIOllamaProviderConfig({
 
   return (
     <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-xl border bg-card p-4')}>
-      <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t('settings.ai.status')}
-          </span>
-          {checkingOllama ? (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Spinner /> {t('settings.ai.status_checking')}
-            </span>
-          ) : ollamaAvailable === true ? (
-            <span className="flex items-center gap-1 text-xs font-medium text-primary">
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} /> {t('settings.ai.status_connected')}
-            </span>
-          ) : ollamaAvailable === false ? (
-            <span className="flex items-center gap-1 text-xs font-medium text-destructive">
-              <HugeiconsIcon icon={CancelCircleIcon} /> {t('settings.ai.status_disconnected')}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {t('settings.ai.status_unverified')}
-            </span>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void checkOllamaConnection()}
-          disabled={checkingOllama}
-        >
-          {checkingOllama ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-          )}
-          {t('settings.ai.test_btn')}
-        </Button>
-      </div>
+      <OllamaStatusRow
+        checking={checkingOllama}
+        available={ollamaAvailable}
+        onCheck={() => void checkOllamaConnection()}
+      />
 
-      {ollamaAvailable === false ? (
-        <Alert role="note">
-          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
-          <AlertDescription className="text-xs">
-            {t('settings.ai.ollama_install')}{' '}
-            <a
-              href="https://ollama.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline"
-            >
-              ollama.ai
-            </a>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {ollamaAvailable === false ? <OllamaDisconnectedAlert /> : null}
 
-      <div>
-        <div className="flex items-end gap-3">
-          <Field className="flex-1">
-            <FieldLabel htmlFor="ai-ollama-url">{t('settings.ai.base_url')}</FieldLabel>
-            <Input
-              id="ai-ollama-url"
-              type="url"
-              value={ollamaBaseURL}
-              onChange={(e) => onOllamaBaseURLChange(e.target.value)}
-              placeholder="http://localhost:11434"
-            />
-          </Field>
-          <Badge
-            variant={apiKeyIsRequired ? 'outline' : 'secondary'}
-            className={cn('mb-2 shrink-0', !apiKeyIsRequired && 'text-primary')}
-          >
-            {apiKeyIsRequired ? t('settings.ai.ollama_mode_cloud') : t('settings.ai.ollama_mode_local')}
-          </Badge>
-        </div>
-        {showApiKeyField ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {apiKeyIsRequired ? (
-              <>
-                {t('settings.ai.ollama_cloud_hint')}{' '}
-                <code className="font-mono">https://api.ollama.com</code>
-              </>
-            ) : (
-              t('settings.ai.ollama_local_hint')
-            )}
-          </p>
-        ) : null}
-      </div>
+      <OllamaBaseUrlField
+        value={ollamaBaseURL}
+        onChange={onOllamaBaseURLChange}
+        apiKeyIsRequired={apiKeyIsRequired}
+        showApiKeyField={showApiKeyField}
+      />
 
       {showApiKeyField && onOllamaApiKeyChange ? (
-        <Field>
-          <FieldLabel htmlFor="ai-ollama-api-key">
-            API Key{' '}
-            <span className="font-normal normal-case opacity-60">
-              (
-              {apiKeyIsRequired
-                ? t('settings.ai.api_key_required_label')
-                : t('settings.ai.api_key_optional_label')}
-              )
-            </span>
-          </FieldLabel>
-          <InputGroup>
-            <InputGroupInput
-              id="ai-ollama-api-key"
-              type={showOllamaApiKey ? 'text' : 'password'}
-              value={ollamaApiKey}
-              onChange={(e) => onOllamaApiKeyChange(e.target.value)}
-              placeholder="ollama_..."
-              autoComplete="off"
-            />
-            <InputGroupAddon align="inline-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setShowOllamaApiKey((v) => !v)}
-                aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
-              >
-                <HugeiconsIcon icon={showOllamaApiKey ? EyeOffIcon : EyeIcon} />
-              </Button>
-            </InputGroupAddon>
-          </InputGroup>
-        </Field>
+        <OllamaApiKeyField
+          value={ollamaApiKey}
+          onChange={onOllamaApiKeyChange}
+          apiKeyIsRequired={apiKeyIsRequired}
+        />
       ) : null}
 
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t('settings.ai.chat_model')}
-          </span>
+      <OllamaModelField
+        models={ollamaModels}
+        loading={loadingModels}
+        model={ollamaModel}
+        onChange={onOllamaModelChange}
+        onRefresh={() => void loadOllamaModels()}
+      />
+
+      {showOcrHint ? <OllamaOcrHint /> : null}
+    </div>
+  );
+}
+
+interface OllamaStatusRowProps {
+  checking: boolean;
+  available: boolean | null;
+  onCheck: () => void;
+}
+
+function OllamaStatusRow({ checking, available, onCheck }: OllamaStatusRowProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t('settings.ai.status')}
+        </span>
+        <OllamaStatusBadge checking={checking} available={available} />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onCheck}
+        disabled={checking}
+      >
+        {checking ? (
+          <Spinner data-icon="inline-start" />
+        ) : (
+          <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+        )}
+        {t('settings.ai.test_btn')}
+      </Button>
+    </div>
+  );
+}
+
+interface OllamaStatusBadgeProps {
+  checking: boolean;
+  available: boolean | null;
+}
+
+function OllamaStatusBadge({ checking, available }: OllamaStatusBadgeProps) {
+  const { t } = useTranslation();
+  if (checking) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Spinner /> {t('settings.ai.status_checking')}
+      </span>
+    );
+  }
+  if (available === true) {
+    return (
+      <span className="flex items-center gap-1 text-xs font-medium text-primary">
+        <HugeiconsIcon icon={CheckmarkCircle02Icon} /> {t('settings.ai.status_connected')}
+      </span>
+    );
+  }
+  if (available === false) {
+    return (
+      <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+        <HugeiconsIcon icon={CancelCircleIcon} /> {t('settings.ai.status_disconnected')}
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground">
+      {t('settings.ai.status_unverified')}
+    </span>
+  );
+}
+
+function OllamaDisconnectedAlert() {
+  const { t } = useTranslation();
+  return (
+    <Alert role="note">
+      <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+      <AlertDescription className="text-xs">
+        {t('settings.ai.ollama_install')}{' '}
+        <a
+          href="https://ollama.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline"
+        >
+          ollama.ai
+        </a>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+interface OllamaBaseUrlFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+  apiKeyIsRequired: boolean;
+  showApiKeyField: boolean;
+}
+
+function OllamaBaseUrlField({ value, onChange, apiKeyIsRequired, showApiKeyField }: OllamaBaseUrlFieldProps) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <div className="flex items-end gap-3">
+        <Field className="flex-1">
+          <FieldLabel htmlFor="ai-ollama-url">{t('settings.ai.base_url')}</FieldLabel>
+          <Input
+            id="ai-ollama-url"
+            type="url"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="http://localhost:11434"
+          />
+        </Field>
+        <Badge
+          variant={apiKeyIsRequired ? 'outline' : 'secondary'}
+          className={cn('mb-2 shrink-0', !apiKeyIsRequired && 'text-primary')}
+        >
+          {apiKeyIsRequired ? t('settings.ai.ollama_mode_cloud') : t('settings.ai.ollama_mode_local')}
+        </Badge>
+      </div>
+      {showApiKeyField ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {apiKeyIsRequired ? (
+            <>
+              {t('settings.ai.ollama_cloud_hint')}{' '}
+              <code className="font-mono">https://api.ollama.com</code>
+            </>
+          ) : (
+            t('settings.ai.ollama_local_hint')
+          )}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+interface OllamaApiKeyFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+  apiKeyIsRequired: boolean;
+}
+
+function OllamaApiKeyField({ value, onChange, apiKeyIsRequired }: OllamaApiKeyFieldProps) {
+  const { t } = useTranslation();
+  const [showApiKey, setShowApiKey] = useState(false);
+  return (
+    <Field>
+      <FieldLabel htmlFor="ai-ollama-api-key">
+        API Key{' '}
+        <span className="font-normal normal-case opacity-60">
+          (
+          {apiKeyIsRequired
+            ? t('settings.ai.api_key_required_label')
+            : t('settings.ai.api_key_optional_label')}
+          )
+        </span>
+      </FieldLabel>
+      <InputGroup>
+        <InputGroupInput
+          id="ai-ollama-api-key"
+          type={showApiKey ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="ollama_..."
+          autoComplete="off"
+        />
+        <InputGroupAddon align="inline-end">
           <Button
             type="button"
             variant="ghost"
-            size="xs"
-            onClick={() => void loadOllamaModels()}
-            disabled={loadingModels}
+            size="icon-xs"
+            onClick={() => setShowApiKey((v) => !v)}
+            aria-label={showApiKey ? 'Ocultar' : 'Mostrar'}
           >
-            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-            {t('settings.ai.refresh')}
+            <HugeiconsIcon icon={showApiKey ? EyeOffIcon : EyeIcon} />
           </Button>
-        </div>
-        {loadingModels ? (
-          <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-            <Spinner className="text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{t('settings.ai.loading_models')}</span>
-          </div>
-        ) : ollamaModels.length > 0 ? (
-          <ModelSelector
-            models={ollamaModels.map((m) => ({
-              id: m.name,
-              name: m.name,
-              description: `${Math.round(m.size / 1024 / 1024 / 1024)}GB`,
-              reasoning: false,
-              input: ['text'],
-              contextWindow: 0,
-              maxTokens: 0,
-            }))}
-            selectedModelId={ollamaModel}
-            onChange={onOllamaModelChange}
-            searchable
-            showBadges={false}
-            showDescription
-            showContextWindow={false}
-            placeholder={t('settings.ai.chat_model')}
-            disabled={loadingModels}
-            providerType="ollama"
-            providerId="ollama"
-          />
-        ) : (
-          <Input
-            value={ollamaModel}
-            onChange={(e) => onOllamaModelChange(e.target.value)}
-            placeholder="llama3.2"
-            aria-label={t('settings.ai.chat_model')}
-          />
-        )}
-      </div>
+        </InputGroupAddon>
+      </InputGroup>
+    </Field>
+  );
+}
 
-      {showOcrHint ? (
-        <Alert role="note">
-          <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
-          <AlertTitle className="text-xs">{t('settings.ai.ocr_notice')}</AlertTitle>
-          <AlertDescription className="text-xs">
-            <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>,{' '}
-            <code className="font-mono">glm4v</code>.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+interface OllamaModelFieldProps {
+  models: OllamaModel[];
+  loading: boolean;
+  model: string;
+  onChange: (value: string) => void;
+  onRefresh: () => void;
+}
+
+function OllamaModelField({ models, loading, model, onChange, onRefresh }: OllamaModelFieldProps) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t('settings.ai.chat_model')}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+          {t('settings.ai.refresh')}
+        </Button>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+          <Spinner className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{t('settings.ai.loading_models')}</span>
+        </div>
+      ) : models.length > 0 ? (
+        <ModelSelector
+          models={models.map((m) => ({
+            id: m.name,
+            name: m.name,
+            description: `${Math.round(m.size / 1024 / 1024 / 1024)}GB`,
+            reasoning: false,
+            input: ['text'],
+            contextWindow: 0,
+            maxTokens: 0,
+          }))}
+          selectedModelId={model}
+          onChange={onChange}
+          searchable
+          showBadges={false}
+          showDescription
+          showContextWindow={false}
+          placeholder={t('settings.ai.chat_model')}
+          disabled={loading}
+          providerType="ollama"
+          providerId="ollama"
+        />
+      ) : (
+        <Input
+          value={model}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="llama3.2"
+          aria-label={t('settings.ai.chat_model')}
+        />
+      )}
     </div>
+  );
+}
+
+function OllamaOcrHint() {
+  const { t } = useTranslation();
+  return (
+    <Alert role="note">
+      <HugeiconsIcon icon={InformationCircleIcon} aria-hidden />
+      <AlertTitle className="text-xs">{t('settings.ai.ocr_notice')}</AlertTitle>
+      <AlertDescription className="text-xs">
+        <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>,{' '}
+        <code className="font-mono">glm4v</code>.
+      </AlertDescription>
+    </Alert>
   );
 }
