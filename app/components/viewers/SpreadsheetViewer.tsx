@@ -100,6 +100,39 @@ function evalFormula(formula: string, cellMap: Map<string, number>): string {
   }
 }
 
+/** A parsed worksheet cell before formula resolution */
+type RawCell = { value: string; formula: string | null; addr: string };
+
+/** Resolve one formula cell against the numeric map; true when it produced a value. */
+function resolveFormulaCell(rc: RawCell, cellMap: Map<string, number>): boolean {
+  if (!rc.formula) return false;
+  const evaluated = evalFormula(rc.formula, cellMap);
+  if (evaluated === '') return false;
+  rc.value = evaluated;
+  const n = Number(evaluated);
+  if (isFinite(n)) cellMap.set(rc.addr, n);
+  rc.formula = null;
+  return true;
+}
+
+/** One evaluation pass over the grid; true when at least one cell was resolved. */
+function resolveFormulaPass(rawGrid: RawCell[][], cellMap: Map<string, number>): boolean {
+  let changed = false;
+  for (const rawRow of rawGrid) {
+    for (const rc of rawRow) {
+      if (resolveFormulaCell(rc, cellMap)) changed = true;
+    }
+  }
+  return changed;
+}
+
+/** Evaluate formula cells in place, up to 3 dependency layers deep. */
+function resolveFormulaCells(rawGrid: RawCell[][], cellMap: Map<string, number>): void {
+  for (let pass = 0; pass < 3; pass++) {
+    if (!resolveFormulaPass(rawGrid, cellMap)) break;
+  }
+}
+
 /** Parse string to number or boolean for Excel cell value */
 function parseCellValue(raw: string): string | number | boolean {
   const trimmed = raw.trim();
@@ -180,7 +213,6 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         const parsedSheets: SheetData[] = [];
 
         workbook.eachSheet((worksheet) => {
-          type RawCell = { value: string; formula: string | null; addr: string };
           const rawGrid: RawCell[][] = [];
           // cellMap: addr → numeric value (for formula evaluation)
           const cellMap = new Map<string, number>();
@@ -236,23 +268,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
           });
 
           // ── Pass 2: evaluate formula cells (up to 3 dependency layers) ──
-          for (let pass = 0; pass < 3; pass++) {
-            let changed = false;
-            for (const rawRow of rawGrid) {
-              for (const rc of rawRow) {
-                if (!rc.formula) continue;
-                const evaluated = evalFormula(rc.formula, cellMap);
-                if (evaluated !== '') {
-                  rc.value = evaluated;
-                  const n = Number(evaluated);
-                  if (isFinite(n)) cellMap.set(rc.addr, n);
-                  rc.formula = null;
-                  changed = true;
-                }
-              }
-            }
-            if (!changed) break;
-          }
+          resolveFormulaCells(rawGrid, cellMap);
 
           const cellValue = (rc: RawCell): string => rc.value;
           const rows = rawGrid.map((rawRow) => rawRow.map(cellValue));
