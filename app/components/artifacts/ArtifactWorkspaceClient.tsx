@@ -8,7 +8,7 @@ import {
   DatabaseIcon,
   DashboardSquare01Icon,
 } from '@hugeicons/core-free-icons';
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import SubpageHeader from '@/components/shared/SubpageHeader';
 import ListState from '@/components/shared/ListState';
@@ -61,6 +61,36 @@ function canonicalDataJson(obj: Record<string, unknown>): string {
     return out;
   };
   return JSON.stringify(sort(obj));
+}
+
+/** Resolve the artifact's body HTML + CSS: state.html → record.template → placeholder. */
+function resolveArtifactHtmlCss(artifact: ArtifactRecord | null): { html: string; css: string } {
+  const stateRec =
+    artifact?.state && typeof artifact.state === 'object'
+      ? (artifact.state as Record<string, unknown>)
+      : {};
+  let rawHtml = '';
+  if (typeof stateRec.html === 'string' && stateRec.html.trim()) {
+    rawHtml = stateRec.html;
+  } else if (typeof artifact?.template === 'string' && artifact.template.trim()) {
+    rawHtml = artifact.template;
+  }
+  // Legacy artifacts may hold a full document — extract body + hoist head styles.
+  const normalized = normalizeArtifactBodyHtml(rawHtml);
+  const stateCss = typeof stateRec.css === 'string' ? stateRec.css : '';
+  return {
+    html: normalized.body,
+    css: [stateCss, normalized.css].filter(Boolean).join('\n\n'),
+  };
+}
+
+/** Inline style for a workspace tab button (active vs. inactive). */
+function workspaceTabStyle(active: boolean): CSSProperties {
+  return {
+    color: active ? 'var(--primary)' : 'var(--muted-foreground)',
+    background: active ? 'var(--background)' : 'transparent',
+    border: active ? '1px solid var(--border)' : '1px solid transparent',
+  };
 }
 
 /** Build the full srcdoc for the sandboxed iframe: Dome theme + reset (same as chat HTML artifacts), optional artifact CSS, DOME_DATA bridge. */
@@ -216,23 +246,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'dashboard' | 'feeders'>('dashboard');
 
-  const stateRec =
-    artifact?.state && typeof artifact.state === 'object'
-      ? (artifact.state as Record<string, unknown>)
-      : {};
-  // Fallback chain (issue 465): state.html → record.template → placeholder.
-  const rawHtml =
-    typeof stateRec.html === 'string' && stateRec.html.trim()
-      ? stateRec.html
-      : typeof artifact?.template === 'string' && artifact.template.trim()
-        ? artifact.template
-        : '';
-  // Legacy artifacts may hold a full document — extract body + hoist head styles.
-  const normalized = normalizeArtifactBodyHtml(rawHtml);
-  const stHtml = normalized.body;
-  const stCss = [typeof stateRec.css === 'string' ? stateRec.css : '', normalized.css]
-    .filter(Boolean)
-    .join('\n\n');
+  const { html: stHtml, css: stCss } = resolveArtifactHtmlCss(artifact);
   const hasArtifact = artifact !== null;
 
   // Theme at first build only: later theme changes are pushed via postMessage
@@ -584,11 +598,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           type="button"
           onClick={() => setWorkspaceTab('dashboard')}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
-          style={{
-            color: workspaceTab === 'dashboard' ? 'var(--primary)' : 'var(--muted-foreground)',
-            background: workspaceTab === 'dashboard' ? 'var(--background)' : 'transparent',
-            border: workspaceTab === 'dashboard' ? '1px solid var(--border)' : '1px solid transparent',
-          }}
+          style={workspaceTabStyle(workspaceTab === 'dashboard')}
         >
           <HugeiconsIcon icon={DashboardSquare01Icon} className="size-3.5" />
           {t('feeders.tab_dashboard')}
@@ -597,11 +607,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           type="button"
           onClick={() => setWorkspaceTab('feeders')}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
-          style={{
-            color: workspaceTab === 'feeders' ? 'var(--primary)' : 'var(--muted-foreground)',
-            background: workspaceTab === 'feeders' ? 'var(--background)' : 'transparent',
-            border: workspaceTab === 'feeders' ? '1px solid var(--border)' : '1px solid transparent',
-          }}
+          style={workspaceTabStyle(workspaceTab === 'feeders')}
         >
           <HugeiconsIcon icon={DatabaseIcon} className="size-3.5" />
           {t('feeders.tab_feeders')}
