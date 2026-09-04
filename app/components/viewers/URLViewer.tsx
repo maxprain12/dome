@@ -79,6 +79,347 @@ function urlPipelineStep(done: boolean, active: boolean, label: string) {
   );
 }
 
+interface ArticleInfo {
+  title: string | null;
+  description: string | null;
+  author: string | null;
+  published_date: string | null;
+  modified_date: string | null;
+  section: string | null;
+  tags: string | null;
+}
+
+interface ViewerBodyProps {
+  hostname: string | null;
+  effectiveUrl: string | null;
+  isBusy: boolean;
+  isInitialProcessing: boolean;
+  processingStatus: string;
+  scrapeError: string | null;
+  article: ArticleInfo;
+  displayTitle: string;
+  bylineParts: (string | null)[];
+  previewImage: string | undefined;
+  scrapedContent: string | null;
+  processedAt: string | null;
+  openOriginal: () => void;
+  onRunUrlProcess: () => Promise<void>;
+}
+
+function ViewerHeader({
+  hostname,
+  effectiveUrl,
+  isBusy,
+  openOriginal,
+  onRunUrlProcess,
+}: {
+  hostname: string | null;
+  effectiveUrl: string | null;
+  isBusy: boolean;
+  openOriginal: () => void;
+  onRunUrlProcess: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b"
+      style={{
+        borderColor: 'var(--border)',
+        background: 'var(--background)',
+      }}
+    >
+      <div className="min-w-0 flex items-baseline gap-2">
+        <span className="text-xs font-medium truncate text-muted-foreground">
+          {hostname || t('viewer.web_page_context')}
+        </span>
+        {effectiveUrl && (
+          <button
+            type="button"
+            onClick={openOriginal}
+            className="text-xs truncate max-w-[min(100%,280px)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded text-primary"
+            title={effectiveUrl}
+          >
+            {t('viewer.web_open_original')}
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {isBusy && (
+          <span className="text-xs mr-1 hidden sm:inline text-muted-foreground">
+            {t('viewer.web_step_extracting')}…
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => { void onRunUrlProcess(); }}
+          disabled={isBusy}
+          className="p-2 rounded-lg transition-colors hover:bg-accent disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          style={{ color: 'var(--muted-foreground)' }}
+          title={t('viewer.web_reextract')}
+          aria-label={t('viewer.web_reextract_aria')}
+        >
+          <HugeiconsIcon icon={RefreshIcon} className={`size-4 ${isBusy ? 'animate-spin' : ''}`} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={openOriginal}
+          disabled={!effectiveUrl}
+          className="p-2 rounded-lg transition-colors hover:bg-accent disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted-foreground"
+          title={t('viewer.open_in_browser')}
+          aria-label={t('viewer.open_in_browser')}
+        >
+          <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProcessingPipelineView() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-y-6">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {t('viewer.web_pipeline_title')}
+      </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {urlPipelineStep(true, false, t('viewer.web_step_saved'))}
+        <span style={{ color: 'var(--border)' }} aria-hidden>—</span>
+        {urlPipelineStep(false, true, t('viewer.web_step_extracting'))}
+        <span style={{ color: 'var(--border)' }} aria-hidden>—</span>
+        {urlPipelineStep(false, false, t('viewer.web_step_ready'))}
+      </div>
+      <ListState variant="loading" loadingLabel={t('viewer.processing_content')} fullHeight />
+    </div>
+  );
+}
+
+function FailedScrapeView({ scrapeError, onReprocess }: { scrapeError: string | null; onReprocess: () => Promise<void> }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center justify-center py-14 text-center flex flex-col gap-y-4 max-w-md mx-auto">
+      <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-destructive" aria-hidden />
+      <h2 className="text-lg font-semibold text-foreground">
+        {t('viewer.scrape_status_failed')}
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        {t('viewer.content_not_processed_desc')}
+      </p>
+      {scrapeError && (
+        <p className="text-xs text-muted-foreground">
+          {scrapeError}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => { void onReprocess(); }}
+        className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
+      >
+        {t('viewer.reprocess')}
+      </button>
+    </div>
+  );
+}
+
+function NotProcessedView({ onProcess }: { onProcess: () => Promise<void> }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center justify-center py-14 text-center flex flex-col gap-y-4 max-w-md mx-auto">
+      <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-[var(--warning)]" aria-hidden />
+      <h2 className="text-lg font-semibold text-foreground">
+        {t('viewer.content_not_processed')}
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        {t('viewer.content_not_processed_desc')}
+      </p>
+      <button
+        type="button"
+        onClick={() => { void onProcess(); }}
+        className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
+      >
+        {t('viewer.process_now')}
+      </button>
+    </div>
+  );
+}
+
+function ArticleBodyView({
+  article,
+  displayTitle,
+  bylineParts,
+  previewImage,
+  effectiveUrl,
+  scrapedContent,
+  processedAt,
+  openOriginal,
+}: {
+  article: ArticleInfo;
+  displayTitle: string;
+  bylineParts: (string | null)[];
+  previewImage: string | undefined;
+  effectiveUrl: string | null;
+  scrapedContent: string | null;
+  processedAt: string | null;
+  openOriginal: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <article
+      className="rounded-2xl border overflow-hidden"
+      style={{
+        borderColor: 'var(--border)',
+        background: 'var(--card)',
+      }}
+    >
+      {previewImage && (
+        <div className="border-b border-border">
+          <img
+            src={previewImage}
+            alt=""
+            className="w-full max-h-[min(420px,50vh)] object-cover object-top"
+          />
+        </div>
+      )}
+
+      <div className="px-5 py-6 sm:p-8 flex flex-col gap-y-5">
+        <header className="flex flex-col gap-y-2">
+          <h1 className="text-xl sm:text-2xl font-semibold font-display leading-tight text-foreground">
+            {displayTitle}
+          </h1>
+          {bylineParts.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {bylineParts.join(' · ')}
+            </p>
+          )}
+          {article.description && (
+            <p className="text-sm leading-relaxed pt-1 text-muted-foreground">
+              {article.description}
+            </p>
+          )}
+        </header>
+
+        <div className="h-px w-full bg-border" />
+
+        <section aria-label={t('viewer.web_reading_label')}>
+          {scrapedContent ? (
+            <div className="content-preview-note markdown-preview text-sm sm:text-[15px] leading-relaxed max-w-none">
+              <MarkdownRenderer content={scrapedContent} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t('viewer.no_content')}
+            </p>
+          )}
+        </section>
+
+        <footer
+          className="pt-4 mt-2 border-t flex flex-col gap-y-3 text-sm"
+          style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t('viewer.web_details')}
+          </p>
+          {processedAt && (
+            <p className="text-xs text-muted-foreground">
+              {t('viewer.web_extracted_at', { date: processedAt })}
+            </p>
+          )}
+          <dl className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-x-4 gap-y-2">
+            {effectiveUrl && (
+              <>
+                <dt>{t('viewer.url')}</dt>
+                <dd>
+                  <button
+                    type="button"
+                    onClick={openOriginal}
+                    className="text-left break-all underline-offset-2 hover:underline text-primary"
+                  >
+                    {effectiveUrl}
+                  </button>
+                </dd>
+              </>
+            )}
+            {safeUrlDate(article.published_date) && (
+              <>
+                <dt>{t('viewer.published')}</dt>
+                <dd className="text-foreground">{safeUrlDate(article.published_date)}</dd>
+              </>
+            )}
+            {safeUrlDate(article.modified_date) && (
+              <>
+                <dt>{t('viewer.date_modified')}</dt>
+                <dd className="text-foreground">{safeUrlDate(article.modified_date)}</dd>
+              </>
+            )}
+            {article.tags && (
+              <>
+                <dt>{t('viewer.web_tags')}</dt>
+                <dd className="text-foreground">{article.tags}</dd>
+              </>
+            )}
+          </dl>
+        </footer>
+      </div>
+    </article>
+  );
+}
+
+function ViewerBody({
+  hostname,
+  effectiveUrl,
+  isBusy,
+  isInitialProcessing,
+  processingStatus,
+  scrapeError,
+  article,
+  displayTitle,
+  bylineParts,
+  previewImage,
+  scrapedContent,
+  processedAt,
+  openOriginal,
+  onRunUrlProcess,
+}: ViewerBodyProps) {
+  let content: React.ReactNode;
+  if (isInitialProcessing) {
+    content = <ProcessingPipelineView />;
+  } else if (processingStatus === 'failed') {
+    content = <FailedScrapeView scrapeError={scrapeError} onReprocess={onRunUrlProcess} />;
+  } else if (processingStatus !== 'completed') {
+    content = <NotProcessedView onProcess={onRunUrlProcess} />;
+  } else {
+    content = (
+      <ArticleBodyView
+        article={article}
+        displayTitle={displayTitle}
+        bylineParts={bylineParts}
+        previewImage={previewImage}
+        effectiveUrl={effectiveUrl}
+        scrapedContent={scrapedContent}
+        processedAt={processedAt}
+        openOriginal={openOriginal}
+      />
+    );
+  }
+
+  return (
+    <>
+      <ViewerHeader
+        hostname={hostname}
+        effectiveUrl={effectiveUrl}
+        isBusy={isBusy}
+        openOriginal={openOriginal}
+        onRunUrlProcess={onRunUrlProcess}
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 sm:p-6 flex flex-col gap-y-6">{content}</div>
+      </div>
+    </>
+  );
+}
+
 function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }: URLViewerProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
@@ -204,6 +545,8 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
   const isBusy = processBusy || processingStatus === 'processing';
   const effectiveUrl = url || pageUrl;
+  const isInitialProcessing =
+    processingStatus === 'processing' || (processingStatus === 'pending' && isBusy);
 
   const bylineParts = [
     article.author,
@@ -228,219 +571,22 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
       {isLoading && !error ? (
         <ListState variant="loading" loadingLabel={t('viewer.loading_url')} fullHeight />
       ) : (
-        <>
-      {/* Unified in-view chrome: one light row; all URL actions live here */}
-      <div
-        className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b"
-        style={{
-          borderColor: 'var(--border)',
-          background: 'var(--background)',
-        }}
-      >
-        <div className="min-w-0 flex items-baseline gap-2">
-          <span className="text-xs font-medium truncate text-muted-foreground">
-            {hostname || t('viewer.web_page_context')}
-          </span>
-          {effectiveUrl && (
-            <button
-              type="button"
-              onClick={openOriginal}
-              className="text-xs truncate max-w-[min(100%,280px)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded text-primary"
-              title={effectiveUrl}
-            >
-              {t('viewer.web_open_original')}
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {isBusy && (
-            <span className="text-xs mr-1 hidden sm:inline text-muted-foreground">
-              {t('viewer.web_step_extracting')}…
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => { void onRunUrlProcess(); }}
-            disabled={isBusy}
-            className="p-2 rounded-lg transition-colors hover:bg-accent disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            style={{ color: 'var(--muted-foreground)' }}
-            title={t('viewer.web_reextract')}
-            aria-label={t('viewer.web_reextract_aria')}
-          >
-            <HugeiconsIcon icon={RefreshIcon} className={`size-4 ${isBusy ? 'animate-spin' : ''}`} aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={openOriginal}
-            disabled={!effectiveUrl}
-            className="p-2 rounded-lg transition-colors hover:bg-accent disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted-foreground"
-            title={t('viewer.open_in_browser')}
-            aria-label={t('viewer.open_in_browser')}
-          >
-            <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" aria-hidden />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 sm:p-6 flex flex-col gap-y-6">
-          {processingStatus === 'processing' || (processingStatus === 'pending' && isBusy) ? (
-            <div className="flex flex-col gap-y-6">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {t('viewer.web_pipeline_title')}
-              </p>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {urlPipelineStep(true, false, t('viewer.web_step_saved'))}
-                <span style={{ color: 'var(--border)' }} aria-hidden>—</span>
-                {urlPipelineStep(false, true, t('viewer.web_step_extracting'))}
-                <span style={{ color: 'var(--border)' }} aria-hidden>—</span>
-                {urlPipelineStep(false, false, t('viewer.web_step_ready'))}
-              </div>
-              <ListState variant="loading" loadingLabel={t('viewer.processing_content')} fullHeight />
-            </div>
-          ) : processingStatus === 'failed' ? (
-            <div className="flex flex-col items-center justify-center py-14 text-center flex flex-col gap-y-4 max-w-md mx-auto">
-              <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-destructive" aria-hidden />
-              <h2 className="text-lg font-semibold text-foreground">
-                {t('viewer.scrape_status_failed')}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {t('viewer.content_not_processed_desc')}
-              </p>
-              {scrapeError && (
-                <p className="text-xs text-muted-foreground">
-                  {scrapeError}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => { void onRunUrlProcess(); }}
-                className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-              >
-                {t('viewer.reprocess')}
-              </button>
-            </div>
-          ) : processingStatus !== 'completed' ? (
-            <div className="flex flex-col items-center justify-center py-14 text-center flex flex-col gap-y-4 max-w-md mx-auto">
-              <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-[var(--warning)]" aria-hidden />
-              <h2 className="text-lg font-semibold text-foreground">
-                {t('viewer.content_not_processed')}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {t('viewer.content_not_processed_desc')}
-              </p>
-              <button
-                type="button"
-                onClick={() => { void onRunUrlProcess(); }}
-                className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-              >
-                {t('viewer.process_now')}
-              </button>
-            </div>
-          ) : (
-            <article
-              className="rounded-2xl border overflow-hidden"
-              style={{
-                borderColor: 'var(--border)',
-                background: 'var(--card)',
-              }}
-            >
-              {previewImage && (
-                <div className="border-b border-border">
-                  <img
-                    src={previewImage}
-                    alt=""
-                    className="w-full max-h-[min(420px,50vh)] object-cover object-top"
-                  />
-                </div>
-              )}
-
-              <div className="px-5 py-6 sm:p-8 flex flex-col gap-y-5">
-                <header className="flex flex-col gap-y-2">
-                  <h1 className="text-xl sm:text-2xl font-semibold font-display leading-tight text-foreground">
-                    {displayTitle}
-                  </h1>
-                  {bylineParts.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {bylineParts.join(' · ')}
-                    </p>
-                  )}
-                  {article.description && (
-                    <p className="text-sm leading-relaxed pt-1 text-muted-foreground">
-                      {article.description}
-                    </p>
-                  )}
-                </header>
-
-                <div className="h-px w-full bg-border" />
-
-                <section aria-label={t('viewer.web_reading_label')}>
-                  {scrapedContent ? (
-                    <div className="content-preview-note markdown-preview text-sm sm:text-[15px] leading-relaxed max-w-none">
-                      <MarkdownRenderer content={scrapedContent} />
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {t('viewer.no_content')}
-                    </p>
-                  )}
-                </section>
-
-                <footer
-                  className="pt-4 mt-2 border-t flex flex-col gap-y-3 text-sm"
-                  style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t('viewer.web_details')}
-                  </p>
-                  {processedAt && (
-                    <p className="text-xs text-muted-foreground">
-                      {t('viewer.web_extracted_at', { date: processedAt })}
-                    </p>
-                  )}
-                  <dl className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-x-4 gap-y-2">
-                    {effectiveUrl && (
-                      <>
-                        <dt>{t('viewer.url')}</dt>
-                        <dd>
-                          <button
-                            type="button"
-                            onClick={openOriginal}
-                            className="text-left break-all underline-offset-2 hover:underline text-primary"
-                          >
-                            {effectiveUrl}
-                          </button>
-                        </dd>
-                      </>
-                    )}
-                    {safeUrlDate(article.published_date) && (
-                      <>
-                        <dt>{t('viewer.published')}</dt>
-                        <dd className="text-foreground">{safeUrlDate(article.published_date)}</dd>
-                      </>
-                    )}
-                    {safeUrlDate(article.modified_date) && (
-                      <>
-                        <dt>{t('viewer.date_modified')}</dt>
-                        <dd className="text-foreground">{safeUrlDate(article.modified_date)}</dd>
-                      </>
-                    )}
-                    {article.tags && (
-                      <>
-                        <dt>{t('viewer.web_tags')}</dt>
-                        <dd className="text-foreground">{article.tags}</dd>
-                      </>
-                    )}
-                  </dl>
-                </footer>
-              </div>
-            </article>
-          )}
-        </div>
-      </div>
-        </>
+        <ViewerBody
+          hostname={hostname}
+          effectiveUrl={effectiveUrl}
+          isBusy={isBusy}
+          isInitialProcessing={isInitialProcessing}
+          processingStatus={processingStatus}
+          scrapeError={scrapeError}
+          article={article}
+          displayTitle={displayTitle}
+          bylineParts={bylineParts}
+          previewImage={previewImage}
+          scrapedContent={scrapedContent}
+          processedAt={processedAt}
+          openOriginal={openOriginal}
+          onRunUrlProcess={onRunUrlProcess}
+        />
       )}
     </div>
   );
