@@ -238,6 +238,28 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
     }
   }, [content, t, title]);
 
+  const importNotebookFromPath = useCallback(
+    async (filePath: string) => {
+      const result = await window.electron.file.readFileAsText(filePath);
+      if (!result?.success || !result.data) {
+        showToast('error', result?.error || t('notebook.import_failed'));
+        return;
+      }
+      try {
+        const parsed = JSON.parse(result.data);
+        const normalized = normalizeImportedNotebook(parsed);
+        if (normalized) {
+          onChange(JSON.stringify(normalized));
+        } else {
+          showToast('error', t('notebook.import_invalid_notebook'));
+        }
+      } catch {
+        showToast('error', t('notebook.import_invalid_json'));
+      }
+    },
+    [onChange, t]
+  );
+
   const handleImport = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron) return;
     try {
@@ -248,27 +270,12 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         ],
       });
       if (paths?.length && paths[0]) {
-        const result = await window.electron.file.readFileAsText(paths[0]);
-        if (result?.success && result.data) {
-          try {
-            const parsed = JSON.parse(result.data);
-            const normalized = normalizeImportedNotebook(parsed);
-            if (normalized) {
-              onChange(JSON.stringify(normalized));
-            } else {
-              showToast('error', t('notebook.import_invalid_notebook'));
-            }
-          } catch {
-            showToast('error', t('notebook.import_invalid_json'));
-          }
-        } else {
-          showToast('error', result?.error || t('notebook.import_failed'));
-        }
+        await importNotebookFromPath(paths[0]);
       }
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : t('notebook.import_failed'));
     }
-  }, [onChange, t]);
+  }, [t, importNotebookFromPath]);
 
   const handleMoveCell = useCallback(
     (fromIndex: number, toIndex: number) => {
