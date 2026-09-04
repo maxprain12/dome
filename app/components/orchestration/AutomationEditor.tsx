@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Button } from '@/components/ui/button';
 import {
   BotIcon as BotIcon,
@@ -93,6 +94,239 @@ function SectionCard({
   );
 }
 
+type TargetOption = { value: string; label: string };
+
+/** Selectable destinations for the current target type (agents, workflows or feeders). */
+function buildTargetOptions(params: {
+  draft: DraftState;
+  agents: ManyAgent[];
+  workflows: CanvasWorkflow[];
+  feeders: FeederRecord[];
+  hubArtifacts: Array<{ resourceId: string; title: string }>;
+  t: TFunction;
+}): TargetOption[] {
+  const { draft, agents, workflows, feeders, hubArtifacts, t } = params;
+  if (draft.targetType === 'agent') return agents.map((a) => ({ value: a.id, label: a.name }));
+  if (draft.targetType === 'workflow') return workflows.map((w) => ({ value: w.id, label: w.name }));
+  return feeders.map((f) => {
+    const artifactLabel =
+      hubArtifacts.find((a) => a.resourceId === f.artifactResourceId)?.title ?? f.artifactResourceId;
+    const tag = !f.approved
+      ? ` · ${t('automation.feeder_not_approved')}`
+      : !f.enabled
+        ? ` · ${t('automation.feeder_disabled')}`
+        : '';
+    return { value: f.id, label: `${f.name} — ${artifactLabel}${tag}` };
+  });
+}
+
+function targetTypeLabelFor(targetType: DraftState['targetType'], t: TFunction): string {
+  if (targetType === 'agent') return t('automation.agent');
+  if (targetType === 'workflow') return t('automation.workflow');
+  return t('automation.feeder');
+}
+
+/** Live summary sentence describing when the automation runs. */
+function buildTriggerSentence(draft: DraftState, t: TFunction): string {
+  if (draft.triggerType === 'manual') return t('orchestration.automation_editor.summary_manual');
+  if (draft.triggerType === 'contextual') {
+    const tags = draft.contextTags
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(', ');
+    return t('orchestration.automation_editor.summary_contextual', { tags: tags || '—' });
+  }
+  const hour = String(draft.hour).padStart(2, '0');
+  if (draft.cadence === 'weekly') {
+    return t('orchestration.automation_editor.summary_weekly', { weekday: weekdayName(draft.weekday), hour });
+  }
+  if (draft.cadence === 'cron-lite') {
+    return t('orchestration.automation_editor.summary_interval', { minutes: draft.intervalMinutes });
+  }
+  return t('orchestration.automation_editor.summary_daily', { hour });
+}
+
+/** Live summary sentence describing where the output lands. */
+function buildOutputSentence(draft: DraftState, isFeederTarget: boolean, t: TFunction): string {
+  if (isFeederTarget) return t('orchestration.automation_editor.summary_feeder_output');
+  if (draft.outputMode === 'studio_output') return t('automation.studio');
+  if (draft.outputMode === 'mixed') return t('automation.mixed');
+  return t('automation.output_chat_only');
+}
+
+/** Destination card: target type tabs, target picker, name and description. */
+function renderTargetSection(params: {
+  draft: DraftState;
+  isNew: boolean;
+  isFeederTarget: boolean;
+  targetOptions: TargetOption[];
+  targetTypeLabel: string;
+  targetName: string | null;
+  onDraftChange: (partial: Partial<DraftState>) => void;
+  t: TFunction;
+}): ReactNode {
+  const { draft, isNew, isFeederTarget, targetOptions, targetTypeLabel, targetName, onDraftChange, t } =
+    params;
+  return (
+    <SectionCard
+      icon={Bot}
+      title={t('automation.destination')}
+      hint={isFeederTarget ? t('automation.feeder_target_hint') : undefined}
+    >
+      <div className="flex flex-col gap-3">
+        {isNew ? (
+          <Tabs value={draft.targetType} onValueChange={(v) => onDraftChange({ targetType: v as DraftState['targetType'], targetId: '' })} className="min-w-0"><TabsList aria-label={t('automation.destination')} className="h-auto w-full max-w-full flex-wrap">{([
+              { value: 'agent', label: t('automation.agent'), icon: <HugeiconsIcon icon={BotIcon} className="size-3.5" aria-hidden /> },
+              { value: 'workflow', label: t('automation.workflow'), icon: <HugeiconsIcon icon={WorkflowIcon} className="size-3.5" aria-hidden /> },
+              { value: 'feeder', label: t('automation.feeder'), icon: <HugeiconsIcon icon={CableIcon} className="size-3.5" aria-hidden /> },
+            ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
+        ) : null}
+        {isNew ? (
+          <Select value={draft.targetId || null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ targetId: v }))(next); }} items={targetOptions}><SelectTrigger className="w-full" aria-label={t('automation.destination')}><SelectValue placeholder={
+              isFeederTarget
+                ? t('automation.select_feeder')
+                : t('automation.select_agent_or_workflow', { type: targetTypeLabel })
+            } /></SelectTrigger><SelectContent>{(targetOptions).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
+        ) : (
+          <p className="text-sm text-foreground">
+            {targetTypeLabel}
+            {targetName ? ` · ${targetName}` : ''}
+          </p>
+        )}
+        <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-13" className="text-xs">{t('automation.name')}</FieldLabel><Input id="fld-input-13" className="text-sm" type="text" value={draft.title} onChange={(e) => onDraftChange({ title: e.target.value })} placeholder={t('automation.name_placeholder')} /></Field>
+        <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-14" className="text-xs">{t('automation.description')}</FieldLabel><Input id="fld-input-14" className="text-sm" type="text" value={draft.description} onChange={(e) => onDraftChange({ description: e.target.value })} placeholder={t('automation.description_placeholder')} /></Field>
+      </div>
+    </SectionCard>
+  );
+}
+
+/** Trigger card: manual / scheduled / contextual configuration. */
+function renderTriggerSection(params: {
+  draft: DraftState;
+  onDraftChange: (partial: Partial<DraftState>) => void;
+  t: TFunction;
+}): ReactNode {
+  const { draft, onDraftChange, t } = params;
+  return (
+    <SectionCard icon={CalendarClock} title={t('automation.trigger')}>
+      <div className="flex flex-col gap-3">
+        <Tabs value={draft.triggerType} onValueChange={(v) => onDraftChange({ triggerType: v as DraftState['triggerType'] })} className="min-w-0"><TabsList aria-label={t('automation.trigger')} className="h-auto w-full max-w-full flex-wrap">{([
+            { value: 'manual', label: t('automation.manual'), icon: <HugeiconsIcon icon={HandIcon} className="size-3.5" aria-hidden /> },
+            { value: 'schedule', label: t('automation.scheduled'), icon: <HugeiconsIcon icon={CalendarClockIcon} className="size-3.5" aria-hidden /> },
+            { value: 'contextual', label: t('automation.contextual'), icon: <HugeiconsIcon icon={SparklesIcon} className="size-3.5" aria-hidden /> },
+          ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
+
+        {draft.triggerType === 'contextual' ? (
+          <div className="flex flex-col gap-1.5">
+            <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-15" className="text-xs">{t('automation.context_tags_label')}</FieldLabel><Input id="fld-input-15" className="text-sm" type="text" value={draft.contextTags} onChange={(e) => onDraftChange({ contextTags: e.target.value })} placeholder={t('automation.context_tags_placeholder')} /></Field>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {t('automation.context_tags_hint')}
+            </p>
+          </div>
+        ) : null}
+
+        {draft.triggerType === 'schedule' ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.cadence')}</FieldLabel><Select value={draft.cadence ?? null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ cadence: v as DraftState['cadence'] }))(next); }} items={[
+                { value: 'daily', label: t('automation.daily') },
+                { value: 'weekly', label: t('automation.weekly') },
+                { value: 'cron-lite', label: t('automation.cadence_interval') },
+              ]}><SelectTrigger className="w-full" aria-label={t('automation.cadence')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
+                { value: 'daily', label: t('automation.daily') },
+                { value: 'weekly', label: t('automation.weekly') },
+                { value: 'cron-lite', label: t('automation.cadence_interval') },
+              ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
+            {draft.cadence !== 'cron-lite' ? (
+              <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-16" className="text-xs">{t('automation.schedule_hour_label')}</FieldLabel><Input id="fld-input-16" className="text-sm" type="number" min={0} max={23} value={draft.hour} onChange={(e) => onDraftChange({ hour: parseInt(e.target.value) || 0 })} /></Field>
+            ) : (
+              <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-17" className="text-xs">{t('automation.interval_minutes_label')}</FieldLabel><Input id="fld-input-17" className="text-sm" type="number" min={1} value={draft.intervalMinutes} onChange={(e) => onDraftChange({ intervalMinutes: parseInt(e.target.value) || 60 })} /></Field>
+            )}
+            {draft.cadence === 'weekly' ? (
+              <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.weekday_label')}</FieldLabel><Select value={String(draft.weekday)} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ weekday: parseInt(v) }))(next); }} items={(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
+                  (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
+                )}><SelectTrigger className="w-full" aria-label={t('automation.weekday_label')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{((['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
+                  (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
+                )).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </SectionCard>
+  );
+}
+
+/** Right-hand column: plain-language read back of the automation rule. */
+function renderSummaryAside(params: {
+  draft: DraftState;
+  isFeederTarget: boolean;
+  targetTypeLabel: string;
+  targetName: string | null;
+  activeBindingsCount: number;
+  onDraftChange: (partial: Partial<DraftState>) => void;
+  t: TFunction;
+}): ReactNode {
+  const { draft, isFeederTarget, targetTypeLabel, targetName, activeBindingsCount, onDraftChange, t } =
+    params;
+  const triggerSentence = buildTriggerSentence(draft, t);
+  const outputSentence = buildOutputSentence(draft, isFeederTarget, t);
+  return (
+    <aside className="flex min-w-0 flex-col gap-4 md:sticky md:top-0 md:self-start">
+      <div
+        className="flex flex-col gap-3 rounded-2xl p-4"
+        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('orchestration.automation_editor.summary_title')}
+        </p>
+
+        <div className="flex flex-col gap-2.5 text-xs leading-snug text-foreground">
+          <div className="flex items-start gap-2">
+            {draft.targetType === 'agent' ? (
+              <HugeiconsIcon icon={BotIcon} className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+            ) : draft.targetType === 'workflow' ? (
+              <HugeiconsIcon icon={WorkflowIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--info)]" aria-hidden />
+            ) : (
+              <HugeiconsIcon icon={CableIcon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            )}
+            <span>
+              {targetName
+                ? t('orchestration.automation_editor.summary_target', { type: targetTypeLabel, name: targetName })
+                : t('orchestration.automation_editor.summary_no_target', { type: targetTypeLabel })}
+            </span>
+          </div>
+          <div className="flex items-start gap-2">
+            <HugeiconsIcon icon={CalendarClockIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--warning)]" aria-hidden />
+            <span>{triggerSentence}</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <HugeiconsIcon icon={MessageSquareTextIcon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <span>{outputSentence}</span>
+          </div>
+          {activeBindingsCount > 0 ? (
+            <div className="flex items-start gap-2">
+              <HugeiconsIcon icon={LayersIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
+              <span>
+                {t('orchestration.automation_editor.summary_bindings', { count: activeBindingsCount })}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5"
+          style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+        >
+          <span className="text-xs font-medium text-foreground">
+            {draft.enabled ? t('automation.enabled_on_save') : t('automation.paused_on_save')}
+          </span>
+          <Switch checked={draft.enabled} onCheckedChange={(v) => onDraftChange({ enabled: v })} size="sm" />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 /**
  * Full-screen automation editor: sectioned cards (target, trigger, input,
  * output/artifact sinks) plus a live summary panel that reads back the rule
@@ -116,59 +350,12 @@ export default function AutomationEditor({
   const showPromptAndOutput = !isFeederTarget;
   const canSave = Boolean(draft.title.trim() && draft.targetId) && !saving;
 
-  const targetOptions =
-    draft.targetType === 'agent'
-      ? agents.map((a) => ({ value: a.id, label: a.name }))
-      : draft.targetType === 'workflow'
-        ? workflows.map((w) => ({ value: w.id, label: w.name }))
-        : feeders.map((f) => {
-            const artifactLabel =
-              hubArtifacts.find((a) => a.resourceId === f.artifactResourceId)?.title ?? f.artifactResourceId;
-            const tag = !f.approved
-              ? ` · ${t('automation.feeder_not_approved')}`
-              : !f.enabled
-                ? ` · ${t('automation.feeder_disabled')}`
-                : '';
-            return { value: f.id, label: `${f.name} — ${artifactLabel}${tag}` };
-          });
+  const targetOptions = buildTargetOptions({ draft, agents, workflows, feeders, hubArtifacts, t });
 
   const targetName = targetOptions.find((o) => o.value === draft.targetId)?.label ?? null;
 
   // ── Live summary sentences ──────────────────────────────────────────────────
-  const targetTypeLabel =
-    draft.targetType === 'agent'
-      ? t('automation.agent')
-      : draft.targetType === 'workflow'
-        ? t('automation.workflow')
-        : t('automation.feeder');
-
-  const triggerSentence = (() => {
-    if (draft.triggerType === 'manual') return t('orchestration.automation_editor.summary_manual');
-    if (draft.triggerType === 'contextual') {
-      const tags = draft.contextTags
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join(', ');
-      return t('orchestration.automation_editor.summary_contextual', { tags: tags || '—' });
-    }
-    const hour = String(draft.hour).padStart(2, '0');
-    if (draft.cadence === 'weekly') {
-      return t('orchestration.automation_editor.summary_weekly', { weekday: weekdayName(draft.weekday), hour });
-    }
-    if (draft.cadence === 'cron-lite') {
-      return t('orchestration.automation_editor.summary_interval', { minutes: draft.intervalMinutes });
-    }
-    return t('orchestration.automation_editor.summary_daily', { hour });
-  })();
-
-  const outputSentence = isFeederTarget
-    ? t('orchestration.automation_editor.summary_feeder_output')
-    : draft.outputMode === 'studio_output'
-      ? t('automation.studio')
-      : draft.outputMode === 'mixed'
-        ? t('automation.mixed')
-        : t('automation.output_chat_only');
+  const targetTypeLabel = targetTypeLabelFor(draft.targetType, t);
 
   const activeBindings = draft.artifactBindings.filter((b) => b.enabled && b.artifactResourceId.trim());
 
@@ -232,81 +419,19 @@ export default function AutomationEditor({
           {/* Form column */}
           <div className="flex min-w-0 flex-col gap-4">
             {/* Target */}
-            <SectionCard
-              icon={Bot}
-              title={t('automation.destination')}
-              hint={isFeederTarget ? t('automation.feeder_target_hint') : undefined}
-            >
-              <div className="flex flex-col gap-3">
-                {isNew ? (
-                  <Tabs value={draft.targetType} onValueChange={(v) => onDraftChange({ targetType: v as DraftState['targetType'], targetId: '' })} className="min-w-0"><TabsList aria-label={t('automation.destination')} className="h-auto w-full max-w-full flex-wrap">{([
-                      { value: 'agent', label: t('automation.agent'), icon: <HugeiconsIcon icon={BotIcon} className="size-3.5" aria-hidden /> },
-                      { value: 'workflow', label: t('automation.workflow'), icon: <HugeiconsIcon icon={WorkflowIcon} className="size-3.5" aria-hidden /> },
-                      { value: 'feeder', label: t('automation.feeder'), icon: <HugeiconsIcon icon={CableIcon} className="size-3.5" aria-hidden /> },
-                    ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
-                ) : null}
-                {isNew ? (
-                  <Select value={draft.targetId || null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ targetId: v }))(next); }} items={targetOptions}><SelectTrigger className="w-full" aria-label={t('automation.destination')}><SelectValue placeholder={
-                      isFeederTarget
-                        ? t('automation.select_feeder')
-                        : t('automation.select_agent_or_workflow', { type: targetTypeLabel })
-                    } /></SelectTrigger><SelectContent>{(targetOptions).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
-                ) : (
-                  <p className="text-sm text-foreground">
-                    {targetTypeLabel}
-                    {targetName ? ` · ${targetName}` : ''}
-                  </p>
-                )}
-                <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-13" className="text-xs">{t('automation.name')}</FieldLabel><Input id="fld-input-13" className="text-sm" type="text" value={draft.title} onChange={(e) => onDraftChange({ title: e.target.value })} placeholder={t('automation.name_placeholder')} /></Field>
-                <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-14" className="text-xs">{t('automation.description')}</FieldLabel><Input id="fld-input-14" className="text-sm" type="text" value={draft.description} onChange={(e) => onDraftChange({ description: e.target.value })} placeholder={t('automation.description_placeholder')} /></Field>
-              </div>
-            </SectionCard>
+            {renderTargetSection({
+              draft,
+              isNew,
+              isFeederTarget,
+              targetOptions,
+              targetTypeLabel,
+              targetName,
+              onDraftChange,
+              t,
+            })}
 
             {/* Trigger */}
-            <SectionCard icon={CalendarClock} title={t('automation.trigger')}>
-              <div className="flex flex-col gap-3">
-                <Tabs value={draft.triggerType} onValueChange={(v) => onDraftChange({ triggerType: v as DraftState['triggerType'] })} className="min-w-0"><TabsList aria-label={t('automation.trigger')} className="h-auto w-full max-w-full flex-wrap">{([
-                    { value: 'manual', label: t('automation.manual'), icon: <HugeiconsIcon icon={HandIcon} className="size-3.5" aria-hidden /> },
-                    { value: 'schedule', label: t('automation.scheduled'), icon: <HugeiconsIcon icon={CalendarClockIcon} className="size-3.5" aria-hidden /> },
-                    { value: 'contextual', label: t('automation.contextual'), icon: <HugeiconsIcon icon={SparklesIcon} className="size-3.5" aria-hidden /> },
-                  ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
-
-                {draft.triggerType === 'contextual' ? (
-                  <div className="flex flex-col gap-1.5">
-                    <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-15" className="text-xs">{t('automation.context_tags_label')}</FieldLabel><Input id="fld-input-15" className="text-sm" type="text" value={draft.contextTags} onChange={(e) => onDraftChange({ contextTags: e.target.value })} placeholder={t('automation.context_tags_placeholder')} /></Field>
-                    <p className="text-[11px] leading-snug text-muted-foreground">
-                      {t('automation.context_tags_hint')}
-                    </p>
-                  </div>
-                ) : null}
-
-                {draft.triggerType === 'schedule' ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.cadence')}</FieldLabel><Select value={draft.cadence ?? null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ cadence: v as DraftState['cadence'] }))(next); }} items={[
-                        { value: 'daily', label: t('automation.daily') },
-                        { value: 'weekly', label: t('automation.weekly') },
-                        { value: 'cron-lite', label: t('automation.cadence_interval') },
-                      ]}><SelectTrigger className="w-full" aria-label={t('automation.cadence')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{([
-                        { value: 'daily', label: t('automation.daily') },
-                        { value: 'weekly', label: t('automation.weekly') },
-                        { value: 'cron-lite', label: t('automation.cadence_interval') },
-                      ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
-                    {draft.cadence !== 'cron-lite' ? (
-                      <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-16" className="text-xs">{t('automation.schedule_hour_label')}</FieldLabel><Input id="fld-input-16" className="text-sm" type="number" min={0} max={23} value={draft.hour} onChange={(e) => onDraftChange({ hour: parseInt(e.target.value) || 0 })} /></Field>
-                    ) : (
-                      <Field className="gap-1.5 w-full"><FieldLabel htmlFor="fld-input-17" className="text-xs">{t('automation.interval_minutes_label')}</FieldLabel><Input id="fld-input-17" className="text-sm" type="number" min={1} value={draft.intervalMinutes} onChange={(e) => onDraftChange({ intervalMinutes: parseInt(e.target.value) || 60 })} /></Field>
-                    )}
-                    {draft.cadence === 'weekly' ? (
-                      <Field className="gap-1.5"><FieldLabel className="text-xs">{t('automation.weekday_label')}</FieldLabel><Select value={String(draft.weekday)} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ weekday: parseInt(v) }))(next); }} items={(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
-                          (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
-                        )}><SelectTrigger className="w-full" aria-label={t('automation.weekday_label')}><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{((['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map(
-                          (dayKey, i) => ({ value: String(i + 1), label: t(`automation.${dayKey}`) }),
-                        )).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select></Field>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </SectionCard>
+            {renderTriggerSection({ draft, onDraftChange, t })}
 
             {/* Input prompt */}
             {showPromptAndOutput ? (
@@ -406,59 +531,15 @@ export default function AutomationEditor({
           </div>
 
           {/* Summary column */}
-          <aside className="flex min-w-0 flex-col gap-4 md:sticky md:top-0 md:self-start">
-            <div
-              className="flex flex-col gap-3 rounded-2xl p-4"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('orchestration.automation_editor.summary_title')}
-              </p>
-
-              <div className="flex flex-col gap-2.5 text-xs leading-snug text-foreground">
-                <div className="flex items-start gap-2">
-                  {draft.targetType === 'agent' ? (
-                    <HugeiconsIcon icon={BotIcon} className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
-                  ) : draft.targetType === 'workflow' ? (
-                    <HugeiconsIcon icon={WorkflowIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--info)]" aria-hidden />
-                  ) : (
-                    <HugeiconsIcon icon={CableIcon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  )}
-                  <span>
-                    {targetName
-                      ? t('orchestration.automation_editor.summary_target', { type: targetTypeLabel, name: targetName })
-                      : t('orchestration.automation_editor.summary_no_target', { type: targetTypeLabel })}
-                  </span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <HugeiconsIcon icon={CalendarClockIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--warning)]" aria-hidden />
-                  <span>{triggerSentence}</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <HugeiconsIcon icon={MessageSquareTextIcon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  <span>{outputSentence}</span>
-                </div>
-                {activeBindings.length > 0 ? (
-                  <div className="flex items-start gap-2">
-                    <HugeiconsIcon icon={LayersIcon} className="mt-0.5 size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
-                    <span>
-                      {t('orchestration.automation_editor.summary_bindings', { count: activeBindings.length })}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-
-              <div
-                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5"
-                style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-              >
-                <span className="text-xs font-medium text-foreground">
-                  {draft.enabled ? t('automation.enabled_on_save') : t('automation.paused_on_save')}
-                </span>
-                <Switch checked={draft.enabled} onCheckedChange={(v) => onDraftChange({ enabled: v })} size="sm" />
-              </div>
-            </div>
-          </aside>
+          {renderSummaryAside({
+            draft,
+            isFeederTarget,
+            targetTypeLabel,
+            targetName,
+            activeBindingsCount: activeBindings.length,
+            onDraftChange,
+            t,
+          })}
         </div>
       </div>
     </div>

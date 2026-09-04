@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
+import type { TFunction } from 'i18next';
 import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import { getManyAgentById } from '@/lib/agents/api';
 import type { ManyAgent } from '@/types';
@@ -87,6 +88,136 @@ function getAgentResourceContext(resource: AgentResourcePayload): string {
 interface AgentChatViewProps {
   agentId: string;
   onBack?: () => void;
+}
+
+/** Prompt fragment for a single pinned resource (never throws). */
+async function buildPinnedResourceEntry(resource: PinnedResource): Promise<string> {
+  try {
+    const result = await window.electron?.ai?.tools?.resourceGet?.(resource.id, {
+      includeContent: true,
+      maxContentLength: 5000,
+    });
+    if (!result?.success || !result?.resource) return '';
+    const content = getAgentResourceContext(result.resource);
+    const header = `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
+    if (!content.trim()) return `${header}(No content available)`;
+    const truncatedNote = content.length > 5000 ? '\n[Content truncated]' : '';
+    return `${header}${content.slice(0, 5000)}${truncatedNote}`;
+  } catch {
+    return `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
+  }
+}
+
+/** System-prompt block with the resources pinned by the user ('' when there are none). */
+async function buildPinnedResourcesBlock(pinnedResources: PinnedResource[]): Promise<string> {
+  if (
+    pinnedResources.length === 0 ||
+    typeof window.electron?.ai?.tools?.resourceGet !== 'function'
+  ) {
+    return '';
+  }
+  let pinnedBlock =
+    '\n\n## Pinned Context Resources\nThe following resources have been pinned by the user. Use their content directly.\n';
+  for (const resource of pinnedResources) {
+    pinnedBlock += await buildPinnedResourceEntry(resource);
+  }
+  return pinnedBlock;
+}
+
+/** Persists the chat session + user message in the local DB. Returns the DB session id (or null). */
+async function persistAgentChatSession(params: {
+  sessionId: string | null;
+  agentId: string;
+  threadId: string;
+  title: string | null;
+  toolIds: string[];
+  mcpServerIds: string[];
+  projectId: string;
+  userMessage: string;
+}): Promise<string | null> {
+  if (!db.isAvailable() || !params.sessionId) return null;
+
+  let dbSessionId: string | null = null;
+  try {
+    const sessionResult = await db.createChatSession({
+      id: params.sessionId,
+      agentId: params.agentId,
+      resourceId: null,
+      mode: 'agent',
+      contextId: params.agentId,
+      threadId: params.threadId,
+      title: params.title,
+      toolIds: params.toolIds,
+      mcpServerIds: params.mcpServerIds,
+      projectId: params.projectId,
+    });
+    if (sessionResult.success && sessionResult.data) {
+      dbSessionId = sessionResult.data.id;
+      await db.addChatMessage({
+        sessionId: dbSessionId,
+        role: 'user',
+        content: params.userMessage,
+      });
+    }
+  } catch (e) {
+    console.warn('[AgentChat] Could not persist chat to DB:', e);
+  }
+  return dbSessionId;
+}
+
+/** Fallback plain streaming (no tool runtime): streams text chunks into the streaming message. */
+async function streamPlainChatResponse(params: {
+  apiMessages: Array<{ role: string; content: string }>;
+  signal: AbortSignal;
+  hasAgentStream: boolean;
+  setStreamingMessage: Dispatch<SetStateAction<ChatMessageData | null>>;
+  onPartialResponse: (text: string) => void;
+  onAssistantMessage: (content: string) => void;
+}): Promise<void> {
+  if (!params.hasAgentStream) {
+    throw new Error(
+      'Este agente usa herramientas y requiere el runtime de agente. Reinicia Dome o revisa la configuración.'
+    );
+  }
+  const { chatStream } = await import('@/lib/ai');
+  params.setStreamingMessage({
+    id: `streaming-${Date.now()}`,
+    role: 'assistant',
+    content: '',
+    timestamp: Date.now(),
+    isStreaming: true,
+  });
+
+  let fullResponse = '';
+  for await (const chunk of chatStream(params.apiMessages, undefined, params.signal)) {
+    if (chunk.type === 'text' && chunk.text) {
+      fullResponse += chunk.text;
+      params.onPartialResponse(fullResponse);
+      params.setStreamingMessage((prev) => (prev ? { ...prev, content: fullResponse } : null));
+    } else if (chunk.type === 'error') {
+      throw new Error(chunk.error);
+    }
+  }
+  params.setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
+  if (fullResponse) params.onAssistantMessage(fullResponse);
+}
+
+/** Error handling for a chat send: keeps partial text on abort, reports otherwise. */
+function reportAgentChatSendError(params: {
+  err: unknown;
+  partialResponse: string;
+  addAssistantMessage: (content: string) => void;
+  t: TFunction;
+}): void {
+  const { err, partialResponse, addAssistantMessage, t } = params;
+  if (err instanceof Error && err.name === 'AbortError') {
+    if (partialResponse) addAssistantMessage(partialResponse);
+    return;
+  }
+  console.error('[AgentChat] Error:', err);
+  const msg = err instanceof Error ? err.message : t('common.unknown_error');
+  addAssistantMessage(t('chat.error_prefix', { msg }));
+  showToast('error', msg);
 }
 
 export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
@@ -398,32 +529,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       });
       setPendingOneShotSkillId(null);
 
-      if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
-        let pinnedBlock =
-          '\n\n## Pinned Context Resources\nThe following resources have been pinned by the user. Use their content directly.\n';
-        for (const resource of pinnedResources) {
-          try {
-            const result = await window.electron.ai.tools.resourceGet(resource.id, {
-              includeContent: true,
-              maxContentLength: 5000,
-            });
-            if (result?.success && result?.resource) {
-              const r = result.resource;
-              const content = getAgentResourceContext(r);
-              pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
-              if (content.trim()) {
-                pinnedBlock += content.slice(0, 5000);
-                if (content.length > 5000) pinnedBlock += '\n[Content truncated]';
-              } else {
-                pinnedBlock += '(No content available)';
-              }
-            }
-          } catch {
-            pinnedBlock += `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
-          }
-        }
-        systemPrompt += pinnedBlock;
-      }
+      systemPrompt += await buildPinnedResourcesBlock(pinnedResources);
 
       const apiMessages = [
         { role: 'system', content: systemPrompt },
@@ -447,33 +553,16 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
         const threadId = `agent_${agentId}_${Date.now()}`;
 
-        let dbSessionId: string | null = null;
-        if (db.isAvailable() && currentSessionId) {
-          try {
-            const sessionResult = await db.createChatSession({
-              id: currentSessionId,
-              agentId,
-              resourceId: null,
-              mode: 'agent',
-              contextId: agentId,
-              threadId,
-              title: agent?.name ?? null,
-              toolIds: activeToolIds,
-              mcpServerIds: enabledMcpIds,
-              projectId: chatProjectId,
-            });
-            if (sessionResult.success && sessionResult.data) {
-              dbSessionId = sessionResult.data.id;
-              await db.addChatMessage({
-                sessionId: dbSessionId,
-                role: 'user',
-                content: userMessage,
-              });
-            }
-          } catch (e) {
-            console.warn('[AgentChat] Could not persist chat to DB:', e);
-          }
-        }
+        const dbSessionId = await persistAgentChatSession({
+          sessionId: currentSessionId,
+          agentId,
+          threadId,
+          title: agent?.name ?? null,
+          toolIds: activeToolIds,
+          mcpServerIds: enabledMcpIds,
+          projectId: chatProjectId,
+          userMessage,
+        });
 
         const run = await startAgentRun({
           ownerType: 'agent',
@@ -495,43 +584,24 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setActiveRunId(run.id);
         applyRunSnapshot(run);
       } else {
-        if (!hasAgentStream) {
-          throw new Error(
-            'Este agente usa herramientas y requiere el runtime de agente. Reinicia Dome o revisa la configuración.'
-          );
-        }
-        const { chatStream } = await import('@/lib/ai');
-        setStreamingMessage({
-          id: `streaming-${Date.now()}`,
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now(),
-          isStreaming: true,
+        await streamPlainChatResponse({
+          apiMessages,
+          signal: controller.signal,
+          hasAgentStream,
+          setStreamingMessage,
+          onPartialResponse: (text) => {
+            fullResponse = text;
+          },
+          onAssistantMessage: (content) => addMessage({ role: 'assistant', content }),
         });
-        for await (const chunk of chatStream(apiMessages, undefined, controller.signal)) {
-          if (chunk.type === 'text' && chunk.text) {
-            fullResponse += chunk.text;
-            setStreamingMessage((prev) =>
-              prev ? { ...prev, content: fullResponse } : null
-            );
-          } else if (chunk.type === 'error') {
-            throw new Error(chunk.error);
-          }
-        }
-        setStreamingMessage((prev) =>
-          prev ? { ...prev, isStreaming: false } : null
-        );
-        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       }
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
-      } else {
-        console.error('[AgentChat] Error:', err);
-        const msg = err instanceof Error ? err.message : t('common.unknown_error');
-        addMessage({ role: 'assistant', content: t('chat.error_prefix', { msg }) });
-        showToast('error', msg);
-      }
+      reportAgentChatSendError({
+        err,
+        partialResponse: fullResponse,
+        addAssistantMessage: (content) => addMessage({ role: 'assistant', content }),
+        t,
+      });
     } finally {
       isSubmittingRef.current = false;
       if (!delegatedToRunEngine) {
