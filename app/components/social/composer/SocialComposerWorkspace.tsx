@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   ComputerIcon,
@@ -85,6 +86,53 @@ function toLocalDateTime(timestamp: number | null): string {
   const date = new Date(timestamp);
   const offset = date.getTimezoneOffset();
   return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
+}
+
+/** First validation error message for the composer draft, or null when valid. */
+function composerValidationError(
+  input: {
+    providers: SocialProvider[];
+    body: string;
+    mediaCount: number;
+    limit: number;
+    accountIds: Partial<Record<SocialProvider, string>>;
+  },
+  t: TFunction,
+): string | null {
+  const { providers, body, mediaCount, limit, accountIds } = input;
+  if (!providers.length) return t('social.composer.error_no_provider');
+  if (!body.trim() && !mediaCount) return t('social.composer.error_empty');
+  if (body.length > limit) return t('social.composer.error_too_long', { limit });
+  if (providers.includes('instagram') && !mediaCount) return t('social.composer.error_instagram_media');
+  if (providers.some((provider) => !accountIds[provider])) return t('social.studio.composer.account_required');
+  return null;
+}
+
+/** Persist the composer draft: update the edited post or create one post per provider. */
+async function persistComposerPost(
+  post: SocialPost | null,
+  providers: SocialProvider[],
+  accountIds: Partial<Record<SocialProvider, string>>,
+  shared: Record<string, unknown>,
+): Promise<void> {
+  if (post) {
+    const response = await window.electron.invoke('social:posts:update', {
+      postId: post.id,
+      patch: { ...shared, accountId: accountIds[post.provider] },
+    });
+    if (!response?.success) throw new Error(response?.error || 'Error');
+    return;
+  }
+  const groupId = providers.length > 1 ? `spg-${Date.now().toString(36)}` : null;
+  for (const provider of providers) {
+    const response = await window.electron.invoke('social:posts:create', {
+      ...shared,
+      provider,
+      accountId: accountIds[provider] ?? null,
+      groupId,
+    });
+    if (!response?.success) throw new Error(response?.error || 'Error');
+  }
 }
 
 export function SocialComposerWorkspace({
@@ -221,13 +269,11 @@ export function SocialComposerWorkspace({
 
   const save = async () => {
     setError(null);
-    if (!providers.length) return setError(t('social.composer.error_no_provider'));
-    if (!body.trim() && !media.length) return setError(t('social.composer.error_empty'));
-    if (body.length > limit) return setError(t('social.composer.error_too_long', { limit }));
-    if (providers.includes('instagram') && !media.length) return setError(t('social.composer.error_instagram_media'));
-    if (providers.some((provider) => !accountIds[provider])) {
-      return setError(t('social.studio.composer.account_required'));
-    }
+    const validationError = composerValidationError(
+      { providers, body, mediaCount: media.length, limit, accountIds },
+      t,
+    );
+    if (validationError) return setError(validationError);
 
     setSaving(true);
     const shared = {
@@ -242,24 +288,7 @@ export function SocialComposerWorkspace({
       scheduledAt: scheduledAt ? new Date(scheduledAt).getTime() : null,
     };
     try {
-      if (post) {
-        const response = await window.electron.invoke('social:posts:update', {
-          postId: post.id,
-          patch: { ...shared, accountId: accountIds[post.provider] },
-        });
-        if (!response?.success) throw new Error(response?.error || 'Error');
-      } else {
-        const groupId = providers.length > 1 ? `spg-${Date.now().toString(36)}` : null;
-        for (const provider of providers) {
-          const response = await window.electron.invoke('social:posts:create', {
-            ...shared,
-            provider,
-            accountId: accountIds[provider] ?? null,
-            groupId,
-          });
-          if (!response?.success) throw new Error(response?.error || 'Error');
-        }
-      }
+      await persistComposerPost(post, providers, accountIds, shared);
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
