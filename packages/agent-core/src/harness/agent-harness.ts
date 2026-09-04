@@ -99,6 +99,22 @@ function findDuplicateNames(names: string[]): string[] {
 	return [...duplicates];
 }
 
+function mergeRecordPatch<TValue>(
+	current: Record<string, TValue> | undefined,
+	patchValue: Record<string, TValue | undefined> | undefined,
+): Record<string, TValue> | undefined {
+	if (patchValue === undefined) return undefined;
+	const merged: Record<string, TValue | undefined> = { ...(current ?? {}) };
+	for (const [key, value] of Object.entries(patchValue)) {
+		if (value === undefined) {
+			delete merged[key];
+		} else {
+			merged[key] = value;
+		}
+	}
+	return Object.keys(merged).length > 0 ? (merged as Record<string, TValue>) : undefined;
+}
+
 function applyStreamOptionsPatch(
 	base: AgentHarnessStreamOptions,
 	patch?: AgentHarnessStreamOptionsPatch,
@@ -113,29 +129,10 @@ function applyStreamOptionsPatch(
 	if (Object.hasOwn(patch, "cacheRetention")) result.cacheRetention = patch.cacheRetention;
 
 	if (Object.hasOwn(patch, "headers")) {
-		if (patch.headers === undefined) {
-			result.headers = undefined;
-		} else {
-			const headers = { ...(result.headers ?? {}) };
-			for (const [key, value] of Object.entries(patch.headers)) {
-				if (value === undefined) delete headers[key];
-				else headers[key] = value;
-			}
-			result.headers = Object.keys(headers).length > 0 ? headers : undefined;
-		}
+		result.headers = mergeRecordPatch<string>(result.headers, patch.headers);
 	}
-
 	if (Object.hasOwn(patch, "metadata")) {
-		if (patch.metadata === undefined) {
-			result.metadata = undefined;
-		} else {
-			const metadata = { ...(result.metadata ?? {}) };
-			for (const [key, value] of Object.entries(patch.metadata)) {
-				if (value === undefined) delete metadata[key];
-				else metadata[key] = value;
-			}
-			result.metadata = Object.keys(metadata).length > 0 ? metadata : undefined;
-		}
+		result.metadata = mergeRecordPatch<unknown>(result.metadata, patch.metadata);
 	}
 
 	return result;
