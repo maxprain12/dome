@@ -155,6 +155,34 @@ export function stripPinnedMentionTokens(
   return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
 }
 
+/** Pick a non-empty campaign name from meta or fall back to the given default. */
+function pickCampaignName(
+  meta: Record<string, unknown> | null,
+  fallback: string | undefined,
+): string {
+  if (typeof meta?.campaign === 'string' && meta.campaign) return meta.campaign;
+  if (typeof meta?.campaignName === 'string' && meta.campaignName) return meta.campaignName;
+  return fallback ?? '';
+}
+
+/** Build the inputs for formatSocialPostPinLabel from a resource's meta. */
+function socialPostLabelInputs(
+  resource: PinnedResource,
+  meta: Record<string, unknown> | null,
+): Parameters<typeof formatSocialPostPinLabel>[0] {
+  return {
+    provider: typeof meta?.provider === 'string' ? meta.provider : null,
+    status: typeof meta?.status === 'string' ? meta.status : null,
+    campaign:
+      typeof meta?.campaign === 'string'
+        ? meta.campaign
+        : typeof meta?.campaignName === 'string'
+          ? meta.campaignName
+          : null,
+    fallbackTitle: resource.title,
+  };
+}
+
 /** Normalize a pin at the store boundary so every call site stays clean. */
 export function normalizePinnedResource(resource: PinnedResource): PinnedResource {
   const kind = resource.kind ?? (resource.type === 'person' ? 'person' : 'resource');
@@ -162,16 +190,12 @@ export function normalizePinnedResource(resource: PinnedResource): PinnedResourc
 
   // Campaign pins are named entities — keep the campaign name (not coerced to a post).
   if (resource.type === 'social_campaign') {
-    const campaignName =
-      (typeof meta?.campaign === 'string' && meta.campaign) ||
-      (typeof meta?.campaignName === 'string' && meta.campaignName) ||
-      resource.title;
     return {
       ...resource,
       // Keep type social_campaign; kind stays social_post only for chip icon affinity.
       kind: 'social_post',
       type: 'social_campaign',
-      title: formatResourcePinLabel(campaignName),
+      title: formatResourcePinLabel(pickCampaignName(meta, resource.title)),
       meta,
     };
   }
@@ -180,17 +204,7 @@ export function normalizePinnedResource(resource: PinnedResource): PinnedResourc
     return {
       ...resource,
       kind: 'social_post',
-      title: formatSocialPostPinLabel({
-        provider: typeof meta?.provider === 'string' ? meta.provider : null,
-        status: typeof meta?.status === 'string' ? meta.status : null,
-        campaign:
-          typeof meta?.campaign === 'string'
-            ? meta.campaign
-            : typeof meta?.campaignName === 'string'
-              ? meta.campaignName
-              : null,
-        fallbackTitle: resource.title,
-      }),
+      title: formatSocialPostPinLabel(socialPostLabelInputs(resource, meta)),
       meta,
     };
   }

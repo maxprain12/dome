@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ManyHitlInlineCard from '@/components/many/ManyHitlInlineCard';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
@@ -9,6 +9,14 @@ import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 interface ManyApprovalGateProps {
   pendingApproval: RunPendingApproval | null;
   onDismissApproval?: () => void;
+}
+
+interface InlineCardModel {
+  action: string;
+  target: string;
+  previewCommand: string;
+  contextLine: string | undefined;
+  showApproveAll: boolean;
 }
 
 /**
@@ -54,34 +62,39 @@ export default function ManyApprovalGate({
     [dequeue],
   );
 
-  if (!current && !pendingApproval) return null;
+  const inlineCard = useMemo<InlineCardModel | null>(() => {
+    if (!current) return null;
+    const isShell = current.kind === 'shell_exec';
+    const command = isShell ? String(current.payload?.command ?? '') : '';
+    const cwd = isShell ? String(current.payload?.cwd ?? '') : '';
+    const cwdLabel = cwd ? `en: ${cwd}` : t('many.hitl_cwd_default');
+    const truncated = command.length > 80 ? `${command.slice(0, 77)}…` : command;
+    return {
+      action: isShell ? 'shell_exec' : current.kind,
+      target: isShell ? truncated : String(current.payload?.summary ?? current.kind),
+      previewCommand: isShell ? command : String(current.payload?.details ?? ''),
+      contextLine: isShell ? cwdLabel : undefined,
+      // Stops asking for the rest of the conversation — the escape hatch
+      // for a coding run where every command would need its own click.
+      showApproveAll: current.canRemember === true,
+    };
+  }, [current, t]);
 
-  const isShell = current?.kind === 'shell_exec';
-  const command = isShell ? String(current?.payload?.command ?? '') : '';
-  const cwd = isShell ? String(current?.payload?.cwd ?? '') : '';
-  const contextLine = cwd ? `en: ${cwd}` : t('many.hitl_cwd_default');
+  if (!current && !pendingApproval) return null;
 
   return (
     <div className="flex w-full flex-col gap-3">
-      {current ? (
+      {inlineCard ? (
         <ManyHitlInlineCard
-          action={isShell ? 'shell_exec' : current.kind}
-          target={
-            isShell
-              ? command.length > 80
-                ? `${command.slice(0, 77)}…`
-                : command
-              : String(current.payload?.summary ?? current.kind)
-          }
-          previewCommand={isShell ? command : String(current.payload?.details ?? '')}
-          contextLine={isShell ? contextLine : undefined}
+          action={inlineCard.action}
+          target={inlineCard.target}
+          previewCommand={inlineCard.previewCommand}
+          contextLine={inlineCard.contextLine}
           showReject
           expiresSeconds={secondsLeft}
           onReject={() => respondApproval(current.approvalId, false)}
           onApprove={() => respondApproval(current.approvalId, true)}
-          // Stops asking for the rest of the conversation — the escape hatch
-          // for a coding run where every command would need its own click.
-          showApproveAll={current.canRemember === true}
+          showApproveAll={inlineCard.showApproveAll}
           onApproveAll={() => respondApproval(current.approvalId, true, 'session')}
         />
       ) : null}

@@ -36,20 +36,14 @@ export default defineConfig({
   // Base path for assets (absolute so deep routes resolve correctly)
   base: '/',
 
-  // Resolve aliases (match Next.js @/ pattern)
+  // Resolve renderer and workspace imports
   // NOTE: Array form required so specific aliases match before general ones.
   resolve: {
     alias: [
-      // More specific @excalidraw sub-paths first, before the general package alias
-      { find: '@excalidraw/excalidraw/index.css', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw.css') },
-      { find: '@excalidraw/excalidraw/types', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw-stub.tsx') },
-      { find: '@excalidraw/excalidraw', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw-stub.tsx') },
-      // Stub bun:sqlite for renderer process
-      { find: 'bun:sqlite', replacement: path.resolve(__dirname, './app/lib/db/__stubs__/bun-sqlite.ts') },
       // @dome/* workspace packages (resolved at the Vite level; TS uses
       // matching paths in tsconfig.json).
       { find: /^@dome\/i18n$/, replacement: path.resolve(__dirname, './packages/i18n/src/index.ts') },
-// Root alias last (most general)
+      // Root alias last (most general)
       { find: '@', replacement: path.resolve(__dirname, './app') },
     ],
   },

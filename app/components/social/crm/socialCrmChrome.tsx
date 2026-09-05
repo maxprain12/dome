@@ -49,7 +49,6 @@ export function postStatusBadgeVariant(
       return 'outline';
     default: {
       const _exhaustive: never = status;
-      void _exhaustive;
       return 'outline';
     }
   }
