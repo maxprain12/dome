@@ -238,70 +238,11 @@ async function loginAnthropic(interaction: ProviderAuthInteraction): Promise<OAu
 	const onAbort = () => server.cancelWait();
 	interaction.signal.addEventListener("abort", onAbort, { once: true });
 	if (interaction.signal.aborted) onAbort();
-	let code: string | undefined;
-	let state: string | undefined;
-	let manualInput: string | undefined;
-	let manualError: Error | undefined;
 
 	try {
-		const authParams = new URLSearchParams({
-			code: "true",
-			client_id: CLIENT_ID,
-			response_type: "code",
-			redirect_uri: REDIRECT_URI,
-			scope: SCOPES,
-			code_challenge: challenge,
-			code_challenge_method: "S256",
-			state: verifier,
-		});
-		interaction.notify({
-			type: "auth_url",
-			url: `${AUTHORIZE_URL}?${authParams.toString()}`,
-			instructions:
-				"Complete login in your browser. If the browser is on another machine, paste the final redirect URL here.",
-		});
-
-		const manualPromise = interaction
-			.prompt({
-				type: "manual_code",
-				message: "Complete login in your browser, or paste the authorization code / redirect URL here:",
-				placeholder: REDIRECT_URI,
-				signal: manualAbort.signal,
-			})
-			.then((input) => {
-				manualInput = input;
-				server.cancelWait();
-			})
-			.catch((error) => {
-				manualError = error instanceof Error ? error : new Error(String(error));
-				server.cancelWait();
-			});
-
-		const result = await server.waitForCode();
-		if (manualError) throw manualError;
-		if (result?.code) {
-			code = result.code;
-			state = result.state;
-		} else if (manualInput) {
-			const parsed = parseAuthorizationInput(manualInput);
-			if (parsed.state && parsed.state !== verifier) throw new Error("OAuth state mismatch");
-			code = parsed.code;
-			state = parsed.state ?? verifier;
-		}
-
-		if (!code) {
-			await manualPromise;
-			if (manualError) throw manualError;
-			if (manualInput) {
-				const parsed = parseAuthorizationInput(manualInput);
-				if (parsed.state && parsed.state !== verifier) throw new Error("OAuth state mismatch");
-				code = parsed.code;
-				state = parsed.state ?? verifier;
-			}
-		}
-
-		if (!code) throw new Error("Missing authorization code");
-		if (!state) throw new Error("Missing OAuth state");
+		interaction.notify(buildAuthorizationUrlNotification(challenge, verifier));
+		const manualPromise = setupManualCodePrompt(interaction, server, manualAbort);
+		const { code, state } = await collectAuthorizationCode(server, manualPromise, verifier);
 		interaction.notify({ type: "progress", message: "Exchanging authorization code for tokens..." });
 		return exchangeAuthorizationCode(code, state, verifier, REDIRECT_URI, interaction.signal);
 	} finally {
@@ -309,6 +250,84 @@ async function loginAnthropic(interaction: ProviderAuthInteraction): Promise<OAu
 		manualAbort.abort();
 		server.server.close();
 	}
+}
+
+function buildAuthorizationUrlNotification(
+	challenge: string,
+	verifier: string,
+): {
+	type: "auth_url";
+	url: string;
+	instructions: string;
+} {
+	const authParams = new URLSearchParams({
+		code: "true",
+		client_id: CLIENT_ID,
+		response_type: "code",
+		redirect_uri: REDIRECT_URI,
+		scope: SCOPES,
+		code_challenge: challenge,
+		code_challenge_method: "S256",
+		state: verifier,
+	});
+	return {
+		type: "auth_url",
+		url: `${AUTHORIZE_URL}?${authParams.toString()}`,
+		instructions:
+			"Complete login in your browser. If the browser is on another machine, paste the final redirect URL here.",
+	};
+}
+
+type ManualCodeResult = { input?: string; error?: Error };
+
+function setupManualCodePrompt(
+	interaction: ProviderAuthInteraction,
+	server: CallbackServerInfo,
+	manualAbort: AbortController,
+): Promise<ManualCodeResult> {
+	return interaction
+		.prompt({
+			type: "manual_code",
+			message: "Complete login in your browser, or paste the authorization code / redirect URL here:",
+			placeholder: REDIRECT_URI,
+			signal: manualAbort.signal,
+		})
+		.then((input) => {
+			server.cancelWait();
+			return { input };
+		})
+		.catch((error) => {
+			server.cancelWait();
+			return { error: error instanceof Error ? error : new Error(String(error)) };
+		});
+}
+
+function extractCodeFromManualInput(input: string, verifier: string): { code: string; state: string } {
+	const parsed = parseAuthorizationInput(input);
+	if (parsed.state && parsed.state !== verifier) {
+		throw new Error("OAuth state mismatch");
+	}
+	if (!parsed.code) {
+		throw new Error("Missing authorization code");
+	}
+	return { code: parsed.code, state: parsed.state ?? verifier };
+}
+
+async function collectAuthorizationCode(
+	server: CallbackServerInfo,
+	manualPromise: Promise<ManualCodeResult>,
+	verifier: string,
+): Promise<{ code: string; state: string }> {
+	const result = await server.waitForCode();
+	if (result?.code) {
+		return { code: result.code, state: result.state };
+	}
+	const manual = await manualPromise;
+	if (manual.error) throw manual.error;
+	if (!manual.input) {
+		throw new Error("Missing authorization code");
+	}
+	return extractCodeFromManualInput(manual.input, verifier);
 }
 
 /**
