@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { ResourceType } from '@/types';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { notifyContextualEvent } from '@/lib/events/contextualEvents';
 
 export type { ResourceType };
 
@@ -286,6 +287,10 @@ export function useResources(filter?: ResourceFilter) {
                 const result = await window.electron.db.resources.create(newResource);
                 if (result.success) {
                     capturePostHog(ANALYTICS_EVENTS.RESOURCE_CREATED, { type: resource.type });
+                    void notifyContextualEvent('resource_added', {
+                      resourceId: newResource.id,
+                      resourceType: resource.type,
+                    });
                     // El listener actualiza; fetchResources como respaldo
                     fetchResources();
                     return newResource;
@@ -460,6 +465,9 @@ export function useResources(filter?: ResourceFilter) {
 
             if (result.success) {
                 fetchResources();
+                if (updates.content !== undefined) {
+                    void notifyContextualEvent('note_updated', { resourceId });
+                }
                 return true;
             }
 

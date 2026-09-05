@@ -39,6 +39,7 @@
   "google_settings_short": "Google",
   "import_ics_short": "Importar",
   "new_event_short": "Novo",
+  "more_actions": "Mais ações",
   "day_events_count_one": "{{count}} evento",
   "day_events_count_other": "{{count}} eventos",
   "more_events": "+{{count}} mais",

@@ -10,7 +10,9 @@ import {
 } from '@hugeicons/core-free-icons';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import type { ExecutionPolicy } from '@/lib/pipelines/types';
-import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
+import { type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
+import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
 
 interface TemplateDef {
   key: string;
@@ -108,7 +110,7 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
           <h2 className="text-lg font-semibold text-foreground">{t('pipelines.dashboard_title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('pipelines.dashboard_subtitle')}</p>
         </div>
-        <DomainStatChips stats={stats} />
+        <HubMetricGrid chips={stats} />
       </div>
 
       <div className="px-6 py-3">
@@ -117,11 +119,9 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
           onClick={openFirstPipeline}
           disabled={pipelines.length === 0}
           className={cn(
-            dashboardCardClass,
+            selectionSurfaceClass(false, dashboardCardClass),
             'group flex w-full max-w-md flex-col items-stretch gap-2 p-4',
-            pipelines.length === 0
-              ? 'cursor-not-allowed opacity-60'
-              : 'cursor-pointer hover:bg-accent/40',
+            pipelines.length === 0 && 'cursor-not-allowed opacity-60',
           )}
         >
           <div className="flex items-center justify-between">
@@ -154,8 +154,8 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
                 type="button"
                 onClick={() => onOpenPipeline?.(p.id)}
                 className={cn(
-                  dashboardCardClass,
-                  'flex cursor-pointer items-center gap-2 p-3 hover:bg-accent/40',
+                  selectionSurfaceClass(false, dashboardCardClass),
+                  'flex cursor-pointer items-center gap-2 p-3',
                 )}
               >
                 <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
@@ -177,9 +177,9 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
             onClick={() => void createBlank()}
             disabled={busy !== null}
             className={cn(
-              dashboardCardClass,
+              selectionSurfaceClass(false, dashboardCardClass),
               'flex flex-col items-stretch gap-1 border-dashed p-3',
-              busy !== null ? 'cursor-wait' : 'cursor-pointer hover:bg-accent/40',
+              busy !== null && 'cursor-wait',
             )}
           >
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -200,9 +200,9 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
               onClick={() => void runTemplate(tpl)}
               disabled={busy !== null}
               className={cn(
-                dashboardCardClass,
+                selectionSurfaceClass(false, dashboardCardClass),
                 'flex flex-col items-stretch gap-1 p-3',
-                busy !== null ? 'cursor-wait' : 'cursor-pointer hover:bg-accent/40',
+                busy !== null && 'cursor-wait',
               )}
             >
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">

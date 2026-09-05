@@ -354,17 +354,15 @@ const loadCalendars = useCallback(async () => {
         : t('calendarPage.sync_never');
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <CalendarHero
-        syncHint={syncHint}
-        syncing={syncing}
-        upcomingCount={upcomingEvents.length}
-        onOpenSettings={openCalendarSettings}
-        onImport={() => void openImport()}
-        onSync={() => void handleSyncNow()}
-        onNewEvent={openNewEvent}
-      />
-
+    <CalendarHero
+      syncHint={syncHint}
+      syncing={syncing}
+      upcomingCount={upcomingEvents.length}
+      onOpenSettings={openCalendarSettings}
+      onImport={() => void openImport()}
+      onSync={() => void handleSyncNow()}
+      onNewEvent={openNewEvent}
+    >
       {calendars.length > 0 ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-4 py-2 md:px-5">
           <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -506,7 +504,7 @@ const loadCalendars = useCallback(async () => {
         />
       ) : null}
 
-    </div>
+    </CalendarHero>
   );
 }
 

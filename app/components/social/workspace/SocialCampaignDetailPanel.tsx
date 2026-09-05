@@ -13,7 +13,7 @@ import {
   campaignStatusBadgeVariant,
 } from '@/components/social/crm/socialCrmChrome';
 import { SocialDirectoryRow } from './SocialDirectoryColumn';
-import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { HubDetailPane } from '@/components/shared/HubDetailPane';
 import { socialPostLabel } from '@/lib/social/socialQueues';
 import { useManyStore } from '@/lib/store/useManyStore';
 
@@ -51,22 +51,24 @@ export function SocialCampaignDetailPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
+    <HubDetailPane
+      icon={
         <div className="flex size-10 items-center justify-center rounded-full bg-muted">
           <HugeiconsIcon icon={Megaphone02Icon} />
         </div>
-        <div className="flex max-w-full flex-col items-center gap-1 text-center">
-          <div className="flex max-w-full items-center gap-2">
-            <h2 className={hubFichaTitleClass}>{campaign.name}</h2>
-            <Badge variant={campaignStatusBadgeVariant(campaign.status)}>
-              {t(`social.studio.status.${campaign.status}`)}
-            </Badge>
-          </div>
-          <p className="max-w-full truncate text-xs text-muted-foreground">
-            {campaign.goal || t('social.studio.campaigns.no_goal')}
-          </p>
-        </div>
+      }
+      title={campaign.name}
+      badge={
+        <Badge variant={campaignStatusBadgeVariant(campaign.status)}>
+          {t(`social.studio.status.${campaign.status}`)}
+        </Badge>
+      }
+      subtitle={
+        <p className="max-w-full truncate text-xs text-muted-foreground">
+          {campaign.goal || t('social.studio.campaigns.no_goal')}
+        </p>
+      }
+      toolbar={
         <div className="flex items-center gap-1.5">
           <ActionIcon
             label={t('social.agent_campaign_add_post')}
@@ -83,7 +85,8 @@ export function SocialCampaignDetailPanel({
             onClick={handleMany}
           />
         </div>
-      </div>
+      }
+    >
       <Tabs defaultValue="info" className="flex min-h-0 flex-1 flex-col gap-0">
         <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
           <TabsTrigger value="info">{t('social.studio.crm.tab_info')}</TabsTrigger>
@@ -127,6 +130,6 @@ export function SocialCampaignDetailPanel({
           </ScrollArea>
         </TabsContent>
       </Tabs>
-    </div>
+    </HubDetailPane>
   );
 }

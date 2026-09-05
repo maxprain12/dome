@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  emailPinsMatch,
   formatEmailPinLabel,
   formatSocialPostPinLabel,
   normalizePinnedResource,
   stripPinnedMentionTokens,
+  toEmailPin,
   truncatePinLabel,
 } from './pinLabels';
 
@@ -32,6 +34,52 @@ describe('formatSocialPostPinLabel', () => {
         fallbackTitle: 'En Dome solo hay un paso manual para crear una feature: escribir el prompt',
       }),
     ).toBe('X · post');
+  });
+});
+
+describe('toEmailPin', () => {
+  it('prefers emsg dbId as id and stringifies uid', () => {
+    const pin = toEmailPin({
+      title: 'Re: Sigpyme',
+      uid: 1842,
+      dbId: 'emsg-abc',
+      folder: 'INBOX',
+      accountId: 'acct-1',
+    });
+    expect(pin.id).toBe('emsg-abc');
+    expect(pin.kind).toBe('email');
+    expect(pin.meta).toEqual({
+      uid: '1842',
+      folder: 'INBOX',
+      accountId: 'acct-1',
+      dbId: 'emsg-abc',
+    });
+  });
+
+  it('falls back to uid when dbId is missing', () => {
+    const pin = toEmailPin({ title: 'Hello', uid: '99' });
+    expect(pin.id).toBe('99');
+    expect(pin.meta).toEqual({ uid: '99' });
+  });
+});
+
+describe('emailPinsMatch', () => {
+  it('matches uid pin against emsg pin on the same account and folder', () => {
+    expect(
+      emailPinsMatch(
+        { id: '1842', kind: 'email', type: 'email', meta: { uid: '1842', accountId: 'a', folder: 'INBOX' } },
+        { id: 'emsg-abc', kind: 'email', type: 'email', meta: { uid: '1842', dbId: 'emsg-abc', accountId: 'a' } },
+      ),
+    ).toBe(true);
+  });
+
+  it('does not match different accounts', () => {
+    expect(
+      emailPinsMatch(
+        { id: '1842', kind: 'email', type: 'email', meta: { uid: '1842', accountId: 'a' } },
+        { id: 'emsg-abc', kind: 'email', type: 'email', meta: { uid: '1842', accountId: 'b' } },
+      ),
+    ).toBe(false);
   });
 });
 

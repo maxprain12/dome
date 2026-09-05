@@ -31,6 +31,7 @@ import {
   type InsightsPeriodDays,
   type TrendDirection,
 } from '@/components/social/insights/insightsMetrics';
+import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
 import { hubCanvasTitleClass, hubFieldLabelClass } from '@/components/shared/hubChrome';
 import { formatSocialWhen, socialPostLabel } from '@/lib/social/socialQueues';
 import { cn } from '@/lib/utils';
@@ -227,18 +228,14 @@ export function SocialOverviewDashboard({
               </Button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-5 sm:gap-0">
-            {kpis.map((kpi) => (
-              <div
-                key={kpi.id}
-                className="flex flex-col gap-1 sm:border-l sm:border-border/70 sm:px-4 sm:first:border-l-0 sm:first:pl-0"
-              >
-                <span className={hubFieldLabelClass}>{kpi.name}</span>
-                <span className="text-2xl font-semibold tabular-nums tracking-tight">{kpi.value}</span>
-                <TrendMark direction={kpi.direction} label={kpi.trend} />
-              </div>
-            ))}
-          </div>
+          <HubMetricGrid
+            metrics={kpis.map((kpi) => ({
+              id: kpi.id,
+              name: kpi.name,
+              value: kpi.value,
+              trend: <TrendMark direction={kpi.direction} label={kpi.trend} />,
+            }))}
+          />
         </section>
 
         <div className="grid gap-8 border-t pt-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(14rem,1fr)]">

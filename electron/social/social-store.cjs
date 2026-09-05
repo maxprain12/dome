@@ -112,6 +112,13 @@ function createSocialStore(database) {
       hasClientSecret: Boolean(cfg.clientSecret),
     };
     if (provider === 'linkedin') status.orgEnabled = getLinkedInOrgEnabled();
+    if (provider === 'instagram') {
+      status.commentsEnabled = getMessagingCommentsEnabled('instagram');
+      status.dmEnabled = getMessagingDmEnabled('instagram');
+    }
+    if (provider === 'x') {
+      status.dmEnabled = getMessagingDmEnabled('x');
+    }
     return status;
   }
 
@@ -877,11 +884,9 @@ function createSocialStore(database) {
     return `social_${provider}_messaging_${kind}`;
   }
 
-  /** Defaults to enabled (true) when unset — matches product decision for live cold DM. */
+  /** Opt-in (default off) so publish-only OAuth does not request extra products. */
   function getMessagingCommentsEnabled(provider) {
-    const v = q().getSetting.get(messagingFlagKey(provider, 'comments'))?.value;
-    if (v === '0') return false;
-    return true;
+    return q().getSetting.get(messagingFlagKey(provider, 'comments'))?.value === '1';
   }
 
   function setMessagingCommentsEnabled(provider, enabled) {
@@ -890,9 +895,7 @@ function createSocialStore(database) {
   }
 
   function getMessagingDmEnabled(provider) {
-    const v = q().getSetting.get(messagingFlagKey(provider, 'dm'))?.value;
-    if (v === '0') return false;
-    return true;
+    return q().getSetting.get(messagingFlagKey(provider, 'dm'))?.value === '1';
   }
 
   function setMessagingDmEnabled(provider, enabled) {

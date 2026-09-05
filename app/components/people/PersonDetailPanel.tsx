@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import type { IconSvgElement } from '@hugeicons/react';
 import {
   BubbleChatIcon,
   Calendar03Icon,
@@ -32,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ListState from '@/components/shared/ListState';
-import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { focusSocialPost } from '@/lib/store/useOpenIntentStore';
 import { leadStatusBadgeVariant, personDisplayLabel, personInitial } from './peopleLabels';
@@ -57,85 +55,17 @@ import InstagramLeadCard from './InstagramLeadCard';
 import PersonProfileEditor from './PersonProfileEditor';
 import PersonTimeline from './PersonTimeline';
 import { coreProfileValue, mergeProfileParts, splitProfile } from './personProfileFields';
-import { hubFichaTitleClass, hubSectionClass, hubSectionTitleClass } from '@/components/shared/hubChrome';
+import { ActionIcon } from '@/components/shared/ActionIcon';
+import { HubDetailPane } from '@/components/shared/HubDetailPane';
+import { ReadField } from '@/components/shared/ReadField';
+import { SectionCard } from '@/components/shared/SectionCard';
+import { hubSectionClass, hubSectionTitleClass } from '@/components/shared/hubChrome';
+import { openManyWithCombinedContext } from '@/lib/many/openManyCombined';
 import { cn } from '@/lib/utils';
 
 function profileString(profile: Record<string, unknown> | undefined, key: string): string | null {
   const value = profile?.[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function ActionIcon({
-  label,
-  available,
-  unavailableLabel,
-  icon,
-  onClick,
-}: {
-  label: string;
-  available: boolean;
-  unavailableLabel: string;
-  icon: IconSvgElement;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="icon-sm"
-      className="rounded-full"
-      disabled={!available}
-      title={available ? label : unavailableLabel}
-      aria-label={label}
-      onClick={onClick}
-    >
-      <HugeiconsIcon icon={icon} />
-    </Button>
-  );
-}
-
-function ReadField({ label, value }: { label: string; value: string }) {
-  const text = value.trim();
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className="truncate text-xs font-medium">{text || '—'}</span>
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  editLabel,
-  editing,
-  onToggleEdit,
-  children,
-}: {
-  title: string;
-  editLabel: string;
-  editing: boolean;
-  onToggleEdit: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <section className={hubSectionClass}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className={hubSectionTitleClass}>{title}</h3>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-pressed={editing}
-          aria-label={editLabel}
-          title={editLabel}
-          onClick={onToggleEdit}
-        >
-          <HugeiconsIcon icon={PencilEdit02Icon} />
-        </Button>
-      </div>
-      {children}
-    </section>
-  );
 }
 
 interface PersonDetailPanelProps {
@@ -271,13 +201,15 @@ export default function PersonDetailPanel({
   };
 
   const handleMany = () => {
-    useManyStore.getState().addPinnedResource({
-      id: person.id,
-      title: personDisplayLabel({ displayName }),
-      type: 'person',
-      kind: 'person',
+    openManyWithCombinedContext({
+      person: {
+        id: person.id,
+        title: personDisplayLabel({ displayName }),
+        type: 'person',
+        kind: 'person',
+      },
+      outcome: 'outreach',
     });
-    globalThis.window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
   };
 
   const handleWebsite = () => {
@@ -299,9 +231,22 @@ export default function PersonDetailPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="relative flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
-        <div className="absolute right-3 top-3 flex items-center gap-1">
+    <HubDetailPane
+      icon={
+        <Avatar size="lg">
+          {avatarUrl ? <AvatarImage src={avatarUrl} alt={personDisplayLabel(person)} /> : null}
+          <AvatarFallback>{personInitial(person)}</AvatarFallback>
+        </Avatar>
+      }
+      title={personDisplayLabel({ displayName })}
+      badge={<Badge variant={leadStatusBadgeVariant(leadStatus)}>{statusLabel}</Badge>}
+      subtitle={
+        headerSubtitle ? (
+          <p className="max-w-full truncate text-xs text-muted-foreground">{headerSubtitle}</p>
+        ) : null
+      }
+      actions={
+        <>
           {dirty ? (
             <Button
               type="button"
@@ -350,21 +295,9 @@ export default function PersonDetailPanel({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-
-        <Avatar size="lg">
-          {avatarUrl ? <AvatarImage src={avatarUrl} alt={personDisplayLabel(person)} /> : null}
-          <AvatarFallback>{personInitial(person)}</AvatarFallback>
-        </Avatar>
-        <div className="flex max-w-full flex-col items-center gap-1 text-center">
-          <div className="flex max-w-full items-center gap-2">
-            <h2 className={hubFichaTitleClass}>{personDisplayLabel({ displayName })}</h2>
-            <Badge variant={leadStatusBadgeVariant(leadStatus)}>{statusLabel}</Badge>
-          </div>
-          {headerSubtitle ? (
-            <p className="max-w-full truncate text-xs text-muted-foreground">{headerSubtitle}</p>
-          ) : null}
-        </div>
+        </>
+      }
+      toolbar={
         <div className="flex items-center gap-1.5">
           <ActionIcon
             label={t('people.action_call')}
@@ -388,8 +321,8 @@ export default function PersonDetailPanel({
             onClick={handleMany}
           />
         </div>
-      </div>
-
+      }
+    >
       <Tabs defaultValue="info" className="flex min-h-0 flex-1 flex-col gap-0">
         <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
           <TabsTrigger value="info">{t('people.tab_info')}</TabsTrigger>
@@ -412,9 +345,19 @@ export default function PersonDetailPanel({
 
               <SectionCard
                 title={t('people.section_basic')}
-                editLabel={editLabel}
-                editing={editCard === 'basic'}
-                onToggleEdit={() => toggleCard('basic')}
+                action={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-pressed={editCard === 'basic'}
+                    aria-label={editLabel}
+                    title={editLabel}
+                    onClick={() => toggleCard('basic')}
+                  >
+                    <HugeiconsIcon icon={PencilEdit02Icon} />
+                  </Button>
+                }
               >
                 {editCard === 'basic' ? (
                   <div className="grid gap-2.5 sm:grid-cols-2">
@@ -487,9 +430,19 @@ export default function PersonDetailPanel({
 
               <SectionCard
                 title={t('people.section_communication')}
-                editLabel={editLabel}
-                editing={editCard === 'comms'}
-                onToggleEdit={() => toggleCard('comms')}
+                action={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-pressed={editCard === 'comms'}
+                    aria-label={editLabel}
+                    title={editLabel}
+                    onClick={() => toggleCard('comms')}
+                  >
+                    <HugeiconsIcon icon={PencilEdit02Icon} />
+                  </Button>
+                }
               >
                 {editCard === 'comms' ? (
                   <div className="grid gap-2.5 sm:grid-cols-2">
@@ -532,9 +485,19 @@ export default function PersonDetailPanel({
 
               <SectionCard
                 title={t('people.section_notes')}
-                editLabel={editLabel}
-                editing={editCard === 'notes'}
-                onToggleEdit={() => toggleCard('notes')}
+                action={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-pressed={editCard === 'notes'}
+                    aria-label={editLabel}
+                    title={editLabel}
+                    onClick={() => toggleCard('notes')}
+                  >
+                    <HugeiconsIcon icon={PencilEdit02Icon} />
+                  </Button>
+                }
               >
                 {editCard === 'notes' ? (
                   <div className="flex flex-col gap-3">
@@ -647,6 +610,6 @@ export default function PersonDetailPanel({
           </ScrollArea>
         </TabsContent>
       </Tabs>
-    </div>
+    </HubDetailPane>
   );
 }

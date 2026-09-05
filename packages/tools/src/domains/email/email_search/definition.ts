@@ -5,7 +5,7 @@ export const emailSearchDefinition: ToolDefinition = {
   function: {
     name: 'email_search',
     description:
-      "Search the user's mailbox for messages matching a query (from, subject, date filters, or free text). Requires a connected email account in Settings → Email.",
+      "Search the user's mailbox for messages matching a query (from, subject, date filters, or free text). folder defaults to INBOX; when looking for outbound mail you must pass the Sent folder from email_list_folders — do not spam INBOX searches for what the user sent. Requires a connected email account in Settings → Email.",
     parameters: {
       type: 'object',
       properties: {

@@ -5,7 +5,7 @@ export const emailReadDefinition: ToolDefinition = {
   function: {
     name: 'email_read',
     description:
-      'Read the full body of one email by message id (from email_list, email_search, or a pinned email). Returns plain-text body for analysis.',
+      'Read the full body of one email by message id (from email_list, email_search, or a pinned email). When mentioned-sources lists an email, call email_read first before email_search. Returns plain-text body for analysis.',
     parameters: {
       type: 'object',
       properties: {

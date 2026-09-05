@@ -40,11 +40,10 @@ import { PENDING_AUTOMATIONS_FILTER_KEY } from '@/lib/hub/hubStorageKeys';
 import AgentEditor from './AgentEditor';
 import AgentChatView from '@/components/agents/AgentChatView';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
-import { HubHeader, HubPageHeader } from '@/components/hub';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
+import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Search01Icon } from '@hugeicons/core-free-icons';
 import { askStudioMany } from '@/components/studio-hub';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -391,20 +390,16 @@ export default function AgentsStudioView() {
             </>
           }
         />
-        <DomainStatChips stats={stats} />
+        <HubMetricGrid chips={stats} />
         <div className="flex flex-wrap items-center gap-3">
-          <InputGroup className="h-8 max-w-xl">
-            <InputGroupAddon>
-              <HugeiconsIcon icon={Search01Icon} aria-hidden />
-            </InputGroupAddon>
-            <InputGroupInput
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('agents.search_placeholder')}
-              aria-label={t('agents.search_placeholder')}
-            />
-          </InputGroup>
+          <HubSearch
+            className="h-8 max-w-xl"
+            value={search}
+            onChange={setSearch}
+            placeholder={t('agents.search_placeholder')}
+            aria-label={t('agents.search_placeholder')}
+            clearLabel={t('command.clear_search')}
+          />
           <ToggleGroup
             value={[folderFilter]}
             onValueChange={(values) => values[0] && setFolderFilter(values[0])}

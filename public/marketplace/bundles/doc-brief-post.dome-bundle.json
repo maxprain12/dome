@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "kind": "dome-workflow-bundle",
+  "exportedAt": 1756934400000,
+  "title": "Doc → brief → post",
+  "description": "First-party bundle: turn a library resource into a brief and a social draft.",
+  "workflows": [],
+  "automations": [],
+  "agents": [],
+  "skills": [],
+  "mcpServers": []
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Add01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
@@ -60,30 +60,40 @@ export default function PeoplePicker({
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PersonSummary[]>([]);
 
+  const linkedIds = useMemo(() => new Set(personIds), [personIds]);
+
   useEffect(() => {
     const missing = personIds.filter((id) => !(id in names));
     if (missing.length === 0) return;
     const api = window.electron?.people;
-    if (!api?.get) return;
+    if (!api?.getMany) return;
     let cancelled = false;
-    void Promise.all(
-      missing.map(async (id) => {
-        try {
-          const res = await api.get(id);
-          const name = res.success ? res.data?.person?.displayName : undefined;
-          return [id, name ?? ''] as const;
-        } catch {
-          return [id, ''] as const;
-        }
-      }),
-    ).then((pairs) => {
-      if (cancelled) return;
-      setNames((prev) => {
-        const next = { ...prev };
-        for (const [id, name] of pairs) next[id] = name;
-        return next;
+    void api
+      .getMany({ ids: missing })
+      .then((res) => {
+        if (cancelled) return;
+        const people = res.success ? (res.data?.people ?? []) : [];
+        setNames((prev) => {
+          const next = { ...prev };
+          for (const id of missing) {
+            if (!(id in next)) next[id] = '';
+          }
+          for (const person of people) {
+            next[person.id] = person.displayName;
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setNames((prev) => {
+          const next = { ...prev };
+          for (const id of missing) {
+            if (!(id in next)) next[id] = '';
+          }
+          return next;
+        });
       });
-    });
     return () => {
       cancelled = true;
     };
@@ -102,7 +112,7 @@ export default function PeoplePicker({
       const people = res.success && isPersonSummaryArray(res.data?.people) ? res.data.people : [];
       setResults(
         people
-          .filter((p) => !personIds.includes(p.id))
+          .filter((p) => !linkedIds.has(p.id))
           .map((p) => ({ id: p.id, displayName: p.displayName })),
       );
     } catch {
@@ -110,7 +120,7 @@ export default function PeoplePicker({
     } finally {
       setLoading(false);
     }
-  }, [projectId, query, personIds]);
+  }, [projectId, query, linkedIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -121,7 +131,7 @@ export default function PeoplePicker({
   }, [open, search, query]);
 
   const addPerson = (person: PersonSummary) => {
-    if (personIds.includes(person.id)) return;
+    if (linkedIds.has(person.id)) return;
     setNames((prev) => ({ ...prev, [person.id]: person.displayName }));
     onChange([...personIds, person.id]);
     setQuery('');

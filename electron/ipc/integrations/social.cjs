@@ -16,6 +16,9 @@ const ProviderConfigSchema = z.object({
   clientSecret: z.string().optional(),
   /** LinkedIn only: request organization scopes to manage company pages. */
   orgEnabled: z.boolean().optional(),
+  /** Opt-in comment/DM products — requires reconnect after save. */
+  commentsEnabled: z.boolean().optional(),
+  dmEnabled: z.boolean().optional(),
 });
 const OAuthPortSchema = z.object({ port: z.number().int().min(1025).max(65535) });
 const ConnectOAuthSchema = z.object({ provider: ProviderSchema });
@@ -194,13 +197,19 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     encryptionAvailable: service.store.encryptionAvailable(),
   })));
 
-  ipcMain.handle('social:providers:set-config', wrap(ProviderConfigSchema, ({ provider, clientId, clientSecret, orgEnabled }) => {
+  ipcMain.handle('social:providers:set-config', wrap(ProviderConfigSchema, ({ provider, clientId, clientSecret, orgEnabled, commentsEnabled, dmEnabled }) => {
     const patch = {};
     if (clientId !== undefined) patch.clientId = clientId;
     if (clientSecret !== undefined) patch.clientSecret = clientSecret;
     if (Object.keys(patch).length > 0) service.store.setProviderConfig(provider, patch);
     if (provider === 'linkedin' && orgEnabled !== undefined) {
       service.store.setLinkedInOrgEnabled(orgEnabled);
+    }
+    if (commentsEnabled !== undefined) {
+      service.store.setMessagingCommentsEnabled(provider, commentsEnabled);
+    }
+    if (dmEnabled !== undefined) {
+      service.store.setMessagingDmEnabled(provider, dmEnabled);
     }
     return service.store.getProviderConfigStatus(provider);
   }));

@@ -1,1 +1,52 @@
-[]
+[
+  {
+    "id": "lead-follow-up",
+    "name": "Lead → ficha → follow-up",
+    "description": "Turns a matched social comment into a People record and a follow-up draft.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["people", "social", "first-party"],
+    "featured": true,
+    "source": "official"
+  },
+  {
+    "id": "doc-brief-post",
+    "name": "Doc → brief → post",
+    "description": "Reads a note or PDF and drafts a social post plus a one-page brief.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["social", "notes", "first-party"],
+    "featured": true,
+    "source": "official"
+  },
+  {
+    "id": "research-digest",
+    "name": "Research digest semanal",
+    "description": "Summarizes new library resources into a weekly digest note.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["library", "notes", "first-party"],
+    "featured": true,
+    "source": "official"
+  },
+  {
+    "id": "outreach-email",
+    "name": "Outreach email",
+    "description": "Writes a personalized email from a pinned person and resource.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["people", "email", "first-party"],
+    "featured": true,
+    "source": "official"
+  },
+  {
+    "id": "inbox-triage",
+    "name": "Social inbox triage",
+    "description": "Reviews pending Instagram comment drafts and proposes approve/attach actions.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["social", "inbox", "first-party"],
+    "featured": true,
+    "source": "official"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "id": "weekly-digest-flow",
+  "name": "Weekly research digest",
+  "description": "New resources → digest note on a schedule.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "nodes": [],
+  "edges": [],
+  "tags": ["library", "first-party"]
+}

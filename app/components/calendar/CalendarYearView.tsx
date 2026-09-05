@@ -59,7 +59,7 @@ export function YearView({
             type="button"
             aria-label={format(month, 'MMMM yyyy', { locale: dfLocale })}
             className={cn(
-              'flex w-full flex-col items-stretch rounded-xl border bg-card p-3 text-left transition-[box-shadow,border-color] hover:shadow-md',
+              'flex w-full flex-col items-stretch rounded-xl border bg-card p-3 text-left transition-[border-color] hover:border-primary',
               'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none',
               isCurrentMonth && 'border-primary',
             )}

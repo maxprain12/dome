@@ -1,6 +1,6 @@
 # Manual Técnico — Dome Desktop
 
-> Referencia técnica consolidada para desarrolladores de Dome (v2.7.7).
+> Referencia técnica consolidada para desarrolladores de Dome (v2.8.9).
 > Asume conocimiento de TypeScript, React y Electron.
 
 ---
@@ -76,7 +76,7 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 | Frontend bundler | Vite | 7 |
 | UI framework | React | 18 |
 | Routing | React Router | 7 (client-side SPA) |
-| UI components | Mantine | latest |
+| UI components | shadcn/ui (Base UI) | latest |
 | Styling | Tailwind CSS + CSS Variables | — |
 | Database | better-sqlite3 + `@dome/db` (Drizzle) | schema v53 |
 | Vector search | LangChain embeddings + LanceDB (`dome-lance`) | — |
@@ -106,7 +106,7 @@ dome/
 ├── packages/db/                 # @dome/db — schema Drizzle, migrator, repos piloto
 │
 ├── app/                         # Renderer Process
-│   ├── main.tsx                # Vite entry: MantineProvider + BrowserRouter
+│   ├── main.tsx                # Vite entry: BrowserRouter + global providers
 │   ├── App.tsx                 # Root routes
 │   ├── pages/                  # React Router pages
 │   ├── components/             # UI components por feature
@@ -211,7 +211,7 @@ const result = await window.electron.invoke('myfeature:doAction', params);
 | Cloud | `cloud:*` | Google Drive, OneDrive |
 | Dome Auth | `dome-auth:*` | OAuth session con Provider |
 | MCP | `mcp:*` | MCP server management |
-| Settings | `settings:*` | Get/set settings |
+| Settings | `db:settings:*` | Get/set settings |
 | Plugins | `plugins:*` | Install, list, validate |
 
 ### Eventos Main → Renderer (push)
@@ -268,7 +268,7 @@ Los triggers SQLite mantienen sincronizadas las tablas FTS automáticamente en I
 
 ### Migraciones y Drizzle
 
-1. **Legacy (v1…53):** `electron/core/db/migrations.cjs` — versión en `settings.schema_version`. Backup automático antes de migrar (`db-backup.cjs`).
+1. **Legacy (v1…61):** `electron/core/db/migrations.cjs` — versión en `settings.schema_version` (HEAD **v61**). Backup automático antes de migrar (`db-backup.cjs`).
 2. **Drizzle (post-v53):** `runDrizzleMigrations()` en `drizzle-bridge.cjs` — journal `__drizzle_migrations`, baseline `0000_baseline_v53`.
 3. **FTS5:** `fts-schema.cjs` — tablas virtuales + triggers (SQL crudo, idempotente).
 4. **Pilotos Drizzle:** `getSettingsRepo()`, `getTagsRepo()` — resto en `queries.cjs` hasta migración por dominio.

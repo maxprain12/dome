@@ -114,11 +114,17 @@ async function syncFolder(accountId, folder, opts) {
       const result = await syncEnvelopePage(accountId, folderRow, folder.name, page, opts);
       upserted += result.upserted;
       if (result.done) break;
+      if (page === opts.maxPages) {
+        console.warn('[email-sync] folder truncated at maxPages', folder.name);
+      }
     }
 
+    const cached = emailStore.listCachedEnvelopes(accountId, folder.name, { limit: 500 });
+    const lastUid = emailStore.maxImapUid(cached);
     emailStore.setSyncState(accountId, folderRow.id, {
       status: 'idle',
       lastSyncedAt: Date.now(),
+      lastUid,
       error: null,
     });
   } catch (err) {
@@ -135,7 +141,8 @@ async function syncFolder(accountId, folder, opts) {
  * Sync INBOX (and Sent if present) for one account.
  * Bodies are NOT fetched here — lazy on read.
  */
-async function syncAccount(accountId, { projectId = null, maxPages = 5, pageSize = 100 } = {}) {
+// maxPages is a safety cap (not a product limit). Stop early when a page is short.
+async function syncAccount(accountId, { projectId = null, maxPages = 50, pageSize = 100 } = {}) {
   if (!accountId) throw new Error('accountId required');
 
   const foldersRes = await himalaya.listFolders(accountId, projectId);

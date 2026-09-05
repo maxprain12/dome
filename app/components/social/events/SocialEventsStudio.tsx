@@ -54,7 +54,7 @@ import type {
   SocialEventUpdate,
   SocialPost,
 } from '@/components/social/socialTypes';
-import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { HubDetailPane } from '@/components/shared/HubDetailPane';
 import { ActionIcon, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import {
   SocialDirectoryColumn,
@@ -196,23 +196,25 @@ function EventFicha({
     } else if (!response.data?.cancelled) toast.success(t('social.events.exported'));
   };
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
+    <HubDetailPane
+      icon={
         <div className="flex size-10 items-center justify-center rounded-full bg-muted">
           <HugeiconsIcon icon={Calendar03Icon} />
         </div>
-        <div className="flex max-w-full flex-col items-center gap-1 text-center">
-          <div className="flex max-w-full items-center gap-2">
-            <h2 className={hubFichaTitleClass}>{socialEventCardLabel(card)}</h2>
-            <Badge variant={card.status === 'published' ? 'lime' : 'outline'}>
-              {t(`social.events.status_${card.status}`)}
-            </Badge>
-          </div>
-          <p className="max-w-full truncate text-xs text-muted-foreground">
-            {new Date(card.startsAt).toLocaleString()}
-            {card.venueName ? `, ${card.venueName}` : ''}
-          </p>
-        </div>
+      }
+      title={socialEventCardLabel(card)}
+      badge={
+        <Badge variant={card.status === 'published' ? 'lime' : 'outline'}>
+          {t(`social.events.status_${card.status}`)}
+        </Badge>
+      }
+      subtitle={
+        <p className="max-w-full truncate text-xs text-muted-foreground">
+          {new Date(card.startsAt).toLocaleString()}
+          {card.venueName ? `, ${card.venueName}` : ''}
+        </p>
+      }
+      toolbar={
         <div className="flex items-center gap-1.5">
           <ActionIcon
             label={t('common.edit')}
@@ -244,7 +246,8 @@ function EventFicha({
             }}
           />
         </div>
-      </div>
+      }
+    >
       <Tabs defaultValue="info" className="flex min-h-0 flex-1 flex-col gap-0">
         <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
           <TabsTrigger value="info">{t('social.studio.crm.tab_info')}</TabsTrigger>
@@ -283,7 +286,7 @@ function EventFicha({
           <AutomationsStudio cards={cards} accounts={accounts} posts={posts} lockedCardId={card.id} />
         </TabsContent>
       </Tabs>
-    </div>
+    </HubDetailPane>
   );
 }
 

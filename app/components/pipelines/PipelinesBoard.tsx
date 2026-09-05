@@ -26,6 +26,7 @@ import PipelinesDashboard from './PipelinesDashboard';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { askStudioMany } from '@/components/studio-hub';
 import { HubHeader, HubPageHeader } from '@/components/hub';
+import ListState from '@/components/shared/ListState';
 
 import {
   AppModal,
@@ -420,11 +421,7 @@ function PipelinesBoardBody({
     return <PipelinesDashboard onOpenPipeline={onOpenPipeline} />;
   }
   if (loadingBoard) {
-    return (
-      <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
-        <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
-      </div>
-    );
+    return <ListState variant="loading" fullHeight />;
   }
   return kanban;
 }

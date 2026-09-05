@@ -866,6 +866,20 @@ declare global {
           };
           error?: string;
         }>;
+        getMany: (payload: string[] | { ids: string[]; includeInteractions?: boolean }) => Promise<{
+          success: boolean;
+          data?: {
+            people: Array<{
+              id: string;
+              displayName: string;
+              primaryEmail?: string | null;
+              notes?: string | null;
+              leadStatus?: string;
+              profile?: Record<string, unknown>;
+            }>;
+          };
+          error?: string;
+        }>;
         get: (payload: string | { id: string; includeInteractions?: boolean }) => Promise<{
           success: boolean;
           data?: {
@@ -2351,7 +2365,7 @@ declare global {
 
       // Notebook API (Python via IPC - Electron only)
       notebook: {
-        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; cwd?: string; venvPath?: string; timeoutMs?: number }) => Promise<{
+        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; cwd?: string; venvPath?: string; timeoutMs?: number; collectAllCells?: boolean }) => Promise<{
           success: boolean;
           outputs: Array<{
             output_type: 'stream' | 'execute_result' | 'display_data' | 'error';
@@ -2362,6 +2376,15 @@ declare global {
             evalue?: string;
             traceback?: string[];
           }>;
+          cellOutputs?: Array<Array<{
+            output_type: 'stream' | 'execute_result' | 'display_data' | 'error';
+            name?: 'stdout' | 'stderr';
+            text?: string | string[];
+            data?: Record<string, string | string[]>;
+            ename?: string;
+            evalue?: string;
+            traceback?: string[];
+          }>>;
           error?: string;
         }>;
         checkPython: () => Promise<{

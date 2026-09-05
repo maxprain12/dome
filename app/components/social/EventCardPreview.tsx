@@ -115,7 +115,7 @@ function QrBlock({
     <div className="flex flex-col items-center gap-1.5">
       <div
         className={cn(
-          'flex size-28 items-center justify-center bg-white p-1.5 shadow-sm',
+          'flex size-28 items-center justify-center border border-border bg-white p-1.5',
           rounded ? 'rounded-xl' : 'rounded-sm',
         )}
       >

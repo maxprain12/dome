@@ -134,5 +134,6 @@
   "open_vault_folder": "Open workspace folder",
   "search_workspace": "Search in workspace",
   "ask_many": "Ask Many",
-  "ask_many_prompt": "Help me with this resource \"{{title}}\": summarize, suggest actions, and next steps in Dome."
+  "ask_many_prompt": "Help me with this resource \"{{title}}\": summarize, suggest actions, and next steps in Dome.",
+  "ask_many_brief": "Write a one-page brief from this resource. If a contact is pinned, personalize the next step."
 }

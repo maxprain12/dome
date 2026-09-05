@@ -18,7 +18,8 @@ import IssueDetailPanel from './IssueDetailPanel';
 import MilestoneDetailModal from './MilestoneDetailModal';
 import GitHubSettings from './GitHubSettings';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
-import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
+import { HubSearch } from '@/components/hub';
+import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -186,38 +187,35 @@ export default function GitHubView() {
   const detailOpen = !settingsOpen && (openIssueId != null || openMilestoneId != null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col text-foreground">
-      <HubPageHeader>
-        <HubHeader
-          title={t('github.tab_title')}
-          description={syncDescription}
-          className="w-full"
-          actions={
-            <>
-              <GitHubSyncBadge syncStatus={syncStatus} isSyncing={isSyncing} t={t} />
-              <SectionGuideHelp sectionKey="github" />
-              <Button type="button" variant="outline" size="sm" disabled={isSyncing} onClick={handleSyncClick}>
-                {isSyncing ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-                )}
-                {t('github.sync_now')}
-              </Button>
-              <Button
-                type="button"
-                variant={settingsOpen ? 'secondary' : 'outline'}
-                size="icon-sm"
-                aria-label={t('github.settings_title')}
-                aria-pressed={settingsOpen}
-                onClick={() => setSettingsOpen((v) => !v)}
-              >
-                <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
-              </Button>
-            </>
-          }
-        />
-
+    <HubSectionShell
+      className="text-foreground"
+      title={t('github.tab_title')}
+      description={syncDescription}
+      actions={
+        <>
+          <GitHubSyncBadge syncStatus={syncStatus} isSyncing={isSyncing} t={t} />
+          <SectionGuideHelp sectionKey="github" />
+          <Button type="button" variant="outline" size="sm" disabled={isSyncing} onClick={handleSyncClick}>
+            {isSyncing ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+            )}
+            {t('github.sync_now')}
+          </Button>
+          <Button
+            type="button"
+            variant={settingsOpen ? 'secondary' : 'outline'}
+            size="icon-sm"
+            aria-label={t('github.settings_title')}
+            aria-pressed={settingsOpen}
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
+          </Button>
+        </>
+      }
+      toolbar={
         <div className="@container/github-toolbar flex min-w-0 flex-wrap items-center gap-2">
           <div className="flex min-w-0 items-center gap-1">
             <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
@@ -289,8 +287,8 @@ export default function GitHubView() {
             />
           ) : null}
         </div>
-      </HubPageHeader>
-
+      }
+    >
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {settingsOpen ? (
@@ -323,6 +321,6 @@ export default function GitHubView() {
           />
         ) : null}
       </div>
-    </div>
+    </HubSectionShell>
   );
 }

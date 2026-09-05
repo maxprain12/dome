@@ -1,0 +1,12 @@
+{
+  "id": "outreach-email",
+  "name": "Outreach email",
+  "description": "Writes a personalized email from a pinned person and resource.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "systemInstructions": "Use the pinned person and resource to write a short outreach email with subject, opening, and one CTA.",
+  "toolIds": ["people_get", "resource_get"],
+  "tags": ["people", "email", "first-party"],
+  "featured": true
+}

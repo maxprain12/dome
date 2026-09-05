@@ -408,6 +408,34 @@ function lastRawUserMessage(messages) {
 
 const DOME_PINS_CUSTOM_TYPE = 'dome.pins';
 
+/** One-line pin cue for the harness user turn (titles only — no opaque ids). */
+function formatPinnedTurnSignal(lastRaw) {
+  const pins = lastRaw?.pinnedResources;
+  if (!Array.isArray(pins) || pins.length === 0) return '';
+  const parts = pins
+    .map((pin) => {
+      if (!pin || typeof pin !== 'object') return '';
+      const kind =
+        typeof pin.kind === 'string' && pin.kind.trim()
+          ? pin.kind.trim()
+          : typeof pin.type === 'string' && pin.type.trim()
+            ? pin.type.trim()
+            : 'resource';
+      const title = typeof pin.title === 'string' ? pin.title.trim() : '';
+      return title ? `[${kind}] «${title}»` : `[${kind}]`;
+    })
+    .filter(Boolean);
+  if (parts.length === 0) return '';
+  return `Pinned this turn: ${parts.join(', ')}`;
+}
+
+function appendPinnedTurnSignal(userPrompt, lastRaw) {
+  const signal = formatPinnedTurnSignal(lastRaw);
+  if (!signal) return userPrompt;
+  const base = typeof userPrompt === 'string' ? userPrompt.trim() : '';
+  return base ? `${base}\n\n${signal}` : signal;
+}
+
 async function persistDomePins(session, lastRaw) {
   const pins = lastRaw?.pinnedResources;
   if (!session || !Array.isArray(pins) || pins.length === 0) return;
@@ -1337,7 +1365,8 @@ async function prepareRunDomeInputs(opts) {
   if (!userPrompt.trim() && promptImages.length > 0) {
     userPrompt = '(see attached image)';
   }
-  return { userPrompt, promptImages };
+  userPrompt = appendPinnedTurnSignal(userPrompt, lastRaw);
+  return { userPrompt, promptImages, lastRaw };
 }
 
 /**
@@ -1440,7 +1469,7 @@ function handleRunError(err, threadId, opts) {
 async function runDomeAgent(surface, opts) {
   console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
 
-  const { userPrompt, promptImages } = await prepareRunDomeInputs(opts);
+  const { userPrompt, promptImages, lastRaw } = await prepareRunDomeInputs(opts);
 
   const guardrailReason = applyGuardrailsEarlyReturn(userPrompt, opts);
   if (guardrailReason !== null) return guardrailReason;
@@ -1449,6 +1478,7 @@ async function runDomeAgent(surface, opts) {
   const { harness, threadId, cleanup, session } = setup;
 
   try {
+    await persistDomePins(session, lastRaw);
     await tryEmitBudgetSafely(setup, opts, 'budget telemetry skipped');
     const assistant = await harness.prompt(
       userPrompt,
@@ -1464,7 +1494,6 @@ async function runDomeAgent(surface, opts) {
   } catch (err) {
     return handleRunError(err, threadId, opts);
   } finally {
-    await persistDomePins(session, lastRaw);
     cleanup();
   }
 }
@@ -1487,6 +1516,8 @@ module.exports = {
   countPriorToolCalls,
   countAllPriorToolCalls,
   buildBeforeToolCall,
+  prepareRunDomeInputs,
+  formatPinnedTurnSignal,
   CREATION_TOOL_CAPS,
   MUTATION_HITL_THRESHOLDS,
   DEFAULT_GLOBAL_TOOL_CALL_LIMIT,

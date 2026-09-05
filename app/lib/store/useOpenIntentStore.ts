@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { dispatchDomeEvent } from '@/lib/events/domeEvents';
 
 const TTL_MS = 5000;
 
@@ -48,7 +49,7 @@ export function focusGithubIssue(detail: { issueId: string; repoId?: string }): 
     ...(detail.repoId ? { repoId: detail.repoId } : {}),
     at: Date.now(),
   });
-  window.dispatchEvent(new CustomEvent('dome:focus-github-issue', { detail }));
+  dispatchDomeEvent('dome:focus-github-issue', detail);
 }
 
 export function focusEmail(detail: {
@@ -65,7 +66,7 @@ export function focusEmail(detail: {
     ...(detail.uid != null ? { uid: detail.uid } : {}),
     at: Date.now(),
   });
-  window.dispatchEvent(new CustomEvent('dome:focus-email', { detail }));
+  dispatchDomeEvent('dome:focus-email', detail);
 }
 
 export function focusSocialPost(detail: { postId: string }): void {
@@ -74,7 +75,7 @@ export function focusSocialPost(detail: { postId: string }): void {
     postId: detail.postId,
     at: Date.now(),
   });
-  window.dispatchEvent(new CustomEvent('dome:focus-social-post', { detail }));
+  dispatchDomeEvent('dome:focus-social-post', detail);
 }
 
 export function focusPerson(detail: { personId: string }): void {
@@ -83,5 +84,5 @@ export function focusPerson(detail: { personId: string }): void {
     personId: detail.personId,
     at: Date.now(),
   });
-  window.dispatchEvent(new CustomEvent('dome:focus-person', { detail }));
+  dispatchDomeEvent('dome:focus-person', detail);
 }

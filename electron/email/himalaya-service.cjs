@@ -453,7 +453,9 @@ async function listEnvelopes(
     { accountId: id },
   );
   const raw = Array.isArray(data) ? data : data?.envelopes || [];
-  const envelopes = raw.map((e) => emailStore.normalizeEnvelope(e)).filter(Boolean);
+  const envelopes = raw
+    .map((e) => emailStore.normalizeEnvelope(e, { accountId: id, folder }))
+    .filter(Boolean);
   // Persist live page into cache so the next open is fast and repaired.
   try {
     const folderRow = emailStore.upsertFolder(id, folder);
@@ -474,7 +476,17 @@ async function searchEnvelopes(accountId, query, { folder = 'INBOX', pageSize = 
   if (query && query.trim()) args.push(query.trim());
   const data = await runHimalaya(args, { accountId: id });
   const raw = Array.isArray(data) ? data : data?.envelopes || [];
-  const envelopes = raw.map((e) => emailStore.normalizeEnvelope(e)).filter(Boolean);
+  const envelopes = raw
+    .map((e) => emailStore.normalizeEnvelope(e, { accountId: id, folder }))
+    .filter(Boolean);
+  try {
+    const folderRow = emailStore.upsertFolder(id, folder);
+    for (const env of envelopes) {
+      emailStore.upsertEnvelope(id, folderRow.id, env);
+    }
+  } catch (err) {
+    console.warn('[himalaya] cache search envelopes failed:', err?.message || err);
+  }
   return { success: true, envelopes, accountId: id };
 }
 
@@ -544,13 +556,14 @@ async function readMessageHeaders(accountId, messageId, { folder = 'INBOX' } = {
  * `messageId` may be an IMAP uid or a Dome cache row id (`emsg-?`).
  */
 async function readMessage(accountId, messageId, { folder = 'INBOX', projectId = null, forceLive = false } = {}) {
-  let id = resolveAccountId(accountId, projectId);
   const emailStore = require('./email-store.cjs');
-  const resolved = emailStore.resolveMessageRef(messageId, { accountId: id, folder });
+  const rawId = String(messageId || '').trim();
+  let id = rawId.startsWith('emsg-') ? accountId || null : resolveAccountId(accountId, projectId);
+  const resolved = emailStore.resolveMessageRef(rawId, { accountId: id, folder });
   if (!resolved) {
     return { success: false, error: `Unknown email message id: ${messageId}` };
   }
-  if (!id) id = resolved.accountId;
+  id = resolved.accountId || id;
   if (!id) return { success: false, error: 'No email account configured' };
 
   const uid = resolved.uid;

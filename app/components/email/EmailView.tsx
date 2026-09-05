@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Command,
   CommandEmpty,
@@ -28,11 +29,13 @@ import {
   SentIcon,
   StarIcon,
 } from '@hugeicons/core-free-icons';
-import { HubHeader, HubPageHeader, HubSearch, HubSurface } from '@/components/hub';
+import { HubSearch, HubSurface } from '@/components/hub';
+import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import ListState from '@/components/shared/ListState';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
+import { toEmailPin } from '@/lib/chat/pinLabels';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { emailFolderLabel, type EmailFolderRow } from '@/lib/email/folder-label';
 import {
@@ -41,6 +44,7 @@ import {
   type MailEnvelope,
   type MailFilter,
 } from '@/lib/email/mailQueues';
+import { looksLikeOpaqueId } from '@/lib/social/socialQueues';
 import { invokeWithTimeout } from '@/lib/utils/ipcTimeout';
 import { cn } from '@/lib/utils';
 import type { EmailErrorInfo } from '@/components/email/EmailErrorNotice';
@@ -50,6 +54,49 @@ import { MailComposePanel } from '@/components/email/MailComposePanel';
 
 /** Match IPC/store max so the dashboard is not stuck at Himalaya's old page of 30. */
 const LIST_PAGE_SIZE = 500;
+
+type EmailAccountOption = {
+  id: string;
+  email?: string;
+  display_name?: string;
+};
+
+type EmailFocusIntent = {
+  sourceId: string;
+  folder?: string;
+  uid?: string | number;
+  accountId?: string;
+};
+
+function parseEmailAccounts(raw: unknown): EmailAccountOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row): EmailAccountOption | null => {
+      if (!row || typeof row !== 'object') return null;
+      const id = typeof (row as { id?: unknown }).id === 'string' ? (row as { id: string }).id : '';
+      if (!id) return null;
+      const email = (row as { email?: unknown }).email;
+      const displayName = (row as { display_name?: unknown }).display_name;
+      return {
+        id,
+        email: typeof email === 'string' ? email : undefined,
+        display_name: typeof displayName === 'string' ? displayName : undefined,
+      };
+    })
+    .filter((row): row is EmailAccountOption => row != null);
+}
+
+function emailAccountLabel(account: EmailAccountOption, unknownLabel: string): string {
+  const name = (account.display_name || '').trim();
+  const email = (account.email || '').trim();
+  if (name && !looksLikeOpaqueId(name)) return name;
+  if (email && !looksLikeOpaqueId(email)) return email;
+  return unknownLabel;
+}
+
+function accountScope(accountId: string | null | undefined): { accountId?: string } {
+  return accountId ? { accountId } : {};
+}
 
 function parseFolders(raw: unknown): EmailFolderRow[] {
   if (!Array.isArray(raw)) return [];
@@ -218,6 +265,51 @@ function EmailFolderPicker({
   );
 }
 
+type EmailAccountPickerProps = {
+  accounts: EmailAccountOption[];
+  activeAccountId: string | null;
+  onSelectAccount: (id: string) => void;
+};
+
+/** Visible only when the project has more than one mailbox. */
+function EmailAccountPicker({ accounts, activeAccountId, onSelectAccount }: EmailAccountPickerProps) {
+  const { t } = useTranslation();
+  if (accounts.length <= 1) return null;
+  const unknown = t('email.unknown_account');
+  const selected = accounts.find((a) => a.id === activeAccountId) ?? accounts[0];
+  const items = accounts.map((a) => ({
+    value: a.id,
+    label: emailAccountLabel(a, unknown),
+  }));
+
+  return (
+    <Select
+      value={selected?.id ?? null}
+      onValueChange={(next) => {
+        if (next) onSelectAccount(next);
+      }}
+      items={items}
+    >
+      <SelectTrigger
+        size="sm"
+        className="min-w-0 max-w-[10rem] @[48rem]/email:max-w-xs"
+        aria-label={t('email.account_label')}
+      >
+        <SelectValue>
+          {selected ? emailAccountLabel(selected, unknown) : t('email.account_label')}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {accounts.map((a) => (
+          <SelectItem key={a.id} value={a.id}>
+            {emailAccountLabel(a, unknown)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 type EmailComposeState = { mode: 'new' | 'reply'; replyTo?: MailEnvelope };
 
 type EmailDetailSidePanelProps = {
@@ -292,6 +384,8 @@ export default function EmailView() {
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const [hasAccount, setHasAccount] = useState<boolean | null>(null);
+  const [accounts, setAccounts] = useState<EmailAccountOption[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [inbox, setInbox] = useState<MailEnvelope[]>([]);
   const [sent, setSent] = useState<MailEnvelope[]>([]);
   const [loading, setLoading] = useState(false);
@@ -336,13 +430,14 @@ export default function EmailView() {
         folder,
         projectId,
         pageSize: LIST_PAGE_SIZE,
+        ...accountScope(activeAccountId),
       });
       if (res.success) setInbox((res.envelopes as MailEnvelope[]) || []);
       else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
     } finally {
       setLoading(false);
     }
-  }, [folder, projectId]);
+  }, [activeAccountId, folder, projectId]);
 
   const refreshSent = useCallback(
     async (folderList: EmailFolderRow[]) => {
@@ -356,13 +451,14 @@ export default function EmailView() {
           folder: sentName,
           projectId,
           pageSize: LIST_PAGE_SIZE,
+          ...accountScope(activeAccountId),
         });
         if (res.success) setSent((res.envelopes as MailEnvelope[]) || []);
       } catch {
         setSent([]);
       }
     },
-    [projectId],
+    [activeAccountId, projectId],
   );
 
   const syncNow = useCallback(async () => {
@@ -370,7 +466,10 @@ export default function EmailView() {
     setSyncing(true);
     setSyncError(null);
     try {
-      const res = await window.electron.email.syncNow?.({ projectId });
+      const res = await window.electron.email.syncNow?.({
+        projectId,
+        ...accountScope(activeAccountId),
+      });
       if (res && res.success === false) {
         setSyncError(res.error || t('email.sync_failed'));
       }
@@ -387,6 +486,7 @@ export default function EmailView() {
         folder: inboxName,
         projectId,
         pageSize: LIST_PAGE_SIZE,
+        ...accountScope(activeAccountId),
       });
       if (inboxRes.success) setInbox((inboxRes.envelopes as MailEnvelope[]) || []);
       else setError({ error: inboxRes.error, errorCode: inboxRes.errorCode, helpUrl: inboxRes.helpUrl });
@@ -396,7 +496,7 @@ export default function EmailView() {
     } finally {
       setSyncing(false);
     }
-  }, [folders, projectId, refreshSent, syncing, t]);
+  }, [activeAccountId, folders, projectId, refreshSent, syncing, t]);
 
   useEffect(() => {
     const unsubStatus = window.electron.email.onSyncStatus?.((data) => {
@@ -433,13 +533,14 @@ export default function EmailView() {
           30_000,
         );
         if (cancelled) return;
-        const accounts = (res.accounts as Array<{ email?: string }> | undefined) || [];
-        const ok = res.success && accounts.length > 0;
+        const listed = parseEmailAccounts(res.accounts);
+        setAccounts(listed);
+        const ok = res.success && listed.length > 0;
         setHasAccount(ok);
         if (!ok) return;
         setSelfEmails(
           new Set(
-            accounts
+            listed
               .map((a) => (a.email || '').trim().toLowerCase())
               .filter(Boolean),
           ),
@@ -506,6 +607,16 @@ export default function EmailView() {
     setFilter('all');
   };
 
+  const changeAccount = (nextId: string) => {
+    if (!nextId || nextId === activeAccountId) return;
+    setActiveAccountId(nextId);
+    setSelected(null);
+    setMessage(null);
+    setComposing(null);
+    setQuery('');
+    setFilter('all');
+  };
+
   useEffect(() => {
     if (hasAccount !== true) return;
     if (skipFolderRefreshRef.current) {
@@ -545,6 +656,7 @@ export default function EmailView() {
         folder,
         projectId,
         pageSize: LIST_PAGE_SIZE,
+        ...accountScope(activeAccountId),
       });
       if (res.success) {
         const remote = (res.envelopes as MailEnvelope[]) || [];
@@ -561,7 +673,7 @@ export default function EmailView() {
     } finally {
       setLoading(false);
     }
-  }, [folder, projectId, refreshInbox]);
+  }, [activeAccountId, folder, projectId, refreshInbox]);
 
   // Local filter is instant; remote search deepens results after a short pause.
   // Clearing the query restores the folder listing after a remote merge.
@@ -591,7 +703,12 @@ export default function EmailView() {
       setMessage(null);
       setError(null);
       try {
-        const res = await window.electron.email.read({ messageId: env.id, folder: f, projectId });
+        const res = await window.electron.email.read({
+          messageId: env.id,
+          folder: f,
+          projectId,
+          ...accountScope(env.accountId ?? activeAccountId),
+        });
         if (openMessageSeqRef.current !== seq) return;
         if (res.success) setMessage(res.message);
         else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
@@ -599,7 +716,7 @@ export default function EmailView() {
         if (openMessageSeqRef.current === seq) setReadingId(null);
       }
     },
-    [folder, projectId],
+    [activeAccountId, folder, projectId],
   );
 
   const sentFolderName = useMemo(() => findSentFolder(folders), [folders]);
@@ -609,19 +726,15 @@ export default function EmailView() {
     (env: MailEnvelope | null, prompt: string) => {
       const many = useManyStore.getState();
       if (env) {
-        // Pin the IMAP uid (what email_read / Himalaya expect), not the SQLite row id (emsg-…).
-        many.addPinnedResource({
-          id: String(env.id),
-          title: env.subject || t('email.no_subject'),
-          type: 'email',
-          kind: 'email',
-          meta: {
+        many.addPinnedResource(
+          toEmailPin({
+            title: env.subject || t('email.no_subject'),
+            uid: env.id,
+            dbId: env.dbId ?? null,
             folder,
-            uid: String(env.id),
-            dbId: env.dbId || undefined,
-            accountId: env.accountId,
-          },
-        });
+            accountId: env.accountId ?? null,
+          }),
+        );
       }
       many.setPendingOneShotSkill('dome-email-triage');
       many.setPendingManyHandoff(prompt);
@@ -631,9 +744,11 @@ export default function EmailView() {
   );
 
   const applyEmailFocus = useCallback(
-    async (intent: { sourceId: string; folder?: string; uid?: string | number }) => {
+    async (intent: EmailFocusIntent) => {
       if (hasAccount !== true) return;
       const targetFolder = intent.folder?.trim() || folder;
+      const focusAccountId = intent.accountId?.trim() || activeAccountId;
+      if (intent.accountId?.trim()) setActiveAccountId(intent.accountId.trim());
       setComposing(null);
       setQuery('');
       setError(null);
@@ -645,6 +760,7 @@ export default function EmailView() {
             folder: f,
             projectId,
             pageSize: LIST_PAGE_SIZE,
+            ...accountScope(focusAccountId),
           });
           if (res.success) {
             const list = (res.envelopes as MailEnvelope[]) || [];
@@ -673,13 +789,13 @@ export default function EmailView() {
 
       if (match) await openMessage(match, targetFolder);
     },
-    [folder, hasAccount, openMessage, projectId],
+    [activeAccountId, folder, hasAccount, openMessage, projectId],
   );
 
   useEffect(() => {
     const onFocus = (e: Event) => {
       const detail = (
-        e as CustomEvent<{ sourceId?: string; folder?: string; uid?: string | number }>
+        e as CustomEvent<{ sourceId?: string; folder?: string; uid?: string | number; accountId?: string }>
       ).detail;
       if (!detail?.sourceId) return;
       useOpenIntentStore.getState().consume('email');
@@ -687,6 +803,7 @@ export default function EmailView() {
         sourceId: detail.sourceId,
         ...(detail.folder ? { folder: detail.folder } : {}),
         ...(detail.uid != null ? { uid: detail.uid } : {}),
+        ...(detail.accountId ? { accountId: detail.accountId } : {}),
       });
     };
     window.addEventListener('dome:focus-email', onFocus);
@@ -701,6 +818,7 @@ export default function EmailView() {
         sourceId: pending.sourceId,
         ...(pending.folder ? { folder: pending.folder } : {}),
         ...(pending.uid != null ? { uid: pending.uid } : {}),
+        ...(pending.accountId ? { accountId: pending.accountId } : {}),
       });
     }
   }, [hasAccount, applyEmailFocus]);
@@ -739,40 +857,42 @@ export default function EmailView() {
   };
 
   return (
-    <div className="@container/email flex h-full min-h-0 flex-col text-foreground">
-      <HubPageHeader>
-        <HubHeader
-          title={t('email.tab_title')}
-          description={syncDescription}
-          className="w-full"
-          actions={
-            <>
-              <EmailSyncStatusBadge syncError={syncError} syncing={syncing} loading={loading} />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={syncing}
-                onClick={() => {
-                  syncNow().catch(() => {});
-                }}
-              >
-                {syncing ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-                )}
-                <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
-              </Button>
-              <Button type="button" size="sm" onClick={startCompose}>
-                <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
-                <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
-              </Button>
-            </>
-          }
-        />
-
+    <HubSectionShell
+      className="@container/email text-foreground"
+      title={t('email.tab_title')}
+      description={syncDescription}
+      actions={
+        <>
+          <EmailSyncStatusBadge syncError={syncError} syncing={syncing} loading={loading} />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={syncing}
+            onClick={() => {
+              syncNow().catch(() => {});
+            }}
+          >
+            {syncing ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+            )}
+            <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
+          </Button>
+          <Button type="button" size="sm" onClick={startCompose}>
+            <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
+            <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
+          </Button>
+        </>
+      }
+      toolbar={
         <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <EmailAccountPicker
+            accounts={accounts}
+            activeAccountId={activeAccountId}
+            onSelectAccount={changeAccount}
+          />
           <EmailFolderPicker
             open={folderMenuOpen}
             onOpenChange={setFolderMenuOpen}
@@ -793,8 +913,8 @@ export default function EmailView() {
             clearLabel={t('common.cancel')}
           />
         </div>
-      </HubPageHeader>
-
+      }
+    >
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Must be a flex column so MailDashboard's flex-1/min-h-0 can bound the list scroll. */}
         <div
@@ -845,6 +965,6 @@ export default function EmailView() {
           />
         ) : null}
       </div>
-    </div>
+    </HubSectionShell>
   );
 }

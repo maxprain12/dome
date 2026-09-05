@@ -780,7 +780,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'email_search',
         description:
-          "Search the user's mailbox for messages matching a query (from, subject, date filters, or free text). Requires a connected email account in Settings → Email.",
+          "Search the user's mailbox for messages matching a query (from, subject, date filters, or free text). folder defaults to INBOX; when looking for outbound mail you must pass the Sent folder from email_list_folders — do not spam INBOX searches for what the user sent. Requires a connected email account in Settings → Email.",
         parameters: {
           type: 'object',
           properties: {
@@ -800,7 +800,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'email_read',
         description:
-          'Read the full body of one email by message id (from email_list, email_search, or a pinned email). Returns plain-text body for analysis.',
+          'Read the full body of one email by message id (from email_list, email_search, or a pinned email). When mentioned-sources lists an email, call email_read first before email_search. Returns plain-text body for analysis.',
         parameters: {
           type: 'object',
           properties: {

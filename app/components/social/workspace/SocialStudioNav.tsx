@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   BarChartIcon,
+  BubbleChatIcon,
   Calendar03Icon,
   DashboardSquare01Icon,
   File02Icon,
@@ -22,6 +23,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { SocialAccount } from '@/components/social/socialTypes';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 import { socialNetworkTitle } from '@/components/social/crm/socialCrmChrome';
 import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialSection } from './socialWorkspaceTypes';
@@ -32,6 +34,7 @@ const NAV_ITEMS: Array<{ id: SocialSection; icon: IconSvgElement; labelKey: stri
   { id: 'campaigns', icon: Megaphone02Icon, labelKey: 'social.studio.nav.campaigns' },
   { id: 'events', icon: Calendar03Icon, labelKey: 'social.studio.nav.events' },
   { id: 'insights', icon: BarChartIcon, labelKey: 'social.studio.nav.insights' },
+  { id: 'inbox', icon: BubbleChatIcon, labelKey: 'social.studio.nav.inbox' },
   { id: 'accounts', icon: UserMultiple02Icon, labelKey: 'social.studio.nav.accounts' },
 ];
 
@@ -66,9 +69,10 @@ export function SocialStudioNav({
   );
 
   return (
-    <header className="shrink-0 border-b bg-background">
-      <div className="flex items-end justify-between gap-3 px-4 pb-1 pt-3">
-        <h1 className="text-xl font-semibold tracking-tight">{networkTitle}</h1>
+    <HubPageHeader className="gap-2 px-4 py-3 sm:px-4">
+      <HubHeader
+        title={networkTitle}
+        actions={
         <div className="flex items-center gap-2">
           <Select
             value={accountId}
@@ -107,8 +111,9 @@ export function SocialStudioNav({
           </Button>
           {error ? <Badge variant="destructive">{t('social.hub.sync_badge_error')}</Badge> : null}
         </div>
-      </div>
-      <div className="overflow-x-auto px-4">
+        }
+      />
+      <div className="overflow-x-auto">
         <Tabs
           value={section}
           onValueChange={(value) => onNavigate(value as SocialSection)}
@@ -126,6 +131,6 @@ export function SocialStudioNav({
           </TabsList>
         </Tabs>
       </div>
-    </header>
+    </HubPageHeader>
   );
 }

@@ -31,7 +31,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialAccount, SocialProvider } from '@/components/social/socialTypes';
-import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { SocialMessagingFlags } from '@/components/social/accounts/SocialMessagingFlags';
+import { HubDetailPane } from '@/components/shared/HubDetailPane';
 import { ActionIcon, ProviderMark, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import {
   SocialDirectoryColumn,
@@ -49,6 +50,8 @@ interface ProviderStatus {
   requiresMedia: boolean;
   redirectUri: string;
   orgEnabled?: boolean;
+  commentsEnabled?: boolean;
+  dmEnabled?: boolean;
 }
 
 const PROVIDER_NAMES: Record<SocialProvider, string> = {
@@ -254,19 +257,17 @@ function AccountFicha({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
-        {network ? <ProviderMark provider={network} className="size-10 text-sm" /> : null}
-        <div className="flex max-w-full flex-col items-center gap-1 text-center">
-          <div className="flex max-w-full items-center gap-2">
-            <h2 className={hubFichaTitleClass}>{title}</h2>
-            <Badge variant={account?.status === 'active' ? 'lime' : 'outline'}>
-              {account
-                ? t(`social.studio.accounts.${account.status === 'active' ? 'active' : 'setup'}`)
-                : t('social.studio.accounts.setup')}
-            </Badge>
-          </div>
-        </div>
+    <HubDetailPane
+      icon={network ? <ProviderMark provider={network} className="size-10 text-sm" /> : null}
+      title={title}
+      badge={
+        <Badge variant={account?.status === 'active' ? 'lime' : 'outline'}>
+          {account
+            ? t(`social.studio.accounts.${account.status === 'active' ? 'active' : 'setup'}`)
+            : t('social.studio.accounts.setup')}
+        </Badge>
+      }
+      toolbar={
         <div className="flex items-center gap-1.5">
           <ActionIcon
             label={t('social.studio.accounts.configure', { provider: network ? PROVIDER_NAMES[network] : '' })}
@@ -276,7 +277,8 @@ function AccountFicha({
             onClick={onConfigure}
           />
         </div>
-      </div>
+      }
+    >
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-3">
           {!encryptionAvailable ? (
@@ -354,7 +356,7 @@ function AccountFicha({
           </SectionCard>
         </div>
       </ScrollArea>
-    </div>
+    </HubDetailPane>
   );
 }
 
@@ -376,6 +378,8 @@ function ProviderConfigurationDialog({
   const [clientSecret, setClientSecret] = useState('');
   const [token, setToken] = useState('');
   const [orgEnabled, setOrgEnabled] = useState(false);
+  const [commentsEnabled, setCommentsEnabled] = useState(false);
+  const [dmEnabled, setDmEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -383,6 +387,8 @@ function ProviderConfigurationDialog({
     setClientSecret('');
     setToken('');
     setOrgEnabled(Boolean(provider?.orgEnabled));
+    setCommentsEnabled(Boolean(provider?.commentsEnabled));
+    setDmEnabled(Boolean(provider?.dmEnabled));
   }, [provider]);
 
   if (!provider) return null;
@@ -395,6 +401,11 @@ function ProviderConfigurationDialog({
     };
     if (clientSecret.trim()) payload.clientSecret = clientSecret.trim();
     if (provider.provider === 'linkedin') payload.orgEnabled = orgEnabled;
+    if (provider.provider === 'instagram') {
+      payload.commentsEnabled = commentsEnabled;
+      payload.dmEnabled = dmEnabled;
+    }
+    if (provider.provider === 'x') payload.dmEnabled = dmEnabled;
     const response = await window.electron.invoke('social:providers:set-config', payload);
     setBusy(false);
     if (!response?.success) onError(response?.error || 'Error');
@@ -472,6 +483,13 @@ function ProviderConfigurationDialog({
               </div>
             </Field>
           ) : null}
+          <SocialMessagingFlags
+            provider={provider.provider}
+            commentsEnabled={commentsEnabled}
+            dmEnabled={dmEnabled}
+            onCommentsChange={setCommentsEnabled}
+            onDmChange={setDmEnabled}
+          />
           {provider.supportsManualToken ? (
             <Field>
               <FieldLabel htmlFor={`studio-token-${provider.provider}`}>{t('social.settings.connect_token')}</FieldLabel>

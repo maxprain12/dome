@@ -55,8 +55,8 @@ function ensureDirectories() {
  * Default marketplace sources configuration
  * These are the default sources that come with Dome
  * 
- * IMPORTANT: Repos must exist in GitHub for them to work
- * For now, we leave them empty and rely on hardcoded fallbacks
+ * Marketplace is a first-party curated catalog (bundled agents/workflows/skills).
+ * Third-party GitHub sources stay empty until there is real supply and moderation.
  */
 const DEFAULT_SOURCES = {
   agents: {

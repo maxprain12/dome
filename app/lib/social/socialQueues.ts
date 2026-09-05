@@ -61,9 +61,12 @@ export type SocialFilter =
 export interface SocialReplyDraft {
   id: string;
   status: string;
+  provider?: string | null;
+  postId?: string | null;
   hashtag: string | null;
   commentText: string | null;
   commentAuthor: string | null;
+  commentAuthorExternalId?: string | null;
   replyBody: string;
   createdAt: number;
 }

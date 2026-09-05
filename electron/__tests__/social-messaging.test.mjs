@@ -49,4 +49,25 @@ describe('social-messaging accountSupports', () => {
       false,
     );
   });
+
+  it('blocks IG sendDm when stored scopes are empty', () => {
+    assert.equal(
+      accountSupports({ provider: 'instagram', scopes: null }, 'sendDm'),
+      false,
+    );
+  });
+
+  it('blocks sendDm when the opt-in flag is off even if scopes look right', () => {
+    assert.equal(
+      accountSupports(
+        {
+          provider: 'instagram',
+          scopes: 'instagram_business_basic,instagram_business_manage_messages',
+        },
+        'sendDm',
+        { dmEnabled: false },
+      ),
+      false,
+    );
+  });
 });

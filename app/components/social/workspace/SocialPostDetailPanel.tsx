@@ -25,7 +25,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import ListState from '@/components/shared/ListState';
-import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { HubDetailPane } from '@/components/shared/HubDetailPane';
 import type { SocialComment, SocialMetric, SocialPost } from '@/components/social/socialTypes';
 import {
   ActionIcon,
@@ -245,43 +245,43 @@ export function SocialPostDetailPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="relative flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
-        <div className="absolute right-3 top-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button type="button" variant="ghost" size="icon-sm" />}
-              aria-label={t('people.more_actions')}
-              title={t('people.more_actions')}
-            >
-              <HugeiconsIcon icon={MoreHorizontalIcon} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled={!post.externalUrl} onClick={handleCopyLink}>
-                <HugeiconsIcon icon={Copy01Icon} />
-                {t('social.studio.crm.copy_link')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleRefreshMetrics}>
-                <HugeiconsIcon icon={RefreshIcon} />
-                {t('social.studio.crm.refresh_metrics')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <ProviderMark provider={post.provider} className="size-10 text-sm" />
-        <div className="flex max-w-full flex-col items-center gap-1 text-center">
-          <div className="flex max-w-full items-center gap-2">
-            <h2 className={hubFichaTitleClass}>{socialPostLabel(post, 80)}</h2>
-            <Badge variant={postStatusBadgeVariant(post.status)}>
-              {t(`social.studio.status.${post.status}`)}
-            </Badge>
-          </div>
-          <p className="max-w-full truncate text-xs text-muted-foreground">
-            {[PROVIDER_LABELS[post.provider], when, post.campaign || t('social.studio.inspector.organic')]
-              .filter(Boolean)
-              .join(', ')}
-          </p>
-        </div>
+    <HubDetailPane
+      icon={<ProviderMark provider={post.provider} className="size-10 text-sm" />}
+      title={socialPostLabel(post, 80)}
+      badge={
+        <Badge variant={postStatusBadgeVariant(post.status)}>
+          {t(`social.studio.status.${post.status}`)}
+        </Badge>
+      }
+      subtitle={
+        <p className="max-w-full truncate text-xs text-muted-foreground">
+          {[PROVIDER_LABELS[post.provider], when, post.campaign || t('social.studio.inspector.organic')]
+            .filter(Boolean)
+            .join(', ')}
+        </p>
+      }
+      actions={
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button type="button" variant="ghost" size="icon-sm" />}
+            aria-label={t('people.more_actions')}
+            title={t('people.more_actions')}
+          >
+            <HugeiconsIcon icon={MoreHorizontalIcon} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={!post.externalUrl} onClick={handleCopyLink}>
+              <HugeiconsIcon icon={Copy01Icon} />
+              {t('social.studio.crm.copy_link')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleRefreshMetrics}>
+              <HugeiconsIcon icon={RefreshIcon} />
+              {t('social.studio.crm.refresh_metrics')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      }
+      toolbar={
         <div className="flex items-center gap-1.5">
           <ActionIcon
             label={t('common.edit')}
@@ -308,7 +308,8 @@ export function SocialPostDetailPanel({
             onClick={handleMany}
           />
         </div>
-      </div>
+      }
+    >
 
       <Tabs
         value={tab}
@@ -403,7 +404,7 @@ export function SocialPostDetailPanel({
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </HubDetailPane>
   );
 }
 

@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
 import { typesetDocsClass } from '@/lib/typeset';
+import { sanitizeUntrustedHtml } from '@/lib/sanitize/untrustedHtml';
 import CodeCellEditor from './CodeCellEditor';
 import type { NotebookCodeCell, NotebookOutput } from '@/types';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
@@ -30,115 +31,81 @@ function sourceToString(source: string | string[]): string {
   return typeof source === 'string' ? source : source.join('');
 }
 
-function firstString(value: string | string[] | undefined): string {
-  if (value === undefined) return '';
-  if (typeof value === 'string') return value;
-  return Array.isArray(value) ? value[0] ?? '' : '';
-}
-
-function joinText(value: string | string[] | undefined): string {
-  if (value === undefined) return '';
-  if (typeof value === 'string') return value;
-  return Array.isArray(value) ? value.join('') : '';
-}
-
-function renderStreamOutput(output: NotebookOutput & { output_type: 'stream' }) {
-  const text = joinText(output.text);
-  return (
-    <div className="overflow-x-auto max-w-full">
-      <pre
-        className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-        style={{
-          background: output.name === 'stderr' ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : 'var(--card)',
-          color: output.name === 'stderr' ? 'var(--destructive)' : 'var(--foreground)',
-        }}
-      >
-        {text}
-      </pre>
-    </div>
-  );
-}
-
-function renderImagePngOutput(value: string | string[]) {
-  const src = typeof value === 'string' ? value : value[0];
-  return (
-    <div className="p-2">
-      <img
-        src={`data:image/png;base64,${src}`}
-        alt="Notebook cell output"
-        className="max-w-full h-auto rounded"
-      />
-    </div>
-  );
-}
-
-function renderImageSvgOutput(value: string | string[]) {
-  const svg = firstString(value);
-  return <div className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />;
-}
-
-function renderHtmlOutput(value: string | string[]) {
-  const html = joinText(value);
-  return (
-    <div
-      className={typesetDocsClass('min-h-[400px] overflow-auto p-2 break-words')}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
-function renderPlainTextOutput(data: Record<string, string | string[]>) {
-  const value = data['text/plain'];
-  const text =
-    typeof value === 'string' ? value : Array.isArray(value) ? value.join('') : JSON.stringify(data);
-  return (
-    <div className="overflow-x-auto max-w-full">
-      <pre
-        className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-        style={{ background: 'var(--card)', color: 'var(--foreground)' }}
-      >
-        {text}
-      </pre>
-    </div>
-  );
-}
-
-function renderDisplayDataOutput(
-  output: NotebookOutput & {
-    output_type: 'execute_result' | 'display_data';
-    data: Record<string, string | string[]>;
-  }
-) {
-  const data = output.data;
-  if (data['image/png']) return renderImagePngOutput(data['image/png']);
-  if (data['image/svg+xml']) return renderImageSvgOutput(data['image/svg+xml']);
-  if (data['text/html']) return renderHtmlOutput(data['text/html']);
-  return renderPlainTextOutput(data);
-}
-
-function renderErrorOutput(output: NotebookOutput & { output_type: 'error' }) {
-  const tb = output.traceback?.join('\n') || `${output.ename}: ${output.evalue}`;
-  return (
-    <div className="overflow-x-auto max-w-full">
-      <pre
-        className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-        style={{ background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', color: 'var(--destructive)' }}
-      >
-        {tb}
-      </pre>
-    </div>
-  );
-}
-
 function renderNotebookOutput(output: NotebookOutput) {
   if (output.output_type === 'stream' && 'text' in output) {
-    return renderStreamOutput(output);
+    const text = Array.isArray(output.text) ? output.text.join('') : output.text;
+    return (
+      <div className="overflow-x-auto max-w-full">
+        <pre
+          className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
+          style={{
+            background: output.name === 'stderr' ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : 'var(--card)',
+            color: output.name === 'stderr' ? 'var(--destructive)' : 'var(--foreground)',
+          }}
+        >
+          {text}
+        </pre>
+      </div>
+    );
   }
   if ((output.output_type === 'execute_result' || output.output_type === 'display_data') && 'data' in output) {
-    return renderDisplayDataOutput(output);
+    const data = output.data as Record<string, string | string[]>;
+    const imagePng = data['image/png'];
+    const imageSvg = data['image/svg+xml'];
+    const textHtml = data['text/html'];
+    const textPlain = data['text/plain'];
+
+    if (imagePng) {
+      const src = typeof imagePng === 'string' ? imagePng : imagePng[0];
+      return (
+        <div className="p-2">
+          <img
+            src={`data:image/png;base64,${src}`}
+            alt="Notebook cell output"
+            className="max-w-full h-auto rounded"
+          />
+        </div>
+      );
+    }
+    if (imageSvg) {
+      const svg = typeof imageSvg === 'string' ? imageSvg : (Array.isArray(imageSvg) ? imageSvg[0] : '') ?? '';
+      return (
+        <div className="p-2" dangerouslySetInnerHTML={{ __html: sanitizeUntrustedHtml(svg) }} />
+      );
+    }
+    if (textHtml) {
+      const html = Array.isArray(textHtml) ? textHtml.join('') : textHtml;
+      return (
+        <div
+          className={typesetDocsClass('min-h-[400px] overflow-auto p-2 break-words')}
+          dangerouslySetInnerHTML={{ __html: sanitizeUntrustedHtml(html) }}
+        />
+      );
+    }
+    const text = typeof textPlain === 'string' ? textPlain : Array.isArray(textPlain) ? textPlain.join('') : JSON.stringify(data);
+    return (
+      <div className="overflow-x-auto max-w-full">
+        <pre
+          className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
+          style={{ background: 'var(--card)', color: 'var(--foreground)' }}
+        >
+          {text}
+        </pre>
+      </div>
+    );
   }
   if (output.output_type === 'error') {
-    return renderErrorOutput(output);
+    const tb = output.traceback?.join('\n') || `${output.ename}: ${output.evalue}`;
+    return (
+      <div className="overflow-x-auto max-w-full">
+        <pre
+          className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
+          style={{ background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', color: 'var(--destructive)' }}
+        >
+          {tb}
+        </pre>
+      </div>
+    );
   }
   return null;
 }

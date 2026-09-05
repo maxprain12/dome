@@ -133,8 +133,11 @@ const DOME_HTML_END = '__DOME_HTML_END__';
  * @param {{ cells?: string[]; targetCellIndex?: number }} options
  * @returns {{ scriptPath: string; env?: Record<string, string> }}
  */
+const DOME_CELL_BEGIN = '___DOME_CELL_BEGIN___';
+const DOME_CELL_END = '___DOME_CELL_END___';
+
 function prepareScript(code, options = {}) {
-  const { cells, targetCellIndex } = options;
+  const { cells, targetCellIndex, collectAllCells } = options;
   const usePerCell = Array.isArray(cells) && cells.length > 0 && typeof targetCellIndex === 'number' && targetCellIndex >= 0;
 
   const hasMatplotlib = /import\s+matplotlib|from\s+matplotlib/.test(code);
@@ -190,6 +193,7 @@ for _dome_k, _dome_v in list(globals().items()):
     env.DOME_CELLS_DIR = tmpDir;
     env.DOME_TARGET_CELL = String(targetCellIndex);
     env.DOME_NUM_CELLS = String(cells.length);
+    if (collectAllCells) env.DOME_COLLECT_ALL = '1';
     env.DOME_HAS_FOLIUM = hasFolium ? '1' : '0';
     // Use contextlib.redirect_stdout per SO - reliable, no encoding issues
     const foliumCellHook = hasFolium ? `
@@ -235,7 +239,12 @@ for _dome_k, _dome_v in list(globals().items()):
       '        _cell_outputs.append("")',
       '',
       '_idx = min(_target, len(_cell_outputs) - 1) if _cell_outputs else 0',
-      'if _cell_outputs:',
+      'if os.environ.get("DOME_COLLECT_ALL") == "1":',
+      '    for _i, _out in enumerate(_cell_outputs):',
+      `        print('${DOME_CELL_BEGIN}' + str(_i))`,
+      '        print(_out, end="")',
+      `        print('${DOME_CELL_END}' + str(_i))`,
+      'elif _cell_outputs:',
       '    print(_cell_outputs[_idx], end="")',
     ].join('\n')).trim();
   } else {
@@ -254,6 +263,42 @@ for _dome_k, _dome_v in list(globals().items()):
  * @param {string} stdout
  * @returns {{ text: string; figures: string[]; htmlChunks: string[] }}
  */
+function splitCollectedCellStdout(stdout) {
+  const begin = new RegExp(`${DOME_CELL_BEGIN}(\\d+)\\n?`, 'g');
+  const chunks = [];
+  let match;
+  while ((match = begin.exec(stdout)) !== null) {
+    const index = Number(match[1]);
+    const start = match.index + match[0].length;
+    const endToken = `${DOME_CELL_END}${index}`;
+    const end = stdout.indexOf(endToken, start);
+    const body = end === -1 ? stdout.slice(start) : stdout.slice(start, end);
+    chunks[index] = body;
+  }
+  return chunks;
+}
+
+function outputsFromStdout(stdout) {
+  const next = [];
+  const { text, figures, htmlChunks } = parseStdoutForFigures(stdout);
+  if (text) next.push({ output_type: 'stream', name: 'stdout', text });
+  for (const b64 of figures) {
+    next.push({
+      output_type: 'display_data',
+      data: { 'image/png': b64 },
+      metadata: {},
+    });
+  }
+  for (const html of htmlChunks) {
+    next.push({
+      output_type: 'display_data',
+      data: { 'text/html': html },
+      metadata: {},
+    });
+  }
+  return next;
+}
+
 function parseStdoutForFigures(stdout) {
   const figures = [];
   const htmlChunks = [];
@@ -411,24 +456,18 @@ async function runPythonCode(code, options = {}) {
       }
 
       if (stdout) {
-        const { text, figures, htmlChunks } = parseStdoutForFigures(stdout);
-        if (text) {
-          outputs.push({ output_type: 'stream', name: 'stdout', text });
-        }
-        for (const b64 of figures) {
-          outputs.push({
-            output_type: 'display_data',
-            data: { 'image/png': b64 },
-            metadata: {},
+        const collected = options.collectAllCells ? splitCollectedCellStdout(stdout) : null;
+        if (collected && collected.length > 0) {
+          const cellOutputs = collected.map((chunk) => outputsFromStdout(chunk || ''));
+          resolve({
+            success: success && !errOutput,
+            outputs: cellOutputs[cellOutputs.length - 1] ?? [],
+            cellOutputs,
+            error: errOutput || undefined,
           });
+          return;
         }
-        for (const html of htmlChunks) {
-          outputs.push({
-            output_type: 'display_data',
-            data: { 'text/html': html },
-            metadata: {},
-          });
-        }
+        outputs.push(...outputsFromStdout(stdout));
       }
       // Stderr: if we have an error output, use stderr there; otherwise add as stream
       if (errOutput) {

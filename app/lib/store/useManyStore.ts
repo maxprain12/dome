@@ -20,7 +20,7 @@ import {
 } from '@/lib/chat/manyThreadBridge';
 import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 import type { ThinkingLevel } from '@/lib/ai/types';
-import { normalizePinnedResource } from '@/lib/chat/pinLabels';
+import { emailPinsMatch, normalizePinnedResource } from '@/lib/chat/pinLabels';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
@@ -62,7 +62,7 @@ export interface ManyMessage {
   /** Image/video attachments for resolving dome-att:// in content */
   attachments?: StructuredMessageAttachments;
   /** Snapshot of pins that rode with this user turn (shown in transcript). */
-  pinnedResources?: Array<Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind'>>;
+  pinnedResources?: Array<Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind' | 'meta'>>;
   /** Tool calls for assistant messages (traceability) */
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Reasoning/chain-of-thought for assistant messages */
@@ -684,9 +684,12 @@ export const useManyStore = create<ManyState>((set, get) => ({
   pinnedResources: [],
   addPinnedResource: (resource) =>
     set((state) => {
-      if (state.pinnedResources.some((r) => r.id === resource.id)) return state;
+      const next = normalizePinnedResource(resource);
+      if (state.pinnedResources.some((r) => r.id === next.id || emailPinsMatch(r, next))) {
+        return state;
+      }
       return {
-        pinnedResources: [...state.pinnedResources, normalizePinnedResource(resource)],
+        pinnedResources: [...state.pinnedResources, next],
       };
     }),
   removePinnedResource: (id) =>

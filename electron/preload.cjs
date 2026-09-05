@@ -736,6 +736,7 @@ const ALLOWED_CHANNELS = {
     'coding:repo:setLocalPath',
     'people:list',
     'people:get',
+    'people:getMany',
     'people:search',
     'people:upsert',
     'people:linkIdentity',
@@ -1285,6 +1286,7 @@ const electronHandler = {
   people: {
     list: (payload) => ipcRenderer.invoke('people:list', payload),
     get: (payload) => ipcRenderer.invoke('people:get', payload),
+    getMany: (payload) => ipcRenderer.invoke('people:getMany', payload),
     search: (payload) => ipcRenderer.invoke('people:search', payload),
     upsert: (payload) => ipcRenderer.invoke('people:upsert', payload),
     linkIdentity: (payload) => ipcRenderer.invoke('people:linkIdentity', payload),
@@ -2073,12 +2075,14 @@ const electronHandler = {
   notebook: {
     runPython: (code, options) =>
       ipcRenderer.invoke('notebook:runPython', {
+        surface: 'notebook',
         code,
         cells: options?.cells,
         targetCellIndex: options?.targetCellIndex,
         cwd: options?.cwd,
         venvPath: options?.venvPath,
         timeoutMs: options?.timeoutMs,
+        collectAllCells: options?.collectAllCells,
       }),
     checkPython: () => ipcRenderer.invoke('notebook:checkPython'),
     createVenv: (basePath) => ipcRenderer.invoke('notebook:createVenv', { basePath }),

@@ -1,40 +1,18 @@
 import { create } from 'zustand';
 import i18n from '@/lib/i18n';
+import { notifyContextualEvent } from '@/lib/events/contextualEvents';
 import { migrateFolderHistory, removeFolderHistory } from '@/lib/folder/folderNavigationHistory';
 import { useAppStore } from '@/lib/store/useAppStore';
+import {
+  getResourceTabType,
+  PROJECT_SCOPED_TAB_TYPES,
+  RESOURCE_SOURCE_TAB_TYPES,
+  SIDEBAR_NAV_TAB_TYPES,
+  type TabType,
+} from '@/lib/tabs/tabRegistry';
 
-export type TabType =
-  | 'home'
-  | 'projects'
-  | 'note'
-  | 'notebook'
-  | 'resource'
-  | 'url'
-  | 'youtube'
-  | 'docx'
-  | 'ppt'
-  | 'settings'
-  | 'chat'
-  | 'calendar'
-  | 'github'
-  | 'email'
-  | 'social'
-  | 'people'
-  | 'studio'
-  | 'flashcards'
-  | 'tags'
-  | 'marketplace'
-  | 'pipelines'
-  | 'agents'
-  | 'workflows'
-  | 'automations'
-  | 'runs'
-  | 'folder'
-  | 'learn'
-  | 'transcriptions'
-  | 'transcription-detail'
-  | 'semantic-graph'
-  | 'artifact';
+export type { TabType };
+export { PROJECT_SCOPED_TAB_TYPES, SIDEBAR_NAV_TAB_TYPES };
 
 export interface DomeTab {
   id: string;
@@ -62,74 +40,15 @@ export interface DomeTab {
   projectId?: string;
 }
 
-const RESOURCE_SOURCE_TAB_TYPES = new Set<TabType>([
-  'note',
-  'notebook',
-  'resource',
-  'url',
-  'youtube',
-  'ppt',
-  'docx',
-  'artifact',
-]);
-
 function syncSelectedSourceForTab(tab: Pick<DomeTab, 'type' | 'resourceId'> | undefined): void {
   if (tab?.resourceId && RESOURCE_SOURCE_TAB_TYPES.has(tab.type)) {
     useAppStore.getState().setSelectedSourceIds([tab.resourceId]);
   }
 }
 
-/**
- * Tabs that belong to a specific project. They must be closed when the
- * user switches to a different project, and must not be restored from
- * `localStorage` if their project no longer matches the active one.
- *
- * Global tabs (home, settings, calendar, chat, agents hub, etc.) are NOT
- * in this set and survive project switches.
- */
-const PROJECT_SCOPED_TAB_TYPES: ReadonlySet<TabType> = new Set<TabType>([
-  'resource',
-  'note',
-  'notebook',
-  'url',
-  'youtube',
-  'docx',
-  'ppt',
-  'folder',
-  'transcription-detail',
-  'semantic-graph',
-  'artifact',
-]);
-
 export function isProjectScopedTab(tab: DomeTab): boolean {
   return tab.projectId != null && PROJECT_SCOPED_TAB_TYPES.has(tab.type);
 }
-
-/**
- * Hub / sidebar navigation tabs — live in the tab store for routing but are
- * not shown in DomeTabBar (UnifiedSidebar owns that navigation).
- */
-export const SIDEBAR_NAV_TAB_TYPES: ReadonlySet<TabType> = new Set<TabType>([
-  'home',
-  'projects',
-  'calendar',
-  'github',
-  'email',
-  'social',
-  'people',
-  'pipelines',
-  'learn',
-  'marketplace',
-  'tags',
-  'settings',
-  'studio',
-  'flashcards',
-  'agents',
-  'workflows',
-  'automations',
-  'runs',
-  'transcriptions',
-]);
 
 export function isTabStripVisible(tab: Pick<DomeTab, 'type'>): boolean {
   return !SIDEBAR_NAV_TAB_TYPES.has(tab.type);
@@ -558,31 +477,9 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     openResourceTab: (resourceId, resourceType, title, projectId) => {
-      const typeMap: Record<string, TabType> = {
-        note: 'note',
-        notebook: 'notebook',
-        url: 'url',
-        youtube: 'youtube',
-        docx: 'docx',
-        ppt: 'ppt',
-        document: 'resource',
-        pdf: 'resource',
-        image: 'resource',
-        audio: 'resource',
-        video: 'resource',
-        excel: 'resource',
-        artifact: 'artifact',
-        default: 'resource',
-      };
-      const tabType: TabType = typeMap[resourceType] ?? 'resource';
+      const tabType: TabType = getResourceTabType(resourceType);
       get().openTab({ type: tabType, title, resourceId, ...(projectId ? { projectId } : {}) });
-      void window.electron?.invoke?.('automations:notifyContext', {
-        tag: 'resource_opened',
-        resourceId,
-        resourceType,
-      })?.catch(() => {
-        /* non-Electron or older build */
-      });
+      void notifyContextualEvent('resource_opened', { resourceId, resourceType });
     },
 
     openResourceInSplit: (resourceId, resourceType, title, tabId, _projectId) => {

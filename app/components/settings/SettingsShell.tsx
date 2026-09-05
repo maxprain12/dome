@@ -12,11 +12,13 @@ import {
 import {
   SETTINGS_GROUPS,
   filterSettingsGroups,
+  getSettingsEntry,
   resolveSettingsSection,
   type SettingsSection,
 } from './registry';
 import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
+import { HubHeader, HubPageHeader } from '@/components/hub';
 
 interface SettingsShellProps {
   children: ReactNode;
@@ -40,6 +42,7 @@ export default function SettingsShell({ children }: SettingsShellProps) {
   );
 
   const normalizedActive = resolveSettingsSection(activeSection);
+  const activeEntry = getSettingsEntry(normalizedActive);
 
   const selectSection = (section: SettingsSection) => {
     setActiveSection(section);
@@ -48,13 +51,14 @@ export default function SettingsShell({ children }: SettingsShellProps) {
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       {leftSidebarCollapsed ? (
-        <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 p-3 backdrop-blur">
+        <HubPageHeader compact className="sticky top-0 z-10">
+          <HubHeader title={t(activeEntry.titleKey)} />
           <Select
             value={normalizedActive}
             onValueChange={(value) => value && selectSection(value as SettingsSection)}
           >
             <SelectTrigger className="w-full" aria-label={t('settings.nav.select_section')}>
-              <SelectValue />
+              <SelectValue>{t(activeEntry.titleKey)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {groups.map((group) => (
@@ -69,7 +73,7 @@ export default function SettingsShell({ children }: SettingsShellProps) {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </HubPageHeader>
       ) : null}
 
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">

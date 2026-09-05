@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Delete02Icon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
+import { Delete02Icon, PlusSignIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
-import ListState from '@/components/shared/ListState';
+import { HubMasterDetail } from '@/components/shared/HubMasterDetail';
+import { HubPane, HubPaneState } from '@/components/shared/HubPaneState';
+import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   AppModal,
@@ -15,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { onDomeEvent } from '@/lib/events/domeEvents';
 import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
 import PeopleList from './PeopleList';
 import PersonDetailPanel from './PersonDetailPanel';
@@ -136,19 +139,24 @@ export default function PeopleHubView() {
     const pending = useOpenIntentStore.getState().consume('person');
     if (pending) applyFocus(pending.personId);
 
-    const onFocus = (e: Event) => {
-      const detail = (e as CustomEvent<{ personId?: string }>).detail;
+    return onDomeEvent('dome:focus-person', (detail) => {
       if (!detail?.personId) return;
       useOpenIntentStore.getState().consume('person');
       applyFocus(detail.personId);
-    };
-    window.addEventListener('dome:focus-person', onFocus);
-    return () => window.removeEventListener('dome:focus-person', onFocus);
+    });
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+    <HubSectionShell
+      title={t('people.hub_title')}
+      actions={
+        <Button type="button" size="sm" onClick={() => setCreating(true)}>
+          <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+          {t('people.new_person')}
+        </Button>
+      }
+    >
+      <HubMasterDetail>
         <PeopleList
           people={people}
           loading={listLoading}
@@ -162,15 +170,14 @@ export default function PeopleHubView() {
           onToggleChecked={handleToggleChecked}
           onToggleAllChecked={handleToggleAllChecked}
           onDeleteChecked={() => setPendingDeleteIds(Array.from(checkedIds))}
-          onCreate={() => setCreating(true)}
           onManageStatuses={() => setManagingStatuses(true)}
           customs={customs}
           deleting={deleting}
         />
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <HubPane>
           {selectedId && detailLoading ? (
-            <ListState variant="loading" loadingLabel={t('people.loading')} fullHeight />
+            <HubPaneState variant="loading" loadingLabel={t('people.loading')} />
           ) : selectedPerson ? (
             <PersonDetailPanel
               key={selectedPerson.id}
@@ -190,16 +197,15 @@ export default function PeopleHubView() {
               onManageStatuses={() => setManagingStatuses(true)}
             />
           ) : (
-            <ListState
+            <HubPaneState
               variant="empty"
               icon={<HugeiconsIcon icon={UserMultiple02Icon} className="size-8" />}
               title={t('people.detail_empty_title')}
               description={t('people.detail_empty_description')}
-              fullHeight
             />
           )}
-        </div>
-      </div>
+        </HubPane>
+      </HubMasterDetail>
 
       <AppModal open={creating} onOpenChange={setCreating}>
         <AppModalContent size="sm">
@@ -318,6 +324,6 @@ export default function PeopleHubView() {
           if (!deleting) setPendingDeleteIds(null);
         }}
       />
-    </div>
+    </HubSectionShell>
   );
 }

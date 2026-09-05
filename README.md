@@ -154,10 +154,10 @@ Add in **Settings → MCP**:
 Contributions are welcome — code, docs, bug reports, ideas.
 
 ```bash
-git checkout -b feature/your-feature
+git checkout -b feat/your-feature
 # make changes
 git commit -m "feat: describe your change"
-git push origin feature/your-feature
+git push origin feat/your-feature
 # open a Pull Request
 ```
 

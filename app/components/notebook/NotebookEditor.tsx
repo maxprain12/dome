@@ -177,48 +177,49 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
     if (cell?.cell_type === 'code') runCellAtIndex(selectedCellIndex);
   }, [nb.cells, selectedCellIndex, runCellAtIndex]);
 
+  const applyCollectedOutputs = useCallback(
+    (indices: number[], result: { success: boolean; outputs: NotebookCodeCell['outputs']; cellOutputs?: NotebookCodeCell['outputs'][] }) => {
+      indices.forEach((idx, i) => {
+        const outputs = result.cellOutputs?.[i] ?? (i === indices.length - 1 ? result.outputs : []);
+        updateCell(idx, {
+          outputs,
+          execution_count: result.success ? 1 : null,
+        } as Partial<NotebookCodeCell>);
+      });
+    },
+    [updateCell],
+  );
+
   const handleRunAbove = useCallback(async () => {
     const codeIndices = getCodeCellIndices(nb.cells);
     const toRun = codeIndices.filter((i) => i < selectedCellIndex);
-    for (const idx of toRun) {
-      const codeToRun = getCodeUpTo(idx);
-      const codeCells = getCodeCellsUpTo(idx);
-      const cell = nb.cells[idx];
-      const source = cell?.cell_type === 'code' ? (Array.isArray(cell.source) ? cell.source.join('') : cell.source) : '';
-      const result = await runPython(codeToRun, {
-        cells: codeCells,
-        targetCellIndex: codeCells.length - 1,
-        currentCellCode: source,
-        cwd: workingDirectory,
-        venvPath,
-      });
-      updateCell(idx, {
-        outputs: result.outputs,
-        execution_count: result.success ? 1 : null,
-      } as Partial<NotebookCodeCell>);
-    }
-  }, [nb.cells, selectedCellIndex, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
+    if (toRun.length === 0) return;
+    const last = toRun[toRun.length - 1];
+    const codeCells = getCodeCellsUpTo(last);
+    const result = await runPython(getCodeUpTo(last), {
+      cells: codeCells,
+      targetCellIndex: codeCells.length - 1,
+      collectAllCells: true,
+      cwd: workingDirectory,
+      venvPath,
+    });
+    applyCollectedOutputs(toRun, result);
+  }, [nb.cells, selectedCellIndex, runPython, applyCollectedOutputs, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
 
   const handleRunAll = useCallback(async () => {
     const codeIndices = getCodeCellIndices(nb.cells);
-    for (const idx of codeIndices) {
-      const cell = nb.cells[idx];
-      const source = cell?.cell_type === 'code' ? (Array.isArray(cell.source) ? cell.source.join('') : cell.source) : '';
-      const codeToRun = getCodeUpTo(idx);
-      const codeCells = getCodeCellsUpTo(idx);
-      const result = await runPython(codeToRun, {
-        cells: codeCells,
-        targetCellIndex: codeCells.length - 1,
-        currentCellCode: source,
-        cwd: workingDirectory,
-        venvPath,
-      });
-      updateCell(idx, {
-        outputs: result.outputs,
-        execution_count: result.success ? 1 : null,
-      } as Partial<NotebookCodeCell>);
-    }
-  }, [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
+    if (codeIndices.length === 0) return;
+    const last = codeIndices[codeIndices.length - 1];
+    const codeCells = getCodeCellsUpTo(last);
+    const result = await runPython(getCodeUpTo(last), {
+      cells: codeCells,
+      targetCellIndex: codeCells.length - 1,
+      collectAllCells: true,
+      cwd: workingDirectory,
+      venvPath,
+    });
+    applyCollectedOutputs(codeIndices, result);
+  }, [nb.cells, runPython, applyCollectedOutputs, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
 
   const handleExport = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron) return;

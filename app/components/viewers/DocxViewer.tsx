@@ -4,6 +4,7 @@ import { type Resource } from '@/types';
 import ListState from '@/components/shared/ListState';
 import { useMountAction } from '@/lib/hooks/useMountAction';
 import { typesetDocsClass } from '@/lib/typeset';
+import { sanitizeUntrustedHtml } from '@/lib/sanitize/untrustedHtml';
 import { useTranslation } from 'react-i18next';
 
 interface DocxViewerProps {
@@ -46,7 +47,7 @@ function DocxViewerComponent({ resource }: DocxViewerProps) {
         },
       );
 
-      setHtml(mammothResult.value);
+      setHtml(sanitizeUntrustedHtml(mammothResult.value));
 
       if (mammothResult.messages.length > 0) {
         console.warn('[DocxViewer] Conversion warnings:', mammothResult.messages);

@@ -29,7 +29,7 @@ import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { type Resource } from '@/types';
 import './workspace-header.css';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { askStudioMany } from '@/components/studio-hub';
+import { openManyWithCombinedContext } from '@/lib/many/openManyCombined';
 
 interface EditableTitle {
   value: string;
@@ -351,19 +351,18 @@ export default function WorkspaceHeader({
           active={false}
           activeColor="var(--primary)"
           onClick={() =>
-            askStudioMany(
-              t('workspace.ask_many_prompt', {
-                title: resource.title || resource.id,
-                defaultValue:
-                  'Ayúdame con este recurso «{{title}}»: resume, sugiere acciones y siguientes pasos en Dome.',
-              }),
-              {
+            openManyWithCombinedContext({
+              resource: {
                 id: resource.id,
                 title: resource.title || resource.id,
                 type: resource.type,
                 kind: 'resource',
               },
-            )
+              outcome: 'brief',
+              prompt: t('workspace.ask_many_brief', {
+                title: resource.title || resource.id,
+              }),
+            })
           }
         />
 

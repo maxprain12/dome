@@ -11,6 +11,7 @@ export type SocialSection =
   | 'campaigns'
   | 'events'
   | 'insights'
+  | 'inbox'
   | 'accounts';
 
 export type SocialSelection =

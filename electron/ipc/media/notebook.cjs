@@ -1,11 +1,20 @@
 /* eslint-disable no-console */
+const {
+  isNotebookSurface,
+  notebookExecRejected,
+  sanitizeNotebookExecPath,
+} = require('../../documents/notebook-exec-guard.cjs');
+
 function register({ ipcMain, windowManager, notebookPython }) {
   /**
    * Run Python code in notebook (main process subprocess)
    */
-  ipcMain.handle('notebook:runPython', async (event, { code, cells, targetCellIndex, cwd, venvPath, timeoutMs }) => {
+  ipcMain.handle('notebook:runPython', async (event, { code, cells, targetCellIndex, cwd, venvPath, timeoutMs, surface, collectAllCells }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, outputs: [], error: 'Unauthorized' };
+    }
+    if (!isNotebookSurface(surface)) {
+      return notebookExecRejected('Notebook execution is limited to the notebook surface');
     }
 
     if (!notebookPython) {
@@ -40,14 +49,19 @@ function register({ ipcMain, windowManager, notebookPython }) {
         options.targetCellIndex = targetCellIndex;
       }
       if (typeof cwd === 'string' && cwd.trim()) {
-        options.cwd = cwd.trim();
+        const safeCwd = sanitizeNotebookExecPath(cwd);
+        if (!safeCwd.ok) return notebookExecRejected(safeCwd.error);
+        options.cwd = safeCwd.path;
       }
       if (typeof venvPath === 'string' && venvPath.trim()) {
-        options.venvPath = venvPath.trim();
+        const safeVenv = sanitizeNotebookExecPath(venvPath);
+        if (!safeVenv.ok) return notebookExecRejected(safeVenv.error);
+        options.venvPath = safeVenv.path;
       }
       if (typeof timeoutMs === 'number' && timeoutMs > 0) {
         options.timeoutMs = timeoutMs;
       }
+      if (collectAllCells === true) options.collectAllCells = true;
       return await notebookPython.runPythonCode(code, options);
     } catch (error) {
       console.error('[Notebook] runPython error:', error);

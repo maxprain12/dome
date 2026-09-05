@@ -7,6 +7,7 @@ import FolderListRow from './FolderListRow';
 import FolderCard from './FolderCard';
 import NewFolderInline from './NewFolderInline';
 import type { FolderListEntry, FolderViewMode } from './folderTabViewHelpers';
+import { useFolderVirtualWindow } from './useFolderVirtualWindow';
 
 export interface FolderTabBodyProps {
   viewMode: FolderViewMode;
@@ -82,6 +83,14 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
     handleCreateFolder,
     onCancelCreateFolder,
   } = props;
+  const windowRange = useFolderVirtualWindow(rowsToRender.length, viewMode);
+  const visibleRows = windowRange.enabled
+    ? rowsToRender.slice(windowRange.start, windowRange.end)
+    : rowsToRender;
+  const listPadTop = windowRange.enabled ? windowRange.start * 44 : 0;
+  const listPadBottom = windowRange.enabled
+    ? Math.max(0, rowsToRender.length - windowRange.end) * 44
+    : 0;
 
   // Per-card callback factories — kept out of inline JSX so complexity stays low.
   const buildRenameHandler = (item: Resource, isFolder: boolean) => (newTitle: string) => {
@@ -133,7 +142,7 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
 
   if (viewMode === 'list') {
     return (
-      <>
+      <div ref={windowRange.hostRef}>
         <div className="dome-folder-view__list-header">
           <span className="dome-folder-view__list-header-name">
             {t('folder.colName', 'Nombre')}
@@ -143,7 +152,10 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
           <span aria-hidden />
         </div>
 
-        {rowsToRender.map(({ item, isFolder }, idx) => (
+        {listPadTop > 0 ? <div style={{ height: listPadTop }} aria-hidden /> : null}
+        {visibleRows.map(({ item, isFolder }, sliceIdx) => {
+          const idx = windowRange.enabled ? windowRange.start + sliceIdx : sliceIdx;
+          return (
           <FolderListRow
             key={item.id}
             item={item}
@@ -177,7 +189,9 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
             searchQuery={isFiltering ? normalizedSearchQuery : undefined}
             searchFocused={isFiltering && idx === searchFocusIndex}
           />
-        ))}
+          );
+        })}
+        {listPadBottom > 0 ? <div style={{ height: listPadBottom }} aria-hidden /> : null}
 
         {creatingFolder ? (
           <div className="dome-folder-view__inline-create">
@@ -188,17 +202,19 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
             />
           </div>
         ) : null}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div ref={windowRange.hostRef}>
       <div className="dome-folder-view__grid-header">
         <span className="dome-folder-view__list-header-count">{statusLabel}</span>
       </div>
       <div className="dome-folder-view__grid">
-        {rowsToRender.map(({ item, isFolder }, idx) => (
+        {visibleRows.map(({ item, isFolder }, sliceIdx) => {
+          const idx = windowRange.enabled ? windowRange.start + sliceIdx : sliceIdx;
+          return (
           <FolderCard
             key={item.id}
             item={item}
@@ -223,7 +239,8 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
             searchQuery={isFiltering ? normalizedSearchQuery : undefined}
             searchFocused={isFiltering && idx === searchFocusIndex}
           />
-        ))}
+          );
+        })}
         {creatingFolder ? (
           <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
             <NewFolderInline
@@ -234,6 +251,6 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
           </div>
         ) : null}
       </div>
-    </>
+    </div>
   );
 }

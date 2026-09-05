@@ -1,6 +1,17 @@
 /** postMessage protocol for sandboxed artifact iframes → parent opens external URLs. */
 export const DOME_ARTIFACT_MSG = 'dome-artifact';
 
+/** srcdoc / sandboxed frames are opaque; `app://artifact` is a real origin. */
+export function isTrustedArtifactMessageOrigin(origin: string): boolean {
+  if (origin === 'null') return true;
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === 'app:' && parsed.hostname === 'artifact';
+  } catch {
+    return false;
+  }
+}
+
 /** Inline boot script: intercept `<a>`, `data-href`, and `window.open` inside sandboxed iframes. */
 export function buildArtifactNavigateBootScript(extraJs = ''): string {
   return `
@@ -8,7 +19,7 @@ export function buildArtifactNavigateBootScript(extraJs = ''): string {
   function postNavigate(href) {
     if (!href || !window.parent) return;
     try {
-      window.parent.postMessage({ type: '${DOME_ARTIFACT_MSG}', kind: 'navigate', href: String(href) }, '*');
+      window.parent.postMessage({ type: '${DOME_ARTIFACT_MSG}', kind: 'navigate', href: String(href) }, 'null');
     } catch (e) {}
   }
   document.addEventListener('click', function(ev) {
@@ -42,6 +53,7 @@ export function handleArtifactNavigateMessage(
   onNavigate: (href: string) => void,
 ): boolean {
   if (ev.source !== iframeWindow) return false;
+  if (!isTrustedArtifactMessageOrigin(ev.origin)) return false;
   const d = ev.data as { type?: string; kind?: string; href?: string } | null;
   if (!d || d.type !== DOME_ARTIFACT_MSG || d.kind !== 'navigate') return false;
   if (typeof d.href === 'string' && d.href.trim()) {

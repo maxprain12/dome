@@ -1,6 +1,6 @@
 # Plan 018 — Providers: comments + DM (continuación de 014 STOP)
 
-**Estado:** IN PROGRESS (adapters + poller live; App Review / tiers fuera de código) · **Prioridad:** P0 · **Esfuerzo:** XL  
+**Estado:** DONE (adapters + poller + flags opt-in + Inbox HITL; App Review / tiers siguen fuera de código) · **Prioridad:** P0 · **Esfuerzo:** XL
 **Depende de:** 014 (STOP), 012
 
 ## Decisiones de producto (cerradas 2026-07-15)
@@ -172,11 +172,11 @@ Depende de A (comments). Live send de C depende de B.
 
 ## Criterios de aceptación (plan completo 018)
 
-- [ ] Al menos un provider con `listComments: true` y poller → drafts.
-- [ ] Matrix + Settings flags reflejan scopes reales del token.
-- [ ] `sendDm` live solo con capability + mode live; nunca éxito falso.
-- [ ] LinkedIn member/DM documentado como no soportado si aplica.
-- [ ] Docs matrix actualizada; 014 STOP supersedido por este plan.
+- [x] Al menos un provider con `listComments: true` y poller → drafts.
+- [x] Matrix + Settings flags reflejan scopes reales del token (opt-in + reconnect).
+- [x] `sendDm` live solo con capability + mode live; nunca éxito falso (exige `externalMessageId`).
+- [x] LinkedIn member/DM documentado como no self-serve.
+- [x] Docs matrix actualizada; 014 STOP supersedido por este plan.
 
 ## STOP conditions
 

@@ -1,0 +1,11 @@
+{
+  "id": "doc-brief-post-flow",
+  "name": "Doc to post",
+  "description": "Resource → brief note → social draft.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "nodes": [],
+  "edges": [],
+  "tags": ["social", "notes", "first-party"]
+}

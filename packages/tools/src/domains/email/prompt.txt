@@ -27,9 +27,14 @@ Per-account toggles in Settings → Email restrict what **Many / agent chat** ma
 Workflows and automations bypass these toggles (implicit approval).
 
 ## Flow
-1. Check inbox → `email_list` or `email_search`.
-2. Open one message → `email_read` with `message_id`.
-3. Send/reply → confirm with user, ensure `email_tool` loaded, call tool (Many shows approval card for send/reply).
+1. If **mentioned-sources** lists an `email`, call `email_read` first (`message_id` = pin id or `meta.uid`, `folder` from meta). Do not claim the mailbox is empty before this.
+2. To find **mail the user sent** to that person: `email_list_folders` if needed, then `email_search` with `folder` set to the Sent folder (or provider equivalent from `email_list_folders`). Query = the other party’s address from the pinned message `From` / `To`. Prefer `Message-ID` / `In-Reply-To` / `References` when the read payload includes them.
+3. Only then broaden to INBOX / All Mail. Do not repeat the same query more than twice.
+4. Send/reply → confirm with user, ensure `email_tool` loaded, call tool (Many shows approval card for send/reply).
+
+## Pinned email
+- Pin ids may be Dome cache ids (`emsg-…`) or IMAP uids. Both are valid for `email_read`.
+- Pass `folder` (and `accountId` when the pin meta has it) from mentioned-sources. Do not guess INBOX if meta says otherwise.
 
 ## Mentioned people → `to`
 - When Source has **mentioned-people** with `email:addr`, use that address as `to` (do not invent).
