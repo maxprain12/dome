@@ -50,35 +50,36 @@ function schemaAllowsNull(schema: unknown): boolean {
 	return Array.isArray(schema.anyOf) && schema.anyOf.some((variant) => schemaAllowsNull(variant));
 }
 
-function makeJsonSchemaNodeStrict(schema: unknown): void {
-	if (!isJsonSchemaObject(schema)) {
-		throw new UnsupportedStrictJsonSchemaError("boolean schemas are unsupported");
-	}
+function rejectUnsupportedSchemaKeys(schema: JsonSchemaObject): void {
 	for (const key of UNSUPPORTED_STRICT_SCHEMA_KEYS) {
 		if (schema[key] !== undefined) {
 			throw new UnsupportedStrictJsonSchemaError(`${key} schemas are unsupported`);
 		}
 	}
+}
 
-	if (schema.anyOf !== undefined) {
-		if (!Array.isArray(schema.anyOf) || schema.anyOf.length === 0) {
-			throw new UnsupportedStrictJsonSchemaError("anyOf must contain at least one schema");
-		}
-		for (const variant of schema.anyOf) {
-			if (isStructuredSchema(variant)) {
-				throw new UnsupportedStrictJsonSchemaError("object and array unions are unsupported");
-			}
-			makeJsonSchemaNodeStrict(variant);
-		}
+function processAnyOfVariants(schema: JsonSchemaObject): void {
+	if (schema.anyOf === undefined) return;
+	if (!Array.isArray(schema.anyOf) || schema.anyOf.length === 0) {
+		throw new UnsupportedStrictJsonSchemaError("anyOf must contain at least one schema");
 	}
-
-	if (schema.items !== undefined) {
-		if (Array.isArray(schema.items)) {
-			throw new UnsupportedStrictJsonSchemaError("tuple schemas are unsupported");
+	for (const variant of schema.anyOf) {
+		if (isStructuredSchema(variant)) {
+			throw new UnsupportedStrictJsonSchemaError("object and array unions are unsupported");
 		}
-		makeJsonSchemaNodeStrict(schema.items);
+		makeJsonSchemaNodeStrict(variant);
 	}
+}
 
+function processArrayItems(schema: JsonSchemaObject): void {
+	if (schema.items === undefined) return;
+	if (Array.isArray(schema.items)) {
+		throw new UnsupportedStrictJsonSchemaError("tuple schemas are unsupported");
+	}
+	makeJsonSchemaNodeStrict(schema.items);
+}
+
+function validateObjectSchemaShape(schema: JsonSchemaObject): void {
 	const isObjectSchema = schema.type === "object";
 	if (schema.properties !== undefined && !isObjectSchema) {
 		throw new UnsupportedStrictJsonSchemaError("properties require type object");
@@ -96,7 +97,9 @@ function makeJsonSchemaNodeStrict(schema: unknown): void {
 	) {
 		throw new UnsupportedStrictJsonSchemaError("object required must be a string array");
 	}
+}
 
+function makeObjectPropertiesNullable(schema: JsonSchemaObject): void {
 	const properties = schema.properties ?? {};
 	const propertyNames = Object.keys(properties);
 	const required = new Set(Array.isArray(schema.required) ? schema.required : []);
@@ -111,6 +114,18 @@ function makeJsonSchemaNodeStrict(schema: unknown): void {
 	}
 	schema.required = propertyNames;
 	schema.additionalProperties = false;
+}
+
+function makeJsonSchemaNodeStrict(schema: unknown): void {
+	if (!isJsonSchemaObject(schema)) {
+		throw new UnsupportedStrictJsonSchemaError("boolean schemas are unsupported");
+	}
+	rejectUnsupportedSchemaKeys(schema);
+	processAnyOfVariants(schema);
+	processArrayItems(schema);
+	if (schema.type !== "object") return;
+	validateObjectSchemaShape(schema);
+	makeObjectPropertiesNullable(schema);
 }
 
 /** Convert a tool schema to the strict subset expected by provider constrained sampling. */
