@@ -41,21 +41,6 @@ function buildManyRolePrompt() {
   return readCoreFile('roleMany')?.trim() || '';
 }
 
-/** @deprecated Use readCoreFile('entityRules') or dome_load_doc */
-const ENTITY_CREATION_RULES = readCoreFile('entityRules') || '';
-
-/** @deprecated Use readCoreFile('resourceLinks') or dome_load_doc */
-const RESOURCE_LINK_INSTRUCTION = readCoreFile('resourceLinks') || '';
-
-/** @deprecated Sections moved to packages/prompts/sections/app-context.txt */
-const APP_SECTION_GUIDE = readCoreFile('appContext')?.replace(/^Context:\n/, '') || '';
-
-/** @deprecated Moved to core/tool-surface.txt */
-const TOOL_USAGE_MODE = '';
-
-/** @deprecated Moved to core/output-format.txt */
-const CHAT_CITATION_INSTRUCTION = '';
-
 module.exports = {
   buildDomeSystemPrompt,
   buildManyRolePrompt,
@@ -71,10 +56,4 @@ module.exports = {
   loadCorePromptSections,
   readCoreFile,
   getCoreSectionsForAssembler,
-  // Legacy exports for prompt-sections.cjs and external callers
-  ENTITY_CREATION_RULES,
-  RESOURCE_LINK_INSTRUCTION,
-  APP_SECTION_GUIDE,
-  TOOL_USAGE_MODE,
-  CHAT_CITATION_INSTRUCTION,
 };
