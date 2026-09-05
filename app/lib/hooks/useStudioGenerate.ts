@@ -99,103 +99,122 @@ async function fetchContextForStudio(projectId: string, sourceIds?: string[]): P
 /** Extract JSON object from AI response (handles markdown code blocks, extra text, Ollama quirks) */
 function extractStudioJson(text: string): Record<string, unknown> | null {
   if (!text || typeof text !== 'string') return null;
-
   const trimmed = text.trim();
   if (!trimmed) return null;
+  return (
+    tryStudioMarkdownCodeBlock(trimmed) ??
+    tryStudioBalancedBraces(trimmed) ??
+    tryStudioJsonArray(trimmed) ??
+    tryStudioGreedyBraces(trimmed) ??
+    tryParseStudioJson(trimmed)
+  );
+}
 
-  function tryParse(raw: string): Record<string, unknown> | null {
-    if (!raw?.trim()) return null;
-    let s = raw.trim();
-    // Remove trailing commas before } or ]
-    s = s.replace(/,(\s*[}\]])/g, '$1');
-    // Remove single-line // comments
-    s = s.replace(/\/\/[^\n]*/g, '');
-    try {
-      const parsed = JSON.parse(s) as Record<string, unknown>;
-      return parsed && typeof parsed === 'object' ? parsed : null;
-    } catch {
-      return null;
+function tryParseStudioJson(raw: string): Record<string, unknown> | null {
+  if (!raw?.trim()) return null;
+  let s = raw.trim();
+  // Remove trailing commas before } or ]
+  s = s.replace(/,(\s*[}\]])/g, '$1');
+  // Remove single-line // comments
+  s = s.replace(/\/\/[^\n]*/g, '');
+  try {
+    const parsed = JSON.parse(s) as Record<string, unknown>;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function tryStudioMarkdownCodeBlock(trimmed: string): Record<string, unknown> | null {
+  const match = trimmed.match(/```(?:json|javascript)?\s*([\s\S]*?)```/);
+  if (!match || match[1] === undefined) return null;
+  return tryParseStudioJson(match[1]);
+}
+
+interface BraceScanState {
+  depth: number;
+  inString: boolean;
+  escape: boolean;
+  stringChar: string;
+}
+
+/** Step the brace scanner forward by one character; returns true when the top-level `}` is reached. */
+function stepBalancedBraceScan(c: string, state: BraceScanState): boolean {
+  if (state.escape) {
+    state.escape = false;
+    return false;
+  }
+  if (state.inString) {
+    if (c === '\\') state.escape = true;
+    else if (c === state.stringChar) state.inString = false;
+    return false;
+  }
+  if (c === '"' || c === "'") {
+    state.inString = true;
+    state.stringChar = c;
+    return false;
+  }
+  if (c === '{') {
+    state.depth++;
+    return false;
+  }
+  if (c === '}') {
+    state.depth--;
+    if (state.depth === 0) return true;
+  }
+  return false;
+}
+
+function sliceBalancedBraces(trimmed: string, firstBrace: number): string | null {
+  const state: BraceScanState = {
+    depth: 0,
+    inString: false,
+    escape: false,
+    stringChar: '',
+  };
+  for (let i = firstBrace; i < trimmed.length; i++) {
+    if (stepBalancedBraceScan(trimmed[i], state)) {
+      return trimmed.slice(firstBrace, i + 1);
     }
   }
+  return null;
+}
 
-  // 1. Markdown code block: ```json ... ``` or ``` ... ```
-  const codeBlockMatch = trimmed.match(/```(?:json|javascript)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch && codeBlockMatch[1] !== undefined) {
-    const parsed = tryParse(codeBlockMatch[1]);
-    if (parsed) return parsed;
-  }
-
-  // 2. Find JSON object with balanced braces (handles nested structures)
+function tryStudioBalancedBraces(trimmed: string): Record<string, unknown> | null {
   const firstBrace = trimmed.indexOf('{');
-  if (firstBrace >= 0) {
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    let stringChar = '';
-    for (let i = firstBrace; i < trimmed.length; i++) {
-      const c = trimmed[i];
-      if (escape) {
-        escape = false;
-        continue;
-      }
-      if (inString) {
-        if (c === '\\') escape = true;
-        else if (c === stringChar) inString = false;
-        continue;
-      }
-      if (c === '"' || c === "'") {
-        inString = true;
-        stringChar = c;
-        continue;
-      }
-      if (c === '{') depth++;
-      else if (c === '}') {
-        depth--;
-        if (depth === 0) {
-          const slice = trimmed.slice(firstBrace, i + 1);
-          const parsed = tryParse(slice);
-          if (parsed) return parsed;
-          break;
-        }
-      }
-    }
-  }
+  if (firstBrace < 0) return null;
+  const slice = sliceBalancedBraces(trimmed, firstBrace);
+  if (!slice) return null;
+  return tryParseStudioJson(slice);
+}
 
-  // 3. JSON array - wrap in object if needed
+function tryStudioJsonArray(trimmed: string): Record<string, unknown> | null {
+  const firstBrace = trimmed.indexOf('{');
   const firstBracket = trimmed.indexOf('[');
-  if (firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace)) {
-    const arrMatch = trimmed.match(/\[[\s\S]*\]/);
-    if (arrMatch) {
-      try {
-        const arr = JSON.parse(arrMatch[0].replace(/,(\s*[}\]])/g, '$1'));
-        if (Array.isArray(arr) && arr.length > 0) {
-          const first = arr[0];
-          if (typeof first === 'object' && first !== null) {
-            return { type: 'unknown', items: arr } as Record<string, unknown>;
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
+  if (firstBracket < 0) return null;
+  if (firstBrace >= 0 && firstBracket >= firstBrace) return null;
+  const arrMatch = trimmed.match(/\[[\s\S]*\]/);
+  if (!arrMatch) return null;
+  try {
+    const arr = JSON.parse(arrMatch[0].replace(/,(\s*[}\]])/g, '$1'));
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const first = arr[0];
+    if (typeof first !== 'object' || first === null) return null;
+    return { type: 'unknown', items: arr } as Record<string, unknown>;
+  } catch {
+    return null;
   }
+}
 
-  // 4. Greedy fallback: first { to last }, try truncation repair
+function tryStudioGreedyBraces(trimmed: string): Record<string, unknown> | null {
   const greedyMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (greedyMatch) {
-    const candidate = greedyMatch[0];
-    let parsed = tryParse(candidate);
-    if (parsed) return parsed;
-    const lastClose = candidate.lastIndexOf('}');
-    if (lastClose > 0) {
-      const truncated = candidate.slice(0, lastClose + 1);
-      parsed = tryParse(truncated);
-      if (parsed) return parsed;
-    }
-  }
-
-  // 5. Try parsing the whole trimmed string
-  return tryParse(trimmed);
+  if (!greedyMatch) return null;
+  const candidate = greedyMatch[0];
+  const parsed = tryParseStudioJson(candidate);
+  if (parsed) return parsed;
+  const lastClose = candidate.lastIndexOf('}');
+  if (lastClose <= 0) return null;
+  return tryParseStudioJson(candidate.slice(0, lastClose + 1));
 }
 
 /** Build user prompt for each studio type (with tools) */
