@@ -19,6 +19,44 @@ const sizeClasses = {
   xl: 'size-16 text-lg',
 };
 
+// Join paths using standard path.join (available in Next.js renderer)
+// Note: We can't use Node.js path module directly in browser context,
+// so we use a simple string concatenation with proper separator
+function buildFileUrl(userDataPath: string, avatarPath: string): string {
+  const separator = userDataPath.endsWith('/') || userDataPath.endsWith('\\') ? '' : '/';
+  const fullPath = `${userDataPath}${separator}${avatarPath}`;
+  // Convert to file:// URL (handle Windows paths) — ensure forward slashes
+  const normalizedPath = fullPath.replace(/\\/g, '/');
+  return `file://${normalizedPath}`;
+}
+
+async function resolveFromElectron(avatarPath: string): Promise<string | null> {
+  const userDataPath = await window.electron.getUserDataPath();
+  if (!userDataPath) {
+    console.warn('[UserAvatar] Failed to get userData path');
+    return null;
+  }
+  return buildFileUrl(userDataPath, avatarPath);
+}
+
+async function resolveAvatarUrl(
+  avatarPath: string | undefined,
+  avatarData: string | undefined,
+): Promise<string | null> {
+  if (avatarPath) {
+    if (typeof window !== 'undefined' && window.electron) {
+      return resolveFromElectron(avatarPath);
+    }
+    // Fallback for non-electron env (e.g. web dev) — won't work for local files but prevents crash
+    console.warn('[UserAvatar] Avatar path exists but window.electron is missing. Cannot resolve local file.');
+    return null;
+  }
+  if (avatarData && avatarData.startsWith('data:image/')) {
+    return avatarData;
+  }
+  return null;
+}
+
 export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', className = '' }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -29,42 +67,11 @@ export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', 
 
     const resolveAvatar = async () => {
       if (!mounted) return;
-
-      if (avatarPath && typeof window !== 'undefined' && window.electron) {
-        try {
-          // Get userData path
-          const userDataPath = await window.electron.getUserDataPath();
-          if (!userDataPath) {
-            console.warn('[UserAvatar] Failed to get userData path');
-            if (mounted) setAvatarUrl(null);
-            return;
-          }
-
-          // Join paths using standard path.join (available in Next.js renderer)
-          // Note: We can't use Node.js path module directly in browser context,
-          // so we use a simple string concatenation with proper separator
-          const separator = userDataPath.endsWith('/') || userDataPath.endsWith('\\') ? '' : '/';
-          const fullPath = `${userDataPath}${separator}${avatarPath}`;
-
-          // Convert to file:// URL (handle Windows paths)
-          // We ensure forward slashes for the URL
-          const normalizedPath = fullPath.replace(/\\/g, '/');
-          const fileUrl = `file://${normalizedPath}`; // Removed extra slash logic as fullPath usually starts with / on mac/linux or drive on windows
-
-          // Add timestamp to prevent caching if it's the same filename (though our filenames are timestamped)
-          // But just in case
-          if (mounted) setAvatarUrl(fileUrl);
-        } catch (err) {
-          console.error('[UserAvatar] Error resolving avatar path:', err);
-          if (mounted) setAvatarUrl(null);
-        }
-      } else if (avatarData && avatarData.startsWith('data:image/')) {
-        if (mounted) setAvatarUrl(avatarData);
-      } else if (avatarPath) {
-        // Fallback for non-electron env (e.g. web dev) - this won't work for local files but prevents crash
-        console.warn('[UserAvatar] Avatar path exists but window.electron is missing. Cannot resolve local file.');
-        if (mounted) setAvatarUrl(null);
-      } else {
+      try {
+        const resolved = await resolveAvatarUrl(avatarPath, avatarData);
+        if (mounted) setAvatarUrl(resolved);
+      } catch (err) {
+        console.error('[UserAvatar] Error resolving avatar path:', err);
         if (mounted) setAvatarUrl(null);
       }
     };
