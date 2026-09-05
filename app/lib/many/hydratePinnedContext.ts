@@ -44,6 +44,31 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 }
 
+function metaString(meta: Record<string, unknown>, key: string): string | undefined {
+  const value = meta[key];
+  if (typeof value === 'string' && value.trim()) return value;
+  return undefined;
+}
+
+/** IMAP uid (string or number from SQLite) wins; otherwise the pin id (`emsg-…`). */
+export function buildPinnedEmailReadArgs(pin: PinnedResource): {
+  messageId: string;
+  folder?: string;
+  accountId?: string;
+} {
+  const meta = { ...(pin.meta ?? {}) };
+  const uid = meta.uid;
+  const fromUid = uid != null && String(uid).trim() !== '' ? String(uid) : '';
+  const args: { messageId: string; folder?: string; accountId?: string } = {
+    messageId: fromUid || pin.id,
+  };
+  const folder = metaString(meta, 'folder');
+  if (folder) args.folder = folder;
+  const accountId = metaString(meta, 'accountId');
+  if (accountId) args.accountId = accountId;
+  return args;
+}
+
 async function hydrateSocialPost(pin: PinnedResource): Promise<EnrichedPinnedSource> {
   const baseMeta = { ...(pin.meta ?? {}) };
   try {
@@ -102,19 +127,20 @@ async function hydrateSocialCampaign(pin: PinnedResource): Promise<EnrichedPinne
 
 async function hydrateEmail(pin: PinnedResource): Promise<EnrichedPinnedSource> {
   const baseMeta = { ...(pin.meta ?? {}) };
-  const messageId =
-    (typeof baseMeta.uid === 'string' && baseMeta.uid) ||
-    pin.id;
+  const readArgs = buildPinnedEmailReadArgs(pin);
   try {
     const read = window.electron?.email?.read;
     if (!read) {
+      console.warn('[hydratePinnedContext] email.read unavailable', pin.title);
       return { kind: 'email', id: pin.id, title: pin.title, meta: baseMeta };
     }
-    const res = await read({
-      messageId,
-      folder: typeof baseMeta.folder === 'string' ? baseMeta.folder : undefined,
-    });
+    const res = await read(readArgs);
     if (!res?.success || !res.message) {
+      console.warn(
+        '[hydratePinnedContext] email.read failed:',
+        res?.error || 'no message',
+        pin.title,
+      );
       return { kind: 'email', id: pin.id, title: pin.title, meta: baseMeta };
     }
     const msg = asRecord(res.message) || {};
@@ -132,7 +158,9 @@ async function hydrateEmail(pin: PinnedResource): Promise<EnrichedPinnedSource> 
         ...(body ? { body } : {}),
       },
     };
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : err;
+    console.warn('[hydratePinnedContext] email.read error:', message, pin.title);
     return { kind: 'email', id: pin.id, title: pin.title, meta: baseMeta };
   }
 }

@@ -107,8 +107,13 @@ function normalizeFlags(flags) {
   }).filter(Boolean);
 }
 
+function isImapUid(value) {
+  return value != null && /^\d+$/.test(String(value).trim());
+}
+
 function envelopeToFields(env) {
-  const uid = String(env?.id ?? env?.uid ?? env?.message_id ?? env?.['message-id'] ?? '');
+  const uidRaw = env?.id ?? env?.uid;
+  const uid = isImapUid(uidRaw) ? String(uidRaw).trim() : '';
   const dateRaw = env?.date || env?.internal_date || null;
   let dateMs = null;
   if (dateRaw != null) {
@@ -250,7 +255,7 @@ function mapMessageRow(row) {
 }
 
 /** Normalize a live Himalaya envelope for the renderer (same shape as cache). */
-function normalizeEnvelope(env) {
+function normalizeEnvelope(env, ctx = {}) {
   if (!env || typeof env !== 'object') return null;
   const fields = envelopeToFields(env);
   if (!fields.uid) return null;
@@ -278,6 +283,13 @@ function normalizeEnvelope(env) {
   } catch {
     cc = null;
   }
+  const accountId = typeof ctx.accountId === 'string' && ctx.accountId.trim() ? ctx.accountId.trim() : '';
+  const folderRemote = typeof ctx.folder === 'string' && ctx.folder.trim() ? ctx.folder.trim() : '';
+  let dbId;
+  if (accountId && folderRemote && fields.uid) {
+    const folderRow = upsertFolder(accountId, folderRemote);
+    dbId = messageRowId(accountId, folderRow.id, fields.uid);
+  }
   return {
     id: fields.uid,
     subject: fields.subject,
@@ -289,6 +301,8 @@ function normalizeEnvelope(env) {
     snippet: fields.snippet,
     has_attachments: Boolean(fields.hasAttachments),
     message_id: fields.messageId,
+    ...(dbId ? { dbId } : {}),
+    ...(accountId ? { accountId } : {}),
   };
 }
 
@@ -459,6 +473,18 @@ function getSyncStatus(accountId) {
     .all(accountId);
 }
 
+function maxImapUid(envelopes) {
+  let max = null;
+  if (!Array.isArray(envelopes)) return null;
+  for (const env of envelopes) {
+    const raw = env?.id ?? env?.uid;
+    if (!isImapUid(raw)) continue;
+    const n = Number(String(raw).trim());
+    if (max == null || n > max) max = n;
+  }
+  return max == null ? null : String(max);
+}
+
 function extractAddressesFromEnvelope(env) {
   const addrs = [];
   for (const field of ['from', 'to', 'cc']) {
@@ -489,6 +515,7 @@ module.exports = {
   setSyncState,
   getSyncStatus,
   extractAddressesFromEnvelope,
+  maxImapUid,
   mapMessageRow,
   secureTimestampId,
 };

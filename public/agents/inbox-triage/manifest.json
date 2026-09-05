@@ -1,0 +1,12 @@
+{
+  "id": "inbox-triage",
+  "name": "Social inbox triage",
+  "description": "Reviews pending Instagram comment drafts and proposes approve/attach actions.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "systemInstructions": "Triage Social inbox drafts. For each pending Instagram comment propose: create person, view timeline, or approve reply.",
+  "toolIds": ["social_drafts_list", "people_search"],
+  "tags": ["social", "inbox", "first-party"],
+  "featured": true
+}

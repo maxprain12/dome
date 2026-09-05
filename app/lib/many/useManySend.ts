@@ -43,6 +43,7 @@ import {
 } from '@/lib/store/useManyStore';
 import type { DomeTab } from '@/lib/store/useTabStore';
 import { hydratePinnedContext } from '@/lib/many/hydratePinnedContext';
+import { resolvePinsForHydration } from '@/lib/many/lastTurnPins';
 
 type Updater<T> = T | ((prev: T) => T);
 
@@ -256,6 +257,7 @@ export function useManySend(options: UseManySendOptions) {
         title: r.title,
         type: r.type,
         kind: r.kind ?? ('resource' as const),
+        meta: r.meta ?? null,
       }));
       if (
         (!textPart && chatAttachments.length === 0 && pinSnapshot.length === 0) ||
@@ -386,7 +388,10 @@ export function useManySend(options: UseManySendOptions) {
             : activeShellTab?.splitResource?.resourceType;
 
         // Prefetch bodies/excerpts for chip-only pins (email / issue / social / person / docs).
-        const hydrated = await hydratePinnedContext(pinnedResources);
+        // Sticky last-turn pins hydrate when the composer is empty; they must not
+        // go back into pinSnapshot / addMessage (that would duplicate dome.pins).
+        const pinsForHydration = resolvePinsForHydration(pinnedResources, messages);
+        const hydrated = await hydratePinnedContext(pinsForHydration);
         const pinnedPeople = hydrated.people;
         const enrichedSources = hydrated.sources;
         const pinnedDocs = hydrated.docs;

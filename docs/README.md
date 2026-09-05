@@ -1,12 +1,12 @@
 # Dome – índice de documentación
 
-Documentación del proyecto Dome Desktop (**v2.7.7**). Además de este índice:
+Documentación del proyecto Dome Desktop (**v2.8.9**). Además de este índice:
 
 - **[Posicionamiento](product/positioning.md)** — Pro / Study / Dev, dos polos, qué se vende.
 - **[Ediciones](product/editions.md)** — matriz módulo→edición, freeze, DoD.
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
-- **[Planes](plans/README.md)** — planes de ejecución versionados.
+- **[Planes de ejecución](../plans/README.md)** — fuente activa. `docs/plans/` es archivo histórico.
 - **[Flujo AI-first](features/ai-first-workflow.md)** — prompt → PR → CI → merge.
 
 ## Para usuarios finales

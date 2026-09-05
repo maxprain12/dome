@@ -22,6 +22,7 @@ import {
   type AutomationBindingDraft,
   type DraftState,
 } from '@/components/hub/automations/automationsShared';
+import { CONTEXTUAL_EVENT_TAGS, contextualEventPreview } from '@/lib/events/contextualEvents';
 
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -277,6 +278,35 @@ export default function AutomationEditor({
                     <p className="text-[11px] leading-snug text-muted-foreground">
                       {t('automation.context_tags_hint')}
                     </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CONTEXTUAL_EVENT_TAGS.map((tag) => (
+                        <Button
+                          key={tag}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => onDraftChange({ contextTags: tag })}
+                        >
+                          {tag}
+                        </Button>
+                      ))}
+                    </div>
+                    {draft.contextTags
+                      .split(',')
+                      .map((tag) => tag.trim())
+                      .filter(Boolean)
+                      .map((tag) => {
+                        const preview = contextualEventPreview(tag);
+                        return (
+                          <p key={tag} className="text-[11px] leading-snug text-muted-foreground">
+                            <span className="font-medium text-foreground">{t('automation.context_preview_title')}:</span>{' '}
+                            {tag} — {preview.official
+                              ? t('automation.context_preview_official')
+                              : t('automation.context_preview_custom')}
+                          </p>
+                        );
+                      })}
                   </div>
                 ) : null}
 

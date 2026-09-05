@@ -134,5 +134,6 @@
   "open_vault_folder": "Abrir carpeta del workspace",
   "search_workspace": "Buscar en el workspace",
   "ask_many": "Preguntar a Many",
-  "ask_many_prompt": "Ayúdame con este recurso «{{title}}»: resume, sugiere acciones y siguientes pasos en Dome."
+  "ask_many_prompt": "Ayúdame con este recurso «{{title}}»: resume, sugiere acciones y siguientes pasos en Dome.",
+  "ask_many_brief": "Escribe un brief de una página a partir de este recurso. Si hay un contacto pineado, personaliza el siguiente paso."
 }

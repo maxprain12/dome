@@ -79,11 +79,7 @@
 }
 
 .note-area[data-note-mode='focused'] {
-  background: radial-gradient(
-    ellipse at center top,
-    color-mix(in srgb, var(--primary) 14%, transparent) 0%,
-    var(--rail-bg) 55%
-  );
+  background: var(--rail-bg);
 }
 
 /* ─── Action bar ─── */
@@ -327,20 +323,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background:
-    radial-gradient(
-      120% 90% at 20% -10%,
-      color-mix(in srgb, var(--primary) 42%, transparent) 0%,
-      transparent 55%
-    ),
-    radial-gradient(
-      90% 80% at 90% 0%,
-      color-mix(in srgb, var(--warning) 22%, transparent) 0%,
-      transparent 52%
-    ),
-    linear-gradient(to bottom, var(--muted) 0%, var(--rail-bg) 100%);
-  filter: saturate(105%) blur(2px);
-  transform: scale(1.04);
+  background: var(--muted);
 }
 
 .note-hero-cover__badge {

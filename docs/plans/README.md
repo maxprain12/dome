@@ -1,9 +1,8 @@
-# Planes de ejecución
+# docs/plans — archivo histórico
 
-- **Activo**: [active/](active/) — planes en curso, con frontmatter (`status: active`, `owner`, `domain`, `created`).
-- **Hechos**: [done/](done/) — archivado tras merge o cierre. <!-- TBD: crear directorio `done/` → creado 2026-05-15 -->
-- Plantilla: [_template.md](_template.md).
+Este árbol **ya no es la fuente de ejecución**.
 
-## Regla (P-008)
+- Ejecución activa: [`plans/`](../../plans/README.md)
+- Los documentos que queden aquí son referencia histórica o templates.
 
-Trabajo no trivial: documentar intención y pasos en un plan antes o durante el desarrollo.
+No abras trabajo nuevo en `docs/plans/`. Copia o enlaza desde `plans/active/` si hace falta un plan nuevo.

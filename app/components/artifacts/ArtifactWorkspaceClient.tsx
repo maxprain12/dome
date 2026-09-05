@@ -20,6 +20,7 @@ import { normalizeArtifactBodyHtml, useArtifactFrameSrc } from '@/lib/chat/artif
 import {
   buildArtifactNavigateBootScript,
   handleArtifactNavigateMessage,
+  isTrustedArtifactMessageOrigin,
   openArtifactExternalUrl,
 } from '@/lib/chat/artifactIframeNavigate';
 import { notifications } from '@/lib/notifications';
@@ -171,7 +172,7 @@ window.addEventListener('message', function(e) {
       payload = window.DOME_DATA;
     }
     try {
-      window.parent.postMessage({ type: 'dome:state:snapshot', requestId: requestId, payload: payload }, '*');
+      window.parent.postMessage({ type: 'dome:state:snapshot', requestId: requestId, payload: payload }, 'null');
     } catch (err2) {}
   }
 });
@@ -189,7 +190,7 @@ ${bodyHtml}
     if (typeof window.__dome_refreshFromDom === 'function') window.__dome_refreshFromDom();
   } catch (e2) {}
   try {
-    window.parent.postMessage({ type: 'dome:state:update', payload: newData }, '*');
+    window.parent.postMessage({ type: 'dome:state:update', payload: newData }, 'null');
   } catch (e3) {}
 };
 </script>
@@ -353,6 +354,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
         return;
       }
       if (event.source !== iframeRef.current?.contentWindow) return;
+      if (!isTrustedArtifactMessageOrigin(event.origin)) return;
       const art = artifactRef.current;
       if (!art) return;
       if (event.data?.type === 'dome:state:update') {
@@ -432,6 +434,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
 
     onSnap = (event: MessageEvent) => {
       if (event.source !== w) return;
+      if (!isTrustedArtifactMessageOrigin(event.origin)) return;
       if (event.data?.type !== 'dome:state:snapshot' || event.data?.requestId !== reqId) return;
       if (onSnap) window.removeEventListener('message', onSnap);
       window.clearTimeout(tmr);

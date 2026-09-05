@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
-const { sanitizePath, isDeniedExternalPath, grantExternalPath } = require('../core/security.cjs');
+const { sanitizePath, isDeniedExternalPath, grantExternalPath, isResolvedWithinAllowed } = require('../core/security.cjs');
 
 describe('security path denylist', () => {
   it('flags sensitive external paths', () => {
@@ -42,5 +42,20 @@ describe('security path denylist', () => {
     assert.doesNotThrow(() => grantExternalPath(null));
     assert.doesNotThrow(() => grantExternalPath(undefined));
     assert.doesNotThrow(() => grantExternalPath(42));
+  });
+});
+
+describe('isResolvedWithinAllowed prefix boundary', () => {
+  it('accepts the allowed directory itself and descendants', () => {
+    const allowed = path.join(os.tmpdir(), 'dome-userData');
+    assert.equal(isResolvedWithinAllowed(allowed, allowed), true);
+    assert.equal(isResolvedWithinAllowed(path.join(allowed, 'avatars', 'a.png'), allowed), true);
+  });
+
+  it('rejects sibling paths that only share a string prefix', () => {
+    const allowed = path.join(os.tmpdir(), 'dome-userData');
+    const sibling = path.join(os.tmpdir(), 'dome-userData-evil', 'secret.txt');
+    assert.equal(isResolvedWithinAllowed(sibling, allowed), false);
+    assert.equal(isResolvedWithinAllowed(`${allowed}-evil`, allowed), false);
   });
 });

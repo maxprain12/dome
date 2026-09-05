@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "dome-automation-bundle",
+  "exportedAt": 1756934400000,
+  "title": "Outreach from person + resource",
+  "description": "First-party bundle: draft outreach when a note is updated with a person in context.",
+  "workflows": [],
+  "automations": [
+    {
+      "title": "Note updated → outreach draft",
+      "triggerType": "contextual",
+      "enabled": false,
+      "schedule": { "contextTags": ["note_updated"] },
+      "inputTemplate": { "prompt": "A note was updated. If a person is pinned, draft a personalized outreach email." }
+    }
+  ],
+  "agents": [],
+  "skills": [],
+  "mcpServers": []
+}

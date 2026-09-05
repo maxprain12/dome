@@ -76,6 +76,14 @@ function validateSender(event, windowManager) {
  * Gets allowed paths for file operations
  * @returns {string[]} Array of allowed base paths
  */
+/**
+ * True when `resolved` is `allowed` itself or a descendant, never a sibling
+ * that only shares a string prefix (`/data` must not match `/data-evil`).
+ */
+function isResolvedWithinAllowed(resolved, resolvedAllowed) {
+  return resolved === resolvedAllowed || resolved.startsWith(resolvedAllowed + path.sep);
+}
+
 function getAllowedPaths() {
   const userDataPath = app.getPath('userData');
   const domeFilesPath = path.join(userDataPath, 'dome-files');
@@ -127,12 +135,10 @@ function sanitizePath(filePath, allowExternal = false) {
 
   // For internal operations, validate against allowed paths
   const allowedPaths = getAllowedPaths();
-  const isAllowed = allowedPaths.some(allowed => {
-    // Use path.resolve to handle relative paths correctly
-    const resolved = path.resolve(normalized);
-    const resolvedAllowed = path.resolve(allowed);
-    return resolved.startsWith(resolvedAllowed);
-  });
+  const resolved = path.resolve(normalized);
+  const isAllowed = allowedPaths.some((allowed) =>
+    isResolvedWithinAllowed(resolved, path.resolve(allowed)),
+  );
 
   if (!isAllowed) {
     throw new Error(`Path not allowed: ${normalized} must be within userData directory`);
@@ -200,5 +206,7 @@ module.exports = {
   validateString,
   getAllowedPaths,
   grantExternalPath,
+  isGrantedExternalPath,
   isDeniedExternalPath,
+  isResolvedWithinAllowed,
 };

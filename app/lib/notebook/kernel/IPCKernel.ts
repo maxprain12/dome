@@ -3,6 +3,7 @@ import type { NotebookOutput } from '@/types';
 export type PyodideRunResult = {
   success: boolean;
   outputs: NotebookOutput[];
+  cellOutputs?: NotebookOutput[][];
   error?: string;
 };
 
@@ -18,6 +19,8 @@ export interface RunPythonOptions {
   venvPath?: string;
   /** Execution timeout in milliseconds (default 60000) */
   timeoutMs?: number;
+  /** Run every cell once and return per-cell outputs (IPC kernel). */
+  collectAllCells?: boolean;
 }
 
 /**

@@ -42,10 +42,10 @@ const X_DM_SCOPES = 'dm.read dm.write';
 
 function instagramScopes(store) {
   let scopes = IG_BASE_SCOPES;
-  if (store?.getMessagingCommentsEnabled?.('instagram') !== false) {
+  if (store?.getMessagingCommentsEnabled?.('instagram') === true) {
     scopes += `,${IG_COMMENTS_SCOPE}`;
   }
-  if (store?.getMessagingDmEnabled?.('instagram') !== false) {
+  if (store?.getMessagingDmEnabled?.('instagram') === true) {
     scopes += `,${IG_MESSAGES_SCOPE}`;
   }
   return scopes;
@@ -53,7 +53,7 @@ function instagramScopes(store) {
 
 function xScopes(store) {
   let scopes = X_BASE_SCOPES;
-  if (store?.getMessagingDmEnabled?.('x') !== false) {
+  if (store?.getMessagingDmEnabled?.('x') === true) {
     scopes += ` ${X_DM_SCOPES}`;
   }
   return scopes;
@@ -269,4 +269,4 @@ function createSocialOAuth(store) {
   return { startConnect, cancelPending, redirectUri };
 }
 
-module.exports = { createSocialOAuth, AUTH_ENDPOINTS };
+module.exports = { createSocialOAuth, AUTH_ENDPOINTS, instagramScopes, xScopes };

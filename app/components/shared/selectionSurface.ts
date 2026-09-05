@@ -14,8 +14,8 @@ export function selectionSurfaceClass(
     shape === 'chip' ? 'rounded-full' : 'rounded-xl',
     'border transition-[background-color,border-color,color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none',
     active
-      ? 'border-primary bg-muted text-foreground'
-      : 'border-transparent bg-transparent text-foreground hover:bg-muted/70',
+      ? 'border-primary bg-brand-mint text-foreground'
+      : 'border-transparent bg-transparent text-foreground hover:bg-brand-mint/55',
     className,
   );
 }

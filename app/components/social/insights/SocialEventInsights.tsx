@@ -9,7 +9,6 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -223,14 +222,6 @@ export function SocialEventInsights({ onOpenPeople, onOpenEvents }: SocialEventI
             </p>
           )}
         </CardContent>
-        {onOpenPeople && showFunnel ? (
-          <CardFooter>
-            <Button type="button" variant="secondary" size="sm" onClick={onOpenPeople}>
-              <HugeiconsIcon icon={UserMultiple02Icon} data-icon="inline-start" />
-              {t('social.studio.insights.view_leads')}
-            </Button>
-          </CardFooter>
-        ) : null}
       </Card>
 
       <Card className="@container/event-metrics">

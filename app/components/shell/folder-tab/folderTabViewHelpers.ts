@@ -29,19 +29,42 @@ export function readFolderViewMode(): FolderViewMode {
   }
 }
 
+export type ResourceParentIndex = {
+  byFolder: Map<string, Resource[]>;
+  projectRoots: Map<string, Resource[]>;
+};
+
+export function indexResourcesByParent(allResources: Resource[]): ResourceParentIndex {
+  const byFolder = new Map<string, Resource[]>();
+  const projectRoots = new Map<string, Resource[]>();
+  for (const resource of allResources) {
+    if (resource.folder_id) {
+      const rows = byFolder.get(resource.folder_id);
+      if (rows) rows.push(resource);
+      else byFolder.set(resource.folder_id, [resource]);
+      continue;
+    }
+    if (resource.project_id) {
+      const rows = projectRoots.get(resource.project_id);
+      if (rows) rows.push(resource);
+      else projectRoots.set(resource.project_id, [resource]);
+    }
+  }
+  return { byFolder, projectRoots };
+}
+
 export function partitionFolderChildren(
   allResources: Resource[],
   viewCtx: FolderTabViewContext,
   folderId: string,
+  index?: ResourceParentIndex,
 ): { subfolders: Resource[]; files: Resource[] } {
-  let list = allResources;
-  if (viewCtx.isProjectRoot) {
-    list = list.filter((r) => r.project_id === viewCtx.projectId && !r.folder_id);
-  } else {
-    list = list.filter((r) => r.folder_id === folderId);
-    if (viewCtx.projectId) {
-      list = list.filter((r) => r.project_id === viewCtx.projectId);
-    }
+  const parentIndex = index ?? indexResourcesByParent(allResources);
+  let list = viewCtx.isProjectRoot
+    ? (parentIndex.projectRoots.get(viewCtx.projectId) ?? [])
+    : (parentIndex.byFolder.get(folderId) ?? []);
+  if (!viewCtx.isProjectRoot && viewCtx.projectId) {
+    list = list.filter((r) => r.project_id === viewCtx.projectId);
   }
   return {
     subfolders: list.filter((r) => r.type === 'folder'),

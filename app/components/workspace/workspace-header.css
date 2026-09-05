@@ -143,9 +143,6 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow:
-    0 8px 32px rgb(0 0 0 / 0.12),
-    0 2px 8px rgb(0 0 0 / 0.06);
   padding: 6px;
   animation: dropdown-appear 0.12s ease-out;
 }

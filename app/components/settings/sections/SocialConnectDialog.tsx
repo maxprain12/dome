@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { SocialMessagingFlags } from '@/components/social/accounts/SocialMessagingFlags';
 
 type SocialProvider = 'linkedin' | 'instagram' | 'x';
 
@@ -33,6 +34,8 @@ interface ProviderStatus {
   supportsManualToken: boolean;
   redirectUri: string;
   orgEnabled?: boolean;
+  commentsEnabled?: boolean;
+  dmEnabled?: boolean;
 }
 
 interface ConnectedAccount {
@@ -466,6 +469,8 @@ export default function SocialConnectDialog({
   const [connectedNow, setConnectedNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orgEnabled, setOrgEnabled] = useState(Boolean(status.orgEnabled));
+  const [commentsEnabled, setCommentsEnabled] = useState(Boolean(status.commentsEnabled));
+  const [dmEnabled, setDmEnabled] = useState(Boolean(status.dmEnabled));
 
   const activeAccount = accounts.find((a) => a.status === 'active') ?? null;
   const stepId = STEP_IDS[step];
@@ -496,6 +501,11 @@ export default function SocialConnectDialog({
     const payload: Record<string, string | boolean> = { provider, clientId: clientId.trim() };
     if (clientSecret.trim()) payload.clientSecret = clientSecret.trim();
     if (provider === 'linkedin') payload.orgEnabled = orgEnabled;
+    if (provider === 'instagram') {
+      payload.commentsEnabled = commentsEnabled;
+      payload.dmEnabled = dmEnabled;
+    }
+    if (provider === 'x') payload.dmEnabled = dmEnabled;
     const res = await window.electron.invoke('social:providers:set-config', payload);
     setSaving(false);
     if (!res?.success) {
@@ -546,6 +556,12 @@ export default function SocialConnectDialog({
       .catch(() => {});
   };
 
+  const persistMessagingFlags = (patch: { commentsEnabled?: boolean; dmEnabled?: boolean }) => {
+    window.electron
+      .invoke('social:providers:set-config', { provider, ...patch })
+      .catch(() => {});
+  };
+
   const credentialsReady = isCredentialsReady(status, clientId, clientSecret);
   const showRedirect = stepId === 'configure';
   const showCredentialInputs = stepId === 'credentials';
@@ -578,6 +594,22 @@ export default function SocialConnectDialog({
                 orgEnabled={orgEnabled}
                 onOrgEnabledChange={handleOrgEnabledChange}
               />
+              {showRedirect ? (
+                <SocialMessagingFlags
+                  provider={provider}
+                  commentsEnabled={commentsEnabled}
+                  dmEnabled={dmEnabled}
+                  compact
+                  onCommentsChange={(next) => {
+                    setCommentsEnabled(next);
+                    persistMessagingFlags({ commentsEnabled: next });
+                  }}
+                  onDmChange={(next) => {
+                    setDmEnabled(next);
+                    persistMessagingFlags({ dmEnabled: next });
+                  }}
+                />
+              ) : null}
               <WizardRedirectBlock
                 showRedirect={showRedirect}
                 redirectUri={status.redirectUri}

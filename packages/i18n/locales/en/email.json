@@ -11,6 +11,8 @@
   "sync_badge_syncing": "Syncing",
   "sync_badge_error": "Sync error",
   "compose": "Compose",
+  "account_label": "Account",
+  "unknown_account": "Unknown account",
   "agent_subtitle": "What needs your attention · sync when you want",
   "agent_subtitle_synced": "Last sync {{time}} · what needs your attention",
   "agent_search": "Search · from: · subject:…",

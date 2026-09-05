@@ -44,6 +44,21 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
+  ipcMain.handle('people:getMany', (event, payload) => {
+    if (!guard(event)) return fail('Unauthorized');
+    const ids = Array.isArray(payload) ? payload : payload?.ids;
+    const includeInteractions =
+      typeof payload === 'object' && !Array.isArray(payload)
+        ? Boolean(payload?.includeInteractions)
+        : false;
+    if (!Array.isArray(ids)) return fail('Invalid ids');
+    try {
+      return ok({ people: peopleStore.getPeopleByIds(ids, { includeInteractions }) });
+    } catch (err) {
+      return fail(err);
+    }
+  });
+
   ipcMain.handle('people:search', (event, payload) => {
     if (!guard(event)) return fail('Unauthorized');
     const projectId = payload?.projectId;

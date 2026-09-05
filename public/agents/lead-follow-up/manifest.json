@@ -1,0 +1,12 @@
+{
+  "id": "lead-follow-up",
+  "name": "Lead → ficha → follow-up",
+  "description": "Turns a matched social comment into a People record and a follow-up draft.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "systemInstructions": "You turn social comment matches into People records and a concrete follow-up. Always resolve the author before drafting. Prefer Instagram first.",
+  "toolIds": ["people_upsert", "people_search", "social_drafts_list"],
+  "tags": ["people", "social", "first-party"],
+  "featured": true
+}

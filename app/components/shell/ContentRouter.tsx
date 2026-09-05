@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import ListState from '@/components/shared/ListState';
 import { useTabStore, HOME_TAB_ID, type DomeTab } from '@/lib/store/useTabStore';
+import { getResourceTabType, TAB_REGISTRY } from '@/lib/tabs/tabRegistry';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -171,23 +172,6 @@ function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () =>
   return <ManyPanelComp width={0} onClose={onClose} isVisible isFullscreen />;
 }
 
-function getResourceTabType(resourceType: string): DomeTab['type'] {
-  const typeMap: Record<string, DomeTab['type']> = {
-    note: 'note',
-    notebook: 'notebook',
-    url: 'url',
-    youtube: 'youtube',
-    docx: 'docx',
-    ppt: 'ppt',
-    document: 'resource',
-    pdf: 'resource',
-    image: 'resource',
-    audio: 'resource',
-    video: 'resource',
-    excel: 'resource',
-  };
-  return typeMap[resourceType] ?? 'resource';
-}
 
 /**
  * Renders a tab body that requires a `resourceId`, falling back to
@@ -205,6 +189,10 @@ function renderWithResource(
 
 function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMode?: boolean }) {
   const closeTab = useTabStore((s) => s.closeTab);
+  const config = TAB_REGISTRY[tab.type];
+  if (config.needsResourceId && !tab.resourceId && tab.type !== 'chat') {
+    return <NoResource />;
+  }
 
   switch (tab.type) {
     case 'home':

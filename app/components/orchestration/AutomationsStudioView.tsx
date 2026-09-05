@@ -52,13 +52,12 @@ import { getDateTimeLocaleTag } from '@/lib/i18n';
 import AutomationEditor from './AutomationEditor';
 import { EMPTY_DRAFT, formatHubDate, type DraftState } from '@/components/hub/automations/automationsShared';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search01Icon } from '@hugeicons/core-free-icons';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { askStudioMany } from '@/components/studio-hub';
-import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
-import { HubHeader, HubPageHeader } from '@/components/hub';
+import { type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
+import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -546,35 +545,30 @@ export default function AutomationsStudioView() {
             </>
           }
         />
-        <DomainStatChips stats={stats} />
+        <HubMetricGrid chips={stats} />
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
-            <InputGroup className="h-8 max-w-xl">
-              <InputGroupAddon>
-                <HugeiconsIcon icon={Search01Icon} aria-hidden />
-              </InputGroupAddon>
-              <InputGroupInput
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t('automation.search_automations')}
-                aria-label={t('automation.search_automations')}
-              />
-            </InputGroup>
-            <Tabs
-              value={filter.targetType}
-              onValueChange={(value) => {
-                if (value) setFilter({ targetType: value as StoredFilter['targetType'] });
+            <HubSearch
+              className="h-8 max-w-xl"
+              value={search}
+              onChange={setSearch}
+              placeholder={t('automation.search_automations')}
+              aria-label={t('automation.search_automations')}
+              clearLabel={t('command.clear_search')}
+            />
+            <ToggleGroup
+              value={[filter.targetType]}
+              onValueChange={(values) => {
+                const next = values[0];
+                if (next) setFilter({ targetType: next as StoredFilter['targetType'] });
               }}
             >
-              <TabsList variant="default">
-                {(['all', 'agent', 'workflow', 'feeder'] as const).map((value) => (
-                  <TabsTrigger key={value} value={value}>
-                    {t(`automation.filter_target_${value}`)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+              {(['all', 'agent', 'workflow', 'feeder'] as const).map((value) => (
+                <ToggleGroupItem key={value} value={value} size="sm">
+                  {t(`automation.filter_target_${value}`)}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
           {filter.targetId ? (
             <ActiveFilterBanner

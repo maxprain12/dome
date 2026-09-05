@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "dome-automation-bundle",
+  "exportedAt": 1756934400000,
+  "title": "Lead → ficha → follow-up",
+  "description": "First-party bundle: Instagram comment match creates a People record and a follow-up draft.",
+  "workflows": [],
+  "automations": [
+    {
+      "title": "Social comment → People",
+      "description": "When a social comment matches, open the inbox path.",
+      "triggerType": "contextual",
+      "enabled": true,
+      "schedule": { "contextTags": ["social_comment_matched"] },
+      "inputTemplate": { "prompt": "Triage the latest matched Instagram comment: create or attach a person, then draft a follow-up." }
+    }
+  ],
+  "agents": [],
+  "skills": [],
+  "mcpServers": []
+}

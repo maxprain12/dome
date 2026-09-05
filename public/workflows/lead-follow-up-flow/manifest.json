@@ -1,0 +1,11 @@
+{
+  "id": "lead-follow-up-flow",
+  "name": "Lead follow-up",
+  "description": "Comment match → People upsert → follow-up draft.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "nodes": [],
+  "edges": [],
+  "tags": ["people", "social", "first-party"]
+}

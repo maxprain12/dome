@@ -1,0 +1,12 @@
+{
+  "id": "doc-brief-post",
+  "name": "Doc → brief → post",
+  "description": "Reads a note or PDF and drafts a social post plus a one-page brief.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "systemInstructions": "Read the pinned resource, write a one-page brief, then draft a social post with a clear hook.",
+  "toolIds": ["resource_get", "social_post_draft"],
+  "tags": ["social", "notes", "first-party"],
+  "featured": true
+}

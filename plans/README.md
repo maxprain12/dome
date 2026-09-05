@@ -27,7 +27,7 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 015 | Harness + cableado de memoria | P0 | L | — | DONE |
 | 016 | Packs de memoria de dominio (social + email) | P0 | M | 015 | DONE |
 | 017 | Escritura de memoria por acción + relevancia | P0 | L | 015, 016 | DONE |
-| 018 | Providers: comments + DM | P0 | XL | 014, 012 | IN PROGRESS |
+| 018 | Providers: comments + DM | P0 | XL | 014, 012 | DONE |
 | 019 | Calendar event inline side panel (no overlay) | P1 | M | — | DONE |
 | 020 | Seguimiento full surface inline detail (Minimal + Developer) | P1 | L | 019 | DONE |
 | 021 | Seguimiento dashboard único (no técnico) | P1 | L | 020 | DONE |
@@ -48,6 +48,11 @@ Ejecutar en el orden de la tabla salvo que las dependencias indiquen lo contrari
 | 036 | Contacts hub (copy + directory) | P0 | M | 035 | DONE |
 | 037 | Ink accent + Contacts CRM chrome | P0 | M | 036 | DONE |
 | 038 | Socials CRM chrome (directory + ficha) | P0 | L | 037 | DONE |
+| 039 | Canonizar pins de email (`emsg` + meta) | P1 | M | 004, 007 | DONE |
+| 040 | Pins sticky del turno anterior + tab Correo en Many | P1 | M | 039 | DONE |
+| 041 | Tras pin: `email_read` + buscar Sent/hilo | P1 | M | 039, 043 | DONE |
+| 042 | Multi-cuenta: focus + resolve `emsg-` | P1 | M | 039 | DONE |
+| 043 | Sync incremental (`last_uid`) + search cache | P1 | M | 004 | DONE |
 
 ## Dependency graph
 
@@ -89,6 +94,17 @@ flowchart TD
   r017 --> r008
   r017 --> r014
   r004 --> r010
+  r039[039_canonical_email_pin]
+  r040[040_sticky_email_pins]
+  r041[041_email_thread]
+  r042[042_email_multi_account]
+  r043[043_email_sync]
+  r004 --> r039
+  r004 --> r043
+  r039 --> r040
+  r039 --> r041
+  r039 --> r042
+  r043 --> r041
 ```
 
 ## Tracks (pueden avanzar en paralelo)
@@ -101,6 +117,7 @@ flowchart TD
 | **Many + automations** | 008, 014, **018** | 014 STOP; DMs reales en 018 (comments → DM por provider) |
 | **Calendar craft** | **019** | Event detail: Dialog → DetailSheet + motion tokens |
 | **Brand design system** | **030 → 034** | Tokens → primitives → motion → app sweep → docs |
+| **Email Many (2026-09)** | **043 ∥ 039 → 040, 042; 039+043 → 041** | Pins canónicos, sticky, hilo/Sent, multi-cuenta, sync |
 
 ## Decisiones de producto globales
 
@@ -109,6 +126,15 @@ flowchart TD
 - **UI:** patrones Settings/Many actuales (Codex-like); no copiar copy de ChatGPT.
 - **People:** identidades internas ligadas a `project_id` / vault; no CRM externo.
 - **Automations `#hashtag`→DM:** 014 = draft_only + matrix; **018** = adapters comments/DM por provider + poller live cuando caps lo permitan.
+
+## Findings considered and rejected (improve 2026-09-04)
+
+- **blob-sync `UND_ERR_SOCKET`**: red/vault; el JSONL del hilo sube con otro hash. No es el fallo de Many/correo.
+- **`lastRaw is not defined`**: ya corregido en working tree (`prepareRunDomeInputs` + persist antes del prompt). No reabrir.
+- **Bypass `agent_actions` en workflows**: real, fuera del corte `all_high`.
+- **Forward UI (plan 010)**: drift de producto, no el cuello Many↔correo.
+- **Auto-pin del mensaje abierto en Correo**: dirección; 040 solo rehidrata el último pin explícito.
+- **Tool `email_thread` nuevo**: diferido; 041 es prompt + Sent search.
 
 ## Cómo ejecutar un plan
 

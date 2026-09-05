@@ -61,6 +61,67 @@ export function formatEmailPinLabel(subject: string | null | undefined): string 
   return truncatePinLabel(subject || 'Email', MAX_GENERIC) || 'Email';
 }
 
+function optionalMetaString(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  const text = String(value).trim();
+  return text || undefined;
+}
+
+export function toEmailPin(input: {
+  title: string;
+  uid?: string | number | null;
+  dbId?: string | null;
+  folder?: string | null;
+  accountId?: string | null;
+}): PinnedResource {
+  const uid = optionalMetaString(input.uid);
+  const dbId =
+    typeof input.dbId === 'string' && input.dbId.startsWith('emsg-') ? input.dbId : undefined;
+  const folder = optionalMetaString(input.folder);
+  const accountId = optionalMetaString(input.accountId);
+  const id = dbId || uid || 'email-unknown';
+  const meta: Record<string, unknown> = {};
+  if (uid) meta.uid = uid;
+  if (folder) meta.folder = folder;
+  if (accountId) meta.accountId = accountId;
+  if (dbId) meta.dbId = dbId;
+  return {
+    id,
+    title: formatEmailPinLabel(input.title),
+    type: 'email',
+    kind: 'email',
+    meta: Object.keys(meta).length > 0 ? meta : null,
+  };
+}
+
+function emailFolderKey(meta: Record<string, unknown> | null | undefined): string {
+  const folder = optionalMetaString(meta?.folder);
+  return folder || 'INBOX';
+}
+
+export function emailPinsMatch(
+  a: Pick<PinnedResource, 'id' | 'kind' | 'type' | 'meta'>,
+  b: Pick<PinnedResource, 'id' | 'kind' | 'type' | 'meta'>,
+): boolean {
+  const aEmail = a.kind === 'email' || a.type === 'email';
+  const bEmail = b.kind === 'email' || b.type === 'email';
+  if (!aEmail || !bEmail) return false;
+  if (a.id && a.id === b.id) return true;
+  const aMeta = a.meta ?? {};
+  const bMeta = b.meta ?? {};
+  const aDb = optionalMetaString(aMeta.dbId);
+  const bDb = optionalMetaString(bMeta.dbId);
+  if (aDb && bDb && aDb === bDb) return true;
+  const aUid = optionalMetaString(aMeta.uid);
+  const bUid = optionalMetaString(bMeta.uid);
+  const aAccount = optionalMetaString(aMeta.accountId);
+  const bAccount = optionalMetaString(bMeta.accountId);
+  if (aUid && bUid && aUid === bUid && aAccount && bAccount && aAccount === bAccount) {
+    return emailFolderKey(aMeta) === emailFolderKey(bMeta);
+  }
+  return false;
+}
+
 export function formatIssuePinLabel(title: string | null | undefined): string {
   return truncatePinLabel(title || 'Issue', MAX_GENERIC) || 'Issue';
 }

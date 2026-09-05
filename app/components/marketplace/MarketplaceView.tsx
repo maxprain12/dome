@@ -145,7 +145,7 @@ function MarketplaceHeader({
 
   const subtitle = initialLoading
     ? t('marketplace.loading')
-    : t('marketplace.subtitle_count', { count: catalogCount });
+    : `${t('marketplace.subtitle_count', { count: catalogCount })} · ${t('marketplace.first_party_note')}`;
 
   const refreshLabel = t('marketplace.refresh');
   const spinnerNode = <Spinner data-icon="inline-start" />;
@@ -219,13 +219,12 @@ function InstalledStripSection({
         {items.map((item) => {
           const clickable = item.type === 'agents' || item.type === 'workflows';
           return (
-            <button
+            <Button
               key={`installed-${item.type}-${item.id}`}
               type="button"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs',
-                clickable && 'hover:bg-accent',
-              )}
+              size="xs"
+              variant="outline"
+              className="rounded-full"
               onClick={() => onItemClick(item)}
               disabled={!clickable}
               title={item.name}
@@ -235,7 +234,7 @@ function InstalledStripSection({
                 className="size-3.5 text-muted-foreground"
               />
               <span className="max-w-[10rem] truncate">{item.name}</span>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -266,48 +265,40 @@ function ComplementFilterBar({
   const showCategoryBar = availableCategories.length > 0;
 
   return (
-    <div className="mb-4 flex flex-wrap gap-2">
-      {options.map((option) => (
-        <Button
-          key={option.value}
-          type="button"
-          size="xs"
-          variant={filterType === option.value ? 'default' : 'outline'}
-          className="rounded-full text-xs"
-          onClick={() => {
-            setFilterType(option.value);
-            setFilterCategory('all');
+    <div className="mb-4 flex flex-wrap items-center gap-3">
+      <ToggleGroup
+        value={[filterType]}
+        onValueChange={(values) => {
+          const next = values[0] as FilterType | undefined;
+          if (!next) return;
+          setFilterType(next);
+          setFilterCategory('all');
+        }}
+      >
+        {options.map((option) => (
+          <ToggleGroupItem key={option.value} value={option.value} size="sm">
+            {option.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {showCategoryBar ? (
+        <ToggleGroup
+          value={[filterCategory]}
+          onValueChange={(values) => {
+            const next = values[0];
+            if (next) setFilterCategoryDirect(next);
           }}
         >
-          {option.label}
-        </Button>
-      ))}
-      {showCategoryBar && (
-        <>
-          <span className="mx-1 self-center text-xs text-muted-foreground">·</span>
-          <Button
-            type="button"
-            size="xs"
-            variant={filterCategory === 'all' ? 'secondary' : 'outline'}
-            className="rounded-full text-xs"
-            onClick={() => setFilterCategoryDirect('all')}
-          >
+          <ToggleGroupItem value="all" size="sm">
             {t('marketplace.category_all')}
-          </Button>
+          </ToggleGroupItem>
           {availableCategories.map((cat) => (
-            <Button
-              key={cat}
-              type="button"
-              size="xs"
-              variant={filterCategory === cat ? 'secondary' : 'outline'}
-              className="rounded-full text-xs"
-              onClick={() => setFilterCategoryDirect(cat)}
-            >
+            <ToggleGroupItem key={cat} value={cat} size="sm">
               {categoryLabel(cat)}
-            </Button>
+            </ToggleGroupItem>
           ))}
-        </>
-      )}
+        </ToggleGroup>
+      ) : null}
     </div>
   );
 }

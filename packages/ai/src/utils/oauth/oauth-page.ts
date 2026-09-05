@@ -84,9 +84,7 @@ function renderPage(options: {
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background:
-        radial-gradient(ellipse 90% 60% at 50% -10%, #DDE9B2 0%, transparent 55%),
-        var(--bg);
+      background: var(--bg);
       color: var(--ink);
       font-family: var(--font);
       text-align: center;

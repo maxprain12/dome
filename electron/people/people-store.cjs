@@ -217,6 +217,20 @@ function getPerson(id, { includeInteractions = false } = {}) {
   );
 }
 
+function getPeopleByIds(ids, { includeInteractions = false } = {}) {
+  const unique = [...new Set((Array.isArray(ids) ? ids : []).filter((id) => typeof id === 'string' && id))];
+  if (unique.length === 0) return [];
+  const placeholders = unique.map(() => '?').join(',');
+  const rows = db().prepare(`SELECT * FROM people WHERE id IN (${placeholders})`).all(...unique);
+  return rows.map((row) =>
+    mapPerson(
+      row,
+      loadIdentities(row.id),
+      includeInteractions ? loadInteractions(row.id) : null,
+    ),
+  );
+}
+
 function listPeople(projectId, { limit = 200, leadStatus } = {}) {
   const pid = normalizeProjectId(projectId);
   const cap = Math.min(Math.max(Number(limit) || 200, 1), 500);
@@ -975,6 +989,7 @@ module.exports = {
   BUILTIN_LEAD_STATUSES,
   normalizePersonStatus,
   getPerson,
+  getPeopleByIds,
   listPeople,
   upsertPerson,
   updateProfile,

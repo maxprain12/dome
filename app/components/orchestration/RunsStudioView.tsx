@@ -30,7 +30,8 @@ import { formatHubDate } from '@/components/hub/runs/runPresentation';
 import RunDetailView from './RunDetailView';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { askStudioMany } from '@/components/studio-hub';
-import { DomainStatChips, type DomainStat } from '@/components/shared/DomainStatChips';
+import { type DomainStat } from '@/components/shared/DomainStatChips';
+import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
 import { HubHeader, HubPageHeader } from '@/components/hub';
 import { HubSearch } from '@/components/hub/HubSearch';
 import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
@@ -513,7 +514,7 @@ export default function RunsStudioView() {
           onChange={setQuery}
           placeholder={t('orchestration.runs_search')}
         />
-        <DomainStatChips stats={stats} />
+        <HubMetricGrid chips={stats} />
         <ToggleGroup
           value={[statusFilter]}
           onValueChange={(values) => values[0] && setStatusFilter(values[0] as StatusFilter)}

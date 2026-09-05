@@ -41,20 +41,22 @@ function parseScopes(scopesRaw) {
 /**
  * @param {{ provider: string, scopes?: string|null }} account
  * @param {'listComments'|'sendDm'} capability
+ * @param {{ commentsEnabled?: boolean, dmEnabled?: boolean }} [flags]
  */
-function accountSupports(account, capability) {
+function accountSupports(account, capability, flags) {
   const provider = account?.provider;
   const caps = SOCIAL_PROVIDER_CAPABILITIES[provider];
   if (!caps || !caps[capability]) return false;
+  if (capability === 'listComments' && flags?.commentsEnabled === false) return false;
+  if (capability === 'sendDm' && flags?.dmEnabled === false) return false;
   const hints = SCOPE_HINTS[provider]?.[capability] || [];
   if (hints.length === 0) return true;
   const have = parseScopes(account.scopes);
-  // Manual IG tokens often store scopes=null — allow if matrix says true
-  // (user pasted a token that may already include permissions).
-  if (have.size === 0 && provider === 'instagram') return true;
-  // listComments is best-effort: allow the attempt when any IG business scope
-  // is present (older reconnects may omit manage_comments in the stored string
-  // while the token still works, or Graph will reject clearly).
+  // Manual IG tokens often store scopes=null — listComments can still be tried
+  // (Graph rejects clearly). sendDm requires an explicit messaging scope.
+  if (have.size === 0 && provider === 'instagram' && capability === 'listComments') {
+    return true;
+  }
   if (
     capability === 'listComments'
     && provider === 'instagram'

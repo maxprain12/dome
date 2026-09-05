@@ -60,6 +60,16 @@ function createSocialService(database, windowManager) {
     return mod;
   }
 
+  function messagingFlags(provider) {
+    if (provider === 'linkedin') {
+      return { commentsEnabled: store.getLinkedInOrgEnabled() };
+    }
+    return {
+      commentsEnabled: store.getMessagingCommentsEnabled(provider),
+      dmEnabled: store.getMessagingDmEnabled(provider),
+    };
+  }
+
   // ── Connections ──────────────────────────────────────────────────────────
 
   async function connectOAuth(provider) {
@@ -486,9 +496,15 @@ function createSocialService(database, windowManager) {
     });
     if (externalCommentId) store.markCommentSeen(externalCommentId);
     broadcast('social:drafts-updated', { id: draft.id });
+    try {
+      const runEngine = require('../agents/run-engine.cjs');
+      void runEngine.fireContextualAutomations('social_comment_matched');
+    } catch {
+      /* run-engine may not be initialized in isolated tests */
+    }
 
     const account = accountId ? store.serializeAccount(store.getAccount(accountId)) : null;
-    const canLive = mode === 'live' && account && accountSupports(account, 'sendDm');
+    const canLive = mode === 'live' && account && accountSupports(account, 'sendDm', messagingFlags(account.provider));
     if (canLive) {
       try {
         const sent = await sendReplyDraft(draft.id);
@@ -519,7 +535,7 @@ function createSocialService(database, windowManager) {
     return {
       matched: true,
       draft,
-      liveDmAvailable: Boolean(account && accountSupports(account, 'sendDm')),
+      liveDmAvailable: Boolean(account && accountSupports(account, 'sendDm', messagingFlags(account.provider))),
       mode: canLive ? 'live' : 'draft_only',
       sent: false,
     };
@@ -533,7 +549,7 @@ function createSocialService(database, windowManager) {
     }
     const account = store.serializeAccount(store.getAccount(draft.accountId));
     if (!account) throw new Error('Draft has no account');
-    if (!accountSupports(account, 'sendDm')) {
+    if (!accountSupports(account, 'sendDm', messagingFlags(account.provider))) {
       throw new Error(`Account ${account.provider} does not support sendDm with current scopes — reconnect in Settings.`);
     }
     const mod = PROVIDER_MODULES[account.provider];
@@ -646,7 +662,7 @@ function createSocialService(database, windowManager) {
         if (!post.accountId || !post.externalPostId) continue;
         const account = store.serializeAccount(store.getAccount(post.accountId));
         if (!account || account.status !== 'active') continue;
-        if (!accountSupports(account, 'listComments')) continue;
+        if (!accountSupports(account, 'listComments', messagingFlags(account.provider))) continue;
         const mod = PROVIDER_MODULES[account.provider];
         if (typeof mod.listComments !== 'function') continue;
 

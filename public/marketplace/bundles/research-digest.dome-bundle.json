@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "dome-automation-bundle",
+  "exportedAt": 1756934400000,
+  "title": "Research digest semanal",
+  "description": "First-party bundle: weekly digest of new library resources.",
+  "workflows": [],
+  "automations": [
+    {
+      "title": "Weekly research digest",
+      "description": "Summarize new resources into a digest note.",
+      "triggerType": "contextual",
+      "enabled": true,
+      "schedule": { "contextTags": ["resource_added"] },
+      "inputTemplate": { "prompt": "A new resource was added. Update the weekly research digest note." }
+    }
+  ],
+  "agents": [],
+  "skills": [],
+  "mcpServers": []
+}

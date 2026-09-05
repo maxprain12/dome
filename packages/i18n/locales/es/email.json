@@ -11,6 +11,8 @@
   "sync_badge_syncing": "Sincronizando",
   "sync_badge_error": "Error de sync",
   "compose": "Redactar",
+  "account_label": "Cuenta",
+  "unknown_account": "Cuenta desconocida",
   "agent_subtitle": "Lo que necesita tu atención · sincroniza cuando quieras",
   "agent_subtitle_synced": "Última sync {{time}} · lo que necesita tu atención",
   "agent_search": "Buscar · from: · subject:…",

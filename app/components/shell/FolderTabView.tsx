@@ -33,6 +33,7 @@ import {
   type FolderViewMode,
   type ProjectTag,
   readFolderViewMode,
+  indexResourcesByParent,
   partitionFolderChildren,
   buildResourceMapForSelection,
   buildFolderListItems,
@@ -123,9 +124,10 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [folderId, folderResource],
   );
 
+  const resourceIndex = useMemo(() => indexResourcesByParent(allResources), [allResources]);
   const { subfolders, files } = useMemo(
-    () => partitionFolderChildren(allResources, viewCtx, folderId),
-    [allResources, viewCtx, folderId],
+    () => partitionFolderChildren(allResources, viewCtx, folderId, resourceIndex),
+    [allResources, resourceIndex, viewCtx, folderId],
   );
 
   const currentFolder = viewCtx.isProjectRoot ? undefined : folderResource;

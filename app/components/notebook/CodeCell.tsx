@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
 import { typesetDocsClass } from '@/lib/typeset';
+import { sanitizeUntrustedHtml } from '@/lib/sanitize/untrustedHtml';
 import CodeCellEditor from './CodeCellEditor';
 import type { NotebookCodeCell, NotebookOutput } from '@/types';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
@@ -69,7 +70,7 @@ function renderNotebookOutput(output: NotebookOutput) {
     if (imageSvg) {
       const svg = typeof imageSvg === 'string' ? imageSvg : (Array.isArray(imageSvg) ? imageSvg[0] : '') ?? '';
       return (
-        <div className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div className="p-2" dangerouslySetInnerHTML={{ __html: sanitizeUntrustedHtml(svg) }} />
       );
     }
     if (textHtml) {
@@ -77,7 +78,7 @@ function renderNotebookOutput(output: NotebookOutput) {
       return (
         <div
           className={typesetDocsClass('min-h-[400px] overflow-auto p-2 break-words')}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeUntrustedHtml(html) }}
         />
       );
     }

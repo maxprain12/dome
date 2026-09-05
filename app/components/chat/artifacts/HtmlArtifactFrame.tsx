@@ -17,6 +17,7 @@ import {
   buildArtifactNavigateBootScript,
   DOME_ARTIFACT_MSG,
   handleArtifactNavigateMessage,
+  isTrustedArtifactMessageOrigin,
   openArtifactExternalUrl,
 } from '@/lib/chat/artifactIframeNavigate';
 import './html-artifact-frame.css';
@@ -150,6 +151,7 @@ export default function HtmlArtifactFrame({
       return;
     }
     if (ev.source !== iframeRef.current?.contentWindow) return;
+    if (!isTrustedArtifactMessageOrigin(ev.origin)) return;
     const d = ev.data;
     if (!d || d.type !== DOME_ARTIFACT) return;
     if (d.kind === 'ready') {

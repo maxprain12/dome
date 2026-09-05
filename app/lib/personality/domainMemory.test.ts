@@ -6,6 +6,10 @@ describe('resolveMemoryDomains', () => {
     expect(resolveMemoryDomains({ shellTabType: 'social' })).toEqual(['social']);
   });
 
+  it('includes email from shell tab', () => {
+    expect(resolveMemoryDomains({ shellTabType: 'email' })).toEqual(['email']);
+  });
+
   it('includes email from tool names without social tab', () => {
     expect(resolveMemoryDomains({ toolNames: ['email_list', 'email_send'] })).toEqual(['email']);
   });

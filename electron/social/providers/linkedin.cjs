@@ -504,14 +504,16 @@ async function listComments(store, { accountId, externalPostId, cursor } = {}) {
       el?.commentary?.text ||
       el?.message ||
       '';
+    const id = el?.id || el?.$URN || null;
+    if (!id) return null;
     return normalizeComment({
-      id: el?.id || el?.$URN || `${externalPostId}:${el?.created?.time || Math.random()}`,
+      id,
       text: typeof text === 'string' ? text : String(text || ''),
       authorName: null,
       authorExternalId: typeof actor === 'string' ? actor : actor?.id || null,
       createdAt: el?.created?.time || el?.lastModified?.time || null,
     });
-  });
+  }).filter(Boolean);
   const nextStart = data?.paging?.start != null && data?.paging?.count != null
     ? data.paging.start + data.paging.count
     : undefined;
@@ -547,8 +549,12 @@ async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
         sender: senderUrn,
       },
     });
-    const externalMessageId =
-      result?.id || result?._headers?.['x-restli-id'] || `li-msg-${Date.now()}`;
+    const externalMessageId = result?.id || result?._headers?.['x-restli-id'] || null;
+    if (!externalMessageId) {
+      throw new Error(
+        'LinkedIn DM response missing message id — messaging usually needs partner access.',
+      );
+    }
     return { externalMessageId: String(externalMessageId) };
   } catch (err) {
     console.warn('[Social][LI] rest/messages failed, trying legacy mailbox:', err.message);

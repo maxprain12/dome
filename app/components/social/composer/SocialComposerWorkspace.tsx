@@ -548,7 +548,7 @@ export function SocialComposerWorkspace({
 
 function PostPreview({ provider, account, body, media, linkUrl }: { provider: SocialProvider; account?: SocialAccount; body: string; media: SocialMediaItem[]; linkUrl: string }) {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">

@@ -86,6 +86,15 @@ export function getUiLocationDescription(
       description: `User has this top-level Dome tab focused (${shellTabType}); use matching ui targets like tab-${shellTabType} when pointing`,
     };
   }
+  if (shellTabType === 'email') {
+    return { location: 'Email', description: 'triaging the inbox or reading a message in the Email tab' };
+  }
+  if (shellTabType === 'github') {
+    return { location: 'GitHub', description: 'reviewing repos, issues, or milestones in the GitHub tab' };
+  }
+  if (shellTabType === 'social') {
+    return { location: 'Social', description: 'managing social accounts, posts, or campaigns in the Social tab' };
+  }
   if (pathname === '/' || pathname === '/home') {
     return describeHomeSection(homeSidebarSection);
   }
@@ -120,7 +129,9 @@ export function buildSharedUiContextBlock(context: SharedAgentContext): string {
     lines.push('- Active shell tab: Projects (project management, not the Home library)');
   } else if (
     context.shellTabType &&
-    ['agents', 'workflows', 'automations', 'runs', 'home'].includes(context.shellTabType)
+    ['agents', 'workflows', 'automations', 'runs', 'home', 'email', 'github', 'social'].includes(
+      context.shellTabType,
+    )
   ) {
     lines.push(
       `- Active shell tab: ${context.shellTabType} → point with data-ui-target "tab-${context.shellTabType}" when that top tab exists`,
@@ -154,7 +165,7 @@ export function buildSharedUiContextBlock(context: SharedAgentContext): string {
 export function buildSharedResourceHint(context: SharedAgentContext): string {
   const hints: string[] = [
     'GitHub milestones, fechas de entrega, issues or Seguimiento: call github_upcoming_milestones (all synced repos) or github_list_repos + github_list_milestones. Requires GitHub connected and repos selected in Seguimiento — never answer from library search alone.',
-    'Email / correo / bandeja / inbox: call email_list (INBOX) or email_search, then email_read for details. Requires an IMAP account in Settings → Email — never say the tool is unavailable without calling it first.',
+    'Email / correo / bandeja / inbox: if mentioned-sources lists an email, call email_read first. For mail the user sent, search the Sent folder with the address from the pin — do not spam INBOX email_search. Requires an IMAP account in Settings → Email — never say the tool is unavailable without calling it first.',
     'Redes sociales / Instagram / LinkedIn / X / Twitter / social media: call social_accounts_list first, then social_posts_list / social_post_get (for a pinned sp-… id) and/or social_metrics_summary. Requires accounts connected in the Social tab — never answer from library search or memory alone. If mentioned-sources lists a social_post, call social_post_get before claiming there is no post.',
   ];
   const isNotebook = context.pathname.includes('/workspace/notebook');

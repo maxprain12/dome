@@ -95,7 +95,8 @@ export function createEmailSearchTool(): AnyAgentTool {
   return {
     label: 'Search emails',
     name: 'email_search',
-    description: "Search the user's mailbox for messages matching a query. Use when looking for specific emails.",
+    description:
+      "Search the user's mailbox for messages matching a query. folder defaults to INBOX; when looking for outbound mail you must pass the Sent folder from email_list_folders — do not spam INBOX searches for what the user sent.",
     parameters: EmailSearchSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -119,8 +120,8 @@ export function createEmailReadTool(): AnyAgentTool {
     label: 'Read email',
     name: 'email_read',
     description:
-      'Read the full content of a single email message by its id (IMAP uid). ' +
-      'Call this when mentioned-sources lists an email or the user refers to a pinned mail. ' +
+      'Read the full content of a single email message by its id (IMAP uid or emsg-…). ' +
+      'When mentioned-sources lists an email, call email_read first before email_search. ' +
       'Pass folder from meta when available (e.g. INBOX).',
     parameters: EmailReadSchema,
     execute: async (_toolCallId, args) => {

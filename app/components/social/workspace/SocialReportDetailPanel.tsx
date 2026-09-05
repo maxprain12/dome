@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { SocialReport } from '@/components/social/socialTypes';
-import { hubFichaTitleClass } from '@/components/shared/hubChrome';
+import { HubDetailPane } from '@/components/shared/HubDetailPane';
 import { ActionIcon, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -28,20 +28,18 @@ export function SocialReportDetailPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
+    <HubDetailPane
+      icon={
         <div className="flex size-10 items-center justify-center rounded-full bg-muted">
           <HugeiconsIcon icon={BarChartIcon} />
         </div>
-        <div className="flex max-w-full flex-col items-center gap-1 text-center">
-          <div className="flex max-w-full items-center gap-2">
-            <h2 className={hubFichaTitleClass}>{title}</h2>
-            <Badge variant="outline">{t(`social.studio.status.${report.status}`)}</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {new Date(report.createdAt).toLocaleDateString()}
-          </p>
-        </div>
+      }
+      title={title}
+      badge={<Badge variant="outline">{t(`social.studio.status.${report.status}`)}</Badge>}
+      subtitle={
+        <p className="text-xs text-muted-foreground">{new Date(report.createdAt).toLocaleDateString()}</p>
+      }
+      toolbar={
         <div className="flex items-center gap-1.5">
           <ActionIcon
             label={t('social.agent_ask_many')}
@@ -58,7 +56,8 @@ export function SocialReportDetailPanel({
             onClick={() => useTabStore.getState().openPeopleTab()}
           />
         </div>
-      </div>
+      }
+    >
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-3">
           {kpi && kpi.length > 0 ? (
@@ -83,6 +82,6 @@ export function SocialReportDetailPanel({
           </SectionCard>
         </div>
       </ScrollArea>
-    </div>
+    </HubDetailPane>
   );
 }

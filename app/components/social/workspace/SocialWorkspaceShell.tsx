@@ -10,6 +10,7 @@ import { filterPostsByAccount, filterPostsByQuery } from '@/lib/social/socialQue
 import ListState from '@/components/shared/ListState';
 import { CampaignCreateModal } from './CampaignCreateModal';
 import { SocialOverviewDashboard } from './SocialOverviewDashboard';
+import { SocialInboxHub } from './SocialInboxHub';
 import { contentFilterItems, SocialCampaignsHub, SocialContentHub } from './SocialListHubs';
 import { SocialStudioNav } from './SocialStudioNav';
 import type { SocialContentFilter, SocialEditor, SocialSection, SocialSelection } from './socialWorkspaceTypes';
@@ -71,7 +72,7 @@ export function SocialWorkspaceShell() {
   const selectedCampaign = selection.kind === 'campaign' ? selection.campaign : null;
 
   return (
-    <div className="social-studio @container/social-studio flex h-full min-h-0 flex-col overflow-hidden bg-card text-foreground">
+    <div className="social-studio @container/social-studio flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <SocialStudioNav
         section={section}
         onNavigate={navigate}
@@ -126,6 +127,10 @@ export function SocialWorkspaceShell() {
             onEditEvent={(card) => setEditor({ kind: 'event', card })}
             onNavigate={navigate}
             accountId={selectedAccountId}
+            replyDrafts={workspace.replyDrafts}
+            onInboxChanged={() => {
+              workspace.load().catch(() => {});
+            }}
           />
         )}
       </div>
@@ -166,6 +171,8 @@ function SectionBody({
   onEditEvent,
   onNavigate,
   accountId,
+  replyDrafts,
+  onInboxChanged,
 }: {
   section: SocialSection;
   filteredPosts: SocialPost[];
@@ -190,6 +197,8 @@ function SectionBody({
   onEditEvent: (card: SocialEventCard | null) => void;
   onNavigate: (section: SocialSection, selection?: SocialSelection) => void;
   accountId: string | null;
+  replyDrafts: ReturnType<typeof useSocialWorkspace>['replyDrafts'];
+  onInboxChanged: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -250,6 +259,8 @@ function SectionBody({
           onOpenAccounts={() => onNavigate('accounts')}
         />
       );
+    case 'inbox':
+      return <SocialInboxHub drafts={replyDrafts} onChanged={onInboxChanged} />;
     case 'accounts':
       return <SocialAccountsManager embedded />;
     default: {

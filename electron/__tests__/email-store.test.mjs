@@ -123,6 +123,14 @@ describe('email-store', () => {
     const byUid = emailStore.resolveMessageRef('99', { accountId: 'acc-1', folder: 'INBOX' });
     assert.equal(byUid.uid, '99');
     assert.equal(emailStore.resolveMessageRef('emsg-deadbeef'), null);
+
+    const matched = emailStore.resolveMessageRef(dbId, { accountId: 'acc-1' });
+    assert.equal(matched.uid, '99');
+    assert.equal(matched.accountId, 'acc-1');
+    assert.equal(emailStore.resolveMessageRef(dbId, { accountId: 'acc-other' }), null);
+    const loose = emailStore.resolveMessageRef(dbId, { accountId: null });
+    assert.equal(loose.uid, '99');
+    assert.equal(loose.accountId, 'acc-1');
   });
 
   it('extractAddressesFromEnvelope pulls from/to/cc', () => {
@@ -161,5 +169,23 @@ describe('email-store', () => {
       from: [{ name: 'Ada', email: 'ada@x.com' }],
     });
     assert.equal(live.from.addr, 'ada@x.com');
+  });
+
+  it('normalizeEnvelope rejects RFC Message-ID used as IMAP uid', () => {
+    assert.equal(emailStore.normalizeEnvelope({ id: '<rfc-message-id@x>', subject: 'Nope' }), null);
+  });
+
+  it('maxImapUid keeps the numeric maximum', () => {
+    assert.equal(emailStore.maxImapUid([{ id: '2' }, { id: '10' }, { id: '<rfc@x>' }]), '10');
+    assert.equal(emailStore.maxImapUid([]), null);
+  });
+
+  it('normalizeEnvelope with ctx sets dbId and accountId', () => {
+    const live = emailStore.normalizeEnvelope(
+      { id: '9', subject: 'Live', from: [{ name: 'Ada', email: 'ada@x.com' }] },
+      { accountId: 'acc-1', folder: 'INBOX' },
+    );
+    assert.ok(live.dbId && String(live.dbId).startsWith('emsg-'));
+    assert.equal(live.accountId, 'acc-1');
   });
 });

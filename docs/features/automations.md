@@ -280,7 +280,7 @@ Regla objetivo: comentario con hashtag (p. ej. `#Curso`) → DM con enlace.
 
 **STOP condition aplicada (014):** se envió draft_only + matrix sin adapters.
 
-**Estado 018:** adapters `listComments` + `sendDm` implementados para Instagram, LinkedIn y X; poller cada 5 min; mode default `live` + cold DM. El envío real sigue dependiendo de productos/App Review/tier de cada red — si la API rechaza, el draft queda en `failed` (nunca se finge éxito).
+**Estado 018:** adapters `listComments` + `sendDm` implementados para Instagram, LinkedIn y X; poller cada 5 min; mode default `live` + cold DM. Los scopes extra son **opt-in** (Settings → Social: comentarios/mensajes IG, DM de X; Community Management en LinkedIn) y exigen reconnect. El envío real sigue dependiendo de productos/App Review/tier — si la API rechaza o no hay `externalMessageId`, el draft queda en `failed` (nunca se finge un id). LinkedIn member DM no es self-serve.
 
 | Provider | Listar comentarios | Enviar DM | Contadores | Scopes / notas |
 |----------|-------------------|-----------|------------|----------------|

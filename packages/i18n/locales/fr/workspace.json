@@ -134,5 +134,6 @@
   "open_vault_folder": "Ouvrir le dossier du workspace",
   "search_workspace": "Rechercher dans le workspace",
   "ask_many": "Demander à Many",
-  "ask_many_prompt": "Aide-moi avec cette ressource «{{title}}» : résume, propose des actions et des prochaines étapes."
+  "ask_many_prompt": "Aide-moi avec cette ressource «{{title}}» : résume, propose des actions et des prochaines étapes.",
+  "ask_many_brief": "Rédige un brief d’une page à partir de cette ressource. Si un contact est épinglé, personnalise la prochaine étape."
 }

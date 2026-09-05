@@ -1,0 +1,12 @@
+{
+  "id": "research-digest",
+  "name": "Research digest semanal",
+  "description": "Summarizes new library resources into a weekly digest note.",
+  "author": "Dome",
+  "version": "1.0.0",
+  "source": "official",
+  "systemInstructions": "Scan recent library resources and write a weekly digest note with 5 takeaways and 3 follow-ups.",
+  "toolIds": ["resource_search", "resource_create"],
+  "tags": ["library", "notes", "first-party"],
+  "featured": true
+}
