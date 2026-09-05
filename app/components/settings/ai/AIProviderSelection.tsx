@@ -11,7 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
+import { isLocalChatProvider, PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
 import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
@@ -206,8 +206,9 @@ export default function AIProviderSelection({
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
   const cloudOptions = AI_PROVIDER_OPTIONS.filter(
-    (option) => option.value !== 'dome' && option.value !== 'ollama',
+    (option) => option.value !== 'dome' && !isLocalChatProvider(option.value),
   );
+  const localOptions = AI_PROVIDER_OPTIONS.filter((option) => isLocalChatProvider(option.value));
   const configured = cloudOptions.filter((option) => configuredProviders[option.value]);
   const available = cloudOptions.filter((option) => !configuredProviders[option.value]);
   const groups =
@@ -291,14 +292,22 @@ export default function AIProviderSelection({
           ) : null,
         )}
 
-        <ProviderChoice
-          value="ollama"
-          name={AI_PROVIDER_OPTIONS.find((option) => option.value === 'ollama')?.label ?? 'Ollama'}
-          description={t('settings.ai.private_local')}
-          badge={t('settings.ai.local_badge')}
-          local
-          selected={provider === 'ollama'}
-        />
+        <div className="flex flex-col gap-2">
+          <h3 className="text-xs font-medium text-muted-foreground">{t('settings.ai.providers_local')}</h3>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {localOptions.map((option) => (
+              <ProviderChoice
+                key={option.value}
+                value={option.value}
+                name={option.label}
+                description={t('settings.ai.private_local')}
+                badge={t('settings.ai.local_badge')}
+                local
+                selected={provider === option.value}
+              />
+            ))}
+          </div>
+        </div>
       </ToggleGroup>
     </section>
   );

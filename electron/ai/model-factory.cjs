@@ -26,6 +26,8 @@ const DEFAULT_MODELS = {
   qwen: 'qwen-max',
   opencode: 'claude-opus-4-8',
   'opencode-go': 'deepseek-v4-flash',
+  vllm: '',
+  lmstudio: '',
 };
 
 const DEFAULT_BASE_URLS = {
@@ -37,6 +39,8 @@ const DEFAULT_BASE_URLS = {
   'opencode-go': 'https://opencode.ai/zen/go/v1',
   'claude-oauth': 'https://api.anthropic.com',
   'openai-codex': 'https://chatgpt.com/backend-api',
+  vllm: 'http://127.0.0.1:8000/v1',
+  lmstudio: 'http://127.0.0.1:1234/v1',
 };
 
 function stripZodJsonSchemaMeta(obj) {

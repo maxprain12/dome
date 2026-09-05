@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAIConfig, findModelById, providerSupportsTools, type AIProviderType } from '@/lib/ai';
+import { fallbackContextWindow, parseContextWindow, readPersistedContextWindow } from '@/lib/ai/context-window';
 import { db } from '@/lib/db/client';
 import {
   formatPersonalityMemoryBlock,
@@ -65,7 +66,9 @@ export function useManyConversationSettings(): ManyConversationSettings {
           setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
           const modelId = config.provider === 'ollama' ? config.ollamaModel : config.model;
           const found = modelId ? findModelById(modelId) : undefined;
-          setBudgetCapApprox(found?.model.contextWindow ?? 200_000);
+          const fromCatalog = parseContextWindow(found?.model.contextWindow);
+          const persisted = await readPersistedContextWindow(String(config.provider));
+          setBudgetCapApprox(fromCatalog || persisted || fallbackContextWindow(String(config.provider)));
         } else {
           setProviderInfo(t('chat.not_configured'));
           setProviderId('');

@@ -437,6 +437,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     return buildDomeSystemPrompt({
       staticPersona: persona,
       volatileContext: volatile || undefined,
+      coreToolsMode: 'minimal',
     });
   }, [agent]);
 

@@ -8,6 +8,7 @@
 import { db } from '../db/client';
 import type { UserProfile, AppPreferences, AISettings, CitationStyle } from '@/types';
 import { normalizeHomeDashboardPreferences, serializeHomeDashboardPreferences } from './home-dashboard';
+import { pickProviderBaseUrl } from '@/lib/ai/models';
 
 // ===========================
 // User Profile Functions
@@ -242,7 +243,7 @@ export async function getAIConfig(): Promise<AISettings> {
   const perProviderBaseResult = activeProviderRaw
     ? await db.getSetting(`ai_base_url_${activeProviderRaw}`)
     : { data: null };
-  const baseUrlResult = perProviderBaseResult.data ? perProviderBaseResult : await db.getSetting('ai_base_url');
+  const sharedBaseUrlResult = await db.getSetting('ai_base_url');
   const ollamaBaseUrlResult = await db.getSetting('ollama_base_url');
   const ollamaModelResult = await db.getSetting('ollama_model');
   const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
@@ -271,7 +272,11 @@ export async function getAIConfig(): Promise<AISettings> {
     api_key: apiKeyResult.data || undefined,
     model: modelResult.data || undefined,
     embedding_model: embeddingModelResult.data || undefined,
-    base_url: baseUrlResult.data || undefined,
+    base_url: pickProviderBaseUrl(
+      String(provider || ''),
+      perProviderBaseResult.data,
+      sharedBaseUrlResult.data,
+    ),
     ollama_base_url: ollamaBaseUrlResult.data || undefined,
     ollama_model: ollamaModelResult.data || undefined,
     ollama_api_key: ollamaApiKeyResult.data || undefined,

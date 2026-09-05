@@ -19,8 +19,7 @@ import {
   saveChatModelForProvider,
 } from '@/lib/ai';
 import { openAIProviderSettings } from '@/lib/ai/open-provider-settings';
-import type { AIProviderType } from '@/lib/ai/models';
-import { PROVIDERS } from '@/lib/ai/models';
+import { isLocalOpenAICompatProvider, PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED, isProviderWithBrandLogo } from '@/lib/ai/provider-options';
 import {
   filterModelsByVisibleIds,
@@ -42,6 +41,8 @@ const DYNAMIC_FETCH_PROVIDERS: AIProviderType[] = [
   'opencode',
   'opencode-go',
   'dome',
+  'vllm',
+  'lmstudio',
 ];
 
 const CATALOG_PROVIDERS: AIProviderType[] = ['opencode', 'opencode-go'];
@@ -79,6 +80,7 @@ function canFetchDynamicModels(provider: AIProviderType, apiKey: string | undefi
   if (CATALOG_PROVIDERS.includes(provider)) return true;
   // Dome no usa API key: el main consulta el plan del usuario vía OAuth.
   if (provider === 'dome') return true;
+  if (isLocalOpenAICompatProvider(provider)) return true;
   return Boolean(apiKey);
 }
 

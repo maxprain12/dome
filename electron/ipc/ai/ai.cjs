@@ -579,7 +579,19 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         : (resolveSettingSecretForApi(queries, `ai_api_key_${provider}`, candidate)
           || readProviderApiKey(queries, provider)
           || '');
-      return await fetchProviderModels(provider, { apiKey, database });
+      const { readProviderBaseUrl } = require('../../ai/provider-keys.cjs');
+      const { DEFAULT_BASE_URLS } = require('../../ai/model-factory.cjs');
+      const baseUrl =
+        (typeof params.baseUrl === 'string' && params.baseUrl.trim()) ||
+        readProviderBaseUrl(queries, provider) ||
+        DEFAULT_BASE_URLS[provider] ||
+        '';
+      const result = await fetchProviderModels(provider, { apiKey, database, baseUrl });
+      if (result.success && Array.isArray(result.models)) {
+        const { persistIfCurrentModel } = require('../../ai/context-window.cjs');
+        persistIfCurrentModel(queries, provider, result.models);
+      }
+      return result;
     } catch (error) {
       return { success: false, error: error.message || String(error) };
     }

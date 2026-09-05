@@ -78,7 +78,50 @@ export type AIProviderType =
   | 'moonshot'
   | 'qwen'
   | 'opencode'
-  | 'opencode-go';
+  | 'opencode-go'
+  | 'vllm'
+  | 'lmstudio';
+
+export const LOCAL_OPENAI_COMPAT_PROVIDERS = ['vllm', 'lmstudio'] as const;
+export type LocalOpenAICompatProvider = (typeof LOCAL_OPENAI_COMPAT_PROVIDERS)[number];
+
+export const LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS: Record<LocalOpenAICompatProvider, string> = {
+  vllm: 'http://127.0.0.1:8000/v1',
+  lmstudio: 'http://127.0.0.1:1234/v1',
+};
+
+export function isLocalOpenAICompatProvider(
+  provider: string,
+): provider is LocalOpenAICompatProvider {
+  return provider === 'vllm' || provider === 'lmstudio';
+}
+
+export function isLocalChatProvider(provider: string): boolean {
+  return provider === 'ollama' || isLocalOpenAICompatProvider(provider);
+}
+
+export function isLoopbackBaseUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+  } catch {
+    return /localhost|127\.0\.0\.1|\[::1\]/i.test(url);
+  }
+}
+
+/** Prefer the per-provider slot; ignore a leftover localhost shared URL on cloud providers. */
+export function pickProviderBaseUrl(
+  provider: string,
+  own?: string | null,
+  legacy?: string | null,
+): string | undefined {
+  const slot = String(own || '').trim().replace(/\/$/, '');
+  if (slot) return slot;
+  const shared = String(legacy || '').trim().replace(/\/$/, '');
+  if (!shared) return undefined;
+  if (!isLocalChatProvider(provider) && isLoopbackBaseUrl(shared)) return undefined;
+  return shared;
+}
 
 // =============================================================================
 // Cost Definitions (per 1M tokens in USD)
@@ -981,6 +1024,30 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     docsUrl: 'https://opencode.ai/docs/es/go/',
     baseUrl: 'https://opencode.ai/zen/go/v1',
   },
+  vllm: {
+    id: 'vllm',
+    name: 'vLLM',
+    description: 'Servidor local OpenAI-compatible',
+    icon: 'vllm',
+    models: [],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    docsUrl: 'https://docs.vllm.ai',
+    baseUrl: LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.vllm,
+  },
+  lmstudio: {
+    id: 'lmstudio',
+    name: 'LM Studio',
+    description: 'Escritorio local OpenAI-compatible',
+    icon: 'lmstudio',
+    models: [],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    docsUrl: 'https://lmstudio.ai/docs',
+    baseUrl: LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
+  },
 };
 
 // =============================================================================
@@ -1069,6 +1136,9 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'qwen': return 'qwen-max';
     case 'opencode': return 'claude-opus-4-8';
     case 'opencode-go': return 'deepseek-v4-flash';
+    case 'vllm':
+    case 'lmstudio':
+      return '';
     default:
       return '';
   }
@@ -1152,6 +1222,8 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
     case 'qwen':
     case 'opencode':
     case 'opencode-go':
+    case 'vllm':
+    case 'lmstudio':
       return 'openai-completions';
     case 'openai-codex':
       return 'openai-codex-responses';

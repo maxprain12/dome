@@ -109,9 +109,28 @@ function assertProviderAuthReady(provider, settings = {}) {
  * @param {string | undefined} ollamaBaseUrl
  * @returns {boolean}
  */
+const LOCAL_OPENAI_COMPAT_PROVIDERS = new Set(['vllm', 'lmstudio']);
+const LOCAL_OPENAI_COMPAT_PLACEHOLDER_KEYS = {
+  vllm: 'vllm-local',
+  lmstudio: 'lmstudio-local',
+};
+
+function isLocalOpenAICompatProvider(provider) {
+  return LOCAL_OPENAI_COMPAT_PROVIDERS.has(provider);
+}
+
+function resolveLocalOpenAICompatApiKey(provider, apiKey) {
+  const trimmed = apiKey && String(apiKey).trim();
+  if (trimmed) return trimmed;
+  return LOCAL_OPENAI_COMPAT_PLACEHOLDER_KEYS[provider] || 'local-openai-compat';
+}
+
 function isProviderAvailableWithoutApiKey(provider, ollamaBaseUrl) {
   if (provider === 'ollama') {
     return !ollamaRequiresApiKey(ollamaBaseUrl);
+  }
+  if (isLocalOpenAICompatProvider(provider)) {
+    return true;
   }
   return (
     provider === 'dome' ||
@@ -129,5 +148,7 @@ module.exports = {
   assertOllamaAuthReady,
   assertProviderAuthReady,
   isProviderAvailableWithoutApiKey,
+  isLocalOpenAICompatProvider,
+  resolveLocalOpenAICompatApiKey,
   API_KEY_CHAT_PROVIDERS,
 };

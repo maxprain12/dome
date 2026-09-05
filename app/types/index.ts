@@ -410,7 +410,9 @@ export type AIProviderType =
   | 'moonshot'
   | 'qwen'
   | 'opencode'
-  | 'opencode-go';
+  | 'opencode-go'
+  | 'vllm'
+  | 'lmstudio';
 
 // Configuración de IA
 export interface AISettings {

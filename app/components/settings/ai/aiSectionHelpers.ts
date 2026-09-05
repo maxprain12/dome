@@ -1,5 +1,11 @@
 import type { AISettings } from '@/types';
-import { PROVIDERS, getDefaultModelId, type AIProviderType } from '@/lib/ai/models';
+import {
+  LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
+  PROVIDERS,
+  getDefaultModelId,
+  isLocalOpenAICompatProvider,
+  type AIProviderType,
+} from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 
@@ -29,6 +35,7 @@ export function parseLoadedAIConfig(config: AISettings): {
   ollamaBaseURL: string;
   ollamaModel: string;
   ollamaApiKey: string;
+  localCompatBaseURL: string;
 } {
   const loadedProviderBase = (config.provider as string) === 'local' ? 'ollama' : config.provider;
   const loadedProvider =
@@ -56,6 +63,9 @@ export function parseLoadedAIConfig(config: AISettings): {
     ollamaBaseURL: config.ollama_base_url || 'http://localhost:11434',
     ollamaModel: config.ollama_model || 'llama3.2',
     ollamaApiKey: config.ollama_api_key || '',
+    localCompatBaseURL: isLocalOpenAICompatProvider(provider)
+      ? config.base_url || LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider]
+      : LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
   };
 }
 
@@ -66,11 +76,13 @@ export type AISaveInput = {
   ollamaBaseURL: string;
   ollamaModel: string;
   ollamaApiKey: string;
+  localCompatBaseURL: string;
 };
 
 /** Build the Partial<AISettings> payload for saveAIConfig. */
 export function buildAISaveConfig(input: AISaveInput): Partial<AISettings> {
-  const { provider, model, apiKey, ollamaBaseURL, ollamaModel, ollamaApiKey } = input;
+  const { provider, model, apiKey, ollamaBaseURL, ollamaModel, ollamaApiKey, localCompatBaseURL } =
+    input;
   const config: Partial<AISettings> = { provider };
   switch (provider) {
     case 'dome':
@@ -88,9 +100,16 @@ export function buildAISaveConfig(input: AISaveInput): Partial<AISettings> {
       config.ollama_model = ollamaModel;
       config.ollama_api_key = ollamaApiKey;
       break;
+    case 'vllm':
+    case 'lmstudio':
+      config.api_key = apiKey;
+      config.model = model;
+      config.base_url = localCompatBaseURL || LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider];
+      break;
     case 'minimax':
       config.api_key = apiKey;
       config.model = model;
+      config.base_url = '';
       break;
     default:
       config.api_key = apiKey;
@@ -101,14 +120,32 @@ export function buildAISaveConfig(input: AISaveInput): Partial<AISettings> {
   return config;
 }
 
-/** Load a cloud provider API key from settings (masked), or empty string. */
-export async function loadCloudApiKey(provider: AIProviderType): Promise<string> {
-  if (!isCloudAIProvider(provider)) return '';
+/** Load a per-provider API key slot from settings (masked), or empty string. */
+export async function loadProviderSlotApiKey(provider: AIProviderType): Promise<string> {
   try {
     const { db } = await import('@/lib/db/client');
     const res = await db.getSetting(`ai_api_key_${provider}`);
     return res.data || '';
   } catch {
     return '';
+  }
+}
+
+/** Load a cloud provider API key from settings (masked), or empty string. */
+export async function loadCloudApiKey(provider: AIProviderType): Promise<string> {
+  if (!isCloudAIProvider(provider)) return '';
+  return loadProviderSlotApiKey(provider);
+}
+
+export async function loadLocalCompatBaseUrl(provider: AIProviderType): Promise<string> {
+  if (!isLocalOpenAICompatProvider(provider)) {
+    return LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio;
+  }
+  try {
+    const { db } = await import('@/lib/db/client');
+    const res = await db.getSetting(`ai_base_url_${provider}`);
+    return res.data?.trim() || LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider];
+  } catch {
+    return LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider];
   }
 }

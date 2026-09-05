@@ -33,6 +33,8 @@ export interface AISectionBodyProps {
   onOllamaModelChange: (value: string) => void;
   ollamaApiKey: string;
   onOllamaApiKeyChange: (value: string) => void;
+  localCompatBaseURL: string;
+  onLocalCompatBaseURLChange: (value: string) => void;
   currentProviderModels: ModelDefinition[];
   providerModelsLoading: boolean;
   onTestResult: (result: TestResult | null) => void;
@@ -66,6 +68,8 @@ export default function AISectionBody({
   onOllamaModelChange,
   ollamaApiKey,
   onOllamaApiKeyChange,
+  localCompatBaseURL,
+  onLocalCompatBaseURLChange,
   currentProviderModels,
   providerModelsLoading,
   onTestResult,
@@ -111,6 +115,8 @@ export default function AISectionBody({
             onOllamaModelChange={onOllamaModelChange}
             ollamaApiKey={ollamaApiKey}
             onOllamaApiKeyChange={onOllamaApiKeyChange}
+            localCompatBaseURL={localCompatBaseURL}
+            onLocalCompatBaseURLChange={onLocalCompatBaseURLChange}
             currentProviderModels={currentProviderModels}
             providerModelsLoading={providerModelsLoading}
             onTestResult={onTestResult}

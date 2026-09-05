@@ -1469,7 +1469,9 @@ declare global {
             | 'moonshot'
             | 'qwen'
             | 'opencode'
-            | 'opencode-go',
+            | 'opencode-go'
+            | 'vllm'
+            | 'lmstudio',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -1522,7 +1524,9 @@ declare global {
             | 'moonshot'
             | 'qwen'
             | 'opencode'
-            | 'opencode-go',
+            | 'opencode-go'
+            | 'vllm'
+            | 'lmstudio',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -1555,7 +1559,9 @@ declare global {
             | 'moonshot'
             | 'qwen'
             | 'opencode'
-            | 'opencode-go',
+            | 'opencode-go'
+            | 'vllm'
+            | 'lmstudio',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,
@@ -1609,7 +1615,11 @@ declare global {
           error?: string;
         }>;
         listOpenRouterModels: (apiKey?: string) => Promise<ProviderModelsListResult>;
-        listProviderModels: (params: { provider: string; apiKey?: string }) => Promise<ProviderModelsListResult>;
+        listProviderModels: (params: {
+          provider: string;
+          apiKey?: string;
+          baseUrl?: string;
+        }) => Promise<ProviderModelsListResult>;
         /** Reasoning efforts this provider/model supports, from the real model registry. */
         getThinkingLevels: (params: { provider: string; model: string; baseUrl?: string }) => Promise<{
           success: boolean;

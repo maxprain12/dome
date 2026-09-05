@@ -62,6 +62,24 @@ describe('provider-keys', () => {
     assert.equal(readProviderBaseUrl(q, 'openai'), 'https://proxy.example/v1');
   });
 
+  it('does not give MiniMax a leftover LM Studio localhost URL', () => {
+    const q = makeQueries({
+      ai_provider: 'minimax',
+      ai_base_url: 'http://127.0.0.1:1234/v1',
+      ai_base_url_lmstudio: 'http://127.0.0.1:1234/v1',
+    });
+    assert.equal(readProviderBaseUrl(q, 'minimax'), undefined);
+    assert.equal(readProviderBaseUrl(q, 'lmstudio'), 'http://127.0.0.1:1234/v1');
+  });
+
+  it('still lets LM Studio inherit a shared localhost URL', () => {
+    const q = makeQueries({
+      ai_provider: 'lmstudio',
+      ai_base_url: 'http://127.0.0.1:1234/v1',
+    });
+    assert.equal(readProviderBaseUrl(q, 'lmstudio'), 'http://127.0.0.1:1234/v1');
+  });
+
   it('hasProviderApiKey reflects stored state', () => {
     const q = makeQueries();
     assert.equal(hasProviderApiKey(q, 'deepseek'), false);

@@ -15,6 +15,8 @@ Referencia única sobre **cómo debe autenticarse cada proveedor** en Dome. Cual
 |-----------|--------------|-----------------|----------------------|-------|
 | **Ollama (local)** | Ninguna | `ollama_base_url`, `ollama_model`, `ollama_api_key` (opcional) | No | Base URL `localhost` / `127.0.0.1` / `[::1]`. Sin header `Authorization`. |
 | **Ollama (cloud)** | Bearer | `ollama_base_url`, `ollama_api_key`, `ollama_model` | **Sí** | Host remoto (p. ej. `https://api.ollama.com`). Header `Authorization: Bearer <key>`. |
+| **vLLM** | Bearer opcional | `ai_base_url_vllm`, `ai_api_key_vllm`, `ai_model` | No | OpenAI-compat. Default `http://127.0.0.1:8000/v1`. Placeholder `vllm-local` si no hay key. |
+| **LM Studio** | Bearer opcional | `ai_base_url_lmstudio`, `ai_api_key_lmstudio`, `ai_model` | No | OpenAI-compat. Default `http://127.0.0.1:1234/v1`. Placeholder `lmstudio-local` si no hay key. |
 | **OpenAI** | API key | `ai_api_key_openai`, `ai_model` | Sí | Slot por proveedor + legacy `ai_api_key`. |
 | **Anthropic** | API key | `ai_api_key_anthropic`, `ai_model` | Sí | |
 | **Google** | API key | `ai_api_key_google`, `ai_model` | Sí | |
@@ -56,6 +58,14 @@ El modo se **infiere automáticamente** de `ollama_base_url` (no hay setting `ol
 
 - Badge **Local** / **Cloud** en Ajustes → IA → Ollama según Base URL.
 - Guardado bloqueado si cloud sin API key.
+
+## vLLM y LM Studio
+
+Ambos hablan **OpenAI-compatible** (`/v1/chat/completions`, `/v1/models`). No usan IPC `ollama:*` ni la API nativa de Ollama.
+
+- API key **siempre opcional** (local o LAN). Si está vacía, el runtime usa un placeholder (`vllm-local` / `lmstudio-local`).
+- Si la Base URL no termina en `/v1`, `resolveDomeModel` la añade.
+- El listado de modelos va por el IPC existente `ai:provider:listModels` → `GET {baseUrl}/models`.
 
 ---
 

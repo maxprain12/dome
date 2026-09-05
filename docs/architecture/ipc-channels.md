@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-05T15:29:43.563Z
+> Última generación: 2026-09-05T17:36:19.275Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -11,14 +11,14 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:agent:resume` | `electron/ipc/ai/ai.cjs:347` |
 | `ai:agent:stream` | `electron/ipc/ai/ai.cjs:196` |
 | `ai:chat` | `electron/ipc/ai/ai.cjs:34` |
-| `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:595` |
+| `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:607` |
 | `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:547` |
 | `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:564` |
 | `ai:stream` | `electron/ipc/ai/ai.cjs:86` |
 | `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:293` |
 | `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:184` |
 | `ai:testConnection` | `electron/ipc/ai/ai.cjs:426` |
-| `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:627` |
+| `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:639` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai/ai-tools.cjs:853` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai/ai-tools.cjs:879` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai/ai-tools.cjs:840` |
@@ -71,7 +71,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai/ai.cjs:642` |
+| `ai:webSearch` | `electron/ipc/ai/ai.cjs:654` |
 | `approval:respond` | `electron/ipc/agents/approval.cjs:49` |
 | `artifact:buildDesign` | `electron/ipc/agents/artifacts.cjs:129` |
 | `artifact:create` | `electron/ipc/agents/artifacts.cjs:48` |
@@ -400,16 +400,16 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `notes:readMirror` | `electron/ipc/data/notes.cjs:36` |
 | `notes:vaultDir` | `electron/ipc/data/notes.cjs:48` |
 | `notes:writeMirror` | `electron/ipc/data/notes.cjs:24` |
-| `ollama:chat` | `electron/ipc/ai/ollama.cjs:149` |
+| `ollama:chat` | `electron/ipc/ai/ollama.cjs:156` |
 | `ollama:check-availability` | `electron/ipc/ai/ollama.cjs:14` |
-| `ollama:generate-embedding` | `electron/ipc/ai/ollama.cjs:54` |
-| `ollama:generate-summary` | `electron/ipc/ai/ollama.cjs:88` |
+| `ollama:generate-embedding` | `electron/ipc/ai/ollama.cjs:61` |
+| `ollama:generate-summary` | `electron/ipc/ai/ollama.cjs:95` |
 | `ollama:list-models` | `electron/ipc/ai/ollama.cjs:34` |
-| `ollama:manager:download` | `electron/ipc/ai/ollama.cjs:255` |
-| `ollama:manager:start` | `electron/ipc/ai/ollama.cjs:196` |
-| `ollama:manager:status` | `electron/ipc/ai/ollama.cjs:232` |
-| `ollama:manager:stop` | `electron/ipc/ai/ollama.cjs:214` |
-| `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:273` |
+| `ollama:manager:download` | `electron/ipc/ai/ollama.cjs:262` |
+| `ollama:manager:start` | `electron/ipc/ai/ollama.cjs:203` |
+| `ollama:manager:status` | `electron/ipc/ai/ollama.cjs:239` |
+| `ollama:manager:stop` | `electron/ipc/ai/ollama.cjs:221` |
+| `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:280` |
 | `open-external-url` | `electron/ipc/core/system.cjs:173` |
 | `open-path` | `electron/ipc/core/system.cjs:147` |
 | `openai-codex:auth:disconnect` | `electron/ipc/integrations/openai-codex-oauth.cjs:58` |

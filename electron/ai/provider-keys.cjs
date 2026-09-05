@@ -44,6 +44,21 @@ function writeProviderApiKey(queries, provider, plain) {
   writeSettingSecret(queries, providerApiKeySetting(provider), plain);
 }
 
+const LOCAL_BASE_URL_PROVIDERS = new Set(['ollama', 'vllm', 'lmstudio']);
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+/**
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isLoopbackBaseUrl(url) {
+  try {
+    return LOOPBACK_HOSTS.has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return /localhost|127\.0\.0\.1|\[::1\]/i.test(String(url || ''));
+  }
+}
+
 /** Custom base URL for a provider (same active-provider-only legacy fallback). */
 function readProviderBaseUrl(queries, provider) {
   if (!provider) return undefined;
@@ -52,7 +67,14 @@ function readProviderBaseUrl(queries, provider) {
   const active = queries.getSetting.get('ai_provider')?.value;
   if (active === provider) {
     const legacy = queries.getSetting.get('ai_base_url')?.value;
-    if (legacy && String(legacy).trim()) return String(legacy).trim().replace(/\/$/, '');
+    const trimmed = legacy && String(legacy).trim() ? String(legacy).trim().replace(/\/$/, '') : '';
+    if (!trimmed) return undefined;
+    // Shared `ai_base_url` is leftover from whichever provider was last saved.
+    // After LM Studio/vLLM, it is localhost — MiniMax/OpenAI must not inherit it.
+    if (!LOCAL_BASE_URL_PROVIDERS.has(provider) && isLoopbackBaseUrl(trimmed)) {
+      return undefined;
+    }
+    return trimmed;
   }
   return undefined;
 }
@@ -69,6 +91,8 @@ function hasProviderApiKey(queries, provider) {
 
 module.exports = {
   KEYLESS_PROVIDERS,
+  LOCAL_BASE_URL_PROVIDERS,
+  isLoopbackBaseUrl,
   providerApiKeySetting,
   providerBaseUrlSetting,
   readProviderApiKey,

@@ -24,6 +24,7 @@ export { PROMPT_VERSION, DOME_LOAD_DOC_IDS, DOME_LOAD_DOC_DESCRIPTION } from './
 // The system-prompt assembler — package-owned TypeScript implementation.
 export {
   buildCoreToolsBlock,
+  STUB_TOOLS_HINT,
   buildDomeSystemPrompt,
   buildEditorPrompt,
   buildStudioPrompt,

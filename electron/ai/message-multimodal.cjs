@@ -4,7 +4,15 @@ const { extractMarkdownImages } = require('../../shared/message-visual/parse-mar
 
 /** @typedef {'text'|'image'|'video'} ModelInputType */
 
-const OPENAI_STYLE_PROVIDERS = new Set(['openai', 'google', 'openrouter', 'ollama', 'dome']);
+const OPENAI_STYLE_PROVIDERS = new Set([
+  'openai',
+  'google',
+  'openrouter',
+  'ollama',
+  'dome',
+  'vllm',
+  'lmstudio',
+]);
 const ANTHROPIC_STYLE_PROVIDERS = new Set(['anthropic', 'minimax']);
 
 const MINIMAX_M3_RE = /^minimax-m3$/i;
@@ -100,7 +108,7 @@ function resolveModelCapabilities(provider, modelId) {
     const vision = /gpt-4|gpt-5|gpt-4o|o1|o3|o4|vision|vl/i.test(id);
     return { supportsImage: vision, supportsVideo: false, input: vision ? ['text', 'image'] : ['text'] };
   }
-  if (p === 'ollama') {
+  if (p === 'ollama' || p === 'vllm' || p === 'lmstudio') {
     const vision = /llava|minicpm-v|glm4v|vision|vl|moondream|bakllava/i.test(id);
     return { supportsImage: vision, supportsVideo: false, input: vision ? ['text', 'image'] : ['text'] };
   }

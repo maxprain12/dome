@@ -123,12 +123,22 @@ type PinnedPerson = NonNullable<VolatileSourceOptions['pinnedPeople']>[number];
 type PinnedSource = NonNullable<VolatileSourceOptions['pinnedSources']>[number];
 type PinnedResource = NonNullable<VolatileSourceOptions['pinnedResources']>[number];
 
-export function buildCoreToolsBlock(sections: CorePromptSections): string {
+export const STUB_TOOLS_HINT =
+  'The tools[] list is a set of short cards (name + one line). Core tools already include full JSON schemas. For any other tool, call get_tool_definition with its exact name before invoking it.';
+
+const CATALOG_SECTION_KEYS = new Set<keyof CorePromptSections>(['toolCatalog']);
+
+export function buildCoreToolsBlock(
+  sections: CorePromptSections,
+  mode: 'full' | 'minimal' = 'full',
+): string {
   const parts: string[] = [];
   for (const key of CORE_SECTION_KEYS_LIST) {
+    if (mode === 'minimal' && CATALOG_SECTION_KEYS.has(key)) continue;
     const text = sections[key];
     if (typeof text === 'string' && text.trim()) parts.push(text.trim());
   }
+  if (mode === 'minimal') parts.push(STUB_TOOLS_HINT);
   return parts.join('\n\n');
 }
 
@@ -270,7 +280,10 @@ export function buildDomeSystemPrompt(
 
   if (!options.omitCoreTools) {
     if (coreSections.appContext) sections.push(coreSections.appContext.trim());
-    const toolsBlock = buildCoreToolsBlock(coreSections);
+    const toolsBlock = buildCoreToolsBlock(
+      coreSections,
+      options.coreToolsMode === 'minimal' ? 'minimal' : 'full',
+    );
     if (toolsBlock) sections.push(toolsBlock);
   } else if (coreSections.toolGuardrails) {
     sections.push(coreSections.toolGuardrails.trim());

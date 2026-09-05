@@ -5,6 +5,13 @@
  * @see docs/features/ai-provider-auth.md
  */
 
+export {
+  isLocalChatProvider,
+  isLocalOpenAICompatProvider,
+  LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
+  LOCAL_OPENAI_COMPAT_PROVIDERS,
+} from './models';
+
 export type OllamaMode = 'local' | 'cloud';
 
 const LOCAL_OLLAMA_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);

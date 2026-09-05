@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
+  LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
   getDefaultModelId,
+  isLocalOpenAICompatProvider,
   type AIProviderType,
 } from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
@@ -14,6 +16,7 @@ import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 import AIProviderSelection from '@/components/settings/ai/AIProviderSelection';
 import AICloudProviderConfig from '@/components/settings/ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from '@/components/settings/ai/AIOllamaProviderConfig';
+import AILocalOpenAICompatConfig from '@/components/settings/ai/AILocalOpenAICompatConfig';
 import AIDomeOnboardingCallout from '@/components/settings/ai/AIDomeOnboardingCallout';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -52,12 +55,17 @@ export default function AISetupStep({
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
+  const [localCompatBaseURL, setLocalCompatBaseURL] = useState(
+    LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
+  );
+  const [localCompatAvailable, setLocalCompatAvailable] = useState<boolean | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const canProceed =
     provider === 'skip' ||
     provider === 'dome' ||
     (provider === 'ollama' && ollamaAvailable === true) ||
+    (isLocalOpenAICompatProvider(provider) && localCompatAvailable === true && model.trim().length > 0) ||
     (isCloudAIProvider(provider) && apiKey.trim().length > 0);
 
   useEffect(() => {
@@ -98,6 +106,12 @@ export default function AISetupStep({
       config.ollama_model = ollamaModel;
     }
 
+    if (isLocalOpenAICompatProvider(provider)) {
+      config.base_url = localCompatBaseURL;
+      config.model = model;
+      if (apiKey.trim()) config.api_key = apiKey;
+    }
+
     try {
       await saveAIConfig(config);
       window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
@@ -106,7 +120,7 @@ export default function AISetupStep({
       console.error('[AISetupStep] Error al guardar:', error);
       setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
     }
-  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, t]);
+  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, localCompatBaseURL, t]);
 
   useEffect(() => {
     const handleFinalize = () => void handleNext();
@@ -124,6 +138,12 @@ export default function AISetupStep({
         setModel(config.model || getDefaultModelId(loadedProvider as AIProviderType));
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setOllamaModel(config.ollama_model || 'llama3.2');
+        if (isLocalOpenAICompatProvider(loadedProvider as AIProviderType)) {
+          setLocalCompatBaseURL(
+            config.base_url ||
+              LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[loadedProvider as 'vllm' | 'lmstudio'],
+          );
+        }
       }
     };
     void loadConfig();
@@ -135,6 +155,10 @@ export default function AISetupStep({
       setCustomModel(false);
       setModel(getDefaultModelId(newProvider));
       setLastProvider(newProvider);
+      if (isLocalOpenAICompatProvider(newProvider)) {
+        setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[newProvider]);
+        setLocalCompatAvailable(null);
+      }
     } else if (newProvider === 'ollama' || newProvider === 'dome') {
       setLastProvider(newProvider);
     }
@@ -204,6 +228,23 @@ export default function AISetupStep({
             showApiKeyField={false}
             showOcrHint={false}
             onAvailabilityChange={setOllamaAvailable}
+          />
+        </div>
+      )}
+
+      {isLocalOpenAICompatProvider(provider) && (
+        <div>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
+            {t('settings.ai.configuration')}
+          </p>
+          <AILocalOpenAICompatConfig
+            provider={provider}
+            baseURL={localCompatBaseURL}
+            onBaseURLChange={setLocalCompatBaseURL}
+            model={model}
+            onModelChange={setModel}
+            showApiKeyField={false}
+            onAvailabilityChange={setLocalCompatAvailable}
           />
         </div>
       )}

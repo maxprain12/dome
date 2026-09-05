@@ -183,7 +183,7 @@ async function generateReport(database, store, { periodDays, language, trigger =
     const { getAISettings } = require('../ai/ai-settings.cjs');
     const llmService = require('../ai/llm-service.cjs');
     const ai = await getAISettings(database);
-    if (!ai.apiKey && ai.provider !== 'ollama') {
+    if (!ai.apiKey && ai.provider !== 'ollama' && ai.provider !== 'vllm' && ai.provider !== 'lmstudio') {
       throw new Error('No AI provider configured — set one up in Settings → AI.');
     }
 

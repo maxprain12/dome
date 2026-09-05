@@ -416,6 +416,7 @@ async function buildManyRunMessages(args: {
     volatileContext: args.volatileContext,
     extraSections: [toolHint],
     voiceLanguage: args.sendOptions?.autoSpeak ? args.voiceLanguage : null,
+    coreToolsMode: 'minimal',
   });
 
   const manySkillState = useManyStore.getState();

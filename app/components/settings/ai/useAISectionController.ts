@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TranscriptionSettingsSectionsHandle } from '../TranscriptionSettingsSections';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
-import { getDefaultModelId, type AIProviderType } from '@/lib/ai/models';
+import {
+  LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
+  getDefaultModelId,
+  isLocalOpenAICompatProvider,
+  type AIProviderType,
+} from '@/lib/ai/models';
 import { resolveVisibleModelAfterSave, isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
 import { saveChatModelForProvider } from '@/lib/ai/client';
 import type { OpenAIProviderSettingsDetail } from '@/lib/ai/open-provider-settings';
@@ -13,6 +18,8 @@ import { isOllamaCloudMissingApiKey } from '@/lib/ai/providerAuth';
 import {
   buildAISaveConfig,
   loadCloudApiKey,
+  loadLocalCompatBaseUrl,
+  loadProviderSlotApiKey,
   parseLoadedAIConfig,
   type TestResult,
 } from './aiSectionHelpers';
@@ -29,6 +36,9 @@ export function useAISectionController() {
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [ollamaApiKey, setOllamaApiKey] = useState('');
+  const [localCompatBaseURL, setLocalCompatBaseURL] = useState(
+    LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
+  );
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -39,6 +49,7 @@ export function useAISectionController() {
   const { models: currentProviderModels, loading: providerModelsLoading } = useProviderModels({
     provider,
     apiKey,
+    baseUrl: isLocalOpenAICompatProvider(provider) ? localCompatBaseURL : undefined,
   });
 
   useEffect(() => {
@@ -53,6 +64,7 @@ export function useAISectionController() {
       setOllamaBaseURL(loaded.ollamaBaseURL);
       setOllamaModel(loaded.ollamaModel);
       setOllamaApiKey(loaded.ollamaApiKey);
+      setLocalCompatBaseURL(loaded.localCompatBaseURL);
     };
     loadConfig();
   }, []);
@@ -81,6 +93,13 @@ export function useAISectionController() {
         loadCloudApiKey(detail.provider)
           .then(setApiKey)
           .catch(() => setApiKey(''));
+      } else if (isLocalOpenAICompatProvider(detail.provider)) {
+        loadProviderSlotApiKey(detail.provider)
+          .then(setApiKey)
+          .catch(() => setApiKey(''));
+        loadLocalCompatBaseUrl(detail.provider)
+          .then(setLocalCompatBaseURL)
+          .catch(() => {});
       }
       if (detail.openModelsModal && isVisibleModelsConfigurable(detail.provider)) {
         setModelsConfigProvider(detail.provider);
@@ -100,6 +119,14 @@ export function useAISectionController() {
       loadCloudApiKey(newProvider)
         .then(setApiKey)
         .catch(() => setApiKey(''));
+    } else if (isLocalOpenAICompatProvider(newProvider)) {
+      setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[newProvider]);
+      loadProviderSlotApiKey(newProvider)
+        .then(setApiKey)
+        .catch(() => setApiKey(''));
+      loadLocalCompatBaseUrl(newProvider)
+        .then(setLocalCompatBaseURL)
+        .catch(() => setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[newProvider]));
     } else {
       setApiKey('');
     }
@@ -117,6 +144,7 @@ export function useAISectionController() {
       ollamaBaseURL,
       ollamaModel,
       ollamaApiKey,
+      localCompatBaseURL,
     });
     try {
       await saveAIConfig(config);
@@ -187,6 +215,8 @@ export function useAISectionController() {
     setOllamaModel,
     ollamaApiKey,
     setOllamaApiKey,
+    localCompatBaseURL,
+    setLocalCompatBaseURL,
     saved,
     testing,
     testResult,
