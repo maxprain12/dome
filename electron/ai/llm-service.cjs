@@ -37,7 +37,16 @@ function buildImageContent(userText, imageDataUrls, opts = {}) {
  * @returns {Promise<{ text: string, usage: { inputTokens, outputTokens, totalTokens } | null }>}
  */
 async function resolveAuthOptions(ai, { provider, model, apiKey, baseUrl, options }) {
-  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  let contextWindow;
+  try {
+    const database = require('../core/database.cjs');
+    const { readPersistedContextWindow } = require('./context-window.cjs');
+    const persisted = readPersistedContextWindow(database.getQueries(), provider);
+    if (persisted > 0) contextWindow = persisted;
+  } catch {
+    /* settings optional for standalone llm calls */
+  }
+  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl, contextWindow });
   const streamOpts = buildStreamOptions(options, apiKey);
   try {
     const { resolveRequestAuth } = require('./resolve-request-auth.cjs');

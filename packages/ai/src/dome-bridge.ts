@@ -29,12 +29,16 @@ export type DomeLegacyProvider =
   | 'moonshot'
   | 'qwen'
   | 'opencode'
-  | 'opencode-go';
+  | 'opencode-go'
+  | 'vllm'
+  | 'lmstudio';
 
 export interface ResolveDomeModelOptions {
   provider: DomeLegacyProvider | string;
   model: string;
   baseUrl?: string;
+  /** Persisted or server-reported window. Overrides the resolver default. */
+  contextWindow?: number;
 }
 
 const OLLAMA_DEFAULT = 'http://127.0.0.1:11434/v1';
@@ -46,12 +50,15 @@ const MOONSHOT_DEFAULT = 'https://api.moonshot.cn/v1';
 const QWEN_DEFAULT = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const OPENCODE_DEFAULT = 'https://opencode.ai/zen/v1';
 const OPENCODE_GO_DEFAULT = 'https://opencode.ai/zen/go/v1';
+const VLLM_DEFAULT = 'http://127.0.0.1:8000/v1';
+const LMSTUDIO_DEFAULT = 'http://127.0.0.1:1234/v1';
 
 function openAiCompletionsModel(
   id: string,
   provider: KnownProvider | string,
   baseUrl: string,
   compat?: OpenAICompletionsCompat,
+  contextWindow = 128_000,
 ): Model<'openai-completions'> {
   return {
     id,
@@ -62,7 +69,7 @@ function openAiCompletionsModel(
     reasoning: false,
     input: ['text', 'image'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128_000,
+    contextWindow,
     maxTokens: 8192,
     compat,
   };
@@ -165,17 +172,47 @@ function resolveOpenaiCodexModel(modelId: string, baseUrl?: string): Model<Api> 
   };
 }
 
-function ollamaBaseUrl(baseUrl?: string): string {
-  if (!baseUrl) return OLLAMA_DEFAULT;
+function openaiCompatBaseUrl(baseUrl: string | undefined, fallback: string): string {
+  if (!baseUrl) return fallback;
   if (baseUrl.endsWith('/v1')) return baseUrl;
   return `${baseUrl.replace(/\/$/, '')}/v1`;
 }
 
+function ollamaBaseUrl(baseUrl?: string): string {
+  return openaiCompatBaseUrl(baseUrl, OLLAMA_DEFAULT);
+}
+
+const LOCAL_CHAT_CONTEXT_FALLBACK = 32_768;
+
+function resolveLocalOpenAiCompatModel(
+  provider: 'vllm' | 'lmstudio',
+  modelId: string,
+  baseUrl?: string,
+): Model<'openai-completions'> {
+  const fallback = provider === 'vllm' ? VLLM_DEFAULT : LMSTUDIO_DEFAULT;
+  return openAiCompletionsModel(
+    modelId,
+    provider,
+    openaiCompatBaseUrl(baseUrl, fallback),
+    {
+      supportsUsageInStreaming: false,
+      supportsStore: false,
+    },
+    LOCAL_CHAT_CONTEXT_FALLBACK,
+  );
+}
+
 function resolveOllamaModel(modelId: string, baseUrl?: string): Model<'openai-completions'> {
-  return openAiCompletionsModel(modelId, 'ollama', ollamaBaseUrl(baseUrl), {
-    supportsUsageInStreaming: false,
-    supportsStore: false,
-  });
+  return openAiCompletionsModel(
+    modelId,
+    'ollama',
+    ollamaBaseUrl(baseUrl),
+    {
+      supportsUsageInStreaming: false,
+      supportsStore: false,
+    },
+    LOCAL_CHAT_CONTEXT_FALLBACK,
+  );
 }
 
 function resolveOpenrouterModel(modelId: string, baseUrl?: string): Model<Api> {
@@ -268,17 +305,24 @@ const DOME_PROVIDER_RESOLVERS: Record<string, DomeModelResolver> = {
   qwen: (modelId, baseUrl) => resolveOpenAiCompatProvider('qwen', modelId, baseUrl, QWEN_DEFAULT),
   opencode: resolveOpencodeModel,
   'opencode-go': resolveOpencodeGoModel,
+  vllm: (modelId, baseUrl) => resolveLocalOpenAiCompatModel('vllm', modelId, baseUrl),
+  lmstudio: (modelId, baseUrl) => resolveLocalOpenAiCompatModel('lmstudio', modelId, baseUrl),
 };
 
 /**
  * Map Dome Settings provider + model id to a provider `Model` for `stream()` / `complete()`.
  */
 export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
-  const { provider, model, baseUrl } = opts;
+  const { provider, model, baseUrl, contextWindow } = opts;
   const modelId = model || 'gpt-4o-mini';
   const resolve = DOME_PROVIDER_RESOLVERS[provider];
-  if (resolve) return resolve(modelId, baseUrl);
-  return resolveDefaultProviderModel(provider, modelId, baseUrl);
+  const resolved = resolve
+    ? resolve(modelId, baseUrl)
+    : resolveDefaultProviderModel(provider, modelId, baseUrl);
+  if (typeof contextWindow === 'number' && contextWindow > 0) {
+    return { ...resolved, contextWindow };
+  }
+  return resolved;
 }
 
 /** Legacy llm-service usage shape. */

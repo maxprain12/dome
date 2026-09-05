@@ -86,7 +86,17 @@ describe('resolveDomeModel', () => {
     const m = resolveDomeModel({ provider: 'ollama', model: 'llama3' });
     expect(m.api).toBe('openai-completions');
     expect(m.provider).toBe('ollama');
+    expect(m.contextWindow).toBe(32_768);
     expect(m.compat).toEqual({ supportsUsageInStreaming: false, supportsStore: false });
+  });
+
+  it('applies a persisted contextWindow override', () => {
+    const m = resolveDomeModel({
+      provider: 'lmstudio',
+      model: 'qwen2.5-7b-instruct',
+      contextWindow: 4096,
+    });
+    expect(m.contextWindow).toBe(4096);
   });
 
   it('resolves openrouter, copilot, minimax, and dome providers', () => {
@@ -167,6 +177,36 @@ describe('resolveDomeModel', () => {
     const google = resolveDomeModel({ provider: 'google', model: 'gemini-unlisted-xyz' });
     expect(google.api).toBe('google-generative-ai');
     expect(google.provider).toBe('google');
+
+    expect(resolveDomeModel({ provider: 'vllm', model: 'meta-llama/Llama-3' })).toMatchObject({
+      provider: 'vllm',
+      api: 'openai-completions',
+      baseUrl: 'http://127.0.0.1:8000/v1',
+      contextWindow: 32_768,
+      compat: { supportsUsageInStreaming: false, supportsStore: false },
+    });
+    expect(
+      resolveDomeModel({
+        provider: 'vllm',
+        model: 'm',
+        baseUrl: 'http://gpu.local:8000',
+      }).baseUrl,
+    ).toBe('http://gpu.local:8000/v1');
+    expect(
+      resolveDomeModel({ provider: 'lmstudio', model: 'loaded-model' }),
+    ).toMatchObject({
+      provider: 'lmstudio',
+      api: 'openai-completions',
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      compat: { supportsUsageInStreaming: false, supportsStore: false },
+    });
+    expect(
+      resolveDomeModel({
+        provider: 'lmstudio',
+        model: 'm',
+        baseUrl: 'http://127.0.0.1:1234/v1',
+      }).baseUrl,
+    ).toBe('http://127.0.0.1:1234/v1');
 
     const unknown = resolveDomeModel({
       provider: 'some-unknown-provider',

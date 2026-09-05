@@ -41,6 +41,13 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const models = await ollamaService.listModels(baseUrl, apiKey);
+      const queries = database.getQueries();
+      const current = queries.getSetting.get('ollama_model')?.value;
+      if (current) {
+        const { fetchOllamaChatContextWindow, persistContextWindow } = require('../../ai/context-window.cjs');
+        const ctx = await fetchOllamaChatContextWindow(baseUrl, current, apiKey);
+        if (ctx > 0) persistContextWindow(queries, 'ollama', ctx);
+      }
       return { success: true, models };
     } catch (error) {
       console.error('[Ollama] Error listing models:', error);

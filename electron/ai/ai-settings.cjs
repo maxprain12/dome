@@ -5,10 +5,21 @@ const domeOauth = require('../auth/dome-oauth.cjs');
 const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
 const { readProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs');
+const { isLocalOpenAICompatProvider, resolveLocalOpenAICompatApiKey } = require('./provider-auth.cjs');
 const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
+const {
+  readPersistedContextWindow,
+  persistContextWindow,
+  fetchOllamaChatContextWindow,
+} = require('./context-window.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 const DOME_AUTO_MODEL = 'dome/auto';
+
+function withContextWindow(queries, provider, settings) {
+  const contextWindow = readPersistedContextWindow(queries, provider);
+  return contextWindow > 0 ? { ...settings, contextWindow } : settings;
+}
 
 function resolveApiKeyProviderBaseUrl(queries, provider) {
   const custom = readProviderBaseUrl(queries, provider);
@@ -101,7 +112,7 @@ async function resolveSubscriptionOAuthSettings(database, queries, provider, oau
  * Unified AI settings for ipc/ai, agent-team, run-engine, etc.
  *
  * @param {import('../core/database.cjs')} database
- * @returns {Promise<{ provider: string, apiKey?: string, model?: string, baseUrl?: string, billingMode?: string }>}
+ * @returns {Promise<{ provider: string, apiKey?: string, model?: string, baseUrl?: string, billingMode?: string, contextWindow?: number }>}
  */
 async function getAISettings(database) {
   const queries = database.getQueries();
@@ -110,12 +121,21 @@ async function getAISettings(database) {
   const provider = resolveEffectiveProvider(billingMode, configuredProvider);
 
   if (provider === 'ollama') {
+    const model = queries.getSetting.get('ollama_model')?.value || 'llama3.2';
+    const baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
+    const apiKey = readSettingSecret(queries, 'ollama_api_key') || undefined;
+    let contextWindow = readPersistedContextWindow(queries, provider);
+    if (!contextWindow) {
+      contextWindow = await fetchOllamaChatContextWindow(baseUrl, model, apiKey);
+      if (contextWindow > 0) persistContextWindow(queries, provider, contextWindow);
+    }
     return {
       provider,
-      apiKey: readSettingSecret(queries, 'ollama_api_key') || undefined,
-      model: queries.getSetting.get('ollama_model')?.value || 'llama3.2',
-      baseUrl: queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434',
+      apiKey,
+      model,
+      baseUrl,
       billingMode,
+      ...(contextWindow > 0 ? { contextWindow } : {}),
     };
   }
 
@@ -123,54 +143,66 @@ async function getAISettings(database) {
     const session = await domeOauth.getOrRefreshSession(database);
     const model = coerceDomeCloudModel(queries.getSetting.get('ai_model')?.value);
     persistAiModelIfNeeded(queries, model);
-    return {
+    return withContextWindow(queries, 'dome', {
       provider: 'dome',
       apiKey: session?.accessToken,
       model,
       baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
       billingMode,
-    };
+    });
   }
 
   if (provider === 'copilot') {
     const copilotOAuth = require('../auth/github-copilot-oauth.cjs');
     const { token, baseUrl } = await copilotOAuth.getCopilotToken(database);
-    return {
+    return withContextWindow(queries, 'copilot', {
       provider: 'copilot',
       apiKey: token,
       model: queries.getSetting.get('ai_model')?.value || 'gpt-4.1',
       baseUrl,
       billingMode,
-    };
+    });
   }
 
   if (provider === 'claude-oauth') {
-    return resolveSubscriptionOAuthSettings(
-      database,
+    return withContextWindow(
       queries,
       provider,
-      require('../auth/claude-oauth.cjs'),
-      billingMode,
+      await resolveSubscriptionOAuthSettings(
+        database,
+        queries,
+        provider,
+        require('../auth/claude-oauth.cjs'),
+        billingMode,
+      ),
     );
   }
 
   if (provider === 'openai-codex') {
-    return resolveSubscriptionOAuthSettings(
-      database,
+    return withContextWindow(
       queries,
       provider,
-      require('../auth/openai-codex-oauth.cjs'),
-      billingMode,
+      await resolveSubscriptionOAuthSettings(
+        database,
+        queries,
+        provider,
+        require('../auth/openai-codex-oauth.cjs'),
+        billingMode,
+      ),
     );
   }
 
-  return {
+  const apiKey = isLocalOpenAICompatProvider(provider)
+    ? resolveLocalOpenAICompatApiKey(provider, readProviderApiKey(queries, provider))
+    : readProviderApiKey(queries, provider);
+
+  return withContextWindow(queries, provider, {
     provider,
-    apiKey: readProviderApiKey(queries, provider),
+    apiKey,
     model: queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
     baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
     billingMode,
-  };
+  });
 }
 
 module.exports = {

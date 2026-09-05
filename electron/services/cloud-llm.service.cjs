@@ -22,6 +22,8 @@ const VISION_PROVIDERS = new Set([
   'deepseek',
   'moonshot',
   'qwen',
+  'vllm',
+  'lmstudio',
 ]);
 
 /**
@@ -78,6 +80,8 @@ function resolveConfig(getQueries) {
     'deepseek',
     'moonshot',
     'qwen',
+    'vllm',
+    'lmstudio',
   ];
   const resolvedProvider = supported.includes(provider) ? provider : 'openai';
 
@@ -119,6 +123,9 @@ function isCloudLlmAvailable(getQueries) {
     if (cfg.provider === 'copilot') {
       return Boolean(readSettingSecret(getQueries(), 'copilot_github_token'));
     }
+    if (cfg.provider === 'vllm' || cfg.provider === 'lmstudio') {
+      return true;
+    }
     return Boolean(cfg.apiKey && String(cfg.apiKey).trim());
   } catch {
     return false;
@@ -150,6 +157,13 @@ async function resolveLlmAuth(cfg) {
     return {
       apiKey: resolveOllamaApiKey(cfg.ollamaBase, cfg.apiKey),
       baseUrl: cfg.ollamaBase,
+    };
+  }
+  if (cfg.provider === 'vllm' || cfg.provider === 'lmstudio') {
+    const { resolveLocalOpenAICompatApiKey } = require('../ai/provider-auth.cjs');
+    return {
+      apiKey: resolveLocalOpenAICompatApiKey(cfg.provider, cfg.apiKey),
+      baseUrl: cfg.openaiBase,
     };
   }
   return {
@@ -279,7 +293,14 @@ async function generateText(opts) {
         options: anthOpts,
       });
     } else {
-      if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && cfg.provider !== 'copilot' && !cfg.apiKey) {
+      if (
+        cfg.provider !== 'ollama' &&
+        cfg.provider !== 'vllm' &&
+        cfg.provider !== 'lmstudio' &&
+        cfg.provider !== 'dome' &&
+        cfg.provider !== 'copilot' &&
+        !cfg.apiKey
+      ) {
         throw new Error('Falta la clave API en Ajustes');
       }
       const auth = await resolveLlmAuth(cfg);
@@ -357,7 +378,14 @@ async function streamGenerate(opts) {
   let full = '';
   let usage = null;
   try {
-    if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && cfg.provider !== 'copilot' && !cfg.apiKey) {
+    if (
+      cfg.provider !== 'ollama' &&
+      cfg.provider !== 'vllm' &&
+      cfg.provider !== 'lmstudio' &&
+      cfg.provider !== 'dome' &&
+      cfg.provider !== 'copilot' &&
+      !cfg.apiKey
+    ) {
       throw new Error('Falta la clave API');
     }
     const auth = await resolveLlmAuth(cfg);

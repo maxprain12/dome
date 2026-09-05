@@ -25,6 +25,8 @@ const PROVIDER_LOGO_PATHS = {
   'openai-codex': '/brandlogo/OpenAI-black-monoblossom.svg',
   opencode: '/brandlogo/opencode.svg',
   'opencode-go': '/brandlogo/opencode-go.svg',
+  vllm: '/brandlogo/vllm.svg',
+  lmstudio: '/brandlogo/lmstudio.svg',
 } as const;
 
 export type ProviderWithBrandLogo = keyof typeof PROVIDER_LOGO_PATHS;
@@ -179,5 +181,17 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.ollama.name,
     description: PROVIDERS.ollama.description + '. Requires Ollama installed.',
     logoSrc: PROVIDER_LOGO_PATHS.ollama,
+  },
+  {
+    value: 'lmstudio',
+    label: PROVIDERS.lmstudio.name,
+    description: PROVIDERS.lmstudio.description + '. Requires LM Studio running.',
+    logoSrc: PROVIDER_LOGO_PATHS.lmstudio,
+  },
+  {
+    value: 'vllm',
+    label: PROVIDERS.vllm.name,
+    description: PROVIDERS.vllm.description + '. Requires a vLLM server.',
+    logoSrc: PROVIDER_LOGO_PATHS.vllm,
   },
 ];

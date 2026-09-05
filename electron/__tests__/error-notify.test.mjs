@@ -25,6 +25,8 @@ describe('error-notify', () => {
     assert.equal(classifyError('402 credits_exhausted'), 'credits_exhausted');
     assert.equal(classifyError('Subscription status is canceled'), 'subscription_inactive');
     assert.equal(classifyError('fetch failed: ECONNREFUSED 127.0.0.1'), 'network');
+    assert.equal(classifyError('Connection error.'), 'network');
+    assert.equal(classifyError('LM Studio is not reachable at http://127.0.0.1:1234/v1'), 'network');
     assert.equal(classifyError('Service Unavailable'), 'service_unavailable');
     assert.equal(
       classifyError('ChatGPT Codex is temporarily unavailable'),

@@ -36,6 +36,8 @@ export default function AISection() {
         onOllamaModelChange={ctrl.setOllamaModel}
         ollamaApiKey={ctrl.ollamaApiKey}
         onOllamaApiKeyChange={ctrl.setOllamaApiKey}
+        localCompatBaseURL={ctrl.localCompatBaseURL}
+        onLocalCompatBaseURLChange={ctrl.setLocalCompatBaseURL}
         currentProviderModels={ctrl.currentProviderModels}
         providerModelsLoading={ctrl.providerModelsLoading}
         onTestResult={ctrl.setTestResult}

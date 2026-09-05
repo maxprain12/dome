@@ -1,11 +1,12 @@
 import { SettingsGroup } from '../blocks';
 import AICloudProviderConfig from './AICloudProviderConfig';
 import AIOllamaProviderConfig from './AIOllamaProviderConfig';
+import AILocalOpenAICompatConfig from './AILocalOpenAICompatConfig';
 import AIDomeProviderPanel from './AIDomeProviderPanel';
 import AICopilotProviderPanel from './AICopilotProviderPanel';
 import AIClaudeOAuthProviderPanel from './AIClaudeOAuthProviderPanel';
 import AIOpenAICodexProviderPanel from './AIOpenAICodexProviderPanel';
-import type { AIProviderType, ModelDefinition } from '@/lib/ai/models';
+import { isLocalOpenAICompatProvider, type AIProviderType, type ModelDefinition } from '@/lib/ai/models';
 import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 import type { TestResult } from './aiSectionHelpers';
 
@@ -23,6 +24,8 @@ export interface AIChatProviderPanelsProps {
   onOllamaModelChange: (value: string) => void;
   ollamaApiKey: string;
   onOllamaApiKeyChange: (value: string) => void;
+  localCompatBaseURL: string;
+  onLocalCompatBaseURLChange: (value: string) => void;
   currentProviderModels: ModelDefinition[];
   providerModelsLoading: boolean;
   onTestResult: (result: TestResult | null) => void;
@@ -44,6 +47,8 @@ export default function AIChatProviderPanels({
   onOllamaModelChange,
   ollamaApiKey,
   onOllamaApiKeyChange,
+  localCompatBaseURL,
+  onLocalCompatBaseURLChange,
   currentProviderModels,
   providerModelsLoading,
   onTestResult,
@@ -71,6 +76,18 @@ export default function AIChatProviderPanels({
           onOllamaModelChange={onOllamaModelChange}
           ollamaApiKey={ollamaApiKey}
           onOllamaApiKeyChange={onOllamaApiKeyChange}
+        />
+      ) : null}
+
+      {isLocalOpenAICompatProvider(provider) ? (
+        <AILocalOpenAICompatConfig
+          provider={provider}
+          baseURL={localCompatBaseURL}
+          onBaseURLChange={onLocalCompatBaseURLChange}
+          model={model}
+          onModelChange={onModelChange}
+          apiKey={apiKey}
+          onApiKeyChange={onApiKeyChange}
         />
       ) : null}
 

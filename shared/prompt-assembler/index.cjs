@@ -22,6 +22,7 @@ __export(prompt_assembler_exports, {
   DOME_LOAD_DOC_DESCRIPTION: () => DOME_LOAD_DOC_DESCRIPTION,
   DOME_LOAD_DOC_IDS: () => DOME_LOAD_DOC_IDS,
   PROMPT_VERSION: () => PROMPT_VERSION,
+  STUB_TOOLS_HINT: () => STUB_TOOLS_HINT,
   applyTemplate: () => applyTemplate,
   buildBenchPrompt: () => buildBenchPrompt,
   buildCoreToolsBlock: () => buildCoreToolsBlock,
@@ -78,13 +79,19 @@ const CORE_SECTION_KEYS_LIST = [
   "referenceStub"
 ];
 const CORE_SECTION_KEYS = CORE_SECTION_KEYS_LIST;
-function buildCoreToolsBlock(sections) {
+const STUB_TOOLS_HINT = "The tools[] list is a set of short cards (name + one line). Core tools already include full JSON schemas. For any other tool, call get_tool_definition with its exact name before invoking it.";
+const CATALOG_SECTION_KEYS = /* @__PURE__ */ new Set(["toolCatalog"]);
+function buildCoreToolsBlock(sections, mode = "full") {
   const parts = [];
   for (const key of CORE_SECTION_KEYS_LIST) {
+    if (mode === "minimal" && CATALOG_SECTION_KEYS.has(key))
+      continue;
     const text = sections[key];
     if (typeof text === "string" && text.trim())
       parts.push(text.trim());
   }
+  if (mode === "minimal")
+    parts.push(STUB_TOOLS_HINT);
   return parts.join("\n\n");
 }
 function todayEnLong() {
@@ -189,7 +196,10 @@ function buildDomeSystemPrompt(options, coreSections) {
   if (!options.omitCoreTools) {
     if (coreSections.appContext)
       sections.push(coreSections.appContext.trim());
-    const toolsBlock = buildCoreToolsBlock(coreSections);
+    const toolsBlock = buildCoreToolsBlock(
+      coreSections,
+      options.coreToolsMode === "minimal" ? "minimal" : "full"
+    );
     if (toolsBlock)
       sections.push(toolsBlock);
   } else if (coreSections.toolGuardrails) {
@@ -275,6 +285,7 @@ ${opts.fixtureList.trim()}`);
   DOME_LOAD_DOC_DESCRIPTION,
   DOME_LOAD_DOC_IDS,
   PROMPT_VERSION,
+  STUB_TOOLS_HINT,
   applyTemplate,
   buildBenchPrompt,
   buildCoreToolsBlock,

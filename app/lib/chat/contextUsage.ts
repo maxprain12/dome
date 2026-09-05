@@ -162,8 +162,15 @@ export function estimateClientBudgetFromChat(options: {
   const rulesApprox = userMemoryChars > 0 ? Math.ceil(userMemoryChars / 4) : 0;
   const systemPromptApprox = 6_500;
   const skillsApprox = 800;
-  const toolsRegistryApprox = Math.max(0, toolCount - mcpToolCount) * 350;
-  const mcpApprox = mcpToolCount * 450;
+  // Many/agent-chat send ~11 full schemas + one-line stubs for the rest.
+  const CORE_FULL_SCHEMA_COUNT = 11;
+  const FULL_TOOL_TOKENS = 350;
+  const STUB_TOOL_TOKENS = 30;
+  const nativeCount = Math.max(0, toolCount - mcpToolCount);
+  const fullNative = Math.min(nativeCount, CORE_FULL_SCHEMA_COUNT);
+  const stubNative = Math.max(0, nativeCount - fullNative);
+  const toolsRegistryApprox = fullNative * FULL_TOOL_TOKENS + stubNative * STUB_TOOL_TOKENS;
+  const mcpApprox = mcpToolCount * STUB_TOOL_TOKENS;
   const systemApprox = systemPromptApprox + skillsApprox + rulesApprox;
   const toolsApprox = toolsRegistryApprox + mcpApprox;
   const totalApprox = systemApprox + toolsApprox + conversationApprox;

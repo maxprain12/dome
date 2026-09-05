@@ -470,7 +470,9 @@ export type ProviderType =
   | 'qwen'
   | 'deepseek'
   | 'opencode'
-  | 'opencode-go';
+  | 'opencode-go'
+  | 'vllm'
+  | 'lmstudio';
 
 /**
  * Provider metadata for UI display

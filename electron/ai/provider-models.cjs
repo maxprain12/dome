@@ -8,6 +8,11 @@
 const crypto = require('crypto');
 const { fetchOpenRouterModels } = require('./openrouter-models.cjs');
 const { listOpenCodeModels } = require('./opencode-models.cjs');
+const {
+  LOCAL_CHAT_CONTEXT_FALLBACK,
+  extractContextWindowFromRow,
+  fetchLmStudioContextById,
+} = require('./context-window.cjs');
 
 const TTL_MS = 15 * 60 * 1000;
 
@@ -60,8 +65,12 @@ const CURATED_IDS = {
  * @param {string} apiKey
  * @returns {string}
  */
-function cacheKey(provider, apiKey) {
-  const hash = crypto.createHash('sha256').update(String(apiKey || '')).digest('hex').slice(0, 16);
+function cacheKey(provider, apiKey, extra = '') {
+  const hash = crypto
+    .createHash('sha256')
+    .update(`${String(apiKey || '')}|${String(extra || '')}`)
+    .digest('hex')
+    .slice(0, 16);
   return `${provider}:${hash}`;
 }
 
@@ -70,8 +79,8 @@ function cacheKey(provider, apiKey) {
  * @param {string} key
  * @returns {NormalizedModel[] | null}
  */
-function getCached(provider, key) {
-  const entry = cache.get(cacheKey(provider, key));
+function getCached(provider, key, extra = '') {
+  const entry = cache.get(cacheKey(provider, key, extra));
   if (!entry) return null;
   if (Date.now() - entry.at >= TTL_MS) {
     cache.delete(cacheKey(provider, key));
@@ -85,8 +94,8 @@ function getCached(provider, key) {
  * @param {string} key
  * @param {NormalizedModel[]} models
  */
-function setCached(provider, key, models) {
-  cache.set(cacheKey(provider, key), { at: Date.now(), models });
+function setCached(provider, key, models, extra = '') {
+  cache.set(cacheKey(provider, key, extra), { at: Date.now(), models });
 }
 
 /**
@@ -116,9 +125,7 @@ function makeModel(id, displayName, opts = {}) {
  */
 function isOpenAiChatModel(id) {
   const lower = id.toLowerCase();
-  if (lower.includes('whisper') || lower.includes('tts') || lower.includes('embedding') || lower.includes('dall-e') || lower.includes('moderation')) {
-    return false;
-  }
+  if (!isLocalCompatChatModel(id)) return false;
   return (
     lower.startsWith('gpt-') ||
     lower.startsWith('o1') ||
@@ -126,6 +133,66 @@ function isOpenAiChatModel(id) {
     lower.startsWith('o4') ||
     lower.startsWith('chatgpt-')
   );
+}
+
+/**
+ * Chat-capable ids for local OpenAI-compat servers (vLLM, LM Studio).
+ * Only drop obvious non-chat endpoints — local ids are GGUF names, HF repos, etc.
+ * @param {string} id
+ * @returns {boolean}
+ */
+function isLocalCompatChatModel(id) {
+  const lower = String(id || '').toLowerCase();
+  if (!lower.trim()) return false;
+  return !(
+    lower.includes('whisper') ||
+    lower.includes('tts') ||
+    lower.includes('embed') ||
+    lower.includes('dall-e') ||
+    lower.includes('moderation')
+  );
+}
+
+/**
+ * Unwrap Node fetch / undici "fetch failed" into a reachable-server message.
+ * @param {unknown} err
+ * @param {string} provider
+ * @param {string} url
+ * @returns {string}
+ */
+function isOpaqueConnectionMessage(text) {
+  return /^(connection error\.?|fetch failed)$/i.test(String(text || '').trim());
+}
+
+function formatLocalCompatFetchError(err, provider, url) {
+  const error = err && typeof err === 'object' ? err : { message: String(err) };
+  const cause = 'cause' in error ? error.cause : undefined;
+  const causeObj = cause && typeof cause === 'object' ? cause : null;
+  const code = (causeObj && 'code' in causeObj ? causeObj.code : null) || ('code' in error ? error.code : '') || '';
+  const label =
+    provider === 'lmstudio' ? 'LM Studio' : provider === 'vllm' ? 'vLLM' : provider === 'ollama' ? 'Ollama' : provider;
+  const message = 'message' in error && error.message ? String(error.message) : '';
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    return `Could not resolve the host for ${url}.`;
+  }
+  if (code === 'ETIMEDOUT' || error.name === 'TimeoutError' || code === 'UND_ERR_CONNECT_TIMEOUT') {
+    return `Timed out connecting to ${label} at ${url}.`;
+  }
+  if (code === 'ECONNRESET') {
+    return `Connection reset by ${label} at ${url}.`;
+  }
+  if (code === 'ECONNREFUSED' || code === 'UND_ERR_SOCKET' || isOpaqueConnectionMessage(message)) {
+    return `${label} is not reachable at ${url}. Start the local server and try again.`;
+  }
+  const detail =
+    (causeObj && 'message' in causeObj && causeObj.message) ||
+    (causeObj && 'code' in causeObj && causeObj.code) ||
+    message ||
+    String(err);
+  if (detail === 'fetch failed' && causeObj && 'code' in causeObj) {
+    return `Could not reach ${label} at ${url} (${causeObj.code}).`;
+  }
+  return `Could not reach ${label} at ${url}: ${detail}`;
 }
 
 /**
@@ -173,6 +240,87 @@ async function fetchOpenAiModels(apiKey) {
     if (!id || !isOpenAiChatModel(id)) continue;
     models.push(makeModel(id, id, { curated: curated.has(id), api: 'openai-completions' }));
   }
+  models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  return { success: true, models };
+}
+
+/**
+ * @param {string | undefined} baseUrl
+ * @param {string} fallback
+ * @returns {string}
+ */
+function normalizeOpenAiCompatBaseUrl(baseUrl, fallback) {
+  const raw = String(baseUrl || fallback || '').trim().replace(/\/$/, '');
+  if (!raw) return fallback;
+  return raw.endsWith('/v1') ? raw : `${raw}/v1`;
+}
+
+/**
+ * GET {baseUrl}/models for local OpenAI-compatible servers (vLLM, LM Studio).
+ * @param {string} apiKey
+ * @param {string} baseUrl
+ * @returns {Promise<{ success: boolean, models?: NormalizedModel[], error?: string }>}
+ */
+async function fetchOpenAiCompatModels(apiKey, baseUrl, provider = 'local') {
+  const root = normalizeOpenAiCompatBaseUrl(baseUrl, '');
+  if (!root) {
+    return { success: false, error: 'Base URL is required.' };
+  }
+  /** @type {Record<string, string>} */
+  const headers = {};
+  if (apiKey && String(apiKey).trim()) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  let res;
+  try {
+    res = await fetch(`${root}/models`, { headers });
+  } catch (err) {
+    return { success: false, error: formatLocalCompatFetchError(err, provider, root) };
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    const label = provider === 'lmstudio' ? 'LM Studio' : provider === 'vllm' ? 'vLLM' : provider;
+    return {
+      success: false,
+      error: `${label} returned ${res.status} from ${root}/models: ${text.slice(0, 400)}`,
+    };
+  }
+  const json = /** @type {Record<string, unknown>} */ (await res.json());
+  const rawList = Array.isArray(json.data)
+    ? json.data
+    : Array.isArray(json.models)
+      ? json.models
+      : [];
+  const models = [];
+  for (const row of rawList) {
+    if (typeof row === 'string') {
+      if (!isLocalCompatChatModel(row)) continue;
+      models.push(makeModel(row, row, {
+        api: 'openai-completions',
+        contextWindow: LOCAL_CHAT_CONTEXT_FALLBACK,
+      }));
+      continue;
+    }
+    if (!row || typeof row !== 'object') continue;
+    const rec = /** @type {Record<string, unknown>} */ (row);
+    const id = typeof rec.id === 'string' ? rec.id : typeof rec.name === 'string' ? rec.name : '';
+    if (!id || !isLocalCompatChatModel(id)) continue;
+    const displayName = typeof rec.display_name === 'string' && rec.display_name.trim() ? rec.display_name : id;
+    const fromRow = extractContextWindowFromRow(rec);
+    models.push(makeModel(id, displayName, {
+      api: 'openai-completions',
+      contextWindow: fromRow > 0 ? fromRow : LOCAL_CHAT_CONTEXT_FALLBACK,
+    }));
+  }
+
+  if (provider === 'lmstudio') {
+    const byId = await fetchLmStudioContextById(root, headers);
+    for (const model of models) {
+      const ctx = byId.get(model.id);
+      if (ctx && ctx > 0) model.contextWindow = ctx;
+    }
+  }
+
   models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   return { success: true, models };
 }
@@ -421,6 +569,25 @@ async function fetchProviderModels(provider, options = {}) {
     return { success: false, error: 'Use ollama:list-models for Ollama.' };
   }
 
+  if (normalized === 'vllm' || normalized === 'lmstudio') {
+    const { DEFAULT_BASE_URLS } = require('./model-factory.cjs');
+    const url = options.baseUrl || DEFAULT_BASE_URLS[normalized];
+    try {
+      const result = await fetchOpenAiCompatModels(apiKey, url, normalized);
+      if (result.success && result.models?.length) {
+        setCached(normalized, apiKey, result.models, url);
+      }
+      if (!result.success) {
+        console.warn(`[Provider models] ${normalized}:`, result.error);
+      }
+      return result;
+    } catch (err) {
+      const msg = formatLocalCompatFetchError(err, normalized, url);
+      console.warn(`[Provider models] ${normalized}:`, msg);
+      return { success: false, error: msg };
+    }
+  }
+
   // Subscription providers reuse the same remote catalogs as their API counterparts.
   const catalogProvider =
     normalized === 'claude-oauth' ? 'anthropic' : normalized === 'openai-codex' ? 'openai' : normalized;
@@ -476,4 +643,7 @@ async function fetchProviderModels(provider, options = {}) {
 module.exports = {
   fetchProviderModels,
   CURATED_IDS,
+  isLocalCompatChatModel,
+  formatLocalCompatFetchError,
+  fetchOpenAiCompatModels,
 };

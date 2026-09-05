@@ -8,6 +8,8 @@ const { readProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs
 const {
   assertOllamaAuthReady,
   resolveOllamaApiKey,
+  isLocalOpenAICompatProvider,
+  resolveLocalOpenAICompatApiKey,
 } = require('./provider-auth.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
@@ -29,6 +31,8 @@ const ALL_CHAT_PROVIDERS = [
   'qwen',
   'opencode',
   'opencode-go',
+  'vllm',
+  'lmstudio',
 ];
 
 function assertChatProvider(provider) {
@@ -75,6 +79,14 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
         provider: settings.provider,
         apiKey: resolveOllamaApiKey(settings.baseUrl, settings.apiKey),
         baseUrl: settings.baseUrl,
+        model,
+      };
+    }
+    if (isLocalOpenAICompatProvider(provider)) {
+      return {
+        provider: settings.provider,
+        apiKey: resolveLocalOpenAICompatApiKey(provider, settings.apiKey),
+        baseUrl: settings.baseUrl || DEFAULT_BASE_URLS[provider],
         model,
       };
     }
@@ -146,6 +158,16 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
       apiKey: token,
       baseUrl,
       model: model || DEFAULT_MODELS['openai-codex'],
+    };
+  }
+
+  if (isLocalOpenAICompatProvider(provider)) {
+    const apiKey = resolveLocalOpenAICompatApiKey(provider, readProviderApiKey(queries, provider));
+    return {
+      provider,
+      apiKey,
+      baseUrl: resolveApiKeyProviderBaseUrl(queries, provider) || DEFAULT_BASE_URLS[provider],
+      model: model || queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
     };
   }
 

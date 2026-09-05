@@ -11,7 +11,7 @@
 import type {} from '@/types/global';
 
 import { db } from '../db/client';
-import { getDefaultModelId } from './models';
+import { getDefaultModelId, pickProviderBaseUrl } from './models';
 import type { AIProviderType } from './models';
 import type {
   ChatStreamChunk,
@@ -111,7 +111,11 @@ export async function getAIConfig(): Promise<AIConfig | null> {
       apiKey: apiKeyResult.data || legacyApiKeyResult.data || undefined,
       model: modelResult.data || undefined,
       embeddingModel: embeddingModelResult.data || undefined,
-      baseURL: baseURLResult.data || legacyBaseURLResult.data || undefined,
+      baseURL: pickProviderBaseUrl(
+        String(providerResult.data),
+        baseURLResult.data,
+        legacyBaseURLResult.data,
+      ),
       ollamaBaseURL: ollamaBaseURLResult.data || undefined,
       ollamaModel: ollamaModelResult.data || undefined,
       ollamaApiKey: ollamaApiKeyResult.data || undefined,
@@ -698,6 +702,7 @@ export async function fetchOpenRouterModels(
 export async function fetchProviderModels(
   provider: AIProviderType,
   apiKey?: string,
+  baseUrl?: string,
 ): Promise<ProviderModelsListResult> {
   if (!isElectron()) {
     return { success: false, error: 'Provider model listing requires Electron.' };
@@ -706,7 +711,7 @@ export async function fetchProviderModels(
   if (provider === 'openrouter') {
     return fetchOpenRouterModels(key);
   }
-  return window.electron.ai.listProviderModels({ provider, apiKey: key });
+  return window.electron.ai.listProviderModels({ provider, apiKey: key, baseUrl });
 }
 
 export async function chatWithDome(
@@ -991,6 +996,14 @@ export async function chat(
         config.model || getDefaultModelId(config.provider),
       );
 
+    case 'vllm':
+    case 'lmstudio':
+      return chatViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+      );
+
     case 'ollama':
       throw new Error('Ollama chat must be handled from the main process via IPC');
 
@@ -1114,6 +1127,17 @@ export async function* chatStream(
     case 'opencode':
     case 'opencode-go':
       if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
+      yield* streamViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+        undefined,
+        signal,
+      );
+      break;
+
+    case 'vllm':
+    case 'lmstudio':
       yield* streamViaMainProcess(
         config.provider,
         messages,

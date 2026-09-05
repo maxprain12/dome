@@ -731,20 +731,29 @@ function runManyAgent(opts) {
  * @param {import('@dome/agent-core').AgentHarness} harness
  * @param {{ toolName?: string, tool_name?: string }} input
  */
-async function activateLookedUpTool(harness, input) {
+async function activateLookedUpTool(harness, input, fullByName) {
   const requested = String(input?.tool_name ?? input?.toolName ?? '').trim();
   if (!requested || typeof harness?.getTools !== 'function') return;
   try {
+    const full = fullByName instanceof Map ? fullByName.get(requested) : null;
     const registered = harness.getTools();
-    if (!registered.some((tool) => tool?.name === requested)) return;
+    const current = registered.some((tool) => tool?.name === requested);
+    if (!current && !full) return;
+    const nextTools = registered.map((tool) => (tool?.name === requested && full ? full : tool));
+    if (full && !nextTools.some((tool) => tool?.name === requested)) {
+      nextTools.push(full);
+    }
     const active = new Set(
       typeof harness.getActiveTools === 'function'
         ? harness.getActiveTools().map((tool) => tool?.name).filter(Boolean)
         : registered.map((tool) => tool.name),
     );
-    if (active.has(requested)) return;
     active.add(requested);
-    await harness.setActiveTools([...active]);
+    if (typeof harness.setTools === 'function' && full) {
+      await harness.setTools(nextTools, [...active]);
+    } else if (typeof harness.setActiveTools === 'function') {
+      await harness.setActiveTools([...active]);
+    }
     console.log('[AgentRuntime] activated tool on lookup:', requested);
   } catch (err) {
     console.warn('[AgentRuntime] could not activate tool:', requested, err?.message || err);
@@ -752,11 +761,11 @@ async function activateLookedUpTool(harness, input) {
 }
 
 /** Build a harness `tool_call` hook from caps + HITL opts (needs live session messages). */
-function buildHarnessToolCallHook(session, opts, harness) {
+function buildHarnessToolCallHook(session, opts, harness, fullByName) {
   const before = buildBeforeToolCall(opts);
   return async function harnessToolCall(event) {
     if (event.toolName === 'get_tool_definition' && harness) {
-      await activateLookedUpTool(harness, event.input);
+      await activateLookedUpTool(harness, event.input, fullByName);
     }
     const sessionCtx = await session.buildContext();
     const result = await before({
@@ -834,9 +843,14 @@ async function setupHarness(surface, opts) {
     sessionId,
   } = opts;
 
-  const { resolveOllamaApiKey } = require('../ai/provider-auth.cjs');
-  const apiKey =
-    provider === 'ollama' ? resolveOllamaApiKey(baseUrl, rawApiKey) : rawApiKey;
+  const { resolveOllamaApiKey, isLocalOpenAICompatProvider, resolveLocalOpenAICompatApiKey } =
+    require('../ai/provider-auth.cjs');
+  let apiKey = rawApiKey;
+  if (provider === 'ollama') {
+    apiKey = resolveOllamaApiKey(baseUrl, rawApiKey);
+  } else if (isLocalOpenAICompatProvider(provider)) {
+    apiKey = resolveLocalOpenAICompatApiKey(provider, rawApiKey);
+  }
 
   const effectiveThreadId =
     rawThreadId || (sessionId ? `session_${sessionId}` : undefined);
@@ -868,9 +882,22 @@ async function setupHarness(surface, opts) {
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
   const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model });
 
-  let resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  const { readPersistedContextWindow } = require('../ai/context-window.cjs');
+  const persistedWindow = readPersistedContextWindow(database.getQueries(), provider);
+  let resolvedModel = ai.resolveDomeModel({
+    provider,
+    model,
+    baseUrl,
+    ...(persistedWindow > 0 ? { contextWindow: persistedWindow } : {}),
+  });
   // resolveDomeModel normalizes Ollama to …/v1 — do not overwrite with the raw setting URL.
-  if (baseUrl && resolvedModel && resolvedModel.baseUrl !== baseUrl && provider !== 'ollama') {
+  if (
+    baseUrl &&
+    resolvedModel &&
+    resolvedModel.baseUrl !== baseUrl &&
+    provider !== 'ollama' &&
+    !isLocalOpenAICompatProvider(provider)
+  ) {
     resolvedModel = { ...resolvedModel, baseUrl };
   }
   const contextMessages = ai.legacyMessagesToContext(baseSystemPrompt, normalizedNonSystem).messages;
@@ -953,13 +980,26 @@ async function setupHarness(surface, opts) {
   const registeredTools =
     nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools;
 
+  // Many / agent-chat: send one-line stubs for the catalog and keep full
+  // schemas only for the core set. `get_tool_definition` expands a stub.
+  const useStubs = surface === 'many' || surface === 'agent-chat';
+  const { applyToolStubs } = require('../tools/tool-stubs.cjs');
+  const stubbed = useStubs
+    ? applyToolStubs(registeredTools, { coding: Boolean(workspaceSession) })
+    : {
+        offered: registeredTools,
+        fullByName: new Map(registeredTools.map((tool) => [tool.name, tool])),
+      };
+  const offeredTools = stubbed.offered;
+  const fullByName = stubbed.fullByName;
+
   // OpenAI-compatible APIs hard-cap `tools[]` at 128 and reject the whole
   // request past it. Rather than dropping tools from the registry, keep them all
   // registered and narrow what this turn *offers* — the harness's
   // `activeToolNames` contract. The catalog stays introspectable via
   // `get_tool_definition`, and `setTools` can widen the set mid-session.
   const { resolveActiveToolNames } = require('../tools/tool-cap.cjs');
-  const activeToolNames = resolveActiveToolNames(registeredTools, {
+  const activeToolNames = resolveActiveToolNames(offeredTools, {
     provider,
     model,
     coding: Boolean(workspaceSession),
@@ -970,7 +1010,7 @@ async function setupHarness(surface, opts) {
   const harness = new core.AgentHarness({
     env,
     session,
-    tools: registeredTools,
+    tools: offeredTools,
     ...(activeToolNames ? { activeToolNames } : {}),
     resources,
     model: resolvedModel,
@@ -1019,7 +1059,7 @@ async function setupHarness(surface, opts) {
 
   const unsubTool = harness.on(
     'tool_call',
-    buildHarnessToolCallHook(session, { ...opts, threadId }, harness),
+    buildHarnessToolCallHook(session, { ...opts, threadId }, harness, fullByName),
   );
   const unsubCtx = harness.on('context', buildHarnessContextHook(core, resolvedModel, apiKey, onChunk));
   const unsubEvents = harness.subscribe((event) => {
@@ -1087,7 +1127,7 @@ async function setupHarness(surface, opts) {
     threadId,
     resolvedModel,
     baseSystemPrompt,
-    tools,
+    tools: offeredTools,
     resources,
     mcpToolNames,
     subagentToolNames,
@@ -1239,7 +1279,7 @@ async function continueResumeTurn({ harness, onChunk }) {
 
 function looksLikeContextOverflow(errText, assistant) {
   const msg = String(errText || assistant?.errorMessage || '');
-  return /context[_ ]length[_ ]exceeded|exceeds the context window|prompt is too long|context window exceeds/i.test(msg);
+  return /context[_ ]length[_ ]exceeded|exceeds the context window|prompt is too long|context window exceeds|greater than the context length|context_overflow/i.test(msg);
 }
 
 /**
@@ -1404,13 +1444,27 @@ async function tryEmitBudgetSafely(setup, opts, logLabel) {
  * If the assistant turn ended in error, emit the chunk and throw; otherwise a
  * no-op so the caller can keep its flow flat.
  */
+function rewriteLocalProviderError(err, opts) {
+  const provider = String(opts?.provider || '').toLowerCase();
+  if (provider !== 'lmstudio' && provider !== 'vllm' && provider !== 'ollama') return err;
+  const { formatLocalCompatFetchError } = require('../ai/provider-models.cjs');
+  const { DEFAULT_BASE_URLS } = require('../ai/model-factory.cjs');
+  const url = opts.baseUrl || DEFAULT_BASE_URLS[provider] || '';
+  const rewritten = formatLocalCompatFetchError(err, provider, url);
+  if (!rewritten || rewritten === (err && err.message)) return err;
+  const next = new Error(rewritten);
+  next.cause = err;
+  return next;
+}
+
 function throwIfAssistantError(assistant, finalText, opts) {
   if (assistant?.stopReason !== 'error') return;
   const errText = finalText || assistant.errorMessage || 'Agent error';
+  const err = rewriteLocalProviderError(new Error(errText), opts);
   if (typeof opts.onChunk === 'function') {
-    opts.onChunk({ type: 'error', error: errText });
+    opts.onChunk({ type: 'error', error: err.message });
   }
-  throw new Error(errText);
+  throw err;
 }
 
 /**
@@ -1450,20 +1504,21 @@ function handleRunError(err, threadId, opts) {
     return forwardHitlInterrupt(err, threadId, opts);
   }
   const aborted = isAbortedRun(opts, err);
+  const surfaced = aborted ? err : rewriteLocalProviderError(err, opts);
   if (aborted) {
     console.log('[AgentRuntime] run cancelled:', err?.message || 'aborted');
   } else {
-    console.error('[AgentRuntime] run failed:', err?.message || err);
+    console.error('[AgentRuntime] run failed:', surfaced?.message || surfaced);
   }
-  if (typeof opts.onChunk === 'function' && err?.message && !aborted) {
-    opts.onChunk({ type: 'error', error: err.message });
+  if (typeof opts.onChunk === 'function' && surfaced?.message && !aborted) {
+    opts.onChunk({ type: 'error', error: surfaced.message });
   }
   if (aborted) {
     const abortErr = new Error('Run cancelled');
     abortErr.name = 'AbortError';
     throw abortErr;
   }
-  throw err;
+  throw surfaced;
 }
 
 async function runDomeAgent(surface, opts) {

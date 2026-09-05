@@ -5,6 +5,7 @@ import { getCopilotModels } from '@/lib/ai/catalogs/copilot';
 import {
   FREE_COST,
   PROVIDERS,
+  isLocalOpenAICompatProvider,
   type AIProviderType,
   type ModelDefinition,
 } from '@/lib/ai/models';
@@ -42,7 +43,7 @@ const OAUTH_MODEL_PROVIDERS: AIProviderType[] = ['dome', 'claude-oauth', 'openai
 const STATIC_CATALOG_PROVIDERS: AIProviderType[] = ['deepseek', 'moonshot', 'qwen', 'copilot'];
 
 function isDynamicCloudProvider(provider: AIProviderType): boolean {
-  return CLOUD_PROVIDERS.includes(provider);
+  return CLOUD_PROVIDERS.includes(provider) || isLocalOpenAICompatProvider(provider);
 }
 
 function rowsToDefinitions(rows: ProviderModelRow[]): ModelDefinition[] {
@@ -109,6 +110,7 @@ function mergeCustomModelDefinitions(
 export interface UseProviderModelsOptions {
   provider: AIProviderType;
   apiKey?: string;
+  baseUrl?: string;
   /** When false, skip auto-fetch (manual refresh only). Default true. */
   autoFetch?: boolean;
   /** When false, return full catalog (for the visible-models modal). Default true. */
@@ -118,6 +120,7 @@ export interface UseProviderModelsOptions {
 export function useProviderModels({
   provider,
   apiKey = '',
+  baseUrl,
   autoFetch = true,
   applyVisibleFilter = true,
 }: UseProviderModelsOptions) {
@@ -166,7 +169,9 @@ export function useProviderModels({
       const withCustom = mergeCustomModelDefinitions(models, customMap[provider] ?? []);
       // La lista de Dome ya viene filtrada por plan desde el provider; el
       // filtro local de "modelos visibles" no aplica (default sería solo dome/auto).
-      if (!applyVisibleFilter || provider === 'dome') return withCustom;
+      if (!applyVisibleFilter || provider === 'dome' || isLocalOpenAICompatProvider(provider)) {
+        return withCustom;
+      }
       return filterModelsByVisibleIds(withCustom, visibleIds);
     },
     [applyVisibleFilter, visibleIds, provider],
@@ -194,7 +199,12 @@ export function useProviderModels({
 
     // Dome / Claude OAuth / ChatGPT Codex: main resuelve sesión OAuth (sin API key en renderer).
     const key = apiKey.trim();
-    if (!key && !CATALOG_PROVIDERS.includes(provider) && !OAUTH_MODEL_PROVIDERS.includes(provider)) {
+    if (
+      !key &&
+      !CATALOG_PROVIDERS.includes(provider) &&
+      !OAUTH_MODEL_PROVIDERS.includes(provider) &&
+      !isLocalOpenAICompatProvider(provider)
+    ) {
       await finish(staticModels);
       setError(null);
       setLoading(false);
@@ -204,7 +214,7 @@ export function useProviderModels({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchProviderModels(provider, key);
+      const res = await fetchProviderModels(provider, key, baseUrl);
       if (!res.success || !res.models?.length) {
         setError(res.error ?? t('settings.ai.models_error'));
         await finish(staticModels);
@@ -217,7 +227,7 @@ export function useProviderModels({
     } finally {
       setLoading(false);
     }
-  }, [provider, apiKey, staticModels, t, applyFilter]);
+  }, [provider, apiKey, baseUrl, staticModels, t, applyFilter]);
 
   useEffect(() => {
     if (!autoFetch) return;
