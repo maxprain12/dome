@@ -19,7 +19,7 @@
     "incremental": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    // Next.js specific
+    // Renderer and workspace imports
     "paths": {
       "@/*": [
         "./app/*"
@@ -34,11 +34,6 @@
         "./packages/i18n/src/index.ts"
       ]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     // Best practices
     "strict": true,
     "skipLibCheck": true,
@@ -56,16 +51,10 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.d.ts",
-    "shared/prompt-assembler/index.ts",
-
-    ".next/types/**/*.ts",
-    "out/types/**/*.ts"
+    "shared/prompt-assembler/index.ts"
   ],
   "exclude": [
     "node_modules",
-    "out",
-    ".next",
-    "Pile-main",
     "scripts"
   ]
 }

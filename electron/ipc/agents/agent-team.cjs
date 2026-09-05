@@ -107,7 +107,7 @@ function mapTeamChunk(chunk, send) {
       return;
     case 'tool_call': {
       if (!chunk.toolCall) return;
-      // The renderer (AgentTeamChat) reads `data.toolCall.{id,name,arguments}`.
+      // Preserve the tool-call payload shape for IPC subscribers.
       send({
         type: 'tool_call',
         toolCall: {

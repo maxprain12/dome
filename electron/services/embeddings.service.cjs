@@ -375,22 +375,8 @@ function resetForTests() {
   invalidateCache();
 }
 
-/** @deprecated — no-op; kept for callers that expected worker warmup */
-function initWorker() {}
-
-/** @deprecated — no-op */
-function disposeWorker() {}
-
-/** @deprecated — no-op; kept for backwards-compatible exports */
-function configureTransformersEnv() {
-  void 0;
-}
-
 module.exports = {
   EMBEDDINGS_NOT_CONFIGURED,
-  configureTransformersEnv,
-  initWorker,
-  disposeWorker,
   embedDocuments,
   embedQuery,
   floatsToBlob,

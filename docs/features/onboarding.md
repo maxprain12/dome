@@ -63,7 +63,6 @@ All Dome account / native login UI is shown only when `VITE_ENABLE_DOME_PROVIDER
 | Wizard | Path | Notes |
 |--------|------|-------|
 | Agent create/edit | `app/components/agents/AgentOnboarding.tsx` | Dome* shell, step progress circles |
-| Agent team create | `app/components/agent-team/AgentTeamOnboarding.tsx` | i18n step labels, `--dome-*` tokens |
 
 ---
 

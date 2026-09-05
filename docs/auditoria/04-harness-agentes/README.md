@@ -34,7 +34,7 @@ Riesgos detectados:
 - Subagents (`subagents-native.cjs`, `buildTaskTool()`) y Agent Team (`buildDelegateToAgentTool()`) nativos.
 - Abort/signal handling robusto: listener `{ once: true }`, `removeEventListener` en cleanup (`agent-runtime.cjs:684-712`).
 - Retry con detección de errores de timeout/conexión en nodos de workflow (`run-engine.cjs:~1640`).
-- Validación Zod en IPC de threads; normalización estricta de inputs de tools (`tool-input-normalize.cjs`).
+- Validación Zod en IPC de threads. La ejecución de tools usa `packages/tools/src/registry.ts`; el adaptador antiguo sin consumidores se retiró en septiembre de 2026.
 - Caps de creación: `CREATION_TOOL_CAPS` (`agent-runtime.cjs:42-63`).
 - CI con checks defensivos: `check:tool-coverage`, `check:ipc-zod`, depcruise, architecture guard.
 
