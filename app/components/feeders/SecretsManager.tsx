@@ -50,6 +50,75 @@ function formatRelative(ts: number | null | undefined): string | null {
   return new Date(ts).toLocaleDateString();
 }
 
+type SecretsListProps = {
+  secrets: FeederSecretMeta[];
+  loading: boolean;
+  onDelete: (id: string) => void;
+};
+
+function SecretsList({ secrets, loading, onDelete }: SecretsListProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="border-t border-border pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('feeders.secrets_list')}
+        </p>
+        {secrets.length > 0 ? (
+          <span className="text-xs text-muted-foreground">{secrets.length}</span>
+        ) : null}
+      </div>
+
+      {loading ? (
+        <ListState variant="loading" compact />
+      ) : secrets.length === 0 ? (
+        <ListState
+          variant="empty"
+          compact
+          icon={<HugeiconsIcon icon={SecurityBlockIcon} className="size-5 text-muted-foreground" />}
+          description={t('feeders.secrets_empty')}
+        />
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {secrets.map((s) => {
+            const lastUsed = formatRelative(s.lastUsedAt);
+            return (
+              <li
+                key={s.id}
+                className={cn(
+                  'flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5',
+                  'border-border bg-background',
+                  'hover:bg-accent transition-colors',
+                )}
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <HugeiconsIcon icon={Key01Icon}
+                    className="size-3.5 shrink-0 text-primary"
+                    aria-hidden
+                  />
+                  <code className="text-xs font-mono text-foreground truncate">
+                    {s.name}
+                  </code>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {lastUsed ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      {lastUsed}
+                    </span>
+                  ) : null}
+                  <Button variant="ghost" onClick={() => void onDelete(s.id)} aria-label={t('common.delete')} className="text-muted-foreground hover:text-destructive" size="icon-xs">
+                    <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function SecretsManager({ opened, onClose, initialName }: Props) {
   const { t } = useTranslation();
   const passwordInputId = useId();
@@ -190,63 +259,7 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
             </Button>
           </div>
 
-          <div className="border-t border-border pt-3">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('feeders.secrets_list')}
-              </p>
-              {secrets.length > 0 ? (
-                <span className="text-xs text-muted-foreground">{secrets.length}</span>
-              ) : null}
-            </div>
-
-            {loading ? (
-              <ListState variant="loading" compact />
-            ) : secrets.length === 0 ? (
-              <ListState
-                variant="empty"
-                compact
-                icon={<HugeiconsIcon icon={SecurityBlockIcon} className="size-5 text-muted-foreground" />}
-                description={t('feeders.secrets_empty')}
-              />
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {secrets.map((s) => {
-                  const lastUsed = formatRelative(s.lastUsedAt);
-                  return (
-                    <li
-                      key={s.id}
-                      className={cn(
-                        'flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5',
-                        'border-border bg-background',
-                        'hover:bg-accent transition-colors',
-                      )}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <HugeiconsIcon icon={Key01Icon}
-                          className="size-3.5 shrink-0 text-primary"
-                          aria-hidden
-                        />
-                        <code className="text-xs font-mono text-foreground truncate">
-                          {s.name}
-                        </code>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {lastUsed ? (
-                          <span className="text-[10px] text-muted-foreground">
-                            {lastUsed}
-                          </span>
-                        ) : null}
-                        <Button variant="ghost" onClick={() => void handleDelete(s.id)} aria-label={t('common.delete')} className="text-muted-foreground hover:text-destructive" size="icon-xs">
-                          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-                        </Button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          <SecretsList secrets={secrets} loading={loading} onDelete={handleDelete} />
         </div>
       )}
         </AppModalBody>
