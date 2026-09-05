@@ -138,24 +138,29 @@ export default function DeckOverview() {
     return () => { cancelled = true; };
   }, [sourceIds]);
 
-  if (!activeDeckId) return null;
-
-  const typeLabel =
-    isFlashDeck
-      ? t('learn.tab_decks', 'Flashcards')
-      : output?.type === 'quiz'
-        ? t('learn.tab_quizzes', 'Quizzes')
-        : output?.type === 'mindmap'
-          ? t('learn.tab_mindmaps', 'Mind maps')
-          : output?.type === 'guide'
-            ? t('learn.tab_guides', 'Guides')
-            : (output?.type ?? t('learn.content', 'Content'));
+  const typeLabel = useMemo(() => {
+    if (isFlashDeck) return t('learn.tab_decks', 'Flashcards');
+    switch (output?.type) {
+      case 'quiz':
+        return t('learn.tab_quizzes', 'Quizzes');
+      case 'mindmap':
+        return t('learn.tab_mindmaps', 'Mind maps');
+      case 'guide':
+        return t('learn.tab_guides', 'Guides');
+      default:
+        return output?.type ?? t('learn.content', 'Content');
+    }
+  }, [isFlashDeck, output?.type, t]);
 
   const total = stats?.total ?? cards.length ?? output?.deck_card_count ?? 0;
   const due = flashcardStudyableCount(stats);
   const mastered = stats?.mastered_cards ?? 0;
   // Continuous maturity climbs with each review; fall back to the mature-card ratio.
-  const masteryPct = stats?.maturity ?? (total > 0 ? Math.round((mastered / total) * 100) : 0);
+  const masteryPct = useMemo(() => {
+    if (stats?.maturity != null) return stats.maturity;
+    if (total > 0) return Math.round((mastered / total) * 100);
+    return 0;
+  }, [stats?.maturity, total, mastered]);
 
   const handleStudy = () => {
     if (isFlashDeck && flashDeckId) {
@@ -167,64 +172,6 @@ export default function DeckOverview() {
       setPlayingQuiz(true);
     }
   };
-
-  if (playingQuiz && output?.type === 'quiz' && quizData) {
-    return (
-      <QuizPlayer
-        data={quizData}
-        title={title}
-        studioOutputId={output.id}
-        onClose={() => {
-          setPlayingQuiz(false);
-          setStudyMode(null);
-          void (async () => {
-            const result = await window.electron.db.quiz.listRuns(output.id);
-            if (result.success && result.data) setQuizRuns(result.data as QuizRunRecord[]);
-          })();
-        }}
-      />
-    );
-  }
-
-  if (output?.type === 'mindmap' && output.content) {
-    return (
-      <div className="h-full">
-        <MindMapView output={output} onBack={closeDeck} />
-      </div>
-    );
-  }
-
-  if (output?.type === 'guide' && output.content) {
-    return (
-      <div className="h-full">
-        <GuideReader output={output} onBack={closeDeck} />
-      </div>
-    );
-  }
-
-  if (output?.type === 'faq' && output.content) {
-    return (
-      <div className="h-full">
-        <FaqReader output={output} onBack={closeDeck} />
-      </div>
-    );
-  }
-
-  if (output?.type === 'timeline' && output.content) {
-    return (
-      <div className="h-full">
-        <TimelineView output={output} onBack={closeDeck} />
-      </div>
-    );
-  }
-
-  if (output?.type === 'table' && output.content) {
-    return (
-      <div className="h-full">
-        <TableView output={output} onBack={closeDeck} />
-      </div>
-    );
-  }
 
   const handlePrefillGenerate = () => {
     openGenerateWizard({
@@ -242,21 +189,69 @@ export default function DeckOverview() {
     closeDeck();
   };
 
-  return (
-    <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
-      <DeckHeader
-        title={title}
-        typeLabel={typeLabel}
-        description={description}
-        sourceTitles={sourceIds.map((id) => sourceTitles[id] ?? id)}
-        onBack={closeDeck}
-        onStudy={isFlashDeck || output?.type === 'quiz' ? handleStudy : undefined}
-        onAddMore={sourceIds.length > 0 || output?.type ? handlePrefillGenerate : undefined}
-        onGenerate={() => openGenerateWizard()}
-      />
-      {isFlashDeck ? (
+  const earlyReturnView = useMemo(() => {
+    if (playingQuiz && output?.type === 'quiz' && quizData) {
+      return (
+        <QuizPlayer
+          data={quizData}
+          title={title}
+          studioOutputId={output.id}
+          onClose={() => {
+            setPlayingQuiz(false);
+            setStudyMode(null);
+            void (async () => {
+              const result = await window.electron.db.quiz.listRuns(output.id);
+              if (result.success && result.data) setQuizRuns(result.data as QuizRunRecord[]);
+            })();
+          }}
+        />
+      );
+    }
+    if (!output?.content) return null;
+    switch (output.type) {
+      case 'mindmap':
+        return (
+          <div className="h-full">
+            <MindMapView output={output} onBack={closeDeck} />
+          </div>
+        );
+      case 'guide':
+        return (
+          <div className="h-full">
+            <GuideReader output={output} onBack={closeDeck} />
+          </div>
+        );
+      case 'faq':
+        return (
+          <div className="h-full">
+            <FaqReader output={output} onBack={closeDeck} />
+          </div>
+        );
+      case 'timeline':
+        return (
+          <div className="h-full">
+            <TimelineView output={output} onBack={closeDeck} />
+          </div>
+        );
+      case 'table':
+        return (
+          <div className="h-full">
+            <TableView output={output} onBack={closeDeck} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  }, [playingQuiz, output, quizData, title, closeDeck, setStudyMode, setPlayingQuiz, setQuizRuns]);
+
+  const renderKpis = () => {
+    if (isFlashDeck) {
+      return (
         <DeckKpis total={total} due={due} mastered={mastered} masteryPct={masteryPct} />
-      ) : output?.type === 'quiz' && quizStats ? (
+      );
+    }
+    if (output?.type === 'quiz' && quizStats) {
+      return (
         <DeckKpis
           variant="quiz"
           total={quizStats.total}
@@ -265,43 +260,83 @@ export default function DeckOverview() {
           hardestLabel={quizStats.hardestLabel}
           avgTimeSec={quizStats.avgTimeSec}
         />
-      ) : null}
-      <DeckTabs active={tab} onChange={setTab} isFlash={isFlashDeck} />
-      {tab === 'questions' ? (
-        <DeckQuestionsTab
-          cards={cards}
-          studioOutputId={output?.type === 'quiz' ? output.id : undefined}
-          onRefresh={() => {
-            void reloadFlashCards();
-            if (output?.type === 'quiz') {
-              void window.electron.db.quiz.listRuns(output.id).then((result) => {
-                if (result.success && result.data) setQuizRuns(result.data as QuizRunRecord[]);
-              });
+      );
+    }
+    return null;
+  };
+
+  const renderTabContent = () => {
+    switch (tab) {
+      case 'questions':
+        return (
+          <DeckQuestionsTab
+            cards={cards}
+            studioOutputId={output?.type === 'quiz' ? output.id : undefined}
+            onRefresh={() => {
+              void reloadFlashCards();
+              if (output?.type === 'quiz') {
+                void window.electron.db.quiz.listRuns(output.id).then((result) => {
+                  if (result.success && result.data) setQuizRuns(result.data as QuizRunRecord[]);
+                });
+              }
+            }}
+            quizQuestions={quizData?.questions.map((q) => ({
+              id: q.id,
+              question: q.question,
+              difficulty: q.type,
+            }))}
+          />
+        );
+      case 'history':
+        return <DeckHistoryTab sessions={sessions} quizRuns={quizRuns} />;
+      case 'sources':
+        return <DeckSourcesTab sourceIds={sourceIds} sourceTitles={sourceTitles} />;
+      case 'settings':
+        return (
+          <DeckSettingsTab
+            title={title}
+            deckId={isFlashDeck ? flashDeckId ?? undefined : undefined}
+            settings={deckSettings}
+            onEdit={
+              isFlashDeck && flashDeckId
+                ? () => setDeckEditorOpen(true, flashDeckId)
+                : undefined
             }
-          }}
-          quizQuestions={quizData?.questions.map((q) => ({
-            id: q.id,
-            question: q.question,
-            difficulty: q.type,
-          }))}
-        />
-      ) : null}
-      {tab === 'history' ? <DeckHistoryTab sessions={sessions} quizRuns={quizRuns} /> : null}
-      {tab === 'sources' ? (
-        <DeckSourcesTab sourceIds={sourceIds} sourceTitles={sourceTitles} />
-      ) : null}
-      {tab === 'settings' ? (
-        <DeckSettingsTab
-          title={title}
-          deckId={isFlashDeck ? flashDeckId ?? undefined : undefined}
-          settings={deckSettings}
-          onEdit={isFlashDeck && flashDeckId ? () => setDeckEditorOpen(true, flashDeckId) : undefined}
-          onDelete={handleDelete}
-        />
-      ) : null}
+            onDelete={handleDelete}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (!activeDeckId) return null;
+  if (earlyReturnView) return earlyReturnView;
+
+  const canStudy = isFlashDeck || output?.type === 'quiz';
+  const canAddMore = sourceIds.length > 0 || Boolean(output?.type);
+  const confirmDeleteTitle = isFlashDeck
+    ? t('flashcard.confirm_delete_deck', 'Delete this deck?')
+    : t('content.confirm_delete_content', 'Delete this content?');
+
+  return (
+    <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
+      <DeckHeader
+        title={title}
+        typeLabel={typeLabel}
+        description={description}
+        sourceTitles={sourceIds.map((id) => sourceTitles[id] ?? id)}
+        onBack={closeDeck}
+        onStudy={canStudy ? handleStudy : undefined}
+        onAddMore={canAddMore ? handlePrefillGenerate : undefined}
+        onGenerate={() => openGenerateWizard()}
+      />
+      {renderKpis()}
+      <DeckTabs active={tab} onChange={setTab} isFlash={isFlashDeck} />
+      {renderTabContent()}
       <ConfirmDialog
         isOpen={deleteOpen}
-        title={isFlashDeck ? t('flashcard.confirm_delete_deck', 'Delete this deck?') : t('content.confirm_delete_content', 'Delete this content?')}
+        title={confirmDeleteTitle}
         message={title}
         confirmLabel={t('ui.delete', 'Delete')}
         cancelLabel={t('common.cancel', 'Cancel')}
