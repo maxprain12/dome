@@ -1113,6 +1113,108 @@ async function connectWebSocket(
 	});
 }
 
+function clearCachedEntryIdleTimer(entry: CachedWebSocketConnection): void {
+	if (entry.idleTimer) {
+		clearTimeout(entry.idleTimer);
+		entry.idleTimer = undefined;
+	}
+}
+
+function evictCachedWebSocketEntry(
+	sessionId: string,
+	accountId: string,
+	expectedEntry: CachedWebSocketConnection,
+): void {
+	const accountEntries = websocketSessionCache.get(sessionId);
+	if (accountEntries?.get(accountId) === expectedEntry) accountEntries.delete(accountId);
+	if (accountEntries?.size === 0) websocketSessionCache.delete(sessionId);
+}
+
+async function acquireFreshWebSocket(
+	url: string,
+	headers: Headers,
+	signal?: AbortSignal,
+	connectTimeoutMs?: number,
+	env?: ProviderEnv,
+): Promise<{
+	socket: WebSocketLike;
+	reused: false;
+	release: () => void;
+}> {
+	const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
+	return {
+		socket,
+		reused: false,
+		release: () => closeWebSocketSilently(socket),
+	};
+}
+
+function acquireReusableCachedWebSocket(
+	sessionId: string,
+	accountId: string,
+	cached: CachedWebSocketConnection,
+): {
+	socket: WebSocketLike;
+	entry: CachedWebSocketConnection;
+	reused: true;
+	release: (options?: { keep?: boolean }) => void;
+} {
+	cached.busy = true;
+	return {
+		socket: cached.socket,
+		entry: cached,
+		reused: true,
+		release: ({ keep } = {}) => {
+			if (!keep || !isWebSocketReusable(cached.socket)) {
+				closeWebSocketSilently(cached.socket);
+				evictCachedWebSocketEntry(sessionId, accountId, cached);
+				return;
+			}
+			cached.busy = false;
+			scheduleSessionWebSocketExpiry(sessionId, accountId, cached);
+		},
+	};
+}
+
+async function registerNewCachedWebSocket(
+	url: string,
+	headers: Headers,
+	sessionId: string,
+	accountId: string,
+	signal?: AbortSignal,
+	connectTimeoutMs?: number,
+	env?: ProviderEnv,
+): Promise<{
+	socket: WebSocketLike;
+	entry: CachedWebSocketConnection;
+	reused: false;
+	release: (options?: { keep?: boolean }) => void;
+}> {
+	const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
+	const entry: CachedWebSocketConnection = { socket, busy: true, createdAt: Date.now() };
+	let accountEntries = websocketSessionCache.get(sessionId);
+	if (!accountEntries) {
+		accountEntries = new Map();
+		websocketSessionCache.set(sessionId, accountEntries);
+	}
+	accountEntries.set(accountId, entry);
+	return {
+		socket,
+		entry,
+		reused: false,
+		release: ({ keep } = {}) => {
+			if (!keep || !isWebSocketReusable(entry.socket)) {
+				closeWebSocketSilently(entry.socket);
+				if (entry.idleTimer) clearTimeout(entry.idleTimer);
+				evictCachedWebSocketEntry(sessionId, accountId, entry);
+				return;
+			}
+			entry.busy = false;
+			scheduleSessionWebSocketExpiry(sessionId, accountId, entry);
+		},
+	};
+}
+
 async function acquireWebSocket(
 	url: string,
 	headers: Headers,
@@ -1128,86 +1230,29 @@ async function acquireWebSocket(
 	release: (options?: { keep?: boolean }) => void;
 }> {
 	if (!sessionId) {
-		const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
-		return {
-			socket,
-			reused: false,
-			release: () => closeWebSocketSilently(socket),
-		};
+		return acquireFreshWebSocket(url, headers, signal, connectTimeoutMs, env);
 	}
 
-	let accountEntries = websocketSessionCache.get(sessionId);
-	const cached = accountEntries?.get(accountId);
-	if (cached) {
-		if (cached.idleTimer) {
-			clearTimeout(cached.idleTimer);
-			cached.idleTimer = undefined;
-		}
-		if (!cached.busy && isWebSocketSessionExpired(cached)) {
-			closeWebSocketSilently(cached.socket, 1000, "connection_age_limit");
-			accountEntries?.delete(accountId);
-			if (accountEntries?.size === 0) websocketSessionCache.delete(sessionId);
-		} else if (!cached.busy && isWebSocketReusable(cached.socket)) {
-			cached.busy = true;
-			return {
-				socket: cached.socket,
-				entry: cached,
-				reused: true,
-				release: ({ keep } = {}) => {
-					if (!keep || !isWebSocketReusable(cached.socket)) {
-						closeWebSocketSilently(cached.socket);
-						const currentEntries = websocketSessionCache.get(sessionId);
-						if (currentEntries?.get(accountId) === cached) currentEntries.delete(accountId);
-						if (currentEntries?.size === 0) websocketSessionCache.delete(sessionId);
-						return;
-					}
-					cached.busy = false;
-					scheduleSessionWebSocketExpiry(sessionId, accountId, cached);
-				},
-			};
-		}
-		if (cached.busy) {
-			const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
-			return {
-				socket,
-				reused: false,
-				release: () => {
-					closeWebSocketSilently(socket);
-				},
-			};
-		}
-		if (!isWebSocketReusable(cached.socket)) {
-			closeWebSocketSilently(cached.socket);
-			accountEntries?.delete(accountId);
-			if (accountEntries?.size === 0) websocketSessionCache.delete(sessionId);
-		}
+	const cached = websocketSessionCache.get(sessionId)?.get(accountId);
+	if (!cached) {
+		return registerNewCachedWebSocket(url, headers, sessionId, accountId, signal, connectTimeoutMs, env);
 	}
 
-	const socket = await connectWebSocket(url, headers, signal, connectTimeoutMs, env);
-	const entry: CachedWebSocketConnection = { socket, busy: true, createdAt: Date.now() };
-	accountEntries = websocketSessionCache.get(sessionId);
-	if (!accountEntries) {
-		accountEntries = new Map();
-		websocketSessionCache.set(sessionId, accountEntries);
+	clearCachedEntryIdleTimer(cached);
+
+	if (!cached.busy && isWebSocketSessionExpired(cached)) {
+		closeWebSocketSilently(cached.socket, 1000, "connection_age_limit");
+		evictCachedWebSocketEntry(sessionId, accountId, cached);
+	} else if (!cached.busy && isWebSocketReusable(cached.socket)) {
+		return acquireReusableCachedWebSocket(sessionId, accountId, cached);
+	} else if (cached.busy) {
+		return acquireFreshWebSocket(url, headers, signal, connectTimeoutMs, env);
+	} else if (!isWebSocketReusable(cached.socket)) {
+		closeWebSocketSilently(cached.socket);
+		evictCachedWebSocketEntry(sessionId, accountId, cached);
 	}
-	accountEntries.set(accountId, entry);
-	return {
-		socket,
-		entry,
-		reused: false,
-		release: ({ keep } = {}) => {
-			if (!keep || !isWebSocketReusable(entry.socket)) {
-				closeWebSocketSilently(entry.socket);
-				if (entry.idleTimer) clearTimeout(entry.idleTimer);
-				const currentEntries = websocketSessionCache.get(sessionId);
-				if (currentEntries?.get(accountId) === entry) currentEntries.delete(accountId);
-				if (currentEntries?.size === 0) websocketSessionCache.delete(sessionId);
-				return;
-			}
-			entry.busy = false;
-			scheduleSessionWebSocketExpiry(sessionId, accountId, entry);
-		},
-	};
+
+	return registerNewCachedWebSocket(url, headers, sessionId, accountId, signal, connectTimeoutMs, env);
 }
 
 function extractWebSocketError(event: unknown): Error {
