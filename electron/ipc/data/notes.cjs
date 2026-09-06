@@ -1,14 +1,12 @@
 /* eslint-disable no-console */
 /**
- * Notes IPC - Markdown vault mirror (Phase 1).
- *
- * The renderer owns Tiptap -> Dome-flavored Markdown conversion (Turndown needs
- * a DOM). These handlers persist that Markdown to disk under dome-files/vault/
- * and keep resources.vault_path in sync. SQLite stays the source of truth in
- * this phase; the .md is a portable export for reading/preview/indexing.
+ * Notes IPC — Markdown vault storage.
+ * The editor sends Markdown; the vault file is the portable source of truth.
+ * Writing it also refreshes the SQLite content and search caches.
  */
 const { z } = require('zod');
 const vaultStore = require('../../storage/vault-store.cjs');
+const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
 
 const WriteMirrorSchema = z.object({
   id: z.string().min(1),
@@ -29,7 +27,16 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     if (!parsed.success) {
       return { success: false, error: 'Invalid payload' };
     }
-    return vaultStore.writeNoteMarkdown(parsed.data, { database, fileStorage });
+    const result = vaultStore.writeNoteMarkdown(parsed.data, { database, fileStorage });
+    if (result.success) {
+      semanticIndexScheduler.init(database);
+      semanticIndexScheduler.scheduleSemanticReindex(parsed.data.id);
+      windowManager.broadcast('resource:updated', {
+        id: parsed.data.id,
+        updates: { content: parsed.data.markdown, vault_path: result.vaultPath },
+      });
+    }
+    return result;
   });
 
   /** Read a note's Markdown mirror (frontmatter stripped). */

@@ -1,105 +1,69 @@
-# Workspace Feature
+# Workspace and files
 
-Documentation for Dome's resource workspace: layout, side panel tabs (References, Backlinks, Search, Workspace), routing, and viewers. Lives in `app/workspace/`, `app/components/workspace/`, and dynamic viewer imports.
+The workspace presents project resources in tabs. `UnifiedSidebar` and
+`SidebarFileTree` expose the project/folder hierarchy; `useTabStore` owns open
+resources and split views. `WorkspaceLayout` loads a resource, selects its viewer
+and subscribes to `resource:updated`. Its inspector groups details, relations,
+sources and Studio outputs. Notes use `MarkdownNoteWorkspace` and the Milkdown
+Markdown editor.
 
----
+## File ownership
 
-## Interfaces
+`electron/storage/vault-store.cjs` resolves each project's vault root from
+`projects.vault_root`, or defaults to `dome-files/vault/<sanitized project name>`.
+`resources.vault_path` is relative to that root. SQLite holds the resource identity,
+folder hierarchy, metadata and searchable content; note Markdown is stored in the
+vault, with `resources.content` and `content_text` refreshed as fallback/search
+caches when the editor writes it.
 
-### WorkspaceLayout (`app/components/workspace/WorkspaceLayout.tsx`)
+Document consumers use `getResourceFilePath`: vault path first, then legacy
+`internal_path`, then `file_path`. Existing libraries still need these fallbacks.
+DOCX and spreadsheet edits overwrite the resolved file atomically and refresh its
+size and hashes. They must not silently create a second copy when a vault file
+already exists.
 
-```ts
-interface WorkspaceLayoutProps {
-  resourceId: string;
-}
+`vault-watcher.cjs` reconciles external edits and imports files discovered in a
+project's vault. Vault writes are marked to distinguish them from external edits.
+`vault-sync.cjs` maintains folder paths on moves; `resource-delete.cjs` owns
+cascading deletion. File removal precedes database deletion so the watcher cannot
+reimport a file left behind.
 
-// State: resource, isLoading, error, sidePanelOpen, showMetadata
-// Loads resource via window.electron.db.resources.getById(resourceId)
-// Subscribes to resource:updated for current resourceId
-```
+## Importing documents
 
-### Tabs
+The IPC routes `resource:import`, `resource:importMultiple` and
+`resource:importFromContent` share the importer in `electron/ipc/data/resources.cjs`.
+The content route uses a unique temporary directory and removes it afterwards.
 
-- **NotesTab**: Notes for the resource (interactions type 'note'); editor or list.
-- **AnnotationsTab**: Annotations (interactions type 'annotation'); list + PDF position data.
-- **MetadataModal**: Modal to view/edit resource metadata (title, type, metadata fields); save via db.resources.update.
+- `.md`, `.markdown` and `.txt` files up to 1 MiB become editable notes. Leading
+  YAML frontmatter is stripped before Dome writes its own identity metadata.
+- Other files are copied into the project's vault, classified by extension and
+  registered in SQLite before asynchronous thumbnail/text extraction begins.
+- A supplied destination folder is reflected in both the resource row and path.
+- Duplicate content is allowed, as with the file picker; tracked filename
+  collisions use the vault's disambiguation rules.
 
-AI Chat is available globally via **MartinFloatingButton** (Many); the SidePanel sets context via `setContext(resourceId, resourceTitle)` when a resource is open.
+Agent tool `importFileToLibrary` has its own legacy import implementation in
+`electron/tools/ai-tools-handler.cjs`; it is not the IPC content-import route.
 
-### Routing
+## Note editing
 
-- **Generic**: `app/workspace/[[...params]]/` — client resolves params to resourceId and renders WorkspaceLayout(resourceId).
-- **URL**: `app/workspace/url/[[...params]]/` — URL resource workspace (same layout, resource type url).
-- Each route has `page.tsx`, `client.tsx`, `wrapper.tsx`; wrapper loads resource and renders WorkspaceLayout or redirects.
+`loadNoteMarkdown` prefers the vault file and falls back to legacy database
+content. Legacy HTML/Tiptap conversion remains necessary for existing notes.
+`MarkdownNoteWorkspace` uses one save flow for title blur, manual save and
+1.5-second autosave. It updates the title/timestamp first, then writes the Markdown so the file
+path and frontmatter use that title. Both IPC results are checked. A failed operation remains unsaved in the
+editor and exposes the error. Saves cannot overlap, and edits made while a save
+is pending remain dirty for the next save.
 
----
+The note workspace still has an explicit focus-window action. Ordinary resource
+navigation uses tabs. `WorkspaceFilesPanel` handles notebook execution files;
+those directories are distinct from project vaults and may live outside them.
 
-## Design patterns
+## Regression checks
 
-### Layout structure
-
-- **WorkspaceLayout**: Header (WorkspaceHeader: title, back, metadata button, panel toggle) + main area + optional SidePanel (tabs: References, Backlinks, Search, Workspace for notebooks).
-- **Main area**: Renders viewer by resource.type — PDFViewer, VideoPlayer, AudioPlayer, ImageViewer, or URLViewer (and for note, Editor/NotionEditor in main or in Notes tab).
-- **Dynamic imports**: PDFViewer, VideoPlayer, AudioPlayer, ImageViewer loaded with `dynamic(..., { ssr: false })` to avoid SSR/Node issues.
-
-### Resource loading
-
-- Single source: `getById(resourceId)` in useEffect; set resource / error / loading.
-- Updates: `window.electron.on('resource:updated', ({ id, updates }) => ...)`; if id === resourceId, merge updates into local state.
-
-### Side panel tabs
-
-- **ReferencesTab**: Linked resources from this resource.
-- **BacklinksTab**: Resources linking to this resource.
-- **SearchTab**: Find resources to link.
-- **WorkspaceTab**: (Notebooks only) Workspace files panel.
-
-Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for chat. SidePanel calls `setContext(resourceId, resourceTitle)` so Many has resource context.
-
-### Metadata
-
-- **WorkspaceHeader**: Button opens MetadataModal.
-- **MetadataModal**: Form for title, type, and metadata (duration, page_count, url, transcription, summary, etc.); on save calls db.resources.update(resourceId, updates).
-
-### Window
-
-- Workspace can run in a separate BrowserWindow (window-manager: open-workspace with resourceId); client receives resourceId from route or window args.
-
----
-
-## Data flow
-
-- **Open workspace**: User clicks resource → navigate to `/workspace/{resourceId}` or open workspace window with resourceId → wrapper/client loads resource → WorkspaceLayout(resourceId) mounts → load resource, render viewer + side panel.
-- **Switch resource**: Navigate to different resourceId → same layout remounts with new id → load new resource, new viewer.
-- **Resource update**: Main process or another window updates resource → main emits resource:updated → WorkspaceLayout merges updates; MetadataModal save → db.resources.update → emit resource:updated.
-
----
-
-## Functionality
-
-- **Single-resource workspace**: One resourceId per layout; viewer by type (PDF, video, audio, image, URL, document).
-- **Annotations**: List and jump to annotations (with position_data) for the resource.
-- **AI Chat**: Many chat with resource context and optional tools (see ai-chat.md).
-- **Metadata**: View and edit resource fields and metadata in modal.
-- **Back/close**: Header back button closes window or navigates back depending on context.
-- **Panel toggle**: Show/hide side panel (References / Backlinks / Search / Workspace).
-
----
-
-## Key files
-
-
-| Path                                           | Role                                                                                   |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `app/workspace/[[...params]]/page.tsx`         | Route page                                                                             |
-| `app/workspace/[[...params]]/client.tsx`       | Client component; resolves resourceId, renders WorkspaceLayout                         |
-| `app/workspace/[[...params]]/wrapper.tsx`      | Wrapper for loading/redirect                                                           |
-| `app/workspace/url/[[...params]]/`             | URL workspace route (same pattern)                                                     |
-| `app/components/workspace/WorkspaceLayout.tsx` | Layout: header, viewer, side panel, metadata modal; resource load and resource:updated |
-| `app/components/workspace/WorkspaceHeader.tsx` | Title, back, metadata button, panel toggle                                             |
-| `app/components/workspace/SidePanel.tsx`       | Tabs: References, Backlinks, Search, Workspace (notebooks); setContext for Martin      |
-| `app/components/workspace/AIChatTab.tsx`       | Many chat tab (see ai-chat.md)                                                         |
-| `app/components/workspace/MetadataModal.tsx`   | Metadata form and save                                                                 |
-| `app/components/workspace/index.ts`            | Exports                                                                                |
-
-
+- `electron/__tests__/resource-vault-io.test.mjs`: content imports, vault/legacy
+  document I/O, export, spreadsheet writes, previews and note cache updates.
+- `electron/__tests__/vault-mirror-create.test.mjs`: folder/note mirrors,
+  format-preserving moves and cascade deletion.
+- `app/components/notes/MarkdownNoteWorkspace.test.tsx`: save failures, title/body
+  persistence and edits during an outstanding save.

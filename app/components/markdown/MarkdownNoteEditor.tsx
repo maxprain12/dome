@@ -42,6 +42,8 @@ function CrepeEditorInner({
   const crepeRef = useRef<Crepe | null>(null);
   const initialRef = useRef(initialMarkdown);
   const readyRef = useRef(false);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const { get, loading } = useEditor(
     (root) => {
@@ -93,7 +95,7 @@ function CrepeEditorInner({
       });
       crepe.on((listener) => {
         listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
-          if (markdown !== prevMarkdown) onChange?.();
+          if (markdown !== prevMarkdown) onChangeRef.current?.();
         });
       });
       crepeRef.current = crepe;

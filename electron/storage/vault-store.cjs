@@ -356,6 +356,18 @@ function getResourceFilePath(resource, queries, fileStorage) {
   return null;
 }
 
+/** Overwrite the canonical resource file and refresh its byte-level metadata. */
+function writeResourceFile(resource, buffer, { database, fileStorage }) {
+  const fullPath = getResourceFilePath(resource, database.getQueries(), fileStorage);
+  if (!fullPath || !fs.existsSync(fullPath)) throw new Error('Resource file not found');
+  atomicWrite(fullPath, buffer);
+  const hash = contentHash(buffer);
+  database.getDB().prepare(
+    'UPDATE resources SET file_size = ?, file_hash = ?, content_hash = ? WHERE id = ?',
+  ).run(buffer.length, hash, hash, resource.id);
+  return fullPath;
+}
+
 /**
  * Copy an external file into the project's vault at its logical path. Used when
  * importing a file from outside the vault (drag-drop, downloads). Returns the
@@ -455,7 +467,7 @@ function markdownToPlainText(md) {
 
 /** Strip a leading YAML frontmatter block, returning the Markdown body. */
 function stripFrontmatter(raw) {
-  return String(raw || '').replace(/^﻿/, '').replace(/^---\n[\s\S]*?\n---\n?/, '');
+  return String(raw || '').replace(/^﻿/, '').replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
 }
 
 /** Extract the `id: "..."` field from a note's frontmatter (or null). */
@@ -555,8 +567,8 @@ function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
     const text = markdownToPlainText(body);
     const hash = contentHash(contents);
     db.prepare(
-      'UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ? WHERE id = ?',
-    ).run(relPath, text, hash, id);
+      'UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ? WHERE id = ?',
+    ).run(relPath, body, text, hash, id);
     return { success: true, vaultPath: relPath, contentHash: hash };
   } catch (err) {
     console.error('[VaultStore] writeNoteMarkdown failed:', err);
@@ -1203,6 +1215,7 @@ module.exports = {
   getProjectRoots,
   vaultAbsPathForResource,
   getResourceFilePath,
+  writeResourceFile,
   importFileToVault,
   sanitizeSegment,
   sanitizeFilename,

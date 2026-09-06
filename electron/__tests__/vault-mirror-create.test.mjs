@@ -25,6 +25,7 @@ import { DatabaseSync } from 'node:sqlite';
 const require = createRequire(import.meta.url);
 const vaultStore = require('../storage/vault-store.cjs');
 const vaultSync = require('../storage/vault-sync.cjs');
+const { deleteResourcesCascade } = require('../storage/resource-delete.cjs');
 
 let tmpDir;
 let db;
@@ -59,7 +60,11 @@ before(() => {
 
   const getResourceById = db.prepare('SELECT * FROM resources WHERE id = ?');
   const getProjectById = db.prepare('SELECT * FROM projects WHERE id = ?');
-  database = { getDB: () => db, getQueries: () => ({ getResourceById, getProjectById }) };
+  database = { getDB: () => db, getQueries: () => ({
+    getResourceById, getProjectById,
+    getResourcesByFolder: db.prepare('SELECT * FROM resources WHERE folder_id = ?'),
+    deleteResource: db.prepare('DELETE FROM resources WHERE id = ?'),
+  }) };
   // fileStorage only needs getStorageDir(); the vault lives under <storageDir>/vault.
   fileStorage = { getStorageDir: () => tmpDir };
 
@@ -155,7 +160,17 @@ describe('vault sync — agent move/delete path', () => {
     assert.ok(fs.existsSync(abs), `moved note .md should exist at ${abs}`);
   });
 
-  it('syncVaultBeforeDelete removes the mirror file from disk', () => {
+  it('moving an unmirrored note preserves Markdown instead of using the search cache', () => {
+    db.prepare(
+      'INSERT INTO resources (id, project_id, type, title, content, content_text, folder_id) VALUES (?,?,?,?,?,?,?)',
+    ).run('note-format', 'proj1', 'note', 'Formatted', '# Heading\n\n**Bold**', 'Heading Bold', 'fold1');
+    vaultSync.syncVaultAfterMoveToFolder('note-format', { database, fileStorage });
+    const mirror = vaultStore.readNoteMarkdown({ id: 'note-format' }, { database, fileStorage });
+    assert.equal(mirror.success, true);
+    assert.equal(mirror.markdown.trim(), '# Heading\n\n**Bold**');
+  });
+
+  it('cascade deletion removes the mirror and its database row', () => {
     const now = Date.now();
     db.prepare(
       'INSERT INTO resources (id, project_id, type, title, created_at, updated_at) VALUES (?,?,?,?,?,?)',
@@ -171,8 +186,11 @@ describe('vault sync — agent move/delete path', () => {
     const absBefore = path.join(root, write.vaultPath);
     assert.ok(fs.existsSync(absBefore));
 
-    vaultSync.syncVaultBeforeDelete('note-del', { database, fileStorage });
-    db.prepare('DELETE FROM resources WHERE id = ?').run('note-del');
+    const result = deleteResourcesCascade(['note-del'], {
+      database, fileStorage, windowManager: { broadcast() {} },
+    });
+    assert.deepEqual(result.deletedIds, ['note-del']);
+    assert.equal(database.getQueries().getResourceById.get('note-del'), undefined);
 
     assert.ok(!fs.existsSync(absBefore), 'mirror file should be removed from disk');
   });

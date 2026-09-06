@@ -44,16 +44,8 @@ function syncVaultAfterMoveToFolder(resourceId, { database, fileStorage }) {
     ensureFolderChainOnDisk(moved.folder_id, { database, fileStorage });
   }
 
-  if (moved.type === 'note' && (!moved.vault_path || String(moved.vault_path).trim() === '')) {
-    const fresh = queries.getResourceById.get(resourceId);
-    const body = fresh?.content_text || fresh?.content || '';
-    if (body && String(body).trim()) {
-      try {
-        vaultStore.writeNoteMarkdown({ id: resourceId, markdown: String(body) }, { database, fileStorage });
-      } catch (e) {
-        console.warn('[VaultSync] writeNoteMarkdown before relocate failed:', e?.message);
-      }
-    }
+  if (moved.type === 'note') {
+    ensureResourceMirror(resourceId, { database, fileStorage });
   }
 
   const after = queries.getResourceById.get(resourceId);
