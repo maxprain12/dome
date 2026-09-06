@@ -1565,6 +1565,25 @@ function mapStopReason(reason: ChatCompletionChunk.Choice["finish_reason"] | str
 }
 
 /**
+ * Pick a thinking format based on detected provider flags.
+ * Order matters: first matching flag wins.
+ */
+function resolveThinkingFormat(
+	isDeepSeek: boolean,
+	isZai: boolean,
+	isTogether: boolean,
+	isAntLing: boolean,
+	isOpenRouter: boolean,
+): NonNullable<ResolvedOpenAICompletionsCompat["thinkingFormat"]> {
+	if (isDeepSeek) return "deepseek";
+	if (isZai) return "zai";
+	if (isTogether) return "together";
+	if (isAntLing) return "ant-ling";
+	if (isOpenRouter) return "openrouter";
+	return "openai";
+}
+
+/**
  * Auto-detect compatibility settings from provider name and baseUrl.
  * Used as the base when model.compat is not set; explicit model.compat
  * entries override these detected values.
@@ -1632,17 +1651,7 @@ function detectCompat(model: Model<"openai-completions">): ResolvedOpenAIComplet
 		requiresAssistantAfterToolResult: false,
 		requiresThinkingAsText: false,
 		requiresReasoningContentOnAssistantMessages: isDeepSeek,
-		thinkingFormat: isDeepSeek
-			? "deepseek"
-			: isZai
-				? "zai"
-				: isTogether
-					? "together"
-					: isAntLing
-						? "ant-ling"
-						: isOpenRouter
-							? "openrouter"
-							: "openai",
+		thinkingFormat: resolveThinkingFormat(isDeepSeek, isZai, isTogether, isAntLing, isOpenRouter),
 		openRouterRouting: {},
 		vercelGatewayRouting: {},
 		chatTemplateKwargs: {},
