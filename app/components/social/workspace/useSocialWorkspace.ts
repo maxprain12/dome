@@ -39,6 +39,10 @@ export function useSocialWorkspace() {
     setLastSyncAt(data.lastSyncAt ?? null);
   }, []);
 
+  const upsertPost = useCallback((post: SocialPost) => {
+    setPosts((prev) => [post, ...prev.filter((p) => p.id !== post.id)]);
+  }, []);
+
   const load = useCallback(async (): Promise<WorkspacePayload | null> => {
     const response = await window.electron.invoke('social:workspace');
     if (response?.success && response.data) {
@@ -109,10 +113,7 @@ export function useSocialWorkspace() {
     const unsubscribers = [
       window.electron?.on?.('social:post-updated', (payload?: { post?: SocialPost }) => {
         if (payload?.post) {
-          setPosts((prev) => {
-            const next = prev.filter((post) => post.id !== payload.post?.id);
-            return [payload.post as SocialPost, ...next];
-          });
+          upsertPost(payload.post);
           return;
         }
         void loadSlice('posts').catch(() => undefined);
@@ -134,7 +135,7 @@ export function useSocialWorkspace() {
       active = false;
       unsubscribers.forEach((unsubscribe) => unsubscribe?.());
     };
-  }, [load, loadSlice]);
+  }, [load, loadSlice, upsertPost]);
 
   const run = useCallback(
     async (channel: string, payload?: unknown, slices: WorkspaceSlice[] = []) => {
