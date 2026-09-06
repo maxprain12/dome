@@ -582,6 +582,97 @@ function handleContentBlockStart(
 	}
 }
 
+function handleTextDelta(
+	text: string,
+	contentBlockIndex: number,
+	index: number,
+	block: Block | undefined,
+	blocks: Block[],
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	let textIndex = index;
+	let textBlock = block;
+
+	// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
+	if (!textBlock) {
+		const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
+		output.content.push(newBlock);
+		textIndex = blocks.length - 1;
+		textBlock = blocks[textIndex];
+		stream.push({ type: "text_start", contentIndex: textIndex, partial: output });
+	}
+	if (textBlock.type === "text") {
+		textBlock.text += text;
+		stream.push({ type: "text_delta", contentIndex: textIndex, delta: text, partial: output });
+	}
+}
+
+function appendRedactedContent(
+	redactedContent: NonNullable<NonNullable<ContentBlockDeltaEvent["delta"]>["reasoningContent"]>["redactedContent"],
+	thinkingBlock: Extract<Block, { type: "thinking" }>,
+	thinkingIndex: number,
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	if (!redactedContent?.length) return;
+	// Encrypted reasoning from non-Anthropic models on Bedrock (e.g. OpenAI GPT-5.6).
+	// The payload is opaque, so keep it verbatim in `thinkingSignature` the way the
+	// Anthropic path stores redacted thinking, and replay it on the next turn.
+	if (!thinkingBlock.redacted) {
+		thinkingBlock.redacted = true;
+		thinkingBlock.thinkingSignature = "";
+		thinkingBlock.thinking += REDACTED_THINKING_PLACEHOLDER;
+		stream.push({
+			type: "thinking_delta",
+			contentIndex: thinkingIndex,
+			delta: REDACTED_THINKING_PLACEHOLDER,
+			partial: output,
+		});
+	}
+	thinkingBlock.redactedChunks ??= [];
+	thinkingBlock.redactedChunks.push(redactedContent);
+}
+
+function handleReasoningDelta(
+	reasoningContent: NonNullable<NonNullable<ContentBlockDeltaEvent["delta"]>["reasoningContent"]>,
+	contentBlockIndex: number,
+	index: number,
+	block: Block | undefined,
+	blocks: Block[],
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	let thinkingBlock = block;
+	let thinkingIndex = index;
+
+	if (!thinkingBlock) {
+		const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
+		output.content.push(newBlock);
+		thinkingIndex = blocks.length - 1;
+		thinkingBlock = blocks[thinkingIndex];
+		stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
+	}
+
+	if (thinkingBlock?.type !== "thinking") return;
+
+	if (reasoningContent.text) {
+		thinkingBlock.thinking += reasoningContent.text;
+		stream.push({
+			type: "thinking_delta",
+			contentIndex: thinkingIndex,
+			delta: reasoningContent.text,
+			partial: output,
+		});
+	}
+	// `thinkingSignature` holds either an Anthropic signature or an opaque redacted
+	// payload, never both: mixing them would corrupt whichever arrived first.
+	if (reasoningContent.signature && !thinkingBlock.redacted) {
+		thinkingBlock.thinkingSignature = (thinkingBlock.thinkingSignature || "") + reasoningContent.signature;
+	}
+	appendRedactedContent(reasoningContent.redactedContent, thinkingBlock, thinkingIndex, output, stream);
+}
+
 function handleContentBlockDelta(
 	event: ContentBlockDeltaEvent,
 	blocks: Block[],
@@ -590,73 +681,17 @@ function handleContentBlockDelta(
 ): void {
 	const contentBlockIndex = event.contentBlockIndex!;
 	const delta = event.delta;
-	let index = blocks.findIndex((b) => b.index === contentBlockIndex);
-	let block = blocks[index];
+	const index = blocks.findIndex((b) => b.index === contentBlockIndex);
+	const block = blocks[index];
 
 	if (delta?.text !== undefined) {
-		// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
-		if (!block) {
-			const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
-			output.content.push(newBlock);
-			index = blocks.length - 1;
-			block = blocks[index];
-			stream.push({ type: "text_start", contentIndex: index, partial: output });
-		}
-		if (block.type === "text") {
-			block.text += delta.text;
-			stream.push({ type: "text_delta", contentIndex: index, delta: delta.text, partial: output });
-		}
+		handleTextDelta(delta.text, contentBlockIndex, index, block, blocks, output, stream);
 	} else if (delta?.toolUse && block?.type === "toolCall") {
 		block.partialJson = (block.partialJson || "") + (delta.toolUse.input || "");
 		block.arguments = parseStreamingJson(block.partialJson);
 		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input || "", partial: output });
 	} else if (delta?.reasoningContent) {
-		let thinkingBlock = block;
-		let thinkingIndex = index;
-
-		if (!thinkingBlock) {
-			const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
-			output.content.push(newBlock);
-			thinkingIndex = blocks.length - 1;
-			thinkingBlock = blocks[thinkingIndex];
-			stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
-		}
-
-		if (thinkingBlock?.type === "thinking") {
-			if (delta.reasoningContent.text) {
-				thinkingBlock.thinking += delta.reasoningContent.text;
-				stream.push({
-					type: "thinking_delta",
-					contentIndex: thinkingIndex,
-					delta: delta.reasoningContent.text,
-					partial: output,
-				});
-			}
-			// `thinkingSignature` holds either an Anthropic signature or an opaque redacted
-			// payload, never both: mixing them would corrupt whichever arrived first.
-			if (delta.reasoningContent.signature && !thinkingBlock.redacted) {
-				thinkingBlock.thinkingSignature =
-					(thinkingBlock.thinkingSignature || "") + delta.reasoningContent.signature;
-			}
-			if (delta.reasoningContent.redactedContent?.length) {
-				// Encrypted reasoning from non-Anthropic models on Bedrock (e.g. OpenAI GPT-5.6).
-				// The payload is opaque, so keep it verbatim in `thinkingSignature` the way the
-				// Anthropic path stores redacted thinking, and replay it on the next turn.
-				if (!thinkingBlock.redacted) {
-					thinkingBlock.redacted = true;
-					thinkingBlock.thinkingSignature = "";
-					thinkingBlock.thinking += REDACTED_THINKING_PLACEHOLDER;
-					stream.push({
-						type: "thinking_delta",
-						contentIndex: thinkingIndex,
-						delta: REDACTED_THINKING_PLACEHOLDER,
-						partial: output,
-					});
-				}
-				thinkingBlock.redactedChunks ??= [];
-				thinkingBlock.redactedChunks.push(delta.reasoningContent.redactedContent);
-			}
-		}
+		handleReasoningDelta(delta.reasoningContent, contentBlockIndex, index, block, blocks, output, stream);
 	}
 }
 
