@@ -121,34 +121,65 @@ async function fetchOllamaChatContextWindow(baseUrl, model, apiKey) {
 }
 
 /**
+ * Strip `/v1` and a trailing slash from a base URL.
+ * @param {string} openAiBaseUrl
+ * @returns {string}
+ */
+function normalizeLmStudioOrigin(openAiBaseUrl) {
+  return String(openAiBaseUrl || '')
+    .replace(/\/v1\/?$/, '')
+    .replace(/\/$/, '');
+}
+
+/**
+ * LM Studio payloads use either `data` or `models`; pick whichever is present.
+ * @param {unknown} json
+ * @returns {Array<unknown>}
+ */
+function extractLmStudioModelList(json) {
+  const rec = /** @type {Record<string, unknown>} */ (json || {});
+  if (Array.isArray(rec.data)) return rec.data;
+  if (Array.isArray(rec.models)) return rec.models;
+  return [];
+}
+
+/**
+ * Resolve a row's identifier and, if it carries a positive context length,
+ * add it to the map. Returns true when the row was added.
+ * @param {unknown} row
+ * @param {Map<string, number>} map
+ */
+function addLmStudioRowToMap(row, map) {
+  if (!row || typeof row !== 'object') return;
+  const rec = /** @type {Record<string, unknown>} */ (row);
+  const id = typeof rec.id === 'string' ? rec.id : typeof rec.name === 'string' ? rec.name : '';
+  if (!id) return;
+  const ctx = extractContextWindowFromRow(rec);
+  if (ctx > 0) map.set(id, ctx);
+}
+
+/**
  * LM Studio native catalog (`/api/v0/models`) carries `max_context_length`.
  * @param {string} openAiBaseUrl
  * @param {Record<string, string>} [headers]
  * @returns {Promise<Map<string, number>>}
  */
 async function fetchLmStudioContextById(openAiBaseUrl, headers = {}) {
-  const origin = String(openAiBaseUrl || '')
-    .replace(/\/v1\/?$/, '')
-    .replace(/\/$/, '');
+  const origin = normalizeLmStudioOrigin(openAiBaseUrl);
   if (!origin) return new Map();
+  /** @type {Map<string, number>} */
+  const map = new Map();
   try {
     const res = await fetch(`${origin}/api/v0/models`, { headers });
-    if (!res.ok) return new Map();
+    if (!res.ok) return map;
     const json = /** @type {Record<string, unknown>} */ (await res.json());
-    const list = Array.isArray(json.data) ? json.data : Array.isArray(json.models) ? json.models : [];
-    /** @type {Map<string, number>} */
-    const map = new Map();
-    for (const row of list) {
-      if (!row || typeof row !== 'object') continue;
-      const rec = /** @type {Record<string, unknown>} */ (row);
-      const id = typeof rec.id === 'string' ? rec.id : typeof rec.name === 'string' ? rec.name : '';
-      const ctx = extractContextWindowFromRow(rec);
-      if (id && ctx > 0) map.set(id, ctx);
+    for (const row of extractLmStudioModelList(json)) {
+      addLmStudioRowToMap(row, map);
     }
-    return map;
   } catch {
     return new Map();
   }
+  return map;
 }
 
 module.exports = {
