@@ -387,6 +387,23 @@ function buildParams(
 		}),
 	};
 
+	applyThinkingConfig(config, model, options);
+	applyAbortSignal(config, options);
+
+	const params: GenerateContentParameters = {
+		model: model.id,
+		contents,
+		config,
+	};
+
+	return params;
+}
+
+function applyThinkingConfig(
+	config: GenerateContentConfig,
+	model: Model<"google-generative-ai">,
+	options: GoogleOptions,
+): void {
 	if (options.thinking?.enabled && model.reasoning) {
 		const thinkingConfig: ThinkingConfig = { includeThoughts: true };
 		if (options.thinking.level !== undefined) {
@@ -399,21 +416,15 @@ function buildParams(
 	} else if (model.reasoning && options.thinking && !options.thinking.enabled) {
 		config.thinkingConfig = getDisabledThinkingConfig(model);
 	}
+}
 
+function applyAbortSignal(config: GenerateContentConfig, options: GoogleOptions): void {
 	if (options.signal) {
 		if (options.signal.aborted) {
 			throw new Error("Request aborted");
 		}
 		config.abortSignal = options.signal;
 	}
-
-	const params: GenerateContentParameters = {
-		model: model.id,
-		contents,
-		config,
-	};
-
-	return params;
 }
 
 function isGemma4Model(model: Model<"google-generative-ai">): boolean {
