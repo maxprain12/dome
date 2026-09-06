@@ -245,47 +245,58 @@ export function treeEntryToV4Entry(entry: SessionTreeEntry, seq: number): V4Entr
 	return { ...rest, seq, timestamp: isoToUnixMs(timestamp) };
 }
 
-export function v4EntryToTreeEntry(entry: V4Entry): SessionTreeEntry {
-	const timestamp = unixMsToIso(entry.timestamp);
-	if (entry.type === "custom" && isRecord(entry.data) && entry.data.legacyType === "custom_message") {
+function customV4EntryToTreeEntry(entry: V4Entry, timestamp: string): SessionTreeEntry | null {
+	if (!isRecord(entry.data)) return null;
+	const data = entry.data;
+	if (data.legacyType === "custom_message") {
 		return {
 			type: "custom_message",
 			id: entry.id,
 			parentId: entry.parentId,
 			timestamp,
 			customType: typeof entry.customType === "string" ? entry.customType : "custom",
-			content: (entry.data.content as string) ?? "",
-			display: entry.data.display === true,
-			details: entry.data.details,
+			content: (data.content as string) ?? "",
+			display: data.display === true,
+			details: data.details,
 		};
 	}
-	if (entry.type === "custom" && entry.customType === "dome.leaf" && isRecord(entry.data)) {
+	const customType = entry.customType;
+	if (customType === "dome.leaf") {
 		return {
 			type: "leaf",
 			id: entry.id,
 			parentId: entry.parentId,
 			timestamp,
-			targetId: typeof entry.data.targetId === "string" || entry.data.targetId === null ? entry.data.targetId : null,
+			targetId: typeof data.targetId === "string" || data.targetId === null ? data.targetId : null,
 		};
 	}
-	if (entry.type === "custom" && entry.customType === "dome.session_info" && isRecord(entry.data)) {
+	if (customType === "dome.session_info") {
 		return {
 			type: "session_info",
 			id: entry.id,
 			parentId: entry.parentId,
 			timestamp,
-			name: typeof entry.data.name === "string" ? entry.data.name : undefined,
+			name: typeof data.name === "string" ? data.name : undefined,
 		};
 	}
-	if (entry.type === "custom" && entry.customType === "dome.label" && isRecord(entry.data)) {
+	if (customType === "dome.label") {
 		return {
 			type: "label",
 			id: entry.id,
 			parentId: entry.parentId,
 			timestamp,
-			targetId: typeof entry.data.targetId === "string" ? entry.data.targetId : "",
-			label: typeof entry.data.label === "string" ? entry.data.label : undefined,
+			targetId: typeof data.targetId === "string" ? data.targetId : "",
+			label: typeof data.label === "string" ? data.label : undefined,
 		};
+	}
+	return null;
+}
+
+export function v4EntryToTreeEntry(entry: V4Entry): SessionTreeEntry {
+	const timestamp = unixMsToIso(entry.timestamp);
+	if (entry.type === "custom") {
+		const custom = customV4EntryToTreeEntry(entry, timestamp);
+		if (custom !== null) return custom;
 	}
 	const { seq: _seq, timestamp: _ts, ...rest } = entry;
 	return { ...rest, timestamp } as SessionTreeEntry;
@@ -300,46 +311,88 @@ export type V4SessionSnapshot = {
 	name?: string;
 };
 
+type ApplyMutationState = {
+	entries: SessionTreeEntry[];
+	labelsById: Map<string, string>;
+	leafId: string | null;
+	name: string | undefined;
+};
+
+function getMutationSeq(mutation: SessionMutation): number {
+	switch (mutation.kind) {
+		case "entry":
+			return mutation.entry.seq;
+		case "record":
+			return mutation.record.seq;
+		case "lane":
+		case "fact":
+			return mutation.seq;
+	}
+}
+
+function applyEntryMutation(
+	mutation: Extract<SessionMutation, { kind: "entry" }>,
+	state: ApplyMutationState,
+): void {
+	const tree = v4EntryToTreeEntry(mutation.entry);
+	state.entries.push(tree);
+	if (tree.type === "leaf") {
+		state.leafId = tree.targetId;
+	} else if (tree.type === "label") {
+		const label = tree.label?.trim();
+		if (label) state.labelsById.set(tree.targetId, label);
+		else state.labelsById.delete(tree.targetId);
+		state.leafId = tree.id;
+	} else {
+		state.leafId = tree.id;
+	}
+}
+
+function applyMutation(mutation: SessionMutation, state: ApplyMutationState): void {
+	switch (mutation.kind) {
+		case "entry":
+			applyEntryMutation(mutation, state);
+			return;
+		case "lane":
+			if (mutation.lane === "main") state.leafId = mutation.leafId;
+			return;
+		case "fact":
+			if (mutation.fact === "label") {
+				if (mutation.label?.trim()) state.labelsById.set(mutation.targetId, mutation.label);
+				else state.labelsById.delete(mutation.targetId);
+			} else {
+				state.name = mutation.name;
+			}
+			return;
+		case "record":
+			return;
+	}
+}
+
 export function applyV4Mutations(header: JsonlV4Header, mutations: SessionMutation[]): V4SessionSnapshot {
-	const entries: SessionTreeEntry[] = [];
-	const labelsById = new Map<string, string>();
-	let leafId: string | null = null;
+	const state: ApplyMutationState = {
+		entries: [],
+		labelsById: new Map(),
+		leafId: null,
+		name: undefined,
+	};
 	let nextSeq = 1;
-	let name: string | undefined;
 	for (const mutation of mutations) {
-		const seq =
-			mutation.kind === "entry"
-				? mutation.entry.seq
-				: mutation.kind === "record"
-					? mutation.record.seq
-					: mutation.seq;
+		const seq = getMutationSeq(mutation);
 		if (seq !== nextSeq) {
 			throw new SessionError("invalid_session", `v4 mutation has non-consecutive seq ${seq}`);
 		}
 		nextSeq = seq + 1;
-		if (mutation.kind === "entry") {
-			const tree = v4EntryToTreeEntry(mutation.entry);
-			entries.push(tree);
-			if (tree.type === "leaf") {
-				leafId = tree.targetId;
-			} else if (tree.type === "label") {
-				const label = tree.label?.trim();
-				if (label) labelsById.set(tree.targetId, label);
-				else labelsById.delete(tree.targetId);
-				leafId = tree.id;
-			} else {
-				leafId = tree.id;
-			}
-		} else if (mutation.kind === "lane" && mutation.lane === "main") {
-			leafId = mutation.leafId;
-		} else if (mutation.kind === "fact" && mutation.fact === "label") {
-			if (mutation.label?.trim()) labelsById.set(mutation.targetId, mutation.label);
-			else labelsById.delete(mutation.targetId);
-		} else if (mutation.kind === "fact" && mutation.fact === "name") {
-			name = mutation.name;
-		}
+		applyMutation(mutation, state);
 	}
-	return { header, entries, leafId, nextSeq, labelsById, name };
+	return {
+		header,
+		entries: state.entries,
+		leafId: state.leafId,
+		nextSeq,
+		labelsById: state.labelsById,
+		name: state.name,
+	};
 }
 
 export function parseV4SessionText(text: string): V4SessionSnapshot {
