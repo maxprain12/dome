@@ -432,6 +432,42 @@ function isMistralRecord(value: unknown): value is Record<string, unknown> {
 
 const MISTRAL_STREAM_DONE = Symbol("mistral-stream-done");
 
+function throwIfMistralAborted(signal: AbortSignal): void {
+	if (signal.aborted) throw signal.reason;
+}
+
+function* extractMistralEvents(
+	initialBuffer: string,
+): Generator<MistralCompletionEvent, string | typeof MISTRAL_STREAM_DONE, void> {
+	let buffer = initialBuffer;
+	let boundary = findMistralEventBoundary(buffer);
+	while (boundary) {
+		const event = parseMistralEvent(buffer.slice(0, boundary.index));
+		buffer = buffer.slice(boundary.index + boundary.length);
+		if (event === MISTRAL_STREAM_DONE) return MISTRAL_STREAM_DONE;
+		if (event) yield event;
+		boundary = findMistralEventBoundary(buffer);
+	}
+	return buffer;
+}
+
+function* trailingMistralEvent(buffer: string): Generator<MistralCompletionEvent, void, void> {
+	if (!buffer.trim()) return;
+	const event = parseMistralEvent(buffer);
+	if (event !== MISTRAL_STREAM_DONE && event) yield event;
+}
+
+async function safelyCancelMistralReader(
+	reader: ReadableStreamDefaultReader<Uint8Array>,
+): Promise<void> {
+	try {
+		await reader.cancel();
+	} catch {}
+	try {
+		reader.releaseLock();
+	} catch {}
+}
+
 async function* readMistralEvents(
 	body: ReadableStream<Uint8Array>,
 	signal: AbortSignal,
@@ -446,35 +482,22 @@ async function* readMistralEvents(
 
 	try {
 		while (true) {
-			if (signal.aborted) throw signal.reason;
+			throwIfMistralAborted(signal);
 			const { done, value } = await reader.read();
-			if (signal.aborted) throw signal.reason;
+			throwIfMistralAborted(signal);
 			buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
 
-			let boundary = findMistralEventBoundary(buffer);
-			while (boundary) {
-				const event = parseMistralEvent(buffer.slice(0, boundary.index));
-				buffer = buffer.slice(boundary.index + boundary.length);
-				if (event === MISTRAL_STREAM_DONE) return;
-				if (event) yield event;
-				boundary = findMistralEventBoundary(buffer);
-			}
+			const remaining = yield* extractMistralEvents(buffer);
+			if (remaining === MISTRAL_STREAM_DONE) return;
+			buffer = remaining;
 
 			if (done) break;
 		}
 
-		if (buffer.trim()) {
-			const event = parseMistralEvent(buffer);
-			if (event !== MISTRAL_STREAM_DONE && event) yield event;
-		}
+		yield* trailingMistralEvent(buffer);
 	} finally {
 		signal.removeEventListener("abort", onAbort);
-		try {
-			await reader.cancel();
-		} catch {}
-		try {
-			reader.releaseLock();
-		} catch {}
+		await safelyCancelMistralReader(reader);
 	}
 }
 

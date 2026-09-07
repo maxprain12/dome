@@ -457,6 +457,29 @@ async function* iterateSseMessages(
 	}
 }
 
+async function* parseAnthropicSseEvents(
+	sseStream: AsyncGenerator<ServerSentEvent>,
+): AsyncGenerator<RawMessageStreamEvent> {
+	for await (const sse of sseStream) {
+		if (sse.event === "error") {
+			throw new Error(sse.data);
+		}
+
+		if (!ANTHROPIC_MESSAGE_EVENTS.has(sse.event ?? "")) {
+			continue;
+		}
+
+		try {
+			yield parseJsonWithRepair<RawMessageStreamEvent>(sse.data);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			throw new Error(
+				`Could not parse Anthropic SSE event ${sse.event}: ${message}; data=${sse.data}; raw=${sse.raw.join("\\n")}`,
+			);
+		}
+	}
+}
+
 async function* iterateAnthropicEvents(
 	response: Response,
 	signal?: AbortSignal,
@@ -468,29 +491,13 @@ async function* iterateAnthropicEvents(
 	let sawMessageStart = false;
 	let sawMessageEnd = false;
 
-	for await (const sse of iterateSseMessages(response.body, signal)) {
-		if (sse.event === "error") {
-			throw new Error(sse.data);
+	for await (const event of parseAnthropicSseEvents(iterateSseMessages(response.body, signal))) {
+		if (event.type === "message_start") {
+			sawMessageStart = true;
+		} else if (event.type === "message_stop") {
+			sawMessageEnd = true;
 		}
-
-		if (!ANTHROPIC_MESSAGE_EVENTS.has(sse.event ?? "")) {
-			continue;
-		}
-
-		try {
-			const event = parseJsonWithRepair<RawMessageStreamEvent>(sse.data);
-			if (event.type === "message_start") {
-				sawMessageStart = true;
-			} else if (event.type === "message_stop") {
-				sawMessageEnd = true;
-			}
-			yield event;
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			throw new Error(
-				`Could not parse Anthropic SSE event ${sse.event}: ${message}; data=${sse.data}; raw=${sse.raw.join("\\n")}`,
-			);
-		}
+		yield event;
 	}
 
 	if (sawMessageStart && !sawMessageEnd) {
