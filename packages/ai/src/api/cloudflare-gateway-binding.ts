@@ -170,23 +170,30 @@ async function readBodyText(request: Request | undefined, init?: RequestInit): P
 // uniform. Per the fetch spec, `init.headers` replaces a Request input's headers entirely.
 function collectHeaders(request: Request | undefined, init?: RequestInit): Record<string, string> {
 	const result: Record<string, string> = {};
-	const add = (key: string, value: string) => {
-		const name = key.toLowerCase();
-		if (!STRIP_HEADERS.has(name)) result[name] = value;
-	};
 	const headers = init?.headers;
 	if (headers === undefined) {
-		if (request) {
-			for (const [key, value] of request.headers) add(key, value);
-		}
+		if (request) addHeadersFromIterable(result, request.headers);
 	} else if (headers instanceof Headers) {
-		for (const [key, value] of headers) add(key, value);
+		addHeadersFromIterable(result, headers);
 	} else if (Array.isArray(headers)) {
-		for (const [key, value] of headers) add(key, value);
+		addHeadersFromIterable(result, headers);
 	} else {
-		for (const [key, value] of Object.entries(headers)) {
-			if (value !== undefined) add(key, String(value));
-		}
+		addHeadersFromObject(result, headers);
 	}
 	return result;
+}
+
+function addHeadersFromIterable(result: Record<string, string>, source: Iterable<[string, string]>): void {
+	for (const [key, value] of source) addHeader(result, key, value);
+}
+
+function addHeadersFromObject(result: Record<string, string>, source: Record<string, string | undefined>): void {
+	for (const [key, value] of Object.entries(source)) {
+		if (value !== undefined) addHeader(result, key, String(value));
+	}
+}
+
+function addHeader(result: Record<string, string>, key: string, value: string): void {
+	const name = key.toLowerCase();
+	if (!STRIP_HEADERS.has(name)) result[name] = value;
 }
