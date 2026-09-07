@@ -132,6 +132,26 @@ function parseGitHubCopilotModelCatalog(raw: unknown, allowPolicyFallback: boole
 	return { availableModelIds, policyModelIds };
 }
 
+async function consumeRetryResponse(
+	response: Response,
+	retry: number,
+	retryDeadline: number | undefined,
+	requestSignal: AbortSignal,
+): Promise<Response | undefined> {
+	const retryAfter = response.headers.get("retry-after");
+	let delayMs = 500 * 2 ** retry;
+	if (retryAfter) {
+		const seconds = Number.parseFloat(retryAfter);
+		delayMs = Number.isNaN(seconds) ? Date.parse(retryAfter) - Date.now() : seconds * 1000;
+		if (!Number.isFinite(delayMs)) return response;
+	}
+	delayMs = Math.max(0, delayMs);
+	if (retryDeadline !== undefined && delayMs >= retryDeadline - Date.now()) return response;
+	await response.body?.cancel();
+	await sleep(delayMs, requestSignal);
+	return undefined;
+}
+
 async function fetchWithRateLimitRetry(
 	url: string,
 	init: RequestInit,
@@ -150,18 +170,8 @@ async function fetchWithRateLimitRetry(
 			signal: AbortSignal.any([requestSignal, AbortSignal.timeout(5000)]),
 		});
 		if (response.status !== 429 || retry === retryPolicy.maxRetries) return response;
-
-		const retryAfter = response.headers.get("retry-after");
-		let delayMs = 500 * 2 ** retry;
-		if (retryAfter) {
-			const seconds = Number.parseFloat(retryAfter);
-			delayMs = Number.isNaN(seconds) ? Date.parse(retryAfter) - Date.now() : seconds * 1000;
-			if (!Number.isFinite(delayMs)) return response;
-		}
-		delayMs = Math.max(0, delayMs);
-		if (retryDeadline !== undefined && delayMs >= retryDeadline - Date.now()) return response;
-		await response.body?.cancel();
-		await sleep(delayMs, requestSignal);
+		const done = await consumeRetryResponse(response, retry, retryDeadline, requestSignal);
+		if (done) return done;
 	}
 }
 
