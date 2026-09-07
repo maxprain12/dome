@@ -211,6 +211,59 @@ function isRetryableRefreshFailure(response: Response): boolean {
 	return response.status === 429 || response.status >= 500;
 }
 
+type RefreshAttempt =
+	| { kind: "done"; token: TokenResponse }
+	| { kind: "retry"; error: Error };
+
+async function runRefreshAttempt(
+	oauthHost: string,
+	refreshTokenValue: string,
+	signal: AbortSignal,
+): Promise<RefreshAttempt> {
+	let response: Response;
+	try {
+		response = await fetch(`${oauthHost}/api/oauth/token`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded",
+				Accept: "application/json",
+			},
+			body: formUrlEncode({
+				client_id: CLIENT_ID,
+				grant_type: "refresh_token",
+				refresh_token: refreshTokenValue,
+			}),
+			signal: requestSignal(signal),
+		});
+	} catch (error) {
+		return { kind: "retry", error: error instanceof Error ? error : new Error(String(error)) };
+	}
+
+	const json = await readJson(response);
+	if (response.ok) {
+		return { kind: "done", token: parseTokenResponse(json, "refresh") };
+	}
+
+	return classifyRefreshResponse(response, json);
+}
+
+function classifyRefreshResponse(response: Response, json: Record<string, unknown> | null): RefreshAttempt {
+	// Unauthorized: the stored credential is dead; Models clears it and prompts re-login.
+	if (response.status === 401 || response.status === 403 || json?.error === "invalid_grant") {
+		const description = typeof json?.error_description === "string" ? `: ${json.error_description}` : "";
+		throw new Error(`Kimi Code token refresh unauthorized (status ${response.status})${description}`);
+	}
+	if (isRetryableRefreshFailure(response)) {
+		const text = JSON.stringify(json);
+		return {
+			kind: "retry",
+			error: new Error(`Kimi Code token refresh failed with status ${response.status}${text ? `: ${text}` : ""}`),
+		};
+	}
+	const text = JSON.stringify(json);
+	throw new Error(`Kimi Code token refresh failed with status ${response.status}${text ? `: ${text}` : ""}`);
+}
+
 async function refreshToken(oauthHost: string, refreshTokenValue: string, signal: AbortSignal): Promise<TokenResponse> {
 	let lastError: Error | undefined;
 	for (let attempt = 0; attempt <= REFRESH_MAX_RETRIES; attempt++) {
@@ -221,46 +274,12 @@ async function refreshToken(oauthHost: string, refreshTokenValue: string, signal
 			throw new Error("Kimi Code token refresh aborted");
 		}
 
-		let response: Response;
-		try {
-			response = await fetch(`${oauthHost}/api/oauth/token`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-					Accept: "application/json",
-				},
-				body: formUrlEncode({
-					client_id: CLIENT_ID,
-					grant_type: "refresh_token",
-					refresh_token: refreshTokenValue,
-				}),
-				signal: requestSignal(signal),
-			});
-		} catch (error) {
-			lastError = error instanceof Error ? error : new Error(String(error));
-			continue;
+		const outcome = await runRefreshAttempt(oauthHost, refreshTokenValue, signal);
+		if (outcome.kind === "done") {
+			return outcome.token;
 		}
-
-		const json = await readJson(response);
-		if (response.ok) {
-			return parseTokenResponse(json, "refresh");
-		}
-
-		// Unauthorized: the stored credential is dead; Models clears it and prompts re-login.
-		if (response.status === 401 || response.status === 403 || json?.error === "invalid_grant") {
-			const description = typeof json?.error_description === "string" ? `: ${json.error_description}` : "";
-			throw new Error(`Kimi Code token refresh unauthorized (status ${response.status})${description}`);
-		}
-
-		if (isRetryableRefreshFailure(response) && attempt < REFRESH_MAX_RETRIES) {
-			lastError = new Error(`Kimi Code token refresh failed with status ${response.status}`);
-			continue;
-		}
-
-		const text = JSON.stringify(json);
-		throw new Error(`Kimi Code token refresh failed with status ${response.status}${text ? `: ${text}` : ""}`);
+		lastError = outcome.error;
 	}
-
 	throw lastError ?? new Error("Kimi Code token refresh failed");
 }
 
