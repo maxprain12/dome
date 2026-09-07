@@ -2974,7 +2974,7 @@ async function socialAccountsList() {
   }
 }
 
-async function socialPostDraft({ provider, body, media, link_url, topics, campaign, scheduled_at } = {}) {
+async function socialPostDraft({ provider, account_id, body, media, link_url, topics, campaign, scheduled_at } = {}) {
   try {
     if (!provider || !['linkedin', 'instagram', 'x'].includes(provider)) {
       return { success: false, error: 'provider must be linkedin, instagram or x' };
@@ -3018,10 +3018,11 @@ async function socialPostDraft({ provider, body, media, link_url, topics, campai
       if (scheduledAt < Date.now() - 60 * 1000) return { success: false, error: 'scheduled_at is in the past' };
     }
     const service = socialService();
-    const account = service.store.listAccounts(provider).find((a) => a.status === 'active') || null;
+    const account = service.store.listAccounts(provider).find((a) => a.id === account_id && a.status === 'active');
+    if (!account) return { success: false, error: 'Select an active account_id from social_accounts_list for this network.' };
     const post = service.store.createPost({
       provider,
-      accountId: account?.id ?? null,
+      accountId: account.id,
       body: text,
       media: mediaArr,
       linkUrl: typeof link_url === 'string' && link_url ? link_url : null,
@@ -3037,7 +3038,6 @@ async function socialPostDraft({ provider, body, media, link_url, topics, campai
       note: scheduledAt
         ? 'Post scheduled — the Social scheduler will publish it automatically.'
         : 'Draft saved. The user can review it in the Social tab, or call social_post_publish to publish now.',
-      warning: account ? undefined : `No connected ${provider} account yet — connect one in Settings → Social before publishing.`,
     };
   } catch (err) {
     return { success: false, error: err.message };

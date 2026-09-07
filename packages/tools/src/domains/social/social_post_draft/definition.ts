@@ -12,6 +12,7 @@ export const socialPostDraftDefinition: ToolDefinition = {
       type: 'object',
       properties: {
         provider: { type: 'string', enum: ['linkedin', 'instagram', 'x'], description: 'Target network' },
+        account_id: { type: 'string', description: 'Explicit destination account id from social_accounts_list. Must belong to the target network.' },
         body: { type: 'string', description: 'Post text/caption. Limits: X 280, Instagram 2200, LinkedIn 3000 chars.' },
         media: {
           type: 'array',
@@ -33,7 +34,7 @@ export const socialPostDraftDefinition: ToolDefinition = {
         campaign: { type: 'string', description: 'Optional campaign name to group posts.' },
         scheduled_at: { type: 'string', description: 'ISO datetime to auto-publish (e.g. 2026-07-04T09:00:00). Omit to save as draft.' },
       },
-      required: ['provider', 'body'],
+      required: ['provider', 'account_id', 'body'],
     },
   },
 };

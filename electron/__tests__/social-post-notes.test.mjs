@@ -16,6 +16,7 @@ describe('social post notes', () => {
     db.exec(`
       CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER NOT NULL);
       CREATE TABLE projects (id TEXT PRIMARY KEY);
+      CREATE TABLE github_repos (id TEXT PRIMARY KEY);
       CREATE TABLE social_posts (
         id TEXT PRIMARY KEY,
         body TEXT NOT NULL DEFAULT '',

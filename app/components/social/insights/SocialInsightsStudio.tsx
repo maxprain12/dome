@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { BarChartIcon, SparklesIcon } from '@hugeicons/core-free-icons';
@@ -6,18 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
-  SocialGrowthAccount,
-  SocialPost,
   SocialReport,
 } from '@/components/social/socialTypes';
 import { SocialEventInsights } from '@/components/social/insights/SocialEventInsights';
-import {
-  sumFollowersDelta,
-  sumFollowersSnapshot,
-  sumPostMetricsInPeriod,
-  type InsightsPeriodDays,
-} from '@/components/social/insights/insightsMetrics';
-import { ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
+import type { InsightsPeriodDays } from '@/components/social/insights/insightsMetrics';
 import { SocialReportDetailPanel } from '@/components/social/workspace/SocialReportDetailPanel';
 import {
   SocialDirectoryColumn,
@@ -29,32 +21,21 @@ import { useTabStore } from '@/lib/store/useTabStore';
 const PERIODS: InsightsPeriodDays[] = [7, 30, 90];
 
 interface SocialInsightsStudioProps {
-  posts: SocialPost[];
-  growth: SocialGrowthAccount[];
   selectedReport?: SocialReport | null;
   onSelectReport: (report: SocialReport) => void;
   onOpenEvents: () => void;
-  onOpenAccounts: () => void;
 }
 
 export function SocialInsightsStudio({
-  posts,
-  growth: initialGrowth,
   selectedReport = null,
   onSelectReport,
   onOpenEvents,
-  onOpenAccounts,
 }: SocialInsightsStudioProps) {
   const { t } = useTranslation();
   const openPeopleTab = useTabStore((s) => s.openPeopleTab);
   const [period, setPeriod] = useState<InsightsPeriodDays>(30);
-  const [growth, setGrowth] = useState(initialGrowth);
   const [reports, setReports] = useState<SocialReport[]>([]);
   const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    setGrowth(initialGrowth);
-  }, [initialGrowth]);
 
   const loadReports = useCallback(async () => {
     const response = await window.electron.invoke('social:reports:list');
@@ -70,39 +51,10 @@ export function SocialInsightsStudio({
     return () => unsubscribe?.();
   }, [loadReports]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const response = await window.electron.invoke('social:growth', { days: period });
-      if (!active || !response?.success) return;
-      setGrowth(Array.isArray(response.data?.accounts) ? response.data.accounts : []);
-    })().catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [period]);
-
-  const metrics = useMemo(() => sumPostMetricsInPeriod(posts, period), [posts, period]);
-  const followers = sumFollowersSnapshot(growth);
-  const followersDelta = sumFollowersDelta(growth);
-  const format = (n: number) => Intl.NumberFormat().format(n);
   const periodItems = PERIODS.map((days) => ({
     value: String(days),
     label: t('social.studio.insights.selected_period', { days }),
   }));
-  const kpi = [
-    { label: t('social.studio.insights.kpi_impressions'), value: format(metrics.impressions) },
-    { label: t('social.studio.insights.kpi_likes'), value: format(metrics.likes) },
-    { label: t('social.studio.insights.kpi_comments'), value: format(metrics.comments) },
-    {
-      label: t('social.studio.insights.kpi_followers'),
-      value:
-        followersDelta == null
-          ? format(followers)
-          : `${format(followers)} (${followersDelta >= 0 ? '+' : ''}${format(followersDelta)})`,
-    },
-  ];
-
   const generate = async () => {
     setGenerating(true);
     try {
@@ -112,8 +64,6 @@ export function SocialInsightsStudio({
       setGenerating(false);
     }
   };
-
-  void onOpenAccounts;
 
   return (
     <SocialHubSplit>
@@ -155,20 +105,13 @@ export function SocialInsightsStudio({
         </ul>
       </SocialDirectoryColumn>
       {selectedReport ? (
-        <SocialReportDetailPanel report={selectedReport} kpi={kpi} />
+        <SocialReportDetailPanel report={selectedReport} />
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-4 p-4">
             <p className="text-sm text-muted-foreground">
               {t('social.studio.crm.detail_empty_report_hint')}
             </p>
-            <SectionCard title={t('social.studio.insights.eyebrow')}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {kpi.map((item) => (
-                  <ReadField key={item.label} label={item.label} value={item.value} />
-                ))}
-              </div>
-            </SectionCard>
             <SocialEventInsights
               onOpenPeople={() => openPeopleTab()}
               onOpenEvents={onOpenEvents}

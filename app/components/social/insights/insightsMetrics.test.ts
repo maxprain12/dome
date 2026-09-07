@@ -141,7 +141,7 @@ describe('insightsMetrics', () => {
         createdAt: now,
       }),
     ];
-    const series = buildAudienceSeries(posts, growth, 7, now);
+    const series = buildAudienceSeries(growth, 7, now);
     expect(series.length).toBeGreaterThan(2);
     expect(series.at(-1)?.followers).toBe(120);
     expect(engagementMix(sumPostMetricsInPeriod(posts, 7, now)).map((slice) => slice.id)).toEqual([
@@ -194,4 +194,28 @@ describe('insightsMetrics', () => {
     expect(sumFollowersSnapshot(growth)).toBe(12);
     expect(sumFollowersDelta(growth)).toBe(3);
   });
+  it('excludes drafts and preserves missing impressions and unknown baselines', () => {
+    const metrics = sumPostMetricsInPeriod([
+      post({ id: 'draft', status: 'draft', createdAt: now }),
+      post({ id: 'live', publishedAt: now, metrics: { impressions: null } as SocialPost['metrics'] }),
+    ], 7, now);
+    expect(metrics.postsInPeriod).toBe(1);
+    expect(metrics.impressions).toBeNull();
+    expect(compactSocialNumber(null)).toBe('—');
+    expect(trendPct(10, 0)).toBeNull();
+    expect(sumFollowersSnapshot([])).toBeNull();
+  });
+
+  it('does not invent audience history before every account has a snapshot', () => {
+    const growth = [{
+      accountId: 'ig', provider: 'instagram' as const, displayName: 'IG', handle: '@ig',
+      status: 'active' as const, latest: null, delta: null,
+      points: [{ t: now, followers: 50 }],
+    }];
+    const series = buildAudienceSeries(growth, 7, now);
+    expect(series[0].followers).toBeNull();
+    expect(series.at(-1)?.followers).toBe(50);
+    expect(sumFollowersSnapshot(growth)).toBeNull();
+  });
+
 });

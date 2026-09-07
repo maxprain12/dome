@@ -10,6 +10,7 @@ import {
   RefreshIcon,
   UserMultiple02Icon,
 } from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,6 +62,7 @@ export function SocialStudioNav({
 }) {
   const { t } = useTranslation();
   const selectedAccount = accounts.find((account) => account.id === accountId);
+  const syncAt = selectedAccount ? selectedAccount.lastSyncAt : lastSyncAt;
   const activeAccounts = accounts.filter((account) => account.status === 'active').length;
   const networkTitle = socialNetworkTitle(
     accounts,
@@ -103,16 +105,17 @@ export function SocialStudioNav({
             variant="outline"
             size="icon-sm"
             onClick={onSync}
-            disabled={refreshing}
+            disabled={refreshing || (selectedAccount ? selectedAccount.status !== 'active' : activeAccounts === 0)}
             aria-label={t('social.hub.sync_feed')}
-            title={lastSyncAt ? new Date(lastSyncAt).toLocaleString() : t('social.hub.sync_feed')}
+            title={syncAt ? new Date(syncAt).toLocaleString() : t('social.hub.sync_feed')}
           >
             {refreshing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} />}
           </Button>
-          {error ? <Badge variant="destructive">{t('social.hub.sync_badge_error')}</Badge> : null}
+
         </div>
         }
       />
+      {error ? <Alert variant="destructive"><AlertDescription className="whitespace-pre-line">{error}</AlertDescription></Alert> : null}
       <div className="overflow-x-auto">
         <Tabs
           value={section}
