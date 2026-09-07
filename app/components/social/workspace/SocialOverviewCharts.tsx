@@ -1,21 +1,19 @@
 import type { AudiencePoint, EngagementMixSlice } from '@/components/social/insights/insightsMetrics';
 
-const SERIES = [
-  { key: 'followers' as const, color: 'var(--foreground)', width: 2, dashed: false },
-  { key: 'impressions' as const, color: 'color-mix(in oklab, var(--foreground) 45%, transparent)', width: 1.5, dashed: true },
-  { key: 'engagements' as const, color: 'var(--muted-foreground)', width: 1.5, dashed: true },
-];
-
-function pathFor(values: number[], width: number, height: number, pad: number): string {
+function pathFor(values: Array<number | null>, width: number, height: number, pad: number): string {
   if (values.length === 0) return '';
-  const max = Math.max(...values, 1);
+  const max = Math.max(...values.map((value) => value ?? 0), 1);
   const innerW = width - pad * 2;
   const innerH = height - pad * 2;
+  let connected = false;
   return values
     .map((value, index) => {
+      if (value == null) { connected = false; return ''; }
+      const command = connected ? 'L' : 'M';
+      connected = true;
       const x = pad + (values.length === 1 ? innerW / 2 : (index / (values.length - 1)) * innerW);
       const y = pad + innerH - (value / max) * innerH;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+      return `${command}${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(' ');
 }
@@ -24,16 +22,18 @@ export function AudienceGrowthChart({
   points,
   label,
   emptyLabel,
+  locale = 'es',
 }: {
   points: AudiencePoint[];
   label: string;
   emptyLabel: string;
+  locale?: string;
 }) {
   const width = 640;
   const height = 200;
   const pad = 8;
   const hasSignal = points.some(
-    (point) => point.followers > 0 || point.impressions > 0 || point.engagements > 0,
+    (point) => point.followers != null,
   );
   if (!hasSignal) {
     return (
@@ -42,26 +42,31 @@ export function AudienceGrowthChart({
       </p>
     );
   }
+  const known = points.filter((point) => point.followers != null);
+  const last = known.at(-1)!;
+  const lastIndex = points.indexOf(last);
+  const max = Math.max(...known.map((point) => point.followers ?? 0), 1);
+  const formatDate = (at: number) => new Date(at).toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="h-44 w-full"
-      role="img"
-      aria-label={label}
-    >
-      {SERIES.map((series) => (
+    <figure className="flex flex-col gap-2">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label={label}>
+        <title>{label}: {known[0].followers} → {known.at(-1)?.followers}</title>
         <path
-          key={series.key}
-          d={pathFor(points.map((point) => point[series.key]), width, height, pad)}
-          fill="none"
-          stroke={series.color}
-          strokeWidth={series.width}
-          strokeDasharray={series.dashed ? '5 4' : undefined}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d={pathFor(points.map((point) => point.followers), width, height, pad)}
+          fill="none" stroke="var(--foreground)" strokeWidth={2}
+          strokeLinecap="round" strokeLinejoin="round"
         />
-      ))}
-    </svg>
+        <circle
+          cx={pad + (points.length === 1 ? (width - pad * 2) / 2 : lastIndex / (points.length - 1) * (width - pad * 2))}
+          cy={pad + (height - pad * 2) * (1 - (last.followers ?? 0) / max)}
+          r={3} fill="var(--foreground)"
+        />
+      </svg>
+      <figcaption className="flex justify-between gap-3 text-xs tabular-nums text-muted-foreground">
+        <span>{formatDate(known[0].t)} · {known[0].followers?.toLocaleString(locale)}</span>
+        <span>{formatDate(known.at(-1)!.t)} · {known.at(-1)?.followers?.toLocaleString(locale)}</span>
+      </figcaption>
+    </figure>
   );
 }
 

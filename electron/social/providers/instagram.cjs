@@ -60,8 +60,10 @@ async function fetchProfile(accessToken) {
     accessToken,
     params: { fields: 'user_id,username,name,followers_count' },
   });
+  const externalId = me.user_id || me.id;
+  if (!externalId) throw new Error('Instagram did not return an account identity. Reconnect the account.');
   return {
-    externalId: String(me.user_id || me.id),
+    externalId: String(externalId),
     displayName: me.name || me.username || 'Instagram',
     handle: me.username ? `@${me.username}` : null,
     followers: me.followers_count ?? null,

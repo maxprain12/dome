@@ -165,7 +165,7 @@ describe('SocialWorkspaceShell', () => {
     expect(await screen.findByText('Aún no hay informes')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Ver leads' })).toBeVisible();
     expect(window.electron.invoke).toHaveBeenCalledWith('social:reports:list');
-    expect(window.electron.invoke).toHaveBeenCalledWith('social:growth', { days: 30 });
+    expect(window.electron.invoke).not.toHaveBeenCalledWith('social:growth', { days: 30 });
   });
 
   it('renders the accounts section with localized copy', async () => {

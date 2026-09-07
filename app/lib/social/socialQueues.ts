@@ -60,6 +60,7 @@ export type SocialFilter =
 
 export interface SocialReplyDraft {
   id: string;
+  accountId?: string | null;
   status: string;
   provider?: string | null;
   postId?: string | null;

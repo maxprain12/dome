@@ -104,15 +104,14 @@ function createSocialService(database, windowManager) {
   }
 
   function resolveAccountForPost(post) {
-    if (post.accountId) {
-      const acc = store.getAccount(post.accountId);
-      if (acc) return acc;
+    if (!post.accountId) {
+      throw new Error('Select an account for this post before publishing.');
     }
-    const candidates = store.listAccounts(post.provider).filter((a) => a.status === 'active');
-    if (candidates.length === 0) {
-      throw new Error(`No connected ${post.provider} account. Connect one in Settings → Social.`);
+    const account = store.getAccount(post.accountId);
+    if (!account || account.status !== 'active' || account.provider !== post.provider) {
+      throw new Error('The selected account is unavailable or belongs to another network. Select an active account.');
     }
-    return store.getAccount(candidates[0].id);
+    return account;
   }
 
   // ── Publishing ───────────────────────────────────────────────────────────
@@ -123,14 +122,10 @@ function createSocialService(database, windowManager) {
     if (post.status === 'published') throw new Error('Post is already published');
     if (post.status === 'publishing') throw new Error('Post is already being published');
 
-    const account = resolveAccountForPost(post);
-    if (post.accountId !== account.id) {
-      store.updatePost(postId, { accountId: account.id });
-    }
-    store.markPostPublishing(postId);
-    broadcast('social:post-updated', store.getPost(postId));
-
     try {
+      const account = resolveAccountForPost(post);
+      store.markPostPublishing(postId);
+      broadcast('social:post-updated', store.getPost(postId));
       const mod = providerModule(post.provider);
       const eventUrl = String(post.eventCardPublicUrl || '').trim();
       const publishBody = eventUrl && !post.body.includes(eventUrl)
@@ -172,8 +167,8 @@ function createSocialService(database, windowManager) {
   }
 
   /** Snapshot account-level metrics (followers/following/posts) per active account. */
-  async function refreshAccountMetrics() {
-    const accounts = store.listAccounts().filter((a) => a.status === 'active');
+  async function refreshAccountMetrics(accountId = null) {
+    const accounts = store.listAccounts().filter((a) => a.status === 'active' && (!accountId || a.id === accountId));
     let refreshed = 0;
     for (const account of accounts) {
       const mod = PROVIDER_MODULES[account.provider];
@@ -184,6 +179,7 @@ function createSocialService(database, windowManager) {
         const metric = await mod.fetchAccountMetrics(store, account);
         if (metric) {
           store.insertAccountMetric(account.id, metric);
+          database.getQueries().touchSocialAccountSync.run(Date.now(), Date.now(), account.id);
           refreshed += 1;
         }
       } catch (err) {
@@ -193,9 +189,10 @@ function createSocialService(database, windowManager) {
     return refreshed;
   }
 
-  async function refreshAllMetrics() {
-    const accountsRefreshed = await refreshAccountMetrics();
-    const posts = store.listRecentPublished({ sinceMs: Date.now() - METRICS_WINDOW_MS, limit: 100 });
+  async function refreshAllMetrics(accountId = null) {
+    const accountsRefreshed = await refreshAccountMetrics(accountId);
+    const posts = store.listRecentPublished({ sinceMs: Date.now() - METRICS_WINDOW_MS, limit: 100 })
+      .filter((post) => !accountId || post.accountId === accountId);
     let refreshed = 0;
     for (const post of posts) {
       const metric = await refreshPostMetrics(post.id);
@@ -241,6 +238,9 @@ function createSocialService(database, windowManager) {
     const accounts = accountId
       ? [store.getAccount(accountId)].filter(Boolean)
       : store.listAccounts().filter((a) => a.status === 'active');
+    if (accountId && (accounts.length === 0 || accounts[0].status !== 'active')) {
+      throw new Error('The selected account is unavailable. Reconnect it before syncing.');
+    }
     const results = [];
     const totals = { imported: 0, updated: 0 };
     for (const account of accounts) {
@@ -266,6 +266,7 @@ function createSocialService(database, windowManager) {
           continue;
         }
         const accountTotals = importPlatformPosts(account, posts, totals);
+        database.getQueries().touchSocialAccountSync.run(Date.now(), Date.now(), account.id);
         results.push({
           accountId: account.id,
           provider: account.provider,
@@ -282,7 +283,7 @@ function createSocialService(database, windowManager) {
         });
       }
     }
-    await refreshAllMetrics().catch((err) =>
+    await refreshAllMetrics(accountId).catch((err) =>
       console.warn('[Social] metrics after feed sync:', err.message),
     );
     broadcast('social:posts-refresh', { imported: totals.imported, updated: totals.updated });
@@ -578,7 +579,7 @@ function createSocialService(database, windowManager) {
 
   /**
    * List public comments for a Dome post (provider listComments).
-   * Best-effort: resolve a fallback account for the provider and call the API
+   * Use only the post’s selected account and call the API
    * even when stored OAuth scopes omit the comment permission (manual tokens /
    * older reconnects). Permission failures return unsupported + reason.
    * @param {{ postId: string, cursor?: string|null }} opts
@@ -590,14 +591,10 @@ function createSocialService(database, windowManager) {
       return { comments: [], nextCursor: undefined, unsupported: false };
     }
 
-    let account = post.accountId
+    const account = post.accountId
       ? store.serializeAccount(store.getAccount(post.accountId))
       : null;
-    if (!account || account.status !== 'active') {
-      account =
-        store.listAccounts(post.provider).find((row) => row.status === 'active') || null;
-    }
-    if (!account) {
+    if (!account || account.status !== 'active' || account.provider !== post.provider) {
       return {
         comments: [],
         nextCursor: undefined,

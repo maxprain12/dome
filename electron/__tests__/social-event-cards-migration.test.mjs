@@ -8,11 +8,12 @@ const { applyMigrations, SCHEMA_HEAD } = require('../core/db/migrations.cjs');
 const { ensureSocialPostEventCardIndex } = require('../core/db/schema.cjs');
 
 describe('social event cards migration', () => {
-  it('adds event card fields and advances SQLite to v70', () => {
+  it('adds event card fields and advances SQLite to schema head', () => {
     const db = new DatabaseSync(':memory:');
     db.exec(`
       CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER NOT NULL);
       CREATE TABLE projects (id TEXT PRIMARY KEY);
+      CREATE TABLE github_repos (id TEXT PRIMARY KEY);
       CREATE TABLE social_posts (id TEXT PRIMARY KEY, body TEXT NOT NULL DEFAULT '');
       INSERT INTO settings (key, value, updated_at) VALUES ('schema_version', '69', 0);
     `);

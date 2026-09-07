@@ -96,15 +96,16 @@ function composerValidationError(
     mediaCount: number;
     limit: number;
     accountIds: Partial<Record<SocialProvider, string>>;
+    accounts: SocialAccount[];
   },
   t: TFunction,
 ): string | null {
-  const { providers, body, mediaCount, limit, accountIds } = input;
+  const { providers, body, mediaCount, limit, accountIds, accounts } = input;
   if (!providers.length) return t('social.composer.error_no_provider');
   if (!body.trim() && !mediaCount) return t('social.composer.error_empty');
   if (body.length > limit) return t('social.composer.error_too_long', { limit });
   if (providers.includes('instagram') && !mediaCount) return t('social.composer.error_instagram_media');
-  if (providers.some((provider) => !accountIds[provider])) return t('social.studio.composer.account_required');
+  if (providers.some((provider) => !accounts.some((account) => account.id === accountIds[provider] && account.provider === provider && account.status === 'active'))) return t('social.studio.composer.account_required');
   return null;
 }
 
@@ -140,6 +141,7 @@ export function SocialComposerWorkspace({
   campaigns,
   post,
   initialCampaignId,
+  initialAccountId,
   onClose,
   onSaved,
 }: {
@@ -147,12 +149,15 @@ export function SocialComposerWorkspace({
   campaigns: SocialCampaign[];
   post: SocialPost | null;
   initialCampaignId?: string | null;
+  initialAccountId?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const projectId = useAppStore((state) => state.currentProject?.id ?? 'default');
-  const [providers, setProviders] = useState<SocialProvider[]>(post ? [post.provider] : ['linkedin']);
+  const initialAccount = accounts.find((account) => account.id === initialAccountId);
+  const initialProvider = post?.provider ?? initialAccount?.provider ?? 'linkedin';
+  const [providers, setProviders] = useState<SocialProvider[]>([initialProvider]);
   const [body, setBody] = useState(post?.body ?? '');
   const [media, setMedia] = useState<SocialMediaItem[]>(post?.media ?? []);
   const [mediaUrl, setMediaUrl] = useState('');
@@ -162,12 +167,14 @@ export function SocialComposerWorkspace({
   const [eventCardId, setEventCardId] = useState(post?.eventCardId ?? '');
   const [eventCards, setEventCards] = useState<SocialEventCard[]>([]);
   const [scheduledAt, setScheduledAt] = useState(toLocalDateTime(post?.scheduledAt ?? null));
-  const [previewProvider, setPreviewProvider] = useState<SocialProvider>(post?.provider ?? 'linkedin');
+  const [previewProvider, setPreviewProvider] = useState<SocialProvider>(initialProvider);
   const [accountIds, setAccountIds] = useState<Partial<Record<SocialProvider, string>>>(() => {
     const defaults: Partial<Record<SocialProvider, string>> = {};
     for (const provider of PROVIDERS) {
-      defaults[provider] = accounts.find((account) => account.provider === provider && account.status === 'active')?.id;
+      const active = accounts.filter((account) => account.provider === provider && account.status === 'active');
+      if (active.length === 1) defaults[provider] = active[0].id;
     }
+    if (initialAccount?.status === 'active') defaults[initialAccount.provider] = initialAccount.id;
     if (post?.accountId) defaults[post.provider] = post.accountId;
     return defaults;
   });
@@ -270,7 +277,7 @@ export function SocialComposerWorkspace({
   const save = async () => {
     setError(null);
     const validationError = composerValidationError(
-      { providers, body, mediaCount: media.length, limit, accountIds },
+      { providers, body, mediaCount: media.length, limit, accountIds, accounts },
       t,
     );
     if (validationError) return setError(validationError);
@@ -344,10 +351,10 @@ export function SocialComposerWorkspace({
                 const providerAccounts = accounts.filter((account) => account.provider === provider && account.status === 'active');
                 const selectedAccount = providerAccounts.find((account) => account.id === accountIds[provider]);
                 return (
-                  <Field key={provider} data-invalid={!accountIds[provider]}>
+                  <Field key={provider} data-invalid={!selectedAccount}>
                     <FieldLabel>{PROVIDER_LABELS[provider]}</FieldLabel>
                     <Select value={accountIds[provider] ?? ''} onValueChange={(value) => setAccountIds((current) => ({ ...current, [provider]: value ?? '' }))}>
-                      <SelectTrigger className="w-full" aria-invalid={!accountIds[provider]}>
+                      <SelectTrigger className="w-full" aria-invalid={!selectedAccount}>
                         <SelectValue>
                           {selectedAccount
                             ? socialAccountLabel(selectedAccount)

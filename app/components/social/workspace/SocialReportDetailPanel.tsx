@@ -6,16 +6,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { SocialReport } from '@/components/social/socialTypes';
 import { HubDetailPane } from '@/components/shared/HubDetailPane';
-import { ActionIcon, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
+import { ActionIcon, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 
 export function SocialReportDetailPanel({
   report,
-  kpi,
 }: {
   report: SocialReport;
-  kpi?: Array<{ label: string; value: string }>;
 }) {
   const { t } = useTranslation();
   const unavailable = t('social.studio.crm.unavailable');
@@ -60,15 +58,6 @@ export function SocialReportDetailPanel({
     >
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-3">
-          {kpi && kpi.length > 0 ? (
-            <SectionCard title={t('social.studio.insights.eyebrow')}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {kpi.map((item) => (
-                  <ReadField key={item.label} label={item.label} value={item.value} />
-                ))}
-              </div>
-            </SectionCard>
-          ) : null}
           <SectionCard title={t('social.studio.inspector.report')}>
             {report.status === 'failed' ? (
               <p className="text-xs text-destructive">{report.error || t('social.reports.untitled')}</p>

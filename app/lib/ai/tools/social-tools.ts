@@ -156,6 +156,7 @@ export function createSocialPostDraftTool(): AnyAgentTool {
       'Instagram requires at least one media item with a PUBLIC https image/video URL. X is limited to 280 characters. Source: Social hub.',
     parameters: Type.Object({
       provider: ProviderSchema,
+      account_id: Type.String({ description: 'Explicit destination account id from social_accounts_list.' }),
       body: Type.String({
         description: 'Post text/caption. Limits: X 280, Instagram 2200, LinkedIn 3000 chars.',
       }),
@@ -198,6 +199,7 @@ export function createSocialPostDraftTool(): AnyAgentTool {
         }));
       const res = await window.electron.invoke('social:posts:create', {
         provider,
+        accountId: readStringParam(params, 'account_id', { required: true }),
         body,
         media,
         linkUrl: readStringParam(params, 'link_url') || undefined,

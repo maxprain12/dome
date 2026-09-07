@@ -33,7 +33,7 @@ import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialAccount, SocialProvider } from '@/components/social/socialTypes';
 import { SocialMessagingFlags } from '@/components/social/accounts/SocialMessagingFlags';
 import { HubDetailPane } from '@/components/shared/HubDetailPane';
-import { ActionIcon, ProviderMark, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
+import { ProviderMark, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import {
   SocialDirectoryColumn,
   SocialDirectoryRow,
@@ -77,12 +77,16 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
       window.electron.invoke('social:providers:status'),
       window.electron.invoke('social:accounts:list'),
     ]);
+    if (!statusResponse?.success || !accountsResponse?.success) {
+      throw new Error(statusResponse?.error || accountsResponse?.error || 'Error');
+    }
     if (statusResponse?.success) {
       setProviders(statusResponse.data.providers ?? []);
       setOauthPort(statusResponse.data.oauthPort ?? 8737);
       setEncryptionAvailable(statusResponse.data.encryptionAvailable !== false);
     }
     if (accountsResponse?.success) setAccounts(accountsResponse.data ?? []);
+    setError(null);
     setLoading(false);
   }, []);
 
@@ -90,7 +94,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
       setError(reason instanceof Error ? reason.message : 'Error');
       setLoading(false);
     });
-    const unsubscribe = window.electron?.on?.('social:account-updated', () => { load();
+    const unsubscribe = window.electron?.on?.('social:account-updated', () => { load().catch((reason) => setError(String(reason.message || reason)));
     });
     return () => unsubscribe?.();
   }, [load]);
@@ -115,14 +119,14 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
   > = [
     ...accounts.map((account) => ({ key: `acc:${account.id}`, kind: 'account' as const, account })),
     ...providers
-      .filter((provider) => !accounts.some((account) => account.provider === provider.provider))
       .map((provider) => ({ key: `prov:${provider.provider}`, kind: 'provider' as const, provider })),
   ];
   const selected =
     rows.find((row) => row.key === selectedKey) ?? null;
 
   return (
-    <div className={embedded ? 'flex min-h-0 flex-1 overflow-hidden' : 'flex h-full min-h-0 flex-col'}>
+    <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex h-full min-h-0 flex-col'}>
+      {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
       <SocialHubSplit>
         <SocialDirectoryColumn
           title={t('social.studio.nav.accounts')}
@@ -145,7 +149,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
                   onClick={() => setSelectedKey(row.key)}
                   mark={<ProviderMark provider={row.account.provider} />}
                   title={socialAccountLabel(row.account)}
-                  subtitle={PROVIDER_NAMES[row.account.provider]}
+                  subtitle={`${PROVIDER_NAMES[row.account.provider]} · ${t(row.account.status === 'active' ? 'social.studio.accounts.active' : `social.settings.status_${row.account.status}`)}`}
                 />
               ) : (
                 <SocialDirectoryRow
@@ -154,7 +158,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
                   onClick={() => setSelectedKey(row.key)}
                   mark={<ProviderMark provider={row.provider.provider} />}
                   title={PROVIDER_NAMES[row.provider.provider]}
-                  subtitle={t('social.studio.accounts.not_connected')}
+                  subtitle={t(accounts.some((account) => account.provider === row.provider.provider) ? 'social.studio.accounts.add_account' : 'social.settings.connect')}
                 />
               ),
             )}
@@ -167,9 +171,8 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
             hasSocialCloud={cloudEntitlements.hasSocialCloud}
             oauthPort={oauthPort}
             onOauthPort={setOauthPort}
-            onSavePort={() => { savePort().catch(() => {}); }}
+            onSavePort={() => { savePort().catch((reason) => setError(reason instanceof Error ? reason.message : 'Error')); }}
             encryptionAvailable={encryptionAvailable}
-            error={error}
             onConfigure={() => {
               const provider = providers.find((item) => item.provider === selected.account.provider);
               if (provider) setEditing(provider);
@@ -184,9 +187,8 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
             hasSocialCloud={cloudEntitlements.hasSocialCloud}
             oauthPort={oauthPort}
             onOauthPort={setOauthPort}
-            onSavePort={() => { savePort().catch(() => {}); }}
+            onSavePort={() => { savePort().catch((reason) => setError(reason instanceof Error ? reason.message : 'Error')); }}
             encryptionAvailable={encryptionAvailable}
-            error={error}
             onConfigure={() => setEditing(selected.provider)}
             onChanged={load}
             onError={setError}
@@ -203,11 +205,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
         provider={editing}
         accounts={editing ? accounts.filter((account) => account.provider === editing.provider) : []}
         onClose={() => setEditing(null)}
-        onChanged={async () => {
-          await load();
-          setEditing(null);
-        }}
-        onError={setError}
+        onChanged={load}
       />
     </div>
   );
@@ -221,7 +219,6 @@ function AccountFicha({
   onOauthPort,
   onSavePort,
   encryptionAvailable,
-  error,
   onConfigure,
   onChanged,
   onError,
@@ -233,26 +230,24 @@ function AccountFicha({
   onOauthPort: (port: number) => void;
   onSavePort: () => void;
   encryptionAvailable: boolean;
-  error: string | null;
   onConfigure: () => void;
   onChanged: () => Promise<void>;
   onError: (message: string | null) => void;
 }) {
   const { t } = useTranslation();
-  const unavailable = t('social.studio.crm.unavailable');
   const network = account?.provider ?? provider?.provider;
   const title = account ? socialAccountLabel(account) : network ? PROVIDER_NAMES[network] : t('social.studio.nav.accounts');
 
   const disconnect = async () => {
     if (!account) return;
     const response = await window.electron.invoke('social:disconnect', { accountId: account.id });
-    if (!response?.success) onError(response?.error || 'Error');
+    if (!response?.success) { onError(response?.error || 'Error'); return; }
     await onChanged();
   };
   const toggleCloud = async (enabled: boolean) => {
     if (!account) return;
     const response = await window.electron.socialCloud?.setCloudPublishing?.({ accountId: account.id, enabled });
-    if (!response?.success) onError(response?.error || t('social.settings.cloud_publishing_error'));
+    if (!response?.success) { onError(response?.error || t('social.settings.cloud_publishing_error')); return; }
     await onChanged();
   };
 
@@ -263,19 +258,16 @@ function AccountFicha({
       badge={
         <Badge variant={account?.status === 'active' ? 'lime' : 'outline'}>
           {account
-            ? t(`social.studio.accounts.${account.status === 'active' ? 'active' : 'setup'}`)
+            ? t(account.status === 'active' ? 'social.studio.accounts.active' : `social.settings.status_${account.status}`)
             : t('social.studio.accounts.setup')}
         </Badge>
       }
       toolbar={
         <div className="flex items-center gap-1.5">
-          <ActionIcon
-            label={t('social.studio.accounts.configure', { provider: network ? PROVIDER_NAMES[network] : '' })}
-            available={Boolean(provider)}
-            unavailableLabel={unavailable}
-            icon={Settings01Icon}
-            onClick={onConfigure}
-          />
+          <Button type="button" size="sm" onClick={onConfigure} disabled={!provider}>
+            {t(account ? 'social.settings.reconnect' : 'social.settings.connect')}
+          </Button>
+
         </div>
       }
     >
@@ -288,35 +280,30 @@ function AccountFicha({
               <AlertDescription>{t('social.settings.no_encryption')}</AlertDescription>
             </Alert>
           ) : null}
-          {error ? (
-            <Alert variant="destructive">
-              <HugeiconsIcon icon={Alert02Icon} />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
+
+          {account?.lastError ? <Alert variant="destructive"><AlertDescription>{account.lastError}</AlertDescription></Alert> : null}
           <SectionCard title={t('social.studio.crm.tab_info')}>
             <div className="grid gap-3 sm:grid-cols-2">
               <ReadField
                 label={t('social.studio.nav.accounts')}
                 value={account ? socialAccountLabel(account) : t('social.studio.accounts.not_connected')}
               />
-              <ReadField
-                label={t('social.settings.account_kind_member')}
-                value={
-                  account
-                    ? account.accountKind === 'organization'
-                      ? t('social.settings.account_kind_organization')
-                      : t('social.settings.account_kind_member')
-                    : ''
-                }
-              />
+              {network === 'linkedin' && account ? (
+                <ReadField
+                  label={t('social.settings.account_kind_member')}
+                  value={t(account.accountKind === 'organization' ? 'social.settings.account_kind_organization' : 'social.settings.account_kind_member')}
+                />
+              ) : null}
+              {account?.lastSyncAt ? (
+                <p className="text-xs text-muted-foreground">{t('social.hub.last_sync', { time: new Date(account.lastSyncAt).toLocaleString() })}</p>
+              ) : null}
             </div>
             {account && hasSocialCloud && account.status === 'active' ? (
               <Field orientation="horizontal" className="mt-3">
                 <Checkbox
                   checked={Boolean(account.cloudPublishing)}
                   onCheckedChange={(checked) => {
-                    toggleCloud(checked === true).catch(() => {});
+                    toggleCloud(checked === true).catch((reason) => onError(reason instanceof Error ? reason.message : 'Error'));
                   }}
                 />
                 <FieldLabel>{t('social.settings.cloud_publishing')}</FieldLabel>
@@ -329,7 +316,7 @@ function AccountFicha({
                 size="sm"
                 className="mt-2"
                 onClick={() => {
-                  disconnect().catch(() => {});
+                  disconnect().catch((reason) => onError(reason instanceof Error ? reason.message : 'Error'));
                 }}
               >
                 {t('social.settings.disconnect')}
@@ -343,6 +330,7 @@ function AccountFicha({
           <SectionCard title={t('social.settings.oauth_port')}>
             <div className="flex flex-wrap items-end gap-2">
               <Input
+                aria-label={t('social.settings.oauth_port')}
                 id="social-studio-oauth-port"
                 type="number"
                 value={oauthPort}
@@ -365,13 +353,11 @@ function ProviderConfigurationDialog({
   accounts,
   onClose,
   onChanged,
-  onError,
 }: {
   provider: ProviderStatus | null;
   accounts: SocialAccount[];
   onClose: () => void;
   onChanged: () => Promise<void>;
-  onError: (message: string | null) => void;
 }) {
   const { t } = useTranslation();
   const [clientId, setClientId] = useState('');
@@ -381,8 +367,12 @@ function ProviderConfigurationDialog({
   const [commentsEnabled, setCommentsEnabled] = useState(false);
   const [dmEnabled, setDmEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSavedSecret, setHasSavedSecret] = useState(false);
 
   useEffect(() => {
+    setError(null);
+    setHasSavedSecret(Boolean(provider?.hasClientSecret));
     setClientId(provider?.clientId ?? '');
     setClientSecret('');
     setToken('');
@@ -393,8 +383,7 @@ function ProviderConfigurationDialog({
 
   if (!provider) return null;
 
-  const save = async () => {
-    setBusy(true);
+  const saveConfig = async () => {
     const payload: Record<string, string | boolean> = {
       provider: provider.provider,
       clientId: clientId.trim(),
@@ -407,48 +396,58 @@ function ProviderConfigurationDialog({
     }
     if (provider.provider === 'x') payload.dmEnabled = dmEnabled;
     const response = await window.electron.invoke('social:providers:set-config', payload);
-    setBusy(false);
-    if (!response?.success) onError(response?.error || 'Error');
-    else await onChanged();
+    if (!response?.success) throw new Error(response?.error || 'Error');
+    if (clientSecret.trim()) setHasSavedSecret(true);
+    setClientSecret('');
   };
 
-  const connectOAuth = async () => {
+  const run = async (action: () => Promise<void>) => {
     setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await onChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const connectOAuth = () => run(async () => {
+    await saveConfig();
     const response = await window.electron.invoke('social:connect-oauth', { provider: provider.provider });
-    setBusy(false);
-    if (!response?.success) onError(response?.error || 'Error');
-    else await onChanged();
-  };
+    if (!response?.success) throw new Error(response?.error || 'Error');
+    onClose();
+  });
 
-  const connectToken = async () => {
-    if (!token.trim()) return;
-    setBusy(true);
+  const connectToken = () => run(async () => {
     const response = await window.electron.invoke('social:connect-token', {
       provider: provider.provider,
       accessToken: token.trim(),
     });
-    setBusy(false);
-    if (!response?.success) onError(response?.error || 'Error');
-    else await onChanged();
-  };
+    if (!response?.success) throw new Error(response?.error || 'Error');
+    setToken('');
+    onClose();
+  });
 
-  const syncOrganizations = async () => {
-    const member = accounts.find((account) => account.accountKind === 'member');
-    if (!member) return;
-    setBusy(true);
-    const response = await window.electron.invoke('social:linkedin:sync-orgs', { accountId: member.id });
-    setBusy(false);
-    if (!response?.success) onError(response?.error || 'Error');
-    else await onChanged();
-  };
+  const syncOrganizations = () => run(async () => {
+    // Each connected member may administer different pages.
+    for (const member of accounts.filter((account) => account.accountKind === 'member' && account.status === 'active')) {
+      const response = await window.electron.invoke('social:linkedin:sync-orgs', { accountId: member.id });
+      if (!response?.success) throw new Error(response?.error || 'Error');
+    }
+  });
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
       <DialogContent className="max-h-[min(760px,calc(100vh-2rem))] overflow-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t('social.studio.accounts.configure', { provider: PROVIDER_NAMES[provider.provider] })}</DialogTitle>
           <DialogDescription>{t(`social.settings.hint_${provider.provider}`)}</DialogDescription>
         </DialogHeader>
+        {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+        <p className="text-sm text-muted-foreground">{t('social.studio.accounts.multi_account_hint')}</p>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor={`studio-client-id-${provider.provider}`}>{t('social.settings.client_id')}</FieldLabel>
@@ -461,7 +460,7 @@ function ProviderConfigurationDialog({
               type="password"
               value={clientSecret}
               onChange={(event) => setClientSecret(event.target.value)}
-              placeholder={provider.hasClientSecret ? t('social.settings.secret_saved') : undefined}
+              placeholder={hasSavedSecret ? t('social.settings.secret_saved') : undefined}
             />
           </Field>
           <Field>
@@ -510,11 +509,11 @@ function ProviderConfigurationDialog({
               {t('social.settings.linkedin_sync_orgs')}
             </Button>
           ) : null}
-          <Button type="button" variant="outline" onClick={() => save()} disabled={busy}>
+          <Button type="button" variant="outline" onClick={() => run(saveConfig)} disabled={busy}>
             {busy ? <Spinner data-icon="inline-start" /> : null}
             {t('social.settings.save')}
           </Button>
-          <Button type="button" onClick={() => connectOAuth()} disabled={busy || !clientId.trim()}>
+          <Button type="button" onClick={() => connectOAuth()} disabled={busy || !clientId.trim() || (provider.provider !== 'x' && !hasSavedSecret && !clientSecret.trim())}>
             {busy ? <Spinner data-icon="inline-start" /> : null}
             {t('social.settings.connect_oauth')}
           </Button>

@@ -34,7 +34,7 @@ export function SocialWorkspaceShell() {
     setSelection(nextSelection);
   };
 
-  const selectedAccountId = accountId === 'all' ? null : accountId;
+  const selectedAccountId = workspace.accounts.some((account) => account.id === accountId) ? accountId : null;
   const filteredPosts = useMemo(() => {
     const byAccount = filterPostsByAccount(workspace.posts, selectedAccountId);
     const byQuery = filterPostsByQuery(byAccount, query);
@@ -48,6 +48,7 @@ export function SocialWorkspaceShell() {
         campaigns={workspace.campaigns}
         post={editor.post}
         initialCampaignId={editor.campaignId}
+        initialAccountId={selectedAccountId}
         onClose={() => setEditor({ kind: 'none' })}
         onSaved={() => {
           setEditor({ kind: 'none' });
@@ -77,8 +78,8 @@ export function SocialWorkspaceShell() {
         section={section}
         onNavigate={navigate}
         accounts={workspace.accounts}
-        accountId={accountId}
-        onAccountId={setAccountId}
+        accountId={selectedAccountId ?? 'all'}
+        onAccountId={(next) => { setAccountId(next); setSelection({ kind: 'none' }); }}
         refreshing={workspace.refreshing}
         error={workspace.error}
         lastSyncAt={workspace.lastSyncAt}
@@ -206,7 +207,7 @@ function SectionBody({
     case 'overview':
       return (
         <SocialOverviewDashboard
-          posts={filteredPosts}
+          posts={filterPostsByAccount(posts, accountId)}
           growth={growth}
           accountId={accountId}
           onCompose={onCompose}
@@ -251,16 +252,13 @@ function SectionBody({
     case 'insights':
       return (
         <SocialInsightsStudio
-          growth={growth}
-          posts={filteredPosts}
           selectedReport={selection.kind === 'report' ? selection.report : null}
           onSelectReport={(report) => onSelect({ kind: 'report', report })}
           onOpenEvents={() => onNavigate('events')}
-          onOpenAccounts={() => onNavigate('accounts')}
         />
       );
     case 'inbox':
-      return <SocialInboxHub drafts={replyDrafts} onChanged={onInboxChanged} />;
+      return <SocialInboxHub drafts={replyDrafts.filter((draft) => !accountId || draft.accountId === accountId)} onChanged={onInboxChanged} />;
     case 'accounts':
       return <SocialAccountsManager embedded />;
     default: {

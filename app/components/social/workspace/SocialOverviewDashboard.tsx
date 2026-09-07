@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowDown01Icon, ArrowUp01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
@@ -22,6 +22,7 @@ import {
   filterGrowthByAccount,
   formatTrendPct,
   previousPeriodMetrics,
+  postsInPeriod,
   recentPublishedPosts,
   sumFollowersDelta,
   sumFollowersSnapshot,
@@ -64,7 +65,7 @@ function TrendMark({
   );
 }
 
-function metricTrend(current: number, previous: number, locale: string) {
+function metricTrend(current: number | null, previous: number | null, locale: string) {
   const pct = trendPct(current, previous);
   return {
     direction: trendDirection(pct),
@@ -74,7 +75,7 @@ function metricTrend(current: number, previous: number, locale: string) {
 
 export function SocialOverviewDashboard({
   posts,
-  growth: initialGrowth,
+  growth,
   accountId,
   onCompose,
   onOpenPost,
@@ -90,40 +91,31 @@ export function SocialOverviewDashboard({
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language ?? 'es';
   const [period, setPeriod] = useState<InsightsPeriodDays>(30);
-  const [growth, setGrowth] = useState(initialGrowth);
-
-  useEffect(() => {
-    setGrowth(initialGrowth);
-  }, [initialGrowth]);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const response = await window.electron.invoke('social:growth', { days: period });
-      if (!active || !response?.success) return;
-      setGrowth(Array.isArray(response.data?.accounts) ? response.data.accounts : []);
-    })().catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [period]);
-
   const scopedGrowth = useMemo(
-    () => filterGrowthByAccount(growth, accountId),
-    [accountId, growth],
+    () => filterGrowthByAccount(growth, accountId).map((account) => {
+      const cutoff = Date.now() - period * 24 * 60 * 60 * 1000;
+      const points = account.points.filter((point) => point.t >= cutoff);
+      const first = points[0]?.followers;
+      const last = points.at(-1)?.followers;
+      return { ...account, delta: points.length > 1 && first != null && last != null ? last - first : null };
+    }),
+    [accountId, growth, period],
   );
   const current = useMemo(() => sumPostMetricsInPeriod(posts, period), [period, posts]);
   const previous = useMemo(() => previousPeriodMetrics(posts, period), [period, posts]);
   const series = useMemo(
-    () => buildAudienceSeries(posts, scopedGrowth, period),
-    [period, posts, scopedGrowth],
+    () => buildAudienceSeries(scopedGrowth, period),
+    [period, scopedGrowth],
   );
+  const periodPosts = postsInPeriod(posts.filter((post) => post.status === 'published'), period);
+  const hasInteractions = periodPosts.some((post) => [post.metrics?.likes, post.metrics?.comments, post.metrics?.shares].some((value) => typeof value === 'number'));
+  const hasLikes = periodPosts.length > 0 && periodPosts.every((post) => typeof post.metrics?.likes === 'number');
   const mix = useMemo(() => engagementMix(current), [current]);
   const recent = useMemo(() => recentPublishedPosts(posts, 6), [posts]);
   const followers = sumFollowersSnapshot(scopedGrowth);
   const followersDelta = sumFollowersDelta(scopedGrowth);
   const followerTrendPct =
-    followersDelta == null ? null : followersDelta / Math.max(followers - followersDelta, 1);
+    followers == null || followersDelta == null ? null : trendPct(followers, followers - followersDelta);
   const periodItems = PERIODS.map((days) => ({
     value: String(days),
     label: t('social.studio.insights.selected_period', { days }),
@@ -142,13 +134,11 @@ export function SocialOverviewDashboard({
       id: 'impressions',
       name: t('social.studio.insights.kpi_impressions'),
       value: compactSocialNumber(current.impressions, locale),
-      ...metricTrend(current.impressions, previous.impressions, locale),
     },
     {
       id: 'engagements',
       name: t('social.studio.overview.kpi_engagements'),
-      value: compactSocialNumber(current.engagements, locale),
-      ...metricTrend(current.engagements, previous.engagements, locale),
+      value: compactSocialNumber(hasInteractions ? current.engagements : null, locale),
     },
     {
       id: 'followers',
@@ -160,34 +150,7 @@ export function SocialOverviewDashboard({
     {
       id: 'avg_likes',
       name: t('social.studio.overview.kpi_avg_likes'),
-      value: compactSocialNumber(averagePerPost(current.likes, current.postsInPeriod), locale),
-      ...metricTrend(
-        averagePerPost(current.likes, current.postsInPeriod),
-        averagePerPost(previous.likes, previous.postsInPeriod),
-        locale,
-      ),
-    },
-  ];
-
-  const seriesTotals = [
-    {
-      id: 'followers',
-      name: t('social.studio.overview.series_followers'),
-      value: compactSocialNumber(followers, locale),
-      direction: trendDirection(followerTrendPct),
-      trend: formatTrendPct(followerTrendPct, locale),
-    },
-    {
-      id: 'impressions',
-      name: t('social.studio.overview.series_impressions'),
-      value: compactSocialNumber(current.impressions, locale),
-      ...metricTrend(current.impressions, previous.impressions, locale),
-    },
-    {
-      id: 'engagements',
-      name: t('social.studio.overview.series_engagements'),
-      value: compactSocialNumber(current.engagements, locale),
-      ...metricTrend(current.engagements, previous.engagements, locale),
+      value: compactSocialNumber(hasLikes ? averagePerPost(current.likes, current.postsInPeriod) : null, locale),
     },
   ];
 
@@ -228,12 +191,13 @@ export function SocialOverviewDashboard({
               </Button>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">{t('social.studio.overview.metrics_scope')}</p>
           <HubMetricGrid
             metrics={kpis.map((kpi) => ({
               id: kpi.id,
               name: kpi.name,
               value: kpi.value,
-              trend: <TrendMark direction={kpi.direction} label={kpi.trend} />,
+              trend: <TrendMark direction={'direction' in kpi ? kpi.direction : 'flat'} label={'trend' in kpi ? kpi.trend : null} />,
             }))}
           />
         </section>
@@ -243,18 +207,11 @@ export function SocialOverviewDashboard({
             <h2 className={hubCanvasTitleClass}>{t('social.studio.overview.audience_title')}</h2>
             <AudienceGrowthChart
               points={series}
+              locale={locale}
               label={t('social.studio.overview.audience_title')}
               emptyLabel={t('social.studio.insights.audience_empty_title')}
             />
-            <div className="grid gap-3 sm:grid-cols-3">
-              {seriesTotals.map((item) => (
-                <div key={item.id} className="flex flex-col gap-0.5">
-                  <span className={hubFieldLabelClass}>{item.name}</span>
-                  <span className="text-sm font-semibold tabular-nums">{item.value}</span>
-                  <TrendMark direction={item.direction} label={item.trend} />
-                </div>
-              ))}
-            </div>
+
           </section>
 
           <section className="flex flex-col gap-4 lg:border-l lg:border-border/70 lg:pl-8">
@@ -262,7 +219,7 @@ export function SocialOverviewDashboard({
             <div className="flex flex-col gap-0.5">
               <span className={hubFieldLabelClass}>{t('social.studio.overview.mix_total')}</span>
               <span className="text-3xl font-semibold tabular-nums tracking-tight">
-                {compactSocialNumber(current.engagements, locale)}
+                {compactSocialNumber(hasInteractions ? current.engagements : null, locale)}
               </span>
             </div>
             <div>

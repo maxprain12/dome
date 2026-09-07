@@ -87,6 +87,7 @@
     "connect": "Conectar",
     "token_placeholder": "Cole um access token gerado no portal de developers",
     "disconnect": "Desconectar conta",
+    "reconnect": "Voltar a ligar a conta",
     "status_error": "Erro de conexão",
     "status_expired": "Token expirado — reconecte",
     "hint_linkedin": "LinkedIn: ative \"Sign In with LinkedIn using OpenID Connect\" e \"Share on LinkedIn\" na sua app. Para páginas de empresa, ative também \"Páginas de empresa\" abaixo e adicione o produto \"Community Management API\". Registe a redirect URI acima. Os tokens duram ~60 dias.",
@@ -181,7 +182,9 @@
     "growth_unavailable_linkedin_member": "Ainda sem métricas do perfil pessoal. Em Definições → Social ative Community Management, guarde e reconecte o LinkedIn.",
     "sync_linkedin_member_limited": "O LinkedIn bloqueia a importação do histórico de posts pessoais (API fechada). Com Community Management obtém seguidores/ligações e métricas dos posts publicados no Dome. Reconecte após ativar.",
     "growth_pending": "Ainda sem capturas — as métricas são coletadas automaticamente a cada poucas horas, ou clique em «Atualizar métricas».",
-    "growth_connections": "ligações"
+    "growth_connections": "ligações",
+    "sync_account_error": "{{account}}: {{error}}",
+    "sync_unsupported": "Esta conta não permite importar publicações com as permissões atuais."
   },
   "composer": {
     "title": "Nova publicação",
@@ -236,178 +239,6 @@
     "schedule_calendar_note": "Esta publicação aparecerá automaticamente no seu Calendário.",
     "linkedin_account_label": "Publicar como"
   },
-  "wizard": {
-    "title": "Configurar {{provider}}",
-    "button": "Configuração guiada de {{provider}}",
-    "cta": "Configurar {{provider}} passo a passo",
-    "back": "Voltar",
-    "next": "Seguinte",
-    "finish": "Concluído",
-    "close": "Fechar",
-    "connected": "Conectado como {{account}}",
-    "open_create": "Abrir criação da app",
-    "open_dashboard": "Abrir o painel",
-    "step_requirements": "Requisitos",
-    "step_create_app": "Criar app",
-    "step_configure": "Portal",
-    "step_credentials": "Credenciais",
-    "step_connect": "Conectar",
-    "linkedin": {
-      "intro": "Publique no seu perfil do LinkedIn ou em páginas de empresa com a sua própria app de developer. Cerca de 5 minutos, tudo grátis.",
-      "requirements": {
-        "title": "Antes de começar",
-        "body": "Só precisa de:",
-        "bullets": [
-          "Uma conta do LinkedIn",
-          "Acesso ao LinkedIn Developers (mesmo login, grátis)",
-          "Uma página de empresa do LinkedIn para associar a app — pode criar uma básica num minuto"
-        ]
-      },
-      "create_app": {
-        "title": "Crie a app",
-        "body": "Abra o formulário de criação com o botão abaixo e preencha:",
-        "bullets": [
-          "Nome da app: qualquer um, p. ex. 'Dome'",
-          "LinkedIn Page: escolha a sua página (o formulário permite criar uma)",
-          "Logo: qualquer imagem",
-          "Aceite os termos e prima 'Create app'"
-        ]
-      },
-      "configure": {
-        "title": "Ative os produtos e registe o redirect",
-        "body": "Dentro da sua app no portal:",
-        "bullets": [
-          "Separador 'Products' → solicite 'Sign In with LinkedIn using OpenID Connect' E 'Share on LinkedIn' — aprovados de imediato",
-          "Para páginas de empresa: solicite também 'Community Management API' (pode exigir revisão do LinkedIn)",
-          "No Dome Definições → Social → LinkedIn, ative 'Páginas de empresa' antes de conectar",
-          "Separador 'Auth' → 'OAuth 2.0 settings' → 'Authorized redirect URLs' → adicione a URI abaixo tal como aparece"
-        ],
-        "notes": [
-          "O LinkedIn aceita redirects http://localhost — este fluxo desktop não precisa de https."
-        ]
-      },
-      "credentials": {
-        "title": "Copie Client ID e Secret",
-        "body": "No separador 'Auth' copie o Client ID e o Primary Client Secret, cole-os aqui e prima Guardar.",
-        "bullets": [],
-        "notes": [
-          "O secret é guardado encriptado com o keychain do sistema."
-        ]
-      },
-      "connect": {
-        "title": "Conecte a sua conta",
-        "body": "Prima conectar: o navegador abre o ecrã de consentimento do LinkedIn. Aceite e volte ao Dome — a conexão completa-se sozinha.",
-        "bullets": [],
-        "notes": [
-          "Os tokens pessoais duram ~60 dias e não se renovam sozinhos no tier padrão — quando expirar, reconecte aqui.",
-          "As análises de perfil pessoal limitam-se a gostos e comentários. As páginas de empresa podem mostrar seguidores.",
-          "Após conectar com páginas de empresa ativadas, o Dome descobre cada página que administra como conta separada."
-        ]
-      }
-    },
-    "instagram": {
-      "intro": "Precisa de conta profissional de Instagram e uma app Meta. O gerador de tokens do painel é o caminho recomendado — sem redirects.",
-      "requirements": {
-        "title": "Antes de começar",
-        "body": "Precisa de:",
-        "bullets": [
-          "Conta Instagram Business ou Creator — mude na app do Instagram: Definições → Tipo de conta",
-          "Conta de developer Meta em developers.facebook.com (grátis, conta Facebook verificada)"
-        ]
-      },
-      "create_app": {
-        "title": "Crie a app Meta",
-        "body": "Abra o assistente de criação com o botão abaixo:",
-        "bullets": [
-          "Caso de uso: 'Outro'",
-          "Tipo de app: 'Empresa'",
-          "Conclua o assistente para chegar ao painel da app"
-        ]
-      },
-      "configure": {
-        "title": "Adicione o produto Instagram e ligue a sua conta",
-        "body": "No painel da app:",
-        "bullets": [
-          "'Adicionar produto' → configure 'Instagram'",
-          "Abra 'API setup with Instagram business login'",
-          "Em 'Generate access tokens' adicione a sua conta profissional de Instagram e inicie sessão"
-        ],
-        "notes": [
-          "A redirect URI abaixo só é necessária para o caminho OAuth opcional ('Business login settings' → 'OAuth redirect URIs'). A Meta pode exigir https aí — se recusar localhost, use o caminho do token no passo seguinte."
-        ]
-      },
-      "credentials": {
-        "title": "Escolha o caminho: token (recomendado) ou OAuth",
-        "body": "Duas formas — escolha uma:",
-        "bullets": [
-          "A — recomendado: em 'Generate access tokens' prima 'Generate token' junto à sua conta e copie-o. Pode saltar os campos abaixo e colá-lo no passo Conectar.",
-          "B — OAuth: copie o 'Instagram app ID' e o 'app secret' mostrados em 'API setup…', cole-os aqui e guarde."
-        ],
-        "notes": []
-      },
-      "connect": {
-        "title": "Conecte a sua conta",
-        "body": "Cole abaixo o token gerado e prima Conectar — ou use o botão OAuth se configurou redirect + credenciais.",
-        "bullets": [],
-        "notes": [
-          "O Instagram não publica só texto: cada post precisa de pelo menos uma imagem/vídeo numa URL https PÚBLICA.",
-          "Os tokens duram ~60 dias; o Dome renova-os automaticamente."
-        ]
-      }
-    },
-    "x": {
-      "intro": "OAuth 2.0 com PKCE na API v2 do X. Atenção: o X passou os novos developers para preço por uso.",
-      "requirements": {
-        "title": "Antes de começar",
-        "body": "Precisa de:",
-        "bullets": [
-          "Uma conta do X",
-          "Conta de developer em developer.x.com"
-        ],
-        "notes": [
-          "Desde fevereiro de 2026 o X não tem tier gratuito para developers NOVOS: publicar é pago por uso (~$0.015 por post; posts com links custam mais). Contas antigas podem manter o tier anterior."
-        ]
-      },
-      "create_app": {
-        "title": "Crie projeto + app",
-        "body": "No portal de developers:",
-        "bullets": [
-          "Primeira vez: o assistente cria o seu Project + App automaticamente",
-          "Caso contrário: 'Projects & Apps' na barra lateral → crie um Project e uma App dentro"
-        ]
-      },
-      "configure": {
-        "title": "User authentication settings",
-        "body": "Nas definições da sua app:",
-        "bullets": [
-          "'User authentication settings' → 'Set up'",
-          "App permissions: 'Read and write'",
-          "Type of App: 'Native App' (cliente público — PKCE, sem secret)",
-          "Callback URI / Redirect URL: adicione a URI abaixo tal como aparece",
-          "Website URL: qualquer página sua"
-        ],
-        "notes": [
-          "O X aceita callbacks http://localhost (a CLI oficial xurl usa um). Registe-a exatamente como mostrada."
-        ]
-      },
-      "credentials": {
-        "title": "Copie o Client ID",
-        "body": "Depois de guardar, o portal mostra o seu OAuth 2.0 Client ID (também em 'Keys and tokens'). Cole-o aqui e guarde.",
-        "bullets": [],
-        "notes": [
-          "O Client Secret só é necessário para clientes confidenciais 'Web App'."
-        ]
-      },
-      "connect": {
-        "title": "Conecte a sua conta",
-        "body": "Prima conectar e autorize no navegador. O Dome mantém a sessão com o refresh token.",
-        "bullets": [],
-        "notes": [
-          "Ler métricas de tweets é faturado à parte pelo X — o Dome tolera falhas de métricas."
-        ]
-      }
-    }
-  },
   "preview": {
     "title": "Pré-visualização",
     "your_account": "A sua conta",
@@ -448,7 +279,7 @@
     "trigger_auto": "automático"
   },
   "studio": {
-    "nav": { "overview": "Início", "content": "Conteúdo", "campaigns": "Campanhas", "events": "Eventos", "insights": "Insights", "inbox": "Caixa", "accounts": "Contas" },
+    "nav": {"overview": "Início", "content": "Conteúdo", "campaigns": "Campanhas", "events": "Eventos", "insights": "Insights", "inbox": "Caixa", "accounts": "Contas"},
     "inbox": {
       "empty_title": "Nenhum comentário pendente",
       "empty_description": "Comentários do Instagram e rascunhos de resposta aparecem aqui para criar um contato, ver a timeline ou aprovar a resposta.",
@@ -460,11 +291,25 @@
       "approve_reply": "Aprovar resposta",
       "send_needs_author": "Não é possível enviar: o comentário não tem id de autor. Crie um contato ou reconecte com scopes de mensagens."
     },
-    "rail": { "subtitle": "Estúdio editorial" },
-    "header": { "workspace": "Espaço Social", "sections": "Seções do Social" },
-    "status": { "draft": "Rascunho", "scheduled": "Agendada", "publishing": "Publicando", "published": "Publicada", "failed": "Falhou", "active": "Ativa", "archived": "Arquivada", "paused": "Pausada", "generating": "Gerando", "ready": "Pronta" },
+    "rail": {"subtitle": "Estúdio editorial"},
+    "header": {"workspace": "Espaço Social", "sections": "Seções do Social"},
+    "status": {"draft": "Rascunho", "scheduled": "Agendada", "publishing": "Publicando", "published": "Publicada", "failed": "Falhou", "active": "Ativa", "archived": "Arquivada", "paused": "Pausada", "generating": "Gerando", "ready": "Pronta"},
     "overview": {
-      "eyebrow": "Briefing de hoje", "attention_title": "{{count}} itens precisam da sua atenção", "clear_title": "Sua presença social está em dia", "description": "Planeje, publique e aprenda em um único espaço.", "view_insights": "Ver insights", "in_workspace": "No workspace", "next_queue": "Na próxima fila", "needs_review": "Precisa revisão", "active_now": "Ativas agora", "attention_description": "Erros, respostas e decisões pendentes.", "schedule_description": "O que seu público verá a seguir.", "view_all": "Ver tudo", "campaigns_title": "Campanhas ativas", "campaigns_description": "Narrativas em andamento.", "manage_campaigns": "Gerenciar campanhas",
+      "eyebrow": "Briefing de hoje",
+      "attention_title": "{{count}} itens precisam da sua atenção",
+      "clear_title": "Sua presença social está em dia",
+      "description": "Planeje, publique e aprenda em um único espaço.",
+      "view_insights": "Ver insights",
+      "in_workspace": "No workspace",
+      "next_queue": "Na próxima fila",
+      "needs_review": "Precisa revisão",
+      "active_now": "Ativas agora",
+      "attention_description": "Erros, respostas e decisões pendentes.",
+      "schedule_description": "O que seu público verá a seguir.",
+      "view_all": "Ver tudo",
+      "campaigns_title": "Campanhas ativas",
+      "campaigns_description": "Narrativas em andamento.",
+      "manage_campaigns": "Gerenciar campanhas",
       "all_networks": "Todas as redes",
       "performance_title": "Resumo de desempenho",
       "performance_description": "Métricas-chave do perfil no período.",
@@ -485,11 +330,12 @@
       "kpi_engagements": "Interações",
       "series_followers": "Seguidores",
       "series_impressions": "Impressões",
-      "series_engagements": "Interações"
+      "series_engagements": "Interações",
+      "metrics_scope": "Publicações importadas ou criadas no Dome e publicadas no período. As interações são acumuladas; — indica dados indisponíveis."
     },
-    "content": { "eyebrow": "Biblioteca editorial", "title": "Conteúdo", "description": "Revise status, desempenho e destino de cada publicação.", "empty_description": "Crie uma publicação ou altere os filtros para começar." },
-    "campaigns": { "eyebrow": "Narrativas", "title": "Campanhas", "description": "Agrupe publicações em torno de um objetivo e acompanhe o progresso.", "no_goal": "Sem objetivo definido", "progress": "{{progress}}% publicado", "empty_description": "Crie uma campanha para organizar o próximo lançamento.", "dialog_description": "Defina um nome claro e o resultado que deseja alcançar." },
-    "events": { "eyebrow": "Experiências ao vivo", "title": "Eventos", "description": "Crie cartões públicos, comunique mudanças e automatize respostas.", "editor_eyebrow": "Design do evento", "editor_description": "Informações exibidas na página pública e nos passes Wallet." },
+    "content": {"eyebrow": "Biblioteca editorial", "title": "Conteúdo", "description": "Revise status, desempenho e destino de cada publicação.", "empty_description": "Crie uma publicação ou altere os filtros para começar."},
+    "campaigns": {"eyebrow": "Narrativas", "title": "Campanhas", "description": "Agrupe publicações em torno de um objetivo e acompanhe o progresso.", "no_goal": "Sem objetivo definido", "progress": "{{progress}}% publicado", "empty_description": "Crie uma campanha para organizar o próximo lançamento.", "dialog_description": "Defina um nome claro e o resultado que deseja alcançar."},
+    "events": {"eyebrow": "Experiências ao vivo", "title": "Eventos", "description": "Crie cartões públicos, comunique mudanças e automatize respostas.", "editor_eyebrow": "Design do evento", "editor_description": "Informações exibidas na página pública e nos passes Wallet."},
     "insights": {
       "eyebrow": "Desempenho",
       "title": "Insights",
@@ -522,7 +368,7 @@
       "zero_title": "Insights ficará pronto quando você publicar",
       "zero_description": "Conecte contas, publique posts ou cartões de evento e gere um relatório de IA deste período."
     },
-    "accounts": { "eyebrow": "Distribuição", "title": "Contas", "description": "Conecte, revise e configure onde seu trabalho é publicado.", "connected_count": "{{count}} contas conectadas", "not_connected": "Ainda não conectada", "active": "Ativa", "setup": "Configurar", "manage": "Gerenciar", "configure": "Configurar {{provider}}" },
+    "accounts": {"eyebrow": "Distribuição", "title": "Contas", "description": "Conecte, revise e configure onde seu trabalho é publicado.", "connected_count": "{{count}} contas conectadas", "not_connected": "Ainda não conectada", "active": "Ativa", "setup": "Configurar", "manage": "Gerenciar", "configure": "Configurar {{provider}}", "add_account": "Adicionar outra conta", "multi_account_hint": "Ligue várias contas da mesma rede neste vault. Autorize cada conta separadamente; autorizar novamente a mesma conta atualiza a ligação."},
     "crm": {
       "filter_by": "Filtrar",
       "sort_az": "A–Z",
@@ -543,7 +389,7 @@
       "detail_empty_account": "Selecione uma conta",
       "detail_empty_account_hint": "Escolha uma conta ou canal para conectar."
     },
-    "composer": { "eyebrow": "Nova história", "destinations": "Destinos", "choose_account": "Escolher conta", "account_required": "Escolha uma conta ativa para cada destino.", "content_description": "Escreva uma peça forte e adapte o destino a partir da mesma base.", "copy": "Texto", "media_description": "Adicione imagem ou vídeo do computador ou por URL pública.", "library_description": "Escolha uma imagem ou vídeo já salvo na sua biblioteca Dome.", "discard_title": "Descartar este rascunho?", "discard_description": "As alterações desta sessão não poderão ser recuperadas.", "discard": "Descartar" },
+    "composer": {"eyebrow": "Nova história", "destinations": "Destinos", "choose_account": "Escolher conta", "account_required": "Escolha uma conta ativa para cada destino.", "content_description": "Escreva uma peça forte e adapte o destino a partir da mesma base.", "copy": "Texto", "media_description": "Adicione imagem ou vídeo do computador ou por URL pública.", "library_description": "Escolha uma imagem ou vídeo já salvo na sua biblioteca Dome.", "discard_title": "Descartar este rascunho?", "discard_description": "As alterações desta sessão não poderão ser recuperadas.", "discard": "Descartar"},
     "inspector": {
       "title": "Detalhe Social",
       "description": "Revise o conteúdo, o desempenho e as ações disponíveis.",

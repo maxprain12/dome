@@ -29,7 +29,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export type TrendDirection = 'up' | 'down' | 'flat';
 
 export interface PeriodMetrics {
-  impressions: number;
+  impressions: number | null;
   likes: number;
   comments: number;
   shares: number;
@@ -39,9 +39,7 @@ export interface PeriodMetrics {
 
 export interface AudiencePoint {
   t: number;
-  followers: number;
-  impressions: number;
-  engagements: number;
+  followers: number | null;
 }
 
 export type EngagementMixId = 'likes' | 'comments' | 'shares';
@@ -66,7 +64,7 @@ export function engagementTotal(metrics: {
 }
 
 export function emptyPeriodMetrics(): PeriodMetrics {
-  return { impressions: 0, likes: 0, comments: 0, shares: 0, engagements: 0, postsInPeriod: 0 };
+  return { impressions: null, likes: 0, comments: 0, shares: 0, engagements: 0, postsInPeriod: 0 };
 }
 
 export function sumPostMetricsInRange(
@@ -76,13 +74,13 @@ export function sumPostMetricsInRange(
 ): PeriodMetrics {
   return posts.reduce((acc, post) => {
     const at = postTimestampMs(post);
-    if (at < startMs || at >= endMs) return acc;
+    if (post.status !== 'published' || at < startMs || at >= endMs) return acc;
     const metrics = post.metrics;
     const likes = metricValue(metrics?.likes);
     const comments = metricValue(metrics?.comments);
     const shares = metricValue(metrics?.shares);
     return {
-      impressions: acc.impressions + metricValue(metrics?.impressions),
+      impressions: metrics?.impressions == null ? acc.impressions : (acc.impressions ?? 0) + metricValue(metrics.impressions),
       likes: acc.likes + likes,
       comments: acc.comments + comments,
       shares: acc.shares + shares,
@@ -114,9 +112,9 @@ export function averagePerPost(total: number, postsInPeriod: number): number {
   return total / postsInPeriod;
 }
 
-export function trendPct(current: number, previous: number): number | null {
-  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
-  if (previous === 0) return current === 0 ? null : 1;
+export function trendPct(current: number | null, previous: number | null): number | null {
+  if (current == null || previous == null || !Number.isFinite(current) || !Number.isFinite(previous)) return null;
+  if (previous === 0) return null;
   return (current - previous) / previous;
 }
 
@@ -125,7 +123,8 @@ export function trendDirection(pct: number | null): TrendDirection {
   return pct > 0 ? 'up' : 'down';
 }
 
-export function compactSocialNumber(value: number, locale = 'es'): string {
+export function compactSocialNumber(value: number | null, locale = 'es'): string {
+  if (value == null || !Number.isFinite(value)) return '—';
   const safe = Number.isFinite(value) ? value : 0;
   return new Intl.NumberFormat(locale, {
     notation: 'compact',
@@ -147,7 +146,7 @@ export function startOfUtcDay(ms: number): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
-function followersAt(account: SocialGrowthAccount, at: number): number {
+function followersAt(account: SocialGrowthAccount, at: number): number | null {
   const snapshots = [
     ...account.points.map((point) => ({ t: point.t, followers: point.followers })),
     account.latest
@@ -155,7 +154,7 @@ function followersAt(account: SocialGrowthAccount, at: number): number {
       : null,
   ].filter((snapshot): snapshot is { t: number; followers: number | null } => snapshot != null);
   snapshots.sort((a, b) => a.t - b.t);
-  let value = 0;
+  let value: number | null = null;
   for (const snapshot of snapshots) {
     if (snapshot.t > at) break;
     if (snapshot.followers != null && Number.isFinite(snapshot.followers)) value = snapshot.followers;
@@ -167,63 +166,26 @@ export function mergeFollowerSeries(
   growth: SocialGrowthAccount[],
   startMs: number,
   endMs: number,
-): Array<{ t: number; followers: number }> {
+): Array<{ t: number; followers: number | null }> {
   const start = startOfUtcDay(startMs);
   const end = startOfUtcDay(endMs);
-  const series: Array<{ t: number; followers: number }> = [];
+  const series: Array<{ t: number; followers: number | null }> = [];
   for (let t = start; t <= end; t += DAY_MS) {
     const at = t + DAY_MS - 1;
     series.push({
       t,
-      followers: growth.reduce((sum, account) => sum + followersAt(account, at), 0),
+      followers: sumKnown(growth.map((account) => followersAt(account, at))),
     });
   }
   return series;
 }
 
-export function dailyPostSeries(
-  posts: SocialPost[],
-  startMs: number,
-  endMs: number,
-): Array<{ t: number; impressions: number; engagements: number }> {
-  const start = startOfUtcDay(startMs);
-  const end = startOfUtcDay(endMs);
-  const buckets = new Map<number, { impressions: number; engagements: number }>();
-  for (const post of posts) {
-    const at = postTimestampMs(post);
-    if (at < start || at > end + DAY_MS - 1) continue;
-    const day = startOfUtcDay(at);
-    const current = buckets.get(day) ?? { impressions: 0, engagements: 0 };
-    current.impressions += metricValue(post.metrics?.impressions);
-    current.engagements += engagementTotal(post.metrics);
-    buckets.set(day, current);
-  }
-  const series: Array<{ t: number; impressions: number; engagements: number }> = [];
-  for (let t = start; t <= end; t += DAY_MS) {
-    series.push({ t, ...(buckets.get(t) ?? { impressions: 0, engagements: 0 }) });
-  }
-  return series;
-}
-
 export function buildAudienceSeries(
-  posts: SocialPost[],
   growth: SocialGrowthAccount[],
   periodDays: number,
   now = Date.now(),
 ): AudiencePoint[] {
-  const startMs = periodCutoffMs(periodDays, now);
-  const followers = mergeFollowerSeries(growth, startMs, now);
-  const activity = dailyPostSeries(posts, startMs, now);
-  const byDay = new Map(activity.map((point) => [point.t, point]));
-  return followers.map((point) => {
-    const day = byDay.get(point.t) ?? { impressions: 0, engagements: 0 };
-    return {
-      t: point.t,
-      followers: point.followers,
-      impressions: day.impressions,
-      engagements: day.engagements,
-    };
-  });
+  return mergeFollowerSeries(growth, periodCutoffMs(periodDays, now), now);
 }
 
 export function engagementMix(metrics: PeriodMetrics): EngagementMixSlice[] {
@@ -253,18 +215,15 @@ export function recentPublishedPosts(posts: SocialPost[], limit = 6): SocialPost
   return published.slice(0, Math.max(0, limit));
 }
 
-export function sumFollowersSnapshot(growth: SocialGrowthAccount[]): number {
-  return growth.reduce((sum, account) => sum + (account.latest?.followers ?? 0), 0);
+function sumKnown(values: Array<number | null | undefined>): number | null {
+  if (!values.length || values.some((value) => value == null || !Number.isFinite(value))) return null;
+  return values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+}
+
+export function sumFollowersSnapshot(growth: SocialGrowthAccount[]): number | null {
+  return sumKnown(growth.map((account) => account.latest?.followers));
 }
 
 export function sumFollowersDelta(growth: SocialGrowthAccount[]): number | null {
-  let total = 0;
-  let any = false;
-  for (const account of growth) {
-    if (typeof account.delta === 'number' && Number.isFinite(account.delta)) {
-      total += account.delta;
-      any = true;
-    }
-  }
-  return any ? total : null;
+  return sumKnown(growth.map((account) => account.delta));
 }
