@@ -71,25 +71,88 @@ function createResourceImporter(deps) {
     return resource;
   }
 
+  /** Validate that file, project and (optional) folder are usable. Returns an error result or null. */
+  function validateImportInputs(filePath, projectId, folderId) {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+    const queries = database.getQueries();
+    const project = queries.getProjectById.get(projectId);
+    if (!project) return { success: false, error: 'Project not found' };
+    if (folderId) {
+      const folder = queries.getResourceById.get(folderId);
+      if (!folder || folder.type !== 'folder' || folder.project_id !== projectId) {
+        return { success: false, error: 'Invalid destination folder' };
+      }
+    }
+    return null;
+  }
+
+  /** Parse notebook / url initial content from the source file. */
+  function parseInitialContent(filePath, effectiveType) {
+    if (effectiveType === 'notebook') {
+      const notebook = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (!notebook || !Array.isArray(notebook.cells)) {
+        return { content: null, error: 'Invalid notebook file' };
+      }
+      return { content: JSON.stringify(notebook), error: null };
+    }
+    if (effectiveType === 'url') {
+      const content = vaultStore.parseUrlFile(fs.readFileSync(filePath, 'utf8'));
+      if (!content) return { content: null, error: 'Invalid URL file' };
+      return { content, error: null };
+    }
+    return { content: null, error: null };
+  }
+
+  /** Run thumbnail + metadata + text extraction for an imported file. */
+  async function enrichImportedResource({ fullPath, effectiveType, mimeType, originalName, initialContent }) {
+    const thumbnailData = await thumbnail.generateThumbnail(fullPath, effectiveType, mimeType)
+      .catch((error) => {
+        console.warn('[Resource] Thumbnail generation failed:', error.message);
+        return null;
+      });
+
+    let metadata = null;
+    if (effectiveType === 'video') {
+      try {
+        metadata = await thumbnail.extractVideoMetadata(fullPath);
+      } catch (metadataError) {
+        console.warn('[Resource] Video metadata extraction failed:', metadataError.message);
+      }
+    }
+
+    let contentText = initialContent;
+    if (effectiveType === 'document' || effectiveType === 'excel' || effectiveType === 'ppt') {
+      try {
+        contentText = await extractDocumentTextOffMain(fullPath, mimeType);
+      } catch (extractError) {
+        console.warn('[Resource] Text extraction failed, continuing without content:', extractError.message);
+      }
+    }
+
+    // Extract text from PDFs on import (so resource_get has content without on-demand extraction)
+    const isPdf = effectiveType === 'pdf' || (mimeType || '').includes('pdf') || (originalName || '').toLowerCase().endsWith('.pdf');
+    if (isPdf && !contentText) {
+      try {
+        contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
+      } catch (extractError) {
+        console.warn('[Resource] PDF text extraction failed:', extractError.message);
+      }
+    }
+
+    return { thumbnailData, metadata, contentText };
+  }
+
   /**
    * Vault-native single-file import shared by `resource:import` and
    * `resource:importMultiple` (the import buttons). Markdown/plain text
    * becomes a note; everything else is referenced in the project vault.
    */
   async function importFileAsResource(filePath, { projectId = 'default', type, title, folderId = null }) {
-    // Validate file exists
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: 'File not found' };
-    }
+    const validationError = validateImportInputs(filePath, projectId, folderId);
+    if (validationError) return validationError;
 
-    const project = database.getQueries().getProjectById.get(projectId);
-    if (!project) return { success: false, error: 'Project not found' };
-    if (folderId) {
-      const folder = database.getQueries().getResourceById.get(folderId);
-      if (!folder || folder.type !== 'folder' || folder.project_id !== projectId) {
-        return { success: false, error: 'Invalid destination folder' };
-      }
-    }
     ensureFolderChainOnDisk(folderId, { database, fileStorage });
     const ext = path.extname(filePath).toLowerCase();
     if (NOTE_IMPORT_EXTS.has(ext) && fs.statSync(filePath).size <= NOTE_IMPORT_MAX_BYTES) {
@@ -97,15 +160,8 @@ function createResourceImporter(deps) {
       return { success: true, data: resource, thumbnailDataUrl: null };
     }
     const effectiveType = fileStorage.classifyFileType(ext, type);
-    let initialContent = null;
-    if (effectiveType === 'notebook') {
-      const notebook = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      if (!notebook || !Array.isArray(notebook.cells)) return { success: false, error: 'Invalid notebook file' };
-      initialContent = JSON.stringify(notebook);
-    } else if (effectiveType === 'url') {
-      initialContent = vaultStore.parseUrlFile(fs.readFileSync(filePath, 'utf8'));
-      if (!initialContent) return { success: false, error: 'Invalid URL file' };
-    }
+    const { content: initialContent, error: parseError } = parseInitialContent(filePath, effectiveType);
+    if (parseError) return { success: false, error: parseError };
     const queries = database.getQueries();
     const resourceId = generateId();
     const originalName = path.basename(filePath);
@@ -136,45 +192,13 @@ function createResourceImporter(deps) {
       throw error;
     }
 
-    // Generate thumbnail for supported types
-    const fullPath = importResult.absPath;
-    const thumbnailData = await thumbnail.generateThumbnail(
-      fullPath,
+    const { thumbnailData, metadata, contentText } = await enrichImportedResource({
+      fullPath: importResult.absPath,
       effectiveType,
-      importResult.mimeType
-    ).catch((error) => {
-      console.warn('[Resource] Thumbnail generation failed:', error.message);
-      return null;
+      mimeType: importResult.mimeType,
+      originalName,
+      initialContent,
     });
-
-    // Extract video metadata if applicable
-    let metadata = null;
-    if (effectiveType === 'video') {
-      try {
-        metadata = await thumbnail.extractVideoMetadata(fullPath);
-      } catch (metadataError) {
-        console.warn('[Resource] Video metadata extraction failed:', metadataError.message);
-      }
-    }
-
-    // Extract text content for document/excel/ppt types (for card preview and AI tools)
-    let contentText = initialContent;
-    if (effectiveType === 'document' || effectiveType === 'excel' || effectiveType === 'ppt') {
-      try {
-        contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
-      } catch (extractError) {
-        console.warn('[Resource] Text extraction failed, continuing without content:', extractError.message);
-      }
-    }
-    // Extract text from PDFs on import (so resource_get has content without on-demand extraction)
-    const isPdf = effectiveType === 'pdf' || (importResult.mimeType || '').includes('pdf') || (originalName || '').toLowerCase().endsWith('.pdf');
-    if (isPdf && !contentText) {
-      try {
-        contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-      } catch (extractError) {
-        console.warn('[Resource] PDF text extraction failed:', extractError.message);
-      }
-    }
 
     queries.updateResource.run(resourceTitle, contentText, metadata ? JSON.stringify(metadata) : null, now, resourceId);
     queries.updateResourceThumbnail.run(thumbnailData, now, resourceId);
