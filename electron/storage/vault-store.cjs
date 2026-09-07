@@ -19,9 +19,9 @@
  * external edits without reacting to them.
  */
 
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const {
   buildArtifactHtmlDocument,
   parseArtifactHtmlDocument,
@@ -122,7 +122,7 @@ function resolveFolderDir(resource, queries) {
   const parent = queries.getResourceById.get(resource.folder_id);
   if (!parent || parent.type !== 'folder') return '';
   if (parent.vault_path) return parent.vault_path;
-  // Legacy fallback: derive from title chain when vault_path not yet backfilled.
+  // New folders derive their initial location from the parent title chain.
   const segments = [];
   const visited = new Set();
   let folderId = resource.folder_id || null;
@@ -345,26 +345,29 @@ function resolveRelPath(resource, queries) {
   return buildRelPath(resource, queries, null);
 }
 
-/** Resolve the absolute on-disk path of a resource's file (vault or legacy). */
+/** Resolve a resource file in its project vault. */
 function getResourceFilePath(resource, queries, fileStorage) {
   if (!resource) return null;
   if (resource.vault_path) {
     return path.join(getProjectVaultRoot(resource.project_id, queries, fileStorage), resource.vault_path);
   }
-  if (resource.internal_path) return fileStorage.getFullPath(resource.internal_path);
-  if (resource.file_path) return resource.file_path;
   return null;
 }
 
 /** Overwrite the canonical resource file and refresh its byte-level metadata. */
-function writeResourceFile(resource, buffer, { database, fileStorage }) {
-  const fullPath = getResourceFilePath(resource, database.getQueries(), fileStorage);
-  if (!fullPath || !fs.existsSync(fullPath)) throw new Error('Resource file not found');
+function writeResourceFile(resource, buffer, { database, fileStorage, filename }) {
+  const queries = database.getQueries();
+  const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+  const relPath = resource.vault_path || ensureUniqueRelPath(
+    buildRelPath(resource, queries, filename), resource, database.getDB(), root,
+  );
+  const fullPath = path.join(root, relPath);
   atomicWrite(fullPath, buffer);
   const hash = contentHash(buffer);
   database.getDB().prepare(
-    'UPDATE resources SET file_size = ?, file_hash = ?, content_hash = ? WHERE id = ?',
-  ).run(buffer.length, hash, hash, resource.id);
+    'UPDATE resources SET vault_path=?, file_size=?, file_hash=?, content_hash=?, file_mime_type=?, original_filename=? WHERE id=?',
+  ).run(relPath, buffer.length, hash, hash,
+    fileStorage.getMimeType(path.extname(relPath)), resource.original_filename || path.basename(relPath), resource.id);
   return fullPath;
 }
 
@@ -378,8 +381,8 @@ function importFileToVault(srcPath, resource, { database, fileStorage }) {
   const db = database.getDB();
   const queries = database.getQueries();
   const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
-  const filename = sanitizeFilename(path.basename(srcPath), 'file');
-  const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, filename), resource, db);
+  const filename = sanitizeFilename(resource.original_filename || path.basename(srcPath), 'file');
+  const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, filename), resource, db, root);
   const abs = path.join(root, relPath);
   const dir = path.dirname(abs);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -397,17 +400,21 @@ function importFileToVault(srcPath, resource, { database, fileStorage }) {
 }
 
 /** Ensure the relative path is unique within the project; else suffix an id. */
-function ensureUniqueRelPath(desiredRel, resource, db) {
-  const owner = db
-    .prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ? LIMIT 1')
-    .get(resource.project_id, desiredRel);
-  if (!owner || owner.id === resource.id) return desiredRel;
+function ensureUniqueRelPath(desiredRel, resource, db, root) {
+  const ownerQuery = db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ? LIMIT 1');
+  const available = (candidate) => {
+    const owner = ownerQuery.get(resource.project_id, candidate);
+    if (owner) return owner.id === resource.id;
+    return candidate === resource.vault_path || !fs.existsSync(path.join(root, candidate));
+  };
+  if (available(desiredRel)) return desiredRel;
   const dir = path.posix.dirname(desiredRel);
   const ext = path.posix.extname(desiredRel);
   const base = path.posix.basename(desiredRel, ext);
-  const shortId = String(resource.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6) || 'dup';
-  const suffixed = `${base} (${shortId})${ext}`;
-  return dir === '.' ? suffixed : `${dir}/${suffixed}`;
+  for (let suffix = 2; ; suffix++) {
+    const candidate = path.posix.join(dir, `${base} (${suffix})${ext}`);
+    if (available(candidate)) return candidate;
+  }
 }
 
 /** Absolute path of a note's mirror, resolving its project vault root. */
@@ -553,7 +560,7 @@ function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
 
     const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
     const desiredRel = resolveRelPath(resource, queries);
-    const relPath = ensureUniqueRelPath(desiredRel, resource, db);
+    const relPath = ensureUniqueRelPath(desiredRel, resource, db, root);
     const prevRel = resource.vault_path || null;
 
     const body = typeof markdown === 'string' ? markdown : '';
@@ -619,7 +626,7 @@ function writeUrlMirror({ id }, { database, fileStorage }) {
     if (resource.type !== 'url') return { success: false, error: 'Not a url resource' };
 
     const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
-    const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+    const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db, root);
     const prevRel = resource.vault_path || null;
 
     const contents = buildUrlFileContents(resource.content || '');
@@ -649,7 +656,7 @@ function writeNotebookMirror({ id }, { database, fileStorage }) {
     if (resource.type !== 'notebook') return { success: false, error: 'Not a notebook' };
 
     const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
-    const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+    const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db, root);
     const prevRel = resource.vault_path || null;
 
     let contents = String(resource.content || '').trim();
@@ -693,7 +700,7 @@ function renameResourceFileToTitle(id, { database, fileStorage }) {
 
   const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
   const prevRel = resource.vault_path;
-  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, filename), resource, db);
+  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, filename), resource, db, root);
   if (prevRel === desiredRel) return { moved: false, vaultPath: prevRel };
 
   try {
@@ -715,36 +722,6 @@ function renameResourceFileToTitle(id, { database, fileStorage }) {
   }
 }
 
-/**
- * Minimal Tiptap/ProseMirror JSON → Markdown for main-process backfills.
- * Mirrors the renderer fallback in app/lib/notes/loadNoteMarkdown.ts so a
- * backfilled mirror is never worse than what the editor would derive itself.
- */
-function tiptapJsonToMarkdownBasic(content) {
-  try {
-    const parsed = JSON.parse(String(content || ''));
-    if (!parsed || parsed.type !== 'doc' || !Array.isArray(parsed.content)) return null;
-    const walk = (node) => {
-      if (node.type === 'text' && typeof node.text === 'string') return node.text;
-      const children = Array.isArray(node.content) ? node.content : [];
-      const inner = children.map(walk).join('');
-      if (node.type === 'heading' && node.attrs?.level) {
-        return `${'#'.repeat(Number(node.attrs.level) || 1)} ${inner}`;
-      }
-      if (node.type === 'paragraph') return inner;
-      if (node.type === 'hardBreak') return '\n';
-      return inner;
-    };
-    const lines = [];
-    for (const block of parsed.content) {
-      const line = walk(block);
-      if (line.trim()) lines.push(line);
-    }
-    return lines.join('\n\n');
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Write a persisted artifact to the project vault as a portable HTML file.
@@ -763,7 +740,7 @@ function writeArtifactHtmlMirror({ id }, { database, fileStorage }) {
 
     const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
     const desiredRel = buildRelPath(resource, queries, null);
-    const relPath = ensureUniqueRelPath(desiredRel, resource, db);
+    const relPath = ensureUniqueRelPath(desiredRel, resource, db, root);
     const prevRel = resource.vault_path || null;
 
     const mergedState = getResolvedStateForArtifactRow(queries, artifact);
@@ -902,7 +879,7 @@ function relocateResource(id, { database, fileStorage }) {
 
   const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
   const prevRel = resource.vault_path || null;
-  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db, root);
   if (prevRel === desiredRel) return { moved: false, vaultPath: prevRel };
 
   const newAbs = path.join(root, desiredRel);
@@ -1020,26 +997,11 @@ function relocateResourceCrossProject(resource, oldVaultRoot, newVaultRoot, { da
       writeNoteMarkdown({ id: resource.id, markdown: resource.content || '' }, { database, fileStorage });
     } else if (resource.type === 'artifact') {
       writeArtifactHtmlMirror({ id: resource.id }, { database, fileStorage });
-    } else if (resource.internal_path) {
-      try {
-        const src = fileStorage.getFullPath(resource.internal_path);
-        if (fs.existsSync(src)) {
-          const imported = importFileToVault(src, resource, { database, fileStorage });
-          db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?').run(
-            imported.vaultPath,
-            imported.contentHash,
-            imported.size,
-            resource.id,
-          );
-        }
-      } catch (err) {
-        console.warn('[VaultStore] relocateResourceCrossProject import failed:', err.message);
-      }
     }
     return;
   }
 
-  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db, newVaultRoot);
   const oldAbs = path.join(oldVaultRoot, prevRel);
   const newAbs = path.join(newVaultRoot, desiredRel);
 
@@ -1236,7 +1198,6 @@ module.exports = {
   parseUrlFile,
   buildUrlFileContents,
   renameResourceFileToTitle,
-  tiptapJsonToMarkdownBasic,
   writeArtifactHtmlMirror,
   readArtifactHtmlMirror,
   backfillArtifactVaultMirrors,

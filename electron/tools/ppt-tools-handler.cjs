@@ -34,11 +34,7 @@ function resolveProjectId(projectId) {
   return null;
 }
 
-function broadcastResourceCreated(resource) {
-  if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-    windowManagerRef.broadcast('resource:created', resource);
-  }
-}
+
 
 function isPptResource(resource) {
   if (!resource) return false;
@@ -172,60 +168,12 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
       documentStaging.discardStaging(staged.stagingId);
       return { success: false, error: `Generated PPTX failed validation: ${validation.error}` };
     }
-    const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'ppt');
-
-    const resolvedProjectId = resolveProjectId(projectId);
-    if (!resolvedProjectId) {
-      fileStorage.deleteFile(importResult.internalPath);
-      return { success: false, error: 'No active project found. Please open a project before creating a presentation.' };
-    }
-
-    const resourceId = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const now = Date.now();
-    const contentText = ((options.script ? '' : spec.title) || title || '').substring(0, 500);
-
-    const queries = database.getQueries();
-    try {
-      queries.createResourceWithFile.run(
-        resourceId,
-        resolvedProjectId,
-        'ppt',
-        (title || 'Untitled').replace(/\.pptx$/i, '') || 'Untitled',
-        contentText,
-        null,
-        importResult.internalPath,
-        importResult.mimeType,
-        importResult.size,
-        importResult.hash,
-        null,
-        filename,
-        null,
-        now,
-        now
-      );
-    } catch (dbErr) {
-      fileStorage.deleteFile(importResult.internalPath);
-      throw dbErr;
-    }
-
-    if (options.folder_id) {
-      const folder = queries.getResourceById.get(options.folder_id);
-      const isValidFolder = folder && folder.type === 'folder';
-      if (isValidFolder) {
-        try {
-          queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
-          const { syncVaultAfterMoveToFolder } = require('../storage/vault-sync.cjs');
-          syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
-        } catch (moveErr) {
-          console.warn('[PptTools] moveResourceToFolder failed (resource created with internal_path):', moveErr?.message);
-        }
-      } else {
-        console.warn('[PptTools] folder_id invalid or not a folder, skipping move:', options.folder_id);
-      }
-    }
-
-    const resource = queries.getResourceById.get(resourceId);
-    broadcastResourceCreated(resource);
+    const imported = await documentStaging.promoteToLibrary(staged.stagingId, {
+      type: 'ppt', projectId: resolveProjectId(projectId),
+      title: (title || 'Untitled').replace(/\.pptx$/i, ''), folderId: options.folder_id,
+    }, { database, fileStorage, windowManager: windowManagerRef || undefined });
+    if (!imported.success) return imported;
+    const resource = imported.resource;
 
     return {
       success: true,

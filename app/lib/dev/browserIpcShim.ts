@@ -148,8 +148,6 @@ export function installBrowserIpcShim(): void {
     moveToProject: (resourceId: unknown, projectId: unknown) =>
       invoke('db:resources:moveToProject', { resourceId, projectId }),
     ensureUrl: (payload: unknown) => invoke('db:resources:ensureUrl', payload),
-    uploadFile: (filePath: unknown, projectId: unknown, type: unknown, title: unknown) =>
-      invoke('db:resources:uploadFile', { filePath, projectId, type, title }),
   };
 
   const baseProxy = makeProxy([]) as object;

@@ -6,10 +6,6 @@
 
 const https = require('https');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { app } = require('electron');
 
 /**
  * Extract video ID from various YouTube URL formats
@@ -108,41 +104,6 @@ async function downloadThumbnail(videoId) {
 }
 
 /**
- * Save thumbnail to internal storage
- * @param {Buffer} thumbnailBuffer - Thumbnail image buffer
- * @param {string} videoId - YouTube video ID
- * @returns {Promise<{internalPath: string, hash: string, size: number}>}
- */
-async function saveThumbnail(thumbnailBuffer, videoId) {
-  const userDataPath = app.getPath('userData');
-  const domeFilesPath = path.join(userDataPath, 'dome-files');
-  const screenshotsPath = path.join(domeFilesPath, 'screenshots');
-  const youtubePath = path.join(screenshotsPath, 'youtube');
-  
-  // Ensure directories exist
-  if (!fs.existsSync(youtubePath)) {
-    fs.mkdirSync(youtubePath, { recursive: true });
-  }
-  
-  // Calculate hash for deduplication
-  const hash = crypto.createHash('sha256').update(thumbnailBuffer).digest('hex').slice(0, 16);
-  const filename = `${videoId}_${hash}.jpg`;
-  const fullPath = path.join(youtubePath, filename);
-  const internalPath = `screenshots/youtube/${filename}`;
-  
-  // Save file (only if doesn't exist)
-  if (!fs.existsSync(fullPath)) {
-    fs.writeFileSync(fullPath, thumbnailBuffer);
-  }
-  
-  return {
-    internalPath,
-    hash,
-    size: thumbnailBuffer.length
-  };
-}
-
-/**
  * Get YouTube video thumbnail and save it
  * @param {string} url - YouTube URL
  * @returns {Promise<object>} Result with thumbnail data
@@ -172,9 +133,6 @@ async function getYouTubeThumbnail(url) {
       };
     }
     
-    // Save to internal storage
-    const saved = await saveThumbnail(thumbnailBuffer, videoId);
-    
     // Convert to Base64 data URL for thumbnail_data
     const dataUrl = `data:image/jpeg;base64,${thumbnailBuffer.toString('base64')}`;
     
@@ -182,9 +140,7 @@ async function getYouTubeThumbnail(url) {
       success: true,
       videoId,
       thumbnail: {
-        internalPath: saved.internalPath,
-        hash: saved.hash,
-        size: saved.size,
+        size: thumbnailBuffer.length,
         dataUrl
       },
       metadata: {

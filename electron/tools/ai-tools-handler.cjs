@@ -38,17 +38,7 @@ const noteMarkdown = require('../services/note-markdown.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
 const { progress: studioProgress, createRunId } = require('../services/studio-progress.cjs');
 const { secureTimestampId } = require('../core/secure-id.cjs');
-const {
-  validateImportFileArgs,
-  resolveImportExtension,
-  resolveImportEffectiveType,
-  writeImportTempFile,
-  extractImportedContentText,
-  createImportedResourceRecord,
-  moveImportedResourceToFolder,
-  scheduleImportedResourceIndex,
-  unlinkImportTempFile,
-} = require('./import-file-to-library-helpers.cjs');
+
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -745,7 +735,7 @@ async function resourceSemanticSearch(query, options = {}) {
         page_number: h.page_number ?? null,
         char_start: h.char_start,
         char_end: h.char_end,
-        search_hint: `Para el texto completo del fragmento: resource_get_section("${h.resource_id}", "${chunk_id}")`,
+        search_hint: `Para el texto completo del fragmento: resource_get_section("${h.resource_id}", "${chunkId}")`,
         created_at: resource.created_at,
         updated_at: resource.updated_at,
         metadata,
@@ -1342,182 +1332,6 @@ function createManualResourceRelation(queries, sourceId, targetId, label = 'sour
   }
 }
 
-function markdownToTipTapJSON(markdown) {
-  if (!markdown || !markdown.trim()) {
-    return JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] });
-  }
-
-  // If it already looks like TipTap JSON, return as-is
-  try {
-    const parsed = JSON.parse(markdown);
-    if (parsed && parsed.type === 'doc' && Array.isArray(parsed.content)) {
-      return markdown;
-    }
-  } catch (_) { /* not JSON, continue */ }
-
-  const lines = markdown.split('\n');
-  const nodes = [];
-  let i = 0;
-
-  function parseInline(text) {
-    const parts = [];
-    // Pattern: @[resource](id), **bold**, *italic*, `code`, ~~strike~~
-    const re = /(@\[([^\]]+)\]\(([^)\s]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|~~(.+?)~~)/g;
-    let last = 0;
-    let m;
-    while ((m = re.exec(text)) !== null) {
-      if (m.index > last) {
-        parts.push({ type: 'text', text: text.slice(last, m.index) });
-      }
-      if (m[2] !== undefined) {
-        parts.push({
-          type: 'mention',
-          attrs: {
-            id: m[3],
-            label: m[2],
-            resourceType: 'note',
-            mentionSuggestionChar: '@',
-          },
-        });
-      } else if (m[4] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'bold' }], text: m[4] });
-      } else if (m[5] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'italic' }], text: m[5] });
-      } else if (m[6] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'code' }], text: m[6] });
-      } else if (m[7] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'strike' }], text: m[7] });
-      }
-      last = m.index + m[0].length;
-    }
-    if (last < text.length) {
-      parts.push({ type: 'text', text: text.slice(last) });
-    }
-    return parts.length ? parts : [{ type: 'text', text }];
-  }
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Fenced code block
-    if (/^```/.test(line)) {
-      const lang = line.slice(3).trim() || null;
-      const codeLines = [];
-      i++;
-      while (i < lines.length && !/^```/.test(lines[i])) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      nodes.push({
-        type: 'codeBlock',
-        attrs: { language: lang },
-        content: [{ type: 'text', text: codeLines.join('\n') }],
-      });
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^---+$/.test(line.trim()) || /^\*\*\*+$/.test(line.trim())) {
-      nodes.push({ type: 'horizontalRule' });
-      i++;
-      continue;
-    }
-
-    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[i + 1])) {
-      const tableRows = [];
-      const headerCells = line.split('|').slice(1, -1).map((cell) => cell.trim());
-      tableRows.push({
-        type: 'tableRow',
-        content: headerCells.map((cell) => ({
-          type: 'tableHeader',
-          content: [{ type: 'paragraph', content: parseInline(cell) }],
-        })),
-      });
-      i += 2;
-      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-        const cells = lines[i].split('|').slice(1, -1).map((cell) => cell.trim());
-        tableRows.push({
-          type: 'tableRow',
-          content: cells.map((cell) => ({
-            type: 'tableCell',
-            content: [{ type: 'paragraph', content: parseInline(cell) }],
-          })),
-        });
-        i++;
-      }
-      nodes.push({ type: 'table', content: tableRows });
-      continue;
-    }
-
-    // Heading
-    const headingMatch = line.match(/^(#{1,6})\s+(.*)/);
-    if (headingMatch) {
-      nodes.push({
-        type: 'heading',
-        attrs: { level: headingMatch[1].length },
-        content: parseInline(headingMatch[2].trim()),
-      });
-      i++;
-      continue;
-    }
-
-    // Bullet list
-    if (/^[-*+]\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[-*+]\s+/.test(lines[i])) {
-        const text = lines[i].replace(/^[-*+]\s+/, '');
-        items.push({
-          type: 'listItem',
-          content: [{ type: 'paragraph', content: parseInline(text) }],
-        });
-        i++;
-      }
-      nodes.push({ type: 'bulletList', content: items });
-      continue;
-    }
-
-    // Ordered list
-    if (/^\d+\.\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        const text = lines[i].replace(/^\d+\.\s+/, '');
-        items.push({
-          type: 'listItem',
-          content: [{ type: 'paragraph', content: parseInline(text) }],
-        });
-        i++;
-      }
-      nodes.push({ type: 'orderedList', attrs: { start: 1 }, content: items });
-      continue;
-    }
-
-    // Blank line — skip
-    if (!line.trim()) {
-      i++;
-      continue;
-    }
-
-    // Regular paragraph (accumulate consecutive non-empty lines)
-    const paraLines = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|[-*+]\s|\d+\.\s|```|---)/.test(lines[i])) {
-      paraLines.push(lines[i]);
-      i++;
-    }
-    if (paraLines.length) {
-      const content = [];
-      paraLines.forEach((pl, idx) => {
-        content.push(...parseInline(pl));
-        if (idx < paraLines.length - 1) content.push({ type: 'hardBreak' });
-      });
-      nodes.push({ type: 'paragraph', content });
-    }
-  }
-
-  if (!nodes.length) nodes.push({ type: 'paragraph' });
-  return JSON.stringify({ type: 'doc', content: nodes });
-}
-
 const DEFAULT_NOTEBOOK_JSON = JSON.stringify({
   nbformat: 4,
   nbformat_minor: 1,
@@ -1642,34 +1456,6 @@ function linkNoteSources(queries, id, links) {
   }
 }
 
-function mirrorFolderToVault(id) {
-  try {
-    vaultStore.createFolderOnDisk(id, { database, fileStorage });
-  } catch (e) {
-    console.warn('[AI Tools] createFolderOnDisk failed:', e?.message);
-  }
-}
-
-function mirrorNoteToVault(id, content, title, metadataForCreate) {
-  const mirrorMeta = metadataForCreate ? JSON.stringify(metadataForCreate) : null;
-  const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
-    { id, markdown: content || '', title, metadata: mirrorMeta },
-    { database, fileStorage, semanticIndexScheduler },
-  );
-  if (!writeResult.success) {
-    console.warn('[AI Tools] writeNoteMarkdownFromAgent failed:', writeResult.error);
-  }
-}
-
-function mirrorUrlOrNotebookToVault(id) {
-  try {
-    const { ensureResourceMirror } = require('../storage/vault-sync.cjs');
-    ensureResourceMirror(id, { database, fileStorage });
-  } catch (e) {
-    console.warn('[AI Tools] ensureResourceMirror failed:', e?.message);
-  }
-}
-
 function broadcastResourceCreated(resource) {
   if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
     windowManagerRef.broadcast('resource:created', resource);
@@ -1727,23 +1513,12 @@ async function resourceCreate(data) {
       linkNoteSources(queries, id, normalizedNoteLinks);
     }
 
-    // Mirror to the physical vault so agent-created items exist on disk. The vault
-    // is the source of truth and the workspace reflects on-disk state; without this
-    // the agent's folders/notes lived only in SQLite (vault_path NULL) and the
-    // physical file never appeared. Mirrors electron/ipc/data/database.cjs createResource.
-    if (type === 'folder') mirrorFolderToVault(id);
-    if (type === 'note') mirrorNoteToVault(id, content, trimmedTitle, nextMetadata);
-    if (type === 'url' || type === 'notebook') mirrorUrlOrNotebookToVault(id);
-
-    const resource = {
-      id,
-      title: trimmedTitle,
-      type,
-      project_id: projectId,
-      folder_id: resolvedFolderId,
-      created_at: now,
-      updated_at: now,
-    };
+    const { ensureResourceMirror } = require('../storage/vault-sync.cjs');
+    if (!ensureResourceMirror(id, { database, fileStorage })) {
+      queries.deleteResource.run(id);
+      return { success: false, error: 'Could not create resource file in vault' };
+    }
+    const resource = queries.getResourceById.get(id);
 
     broadcastResourceCreated(resource);
 
@@ -1810,7 +1585,7 @@ function isDocxResource(existing) {
   if (existing.type !== 'document') return false;
   const filename = (existing.original_filename || existing.title || '').toLowerCase();
   const mime = existing.file_mime_type || '';
-  if (existing.internal_path?.toLowerCase().endsWith('.docx')) return true;
+  if (existing.vault_path?.toLowerCase().endsWith('.docx')) return true;
   if (filename.endsWith('.docx') || filename.endsWith('.doc')) return true;
   if (mime.includes('wordprocessingml') || mime.includes('msword')) return true;
   return false;
@@ -1825,29 +1600,6 @@ async function extractDocxTextSafe(fullPath) {
   }
 }
 
-async function updateExistingDocx(existing, buffer, now, resourceId) {
-  fileStorage.overwriteFile(existing.internal_path, buffer);
-  const fullPath = fileStorage.getFullPath(existing.internal_path);
-  return extractDocxTextSafe(fullPath);
-}
-
-async function importNewDocx(existing, buffer, queries, now, resourceId) {
-  const safeTitle = (existing.title || 'document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
-  const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
-  const fullPath = fileStorage.getFullPath(importResult.internalPath);
-  queries.updateResourceFile.run(
-    importResult.internalPath,
-    importResult.mimeType,
-    importResult.size,
-    importResult.hash,
-    existing.thumbnail_data,
-    importResult.originalName,
-    now,
-    resourceId,
-  );
-  return extractDocxTextSafe(fullPath);
-}
-
 async function applyDocxUpdate(existing, content, queries, resourceId, now) {
   try {
     let html = String(content).trim();
@@ -1857,11 +1609,10 @@ async function applyDocxUpdate(existing, content, queries, resourceId, now) {
     }
     const buffer = await docxConverter.htmlToDocxBuffer(html);
     if (!buffer) return content;
-    if (existing.internal_path) {
-      const extracted = await updateExistingDocx(existing, buffer, now, resourceId);
-      return extracted || content;
-    }
-    const extracted = await importNewDocx(existing, buffer, queries, now, resourceId);
+    const fullPath = vaultStore.writeResourceFile(existing, buffer, {
+      database, fileStorage, filename: `${existing.title || 'document'}.docx`,
+    });
+    const extracted = await extractDocxTextSafe(fullPath);
     return extracted || content;
   } catch (docxErr) {
     console.warn('[AI Tools] DOCX update failed:', docxErr?.message);
@@ -4115,73 +3866,10 @@ async function emailReplyMessage({ message_id, body, folder } = {}, toolContext)
  */
 async function importFileToLibrary(args = {}) {
   try {
-    const { title, content, content_base64, mime_type, filename, project_id, folder_id } = args;
-    const validationError = validateImportFileArgs({ title, content, content_base64 });
-    if (validationError) return validationError;
-
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const os = require('node:os');
-    const crypto = require('node:crypto');
-    const fileStorage = require('../storage/file-storage.cjs');
-    const documentExtractor = require('../documents/document-extractor.cjs');
-
-    const ext = resolveImportExtension(filename, mime_type, path);
-    const tmpName = `dome-mcp-import-${Date.now()}${ext}`;
-    const tempPath = path.join(os.tmpdir(), tmpName);
-    try {
-      writeImportTempFile(fs, tempPath, content, content_base64);
-      const effectiveType = resolveImportEffectiveType(ext, mime_type);
-      const importResult = await fileStorage.importFile(tempPath, effectiveType);
-
-      const queries = database.getQueries();
-      const existing = queries.findByHash?.get(importResult.hash);
-      if (existing) {
-        return {
-          success: false,
-          error: 'duplicate',
-          duplicate: { id: existing.id, title: existing.title },
-        };
-      }
-
-      const fullPath = fileStorage.getFullPath(importResult.internalPath);
-      const contentText = await extractImportedContentText({
-        documentExtractor,
-        fullPath,
-        effectiveType,
-        ext,
-        importMimeType: importResult.mimeType,
-        content,
-        contentBase64: content_base64,
-      });
-
-      const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-      const now = Date.now();
-      const db = database.getDB();
-      const effectiveProjectId = project_id || null;
-
-      createImportedResourceRecord(queries, {
-        resourceId,
-        projectId: effectiveProjectId,
-        effectiveType,
-        title,
-        contentText,
-        importResult,
-        mimeType: mime_type,
-        filename,
-        now,
-      });
-      moveImportedResourceToFolder(queries, folder_id, resourceId, now);
-
-      const resource = queries.getResourceById.get(resourceId);
-      scheduleImportedResourceIndex(semanticIndexScheduler, database, resource, resourceId);
-
-      return { success: true, resource };
-    } finally {
-      unlinkImportTempFile(fs, tempPath);
-    }
+    return await require('../storage/resource-import.cjs').createResourceImporter({
+      database, fileStorage, documentExtractor, windowManager: windowManagerRef || undefined,
+    }).importContent(args);
   } catch (error) {
-    console.error('[AI Tools] importFileToLibrary error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -4388,8 +4076,8 @@ async function gemmaImageDescribe(args) {
   if (!row || row.type !== 'image') {
     return { success: false, error: 'Resource is not an image' };
   }
-  if (!row.internal_path) return { success: false, error: 'Image has no file' };
-  const fullPath = fileStorage.getFullPath(row.internal_path);
+  if (!row.vault_path) return { success: false, error: 'Image has no file' };
+  const fullPath = vaultStore.getResourceFilePath(row, database.getQueries(), fileStorage);
   if (!fullPath || !fs.existsSync(fullPath)) return { success: false, error: 'Image file not found' };
   const mime = row.file_mime_type || 'image/png';
   const dataUrl = `data:${mime};base64,${fs.readFileSync(fullPath).toString('base64')}`;
@@ -5145,13 +4833,7 @@ async function artifactDelete(args) {
       return { success: false, error: 'Resource is not an artifact' };
     }
 
-    if (resource.internal_path) {
-      try {
-        fileStorage.deleteFile(resource.internal_path);
-      } catch (e) {
-        console.warn('[AI Tools] artifactDelete file cleanup:', e.message);
-      }
-    }
+
 
     vaultStore.removeMirrorForResource(resourceId, { database, fileStorage });
 
@@ -5385,7 +5067,6 @@ module.exports = {
   setWindowManager,
 
   /** TipTap JSON helper (shared with transcription IPC) */
-  markdownToTipTapJSON,
 
 
   // Meta-tools (handled directly in tool-dispatcher.cjs switch; stub satisfies guard)

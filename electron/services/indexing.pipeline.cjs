@@ -215,7 +215,7 @@ function createIndexer(opts) {
 
     let { text, source } = getIndexableText(resource, queries);
 
-    if (resource.type === 'pdf' && resource.internal_path) {
+    if (resource.type === 'pdf' && resource.vault_path) {
       try {
         const tr = await extractPdfTextWithCloud(resource, queries);
         text = tr.text;
@@ -225,9 +225,9 @@ function createIndexer(opts) {
       }
     }
 
-    if (resource.type === 'image' && cloudLlm.isCloudLlmAvailable(() => queries) && resource.internal_path) {
+    if (resource.type === 'image' && cloudLlm.isCloudLlmAvailable(() => queries) && resource.vault_path) {
       try {
-        const fullPath = fileStorage.getFullPath(resource.internal_path);
+        const fullPath = require('../storage/vault-store.cjs').getResourceFilePath(resource, queries, fileStorage);
         if (fullPath && fs.existsSync(fullPath)) {
           const mime = resource.file_mime_type || 'image/png';
           const b64 = fs.readFileSync(fullPath).toString('base64');

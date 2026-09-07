@@ -120,9 +120,7 @@ function extractImageUrl(
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
 
-  if (resource.type === 'image' && typeof resource.file_path === 'string' && resource.file_path) {
-    return resource.file_path;
-  }
+
   return null;
 }
 

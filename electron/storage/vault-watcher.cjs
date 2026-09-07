@@ -64,8 +64,8 @@ function ensureFolderChain(projectId, folderSegs, deps) {
     if (!folder) {
       const fid = crypto.randomUUID();
       db.prepare(
-        'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      ).run(fid, projectId, 'folder', seg, null, null, parentId, currentRel, null, now, now);
+        'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      ).run(fid, projectId, 'folder', seg, null, parentId, currentRel, null, now, now);
       deps.windowManager.broadcast('resource:created', {
         id: fid, type: 'folder', project_id: projectId, folder_id: parentId, title: seg, vault_path: currentRel,
       });
@@ -123,8 +123,8 @@ function importExternalNote(raw, ctx, deps) {
   const hash = vaultStore.contentHash(raw);
   const now = Date.now();
   db.prepare(
-    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-  ).run(noteId, ctx.projectId, 'note', title, null, null, folderId, ctx.relPath, text, hash, null, now, now);
+    'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(noteId, ctx.projectId, 'note', title, vaultStore.stripFrontmatter(raw), folderId, ctx.relPath, text, hash, null, now, now);
   try { semanticIndexScheduler.scheduleSemanticReindex?.(noteId); } catch { /* */ }
   windowManager.broadcast('resource:created', {
     id: noteId, type: 'note', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
@@ -146,8 +146,8 @@ function importExternalBinary(absPath, buf, ext, ctx, deps) {
   const now = Date.now();
   const id = crypto.randomUUID();
   db.prepare(
-    'INSERT INTO resources (id, project_id, type, title, content, file_path, internal_path, file_mime_type, file_size, file_hash, original_filename, folder_id, vault_path, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-  ).run(id, ctx.projectId, type, filename, null, null, null, mime, buf.length, hash, filename, folderId, ctx.relPath, hash, null, now, now);
+    'INSERT INTO resources (id, project_id, type, title, content, file_mime_type, file_size, file_hash, original_filename, folder_id, vault_path, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(id, ctx.projectId, type, filename, null, mime, buf.length, hash, filename, folderId, ctx.relPath, hash, null, now, now);
   windowManager.broadcast('resource:created', {
     id, type, project_id: ctx.projectId, folder_id: folderId, title: filename, vault_path: ctx.relPath,
   });
@@ -168,8 +168,8 @@ function importExternalUrlFile(raw, ctx, deps) {
   const now = Date.now();
   const id = crypto.randomUUID();
   db.prepare(
-    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-  ).run(id, ctx.projectId, 'url', title, url, null, folderId, ctx.relPath, url, vaultStore.contentHash(raw), null, now, now);
+    'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(id, ctx.projectId, 'url', title, url, folderId, ctx.relPath, url, vaultStore.contentHash(raw), null, now, now);
   windowManager.broadcast('resource:created', {
     id, type: 'url', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
   });
@@ -196,8 +196,8 @@ function importExternalNotebook(raw, ctx, deps) {
   const now = Date.now();
   const id = crypto.randomUUID();
   db.prepare(
-    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-  ).run(id, ctx.projectId, 'notebook', title, JSON.stringify(cells), null, folderId, ctx.relPath, vaultStore.contentHash(raw), null, now, now);
+    'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(id, ctx.projectId, 'notebook', title, JSON.stringify(cells), folderId, ctx.relPath, vaultStore.contentHash(raw), null, now, now);
   windowManager.broadcast('resource:created', {
     id, type: 'notebook', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
   });
@@ -233,13 +233,12 @@ function importExternalArtifact(raw, ctx, deps) {
   };
 
   db.prepare(
-    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
   ).run(
     resourceId,
     ctx.projectId,
     'artifact',
     title,
-    null,
     null,
     folderId,
     ctx.relPath,
@@ -392,8 +391,8 @@ function applyResourceUpdate(row, absPath, buf, ext, isMd, isArtifactHtml, rawTe
 
 function applyNoteUpdate(db, row, ctx, rawText, hash, now) {
   const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(rawText));
-  db.prepare('UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
-    .run(ctx.relPath, text, hash, now, row.id);
+  db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
+    .run(ctx.relPath, vaultStore.stripFrontmatter(rawText), text, hash, now, row.id);
 }
 
 function applyUrlUpdate(db, row, ctx, rawText, hash, now) {

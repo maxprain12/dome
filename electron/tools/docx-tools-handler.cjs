@@ -30,11 +30,7 @@ function setWindowManager(wm) {
   windowManagerRef = wm;
 }
 
-function broadcastResourceCreated(resource) {
-  if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-    windowManagerRef.broadcast('resource:created', resource);
-  }
-}
+
 
 function broadcastResourceUpdated(resourceId, updates) {
   if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
@@ -306,57 +302,12 @@ async function docxCreate(projectId, title, options = {}) {
       documentStaging.discardStaging(staged.stagingId);
       return { success: false, error: `Generated DOCX failed validation: ${validation.error}` };
     }
-    const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'document');
-
-    const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const now = Date.now();
-    const fullPath = fileStorage.getFullPath(importResult.internalPath);
-    let contentText = '';
-    try {
-      contentText = (await documentExtractor.extractDocxText(fullPath, 50000)) || '';
-    } catch {
-      contentText = '';
-    }
-
-    try {
-      queries.createResourceWithFile.run(
-        resourceId,
-        projectId,
-        'document',
-        safeTitle.replace(/\.docx$/i, '') || 'Untitled',
-        contentText,
-        null,
-        importResult.internalPath,
-        importResult.mimeType,
-        importResult.size,
-        importResult.hash,
-        null,
-        filename,
-        null,
-        now,
-        now,
-      );
-    } catch (dbErr) {
-      fileStorage.deleteFile(importResult.internalPath);
-      throw dbErr;
-    }
-
-    if (options.folder_id) {
-      const folder = queries.getResourceById.get(options.folder_id);
-      if (folder && folder.type === 'folder') {
-        try {
-          queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
-          const { syncVaultAfterMoveToFolder } = require('../storage/vault-sync.cjs');
-          syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
-        } catch (moveErr) {
-          console.warn('[DocxTools] moveResourceToFolder failed:', moveErr?.message);
-        }
-      }
-    }
-
-    const resource = queries.getResourceById.get(resourceId);
-    broadcastResourceCreated(resource);
-    scheduleReindex(resourceId);
+    const imported = await documentStaging.promoteToLibrary(staged.stagingId, {
+      type: 'document', projectId: projectId,
+      title: safeTitle.replace(/\.docx$/i, '') || 'Untitled', folderId: options.folder_id,
+    }, { database, fileStorage, windowManager: windowManagerRef || undefined });
+    if (!imported.success) return imported;
+    const resource = imported.resource;
 
     return {
       success: true,
@@ -383,7 +334,7 @@ async function docxUpdate(resourceId, options = {}) {
     if (!isDocxResource(resource)) {
       return { success: false, error: 'Resource is not a Word .docx document' };
     }
-    if (!resource.internal_path) {
+    if (!resource.vault_path) {
       return { success: false, error: 'Resource has no file on disk' };
     }
 
@@ -416,8 +367,7 @@ async function docxUpdate(resourceId, options = {}) {
       return { success: false, error: 'Failed to build DOCX buffer' };
     }
 
-    fileStorage.overwriteFile(resource.internal_path, buffer);
-    const fullPath = fileStorage.getFullPath(resource.internal_path);
+    const fullPath = require('../storage/vault-store.cjs').writeResourceFile(resource, buffer, { database, fileStorage });
     let contentText = resource.content;
     try {
       contentText = (await documentExtractor.extractDocxText(fullPath, 50000)) || resource.content;

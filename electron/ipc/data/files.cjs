@@ -130,7 +130,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
 
     try {
       // allowExternal: notebook workspace dirs live outside userData
-      // (resource.metadata.notebook_workspace_path, persisted across sessions)
+      // (resolved from the notebook resource in its project vault)
       const safePath = sanitizePath(dirPath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'Directory not found' };

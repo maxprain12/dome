@@ -3,14 +3,14 @@
  * Document Staging Layer — Main Process
  *
  * Buffers generated document files in userData/dome-staging/ before promoting
- * them to the canonical dome-files/ store. This ensures that a failed
+ * them to the project vault. This ensures that a failed
  * validation or DB write never leaves orphaned files or partial rows in the
  * library.
  *
  * Flow:
  *   stageBuffer()         — write to staging, return stagingId
  *   validateStaging()     — open file with the type-appropriate lib and check integrity
- *   promoteToLibrary()    — rename from staging → dome-files/documents/<hash>.<ext>
+ *   promoteToLibrary()    — import from staging into the project vault
  *   discardStaging()      — delete staging file on any error
  *   cleanupStaleStagings()— remove files older than maxAgeMs (run on app startup)
  */
@@ -109,55 +109,21 @@ async function validateStaging(stagingId, type) {
   }
 }
 
-/**
- * Promote a staged file to the canonical dome-files store.
- * Returns the same shape as fileStorage.importFromBuffer so callers can swap
- * this in place without changing subsequent DB writes.
- * @param {string} stagingId
- * @param {'excel'|'document'|'ppt'} type
- * @returns {{ internalPath: string, hash: string, size: number, mimeType: string, originalName: string }}
- */
-function promoteToLibrary(stagingId, type) {
+/** Validate callers promote through the same vault importer as user files. */
+async function promoteToLibrary(stagingId, options, deps) {
   const stagingPath = findStagingPath(stagingId);
   if (!stagingPath) throw new Error('Staging file not found: ' + stagingId);
-
-  const filename = path.basename(stagingPath).replace(/^[^_]+__/, '');
-  const ext = path.extname(filename).toLowerCase();
-  const typeDir = fileStorage.getTypeDir(type);
-  const buffer = fs.readFileSync(stagingPath);
-  const hash = fileStorage.calculateHash(buffer);
-  const internalPath = `${typeDir}/${hash}${ext}`;
-  const fullPath = path.join(fileStorage.getStorageDir(), internalPath);
-
-  // Ensure target directory exists
-  const targetDir = path.dirname(fullPath);
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-
-  // Atomic rename (same filesystem — userData); fall back to copy+delete.
   try {
-    if (!fs.existsSync(fullPath)) {
-      fs.renameSync(stagingPath, fullPath);
-    } else {
-      // Deduplication: same hash already in store; just discard staging.
-      fs.unlinkSync(stagingPath);
-    }
-  } catch {
-    // Cross-device or rename failure → copy then delete
-    if (!fs.existsSync(fullPath)) {
-      fs.copyFileSync(stagingPath, fullPath);
-    }
-    try { fs.unlinkSync(stagingPath); } catch {}
+    const filename = path.basename(stagingPath).split('__').slice(1).join('__');
+    const { createResourceImporter } = require('../storage/resource-import.cjs');
+    return await createResourceImporter(deps).importContent({
+      title: options.title, filename, type: options.type,
+      project_id: options.projectId, folder_id: options.folderId,
+      content_base64: fs.readFileSync(stagingPath).toString('base64'),
+    });
+  } finally {
+    discardStaging(stagingId);
   }
-
-  return {
-    internalPath,
-    hash,
-    size: buffer.length,
-    mimeType: fileStorage.getMimeType(ext),
-    originalName: filename,
-  };
 }
 
 /**

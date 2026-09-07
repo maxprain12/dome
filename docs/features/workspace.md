@@ -2,68 +2,70 @@
 
 The workspace presents project resources in tabs. `UnifiedSidebar` and
 `SidebarFileTree` expose the project/folder hierarchy; `useTabStore` owns open
-resources and split views. `WorkspaceLayout` loads a resource, selects its viewer
-and subscribes to `resource:updated`. Its inspector groups details, relations,
-sources and Studio outputs. Notes use `MarkdownNoteWorkspace` and the Milkdown
-Markdown editor.
+resources and split views. Notes use `MarkdownNoteWorkspace` and the Milkdown
+Markdown editor. The sidebar and folder view share their resource action menu.
 
-## File ownership
+## One resource file model
 
-`electron/storage/vault-store.cjs` resolves each project's vault root from
-`projects.vault_root`, or defaults to `dome-files/vault/<sanitized project name>`.
-`resources.vault_path` is relative to that root. SQLite holds the resource identity,
-folder hierarchy, metadata and searchable content; note Markdown is stored in the
-vault, with `resources.content` and `content_text` refreshed as fallback/search
-caches when the editor writes it.
+Every resource file is addressed by `project_id` + `vault_path`.
+`electron/storage/vault-store.cjs` resolves the project root from
+`projects.vault_root`, or `dome-files/vault/<sanitized project name>`.
+SQLite holds identities, hierarchy, metadata and search caches. The file in the
+vault is authoritative; document consumers never fall back to an old external
+path or to a second content-addressed store.
 
-Document consumers use `getResourceFilePath`: vault path first, then legacy
-`internal_path`, then `file_path`. Existing libraries still need these fallbacks.
-DOCX and spreadsheet edits overwrite the resolved file atomically and refresh its
-size and hashes. They must not silently create a second copy when a vault file
-already exists.
+DOCX and spreadsheet edits replace the canonical file atomically and refresh
+its size and hashes. Filename collision checks include files that have not yet
+been indexed, so imports do not overwrite them. `vault-watcher.cjs` reconciles
+external edits. `vault-sync.cjs` aligns moves with the folder hierarchy, and
+`resource-delete.cjs` owns cascading deletion. Storage usage counts the actual
+resource files, including custom project roots.
 
-`vault-watcher.cjs` reconciles external edits and imports files discovered in a
-project's vault. Vault writes are marked to distinguish them from external edits.
-`vault-sync.cjs` maintains folder paths on moves; `resource-delete.cjs` owns
-cascading deletion. File removal precedes database deletion so the watcher cannot
-reimport a file left behind.
+## Imports and migration
 
-## Importing documents
+`electron/storage/resource-import.cjs` is shared by file picker, multiple-file,
+content, cloud, agent, generated-document and recording imports. Staging and
+download directories are temporary inputs, not another library store.
 
-The IPC routes `resource:import`, `resource:importMultiple` and
-`resource:importFromContent` share the importer in `electron/ipc/data/resources.cjs`.
-The content route uses a unique temporary directory and removes it afterwards.
+- Markdown/plain text up to 1 MiB becomes a note; imported frontmatter is stripped
+  before Dome writes its identity metadata.
+- Other files retain their format, are classified by extension and registered
+  before asynchronous thumbnail/text extraction. Notebook imports retain cells.
+- The destination folder must belong to the project. Duplicate content is allowed;
+  colliding names receive a suffix.
+- Thumbnails stay in the database; no parallel thumbnail files are written.
 
-- `.md`, `.markdown` and `.txt` files up to 1 MiB become editable notes. Leading
-  YAML frontmatter is stripped before Dome writes its own identity metadata.
-- Other files are copied into the project's vault, classified by extension and
-  registered in SQLite before asynchronous thumbnail/text extraction begins.
-- A supplied destination folder is reflected in both the resource row and path.
-- Duplicate content is allowed, as with the file picker; tracked filename
-  collisions use the vault's disambiguation rules.
+Before the workspace starts, `vault-migration.cjs` converts pre-vault resources.
+It takes a database snapshot, copies and verifies source bytes, converts old note
+content to Markdown, and moves notebook execution files into a vault folder.
+Original source files are retained for recovery and are never consulted by normal
+resource I/O. Successful migration removes obsolete path columns and notebook
+working-directory metadata. A failed row remains explicitly pending and retryable
+through the migration IPC; it does not enable a compatibility mode.
 
-Agent tool `importFileToLibrary` has its own legacy import implementation in
-`electron/tools/ai-tools-handler.cjs`; it is not the IPC content-import route.
+## Notes, notebooks and actions
 
-## Note editing
+`loadNoteMarkdown` reads only the vault Markdown. The note workspace shares one
+save flow for title blur, manual save and autosave. It checks errors, serializes
+saves and retains edits made while a save is pending. Duplicate-note actions fail
+if the source file is unavailable instead of rebuilding a note from a stale cache.
 
-`loadNoteMarkdown` prefers the vault file and falls back to legacy database
-content. Legacy HTML/Tiptap conversion remains necessary for existing notes.
-`MarkdownNoteWorkspace` uses one save flow for title blur, manual save and
-1.5-second autosave. It updates the title/timestamp first, then writes the Markdown so the file
-path and frontmatter use that title. Both IPC results are checked. A failed operation remains unsaved in the
-editor and exposes the error. Saves cannot overlap, and edits made while a save
-is pending remain dirty for the next save.
+Python execution receives a notebook resource ID. Main resolves its containing
+vault folder as `cwd`. The files panel imports through the library importer;
+there is no separate working-folder selector. Python environment selection is
+interpreter configuration and does not change the resource's location.
 
-The note workspace still has an explicit focus-window action. Ordinary resource
-navigation uses tabs. `WorkspaceFilesPanel` handles notebook execution files;
-those directories are distinct from project vaults and may live outside them.
+The header uses the shared dropdown primitives for anchoring, keyboard navigation
+and focus restoration. Obsolete home document cards, toolbar, menu, annotations
+panel, resize handle, unused barrels and previous-editor icons have been removed.
+The inactive notes-migration settings control and placeholder upload IPC are gone.
 
-## Regression checks
+## Validation
 
-- `electron/__tests__/resource-vault-io.test.mjs`: content imports, vault/legacy
-  document I/O, export, spreadsheet writes, previews and note cache updates.
-- `electron/__tests__/vault-mirror-create.test.mjs`: folder/note mirrors,
-  format-preserving moves and cascade deletion.
-- `app/components/notes/MarkdownNoteWorkspace.test.tsx`: save failures, title/body
-  persistence and edits during an outstanding save.
+- `resource-vault-io.test.mjs`: imports, document I/O, collision protection,
+  one-way migration/retry, notebook cwd, sync after edits, and all prepared queries
+  against fresh and migrated schemas.
+- `vault-mirror-create.test.mjs` and `artifact-vault-mirror.test.mjs`: mirrors,
+  moves and deletion.
+- Renderer tests cover note save failures/concurrent edits, sidebar actions and
+  header keyboard navigation/focus restoration.

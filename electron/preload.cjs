@@ -131,7 +131,6 @@ const ALLOWED_CHANNELS = {
     'db:resources:removeFromFolder',
     'db:resources:searchForMention',
     'db:resources:getBacklinks',
-    'db:resources:uploadFile',
     // Database - Interactions
     'db:interactions:create',
     'db:interactions:getByResource',
@@ -311,7 +310,6 @@ const ALLOWED_CHANNELS = {
     'file:extractPDFText',
     // Storage management
     'storage:getUsage',
-    'storage:cleanup',
     'storage:getPath',
     // Notes markdown vault mirror
     'notes:writeMirror',
@@ -503,6 +501,7 @@ const ALLOWED_CHANNELS = {
     'indexing:full-sync',
     'pdf:render-page',
     // Notebook (Python via IPC)
+    'notebook:workspace',
     'notebook:runPython',
     'notebook:checkPython',
     'notebook:createVenv',
@@ -1373,8 +1372,6 @@ const electronHandler = {
         ipcRenderer.invoke('db:resources:searchForMention', query, projectId),
       getBacklinks: (id) =>
         ipcRenderer.invoke('db:resources:getBacklinks', id),
-      uploadFile: (filePath, projectId, type, title) =>
-        ipcRenderer.invoke('db:resources:uploadFile', { filePath, projectId, type, title }),
     },
 
     // Resource Interactions (notes, annotations, chat)
@@ -1682,7 +1679,6 @@ const electronHandler = {
     getUsage: () => ipcRenderer.invoke('storage:getUsage'),
 
     // Clean up orphaned files
-    cleanup: () => ipcRenderer.invoke('storage:cleanup'),
 
     // Get storage directory path
     getPath: () => ipcRenderer.invoke('storage:getPath'),
@@ -1759,8 +1755,8 @@ const electronHandler = {
     getYouTubeThumbnail: (url) => ipcRenderer.invoke('web:get-youtube-thumbnail', url),
 
     // Save screenshot to internal storage
-    saveScreenshot: (resourceId, screenshotBase64, internalPath) =>
-      ipcRenderer.invoke('web:save-screenshot', { resourceId, screenshotBase64, internalPath }),
+    saveScreenshot: (resourceId, screenshotBase64) =>
+      ipcRenderer.invoke('web:save-screenshot', { resourceId, screenshotBase64 }),
 
     // Process URL resource completely
     process: (resourceId) => ipcRenderer.invoke('web:process', resourceId),
@@ -2079,7 +2075,7 @@ const electronHandler = {
         code,
         cells: options?.cells,
         targetCellIndex: options?.targetCellIndex,
-        cwd: options?.cwd,
+        resourceId: options?.resourceId,
         venvPath: options?.venvPath,
         timeoutMs: options?.timeoutMs,
         collectAllCells: options?.collectAllCells,

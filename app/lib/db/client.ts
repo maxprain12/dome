@@ -750,13 +750,6 @@ class DatabaseClient {
   }
 
   /**
-   * Clean up orphaned files
-   */
-  async cleanupStorage(): Promise<DBResponse<{ deleted: number; freedBytes: number }>> {
-    return this.storageApi.cleanup();
-  }
-
-  /**
    * Get storage directory path
    */
   async getStoragePath(): Promise<DBResponse<string>> {
@@ -778,7 +771,7 @@ class DatabaseClient {
   }
 
   /**
-   * Migrate legacy resources to internal storage
+   * Migrate legacy resources into project vaults
    */
   async migrateResources(): Promise<DBResponse<{
     migrated: number;
@@ -793,7 +786,7 @@ class DatabaseClient {
    */
   async getMigrationStatus(): Promise<DBResponse<{
     pendingMigrations: number;
-    resources: Array<{ id: string; title: string; file_path: string }>;
+    resources: Array<{ id: string; title: string }>;
   }>> {
     return this.migrationApi.getStatus();
   }

@@ -268,7 +268,6 @@ function register({
   windowManager,
   database,
   fileStorage,
-  aiToolsHandler,
   thumbnail,
   initModule,
   ollamaService,
@@ -500,7 +499,6 @@ function register({
       const now = Date.now();
       const noteId = generateResourceId();
       const title = deriveTitle(transcript);
-      const tipTap = aiToolsHandler.markdownToTipTapJSON(transcript);
 
       const noteMeta = {
         source: 'transcription',
@@ -516,13 +514,20 @@ function register({
         resource.project_id,
         'note',
         title,
-        tipTap,
+        transcript,
         null,
         resource.folder_id || null,
         JSON.stringify(noteMeta),
         now,
         now,
       );
+      const mirror = require('../../storage/vault-store.cjs').writeNoteMarkdown(
+        { id: noteId, markdown: transcript }, { database, fileStorage },
+      );
+      if (!mirror.success) {
+        queries.deleteResource.run(noteId);
+        throw new Error(mirror.error);
+      }
       const noteResource = queries.getResourceById.get(noteId);
       windowManager.broadcast('resource:created', noteResource);
 

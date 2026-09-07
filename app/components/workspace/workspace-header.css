@@ -80,14 +80,6 @@
   white-space: nowrap;
 }
 
-.workspace-notebook-btn.is-configured {
-  color: var(--foreground);
-}
-
-.workspace-notebook-btn.is-unconfigured {
-  color: var(--muted-foreground);
-}
-
 .workspace-header-icon-btn {
   display: flex;
   align-items: center;
@@ -134,47 +126,4 @@
   background: var(--border);
   margin: 0 2px;
   flex-shrink: 0;
-}
-
-.workspace-header-menu {
-  position: fixed;
-  z-index: var(--z-max);
-  min-width: 196px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px;
-  animation: dropdown-appear 0.12s ease-out;
-}
-
-.workspace-header-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--foreground);
-  transition: background 80ms;
-}
-
-.workspace-header-menu-item:hover {
-  background: var(--accent);
-}
-
-.workspace-header-menu-item-icon {
-  color: var(--muted-foreground);
-  display: flex;
-}
-
-.workspace-header-menu-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
 }

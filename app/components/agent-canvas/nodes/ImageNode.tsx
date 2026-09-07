@@ -16,7 +16,7 @@ interface ImageResource {
   id: string;
   title: string;
   type: string;
-  internal_path?: string;
+  vault_path?: string;
   thumbnail_data?: string;
   metadata?: Record<string, unknown>;
 }
@@ -49,7 +49,7 @@ export default function ImageNode({
             id: r.id,
             title: r.title,
             type: r.type,
-            internal_path: r.internal_path,
+            vault_path: r.vault_path,
             thumbnail_data: r.thumbnail_data,
             metadata: r.metadata,
           });

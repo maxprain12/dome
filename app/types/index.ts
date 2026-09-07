@@ -171,17 +171,11 @@ export interface Resource {
   title: string;
   content?: string;
 
-  // Legacy external file path (deprecated, for migration)
-  file_path?: string;
-
-  // Internal file storage (new system)
-  /** Relative path within dome-files: "images/hash.png" */
-  internal_path?: string;
   /** MIME type of the file */
   file_mime_type?: string;
   /** File size in bytes */
   file_size?: number;
-  /** SHA-256 hash (first 16 chars) for deduplication */
+  /** SHA-256 hash of the canonical file */
   file_hash?: string;
   /** Base64 data URL for thumbnail (fast preview in lists) */
   thumbnail_data?: string;
@@ -309,7 +303,6 @@ export interface ResourceMetadata {
   video_id?: string; // Para YouTube
   channel?: string; // Para YouTube
   /** Notebook workspace folder path - used as cwd for Python execution */
-  notebook_workspace_path?: string;
   /** Wiki / corpus KB mantenido por agentes (opcional) */
   dome_kb?: DomeKbMetadata;
   [key: string]: unknown;

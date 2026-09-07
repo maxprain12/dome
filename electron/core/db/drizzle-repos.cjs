@@ -31,8 +31,6 @@ function resourceRowToSnake(row) {
     type: row.type,
     title: row.title,
     content: row.content,
-    file_path: row.filePath,
-    internal_path: row.internalPath,
     file_mime_type: row.fileMimeType,
     file_size: row.fileSize,
     file_hash: row.fileHash,

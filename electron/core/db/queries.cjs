@@ -22,7 +22,7 @@ function buildQueries(db) {
 
     // Resources
     createResource: db.prepare(`
-      INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, metadata, created_at, updated_at)
+      INSERT INTO resources (id, project_id, type, title, content, vault_path, folder_id, metadata, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getResourcesByProject: db.prepare('SELECT * FROM resources WHERE project_id = ? ORDER BY updated_at DESC'),
@@ -36,19 +36,12 @@ function buildQueries(db) {
       WHERE id = ?
     `),
 
-    // Resources with internal file storage
+    // Resources with vault files
     createResourceWithFile: db.prepare(`
       INSERT INTO resources (
-        id, project_id, type, title, content, file_path,
-        internal_path, file_mime_type, file_size, file_hash,
-        thumbnail_data, original_filename, metadata, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `),
-    updateResourceFile: db.prepare(`
-      UPDATE resources
-      SET internal_path = ?, file_mime_type = ?, file_size = ?,
-          file_hash = ?, thumbnail_data = ?, original_filename = ?, updated_at = ?
-      WHERE id = ?
+        id, project_id, type, title, content, vault_path, file_mime_type, file_size, file_hash,
+        thumbnail_data, original_filename, metadata, created_at, updated_at, folder_id, content_hash
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateResourceThumbnail: db.prepare(`
       UPDATE resources
@@ -56,15 +49,7 @@ function buildQueries(db) {
       WHERE id = ?
     `),
     findByHash: db.prepare(`
-      SELECT id, title, project_id, type, internal_path FROM resources WHERE file_hash = ?
-    `),
-    getAllInternalPaths: db.prepare(`
-      SELECT internal_path FROM resources WHERE internal_path IS NOT NULL
-    `),
-    getResourcesWithLegacyPath: db.prepare(`
-      SELECT * FROM resources
-      WHERE file_path IS NOT NULL AND internal_path IS NULL
-      ORDER BY created_at ASC
+      SELECT id, title, project_id, type, vault_path FROM resources WHERE file_hash = ?
     `),
     deleteResource: db.prepare('DELETE FROM resources WHERE id = ?'),
 
@@ -707,7 +692,7 @@ function buildQueries(db) {
     /** Sidebar/dashboard listings — omits `content` and `thumbnail_data` to keep IPC payloads small. */
     listResourcesLight: db.prepare(`
       SELECT id, project_id, type, title, folder_id, metadata,
-             internal_path, file_mime_type, file_size, file_hash, original_filename,
+             vault_path, file_mime_type, file_size, file_hash, original_filename,
              created_at, updated_at
       FROM resources ORDER BY updated_at DESC LIMIT ?
     `),
@@ -718,7 +703,7 @@ function buildQueries(db) {
      */
     listResourcesLightByProject: db.prepare(`
       SELECT id, project_id, type, title, folder_id, metadata,
-             internal_path, file_mime_type, file_size, file_hash, original_filename,
+             vault_path, file_mime_type, file_size, file_hash, original_filename,
              created_at, updated_at
       FROM resources WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?
     `),

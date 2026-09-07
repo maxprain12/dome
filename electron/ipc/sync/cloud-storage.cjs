@@ -423,11 +423,6 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('cloud:import-file', async (event, { accountId, fileId, fileName, mimeType, projectId, folderId: targetFolderId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
 
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
-    const crypto = require('crypto');
-
     try {
       const accounts = loadAccounts(database);
       const account = accounts.find((a) => a.accountId === accountId);
@@ -442,70 +437,13 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const name = fileName || meta.name || 'imported-file';
       const effectiveMime = mimeType || meta.mimeType || meta.file?.mimeType || 'application/octet-stream';
 
-      const ext = path.extname(name).toLowerCase() || (effectiveMime.includes('pdf') ? '.pdf' : '.bin');
-      const effectiveType = effectiveMime.includes('pdf') || ext === '.pdf' ? 'pdf' : 'note';
-
-      const tempPath = path.join(os.tmpdir(), `dome-cloud-${Date.now()}${ext}`);
-      fs.writeFileSync(tempPath, buffer);
-
-      try {
-        const importResult = await fileStorage.importFile(tempPath, effectiveType);
-        const queries = database.getQueries();
-
-        const existing = queries.findByHash?.get(importResult.hash);
-        if (existing) {
-          return { success: false, error: 'duplicate', duplicate: { id: existing.id, title: existing.title } };
-        }
-
-        const fullPath = fileStorage.getFullPath(importResult.internalPath);
-        let contentText = null;
-        try {
-          const docExtractor = require('../../documents/document-extractor.cjs');
-          if (effectiveType === 'pdf') {
-            contentText = await docExtractor.extractTextFromPDF(fullPath, 50000);
-          } else {
-            contentText = await docExtractor.extractDocumentText(fullPath, importResult.mimeType);
-          }
-        } catch { /* non-critical */ }
-
-        const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-        const now = Date.now();
-
-        queries.createResourceWithFile.run(
-          resourceId,
-          projectId || null,
-          effectiveType,
-          name,
-          contentText,
-          null,
-          importResult.internalPath,
-          importResult.mimeType || effectiveMime,
-          importResult.size,
-          importResult.hash,
-          null,
-          name,
-          null,
-          now,
-          now
-        );
-
-        if (targetFolderId && queries.moveResourceToFolder) {
-          queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
-        }
-
-        const resource = queries.getResourceById.get(resourceId);
-        windowManager.broadcast('resource:created', resource);
-
-        const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
-        semanticIndexScheduler.init(database);
-        if (resource && semanticIndexScheduler.shouldIndex(resource)) {
-          semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-        }
-
-        return { success: true, resource };
-      } finally {
-        try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
-      }
+      return await require('../../storage/resource-import.cjs').createResourceImporter({
+        database, fileStorage, windowManager,
+      }).importContent({
+        title: name, filename: name, mime_type: effectiveMime,
+        content_base64: buffer.toString('base64'), project_id: projectId || 'default',
+        folder_id: targetFolderId,
+      });
     } catch (err) {
       console.error('[CloudStorage] import-file error:', err);
       return { success: false, error: err.message };

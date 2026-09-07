@@ -101,7 +101,7 @@ function buildDocumentRoute(resource, resourceId, page) {
     filename.endsWith('.doc') ||
     mime.includes('wordprocessingml') ||
     mime.includes('msword') ||
-    !resource.internal_path;
+    !resource.vault_path;
   let base;
   if (isPptx) {
     base = `/workspace/ppt?id=${resourceId}`;

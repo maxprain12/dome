@@ -5,7 +5,6 @@ import {
   ArrowDownToLineIcon,
   CheckmarkCircle02Icon,
   Download04Icon,
-  FileStackIcon,
   RefreshIcon,
   RotateRight01Icon,
   Settings01Icon,
@@ -52,11 +51,6 @@ export default function AdvancedSection() {
     useAppStore();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
   const [appVersion, setAppVersion] = useState<string>('');
-  const [notesMigrationStatus, setNotesMigrationStatus] = useState<{
-    pendingMigrations: number;
-    notes: { id: string; title: string }[];
-  } | null>(null);
-  const [notesMigrating, setNotesMigrating] = useState(false);
 
   useEffect(() => {
     void window.electron?.getAppVersion?.().then((r) => {
@@ -84,18 +78,6 @@ export default function AdvancedSection() {
     return unsub;
   }, []);
 
-  useEffect(() => {
-    async function loadMigrationStatus() {
-      try {
-        const r = await window.electron?.migration?.getNotesMigrationStatus?.();
-        if (r?.success && r.data) setNotesMigrationStatus(r.data);
-      } catch {
-        /* ignore */
-      }
-    }
-    loadMigrationStatus();
-  }, [notesMigrating]);
-
   const handleCheckUpdate = async () => {
     setUpdaterState((s) => ({ ...s, status: 'checking' }));
     try {
@@ -103,19 +85,6 @@ export default function AdvancedSection() {
       if (result?.status === 'skipped') setUpdaterState({ status: 'idle' });
     } catch (e) {
       setUpdaterState({ status: 'error', error: String(e) });
-    }
-  };
-
-  const handleMigrateNotes = async () => {
-    setNotesMigrating(true);
-    try {
-      const r = await window.electron?.migration?.migrateNotesToDomain?.();
-      if (r?.success) {
-        const status = await window.electron?.migration?.getNotesMigrationStatus?.();
-        if (status?.success && status.data) setNotesMigrationStatus(status.data);
-      }
-    } finally {
-      setNotesMigrating(false);
     }
   };
 
@@ -298,39 +267,6 @@ export default function AdvancedSection() {
         </SettingsRow>
       </SettingsGroup>
 
-      {typeof window !== 'undefined' && window.electron?.migration ? (
-        <SettingsGroup title={t('settings.advanced.migration')}>
-          <SettingsRow
-            title={t('settings.advanced.notes_migration_title')}
-            description={t('settings.advanced.notes_migration_desc')}
-          >
-            {notesMigrationStatus && notesMigrationStatus.pendingMigrations > 0 ? (
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">
-                  {t('settings.advanced.pending_notes', {
-                    count: notesMigrationStatus.pendingMigrations,
-                  })}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={notesMigrating}
-                  onClick={() => void handleMigrateNotes()}
-                >
-                  <HugeiconsIcon icon={FileStackIcon} data-icon="inline-start" />
-                  {notesMigrating
-                    ? t('settings.advanced.migrating')
-                    : t('settings.advanced.migrate_notes')}
-                </Button>
-              </div>
-            ) : notesMigrationStatus?.pendingMigrations === 0 ? (
-              <span className="flex items-center gap-1.5 text-xs text-primary">
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} /> {t('settings.advanced.all_migrated')}
-              </span>
-            ) : null}
-          </SettingsRow>
-        </SettingsGroup>
-      ) : null}
     </SettingsSurface>
   );
 }

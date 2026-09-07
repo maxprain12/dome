@@ -425,7 +425,7 @@ export default function MarkdownNoteWorkspace({
 
   useEffect(() => {
     if (!isDirty) return;
-    const timer = setTimeout(() => void persistNote(), 1500);
+    const timer = setTimeout(() => { void persistNote(); }, 1500);
     return () => clearTimeout(timer);
   }, [isDirty, persistNote, autosaveTick]);
 
@@ -646,12 +646,12 @@ export default function MarkdownNoteWorkspace({
         crumbs={crumbs}
         saveState={savePillState}
         lastSavedAt={savePillSavedAt ?? resource.updated_at}
-        onSave={() => void persistNote()}
+        onSave={() => { void persistNote(); }}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onOpenSplit={() => setSplitPickerOpen(true)}
         canOpenSplit={Boolean(resource.project_id)}
-        onOpenPopout={() => void handlePopoutNote()}
+        onOpenPopout={() => { void handlePopoutNote(); }}
         onOpenMetadata={() => setShowMetadata(true)}
         domeLinkToCopy={domeShareLink}
         onOpenBacklinksPanel={() => {

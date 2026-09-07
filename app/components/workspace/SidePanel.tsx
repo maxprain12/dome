@@ -46,7 +46,6 @@ interface SidePanelProps {
   onPreferredTabApplied?: () => void;
   /** For notebooks: workspace folder path and change handler */
   notebookWorkspacePath?: string;
-  onNotebookWorkspacePathChange?: (path: string) => Promise<void>;
   /** For notebooks: Python venv path and change handler */
   notebookVenvPath?: string;
   onNotebookVenvPathChange?: (path: string) => Promise<void>;
@@ -61,7 +60,6 @@ export default function SidePanel({
   preferredTab,
   onPreferredTabApplied,
   notebookWorkspacePath,
-  onNotebookWorkspacePathChange,
   notebookVenvPath,
   onNotebookVenvPathChange,
   embedded = false,
@@ -185,10 +183,11 @@ export default function SidePanel({
       <div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
         {effectiveTab === 'relations' && <RelationsTab resourceId={resourceId} />}
         {effectiveTab === 'backlinks' && <BacklinksTab resourceId={resourceId} />}
-        {effectiveTab === 'workspace' && isNotebook && onNotebookWorkspacePathChange && (
+        {effectiveTab === 'workspace' && isNotebook && (
           <WorkspaceFilesPanel
             workspacePath={notebookWorkspacePath}
-            onWorkspacePathChange={onNotebookWorkspacePathChange}
+            projectId={resource.project_id}
+            folderId={resource.folder_id}
             venvPath={notebookVenvPath}
             onVenvPathChange={onNotebookVenvPathChange}
           />

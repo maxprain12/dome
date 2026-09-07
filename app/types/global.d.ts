@@ -78,7 +78,6 @@ interface MigrationStatus {
   resources: Array<{
     id: string;
     title: string;
-    file_path: string;
   }>;
 }
 
@@ -1313,7 +1312,6 @@ declare global {
       // Storage Management API
       storage: {
         getUsage: () => Promise<DBResponse<StorageUsage>>;
-        cleanup: () => Promise<DBResponse<{ deleted: number; freedBytes: number }>>;
         getPath: () => Promise<DBResponse<string>>;
       };
 
@@ -1332,10 +1330,6 @@ declare global {
       migration: {
         migrateResources: () => Promise<DBResponse<MigrationResult>>;
         getStatus: () => Promise<DBResponse<MigrationStatus>>;
-        getNotesMigrationStatus: () => Promise<
-          DBResponse<{ pendingMigrations: number; notes: Array<{ id: string; title: string }> }>
-        >;
-        migrateNotesToDomain: () => Promise<DBResponse<{ migrated?: number; error?: string }>>;
       };
 
       // Web Scraping API
@@ -1370,8 +1364,6 @@ declare global {
           success: boolean;
           videoId?: string | null;
           thumbnail?: {
-            internalPath: string;
-            hash: string;
             size: number;
             dataUrl: string;
           } | null;
@@ -1380,12 +1372,10 @@ declare global {
         }>;
         saveScreenshot: (
           resourceId: string,
-          screenshotBase64?: string,
-          internalPath?: string
+          screenshotBase64: string
         ) => Promise<{
           success: boolean;
           thumbnailData?: string;
-          internalPath?: string;
           error?: string;
         }>;
         process: (resourceId: string) => Promise<{
@@ -2375,7 +2365,7 @@ declare global {
 
       // Notebook API (Python via IPC - Electron only)
       notebook: {
-        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; cwd?: string; venvPath?: string; timeoutMs?: number; collectAllCells?: boolean }) => Promise<{
+        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; resourceId?: string; venvPath?: string; timeoutMs?: number; collectAllCells?: boolean }) => Promise<{
           success: boolean;
           outputs: Array<{
             output_type: 'stream' | 'execute_result' | 'display_data' | 'error';

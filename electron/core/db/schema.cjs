@@ -1108,8 +1108,6 @@ function createBaseSchema(db) {
                   )),
                   title TEXT NOT NULL,
                   content TEXT,
-                  file_path TEXT,
-                  internal_path TEXT,
                   file_mime_type TEXT,
                   file_size INTEGER,
                   file_hash TEXT,
@@ -1846,10 +1844,6 @@ function createBaseSchema(db) {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_resources_folder ON resources(folder_id)
-  `);
-
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_resources_internal_path ON resources(internal_path)
   `);
 
   db.exec(`

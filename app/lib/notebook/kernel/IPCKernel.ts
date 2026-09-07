@@ -13,8 +13,8 @@ export interface RunPythonOptions {
   targetCellIndex?: number;
   /** Pyodide: run only this cell's code (kernel is stateful) */
   currentCellCode?: string;
-  /** Working directory for Python execution (notebook workspace folder) */
-  cwd?: string;
+  /** Main resolves the working directory from the notebook vault file. */
+  resourceId?: string;
   /** Path to Python virtual environment (venv directory) */
   venvPath?: string;
   /** Execution timeout in milliseconds (default 60000) */

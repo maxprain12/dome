@@ -1240,7 +1240,6 @@ function initSemanticIndexScheduler() {
 // mirrors, ghost paths) so the workspace tree equals the filesystem.
 function startVaultWatcher() {
   try {
-    require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
     const vaultWatcher = require('./storage/vault-watcher.cjs');
     vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
   } catch (err) {
@@ -1248,28 +1247,9 @@ function startVaultWatcher() {
   }
 }
 
-// Schedule orphan file cleanup after app is ready (non-blocking)
-function scheduleOrphanFileCleanup() {
+// Schedule database housekeeping after app is ready.
+function scheduleDatabaseCleanup() {
   setTimeout(() => {
-    try {
-      console.log('[App] Running automatic orphan file cleanup...');
-      const queries = database.getQueries();
-      const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
-      const internalPaths = [...resourcePaths];
-      const avatarSetting = queries.getSetting.get('user_avatar_path');
-      const currentAvatarPath = avatarSetting?.value || null;
-
-      const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
-
-      if (result.deleted > 0) {
-        console.log(`[App] Auto-cleanup: removed ${result.deleted} orphan files, freed ${(result.freedBytes / 1024 / 1024).toFixed(2)}MB`);
-      } else {
-        console.log('[App] Auto-cleanup: no orphan files found');
-      }
-    } catch (error) {
-      console.error('[App] Auto-cleanup failed:', error);
-    }
-
     // DB-level orphan cleanup
     try {
       database.getDB().prepare(
@@ -1302,6 +1282,7 @@ app
     // Database initialization is now handled by initModule
     // but we still need to ensure it's ready
     database.initDatabase();
+    require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
 
     tryStartBackupScheduler();
     trySeedBundledSkills();
@@ -1345,7 +1326,7 @@ app
     initSemanticIndexScheduler();
     startVaultWatcher();
 
-    scheduleOrphanFileCleanup();
+    scheduleDatabaseCleanup();
   })
   .catch(console.error);
 

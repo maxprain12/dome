@@ -17,7 +17,7 @@
  *                          (never base64 — that was the historic egress bug).
  *   3. hydrateMissingFiles — resources whose backing file is missing locally
  *                          (fresh device restore) are downloaded back into
- *                          the vault at their original internal_path.
+ *                          the project vault at their canonical vault_path.
  */
 /* eslint-disable no-console */
 
@@ -37,14 +37,6 @@ let running = false;
 /** Los blobs `skipped` (límite de tamaño) se reintentan UNA vez por sesión. */
 let requeuedSkippedThisSession = false;
 /**
- * internal_path → full hash, computed this session. Prevents re-hashing files
- * whose filename prefix does not match their current sha256 (e.g. files edited
- * after import) on every tick.
- * @type {Map<string, string>}
- */
-const hashCache = new Map();
-
-/**
  * Full sha256 (streamed — vault files can be hundreds of MB).
  * @param {string} filePath
  * @returns {Promise<string>}
@@ -55,41 +47,9 @@ async function computeFullHash(filePath) {
   return hash.digest('hex');
 }
 
-/**
- * @param {string} internalPath e.g. `documents/ab12cd34ef56ab78.pdf`
- * @returns {string} the 16-char local hash prefix embedded in the filename
- */
-function prefixFromInternalPath(internalPath) {
-  const base = path.basename(String(internalPath));
-  const stem = base.includes('.') ? base.slice(0, base.indexOf('.')) : base;
-  return /^[0-9a-f]{16}$/.test(stem) ? stem : '';
-}
-
-/**
- * Absolute on-disk path for a resource's backing file, covering both storage
- * schemes: vault (`vault_path`, relative to the project vault root — the
- * common case) and managed storage (`internal_path`).
- * @param {object} resource
- * @param {object} queries
- * @returns {string | null}
- */
+/** Resolve only the canonical project vault file. */
 function resolveResourceAbsPath(resource, queries) {
-  try {
-    const primary = vaultStore.getResourceFilePath(resource, queries, fileStorage);
-    return existingResourcePath(primary, resource);
-  } catch {
-    return null;
-  }
-}
-
-function existingResourcePath(primary, resource) {
-  if (primary && fs.existsSync(primary)) return primary;
-  // Recursos con ambos esquemas: si la copia del vault falta, usar la gestionada.
-  if (resource.internal_path) {
-    const managed = fileStorage.getFullPath(resource.internal_path);
-    if (managed && fs.existsSync(managed)) return managed;
-  }
-  return primary;
+  return vaultStore.getResourceFilePath(resource, queries, fileStorage);
 }
 
 /**
@@ -115,7 +75,7 @@ function prepareManifestHashRepair(db) {
   const syncTombstone = require('./sync-tombstone.cjs');
   const findByHash = db.prepare('SELECT id FROM vault_blobs WHERE hash = ? AND id != ? LIMIT 1');
   const findResource = db.prepare(
-    `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
+    `SELECT id, project_id, vault_path FROM resources
      WHERE file_hash = ? OR file_hash LIKE ? || '%' LIMIT 1`,
   );
   const update = db.prepare('UPDATE vault_blobs SET hash = ?, updated_at = ? WHERE id = ?');
@@ -170,77 +130,20 @@ async function repairBadRowHash(row, fullPath, findByHash, update, drop) {
   }
 }
 
-/**
- * Fast in-memory + manifest-row dedupe before touching the disk: filename
- * prefix (managed files), known file_hash (vault files), or already hashed
- * this session.
- * @returns {boolean}
- */
-function isFastDeduped(resource, cacheKey, findByPrefix, findByHash) {
-  const prefix = resource.internal_path ? prefixFromInternalPath(resource.internal_path) : '';
-  return Boolean(
-    (prefix && findByPrefix.get(prefix)) ||
-      (resource.file_hash && findByHash.get(resource.file_hash)) ||
-      hashCache.has(cacheKey),
-  );
-}
-
-/**
- * Backfill a legacy `file_hash` (16-char prefix) with the full sha256 so
- * Companion can find the blob by file_hash on the wire. The bump on
- * `updated_at` re-pushes the resource row through the `library` domain.
- */
-function backfillLegacyFileHash(db, resource, hash) {
+/** Register the current canonical bytes; an edit must invalidate the old hash. */
+async function ingestOneResource(resource, fullPath, db, findByHash, insert) {
   try {
-    db.prepare('UPDATE resources SET file_hash = ?, updated_at = ? WHERE id = ?')
-      .run(hash, Date.now(), resource.id);
-  } catch (err) {
-    console.warn('[blob-sync] file_hash backfill failed:', err?.message);
-  }
-}
-
-/**
- * Hash (or trust) one resource, write the `vault_blobs` manifest row, and
- * handle the legacy file_hash backfill. Returns whether a new row was
- * inserted (used by `ingestLocalFiles` to bump its counter).
- * @returns {Promise<boolean>}
- */
-async function ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert) {
-  try {
-    const { trustedHash, hash } = await resolveResourceHash(resource, fullPath);
-    hashCache.set(cacheKey, hash);
-    pathByHash.set(hash, fullPath);
-    maybeBackfillLegacyFileHash(db, resource, hash, trustedHash);
+    const hash = FULL_HASH_RE.test(String(resource.content_hash || ''))
+      ? resource.content_hash : await computeFullHash(fullPath);
+    if (resource.file_hash !== hash) {
+      db.prepare('UPDATE resources SET file_hash = ?, updated_at = ? WHERE id = ?')
+        .run(hash, Date.now(), resource.id);
+    }
     if (findByHash.get(hash)) return false;
     return insertManifestRow(insert, resource, fullPath, hash);
   } catch (err) {
-    console.warn('[blob-sync] ingest failed for', cacheKey, err?.message);
+    console.warn('[blob-sync] ingest failed for', resource.id, err?.message);
     return false;
-  }
-}
-
-/**
- * Resolve the hash for one resource: trust `resource.file_hash` when it is
- * a full sha256 (the vault-watcher keeps it in sync and Companion looks up
- * the blob by it on the wire), otherwise stream the file and compute the
- * full sha256. Legacy 16-char prefixes are NOT trusted — the provider
- * rejects the entire batch on a single non-64-hex hash.
- */
-async function resolveResourceHash(resource, fullPath) {
-  const trustedHash = FULL_HASH_RE.test(String(resource.file_hash || '')) ? resource.file_hash : null;
-  const hash = trustedHash || (await computeFullHash(fullPath));
-  return { trustedHash, hash };
-}
-
-/**
- * Backfill a legacy `file_hash` (16-char prefix) with the full sha256 so
- * Companion can find the blob by file_hash on the wire. Skipped when the
- * existing file_hash is already a full sha256 (`!trustedHash`) or already
- * matches the just-computed hash.
- */
-function maybeBackfillLegacyFileHash(db, resource, hash, trustedHash) {
-  if (!trustedHash && resource.file_hash && resource.file_hash !== hash) {
-    backfillLegacyFileHash(db, resource, hash);
   }
 }
 
@@ -263,25 +166,17 @@ function insertManifestRow(insert, resource, fullPath, hash) {
   return result.changes > 0;
 }
 
-function resourceCacheKey(resource) {
-  return resource.vault_path
-    ? `${resource.project_id}:${resource.vault_path}`
-    : resource.internal_path;
-}
-
-async function ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert) {
-  const cacheKey = resourceCacheKey(resource);
-  if (isFastDeduped(resource, cacheKey, findByPrefix, findByHash)) return false;
+async function ingestResourceIfPresent(resource, db, queries, findByHash, insert) {
   const fullPath = resolveResourceAbsPath(resource, queries);
   if (!fullPath || !fs.existsSync(fullPath)) return false;
-  return ingestOneResource(resource, cacheKey, fullPath, db, findByHash, insert);
+  return ingestOneResource(resource, fullPath, db, findByHash, insert);
 }
 
-async function ingestResources(resources, db, queries, findByPrefix, findByHash, insert) {
+async function ingestResources(resources, db, queries, findByHash, insert) {
   let ingested = 0;
   for (const resource of resources) {
     ingested += Number(
-      await ingestResourceIfPresent(resource, db, queries, findByPrefix, findByHash, insert),
+      await ingestResourceIfPresent(resource, db, queries, findByHash, insert),
     );
   }
   return ingested;
@@ -293,10 +188,7 @@ function logIngestedCount(ingested) {
 
 /**
  * Phase 1 — make sure every local resource file has a manifest row.
- * Covers BOTH storage schemes: `internal_path` (managed) and `vault_path`
- * (vault files — the vast majority; historically these were skipped, so the
- * cloud manifest only ever saw a handful of blobs and Companion showed
- * "not synced" for everything else).
+ * Resolves every resource through its project vault.
  * @param {import('better-sqlite3').Database} db
  * @param {object} [queries]
  * @returns {Promise<number>} number of new vault_blobs rows inserted
@@ -305,13 +197,11 @@ async function ingestLocalFiles(db, queries) {
   await repairInvalidManifestHashes(db, queries);
   const resources = db
     .prepare(
-      `SELECT id, project_id, internal_path, vault_path, file_hash, file_mime_type, original_filename
+      `SELECT id, project_id, vault_path, content_hash, file_hash, file_mime_type, original_filename
        FROM resources
-       WHERE (internal_path IS NOT NULL AND internal_path != '')
-          OR (vault_path IS NOT NULL AND vault_path != '' AND type != 'folder')`,
+       WHERE vault_path IS NOT NULL AND vault_path != '' AND type != 'folder'`,
     )
     .all();
-  const findByPrefix = db.prepare("SELECT id FROM vault_blobs WHERE hash LIKE ? || '%' LIMIT 1");
   const findByHash = db.prepare('SELECT id FROM vault_blobs WHERE hash = ? LIMIT 1');
   const insert = db.prepare(`
     INSERT OR IGNORE INTO vault_blobs
@@ -319,7 +209,7 @@ async function ingestLocalFiles(db, queries) {
     VALUES (?, ?, ?, ?, ?, 'pending', 'present', ?, ?)
   `);
 
-  const ingested = await ingestResources(resources, db, queries, findByPrefix, findByHash, insert);
+  const ingested = await ingestResources(resources, db, queries, findByHash, insert);
   logIngestedCount(ingested);
   return ingested;
 }
@@ -355,22 +245,8 @@ function tallyBatchOutcome(outcome, counts) {
 }
 
 /**
- * A pending blob still needs a vault scan when neither the provider nor the
- * local path cache already know its hash — `.md`/`.html` mirrors whose
- * `vault_blobs` row was born from a content hash, not a column lookup.
- * @param {{ hash: string }} blob
- * @param {Set<string>} existingSet
- * @param {import('better-sqlite3').Database} db
- * @param {object} [queries]
- * @returns {boolean}
- */
-function needsVaultHashLookup(blob, existingSet, db, queries) {
-  return !existingSet.has(blob.hash) && !findLocalFileForHash(db, blob, queries);
-}
-
-/**
  * Process one upload batch: stat-dedupe against the provider, resolve any
- * missing local paths by content-hashing the vault, then upload each blob.
+ * local paths from the resource rows, then upload each blob.
  * Extracted from `runUploadQueue` to keep it under the cognitive-complexity
  * threshold. Translates provider errors and rate-limit into early-exit flags
  * that the caller can fold into its cumulative counters.
@@ -396,17 +272,6 @@ async function processUploadBatch(deps, db, batch, base, markUploaded, markSkipp
   }
   const { existing } = await statRes.json();
   const existingSet = new Set(existing || []);
-
-  // Resolver por contenido los hashes sin mapeo directo (espejos .md/.html)
-  // ANTES del bucle: una sola pasada por el vault cubre todo el batch.
-  const unresolved = new Set(
-    batch
-      .filter((b) => needsVaultHashLookup(b, existingSet, db, queries))
-      .map((b) => b.hash),
-  );
-  if (unresolved.size) {
-    await scanVaultForHashes(db, queries, unresolved);
-  }
 
   const counts = { uploaded: 0, deduped: 0 };
   for (const blob of batch) {
@@ -690,86 +555,12 @@ async function uploadPendingBlob(
   }
 }
 
-/** hash completo → ruta absoluta local, poblado por ingest y por el escaneo perezoso. */
-const pathByHash = new Map();
-
-/**
- * Resolve the full sha256 for a vault resource: reuse the in-session cache
- * when present, otherwise stream the file and remember the result. Returns
- * null when the file can't be read — the scan loop skips the resource rather
- * than bubbling an I/O error up (best-effort path for blobs we couldn't
- * resolve any other way).
- * @returns {Promise<string | null>}
- */
-async function resolveOrComputeVaultHash(resource, fullPath) {
-  const cacheKey = `${resource.project_id}:${resource.vault_path}`;
-  const cached = hashCache.get(cacheKey);
-  if (cached) return cached;
-  try {
-    const hash = await computeFullHash(fullPath);
-    hashCache.set(cacheKey, hash);
-    return hash;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Última vía: recorre los archivos del vault hasheándolos (con caché) para
- * mapear hash→ruta. Necesario para recursos SIN `file_hash` (espejos de notas
- * y artefactos .md/.html): su fila del manifiesto nace de un hash calculado,
- * imposible de resolver por columnas. Una pasada cubre todos los pendientes.
- * @param {import('better-sqlite3').Database} db
- * @param {object} [queries]
- * @param {Set<string>} wantedHashes
- */
-async function scanVaultForHashes(db, queries, wantedHashes) {
-  if (!wantedHashes.size) return;
-  const resources = db
-    .prepare(
-      `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
-       WHERE vault_path IS NOT NULL AND vault_path != '' AND type != 'folder'`,
-    )
-    .all();
-  for (const resource of resources) {
-    if (!wantedHashes.size) return;
-    await resolveAndRecordVaultHash(resource, queries, wantedHashes);
-  }
-}
-
-/**
- * Hash one vault resource and, on success, remember its path and remove the
- * hash from `wantedHashes`. Skips resources whose backing file is missing or
- * whose content can't be read — the caller keeps iterating.
- * @returns {Promise<boolean>} whether the hash was recorded this iteration
- */
-async function resolveAndRecordVaultHash(resource, queries, wantedHashes) {
-  const fullPath = resolveResourceAbsPath(resource, queries);
-  if (!fullPath || !fs.existsSync(fullPath)) return false;
-  const hash = await resolveOrComputeVaultHash(resource, fullPath);
-  if (!hash) return false;
-  pathByHash.set(hash, fullPath);
-  wantedHashes.delete(hash);
-  return true;
-}
-
-/**
- * Locate the local file whose content matches a manifest row: by exact
- * `file_hash` (vault files), by the 16-char filename prefix (managed files),
- * or a Many session body sharing this pipeline.
- * @param {import('better-sqlite3').Database} db
- * @param {{ hash: string }} blob
- * @param {object} [queries]
- * @returns {string | null} absolute path
- */
+/** Resolve the current file by its canonical byte hash. */
 function findLocalFileForHash(db, blob, queries) {
-  const known = pathByHash.get(blob.hash);
-  if (known && fs.existsSync(known)) return known;
-
   const byHash = db
     .prepare(
-      `SELECT id, project_id, internal_path, vault_path, file_path FROM resources
-       WHERE file_hash = ? LIMIT 1`,
+      `SELECT id, project_id, vault_path FROM resources
+       WHERE COALESCE(content_hash, file_hash) = ? LIMIT 1`,
     )
     .get(blob.hash);
   if (byHash) {
@@ -777,32 +568,8 @@ function findLocalFileForHash(db, blob, queries) {
     if (fullPath && fs.existsSync(fullPath)) return fullPath;
   }
 
-  const prefixPath = findResourceByPrefixPath(db, blob.hash);
-  if (prefixPath) return prefixPath;
 
   return findManySessionFile(db, blob.hash);
-}
-
-/**
- * Locate a managed resource's backing file via the 16-char sha256 prefix
- * embedded in its filename. Returns the absolute path of an existing file
- * or null when no row matches or the file is missing on disk.
- * @param {import('better-sqlite3').Database} db
- * @param {string} hash
- * @returns {string | null}
- */
-function findResourceByPrefixPath(db, hash) {
-  const prefix = hash.slice(0, 16);
-  const row = db
-    .prepare(
-      `SELECT internal_path FROM resources
-       WHERE internal_path IS NOT NULL AND internal_path LIKE '%' || ? || '%' LIMIT 1`,
-    )
-    .get(prefix);
-  if (!row?.internal_path) return null;
-  const fullPath = fileStorage.getFullPath(row.internal_path);
-  if (!fs.existsSync(fullPath)) return null;
-  return fullPath;
 }
 
 /**
@@ -833,11 +600,8 @@ function findManySessionFile(db, hash) {
  * (vault files), then by the 16-char filename prefix (managed files).
  * Returns null when the manifest hasn't been pulled yet (next cycle retries).
  */
-function findBlobForResource(resource, blobByPrefix, blobByHash) {
-  const byHash = resource.file_hash ? blobByHash.get(resource.file_hash) : null;
-  if (byHash || !resource.internal_path) return byHash;
-  const prefix = prefixFromInternalPath(resource.internal_path);
-  return prefix ? blobByPrefix.get(prefix) : null;
+function findBlobForResource(resource, blobByHash) {
+  return resource.file_hash ? blobByHash.get(resource.file_hash) : null;
 }
 
 /**
@@ -867,17 +631,17 @@ async function downloadBlob(deps, base, blob, fullPath) {
  * a successful hydration, false when nothing was downloaded (already on disk,
  * missing manifest row, or transient network/HTTP error logged inline).
  */
-async function hydrateOneResource(deps, resource, base, queries, blobByPrefix, blobByHash) {
+async function hydrateOneResource(deps, resource, base, queries, blobByHash) {
   const fullPath = resolveResourceAbsPath(resource, queries);
   if (!fullPath || fs.existsSync(fullPath)) return false;
-  const blob = findBlobForResource(resource, blobByPrefix, blobByHash);
+  const blob = findBlobForResource(resource, blobByHash);
   if (!blob) return false; // manifest not pulled yet — next cycle
   try {
     return Boolean(await downloadBlob(deps, base, blob, fullPath));
   } catch (err) {
     console.warn(
       '[blob-sync] hydrate failed for',
-      resource.vault_path || resource.internal_path,
+      resource.vault_path,
       err?.message,
     );
     return false;
@@ -894,18 +658,16 @@ async function hydrateMissingFiles(deps, db) {
   const queries = deps.database?.getQueries?.();
   const resources = db
     .prepare(
-      `SELECT id, project_id, internal_path, vault_path, file_hash FROM resources
-       WHERE (internal_path IS NOT NULL AND internal_path != '')
-          OR (vault_path IS NOT NULL AND vault_path != '' AND type != 'folder')`,
+      `SELECT id, project_id, vault_path, file_hash FROM resources
+       WHERE vault_path IS NOT NULL AND vault_path != '' AND type != 'folder'`,
     )
     .all();
   const base = getDomeProviderBaseUrl().replace(/\/$/, '');
-  const blobByPrefix = db.prepare("SELECT * FROM vault_blobs WHERE hash LIKE ? || '%' LIMIT 1");
   const blobByHash = db.prepare('SELECT * FROM vault_blobs WHERE hash = ? LIMIT 1');
 
   let hydrated = 0;
   for (const resource of resources) {
-    if (await hydrateOneResource(deps, resource, base, queries, blobByPrefix, blobByHash)) {
+    if (await hydrateOneResource(deps, resource, base, queries, blobByHash)) {
       hydrated += 1;
     }
   }
@@ -951,5 +713,4 @@ module.exports = {
   runUploadQueue,
   hydrateMissingFiles,
   computeFullHash,
-  prefixFromInternalPath,
 };

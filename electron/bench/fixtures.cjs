@@ -151,12 +151,20 @@ function upsertResource(queries, row) {
     row.type,
     row.title,
     row.content,
-    row.file_path,
+    null,
     row.folder_id,
     row.metadata,
     ts,
     ts,
   );
+  const deps = { database, fileStorage: require('../storage/file-storage.cjs') };
+  const resource = queries.getResourceById.get(row.id);
+  if (row.source_path) {
+    const vault = require('../storage/vault-store.cjs');
+    vault.writeResourceFile(resource, fs.readFileSync(row.source_path), { ...deps, filename: path.basename(row.source_path) });
+  } else if (row.type !== 'artifact') {
+    require('../storage/vault-sync.cjs').ensureResourceMirror(row.id, deps);
+  }
   return row.id;
 }
 
@@ -260,7 +268,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'folder',
     title: 'Bench Folder',
     content: null,
-    file_path: null,
+    source_path: null,
     folder_id: null,
     metadata: JSON.stringify({ color: '#4a5568' }),
   });
@@ -272,7 +280,7 @@ async function seedFixtures({ force = false } = {}) {
     title: 'Termodinámica — apuntes bench',
     content:
       '# Termodinámica\n\nLa entropía mide el desorden de un sistema. La primera ley conserva la energía.\n\n## Conceptos\n- Entalpía\n- Entropía\n- Energía libre de Gibbs',
-    file_path: null,
+    source_path: null,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
@@ -283,7 +291,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'note',
     title: 'Bench Note Alpha',
     content: 'Nota de prueba alpha con backpropagation y redes neuronales.',
-    file_path: null,
+    source_path: null,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
@@ -294,7 +302,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'note',
     title: 'Bench Note Beta',
     content: 'Nota beta sobre algoritmos de ordenamiento: quicksort, mergesort.',
-    file_path: null,
+    source_path: null,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
@@ -305,7 +313,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'pdf',
     title: 'Bench Sample PDF',
     content: null,
-    file_path: assets.pdfPath,
+    source_path: assets.pdfPath,
     folder_id: FIXTURE_IDS.folder,
     metadata: JSON.stringify({ pages: 1 }),
   });
@@ -316,7 +324,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'excel',
     title: 'Bench Sample Excel',
     content: null,
-    file_path: assets.xlsxPath,
+    source_path: assets.xlsxPath,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
@@ -327,7 +335,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'document',
     title: 'Bench Sample DOCX',
     content: null,
-    file_path: assets.docxPath,
+    source_path: assets.docxPath,
     folder_id: FIXTURE_IDS.folder,
     metadata: JSON.stringify({ original_filename: 'sample.docx' }),
   });
@@ -338,7 +346,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'ppt',
     title: 'Bench Sample PPT',
     content: null,
-    file_path: assets.pptPath,
+    source_path: assets.pptPath,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
@@ -349,7 +357,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'notebook',
     title: 'Bench Notebook',
     content: BENCH_NOTEBOOK_JSON,
-    file_path: null,
+    source_path: null,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
@@ -360,7 +368,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'image',
     title: 'Bench Sample Image',
     content: null,
-    file_path: assets.pngPath,
+    source_path: assets.pngPath,
     folder_id: FIXTURE_IDS.folder,
     metadata: JSON.stringify({ original_filename: 'sample.png' }),
   });
@@ -373,7 +381,7 @@ async function seedFixtures({ force = false } = {}) {
     type: 'artifact',
     title: 'Bench Counter',
     content: null,
-    file_path: null,
+    source_path: null,
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });

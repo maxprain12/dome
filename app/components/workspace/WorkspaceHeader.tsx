@@ -20,7 +20,7 @@ import {
   Presentation01Icon,
   Maximize02Icon,
 } from '@hugeicons/core-free-icons';
-import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -28,7 +28,7 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { type Resource } from '@/types';
 import './workspace-header.css';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { openManyWithCombinedContext } from '@/lib/many/openManyCombined';
 
 interface EditableTitle {
@@ -46,13 +46,9 @@ interface WorkspaceHeaderProps {
   editableTitle?: EditableTitle;
   savingIndicator?: React.ReactNode;
   subtitle?: string;
-  onExportPdf?: () => void | Promise<void>;
   onExportDocx?: () => void | Promise<void>;
-  onExport?: () => void;
   onPresentationMode?: () => void;
   onOpenWorkspacePanel?: () => void;
-  notebookWorkspacePath?: string;
-  notebookVenvPath?: string;
   /** Oculta fuentes / estudio / grafo para un encabezado más limpio en audio y vídeo */
   mediaFocusMode?: boolean;
 }
@@ -88,14 +84,12 @@ function HeaderIconBtn({
   active = false,
   activeColor,
   onClick,
-  forwardRef,
 }: {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
   activeColor?: string;
   onClick: () => void;
-  forwardRef?: React.Ref<HTMLButtonElement>;
 }) {
   const customColorStyle = active && activeColor
     ? ({ '--active-color': activeColor } as CSSProperties)
@@ -103,7 +97,6 @@ function HeaderIconBtn({
 
   return (
     <button
-      ref={forwardRef}
       type="button"
       onClick={onClick}
       title={label}
@@ -133,14 +126,10 @@ export default function WorkspaceHeader({
   onExportDocx,
   onPresentationMode,
   onOpenWorkspacePanel,
-  notebookWorkspacePath,
-  notebookVenvPath,
   mediaFocusMode = false,
 }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuBtnRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen  = useAppStore((s) => s.studioPanelOpen);
@@ -154,18 +143,11 @@ export default function WorkspaceHeader({
   const currentProject = useAppStore((s) => s.currentProject);
   const [splitPickerOpen, setSplitPickerOpen] = useState(false);
 
-  const hasFile = !!(resource.internal_path || resource.file_path);
+  const hasFile = !!(resource.vault_path);
   const typeMeta = getTypeMeta(resource.type);
   const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
   const isLinux = typeof window !== 'undefined' && window.electron?.isLinux;
   const needsChromeRightInset = Boolean(isWindows || isLinux);
-
-  const openMenu = useCallback(() => {
-    if (!menuBtnRef.current) return;
-    const r = menuBtnRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
-    setMenuOpen((o) => !o);
-  }, []);
 
   const handleOpenExternal = useCallback(async () => {
     setMenuOpen(false);
@@ -296,12 +278,12 @@ export default function WorkspaceHeader({
           <button
             type="button"
             onClick={onOpenWorkspacePanel}
-            className={`workspace-notebook-btn${notebookWorkspacePath || notebookVenvPath ? ' is-configured' : ' is-unconfigured'}`}
-            title="Configurar carpeta de trabajo y entorno Python"
+            className="workspace-notebook-btn"
+            title={t('workspaceFiles.workspace_files_heading')}
           >
             <HugeiconsIcon icon={FolderOpenIcon} size={12} />
             <span>
-              {notebookWorkspacePath ? 'Carpeta' : notebookVenvPath ? 'Venv' : 'Workspace'}
+              {t('workspaceFiles.workspace_files_heading')}
             </span>
           </button>
         )}
@@ -399,44 +381,45 @@ export default function WorkspaceHeader({
           />
         )}
 
-        {/* More options */}
-        <HeaderIconBtn
-          icon={<HugeiconsIcon icon={MoreHorizontalIcon} size={14} strokeWidth={2} />}
-          label={t('workspace.more_options')}
-          active={menuOpen}
-          forwardRef={menuBtnRef}
-          onClick={openMenu}
-        />
-      </div>
-
-      {/* ── Dropdown menu (portal) ─────────────────────────────────────── */}
-      {menuOpen ? (
-        <DropdownMenu open onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, right: menuPos.right }} aria-hidden />} />
-          <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="workspace-header-menu">
-          <MenuItem icon={<HugeiconsIcon icon={InformationCircleIcon} size={14} />} label={t('viewer.resource_info')} onClick={() => { setMenuOpen(false); onShowMetadata(); }} />
-
-          {resource.type === 'ppt' && onExportDocx && (
-            <>
-              <MenuDivider />
-              <MenuItem
-                icon={<HugeiconsIcon icon={FileDownIcon} size={14} />}
-                label="Exportar a PPTX"
-                onClick={async () => { setMenuOpen(false); await onExportDocx(); }}
-              />
-            </>
-          )}
-
-          {hasFile && (
-            <>
-              <MenuDivider />
-              <MenuItem icon={<HugeiconsIcon icon={ExternalLinkIcon} size={14} />} label={t('viewer.open_with_default_app')} onClick={handleOpenExternal} />
-              <MenuItem icon={<HugeiconsIcon icon={FolderOpenIcon} size={14} />} label={t('viewer.show_in_finder')} onClick={handleShowInFinder} />
-            </>
-          )}
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger
+            className="workspace-header-icon-btn"
+            title={t('workspace.more_options')}
+            aria-label={t('workspace.more_options')}
+          >
+            <HugeiconsIcon icon={MoreHorizontalIcon} size={14} strokeWidth={2} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={onShowMetadata}>
+                <HugeiconsIcon icon={InformationCircleIcon} size={14} />
+                {t('viewer.resource_info')}
+              </DropdownMenuItem>
+              {resource.type === 'ppt' && onExportDocx && (
+                <DropdownMenuItem onClick={() => void onExportDocx()}>
+                  <HugeiconsIcon icon={FileDownIcon} size={14} />
+                  {t('workspace.export_pptx')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
+            {hasFile && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => void handleOpenExternal()}>
+                    <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
+                    {t('viewer.open_with_default_app')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void handleShowInFinder()}>
+                    <HugeiconsIcon icon={FolderOpenIcon} size={14} />
+                    {t('viewer.show_in_finder')}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : null}
+      </div>
 
       {/* Picker modal for opening a sibling resource as a split reference. */}
       {currentProject?.id && (
@@ -449,22 +432,4 @@ export default function WorkspaceHeader({
       )}
     </header>
   );
-}
-
-function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className="workspace-header-menu-item"
-    >
-      <span className="workspace-header-menu-item-icon">{icon}</span>
-      {label}
-    </button>
-  );
-}
-
-function MenuDivider() {
-  return <div className="workspace-header-menu-divider" />;
 }

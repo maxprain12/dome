@@ -633,18 +633,7 @@ async function finalizeSession(deps, sessionId) {
 
   // 4) Create the audio resource (only persistent artifact)
   const now = Date.now();
-  const resourceId = genId('res');
   const title = deriveTitle(plainText);
-
-  const importResult = await deps.fileStorage.importFile(mergedMp3, 'audio');
-  const dup = queries.findByHash.get(importResult.hash);
-  let finalResourceId = resourceId;
-  let finalInternalPath = importResult.internalPath;
-  let finalMimeType = importResult.mimeType;
-  let finalSize = importResult.size;
-  let finalHash = importResult.hash;
-  let finalOriginalName = importResult.originalName;
-  let createdNewResource = false;
 
   const mergedDurationSec = await probeFormatDurationSec(mergedMp3);
   const durationMsFromFile = mergedDurationSec != null && mergedDurationSec > 0
@@ -663,51 +652,15 @@ async function finalizeSession(deps, sessionId) {
     session_id: sessionId,
   };
 
-  if (dup) {
-    finalResourceId = dup.id;
-    const existing = queries.getResourceById.get(dup.id);
-    const existingMeta = parseMetadata(existing?.metadata);
-    const mergedMeta = { ...existingMeta, ...baseMetadata };
-    queries.updateResource.run(existing.title || title, existing.content || null, JSON.stringify(mergedMeta), now, dup.id);
-    _windowManager?.broadcast('resource:updated', { id: dup.id, metadata: mergedMeta });
-  } else {
-    const thumb = deps.thumbnail
-      ? await deps.thumbnail
-          .generateThumbnail(deps.fileStorage.getFullPath(finalInternalPath), 'audio', finalMimeType)
-          .catch(() => null)
-      : null;
-    queries.createResourceWithFile.run(
-      finalResourceId,
-      row.project_id,
-      'audio',
-      title,
-      null,
-      null,
-      finalInternalPath,
-      finalMimeType,
-      finalSize,
-      finalHash,
-      thumb,
-      finalOriginalName,
-      JSON.stringify(baseMetadata),
-      now,
-      now,
-    );
-    createdNewResource = true;
-    if (row.folder_id) {
-      try { queries.moveResourceToFolder.run(row.folder_id, now, finalResourceId); } catch { /* */ }
-    }
-    const created = queries.getResourceById.get(finalResourceId);
-    if (created) _windowManager?.broadcast('resource:created', created);
-    try {
-      semanticIndexScheduler.init(deps.database);
-      if (semanticIndexScheduler.shouldIndex(created)) {
-        semanticIndexScheduler.scheduleSemanticReindex(finalResourceId);
-      }
-    } catch (e) {
-      console.warn('[TranscriptionSession] semantic index schedule:', e?.message);
-    }
-  }
+  const imported = await require('../storage/resource-import.cjs').createResourceImporter({
+    database: deps.database, fileStorage: deps.fileStorage, thumbnail: deps.thumbnail,
+    windowManager: _windowManager || undefined,
+  }).importFile(mergedMp3, { projectId: row.project_id || 'default', folderId: row.folder_id, title, type: 'audio' });
+  if (!imported.success) throw new Error(imported.error);
+  const finalResourceId = imported.data.id;
+  const createdNewResource = true;
+  queries.updateResource.run(title, plainText, JSON.stringify(baseMetadata), now, finalResourceId);
+  _windowManager?.broadcast('resource:updated', { id: finalResourceId, updates: { content: plainText, metadata: baseMetadata } });
 
   // 5) Mark DB session done
   queries.finalizeTranscriptionSession.run(finalResourceId, now, now, sessionId);
