@@ -71,34 +71,44 @@ function copyVerifiedTree(source, target) {
   }
 }
 
+function ensureDefaultProject(resource, queries, database) {
+  if (!queries.getProjectById.get('default')) throw new Error('Default project missing');
+  database.getDB().prepare('UPDATE resources SET project_id=? WHERE id=?').run('default', resource.id);
+  resource.project_id = 'default';
+}
+
+function migrateLegacyFile(resource, deps) {
+  const { fileStorage } = deps;
+  const source = resource.internal_path
+    ? path.join(fileStorage.getStorageDir(), resource.internal_path)
+    : resource.file_path;
+  if (!source || !fs.existsSync(source)) throw new Error(`Original file missing for ${resource.id}`);
+  const imported = vault.importFileToVault(source, resource, deps);
+  const expected = vault.contentHash(fs.readFileSync(source));
+  if (vault.contentHash(fs.readFileSync(imported.absPath)) !== expected) throw new Error('Copy verification failed');
+  deps.database.getDB().prepare('UPDATE resources SET vault_path=?,file_hash=?,content_hash=?,file_size=? WHERE id=?')
+    .run(imported.vaultPath, expected, expected, imported.size, resource.id);
+  return { success: true };
+}
+
+function dispatchLegacyMigration(resource, deps) {
+  switch (resource.type) {
+    case 'folder': return vault.createFolderOnDisk(resource.id, deps);
+    case 'note': return vault.writeNoteMarkdown({ id: resource.id, markdown: legacyNoteMarkdown(resource) }, deps);
+    case 'url': return vault.writeUrlMirror({ id: resource.id }, deps);
+    case 'notebook': return vault.writeNotebookMirror({ id: resource.id }, deps);
+    case 'artifact': return vault.writeArtifactHtmlMirror({ id: resource.id }, deps);
+    default: return migrateLegacyFile(resource, deps);
+  }
+}
+
 function migrateResource(resource, deps) {
   const { database, fileStorage } = deps;
   const queries = database.getQueries();
-  if (!resource.project_id) {
-    if (!queries.getProjectById.get('default')) throw new Error('Default project missing');
-    database.getDB().prepare('UPDATE resources SET project_id=? WHERE id=?').run('default', resource.id);
-    resource.project_id = 'default';
-  }
+  if (!resource.project_id) ensureDefaultProject(resource, queries, database);
   const current = vault.getResourceFilePath(resource, queries, fileStorage);
   if (!current || !fs.existsSync(current)) {
-    let result;
-    switch (resource.type) {
-      case 'folder': result = vault.createFolderOnDisk(resource.id, deps); break;
-      case 'note': result = vault.writeNoteMarkdown({ id: resource.id, markdown: legacyNoteMarkdown(resource) }, deps); break;
-      case 'url': result = vault.writeUrlMirror({ id: resource.id }, deps); break;
-      case 'notebook': result = vault.writeNotebookMirror({ id: resource.id }, deps); break;
-      case 'artifact': result = vault.writeArtifactHtmlMirror({ id: resource.id }, deps); break;
-      default: {
-        const source = resource.internal_path ? path.join(fileStorage.getStorageDir(), resource.internal_path) : resource.file_path;
-        if (!source || !fs.existsSync(source)) throw new Error(`Original file missing for ${resource.id}`);
-        const imported = vault.importFileToVault(source, resource, deps);
-        const expected = vault.contentHash(fs.readFileSync(source));
-        if (vault.contentHash(fs.readFileSync(imported.absPath)) !== expected) throw new Error('Copy verification failed');
-        database.getDB().prepare('UPDATE resources SET vault_path=?,file_hash=?,content_hash=?,file_size=? WHERE id=?')
-          .run(imported.vaultPath, expected, expected, imported.size, resource.id);
-        result = { success: true };
-      }
-    }
+    const result = dispatchLegacyMigration(resource, deps);
     if (!result.success) throw new Error(result.error || 'Migration failed');
   }
   if (resource.type === 'notebook') migrateNotebookDirectory(queries.getResourceById.get(resource.id), deps);
