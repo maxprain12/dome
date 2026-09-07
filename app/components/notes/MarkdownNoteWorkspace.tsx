@@ -234,6 +234,7 @@ export default function MarkdownNoteWorkspace({
 
   const editorRef = useRef<MarkdownNoteEditorHandle | null>(null);
   const mirroredOnceRef = useRef(false);
+  const saveInFlightRef = useRef(false);
   // Monotonic counter of editor changes: lets persistNote detect keystrokes
   // that arrived while a save was in flight (must stay dirty afterwards).
   const changeSeqRef = useRef(0);
@@ -355,7 +356,7 @@ export default function MarkdownNoteWorkspace({
         if (!updates) return;
 
         if (typeof updates.title === 'string') {
-          setTitle((curr) => (curr === updates.title ? curr : updates.title!));
+          if (!isDirtyRef.current) setTitle(updates.title);
           setResource((prev) => (prev ? { ...prev, title: updates.title! } : prev));
         }
 
@@ -374,21 +375,23 @@ export default function MarkdownNoteWorkspace({
   }, [resourceId]);
 
   const persistNote = useCallback(async () => {
-    if (readOnly || !resource || !editorRef.current) return;
+    if (readOnly || !resource || !editorRef.current || saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
     const seqAtSave = changeSeqRef.current;
     const markdown = editorRef.current.getMarkdown();
     setIsSaving(true);
     setSaveError(null);
     try {
-      if (window.electron?.notes?.writeMirror) {
-        await window.electron.notes.writeMirror({ id: resourceId, markdown });
-      }
       const now = Date.now();
-      await window.electron.db.resources.update({
+      const updated = await window.electron.db.resources.update({
         id: resourceId,
         title,
         updated_at: now,
       });
+      if (!updated.success) throw new Error(updated.error || 'save failed');
+      // Persist the title first so the vault path and frontmatter use it.
+      const mirror = await window.electron.notes.writeMirror({ id: resourceId, markdown });
+      if (!mirror.success) throw new Error(mirror.error || 'save failed');
       // Keystrokes may have landed while awaiting the writes above; only
       // clear the dirty flag if nothing changed since we serialized.
       if (changeSeqRef.current === seqAtSave) {
@@ -398,12 +401,13 @@ export default function MarkdownNoteWorkspace({
       }
       setSavePillSavedAt(now);
       setWordCount(countWordsFromMarkdown(markdown));
-      setResource((prev) => (prev ? { ...prev, title, updated_at: now } : prev));
+      setResource((prev) => (prev ? { ...prev, title, content: markdown, vault_path: mirror.vaultPath, updated_at: now } : prev));
       await refreshBacklinkCount(resourceId);
     } catch (err) {
       console.error('Error saving note:', err);
       setSaveError(err instanceof Error ? err.message : 'save failed');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }, [readOnly, resource, resourceId, title, refreshBacklinkCount]);
@@ -421,33 +425,27 @@ export default function MarkdownNoteWorkspace({
 
   useEffect(() => {
     if (!isDirty) return;
-    const timer = setTimeout(() => void persistNote(), 1500);
+    const timer = setTimeout(() => { void persistNote(); }, 1500);
     return () => clearTimeout(timer);
   }, [isDirty, persistNote, autosaveTick]);
 
   const handleTitleBlur = useCallback(async () => {
     if (readOnly || !resource || !window.electron?.db?.resources) return;
     if (title === resource.title && !isDirty) return;
-    const now = Date.now();
-    try {
-      await window.electron.db.resources.update({ id: resourceId, title, updated_at: now });
-      setResource((prev) => (prev ? { ...prev, title, updated_at: now } : prev));
-      setIsDirty(false);
-      setSavePillSavedAt(now);
-      if (editorRef.current && window.electron?.notes?.writeMirror) {
-        await window.electron.notes.writeMirror({
-          id: resourceId,
-          markdown: editorRef.current.getMarkdown(),
-        });
-      }
-    } catch (err) {
-      console.error('Error saving title:', err);
-    }
-  }, [readOnly, resource, resourceId, title, isDirty]);
+    await persistNote();
+  }, [readOnly, resource, title, isDirty, persistNote]);
+
+  const handleTitleChange = useCallback((value: string) => {
+    setTitle(value);
+    changeSeqRef.current += 1;
+    isDirtyRef.current = true;
+    setIsDirty(true);
+  }, []);
 
   const handleEditorChange = useCallback(() => {
     if (readOnly) return;
     changeSeqRef.current += 1;
+    isDirtyRef.current = true;
     setIsDirty(true);
     // getMarkdown() serializes the whole doc — debounce so large notes don't
     // pay a full serialization on every keystroke.
@@ -624,7 +622,7 @@ export default function MarkdownNoteWorkspace({
               value={title}
               placeholder={t('notes.untitled_note')}
               disabled={readOnly}
-              onChange={setTitle}
+              onChange={handleTitleChange}
               onBlur={handleTitleBlur}
             />
             {editorBlockNode}
@@ -648,12 +646,12 @@ export default function MarkdownNoteWorkspace({
         crumbs={crumbs}
         saveState={savePillState}
         lastSavedAt={savePillSavedAt ?? resource.updated_at}
-        onSave={() => void persistNote()}
+        onSave={() => { void persistNote(); }}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onOpenSplit={() => setSplitPickerOpen(true)}
         canOpenSplit={Boolean(resource.project_id)}
-        onOpenPopout={() => void handlePopoutNote()}
+        onOpenPopout={() => { void handlePopoutNote(); }}
         onOpenMetadata={() => setShowMetadata(true)}
         domeLinkToCopy={domeShareLink}
         onOpenBacklinksPanel={() => {
@@ -674,7 +672,7 @@ export default function MarkdownNoteWorkspace({
                 value={title}
                 placeholder={t('notes.untitled_note')}
                 disabled={readOnly}
-                onChange={setTitle}
+                onChange={handleTitleChange}
                 onBlur={handleTitleBlur}
               />
               <NoteMetaBar

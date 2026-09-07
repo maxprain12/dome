@@ -439,16 +439,14 @@ function createNoteResource(projectId, title, content, metadata = {}) {
     timestamp,
     timestamp,
   );
-  const resource = {
-    id,
-    project_id: projectId || 'default',
-    type: 'note',
-    title,
-    content,
-    metadata,
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
+  const mirror = require('../storage/vault-store.cjs').writeNoteMarkdown(
+    { id, markdown: content }, { database: _database, fileStorage: require('../storage/file-storage.cjs') },
+  );
+  if (!mirror.success) {
+    queries.deleteResource.run(id);
+    throw new Error(mirror.error);
+  }
+  const resource = queries.getResourceById.get(id);
   emit('resource:created', resource);
   return resource;
 }

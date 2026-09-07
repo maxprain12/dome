@@ -5,8 +5,8 @@
  * Spreadsheet read/write via ExcelJS (replaces SheetJS xlsx).
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   ExcelJS,
@@ -36,11 +36,7 @@ function broadcastResourceUpdated(resourceId) {
     });
   }
 }
-function broadcastResourceCreated(resource) {
-  if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-    windowManagerRef.broadcast('resource:created', resource);
-  }
-}
+
 
 // =============================================================================
 // Helpers
@@ -406,37 +402,13 @@ async function excelCreate(projectId, title, options = {}) {
       documentStaging.discardStaging(staged.stagingId);
       return { success: false, error: `Generated Excel failed validation: ${validation.error}` };
     }
-    const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'excel');
+    const imported = await documentStaging.promoteToLibrary(staged.stagingId, {
+      type: 'excel', projectId: projectId,
+      title: (title || 'Untitled').replace(/\.xlsx$/i, ''), folderId: undefined,
+    }, { database, fileStorage, windowManager: windowManagerRef || undefined });
+    if (!imported.success) return imported;
+    const resource = imported.resource;
 
-    const resourceId = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const now = Date.now();
-    const contentText = worksheetToCsv(ws).trim().substring(0, 500);
-
-    try {
-      queries.createResourceWithFile.run(
-        resourceId,
-        projectId,
-        'excel',
-        title.replace(/\.xlsx$/i, '') || 'Untitled',
-        contentText,
-        null,
-        importResult.internalPath,
-        importResult.mimeType,
-        importResult.size,
-        importResult.hash,
-        null,
-        filename,
-        null,
-        now,
-        now
-      );
-    } catch (dbErr) {
-      fileStorage.deleteFile(importResult.internalPath);
-      throw dbErr;
-    }
-
-    const resource = queries.getResourceById.get(resourceId);
-    broadcastResourceCreated(resource);
     return {
       success: true,
       resource: {

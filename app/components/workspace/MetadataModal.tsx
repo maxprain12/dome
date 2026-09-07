@@ -179,7 +179,7 @@ export default function MetadataModal({
               </div>
             </div>
 
-            {resource.internal_path || resource.file_path ? (
+            {resource.vault_path ? (
               <div className="flex gap-2 pt-2">
                 <Button
                   type="button"

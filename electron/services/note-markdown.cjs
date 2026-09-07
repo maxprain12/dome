@@ -4,7 +4,6 @@
  * is converted on read.
  */
 const vaultStore = require('../storage/vault-store.cjs');
-const { stripTags } = require('./resource-text.cjs');
 
 function looksLikeMarkdown(text) {
   if (!text || typeof text !== 'string') return false;
@@ -231,25 +230,10 @@ function normalizeAgentNoteInput(rawContent, { title, isCreate = false, queries,
   };
 }
 
-function readNoteMarkdownForAgent(resource, { database, fileStorage }) {
-  if (resource.vault_path) {
-    const mirror = vaultStore.readNoteMarkdown({ id: resource.id }, { database, fileStorage });
-    if (mirror.success && typeof mirror.markdown === 'string') {
-      return mirror.markdown;
-    }
-  }
-
-  const raw = String(resource.content || '').trim();
-  if (!raw) return '';
-
-  const fromJson = tiptapJsonToMarkdown(raw);
-  if (fromJson) return fromJson;
-
-  if (looksLikeMarkdown(raw)) return raw;
-
-  if (raw.startsWith('<')) return stripTags(raw);
-
-  return raw;
+function readNoteMarkdownForAgent(resource, deps) {
+  const result = vaultStore.readNoteMarkdown({ id: resource.id }, deps);
+  if (!result.success) throw new Error(result.error);
+  return result.markdown;
 }
 
 function writeNoteMarkdownFromAgent(

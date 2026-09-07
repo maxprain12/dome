@@ -164,40 +164,26 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
     }
   }, [resource]);
 
-  const notebookWorkspacePath = resource?.metadata && typeof resource.metadata === 'object'
-    ? (resource.metadata as Record<string, unknown>).notebook_workspace_path as string | undefined
-    : undefined;
+  const [notebookWorkspacePath, setNotebookWorkspacePath] = useState<string>();
+  useEffect(() => {
+    let cancelled = false;
+    window.electron.invoke('notebook:workspace', { resourceId }).then((result) => {
+      if (cancelled) return;
+      if (result.success) setNotebookWorkspacePath(result.data.path);
+      else setError(result.error);
+    }).catch((error) => { if (!cancelled) setError(String(error)); });
+    return () => { cancelled = true; };
+  }, [resourceId, resource?.vault_path, resource?.folder_id]);
 
   const notebookVenvPath = resource?.metadata && typeof resource.metadata === 'object'
     ? (resource.metadata as Record<string, unknown>).notebook_venv_path as string | undefined
     : undefined;
 
-  const handleWorkspacePathChange = useCallback(
-    async (path: string) => {
-      if (!resource) return;
-      const meta = resource.metadata;
-      const base: Record<string, unknown> = {};
-      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
-        const m = meta as Record<string, unknown>;
-        if (Object.prototype.hasOwnProperty.call(m, 'notebook_workspace_path')) base.notebook_workspace_path = m.notebook_workspace_path;
-        if (Object.prototype.hasOwnProperty.call(m, 'notebook_venv_path')) base.notebook_venv_path = m.notebook_venv_path;
-      }
-      base.notebook_workspace_path = path;
-      await handleSaveMetadata({ metadata: base });
-    },
-    [resource, handleSaveMetadata]
-  );
-
   const handleVenvPathChange = useCallback(
     async (path: string) => {
       if (!resource) return;
       const meta = resource.metadata;
-      const base: Record<string, unknown> = {};
-      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
-        const m = meta as Record<string, unknown>;
-        if (Object.prototype.hasOwnProperty.call(m, 'notebook_workspace_path')) base.notebook_workspace_path = m.notebook_workspace_path;
-        if (Object.prototype.hasOwnProperty.call(m, 'notebook_venv_path')) base.notebook_venv_path = m.notebook_venv_path;
-      }
+      const base: Record<string, unknown> = meta && typeof meta === 'object' ? { ...meta } : {};
       base.notebook_venv_path = path || undefined;
       await handleSaveMetadata({ metadata: base });
     },
@@ -243,8 +229,6 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         sidePanelOpen={isPanelOpen}
         onToggleSidePanel={() => setIsPanelOpen(!isPanelOpen)}
         onOpenWorkspacePanel={() => setIsPanelOpen(true)}
-        notebookWorkspacePath={notebookWorkspacePath}
-        notebookVenvPath={notebookVenvPath}
         onShowMetadata={() => setShowMetadata(true)}
         editableTitle={{
           value: title,
@@ -275,7 +259,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
                 content={content}
                 onChange={handleContentChange}
                 title={title}
-                workingDirectory={notebookWorkspacePath}
+                resourceId={resourceId}
                 venvPath={notebookVenvPath}
               />
             </PyodideProvider>
@@ -296,7 +280,6 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
           isOpen={isPanelOpen}
           onClose={() => setIsPanelOpen(false)}
           notebookWorkspacePath={notebookWorkspacePath}
-          onNotebookWorkspacePathChange={handleWorkspacePathChange}
           notebookVenvPath={notebookVenvPath}
           onNotebookVenvPathChange={handleVenvPathChange}
         />

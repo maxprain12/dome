@@ -135,11 +135,15 @@ function handleTerminal(run) {
     });
     tx();
 
+    const mirror = require('../storage/vault-store.cjs').writeArtifactHtmlMirror({ id: resourceId }, { database: _database, fileStorage: require('../storage/file-storage.cjs') });
+    if (!mirror.success) throw new Error(mirror.error);
+
     const resource = q.getResourceById.get(resourceId);
     const artifact = q.getArtifactByResourceId.get(resourceId);
     const serialized = serializeArtifactRecord(artifact, resource, q);
     _windowManager?.broadcast?.('resource:created', resource);
     _windowManager?.broadcast?.('artifact:created', serialized);
+
     try { afterArtifactMutation(_database, resourceId); } catch { /* non-fatal index sync */ }
 
     if (_logEvent) {

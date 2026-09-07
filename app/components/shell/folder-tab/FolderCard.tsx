@@ -359,7 +359,6 @@ function pickThumbnail(item: Resource): string | null {
     const c = meta[key];
     if (typeof c === 'string' && c.trim()) return c.trim();
   }
-  if (item.type === 'image' && item.file_path) return item.file_path;
   return null;
 }
 

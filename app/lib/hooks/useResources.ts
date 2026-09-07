@@ -17,9 +17,6 @@ export interface Resource {
     content_text?: string | null;
     /** Relative path of the note's Markdown mirror inside dome-files/vault/ */
     vault_path?: string | null;
-    file_path?: string;
-    // Internal file storage
-    internal_path?: string;
     file_mime_type?: string;
     file_size?: number;
     file_hash?: string;

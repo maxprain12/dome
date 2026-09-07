@@ -54,59 +54,13 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
       return;
     }
 
-    const screenshotBuffer = Buffer.from(thumbnailResult.thumbnail.dataUrl.split(',')[1], 'base64');
-    const saved = await fileStorage.importFromBuffer(
-      screenshotBuffer,
-      `youtube_${thumbnailResult.videoId}.jpg`,
-      'url'
-    );
-
-    const now = Date.now();
-    queries.updateResourceThumbnail.run(thumbnailResult.thumbnail.dataUrl, now, resourceId);
-    // Register internal_path so orphan cleanup keeps the screenshot
-    queries.updateResourceFile.run(
-      saved.internalPath,
-      'image/jpeg',
-      screenshotBuffer.length,
-      saved.hash,
-      thumbnailResult.thumbnail.dataUrl,
-      `youtube_${thumbnailResult.videoId}.jpg`,
-      now,
-      resourceId
-    );
-
+    queries.updateResourceThumbnail.run(thumbnailResult.thumbnail.dataUrl, Date.now(), resourceId);
     metadata.video_id = thumbnailResult.videoId;
-    metadata.screenshot_path = saved.internalPath;
   }
 
-  async function saveScrapeScreenshot({ queries, fileStorage, resourceId, scrapeResult, metadata }) {
-    const isJpeg = scrapeResult.screenshotFormat === 'jpeg';
-    const ext = isJpeg ? 'jpg' : 'png';
-    const mime = isJpeg ? 'image/jpeg' : 'image/png';
-    const screenshotBuffer = Buffer.from(scrapeResult.screenshot, 'base64');
-    const saved = await fileStorage.importFromBuffer(
-      screenshotBuffer,
-      `screenshot_${resourceId}.${ext}`,
-      'url'
-    );
-
-    const dataUrl = `data:${mime};base64,${scrapeResult.screenshot}`;
-    const now = Date.now();
-    queries.updateResourceThumbnail.run(dataUrl, now, resourceId);
-    // Register internal_path so orphan cleanup keeps the screenshot
-    queries.updateResourceFile.run(
-      saved.internalPath,
-      mime,
-      screenshotBuffer.length,
-      saved.hash,
-      dataUrl,
-      `screenshot_${resourceId}.${ext}`,
-      now,
-      resourceId
-    );
-
-    metadata.screenshot_path = saved.internalPath;
-    // Release screenshot from memory ASAP to avoid OOM
+  async function saveScrapeScreenshot({ queries, resourceId, scrapeResult }) {
+    const mime = scrapeResult.screenshotFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
+    queries.updateResourceThumbnail.run(`data:${mime};base64,${scrapeResult.screenshot}`, Date.now(), resourceId);
     scrapeResult.screenshot = null;
   }
 
@@ -245,57 +199,15 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
   /**
    * Save screenshot to internal storage and update resource thumbnail
    */
-  ipcMain.handle('web:save-screenshot', async (event, { resourceId, screenshotBase64, internalPath }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
-
-      if (!resource) {
-        return { success: false, error: 'Resource not found' };
-      }
-
-      // If internalPath is provided, use it; otherwise save from base64
-      let finalInternalPath = internalPath;
-      let thumbnailData = screenshotBase64;
-
-      if (!internalPath && screenshotBase64) {
-        // Save screenshot to internal storage
-        const buffer = Buffer.from(screenshotBase64, 'base64');
-        const saved = await fileStorage.importFromBuffer(buffer, `screenshot_${resourceId}.png`, 'url');
-        finalInternalPath = saved.internalPath;
-
-        // Generate thumbnail data URL
-        thumbnailData = fileStorage.readFileAsDataUrl(saved.internalPath);
-      }
-
-      // Update resource with thumbnail
-      if (thumbnailData) {
-        queries.updateResourceThumbnail.run(thumbnailData, Date.now(), resourceId);
-
-        // Update internal_path if needed
-        if (finalInternalPath && !resource.internal_path) {
-          queries.updateResourceFile.run(
-            finalInternalPath,
-            'image/png',
-            Buffer.from(screenshotBase64 || '', 'base64').length,
-            null,
-            thumbnailData,
-            null,
-            Date.now(),
-            resourceId
-          );
-        }
-      }
-
-      return { success: true, thumbnailData, internalPath: finalInternalPath };
-    } catch (error) {
-      console.error('[Web] Error saving screenshot:', error);
-      return { success: false, error: error.message };
-    }
+  ipcMain.handle('web:save-screenshot', async (event, { resourceId, screenshotBase64 }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    if (typeof screenshotBase64 !== 'string' || !screenshotBase64) return { success: false, error: 'Screenshot required' };
+    const queries = database.getQueries();
+    if (!queries.getResourceById.get(resourceId)) return { success: false, error: 'Resource not found' };
+    const thumbnailData = screenshotBase64.startsWith('data:') ? screenshotBase64 : `data:image/png;base64,${screenshotBase64}`;
+    queries.updateResourceThumbnail.run(thumbnailData, Date.now(), resourceId);
+    broadcastResourceUpdated(resourceId, { thumbnail_data: thumbnailData });
+    return { success: true, thumbnailData };
   });
 
   /**

@@ -40,8 +40,6 @@ export const resources = sqliteTable('resources', {
   type: text('type').notNull(),
   title: text('title').notNull(),
   content: text('content'),
-  filePath: text('file_path'),
-  internalPath: text('internal_path'),
   fileMimeType: text('file_mime_type'),
   fileSize: integer('file_size'),
   fileHash: text('file_hash'),

@@ -19,52 +19,6 @@ function pickPairPayload(arg1, arg2, keyA, keyB) {
   return { [keyA]: arg1, [keyB]: arg2 };
 }
 
-function createFolderMirror(resource, { database, fileStorage }) {
-  try {
-    vaultStore.createFolderOnDisk(resource.id, { database, fileStorage });
-  } catch (e) {
-    console.warn('[DB] createFolderOnDisk failed:', e?.message);
-  }
-}
-
-function seedNotePlainText(resource, database) {
-  // Seed the plain-text cache for notes created with content (e.g. by an
-  // AI tool) so FTS/preview/semantic search show readable text immediately.
-  // The .md mirror is written on first open/edit.
-  try {
-    const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
-    const raw = String(resource.content || '');
-    let text = '';
-    if (raw.trim().startsWith('{')) {
-      try {
-        text = extractPlainTextFromProseMirror(JSON.parse(raw));
-      } catch {
-        /* fall through */
-      }
-    }
-    if (!text) text = stripTags(raw);
-    if (text) {
-      database
-        .getDB()
-        .prepare('UPDATE resources SET content_text = ? WHERE id = ?')
-        .run(text, resource.id);
-    }
-  } catch {
-    /* non-fatal */
-  }
-}
-
-function mirrorResourceToDisk(resource, { database, fileStorage }) {
-  // Mirror to disk right away — the workspace tree must equal the
-  // filesystem, so notes/urls/notebooks get their file at creation.
-  try {
-    const { ensureResourceMirror } = require('../../storage/vault-sync.cjs');
-    ensureResourceMirror(resource.id, { database, fileStorage });
-  } catch (e) {
-    console.warn('[DB] ensureResourceMirror (create) failed:', e?.message);
-  }
-}
-
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   semanticIndexScheduler.init(database);
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
@@ -385,38 +339,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         resource.type,
         resource.title,
         resource.content || null,
-        resource.file_path || null,
+        null,
         resource.folder_id ?? null,
         resource.metadata ? JSON.stringify(resource.metadata) : null,
         resource.created_at,
         resource.updated_at
       );
 
-      if (resource.type === 'folder') {
-        createFolderMirror(resource, { database, fileStorage });
+      const { ensureResourceMirror } = require('../../storage/vault-sync.cjs');
+      if (!ensureResourceMirror(resource.id, { database, fileStorage })) {
+        queries.deleteResource.run(resource.id);
+        throw new Error('Could not create resource file in vault');
       }
-
-      // Seed the plain-text cache for notes created with content (e.g. by an
-      // AI tool) so FTS/preview/semantic search show readable text immediately.
-      // The .md mirror is written on first open/edit.
-      if (resource.type === 'note' && resource.content) {
-        seedNotePlainText(resource, database);
-      }
-
-      // Mirror to disk right away — the workspace tree must equal the
-      // filesystem, so notes/urls/notebooks get their file at creation.
-      if (['note', 'url', 'notebook'].includes(resource.type)) {
-        mirrorResourceToDisk(resource, { database, fileStorage });
-      }
+      const created = queries.getResourceById.get(resource.id);
 
       // Broadcast evento a todas las ventanas
-      windowManager.broadcast('resource:created', resource);
+      windowManager.broadcast('resource:created', created);
 
       semanticIndexScheduler.scheduleSemanticReindex(resource.id);
 
       autoMetadata.scheduleCloudAutoMetadata(resource.id, { database, fileStorage, windowManager });
 
-      return { success: true, data: resource };
+      return { success: true, data: created };
     } catch (error) {
       console.error('[DB] Error creating resource:', error);
       return { success: false, error: error.message };
@@ -519,6 +463,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         now
       );
 
+      const mirror = vaultStore.writeUrlMirror({ id }, { database, fileStorage });
+      if (!mirror.success) {
+        queries.deleteResource.run(id);
+        throw new Error(mirror.error);
+      }
       const created = queries.getResourceById.get(id);
       if (created) {
         windowManager.broadcast('resource:created', created);
@@ -644,29 +593,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error getting backlinks:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Upload file and create resource (wrapper for resource:import)
-  ipcMain.handle('db:resources:uploadFile', async (event, { filePath, projectId, type, title }) => {
-    // This is just a convenience wrapper - the actual implementation
-    // is in resource:import handler. We'll call it directly.
-    // Note: We can't directly call another handler, so we'll duplicate the logic
-    // or use a shared function. For now, we'll just redirect to resource:import
-    // The client should call resource:import instead, but we keep this for API consistency
-    try {
-      validateSender(event, windowManager);
-      // Import the resource using the existing handler
-      // Since we can't call handlers from handlers, we'll need to extract the logic
-      // For now, return an error suggesting to use resource:import
-      return {
-        success: false,
-        error: 'Use resource:import instead',
-        suggestion: 'Use window.electron.resource.import() instead'
-      };
-    } catch (error) {
-      console.error('[DB] Error uploading file:', error);
       return { success: false, error: error.message };
     }
   });

@@ -4,9 +4,8 @@
  * `db:resources:delete` and `db:resources:bulkDelete`.
  *
  * Every delete expands folder subtrees and removes, deepest-first:
- *   1. the legacy internal file (dome-files/) when present,
- *   2. the vault mirror (`.md` / `.html` / binary) or the folder directory,
- *   3. the SQLite row,
+ *   1. the vault mirror (`.md` / `.html` / binary) or the folder directory,
+ *   2. the SQLite row,
  * broadcasting `resource:deleted` per id so all windows stay in sync.
  *
  * Vault removals are marked as self-writes so the VaultWatcher never
@@ -76,24 +75,14 @@ function buildDeleteSet(resourceIds, queries) {
   return deleteSet;
 }
 
-/** Drop the legacy internal file, the vault mirror, the SQLite row, and broadcast. */
+/** Remove the vault file and SQLite row, then broadcast. */
 function purgeResourceAssets(resource, { database, fileStorage, windowManager }) {
-  deleteInternalFile(resource, fileStorage);
   // Remove the vault mirror BEFORE dropping the DB row. Without this the
   // file lingers in the vault and the VaultWatcher re-imports it as a new
   // resource. Must run before deleteResource (it reads vault_path via the row).
   deleteVaultMirror(resource, { database, fileStorage });
   database.getQueries().deleteResource.run(resource.id);
   broadcastResourceDeleted(resource.id, windowManager);
-}
-
-function deleteInternalFile(resource, fileStorage) {
-  if (!resource.internal_path) return;
-  try {
-    fileStorage.deleteFile(resource.internal_path);
-  } catch (e) {
-    console.warn('[ResourceDelete] internal file:', e?.message);
-  }
 }
 
 function deleteVaultMirror(resource, { database, fileStorage }) {

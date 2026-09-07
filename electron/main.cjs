@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 // Increase default max listeners to avoid spurious warnings from concurrent
 // fetch/stream AbortSignal usage (MCP servers, AI streams, etc.)
-require('events').EventEmitter.defaultMaxListeners = 30;
+require('node:events').EventEmitter.defaultMaxListeners = 30;
 
 // DEP0040: deps transitivas (whatwg-url/tr46 vía node-fetch) hacen `require('punycode')`,
 // que carga el módulo *incorporado* y deprecado de Node. En Electron ese warning sí se
@@ -9,7 +9,7 @@ require('events').EventEmitter.defaultMaxListeners = 30;
 // redirigimos `require('punycode')` al paquete userland equivalente: así el built-in
 // deprecado nunca se carga y DEP0040 desaparece de raíz. Debe ir antes de cargar deps.
 (() => {
-  const Module = require('module');
+  const Module = require('node:module');
   const userlandPunycode = require('punycode/');
   const originalLoad = Module._load;
   Module._load = function (request, parent, isMain) {
@@ -21,8 +21,8 @@ require('events').EventEmitter.defaultMaxListeners = 30;
 })();
 
 // Load .env in development
-const fs_env = require('fs');
-const path_env = require('path');
+const fs_env = require('node:fs');
+const path_env = require('node:path');
 const dotenvPath = path_env.join(__dirname, '../.env');
 if (fs_env.existsSync(dotenvPath)) {
   const lines = fs_env.readFileSync(dotenvPath, 'utf-8').split('\n');
@@ -76,9 +76,9 @@ const pendingDisplayMediaSources = {
   set(id) { this.sourceId = id; },
   consume() { const id = this.sourceId; this.sourceId = null; return id; },
 };
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 
 // Isolated userData per worktree or agent run (set before any heavy main init).
 if (process.env.DOME_PROFILE && String(process.env.DOME_PROFILE).trim()) {
@@ -91,7 +91,7 @@ if (process.env.DOME_PROFILE && String(process.env.DOME_PROFILE).trim()) {
 
 // In packaged app, native modules live in app.asar.unpacked
 if (app.isPackaged) {
-  const mod = require('module');
+  const mod = require('node:module');
   const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
   if (!mod.globalPaths.includes(unpacked)) {
     mod.globalPaths.unshift(unpacked);
@@ -111,7 +111,7 @@ if (app.isPackaged) {
 // fix-path v4+ is ESM-only, so we replicate its logic inline using execSync.
 if (process.platform !== 'win32') {
   try {
-    const { execSync } = require('child_process');
+    const { execSync } = require('node:child_process');
     const shell = process.env.SHELL || '/bin/zsh';
     const shellPath = execSync(`${shell} -l -c 'echo $PATH'`, {
       timeout: 3000,
@@ -124,7 +124,7 @@ if (process.platform !== 'win32') {
   // Supplement with common binary dirs that fix-path may miss (e.g. Apple Silicon Homebrew,
   // NVM, Volta, Pyenv) so that MCP stdio processes can find node/npx/uvx/python/etc.
   try {
-    const os = require('os');
+    const os = require('node:os');
     const home = os.homedir();
     const extraPaths = [
       '/opt/homebrew/bin',   // Homebrew on Apple Silicon
@@ -1240,7 +1240,6 @@ function initSemanticIndexScheduler() {
 // mirrors, ghost paths) so the workspace tree equals the filesystem.
 function startVaultWatcher() {
   try {
-    require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
     const vaultWatcher = require('./storage/vault-watcher.cjs');
     vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
   } catch (err) {
@@ -1248,28 +1247,9 @@ function startVaultWatcher() {
   }
 }
 
-// Schedule orphan file cleanup after app is ready (non-blocking)
-function scheduleOrphanFileCleanup() {
+// Schedule database housekeeping after app is ready.
+function scheduleDatabaseCleanup() {
   setTimeout(() => {
-    try {
-      console.log('[App] Running automatic orphan file cleanup...');
-      const queries = database.getQueries();
-      const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
-      const internalPaths = [...resourcePaths];
-      const avatarSetting = queries.getSetting.get('user_avatar_path');
-      const currentAvatarPath = avatarSetting?.value || null;
-
-      const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
-
-      if (result.deleted > 0) {
-        console.log(`[App] Auto-cleanup: removed ${result.deleted} orphan files, freed ${(result.freedBytes / 1024 / 1024).toFixed(2)}MB`);
-      } else {
-        console.log('[App] Auto-cleanup: no orphan files found');
-      }
-    } catch (error) {
-      console.error('[App] Auto-cleanup failed:', error);
-    }
-
     // DB-level orphan cleanup
     try {
       database.getDB().prepare(
@@ -1302,6 +1282,7 @@ app
     // Database initialization is now handled by initModule
     // but we still need to ensure it's ready
     database.initDatabase();
+    require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
 
     tryStartBackupScheduler();
     trySeedBundledSkills();
@@ -1345,7 +1326,7 @@ app
     initSemanticIndexScheduler();
     startVaultWatcher();
 
-    scheduleOrphanFileCleanup();
+    scheduleDatabaseCleanup();
   })
   .catch(console.error);
 

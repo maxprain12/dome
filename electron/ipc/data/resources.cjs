@@ -1,19 +1,11 @@
 /* eslint-disable no-console */
-const crypto = require('crypto');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const vaultStore = require('../../storage/vault-store.cjs');
 
-/**
- * Generate a unique ID for resources
- */
-function generateId() {
-  return crypto.randomUUID();
-}
-
 const { extractInWorker } = require('../../workers/document-extract-service.cjs');
 
-async function extractDocumentTextOffMain(fullPath, mimeType) {
+async function extractDocumentTextOffMain(fullPath, mimeType, documentExtractor) {
   try {
     return await extractInWorker('documentText', fullPath, undefined, mimeType);
   } catch (err) {
@@ -22,191 +14,25 @@ async function extractDocumentTextOffMain(fullPath, mimeType) {
   }
 }
 
-// Text files that import as editable vault notes (same pipeline as creating a
-// document in the vault) instead of opaque 'document' files no viewer can open.
-const NOTE_IMPORT_EXTS = new Set(['.md', '.markdown', '.txt']);
-// Above this size the file goes through the regular vault file import — the
-// note editor is not meant for multi-megabyte documents.
-const NOTE_IMPORT_MAX_BYTES = 1024 * 1024;
-
-/** Strip one leading YAML frontmatter block (Obsidian-style exports). */
-function stripLeadingFrontmatter(raw) {
-  const m = String(raw).match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
-  return m ? String(raw).slice(m[0].length) : String(raw);
-}
-
 function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath }) {
   semanticIndexScheduler.init(database);
 
-  /**
-   * Import a markdown / plain-text file as a vault NOTE: content into the DB
-   * `content` column (markdown) + `.md` mirror via writeNoteMarkdown — exactly
-   * what `db:resources:create` does for documents created inside the vault.
-   */
-  function importTextFileAsNote(filePath, { projectId, title }) {
-    const queries = database.getQueries();
-    const raw = fs.readFileSync(filePath, 'utf8');
-    const stripped = stripLeadingFrontmatter(raw);
-    const markdown = stripped.trim() ? stripped : raw;
-
-    const originalName = path.basename(filePath);
-    const resourceTitle =
-      (title && String(title).trim()) ||
-      originalName.replace(/\.[^.]+$/, '').trim() ||
-      'Untitled';
-
-    const resourceId = generateId();
-    const now = Date.now();
-    queries.createResource.run(
-      resourceId,
-      projectId,
-      'note',
-      resourceTitle,
-      markdown,
-      null, // file_path
-      null, // folder_id (caller moves it afterwards if needed)
-      null, // metadata
-      now,
-      now
-    );
-    vaultStore.writeNoteMarkdown({ id: resourceId, markdown }, { database, fileStorage });
-
-    const resource = queries.getResourceById.get(resourceId);
-    windowManager.broadcast('resource:created', resource);
-    if (semanticIndexScheduler.shouldIndex(resource)) {
-      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-    }
-    autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
-    return resource;
-  }
-
-  /**
-   * Vault-native single-file import shared by `resource:import` and
-   * `resource:importMultiple` (the import buttons). Markdown/plain text
-   * becomes a note; everything else is referenced in the project vault.
-   */
-  async function importFileAsResource(filePath, { projectId, type, title }) {
-    // Validate file exists
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: 'File not found' };
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    if (NOTE_IMPORT_EXTS.has(ext)) {
-      try {
-        const stat = fs.statSync(filePath);
-        if (stat.size <= NOTE_IMPORT_MAX_BYTES) {
-          const resource = importTextFileAsNote(filePath, { projectId, title });
-          return { success: true, data: resource, thumbnailDataUrl: null };
-        }
-      } catch (noteErr) {
-        console.warn('[Resource] Note import fell back to file import:', noteErr.message);
-      }
-    }
-    const effectiveType = fileStorage.classifyFileType(ext, type);
-    const queries = database.getQueries();
-    const resourceId = generateId();
-    const originalName = path.basename(filePath);
-
-      // Import the file INTO the project's vault (referenced in place — no
-      // content-addressed copy). Vault duplicates are allowed.
-      const importResult = vaultStore.importFileToVault(
-        filePath,
-        { id: resourceId, type: effectiveType, project_id: projectId, folder_id: null, title: title || originalName, original_filename: originalName },
-        { database, fileStorage },
-      );
-
-      // Generate thumbnail for supported types
-      const fullPath = importResult.absPath;
-      const thumbnailData = await thumbnail.generateThumbnail(
-        fullPath,
-        effectiveType,
-        importResult.mimeType
-      );
-
-      // Extract video metadata if applicable
-      let metadata = null;
-      if (effectiveType === 'video') {
-        try {
-          metadata = await thumbnail.extractVideoMetadata(fullPath);
-        } catch (metadataError) {
-          console.warn('[Resource] Video metadata extraction failed:', metadataError.message);
-        }
-      }
-
-      // Extract text content for document/excel/ppt types (for card preview and AI tools)
-      let contentText = null;
-      if (effectiveType === 'document' || effectiveType === 'excel' || effectiveType === 'ppt') {
-        try {
-          contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
-        } catch (extractError) {
-          console.warn('[Resource] Text extraction failed, continuing without content:', extractError.message);
-        }
-      }
-      // Extract text from PDFs on import (so resource_get has content without on-demand extraction)
-      const isPdf = effectiveType === 'pdf' || (importResult.mimeType || '').includes('pdf') || (originalName || '').toLowerCase().endsWith('.pdf');
-      if (isPdf && !contentText) {
-        try {
-          contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-        } catch (extractError) {
-          console.warn('[Resource] PDF text extraction failed:', extractError.message);
-        }
-      }
-
-      // Create resource in database (vault-native: no internal_path; vault_path
-      // + content_hash are set below so the file is referenced in place).
-      const now = Date.now();
-      const resourceTitle = title || originalName || 'Untitled';
-
-      queries.createResourceWithFile.run(
-        resourceId,
-        projectId,
-        effectiveType,
-        resourceTitle,
-        contentText, // content - extracted text for documents
-        null, // file_path (legacy, not used)
-        null, // internal_path (legacy — vault-native uses vault_path)
-        importResult.mimeType,
-        importResult.size,
-        importResult.contentHash,
-        thumbnailData,
-        originalName,
-        metadata ? JSON.stringify(metadata) : null, // metadata - JSON string for video info
-        now,
-        now
-      );
-      database.getDB().prepare('UPDATE resources SET vault_path = ?, content_hash = ? WHERE id = ?')
-        .run(importResult.vaultPath, importResult.contentHash, resourceId);
-
-      // Get the created resource
-      const resource = queries.getResourceById.get(resourceId);
-
-      // Broadcast so Home and other windows update immediately
-      windowManager.broadcast('resource:created', resource);
-
-      if (semanticIndexScheduler.shouldIndex(resource)) {
-        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-      }
-
-      autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
-
-      return {
-        success: true,
-        data: resource,
-        thumbnailDataUrl: thumbnailData,
-      };
-  }
+  const importer = require('../../storage/resource-import.cjs').createResourceImporter({
+    database, fileStorage, thumbnail, documentExtractor, windowManager,
+    semanticIndexScheduler, autoMetadata, extractInWorker,
+  });
+  const importFileAsResource = importer.importFile;
 
   /**
    * Import a file: reference it in the project vault and create the resource
    */
-  ipcMain.handle('resource:import', async (event, { filePath, projectId, type, title }) => {
+  ipcMain.handle('resource:import', async (event, { filePath, projectId, type, title, folderId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
-      return await importFileAsResource(filePath, { projectId, type, title });
+      return await importFileAsResource(filePath, { projectId, type, title, folderId });
     } catch (error) {
       console.error('[Resource] Error importing file:', error);
       return { success: false, error: error.message };
@@ -295,7 +121,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      // Resolve via the vault (vault_path) with legacy internal_path/file_path fallback.
+      // Resolve the canonical file in the project vault.
       const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
       if (fullPath && fs.existsSync(fullPath)) {
         return { success: true, data: fullPath };
@@ -419,11 +245,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      if (!resource.internal_path) {
-        return { success: false, error: 'No internal file path' };
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (!fullPath) {
+        return { success: false, error: 'No resource file path' };
       }
-
-      const fullPath = fileStorage.getFullPath(resource.internal_path);
       if (!fs.existsSync(fullPath)) {
         return { success: false, error: 'File not found on disk' };
       }
@@ -452,11 +277,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      if (!resource.internal_path) {
-        return { success: false, error: 'No internal file path' };
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (!fullPath) {
+        return { success: false, error: 'No resource file path' };
       }
-
-      const fullPath = fileStorage.getFullPath(resource.internal_path);
       if (!fs.existsSync(fullPath)) {
         return { success: false, error: 'File not found on disk' };
       }
@@ -478,7 +302,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
   /**
    * Write Excel content from base64 (for editor saves).
-   * Overwrites the file at internal_path and updates content for search.
+   * Overwrites the resource file and updates content for search.
    */
   ipcMain.handle('resource:writeExcelContent', async (event, { resourceId, data }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -497,17 +321,16 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      if (!resource.internal_path) {
-        return { success: false, error: 'No internal file path' };
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (!fullPath) {
+        return { success: false, error: 'No resource file path' };
       }
-
-      const fullPath = fileStorage.getFullPath(resource.internal_path);
       const buffer = Buffer.from(data, 'base64');
-      fs.writeFileSync(fullPath, buffer);
+      vaultStore.writeResourceFile(resource, buffer, { database, fileStorage });
 
       let contentText = null;
       try {
-        contentText = await extractDocumentTextOffMain(fullPath, resource.file_mime_type);
+        contentText = await extractDocumentTextOffMain(fullPath, resource.file_mime_type, documentExtractor);
       } catch (e) {
         console.warn('[Resource] Excel text extraction failed:', e?.message);
       }
@@ -560,11 +383,12 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       const filename = (resource.original_filename || resource.title || 'document').toLowerCase();
       const mime = resource.file_mime_type || '';
-      const isDocx = resource.internal_path?.toLowerCase().endsWith('.docx') ||
+      const resourcePath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      const isDocx = resourcePath?.toLowerCase().endsWith('.docx') ||
         filename.endsWith('.docx') || filename.endsWith('.doc') ||
         mime.includes('wordprocessingml') || mime.includes('msword');
 
-      if (!isDocx && resource.internal_path) {
+      if (!isDocx && resourcePath) {
         return { success: false, error: 'Resource is not a DOCX document' };
       }
 
@@ -574,27 +398,9 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       const now = Date.now();
-      let fullPath;
-
-      if (resource.internal_path) {
-        fileStorage.overwriteFile(resource.internal_path, buffer);
-        fullPath = fileStorage.getFullPath(resource.internal_path);
-      } else {
-        const safeTitle = (resource.title || 'document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
-        const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
-        fullPath = fileStorage.getFullPath(importResult.internalPath);
-
-        queries.updateResourceFile.run(
-          importResult.internalPath,
-          importResult.mimeType,
-          importResult.size,
-          importResult.hash,
-          resource.thumbnail_data,
-          importResult.originalName,
-          now,
-          resourceId
-        );
-      }
+      const fullPath = vaultStore.writeResourceFile(resource, buffer, {
+        database, fileStorage, filename: `${resource.title || 'document'}.docx`,
+      });
 
       let contentText = null;
       try {
@@ -637,13 +443,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      // Determine source path
-      let sourcePath = null;
-      if (resource.internal_path) {
-        sourcePath = fileStorage.getFullPath(resource.internal_path);
-      } else if (resource.file_path) {
-        sourcePath = resource.file_path;
-      }
+      const sourcePath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
 
       if (!sourcePath || !fs.existsSync(sourcePath)) {
         return { success: false, error: 'Source file not found' };
@@ -755,11 +555,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      if (!resource.internal_path) {
-        return { success: false, error: 'Resource has no internal file' };
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (!fullPath) {
+        return { success: false, error: 'No resource file path' };
       }
-
-      const fullPath = fileStorage.getFullPath(resource.internal_path);
       const thumbnailData = await thumbnail.generateThumbnail(
         fullPath,
         resource.type,
@@ -812,135 +611,14 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   /**
    * Import file content directly (for AI agents using MCP servers).
    * Accepts either text content or base64-encoded binary content, writes to
-   * a temp file, and imports via the standard fileStorage flow.
+   * a temporary file, then uses the same vault importer as the file picker.
    */
-  ipcMain.handle('resource:importFromContent', async (event, {
-    title,
-    content,
-    content_base64,
-    mime_type,
-    filename,
-    type,
-    project_id,
-    folder_id,
-  }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const os = require('os');
-
-    let tempPath = null;
-    try {
-      if (!title || typeof title !== 'string' || !title.trim()) {
-        return { success: false, error: 'title is required' };
-      }
-      if (!content && !content_base64) {
-        return { success: false, error: 'content or content_base64 is required' };
-      }
-
-      // Determine extension from filename or mime_type
-      const ext = filename
-        ? path.extname(filename).toLowerCase()
-        : mime_type?.includes('pdf') ? '.pdf'
-        : mime_type?.includes('docx') || mime_type?.includes('wordprocessingml') ? '.docx'
-        : mime_type?.includes('plain') ? '.txt'
-        : mime_type?.includes('markdown') ? '.md'
-        : '.txt';
-
-      // Write content to a temp file
-      const tmpName = `dome-import-${Date.now()}${ext}`;
-      tempPath = path.join(os.tmpdir(), tmpName);
-
-      if (content_base64) {
-        const buf = Buffer.from(content_base64, 'base64');
-        fs.writeFileSync(tempPath, buf);
-      } else {
-        fs.writeFileSync(tempPath, content || '', 'utf8');
-      }
-
-      // Determine resource type
-      let effectiveType = type === 'document' ? 'note' : type;
-      if (!effectiveType) {
-        if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
-        else effectiveType = 'note';
-      }
-
-      // Import via fileStorage
-      const importResult = await fileStorage.importFile(tempPath, effectiveType);
-
-      // Check duplicate
-      const queries = database.getQueries();
-      const existing = queries.findByHash?.get(importResult.hash);
-      if (existing) {
-        return {
-          success: false,
-          error: 'duplicate',
-          duplicate: { id: existing.id, title: existing.title, projectId: existing.project_id },
-        };
-      }
-
-      // Extract text for searchable types
-      const fullPath = fileStorage.getFullPath(importResult.internalPath);
-      let contentText = content || null;
-      if (effectiveType === 'note' || effectiveType === 'pdf') {
-        try {
-          if (effectiveType === 'pdf') {
-            contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-          } else {
-            contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
-          }
-        } catch {
-          // Keep plain text content if extraction fails
-        }
-      }
-
-      // Create resource record
-      const resourceId = generateId();
-      const now = Date.now();
-      const resourceTitle = title.trim() || filename || 'Imported File';
-      const effectiveProjectId = project_id || null;
-
-      queries.createResourceWithFile.run(
-        resourceId,
-        effectiveProjectId,
-        effectiveType,
-        resourceTitle,
-        contentText,
-        null,
-        importResult.internalPath,
-        importResult.mimeType || mime_type || null,
-        importResult.size,
-        importResult.hash,
-        null, // thumbnail
-        filename || importResult.originalName || null,
-        null, // metadata
-        now,
-        now
-      );
-
-      // Set folder if provided
-      if (folder_id && queries.moveResourceToFolder) {
-        queries.moveResourceToFolder?.run(folder_id, now, resourceId);
-      }
-
-      const resource = queries.getResourceById.get(resourceId);
-      windowManager.broadcast('resource:created', resource);
-
-      if (semanticIndexScheduler.shouldIndex(resource)) {
-        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-      }
-
-      return { success: true, resource };
-    } catch (error) {
-      console.error('[Resource] importFromContent error:', error);
-      return { success: false, error: error.message };
-    } finally {
-      if (tempPath) {
-        try { fs.unlinkSync(tempPath); } catch { /* ignore cleanup errors */ }
-      }
-    }
+  ipcMain.handle('resource:importFromContent', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try { return await importer.importContent(args); }
+    catch (error) { return { success: false, error: error.message }; }
   });
+
 }
 
 module.exports = { register };

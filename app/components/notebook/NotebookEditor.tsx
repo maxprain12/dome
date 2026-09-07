@@ -22,7 +22,7 @@ interface NotebookEditorProps {
   editable?: boolean;
   title?: string;
   /** Working directory for Python execution (notebook workspace folder) */
-  workingDirectory?: string;
+  resourceId: string;
   /** Path to Python virtual environment (venv directory) */
   venvPath?: string;
 }
@@ -52,7 +52,7 @@ function getCodeCellIndices(cells: NotebookCell[]): number[] {
 
 const useIPCKernel = typeof window !== 'undefined' && !!window.electron?.notebook;
 
-export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', workingDirectory, venvPath }: NotebookEditorProps) {
+export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', resourceId, venvPath }: NotebookEditorProps) {
   const { t } = useTranslation();
   const nb = useMemo(() => parseNotebookContent(content), [content]);
   const cellsZipped = useMemo(() => buildNotebookCellsWithStableKeys(nb.cells), [nb.cells]);
@@ -161,7 +161,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         cells: codeCells,
         targetCellIndex,
         currentCellCode: source, // For Pyodide (stateful kernel): run only this cell
-        cwd: workingDirectory,
+        resourceId,
         venvPath,
       });
       updateCell(index, {
@@ -169,7 +169,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         execution_count: result.success ? 1 : null,
       } as Partial<NotebookCodeCell>);
     },
-    [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]
+    [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, resourceId, venvPath]
   );
 
   const handleRunCell = useCallback(() => {
@@ -200,11 +200,11 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       cells: codeCells,
       targetCellIndex: codeCells.length - 1,
       collectAllCells: true,
-      cwd: workingDirectory,
+      resourceId,
       venvPath,
     });
     applyCollectedOutputs(toRun, result);
-  }, [nb.cells, selectedCellIndex, runPython, applyCollectedOutputs, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
+  }, [nb.cells, selectedCellIndex, runPython, applyCollectedOutputs, getCodeUpTo, getCodeCellsUpTo, resourceId, venvPath]);
 
   const handleRunAll = useCallback(async () => {
     const codeIndices = getCodeCellIndices(nb.cells);
@@ -215,11 +215,11 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       cells: codeCells,
       targetCellIndex: codeCells.length - 1,
       collectAllCells: true,
-      cwd: workingDirectory,
+      resourceId,
       venvPath,
     });
     applyCollectedOutputs(codeIndices, result);
-  }, [nb.cells, runPython, applyCollectedOutputs, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
+  }, [nb.cells, runPython, applyCollectedOutputs, getCodeUpTo, getCodeCellsUpTo, resourceId, venvPath]);
 
   const handleExport = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron) return;

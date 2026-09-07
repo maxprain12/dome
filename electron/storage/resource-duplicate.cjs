@@ -5,14 +5,12 @@
  * Clones the SQLite row(s) AND the on-disk vault representation:
  *   - folders duplicate recursively (children keep their titles),
  *   - notes/artifacts/urls/notebooks rewrite their mirror for the copy,
- *   - binaries copy the vault file (legacy internal files are copied into the
- *     vault for the duplicate — the vault is the source of truth).
+ *   - binaries copy the canonical vault file.
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
 const vaultStore = require('./vault-store.cjs');
-const { noteContentToMarkdown } = require('./vault-sync.cjs');
 
 function duplicateTitle(title, suffix) {
   const t = String(title || 'Untitled');
@@ -29,10 +27,12 @@ function duplicateMirror(src, srcId, newId, copy, deps, queries, db, suffix, now
   const { database, fileStorage } = deps;
   switch (src.type) {
     case 'folder': {
-      vaultStore.createFolderOnDisk(newId, { database, fileStorage });
+      const folder = vaultStore.createFolderOnDisk(newId, { database, fileStorage });
+      if (!folder.success) throw new Error(folder.error);
       const children = queries.getResourcesByFolder.all(srcId);
       for (const child of children) {
-        duplicateResourceTree(child.id, deps, { suffix, _parentFolderId: newId, _keepTitle: true });
+        const duplicated = duplicateResourceTree(child.id, deps, { suffix, _parentFolderId: newId, _keepTitle: true });
+        if (!duplicated.success) throw new Error(duplicated.error);
       }
       break;
     }
@@ -42,8 +42,9 @@ function duplicateMirror(src, srcId, newId, copy, deps, queries, db, suffix, now
       if (srcAbs && fs.existsSync(srcAbs)) {
         md = vaultStore.stripFrontmatter(fs.readFileSync(srcAbs, 'utf8'));
       }
-      if (md == null) md = noteContentToMarkdown(src) ?? '';
-      vaultStore.writeNoteMarkdown({ id: newId, markdown: md }, { database, fileStorage });
+      if (md == null) throw new Error('Source note file unavailable');
+      const result = vaultStore.writeNoteMarkdown({ id: newId, markdown: md }, { database, fileStorage });
+      if (!result.success) throw new Error(result.error);
       break;
     }
     case 'artifact': {
@@ -65,7 +66,8 @@ function duplicateMirror(src, srcId, newId, copy, deps, queries, db, suffix, now
       break;
     default: {
       const srcAbs = vaultStore.getResourceFilePath(src, queries, fileStorage);
-      if (srcAbs && fs.existsSync(srcAbs)) {
+      if (!srcAbs || !fs.existsSync(srcAbs)) throw new Error('Source file unavailable');
+      {
         const imported = vaultStore.importFileToVault(srcAbs, copy, { database, fileStorage });
         db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ? WHERE id = ?')
           .run(imported.vaultPath, imported.contentHash, imported.size, newId);
@@ -96,13 +98,13 @@ function duplicateResourceTree(srcId, deps, opts = {}) {
 
   db.prepare(
     `INSERT INTO resources (
-       id, project_id, type, title, content, file_path, internal_path,
+       id, project_id, type, title, content,
        file_mime_type, file_size, file_hash, original_filename, folder_id,
        vault_path, content_text, content_hash, metadata, thumbnail_data,
        created_at, updated_at
-     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   ).run(
-    newId, src.project_id, src.type, title, src.content ?? null, null, null,
+    newId, src.project_id, src.type, title, src.content ?? null,
     src.file_mime_type ?? null, src.file_size ?? null, src.file_hash ?? null,
     src.original_filename ?? null, folderId,
     null, src.content_text ?? null, null, src.metadata ?? null, src.thumbnail_data ?? null,
@@ -113,7 +115,8 @@ function duplicateResourceTree(srcId, deps, opts = {}) {
   try {
     duplicateMirror(src, srcId, newId, copy, deps, queries, db, suffix, now);
   } catch (e) {
-    console.warn('[ResourceDuplicate] mirror copy failed:', e?.message);
+    require('./resource-delete.cjs').deleteResourcesCascade([newId], deps);
+    return { success: false, error: e.message };
   }
 
   try {

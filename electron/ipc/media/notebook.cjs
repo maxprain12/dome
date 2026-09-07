@@ -1,3 +1,7 @@
+const { z } = require('zod');
+const path = require('node:path');
+const fs = require('node:fs');
+const vault = require('../../storage/vault-store.cjs');
 /* eslint-disable no-console */
 const {
   isNotebookSurface,
@@ -5,11 +9,26 @@ const {
   sanitizeNotebookExecPath,
 } = require('../../documents/notebook-exec-guard.cjs');
 
-function register({ ipcMain, windowManager, notebookPython }) {
+function register({ ipcMain, windowManager, notebookPython, database, fileStorage }) {
+  const WorkspaceSchema = z.object({ resourceId: z.string().min(1) });
+  function workspaceFor(resourceId) {
+    const resource = database.getQueries().getResourceById.get(resourceId);
+    if (!resource || resource.type !== 'notebook') throw new Error('Notebook not found');
+    const file = vault.getResourceFilePath(resource, database.getQueries(), fileStorage);
+    if (!file || !fs.existsSync(file)) throw new Error('Notebook file unavailable');
+    return { path: path.dirname(file), projectId: resource.project_id, folderId: resource.folder_id };
+  }
+  ipcMain.handle('notebook:workspace', (event, raw) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    const parsed = WorkspaceSchema.safeParse(raw);
+    if (!parsed.success) return { success: false, error: 'Invalid notebook' };
+    try { return { success: true, data: workspaceFor(parsed.data.resourceId) }; }
+    catch (error) { return { success: false, error: error.message }; }
+  });
   /**
    * Run Python code in notebook (main process subprocess)
    */
-  ipcMain.handle('notebook:runPython', async (event, { code, cells, targetCellIndex, cwd, venvPath, timeoutMs, surface, collectAllCells }) => {
+  ipcMain.handle('notebook:runPython', async (event, { code, cells, targetCellIndex, resourceId, venvPath, timeoutMs, surface, collectAllCells }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, outputs: [], error: 'Unauthorized' };
     }
@@ -48,11 +67,9 @@ function register({ ipcMain, windowManager, notebookPython }) {
         options.cells = cells;
         options.targetCellIndex = targetCellIndex;
       }
-      if (typeof cwd === 'string' && cwd.trim()) {
-        const safeCwd = sanitizeNotebookExecPath(cwd);
-        if (!safeCwd.ok) return notebookExecRejected(safeCwd.error);
-        options.cwd = safeCwd.path;
-      }
+      const parsed = WorkspaceSchema.safeParse({ resourceId });
+      if (!parsed.success) return notebookExecRejected('Notebook resourceId is required');
+      options.cwd = workspaceFor(parsed.data.resourceId).path;
       if (typeof venvPath === 'string' && venvPath.trim()) {
         const safeVenv = sanitizeNotebookExecPath(venvPath);
         if (!safeVenv.ok) return notebookExecRejected(safeVenv.error);

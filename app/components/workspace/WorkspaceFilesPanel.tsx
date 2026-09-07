@@ -19,7 +19,8 @@ import { useTranslation } from 'react-i18next';
 
 interface WorkspaceFilesPanelProps {
   workspacePath: string | undefined;
-  onWorkspacePathChange: (path: string) => Promise<void>;
+  projectId: string;
+  folderId?: string | null;
   /** Python venv path (Electron only) */
   venvPath?: string;
   onVenvPathChange?: (path: string) => Promise<void>;
@@ -35,7 +36,8 @@ const useElectron = typeof window !== 'undefined' && !!window.electron?.notebook
 
 export default function WorkspaceFilesPanel({
   workspacePath,
-  onWorkspacePathChange,
+  projectId,
+  folderId,
   venvPath,
   onVenvPathChange,
 }: WorkspaceFilesPanelProps) {
@@ -82,44 +84,13 @@ export default function WorkspaceFilesPanel({
     loadEntries();
   }, [loadEntries]);
 
-  const handleSelectFolder = useCallback(async () => {
-    const electron = typeof window !== 'undefined' ? window.electron : undefined;
-    if (!electron?.selectFolder) {
-      setError(t('workspaceFiles.select_folder_desktop_only'));
-      return;
-    }
-
-    setError(null);
-    try {
-      const path = await electron.selectFolder();
-      if (path) {
-        await onWorkspacePathChange(path);
-        setLoading(true);
-        try {
-          const result = await electron.file?.listDirectory?.(path);
-          if (result?.success && result.data) {
-            setEntries(result.data);
-          }
-        } catch {
-          setEntries([]);
-        } finally {
-          setLoading(false);
-        }
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : t('workspaceFiles.select_folder_error');
-      setError(msg);
-      console.error('[WorkspaceFilesPanel] handleSelectFolder error:', err);
-    }
-  }, [onWorkspacePathChange, t]);
-
   const handleAddFile = useCallback(async () => {
     if (!workspacePath?.trim()) {
       setError(t('workspaceFiles.pick_workspace_first'));
       return;
     }
     const electron = typeof window !== 'undefined' ? window.electron : undefined;
-    if (!electron?.selectFile || !electron?.file?.copyFile) {
+    if (!electron?.selectFile || !electron?.invoke) {
       setError(t('workspaceFiles.file_api_unavailable'));
       return;
     }
@@ -134,13 +105,7 @@ export default function WorkspaceFilesPanel({
         return;
       }
 
-      const parts = String(filePath).split(/[/\\]/);
-      const fileName = parts[parts.length - 1]?.trim() || 'file';
-      const base = workspacePath.replace(/[/\\]+$/, '');
-      const sep = workspacePath.includes('\\') ? '\\' : '/';
-      const destPath = `${base}${sep}${fileName}`;
-
-      const result = await electron.file.copyFile(String(filePath), destPath);
+      const result = await electron.invoke('resource:import', { filePath, projectId, folderId });
       if (result?.success) {
         await loadEntries();
       } else {
@@ -153,10 +118,10 @@ export default function WorkspaceFilesPanel({
     } finally {
       setAddingFile(false);
     }
-  }, [workspacePath, loadEntries, t]);
+  }, [workspacePath, projectId, folderId, loadEntries, t]);
 
   const handleCreateVenv = useCallback(async () => {
-    const base = workspacePath?.trim() || (await window.electron?.selectFolder?.());
+    const base = workspacePath?.trim();
     if (!base || !onVenvPathChange || !window.electron?.notebook?.createVenv) return;
     setVenvCreating(true);
     setError(null);
@@ -253,18 +218,7 @@ export default function WorkspaceFilesPanel({
     }
   }, [venvPath, t]);
 
-  if (!workspacePath) {
-    return (
-      <WorkspaceEmptyState
-        error={error}
-        showVenvSection={useElectron && !!onVenvPathChange}
-        venvCreating={venvCreating}
-        onSelectFolder={handleSelectFolder}
-        onCreateVenv={handleCreateVenv}
-        onSelectVenv={handleSelectVenv}
-      />
-    );
-  }
+  if (!workspacePath) return <div className="p-4 text-muted-foreground">{t('common.loading')}</div>;
 
   return (
     <WorkspaceFilesView
@@ -282,7 +236,6 @@ export default function WorkspaceFilesPanel({
       pipListExpanded={pipListExpanded}
       pipRequirementsInstalling={pipRequirementsInstalling}
       venvCreating={venvCreating}
-      onSelectFolder={handleSelectFolder}
       onAddFile={handleAddFile}
       onRefresh={loadEntries}
       onSelectVenv={handleSelectVenv}
@@ -295,107 +248,6 @@ export default function WorkspaceFilesPanel({
       showVenvSection={useElectron && !!onVenvPathChange}
     />
   );
-}
-
-interface WorkspaceEmptyStateProps {
-  error: string | null;
-  showVenvSection: boolean;
-  venvCreating: boolean;
-  onSelectFolder: () => void;
-  onCreateVenv: () => void;
-  onSelectVenv: () => void;
-}
-
-function WorkspaceEmptyState({
-  error,
-  showVenvSection,
-  venvCreating,
-  onSelectFolder,
-  onCreateVenv,
-  onSelectVenv,
-}: WorkspaceEmptyStateProps) {
-  const { t } = useTranslation();
-  return (
-    <div className="h-full flex flex-col min-h-0">
-      <div
-        className="flex-1 flex flex-col items-center justify-center p-6 text-center min-h-[280px]"
-        style={{
-          background: 'linear-gradient(180deg, var(--card) 0%, var(--background) 100%)',
-          border: '1px dashed var(--border)',
-          borderRadius: 'var(--radius-xl)',
-          margin: '12px',
-        }}
-      >
-        <div
-          className="flex items-center justify-center size-14 rounded-2xl mb-4"
-          style={{
-            background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-            color: 'var(--primary)',
-          }}
-        >
-          <HugeiconsIcon icon={FolderCodeIcon} size={28} strokeWidth={1.5} />
-        </div>
-        <h3 className="text-sm font-semibold mb-1.5 text-foreground">
-          {t('workspaceFiles.empty_title')}
-        </h3>
-        <p className="text-xs max-w-[200px] mb-5 leading-relaxed text-muted-foreground">
-          {t('workspaceFiles.empty_description')}
-        </p>
-        <button
-          type="button"
-          onClick={onSelectFolder}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-[opacity,transform,box-shadow] duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 shadow-sm"
-          style={{
-            background: 'var(--primary)',
-            color: 'var(--primary-foreground)',
-          }}
-        >
-          <HugeiconsIcon icon={FolderOpenIcon} size={18} />
-          {t('workspaceFiles.select_folder_btn')}
-        </button>
-        {error ? (
-          <p className="mt-3 text-xs max-w-[220px] text-destructive">
-            {error}
-          </p>
-        ) : null}
-        {showVenvSection ? (
-          <div className="mt-6 pt-6 border-t w-full max-w-[240px] border-border">
-            <p className="text-xs font-medium mb-2 text-muted-foreground">
-              {t('workspaceFiles.python_env_heading')}
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <button
-                type="button"
-                onClick={onCreateVenv}
-                disabled={venvCreating}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                style={{ background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
-              >
-                <VenvButtonIcon creating={venvCreating} />
-                {venvCreating ? t('workspaceFiles.creating') : t('workspaceFiles.create_venv')}
-              </button>
-              <button
-                type="button"
-                onClick={onSelectVenv}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                style={{ background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
-              >
-                <HugeiconsIcon icon={FolderOpenIcon} size={14} />
-                {t('workspaceFiles.select_venv')}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function VenvButtonIcon({ creating }: { creating: boolean }) {
-  if (creating) {
-    return <HugeiconsIcon icon={Loading03Icon} size={14} className="animate-spin" />;
-  }
-  return <HugeiconsIcon icon={TerminalIcon} size={14} />;
 }
 
 interface WorkspaceFilesViewProps {
@@ -413,7 +265,6 @@ interface WorkspaceFilesViewProps {
   pipListExpanded: boolean;
   pipRequirementsInstalling: boolean;
   venvCreating: boolean;
-  onSelectFolder: () => void;
   onAddFile: () => void;
   onRefresh: () => void;
   onSelectVenv: () => void;
@@ -441,7 +292,6 @@ function WorkspaceFilesView({
   pipListExpanded,
   pipRequirementsInstalling,
   venvCreating,
-  onSelectFolder,
   onAddFile,
   onRefresh,
   onSelectVenv,
@@ -460,7 +310,6 @@ function WorkspaceFilesView({
       <ActionButtons
         addingFile={addingFile}
         loading={loading}
-        onSelectFolder={onSelectFolder}
         onAddFile={onAddFile}
         onRefresh={onRefresh}
       />
@@ -536,28 +385,14 @@ function WorkspacePathHeader({ workspacePath }: { workspacePath: string }) {
 interface ActionButtonsProps {
   addingFile: boolean;
   loading: boolean;
-  onSelectFolder: () => void;
   onAddFile: () => void;
   onRefresh: () => void;
 }
 
-function ActionButtons({ addingFile, loading, onSelectFolder, onAddFile, onRefresh }: ActionButtonsProps) {
+function ActionButtons({ addingFile, loading, onAddFile, onRefresh }: ActionButtonsProps) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-wrap gap-2 shrink-0">
-      <button
-        type="button"
-        onClick={onSelectFolder}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[background-color,box-shadow] hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        style={{
-          background: 'var(--card)',
-          color: 'var(--foreground)',
-          border: '1px solid var(--border)',
-        }}
-      >
-        <HugeiconsIcon icon={FolderOpenIcon} size={14} />
-        {t('workspaceFiles.change_folder')}
-      </button>
       <button
         type="button"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddFile(); }}
@@ -934,4 +769,8 @@ function FileList({ entries, loading }: FileListProps) {
       </ul>
     </div>
   );
+}
+
+function VenvButtonIcon({ creating }: { creating: boolean }) {
+  return <HugeiconsIcon icon={creating ? Loading03Icon : TerminalIcon} size={14} className={creating ? 'animate-spin' : undefined} />;
 }

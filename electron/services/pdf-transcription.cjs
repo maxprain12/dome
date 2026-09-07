@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 'use strict';
 
-const fs = require('fs');
+const fs = require('node:fs');
 const fileStorage = require('../storage/file-storage.cjs');
 const pdfExtractor = require('../documents/pdf-extractor.cjs');
 const database = require('../core/database.cjs');
@@ -130,12 +130,12 @@ function getEffectiveOnProgress(opts) {
 }
 
 /**
- * @param {{ type?: unknown; internal_path?: unknown }} resource
+ * @param {{ type?: unknown; vault_path?: unknown }} resource
  * @returns {string|null}
  */
 function resolvePdfInput(resource) {
-  if (!resource || resource.type !== 'pdf' || !resource.internal_path) return null;
-  const fullPath = fileStorage.getFullPath(resource.internal_path);
+  if (!resource || resource.type !== 'pdf' || !resource.vault_path) return null;
+  const fullPath = require('../storage/vault-store.cjs').getResourceFilePath(resource, database.getQueries(), fileStorage);
   return fullPath && fs.existsSync(fullPath) ? fullPath : null;
 }
 

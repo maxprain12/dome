@@ -8,9 +8,9 @@
  * strings, but that requires architectural changes to the IPC error handling.
  */
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { extractInWorker } = require('../../workers/document-extract-service.cjs');
 const pdfExtractor = require('../../documents/pdf-extractor.cjs');
 
@@ -130,7 +130,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
 
     try {
       // allowExternal: notebook workspace dirs live outside userData
-      // (resource.metadata.notebook_workspace_path, persisted across sessions)
+      // (resolved from the notebook resource in its project vault)
       const safePath = sanitizePath(dirPath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'Directory not found' };
