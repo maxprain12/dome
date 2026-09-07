@@ -8,8 +8,8 @@
  *   - binaries copy the canonical vault file.
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
 const vaultStore = require('./vault-store.cjs');
 
 function duplicateTitle(title, suffix) {

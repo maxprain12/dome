@@ -4,8 +4,8 @@
  * Handles YouTube video thumbnail extraction and metadata
  */
 
-const https = require('https');
-const http = require('http');
+const https = require('node:https');
+const http = require('node:http');
 
 /**
  * Extract video ID from various YouTube URL formats

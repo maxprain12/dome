@@ -15,9 +15,9 @@
  *   cleanupStaleStagings()— remove files older than maxAgeMs (run on app startup)
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { app } = require('electron');
 
 const fileStorage = require('../storage/file-storage.cjs');

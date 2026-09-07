@@ -6,7 +6,7 @@
  * Slide text extraction: Python extract_ppt.py (venv).
  */
 
-const fs = require('fs');
+const fs = require('node:fs');
 
 const database = require('../core/database.cjs');
 const fileStorage = require('../storage/file-storage.cjs');

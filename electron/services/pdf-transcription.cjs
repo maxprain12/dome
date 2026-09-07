@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 'use strict';
 
-const fs = require('fs');
+const fs = require('node:fs');
 const fileStorage = require('../storage/file-storage.cjs');
 const pdfExtractor = require('../documents/pdf-extractor.cjs');
 const database = require('../core/database.cjs');

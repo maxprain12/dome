@@ -16,8 +16,8 @@
  * deps shape: { database, fileStorage, windowManager, thumbnail, initModule, ollamaService }
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { app } = require('electron');
 
 const transcriptionService = require('./transcription-service.cjs');

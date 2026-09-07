@@ -113,7 +113,7 @@ export default function AdvancedSection() {
     switch (updaterState.status) {
       case 'idle':
         return (
-          <Button type="button" variant="outline" size="sm" onClick={() => void handleCheckUpdate()}>
+          <Button type="button" variant="outline" size="sm" onClick={() => { void handleCheckUpdate(); }}>
             <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
             {t('settings.advanced.check_updates')}
           </Button>
@@ -255,11 +255,11 @@ export default function AdvancedSection() {
           description={t('settings.advanced.export_import_desc')}
         >
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => void handleExport()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { void handleExport(); }}>
               <HugeiconsIcon icon={ArrowDownToLineIcon} data-icon="inline-start" />
               {t('settings.advanced.export_data')}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => void handleImport()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { void handleImport(); }}>
               <HugeiconsIcon icon={Upload04Icon} data-icon="inline-start" />
               {t('settings.advanced.import_data')}
             </Button>

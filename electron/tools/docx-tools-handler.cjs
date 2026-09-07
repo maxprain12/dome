@@ -7,8 +7,8 @@
  * Page layout follows US Letter + Arial defaults from the Dome docx skill.
  */
 
-const fs = require('fs');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 
 const database = require('../core/database.cjs');
 const fileStorage = require('../storage/file-storage.cjs');

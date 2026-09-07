@@ -8,9 +8,9 @@
  * strings, but that requires architectural changes to the IPC error handling.
  */
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { extractInWorker } = require('../../workers/document-extract-service.cjs');
 const pdfExtractor = require('../../documents/pdf-extractor.cjs');
 

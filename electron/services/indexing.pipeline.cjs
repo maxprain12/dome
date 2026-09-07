@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 'use strict';
 
-const fs = require('fs');
+const fs = require('node:fs');
 const {
   embedDocuments,
   embedQuery,

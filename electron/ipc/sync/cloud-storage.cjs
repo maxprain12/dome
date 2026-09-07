@@ -11,9 +11,9 @@
  * as a JSON array: [{ provider, accountId, email, accessToken, refreshToken, expiresAt }]
  */
 
-const crypto = require('crypto');
-const http   = require('http');
-const https  = require('https');
+const crypto = require('node:crypto');
+const http   = require('node:http');
+const https  = require('node:https');
 const { shell } = require('electron');
 
 // Load credentials: prefer baked-in file (production), fall back to process.env (dev)

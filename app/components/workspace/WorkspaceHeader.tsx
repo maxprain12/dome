@@ -396,7 +396,7 @@ export default function WorkspaceHeader({
                 {t('viewer.resource_info')}
               </DropdownMenuItem>
               {resource.type === 'ppt' && onExportDocx && (
-                <DropdownMenuItem onClick={() => void onExportDocx()}>
+                <DropdownMenuItem onClick={() => { void onExportDocx(); }}>
                   <HugeiconsIcon icon={FileDownIcon} size={14} />
                   {t('workspace.export_pptx')}
                 </DropdownMenuItem>
@@ -406,11 +406,11 @@ export default function WorkspaceHeader({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => void handleOpenExternal()}>
+                  <DropdownMenuItem onClick={() => { void handleOpenExternal(); }}>
                     <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
                     {t('viewer.open_with_default_app')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void handleShowInFinder()}>
+                  <DropdownMenuItem onClick={() => { void handleShowInFinder(); }}>
                     <HugeiconsIcon icon={FolderOpenIcon} size={14} />
                     {t('viewer.show_in_finder')}
                   </DropdownMenuItem>

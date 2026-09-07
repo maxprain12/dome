@@ -5,8 +5,8 @@
  * Spreadsheet read/write via ExcelJS (replaces SheetJS xlsx).
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   ExcelJS,

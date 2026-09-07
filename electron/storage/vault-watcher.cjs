@@ -19,9 +19,9 @@
  * resources.content_hash, so this never reacts to in-app saves.
  */
 
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const vaultStore = require('./vault-store.cjs');
 
 let _watcher = null;
