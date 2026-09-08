@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,7 +17,7 @@ import {
   SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { chat } from '@/lib/ai/client';
-import { fromLabel, type MailEnvelope } from '@/lib/email/mailQueues';
+import { fromEmail, fromLabel, type MailEnvelope } from '@/lib/email/mailQueues';
 import { cn } from '@/lib/utils';
 
 type AiAction = 'improve' | 'shorten' | 'formal' | 'generate';
@@ -27,6 +27,8 @@ export function MailComposePanel({
   replyTo,
   folder,
   projectId,
+  accountId,
+  accountLabel,
   onClose,
   onSent,
 }: {
@@ -34,11 +36,14 @@ export function MailComposePanel({
   replyTo?: MailEnvelope;
   folder: string;
   projectId: string;
+  accountId: string;
+  accountLabel: string;
   onClose: () => void;
   onSent: () => void;
 }) {
   const { t } = useTranslation();
-  const [to, setTo] = useState(mode === 'reply' ? fromLabel(replyTo?.from) : '');
+  const formId = useId();
+  const [to, setTo] = useState(mode === 'reply' ? fromEmail(replyTo?.from) || fromLabel(replyTo?.from) : '');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
   const [showCcBcc, setShowCcBcc] = useState(false);
@@ -71,7 +76,13 @@ export function MailComposePanel({
     try {
       const res =
         mode === 'reply' && replyTo
-          ? await window.electron.email.reply({ messageId: replyTo.id, body, folder, projectId })
+          ? await window.electron.email.reply({
+              messageId: replyTo.dbId ?? replyTo.id,
+              body,
+              folder: replyTo.folder ?? folder,
+              projectId,
+              accountId,
+            })
           : await window.electron.email.send({
               to,
               cc: cc.trim() || undefined,
@@ -79,6 +90,7 @@ export function MailComposePanel({
               subject,
               body,
               projectId,
+              accountId,
             });
       if (res.success) onSent();
       else {
@@ -88,6 +100,8 @@ export function MailComposePanel({
           helpUrl: res.helpUrl,
         });
       }
+    } catch (err) {
+      setError({ error: err instanceof Error ? err.message : t('email.compose_failed') });
     } finally {
       setSending(false);
     }
@@ -187,11 +201,12 @@ export function MailComposePanel({
         }
       >
         <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <p className="text-sm text-muted-foreground">{t('email.sending_from', { account: accountLabel })}</p>
           <FieldGroup className="shrink-0 gap-3">
             {mode === 'new' ? (
               <Field>
                 <div className="flex items-center justify-between gap-2">
-                  <FieldLabel>{t('email.to')}</FieldLabel>
+                  <FieldLabel htmlFor={`${formId}-to`}>{t('email.to')}</FieldLabel>
                   {!showCcBcc ? (
                     <Button
                       type="button"
@@ -205,6 +220,7 @@ export function MailComposePanel({
                   ) : null}
                 </div>
                 <Input
+                  id={`${formId}-to`}
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   placeholder={t('email.to_placeholder')}
@@ -212,24 +228,26 @@ export function MailComposePanel({
               </Field>
             ) : (
               <Field>
-                <FieldLabel>{t('email.to')}</FieldLabel>
-                <Input value={to} readOnly className="bg-muted/40" />
+                <FieldLabel htmlFor={`${formId}-to`}>{t('email.to')}</FieldLabel>
+                <Input id={`${formId}-to`} value={to} readOnly className="bg-muted/40" />
               </Field>
             )}
 
             {(showCcBcc || cc || bcc) && mode === 'new' ? (
               <>
                 <Field>
-                  <FieldLabel>{t('email.cc')}</FieldLabel>
+                  <FieldLabel htmlFor={`${formId}-cc`}>{t('email.cc')}</FieldLabel>
                   <Input
+                    id={`${formId}-cc`}
                     value={cc}
                     onChange={(e) => setCc(e.target.value)}
                     placeholder={t('email.cc_placeholder')}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel>{t('email.bcc')}</FieldLabel>
+                  <FieldLabel htmlFor={`${formId}-bcc`}>{t('email.bcc')}</FieldLabel>
                   <Input
+                    id={`${formId}-bcc`}
                     value={bcc}
                     onChange={(e) => setBcc(e.target.value)}
                     placeholder={t('email.bcc_placeholder')}
@@ -240,8 +258,9 @@ export function MailComposePanel({
 
             {mode === 'new' ? (
               <Field>
-                <FieldLabel>{t('email.subject')}</FieldLabel>
+                <FieldLabel htmlFor={`${formId}-subject`}>{t('email.subject')}</FieldLabel>
                 <Input
+                  id={`${formId}-subject`}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder={t('email.subject')}
@@ -278,8 +297,9 @@ export function MailComposePanel({
           ) : null}
 
           <Field className="flex min-h-0 flex-1 flex-col gap-1.5">
-            <FieldLabel>{t('email.body')}</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-body`}>{t('email.body')}</FieldLabel>
             <Textarea
+              id={`${formId}-body`}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder={t('email.body')}

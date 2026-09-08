@@ -1,4 +1,5 @@
 {
+  "sending_from": "A enviar de {{account}}",
   "tab_title": "E-mail",
   "search_placeholder": "Pesquisar e-mail…",
   "refresh": "Atualizar",

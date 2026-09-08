@@ -1,4 +1,5 @@
 {
+  "sending_from": "Sending from {{account}}",
   "tab_title": "Email",
   "search_placeholder": "Search mail…",
   "refresh": "Refresh",

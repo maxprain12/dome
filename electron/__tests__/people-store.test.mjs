@@ -6,13 +6,13 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
+import { loadCjsModule } from './helpers/load-cjs.mjs';
 
 const require = createRequire(import.meta.url);
 
 describe('people-store', () => {
   let peopleStore;
   let memDb;
-  let originalGetDB;
 
   before(() => {
     memDb = new DatabaseSync(':memory:');
@@ -61,16 +61,14 @@ describe('people-store', () => {
       );
     `);
 
-    const database = require('../core/database.cjs');
-    originalGetDB = database.getDB;
-    database.getDB = () => memDb;
-    delete require.cache[require.resolve('../people/people-store.cjs')];
-    peopleStore = require('../people/people-store.cjs');
+    peopleStore = loadCjsModule(require.resolve('../people/people-store.cjs'), {
+      '../core/database.cjs': { getDB: () => memDb },
+      '../search/source-index.cjs': { upsertDocument() {}, removeDocument() {} },
+      '../storage/sync-tombstone.cjs': {},
+    });
   });
 
   after(() => {
-    const database = require('../core/database.cjs');
-    database.getDB = originalGetDB;
     memDb.close();
   });
 
@@ -237,4 +235,43 @@ describe('people-store', () => {
     assert.equal(fallback.leadStatus, 'lead');
     assert.equal(peopleStore.normalizePersonStatus('Inversor ángel'), 'inversor_angel');
   });
+  it('reuses a unique exact primary email in the same project and preserves curated fields', () => {
+    const person = peopleStore.upsertPerson({ projectId: 'match', displayName: 'Curated Name', primaryEmail: 'Contact@Example.com', avatarUrl: 'curated.png' });
+    const imported = peopleStore.upsertIdentityPerson({ projectId: 'match', source: 'email', externalId: 'contact@example.com', displayName: 'Remote Name', avatarUrl: 'remote.png' });
+    assert.equal(imported.id, person.id);
+    assert.equal(imported.displayName, 'Curated Name');
+    assert.equal(imported.avatarUrl, 'curated.png');
+    assert.equal(imported.identities.length, 1);
+    const other = peopleStore.upsertIdentityPerson({ projectId: 'other-match', source: 'email', externalId: 'contact@example.com' });
+    assert.notEqual(other.id, person.id);
+  });
+
+  it('does not overwrite a manually edited name or primary address during identity refresh', () => {
+    const person = peopleStore.upsertIdentityPerson({ projectId: 'curated', source: 'email', externalId: 'old@example.com' });
+    peopleStore.updateProfile({ id: person.id, displayName: 'My contact', primaryEmail: 'new@example.com' });
+    const updated = peopleStore.upsertIdentityPerson({ projectId: 'curated', source: 'email', externalId: 'old@example.com', displayName: 'Old Name', primaryEmail: 'old@example.com' });
+    assert.equal(updated.displayName, 'My contact');
+    assert.equal(updated.primaryEmail, 'new@example.com');
+  });
+
+  it('refuses ambiguous primary email matches without creating another contact', () => {
+    for (const displayName of ['A', 'B']) peopleStore.upsertPerson({ projectId: 'ambiguous', displayName, primaryEmail: 'shared@example.com' });
+    assert.throws(() => peopleStore.upsertIdentityPerson({ projectId: 'ambiguous', source: 'email', externalId: 'shared@example.com' }), /Multiple contacts/);
+    assert.equal(peopleStore.listPeople('ambiguous').length, 2);
+  });
+
+  it('rejects cross-project person updates and interactions', () => {
+    const person = peopleStore.upsertPerson({ projectId: 'owned', displayName: 'Original' });
+    assert.throws(() => peopleStore.upsertPerson({ id: person.id, projectId: 'foreign', displayName: 'Changed' }), /project/);
+    assert.throws(() => peopleStore.addInteraction({ personId: person.id, projectId: 'foreign', kind: 'note', summary: 'Wrong vault' }), /project/);
+    assert.equal(peopleStore.getPerson(person.id).displayName, 'Original');
+  });
+
+  it('applies the status filter before the search limit', () => {
+    for (let n = 0; n < 55; n += 1) peopleStore.upsertPerson({ projectId: 'search-status', displayName: `Contact ${n}`, leadStatus: 'lead' });
+    const expected = peopleStore.upsertPerson({ projectId: 'search-status', displayName: 'Contact Z', leadStatus: 'client' });
+    const matches = peopleStore.searchPeople('search-status', 'Contact', { leadStatus: 'client', limit: 1 });
+    assert.deepEqual(matches.map((p) => p.id), [expected.id]);
+  });
+
 });

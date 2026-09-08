@@ -60,10 +60,10 @@ export function MailQueueSection({
       <CardContent className="flex flex-col gap-0.5 px-2 pb-2">
         {slice.map((env) => (
           <MailMessageRow
-            key={env.id}
+            key={env.dbId ?? env.id}
             envelope={env}
             networkEmails={networkEmails}
-            active={selectedId === env.id}
+            active={selectedId === (env.dbId ?? env.id)}
             onOpen={() => onOpen(env)}
           />
         ))}

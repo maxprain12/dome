@@ -6,13 +6,13 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
+import { loadCjsModule } from './helpers/load-cjs.mjs';
 
 const require = createRequire(import.meta.url);
 
 describe('email-store', () => {
   let emailStore;
   let memDb;
-  let originalGetDB;
 
   before(() => {
     memDb = new DatabaseSync(':memory:');
@@ -63,16 +63,12 @@ describe('email-store', () => {
         UNIQUE(account_id, folder_id)
       );
     `);
-    const database = require('../core/database.cjs');
-    originalGetDB = database.getDB;
-    database.getDB = () => memDb;
-    delete require.cache[require.resolve('../email/email-store.cjs')];
-    emailStore = require('../email/email-store.cjs');
+    emailStore = loadCjsModule(require.resolve('../email/email-store.cjs'), {
+      '../core/database.cjs': { getDB: () => memDb },
+    });
   });
 
   after(() => {
-    const database = require('../core/database.cjs');
-    database.getDB = originalGetDB;
     memDb.close();
   });
 

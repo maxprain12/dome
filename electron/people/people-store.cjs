@@ -286,6 +286,7 @@ function upsertPerson({
 
   const existing = db().prepare('SELECT * FROM people WHERE id = ?').get(personId);
   if (existing) {
+    if (existing.project_id !== pid) throw new Error('Person does not belong to this project');
     const mergedProfile =
       profile != null && typeof profile === 'object'
         ? { ...parseJson(existing.profile_json, {}), ...profile }
@@ -408,6 +409,7 @@ function addInteraction({
   const person = db().prepare('SELECT * FROM people WHERE id = ?').get(personId);
   if (!person) throw new Error('Person not found');
   const pid = normalizeProjectId(projectId ?? person.project_id);
+  if (pid !== person.project_id) throw new Error('Person does not belong to this project');
   const ts = now();
   const id = secureTimestampId('pint');
   db()
@@ -657,26 +659,25 @@ function upsertIdentityPerson({
     )
     .get(pid, source, ext);
 
-  if (existingIdent) {
-    const person = getPerson(existingIdent.person_id);
-    if (avatarUrl || displayName) {
-      upsertPerson({
-        id: person.id,
-        projectId: pid,
-        displayName: displayName || person.displayName,
-        avatarUrl: avatarUrl ?? undefined,
-        primaryEmail: primaryEmail ?? undefined,
-      });
-    }
-    linkIdentity({
-      personId: existingIdent.person_id,
+  let person = existingIdent ? getPerson(existingIdent.person_id) : null;
+  // Only an exact, unique email in this vault is sufficient evidence to reuse a contact.
+  if (!person && source === 'email') {
+    const matches = db().prepare(
+      'SELECT id FROM people WHERE project_id = ? AND LOWER(TRIM(primary_email)) = ? LIMIT 2',
+    ).all(pid, ext);
+    if (matches.length > 1) throw new Error('Multiple contacts have this email; link the identity explicitly');
+    if (matches.length === 1) person = getPerson(matches[0].id);
+  }
+  if (person) {
+    upsertPerson({
+      id: person.id,
       projectId: pid,
-      source,
-      externalId: ext,
-      displayLabel,
-      meta,
+      displayName: person.displayName === ext ? displayName || person.displayName : person.displayName,
+      avatarUrl: person.avatarUrl || avatarUrl,
+      primaryEmail: person.primaryEmail || primaryEmail || (source === 'email' ? ext : undefined),
     });
-    const updated = getPerson(existingIdent.person_id);
+    linkIdentity({ personId: person.id, projectId: pid, source, externalId: ext, displayLabel, meta });
+    const updated = getPerson(person.id);
     indexPersonInSearch(updated);
     return updated;
   }
@@ -685,7 +686,7 @@ function upsertIdentityPerson({
     String(displayName || displayLabel || externalId || '')
       .trim()
       .replace(/^@/, '') || ext;
-  const person = upsertPerson({
+  person = upsertPerson({
     projectId: pid,
     displayName: name,
     primaryEmail: primaryEmail ?? (source === 'email' ? ext : null),
@@ -704,15 +705,16 @@ function upsertIdentityPerson({
   return result;
 }
 
-function searchPeople(projectId, query, { limit = 20 } = {}) {
+function searchPeople(projectId, query, { limit = 20, leadStatus } = {}) {
   const pid = normalizeProjectId(projectId);
   const q = String(query || '')
     .trim()
     .replace(/^@/, '')
     .toLowerCase();
   if (!q) return [];
-  const cap = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  const cap = Math.min(Math.max(Number(limit) || 20, 1), 500);
   const like = `%${q.replace(/[%_]/g, '')}%`;
+  const status = normalizePersonStatus(leadStatus);
 
   const rows = db()
     .prepare(
@@ -720,6 +722,7 @@ function searchPeople(projectId, query, { limit = 20 } = {}) {
        FROM people p
        LEFT JOIN person_identities i ON i.person_id = p.id
        WHERE p.project_id = ?
+         AND (? IS NULL OR p.lead_status = ?)
          AND (
            LOWER(p.display_name) LIKE ?
            OR LOWER(IFNULL(p.primary_email, '')) LIKE ?
@@ -733,7 +736,7 @@ function searchPeople(projectId, query, { limit = 20 } = {}) {
          p.display_name COLLATE NOCASE
        LIMIT ?`,
     )
-    .all(pid, like, like, like, like, q, q, cap);
+    .all(pid, status, status, like, like, like, like, q, q, cap);
 
   return rows.map((row) => mapPerson(row, loadIdentities(row.id)));
 }

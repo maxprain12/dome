@@ -37,58 +37,70 @@ export function usePeopleHub({
     return () => clearTimeout(id);
   }, [query]);
 
+  const listRequest = useRef(0);
+  const selectionRequest = useRef(0);
+  const selectedIdRef = useRef<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      listRequest.current += 1;
+      selectionRequest.current += 1;
+    };
+  }, []);
+
   const loadList = useCallback(async () => {
-    if (!window.electron?.people) return;
+    if (!mounted.current) return;
+    const request = ++listRequest.current;
     setListLoading(true);
     try {
-      if (debouncedQuery) {
-        const res = await window.electron.people.search({ projectId, query: debouncedQuery, limit: 200 });
-        if (!res.success) {
-          showToast('error', res.error || errorLabel);
-          return;
-        }
-        const rows = res.data?.people ?? [];
-        setPeople(filter === 'all' ? rows : rows.filter((p) => p.leadStatus === filter));
-        return;
-      }
-      const res = await window.electron.people.list({
-        projectId,
-        leadStatus: filter === 'all' ? undefined : filter,
-        limit: 200,
-      });
-      if (!res.success) {
-        showToast('error', res.error || errorLabel);
-        return;
-      }
+      const options = { projectId, leadStatus: filter === 'all' ? undefined : filter, limit: 200 };
+      const res = debouncedQuery
+        ? await window.electron.people.search({ ...options, query: debouncedQuery })
+        : await window.electron.people.list(options);
+      if (request !== listRequest.current) return;
+      if (!res.success) throw new Error(res.error || errorLabel);
       setPeople(res.data?.people ?? []);
+    } catch (err) {
+      if (request !== listRequest.current) return;
+      setPeople([]);
+      showToast('error', err instanceof Error ? err.message : errorLabel);
     } finally {
-      setListLoading(false);
+      if (request === listRequest.current) setListLoading(false);
     }
   }, [projectId, filter, debouncedQuery, errorLabel]);
 
   useEffect(() => {
     void loadList();
+    return () => { listRequest.current += 1; };
   }, [loadList]);
 
   const selectPerson = useCallback(async (id: string) => {
+    if (!mounted.current) return;
+    const request = ++selectionRequest.current;
+    selectedIdRef.current = id;
     setSelectedId(id);
+    setSelectedPerson(null);
     setDetailLoading(true);
     try {
       const res = await window.electron.people.get({ id, includeInteractions: true });
-      if (!res.success || !res.data?.person) {
-        showToast('error', res.error || errorLabel);
-        setSelectedPerson(null);
-        return;
-      }
+      if (request !== selectionRequest.current) return;
+      if (!res.success || !res.data?.person) throw new Error(res.error || errorLabel);
       setSelectedPerson(res.data.person);
+    } catch (err) {
+      if (request === selectionRequest.current) showToast('error', err instanceof Error ? err.message : errorLabel);
     } finally {
-      setDetailLoading(false);
+      if (request === selectionRequest.current) setDetailLoading(false);
     }
   }, [errorLabel]);
 
   const clearSelection = useCallback(() => {
+    selectionRequest.current += 1;
+    selectedIdRef.current = null;
     setSelectedId(null);
     setSelectedPerson(null);
+    setDetailLoading(false);
   }, []);
 
   const saveProfile = useCallback(
@@ -100,6 +112,7 @@ export function usePeopleHub({
       primaryEmail?: string;
     }): Promise<boolean> => {
       if (!selectedId) return false;
+      const request = selectionRequest.current;
       setSaving(true);
       try {
         const res = await window.electron.people.updateProfile({ id: selectedId, ...patch });
@@ -107,9 +120,12 @@ export function usePeopleHub({
           showToast('error', res.error || saveErrorLabel);
           return false;
         }
-        setSelectedPerson(res.data.person as PersonDetail);
+        if (request === selectionRequest.current) setSelectedPerson(res.data.person as PersonDetail);
         void loadList();
         return true;
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : saveErrorLabel);
+        return false;
       } finally {
         setSaving(false);
       }
@@ -120,6 +136,7 @@ export function usePeopleHub({
   const addNote = useCallback(
     async (summary: string): Promise<boolean> => {
       if (!selectedId || !summary.trim()) return false;
+      const request = selectionRequest.current;
       setAddingNote(true);
       try {
         const res = await window.electron.people.addInteraction({
@@ -131,8 +148,11 @@ export function usePeopleHub({
           showToast('error', res.error || noteErrorLabel);
           return false;
         }
-        await selectPerson(selectedId);
+        if (request === selectionRequest.current) await selectPerson(selectedId);
         return true;
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : noteErrorLabel);
+        return false;
       } finally {
         setAddingNote(false);
       }
@@ -144,15 +164,18 @@ export function usePeopleHub({
     async (displayName: string): Promise<PersonSummary | null> => {
       const trimmed = displayName.trim();
       if (!trimmed) return null;
-      const res = await window.electron.people.upsert({ projectId, displayName: trimmed });
-      if (!res.success || !res.data?.person) {
-        showToast('error', res.error || saveErrorLabel);
+      const request = selectionRequest.current;
+      try {
+        const res = await window.electron.people.upsert({ projectId, displayName: trimmed });
+        if (!res.success || !res.data?.person) throw new Error(res.error || saveErrorLabel);
+        await loadList();
+        const person = res.data.person as PersonSummary;
+        if (request === selectionRequest.current) await selectPerson(person.id);
+        return person;
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : saveErrorLabel);
         return null;
       }
-      await loadList();
-      const person = res.data.person as PersonSummary;
-      await selectPerson(person.id);
-      return person;
     },
     [projectId, saveErrorLabel, loadList, selectPerson],
   );
@@ -164,6 +187,7 @@ export function usePeopleHub({
     async (personId?: string | null): Promise<boolean> => {
       const id = personId || selectedId;
       if (!id) return false;
+      const request = selectionRequest.current;
       setEnriching(true);
       try {
         const res = await window.electron.people.enrich({ personId: id });
@@ -171,10 +195,14 @@ export function usePeopleHub({
           showToast('error', res.error || enrichErrorLabel || errorLabel);
           return false;
         }
-        setSelectedPerson(res.data.person as PersonDetail);
-        setSelectedId(id);
+        if (request === selectionRequest.current && selectedIdRef.current === id) {
+          setSelectedPerson(res.data.person as PersonDetail);
+        }
         await loadList();
         return true;
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : enrichErrorLabel || errorLabel);
+        return false;
       } finally {
         setEnriching(false);
       }
@@ -195,16 +223,19 @@ export function usePeopleHub({
         }
         const raw = res.data?.deleted;
         const count = typeof raw === 'number' ? raw : raw ? unique.length : 0;
-        if (selectedId && unique.includes(selectedId)) {
+        if (mounted.current && selectedIdRef.current && unique.includes(selectedIdRef.current)) {
           clearSelection();
         }
         await loadList();
         return count;
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : deleteErrorLabel || errorLabel);
+        return 0;
       } finally {
         setDeleting(false);
       }
     },
-    [deleteErrorLabel, errorLabel, selectedId, clearSelection, loadList],
+    [deleteErrorLabel, errorLabel, clearSelection, loadList],
   );
 
   // Keep the latest selectPerson identity around so external "focus person" intents

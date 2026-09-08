@@ -204,7 +204,13 @@ function listAccounts(projectId = null) {
 }
 
 function resolveAccountId(accountId, projectId = null) {
-  if (accountId) return accountId;
+  if (accountId) {
+    const row = getAccountRow(accountId);
+    if (!row || (projectId && row.project_id !== projectId)) {
+      throw new Error('Email account does not belong to this project');
+    }
+    return row.id;
+  }
   const pid = projectId && String(projectId).trim() ? String(projectId).trim() : null;
   if (pid) {
     const def = db()
@@ -270,7 +276,7 @@ function removeAccount(accountId) {
   if (!row) return { success: false, error: 'Account not found' };
   db().prepare('DELETE FROM email_accounts WHERE id = ?').run(accountId);
   if (row.is_default) {
-    const next = db().prepare('SELECT id FROM email_accounts ORDER BY created_at ASC LIMIT 1').get();
+    const next = db().prepare('SELECT id FROM email_accounts WHERE project_id = ? ORDER BY created_at ASC LIMIT 1').get(row.project_id);
     if (next) db().prepare('UPDATE email_accounts SET is_default = 1 WHERE id = ?').run(next.id);
   }
   writeConfig();
@@ -295,7 +301,6 @@ function tomlAccountSection(row) {
     `[accounts.${row.id}]`,
     `email = "${row.email}"`,
     `display-name = "${(row.display_name || '').replace(/"/g, '\\"')}"`,
-    row.is_default ? 'default = true' : '',
     '',
     'backend.type = "imap"',
     `backend.host = "${row.imap_host}"`,
@@ -336,17 +341,13 @@ function writeConfig() {
  * @param {{ accountId?: string, input?: string }} [opts]
  */
 async function runHimalaya(args, opts = {}) {
+  if (!opts.accountId) throw new Error('Email account required');
+  const row = getAccountRow(opts.accountId);
+  if (!row) throw new Error('Account not found');
   const bin = await ensureHimalaya({ settingPath: getSettingPath() });
   writeConfig();
-
-  const env = { ...process.env };
-  if (opts.accountId) {
-    const row = getAccountRow(opts.accountId);
-    if (!row) throw new Error('Account not found');
-    env[PASSWORD_ENV] = decryptSecret(row.secret);
-  }
-
-  const fullArgs = ['-c', configPath(), ...args, '-o', 'json'];
+  const env = { ...process.env, [PASSWORD_ENV]: decryptSecret(row.secret) };
+  const fullArgs = ['-c', configPath(), ...args.slice(0, 2), '-a', opts.accountId, ...args.slice(2), '-o', 'json'];
   return new Promise((resolve, reject) => {
     const child = execFile(
       bin,
@@ -519,21 +520,14 @@ function parseHeaderBlock(text) {
   return headers;
 }
 
-async function readMessageHeaders(accountId, messageId, { folder = 'INBOX' } = {}) {
-  const emailStore = require('./email-store.cjs');
-  const resolved = emailStore.resolveMessageRef(messageId, { accountId, folder });
-  if (!resolved) {
-    throw new Error(`Unknown email message id: ${messageId}`);
-  }
-  const uid = resolved.uid;
-  const resolvedFolder = resolved.folder || folder;
+async function readMessageHeaders(accountId, uid, { folder = 'INBOX' } = {}) {
   const data = await runHimalaya(
     [
       'message',
       'read',
       String(uid),
       '-f',
-      resolvedFolder,
+      folder,
       '--preview',
       '-H',
       'From',
@@ -563,7 +557,7 @@ async function readMessage(accountId, messageId, { folder = 'INBOX', projectId =
   if (!resolved) {
     return { success: false, error: `Unknown email message id: ${messageId}` };
   }
-  id = resolved.accountId || id;
+  id = resolveAccountId(resolved.accountId || id, projectId);
   if (!id) return { success: false, error: 'No email account configured' };
 
   const uid = resolved.uid;
@@ -678,9 +672,14 @@ async function sendMessage(accountId, { to, cc, bcc, subject, body, projectId = 
 }
 
 async function replyMessage(accountId, messageId, { body, folder = 'INBOX', projectId = null } = {}) {
-  const id = resolveAccountId(accountId, projectId);
+  const emailStore = require('./email-store.cjs');
+  const rawId = String(messageId || '').trim();
+  const scopedId = accountId || (rawId.startsWith('emsg-') ? null : resolveAccountId(null, projectId));
+  const resolved = emailStore.resolveMessageRef(rawId, { accountId: scopedId, folder });
+  if (!resolved) return { success: false, error: `Unknown email message id: ${messageId}` };
+  const id = resolveAccountId(resolved.accountId || scopedId, projectId);
   if (!id) return { success: false, error: 'No email account configured' };
-  const headers = await readMessageHeaders(id, messageId, { folder });
+  const headers = await readMessageHeaders(id, resolved.uid, { folder: resolved.folder });
   const origFrom = headers.from;
   const origSubject = headers.subject || '';
   const origMessageId = headers['message-id'];
