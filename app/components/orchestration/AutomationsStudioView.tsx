@@ -109,6 +109,53 @@ function weekdayName(weekday: number): string {
   return d.toLocaleDateString(getDateTimeLocaleTag(), { weekday: 'long', timeZone: 'UTC' });
 }
 
+function buildAutomationSchedule(draft: DraftState) {
+  if (draft.triggerType === 'schedule') {
+    return {
+      cadence: draft.cadence,
+      hour: draft.cadence === 'cron-lite' ? 0 : draft.hour,
+      weekday: draft.cadence === 'weekly' ? draft.weekday : null,
+      intervalMinutes: draft.cadence === 'cron-lite' ? draft.intervalMinutes : undefined,
+    };
+  }
+  if (draft.triggerType === 'contextual') {
+    return {
+      contextTags: draft.contextTags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    };
+  }
+  return null;
+}
+
+function buildAutomationInputTemplate(draft: DraftState, isFeederTarget: boolean) {
+  if (isFeederTarget) return {};
+  return {
+    prompt: draft.prompt.trim(),
+    ...(draft.boundArtifactResourceId.trim()
+      ? {
+          boundArtifactResourceId: draft.boundArtifactResourceId.trim(),
+          artifactOutputSlot: (draft.artifactOutputSlot || 'default').trim(),
+        }
+      : {}),
+  };
+}
+
+function buildAutomationArtifactBindings(draft: DraftState, isFeederTarget: boolean) {
+  if (isFeederTarget) return [];
+  return draft.artifactBindings
+    .filter((b) => b.artifactResourceId.trim())
+    .map((b) => ({
+      id: b.id,
+      artifactResourceId: b.artifactResourceId.trim(),
+      slot: (b.slot || 'default').trim(),
+      updatePolicy: b.updatePolicy,
+      extractMode: b.extractMode,
+      enabled: b.enabled,
+    }));
+}
+
 /** Automations section — redesigned rules dashboard with inline enable toggle. */
 export default function AutomationsStudioView() {
   const { t } = useTranslation();
@@ -325,45 +372,9 @@ export default function AutomationsStudioView() {
         targetId: draft.targetId,
         triggerType: draft.triggerType,
         enabled: draft.enabled,
-        schedule:
-          draft.triggerType === 'schedule'
-            ? {
-                cadence: draft.cadence,
-                hour: draft.cadence === 'cron-lite' ? 0 : draft.hour,
-                weekday: draft.cadence === 'weekly' ? draft.weekday : null,
-                intervalMinutes: draft.cadence === 'cron-lite' ? draft.intervalMinutes : undefined,
-              }
-            : draft.triggerType === 'contextual'
-              ? {
-                  contextTags: draft.contextTags
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                }
-              : null,
-        inputTemplate: isFeederTarget
-          ? {}
-          : {
-              prompt: draft.prompt.trim(),
-              ...(draft.boundArtifactResourceId.trim()
-                ? {
-                    boundArtifactResourceId: draft.boundArtifactResourceId.trim(),
-                    artifactOutputSlot: (draft.artifactOutputSlot || 'default').trim(),
-                  }
-                : {}),
-            },
-        artifactBindings: isFeederTarget
-          ? []
-          : draft.artifactBindings
-              .filter((b) => b.artifactResourceId.trim())
-              .map((b) => ({
-                id: b.id,
-                artifactResourceId: b.artifactResourceId.trim(),
-                slot: (b.slot || 'default').trim(),
-                updatePolicy: b.updatePolicy,
-                extractMode: b.extractMode,
-                enabled: b.enabled,
-              })),
+        schedule: buildAutomationSchedule(draft),
+        inputTemplate: buildAutomationInputTemplate(draft, isFeederTarget),
+        artifactBindings: buildAutomationArtifactBindings(draft, isFeederTarget),
         outputMode: isFeederTarget ? 'chat_only' : draft.outputMode,
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
