@@ -1,8 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadCjsModule } from './helpers/load-cjs.mjs';
 
 const require = createRequire(import.meta.url);
 function fixture(listFolders) {
@@ -29,13 +28,8 @@ function fixture(listFolders) {
     '../core/window-manager.cjs': { broadcast: (channel, data) => events.push({ channel, data }) },
     '../search/source-index.cjs': { indexEmailMessages() {}, indexPeople: (pid) => indexedProjects.push(pid) },
   };
-  const filename = require.resolve('../email/email-sync-service.cjs');
-  const module = { exports: {} };
-  vm.runInThisContext(`(function(require,module,exports){${readFileSync(filename, 'utf8')}\n})`, { filename })(
-    (name) => { if (!(name in replacements)) throw new Error(`Unexpected dependency: ${name}`); return replacements[name]; },
-    module, module.exports,
-  );
-  return { service: module.exports, events, attempted, people, indexedProjects };
+  const service = loadCjsModule(require.resolve('../email/email-sync-service.cjs'), replacements);
+  return { service, events, attempted, people, indexedProjects };
 }
 it('continues after an account failure, updates partial data and always broadcasts syncing=false', async () => {
   const f = fixture((id) => { if (id === 'bad') throw new Error('IMAP unavailable'); return { success: true, folders: [{ name: 'INBOX' }] }; });

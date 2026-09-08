@@ -47,3 +47,8 @@ envíos reales. No se migran ni borran caches o duplicados históricos.
 Validación local completada: 29 pruebas de backend y 27 de renderer; typecheck,
 lint (avisos previos del repositorio), build, inventario IPC, Sonar global/diff y
 dependency-cruiser correctos.
+
+CI detectó que las suites antiguas de stores cargaban el bootstrap de Electron.
+Se aislaron las dependencias de DB/índice y se comprobó la suite de backend con la
+carga de Electron explícitamente prohibida. Las pruebas siguen ejecutando el
+código real de los stores sobre SQLite en memoria.

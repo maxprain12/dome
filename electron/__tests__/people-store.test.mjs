@@ -6,13 +6,13 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
+import { loadCjsModule } from './helpers/load-cjs.mjs';
 
 const require = createRequire(import.meta.url);
 
 describe('people-store', () => {
   let peopleStore;
   let memDb;
-  let originalGetDB;
 
   before(() => {
     memDb = new DatabaseSync(':memory:');
@@ -61,16 +61,14 @@ describe('people-store', () => {
       );
     `);
 
-    const database = require('../core/database.cjs');
-    originalGetDB = database.getDB;
-    database.getDB = () => memDb;
-    delete require.cache[require.resolve('../people/people-store.cjs')];
-    peopleStore = require('../people/people-store.cjs');
+    peopleStore = loadCjsModule(require.resolve('../people/people-store.cjs'), {
+      '../core/database.cjs': { getDB: () => memDb },
+      '../search/source-index.cjs': { upsertDocument() {}, removeDocument() {} },
+      '../storage/sync-tombstone.cjs': {},
+    });
   });
 
   after(() => {
-    const database = require('../core/database.cjs');
-    database.getDB = originalGetDB;
     memDb.close();
   });
 

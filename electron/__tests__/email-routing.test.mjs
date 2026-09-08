@@ -1,20 +1,10 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadCjsModule } from './helpers/load-cjs.mjs';
 import { DatabaseSync } from 'node:sqlite';
 
 const require = createRequire(import.meta.url);
-function loadService(replacements) {
-  const filename = require.resolve('../email/himalaya-service.cjs');
-  const localRequire = createRequire(filename);
-  const module = { exports: {} };
-  vm.runInThisContext(`(function(require,module,exports){${readFileSync(filename, 'utf8')}\n})`, { filename })(
-    (name) => replacements[name] ?? localRequire(name), module, module.exports,
-  );
-  return module.exports;
-}
 function fixture(t) {
   const db = new DatabaseSync(':memory:');
   t.after(() => db.close());
@@ -27,7 +17,7 @@ function fixture(t) {
   INSERT INTO email_accounts VALUES ('secondary','vault','secondary@example.com','Secondary',0,2,'secret-secondary');`);
   const commands = [];
   const writes = [];
-  const service = loadService({
+  const service = loadCjsModule(require.resolve('../email/himalaya-service.cjs'), {
     '../core/database.cjs': { getDB: () => db },
     '../core/secret-storage.cjs': { decryptSecret: (value) => value, maskSecret: () => '***' },
     './himalaya-binary.cjs': { ensureHimalaya: async () => 'himalaya-fixture' },
