@@ -26,6 +26,57 @@ const agentPendingInterrupts = new Map();
  */
 const sessionActiveStream = new Map();
 
+/** Send a stream chunk to the renderer if the sender is still alive. */
+function sendStreamChunk(event, payload) {
+  if (event.sender && !event.sender.isDestroyed()) {
+    event.sender.send('ai:stream:chunk', payload);
+  }
+}
+
+/** Build Ollama stream options from persisted settings. */
+function buildOllamaStreamOptions(queries, ollamaApiKey) {
+  const tempResult = queries.getSetting.get('ollama_temperature');
+  const topPResult = queries.getSetting.get('ollama_top_p');
+  const numPredictResult = queries.getSetting.get('ollama_num_predict');
+  return {
+    temperature: tempResult?.value ? parseFloat(tempResult.value) : 0.7,
+    top_p: topPResult?.value ? parseFloat(topPResult.value) : 0.9,
+    num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 4000,
+    think: true,
+    apiKey: ollamaApiKey || undefined,
+  };
+}
+
+/** Normalize a chat message for the Ollama API. */
+function toOllamaMessage(m) {
+  let role = 'user';
+  if (m.role === 'assistant') role = 'assistant';
+  else if (m.role === 'system') role = 'system';
+  return { role, content: m.content };
+}
+
+/** Handle the Ollama branch of ai:stream. */
+async function streamWithOllama({ event, database, ollamaService, messages, model, streamId }) {
+  try {
+    const queries = database.getQueries();
+    const baseUrl = queries.getSetting.get('ollama_base_url')?.value || ollamaService.DEFAULT_BASE_URL;
+    const chatModel = model || queries.getSetting.get('ollama_model')?.value || ollamaService.DEFAULT_MODEL;
+    const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
+    const opts = buildOllamaStreamOptions(queries, ollamaApiKey);
+    const ollamaMessages = messages.map(toOllamaMessage);
+    const onChunk = (data) => sendStreamChunk(event, { streamId, ...data });
+
+    await ollamaService.chatStream(ollamaMessages, chatModel, baseUrl, onChunk, opts);
+
+    sendStreamChunk(event, { streamId, type: 'done' });
+    return { success: true };
+  } catch (err) {
+    console.error('[AI] Ollama stream error:', err);
+    sendStreamChunk(event, { streamId, type: 'error', error: err.message });
+    return { success: false, error: err.message };
+  }
+}
+
 function register({ ipcMain, windowManager, database, ollamaService }) {
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
@@ -93,8 +144,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     }
 
     try {
-      const { provider, messages, streamId } = params;
-      let { model } = params;
+      const { provider, messages, streamId, model } = params;
 
       assertChatProvider(provider);
       if (!Array.isArray(messages) || messages.length === 0) {
@@ -105,47 +155,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       }
 
       if (provider === 'ollama') {
-        try {
-          const queries = database.getQueries();
-          const baseUrl = queries.getSetting.get('ollama_base_url')?.value || ollamaService.DEFAULT_BASE_URL;
-          const chatModel = model || queries.getSetting.get('ollama_model')?.value || ollamaService.DEFAULT_MODEL;
-          const tempResult = queries.getSetting.get('ollama_temperature');
-          const topPResult = queries.getSetting.get('ollama_top_p');
-          const numPredictResult = queries.getSetting.get('ollama_num_predict');
-          const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
-
-          const ollamaMessages = messages.map((m) => ({
-            role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
-            content: m.content,
-          }));
-
-          const onChunk = (data) => {
-            if (event.sender && !event.sender.isDestroyed()) {
-              event.sender.send('ai:stream:chunk', { streamId, ...data });
-            }
-          };
-
-          const opts = {
-            temperature: tempResult?.value ? parseFloat(tempResult.value) : 0.7,
-            top_p: topPResult?.value ? parseFloat(topPResult.value) : 0.9,
-            num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 4000,
-            think: true,
-            apiKey: ollamaApiKey || undefined,
-          };
-
-          await ollamaService.chatStream(ollamaMessages, chatModel, baseUrl, onChunk, opts);
-
-          if (event.sender && !event.sender.isDestroyed()) {
-            event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
-          }
-          return { success: true };
-        } catch (err) {
-          console.error('[AI] Ollama stream error:', err);
-          if (event.sender && !event.sender.isDestroyed()) {
-            event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: err.message });
-          }
-          return { success: false, error: err.message };
-        }
+        return await streamWithOllama({ event, database, ollamaService, messages, model, streamId });
       }
 
       const providerConfig = await resolveProviderConfig(database, provider, model);
@@ -155,12 +165,10 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${streamModel}, StreamId: ${streamId}`);
 
       const onChunk = (data) => {
-        if (event.sender && !event.sender.isDestroyed()) {
-          if (typeof data === 'string') {
-            event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: data });
-          } else if (data && typeof data === 'object') {
-            event.sender.send('ai:stream:chunk', { streamId, ...data });
-          }
+        if (typeof data === 'string') {
+          sendStreamChunk(event, { streamId, type: 'text', text: data });
+        } else if (data && typeof data === 'object') {
+          sendStreamChunk(event, { streamId, ...data });
         }
       };
 
@@ -175,16 +183,12 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const content =
         typeof fullResponse === 'object' && fullResponse?.text != null ? fullResponse.text : fullResponse;
 
-      if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'done', usage: fullResponse?.usage ?? null });
-      }
+      sendStreamChunk(event, { streamId, type: 'done', usage: fullResponse?.usage ?? null });
 
       return { success: true, content, usage: fullResponse?.usage ?? null };
     } catch (error) {
       console.error('[AI Cloud] Stream error:', error);
-      if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error.message });
-      }
+      sendStreamChunk(event, { streamId: params.streamId, type: 'error', error: error.message });
       return { success: false, error: error.message };
     }
   });

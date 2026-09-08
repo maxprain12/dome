@@ -1,24 +1,24 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-07T10:43:22.067Z
+> Última generación: 2026-09-08T11:30:24.960Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
-| `ai:agent:abort` | `electron/ipc/ai/ai.cjs:333` |
-| `ai:agent:resume` | `electron/ipc/ai/ai.cjs:347` |
-| `ai:agent:stream` | `electron/ipc/ai/ai.cjs:196` |
-| `ai:chat` | `electron/ipc/ai/ai.cjs:34` |
-| `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:607` |
-| `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:547` |
-| `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:564` |
-| `ai:stream` | `electron/ipc/ai/ai.cjs:86` |
+| `ai:agent:abort` | `electron/ipc/ai/ai.cjs:337` |
+| `ai:agent:resume` | `electron/ipc/ai/ai.cjs:351` |
+| `ai:agent:stream` | `electron/ipc/ai/ai.cjs:200` |
+| `ai:chat` | `electron/ipc/ai/ai.cjs:85` |
+| `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:611` |
+| `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:551` |
+| `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:568` |
+| `ai:stream` | `electron/ipc/ai/ai.cjs:137` |
 | `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:293` |
 | `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:184` |
-| `ai:testConnection` | `electron/ipc/ai/ai.cjs:426` |
-| `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:639` |
+| `ai:testConnection` | `electron/ipc/ai/ai.cjs:430` |
+| `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:643` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai/ai-tools.cjs:853` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai/ai-tools.cjs:879` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai/ai-tools.cjs:840` |
@@ -71,7 +71,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai/ai.cjs:654` |
+| `ai:webSearch` | `electron/ipc/ai/ai.cjs:658` |
 | `approval:respond` | `electron/ipc/agents/approval.cjs:49` |
 | `artifact:buildDesign` | `electron/ipc/agents/artifacts.cjs:129` |
 | `artifact:create` | `electron/ipc/agents/artifacts.cjs:48` |
