@@ -18,6 +18,16 @@ interface TitleBarProps {
   settingsMode?: boolean;
 }
 
+function detectPlatform(): { isMac: boolean; needsRightInset: boolean } {
+  if (typeof window === 'undefined' || !window.electron) {
+    return { isMac: false, needsRightInset: false };
+  }
+  const isMac = Boolean(window.electron.isMac);
+  const isWindows = Boolean(window.electron.isWindows);
+  const isLinux = Boolean(window.electron.isLinux);
+  return { isMac, needsRightInset: isWindows || isLinux };
+}
+
 /**
  * Window titlebar. The left rail cell uses `--chrome-rail-width` (same as the
  * sidebar) so the vertical hairline is one column. Traffic-light inset lives
@@ -33,11 +43,7 @@ export default function TitleBar({
 }: TitleBarProps) {
   const { t } = useTranslation();
 
-  const isElectron = typeof window !== 'undefined' && Boolean(window.electron);
-  const isMac = isElectron && Boolean(window.electron!.isMac);
-  const isWindows = isElectron && Boolean(window.electron!.isWindows);
-  const isLinux = isElectron && Boolean(window.electron!.isLinux);
-  const needsRightInset = isWindows || isLinux;
+  const { isMac, needsRightInset } = detectPlatform();
 
   return (
     <header
