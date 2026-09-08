@@ -43,6 +43,73 @@ function taskLabelFromArgs(args: Record<string, unknown> | undefined, t: ToolLab
   return null;
 }
 
+function trySkillReadLoadDoc(
+  canonical: string,
+  args: Record<string, unknown> | undefined,
+  t: ToolLabelT,
+  streaming: boolean,
+): string | null {
+  if (canonical !== 'skill_read') return null;
+  if (!skillReadAsLoadDoc(args)) return null;
+  return lookupI18nToolLabel('dome_load_doc', t, streaming);
+}
+
+function tryTaskLabel(
+  canonical: string,
+  raw: string,
+  args: Record<string, unknown> | undefined,
+  t: ToolLabelT,
+  streaming: boolean,
+): string | null {
+  if (canonical !== 'task' && raw !== 'task') return null;
+  return taskLabelFromArgs(args, t, streaming);
+}
+
+function trySubagentLabel(
+  canonical: string,
+  args: Record<string, unknown> | undefined,
+  t: ToolLabelT,
+  streaming: boolean,
+): string | null {
+  if (canonical !== 'delegate_to_agent') return null;
+  const agent = subagentTypeFromDelegateArgs(args);
+  if (!agent) return null;
+  const key = `chat.tool_delegate_${agent}`;
+  const tr = t(key);
+  if (tr === key) return null;
+  return streaming ? tr : stripStreamingEllipsis(tr);
+}
+
+function tryLegacyKey(
+  raw: string,
+  norm: string,
+  t: ToolLabelT,
+  streaming: boolean,
+): string | null {
+  const legacyNorm = normalizeToolId(raw);
+  if (legacyNorm === norm) return null;
+  return lookupI18nToolLabel(legacyNorm, t, streaming);
+}
+
+function tryFallbackDict(canonical: string, norm: string): string | undefined {
+  return TOOL_LABELS_FALLBACK[canonical] ?? TOOL_LABELS_FALLBACK[norm];
+}
+
+function tryHeuristicLabel(norm: string, t: ToolLabelT): string | null {
+  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query')) {
+    return t('chat.tool_sql_generic', { defaultValue: 'Consulta SQL' });
+  }
+  if (norm.includes('mcp') || norm.startsWith('mcp_')) {
+    return t('chat.tool_mcp_generic', { defaultValue: 'Herramienta MCP' });
+  }
+  return null;
+}
+
+function humanizeLabel(canonical: string, raw: string): string {
+  const humanized = canonical.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return humanized || raw;
+}
+
 const DOME_LOAD_DOC_PATH_IDS = new Set([
   'entity_rules',
   'artifacts',
@@ -79,48 +146,31 @@ export function getToolDisplayLabel(
   const canonical = canonicalToolName(raw);
   const norm = normalizeToolId(canonical);
   const streaming = opts?.streaming === true;
+  const args = opts?.arguments;
 
-  if (canonical === 'skill_read' && skillReadAsLoadDoc(opts?.arguments)) {
-    const docLabel = lookupI18nToolLabel('dome_load_doc', t, streaming);
-    if (docLabel) return docLabel;
-  }
+  const skillDocLabel = trySkillReadLoadDoc(canonical, args, t, streaming);
+  if (skillDocLabel) return skillDocLabel;
 
-  if (canonical === 'task' || raw === 'task') {
-    const taskLabel = taskLabelFromArgs(opts?.arguments, t, streaming);
-    if (taskLabel) return taskLabel;
-  }
+  const taskLabel = tryTaskLabel(canonical, raw, args, t, streaming);
+  if (taskLabel) return taskLabel;
 
-  if (canonical === 'delegate_to_agent') {
-    const agent = subagentTypeFromDelegateArgs(opts?.arguments);
-    if (agent) {
-      const key = `chat.tool_delegate_${agent}`;
-      const tr = t(key);
-      if (tr !== key) return streaming ? tr : stripStreamingEllipsis(tr);
-    }
-  }
+  const subagentLabel = trySubagentLabel(canonical, args, t, streaming);
+  if (subagentLabel) return subagentLabel;
 
   const i18n = lookupI18nToolLabel(norm, t, streaming);
   if (i18n) return i18n;
 
   // Legacy keys (write_file, read_file, …)
-  const legacyNorm = normalizeToolId(raw);
-  if (legacyNorm !== norm) {
-    const legacy = lookupI18nToolLabel(legacyNorm, t, streaming);
-    if (legacy) return legacy;
-  }
+  const legacy = tryLegacyKey(raw, norm, t, streaming);
+  if (legacy) return legacy;
 
-  if (TOOL_LABELS_FALLBACK[canonical]) return TOOL_LABELS_FALLBACK[canonical]!;
-  if (TOOL_LABELS_FALLBACK[norm]) return TOOL_LABELS_FALLBACK[norm]!;
+  const fallback = tryFallbackDict(canonical, norm);
+  if (fallback) return fallback;
 
-  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query')) {
-    return t('chat.tool_sql_generic', { defaultValue: 'Consulta SQL' });
-  }
-  if (norm.includes('mcp') || norm.startsWith('mcp_')) {
-    return t('chat.tool_mcp_generic', { defaultValue: 'Herramienta MCP' });
-  }
+  const heuristic = tryHeuristicLabel(norm, t);
+  if (heuristic) return heuristic;
 
-  const humanized = canonical.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  return humanized || raw;
+  return humanizeLabel(canonical, raw);
 }
 
 export function getToolDisplayLabelForCall(
