@@ -66,7 +66,7 @@ function register({ ipcMain, windowManager }) {
     const limit = payload?.limit;
     if (typeof query !== 'string') return fail('Invalid query');
     try {
-      return ok({ people: peopleStore.searchPeople(projectId, query, { limit }) });
+      return ok({ people: peopleStore.searchPeople(projectId, query, { limit, leadStatus: payload?.leadStatus }) });
     } catch (err) {
       return fail(err);
     }

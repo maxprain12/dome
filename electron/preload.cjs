@@ -1091,7 +1091,7 @@ const electronHandler = {
   // EMAIL API (himalaya)
   // ============================================
   email: {
-    listAccounts: () => ipcRenderer.invoke('email:listAccounts'),
+    listAccounts: (params) => ipcRenderer.invoke('email:listAccounts', params),
     addAccount: (input) => ipcRenderer.invoke('email:addAccount', input),
     removeAccount: (accountId) => ipcRenderer.invoke('email:removeAccount', accountId),
     updateAccountPermissions: (input) => ipcRenderer.invoke('email:updateAccountPermissions', input),

@@ -595,13 +595,15 @@ declare global {
         >;
         onSyncStatus: (
           callback: (data: {
+            projectId?: string | null;
+            accountId?: string | null;
             status?: string;
             syncing?: boolean;
             lastSync?: number | null;
             error?: string | null;
           }) => void,
         ) => () => void;
-        onDataUpdated: (callback: (data?: { local?: boolean }) => void) => () => void;
+        onDataUpdated: (callback: (data?: { local?: boolean; projectId?: string | null; accountId?: string | null }) => void) => () => void;
       };
 
       // Calendar API
@@ -910,6 +912,7 @@ declare global {
           projectId?: string;
           query: string;
           limit?: number;
+          leadStatus?: string;
         }) => Promise<{
           success: boolean;
           data?: {

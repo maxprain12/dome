@@ -111,6 +111,9 @@ jobs:
         # --ignore-scripts, so the workspace packages are never built otherwise
         run: pnpm run build:packages
 
+      - name: Contacts and mail regression tests
+        run: pnpm run test:contacts-mail
+
       - name: Agent-core unit tests
         run: pnpm --filter @dome/agent-core run test
 

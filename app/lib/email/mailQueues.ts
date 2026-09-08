@@ -15,6 +15,7 @@ export interface MailEnvelope {
   date?: string;
   flags?: string[];
   accountId?: string;
+  folder?: string;
 }
 
 export type MailQueueId = 'needs_reply' | 'from_network' | 'waiting' | 'rest';

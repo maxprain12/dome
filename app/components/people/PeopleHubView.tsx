@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Delete02Icon, PlusSignIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
@@ -26,8 +26,12 @@ import { useCustomPersonStatuses } from './useCustomPersonStatuses';
 import { usePeopleHub } from './usePeopleHub';
 
 export default function PeopleHubView() {
-  const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  return <PeopleWorkspace key={projectId} projectId={projectId} />;
+}
+
+function PeopleWorkspace({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
   const { openPipelinesTab, openCalendarTab } = useTabStore();
 
   const {
@@ -131,10 +135,9 @@ export default function PeopleHubView() {
 
   // Consume a pending "focus person" intent (e.g. from the command palette) once the
   // hub mounts, and keep listening while it stays open.
-  const selectPersonRefLatest = useRef(selectPersonRef.current);
-  selectPersonRefLatest.current = selectPersonRef.current;
   useEffect(() => {
-    const applyFocus = (personId: string) => { selectPersonRefLatest.current(personId);
+    const applyFocus = (personId: string) => {
+      void selectPersonRef.current(personId);
     };
     const pending = useOpenIntentStore.getState().consume('person');
     if (pending) applyFocus(pending.personId);
@@ -144,7 +147,7 @@ export default function PeopleHubView() {
       useOpenIntentStore.getState().consume('person');
       applyFocus(detail.personId);
     });
-  }, []);
+  }, [selectPersonRef]);
 
   return (
     <HubSectionShell

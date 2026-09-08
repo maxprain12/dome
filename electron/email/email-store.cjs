@@ -303,6 +303,7 @@ function normalizeEnvelope(env, ctx = {}) {
     message_id: fields.messageId,
     ...(dbId ? { dbId } : {}),
     ...(accountId ? { accountId } : {}),
+    ...(folderRemote ? { folder: folderRemote } : {}),
   };
 }
 
@@ -319,7 +320,7 @@ function listCachedEnvelopes(accountId, folderRemoteName, { limit = 200, offset 
        LIMIT ? OFFSET ?`,
     )
     .all(accountId, folder.id, cap, off);
-  return rows.map(mapMessageRow);
+  return rows.map((row) => ({ ...mapMessageRow(row), folder: folderRemoteName }));
 }
 
 function getCachedMessage(accountId, uid, folderRemoteName) {

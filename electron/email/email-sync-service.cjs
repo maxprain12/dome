@@ -53,8 +53,9 @@ function resolvePeopleProjectId(accountId, projectId) {
   return accountRow?.project_id || projectId || 'default';
 }
 
-function seedPeopleFromEnvelope(peopleStore, peopleProjectId, env) {
+function seedPeopleFromEnvelope(peopleStore, peopleProjectId, env, selfEmails) {
   for (const addr of emailStore.extractAddressesFromEnvelope(env)) {
+    if (selfEmails.has(addr.email.trim().toLowerCase())) continue;
     try {
       peopleStore.upsertIdentityPerson({
         projectId: peopleProjectId,
@@ -94,7 +95,7 @@ async function syncEnvelopePage(accountId, folderRow, folderName, page, opts) {
   for (const env of envelopes) {
     const id = emailStore.upsertEnvelope(accountId, folderRow.id, env);
     if (id) upserted += 1;
-    seedPeopleFromEnvelope(peopleStore, peopleProjectId, env);
+    seedPeopleFromEnvelope(peopleStore, peopleProjectId, env, opts.selfEmails);
   }
 
   return { upserted, done: envelopes.length < pageSize };
@@ -155,12 +156,16 @@ async function syncAccount(accountId, { projectId = null, maxPages = 50, pageSiz
 
   const targets = pickTargetFolders(remoteFolders);
 
+  const peopleProjectId = resolvePeopleProjectId(accountId, projectId);
+  const selfEmails = new Set((himalaya.listAccounts(peopleProjectId)?.accounts || [])
+    .map((account) => String(account.email || '').trim().toLowerCase()).filter(Boolean));
   const opts = {
     projectId,
     maxPages,
     pageSize,
     peopleStore: require('../people/people-store.cjs'),
-    peopleProjectId: resolvePeopleProjectId(accountId, projectId),
+    peopleProjectId,
+    selfEmails,
   };
 
   let upserted = 0;
@@ -171,52 +176,57 @@ async function syncAccount(accountId, { projectId = null, maxPages = 50, pageSiz
   return { upserted, accountId };
 }
 
-async function syncNow({ accountId = null, projectId = null } = {}) {
-  if (_syncing) return { success: false, error: 'Sync already running', ...getStatus() };
-  _syncing = true;
-  _lastStatus = { status: 'syncing', lastSync: _lastStatus.lastSync, error: null };
-  broadcast('email:sync:status', getStatus());
-
+function refreshIndexes(accounts) {
   try {
-    // listAccounts() returns `{ success, accounts }` — not a bare array.
+    const sourceIndex = require('../search/source-index.cjs');
+    for (const account of accounts) sourceIndex.indexEmailMessages(account.id);
+    for (const pid of new Set(accounts.map((account) => account.project_id || 'default'))) {
+      sourceIndex.indexPeople(pid);
+    }
+  } catch (err) {
+    console.warn('[email-sync] source index failed:', err.message);
+  }
+}
+
+async function syncNow({ accountId = null, projectId = null } = {}) {
+  if (_syncing) return { ...getStatus(), success: false, error: 'Sync already running' };
+  _syncing = true;
+  const lastSync = _lastStatus.accountId === accountId && _lastStatus.projectId === projectId ? _lastStatus.lastSync : null;
+  _lastStatus = { status: 'syncing', lastSync, error: null, accountId, projectId };
+  broadcast('email:sync:status', getStatus());
+  let total = 0;
+  const attempted = [];
+  const errors = [];
+  try {
     const listed = himalaya.listAccounts(projectId);
+    if (listed?.success === false) throw new Error(listed.error || 'Could not list email accounts');
     const accounts = Array.isArray(listed) ? listed : listed?.accounts || [];
-    const targets = accountId
-      ? accounts.filter((a) => a.id === accountId)
-      : accounts.filter((a) => a.status !== 'error');
-
-    if (targets.length === 0) {
-      throw new Error('No email account configured');
-    }
-
-    let total = 0;
+    const targets = accountId ? accounts.filter((a) => a.id === accountId) : accounts;
+    if (targets.length === 0) throw new Error('No email account configured');
     for (const acc of targets) {
-      const result = await syncAccount(acc.id, { projectId: projectId || acc.project_id });
-      total += result.upserted;
-    }
-
-    _lastStatus = { status: 'idle', lastSync: Date.now(), error: null };
-    broadcast('email:sync:status', getStatus());
-    broadcast('email:data:updated', { upserted: total });
-
-    try {
-      const sourceIndex = require('../search/source-index.cjs');
-      for (const acc of targets) {
-        sourceIndex.indexEmailMessages(acc.id);
+      attempted.push(acc);
+      try {
+        const result = await syncAccount(acc.id, { projectId: acc.project_id || projectId });
+        total += result.upserted;
+      } catch (err) {
+        errors.push(`${acc.email || acc.id}: ${err.message}`);
       }
-      sourceIndex.indexPeople(projectId || 'default');
-    } catch (err) {
-      console.warn('[email-sync] source index failed:', err.message);
     }
-
+    if (errors.length > 0) throw new Error(errors.join('; '));
+    _lastStatus = { ..._lastStatus, status: 'idle', lastSync: Date.now(), error: null };
     return { success: true, upserted: total };
   } catch (err) {
     console.error('[email-sync] syncNow failed:', err.message);
-    _lastStatus = { status: 'error', lastSync: _lastStatus.lastSync, error: err.message };
-    broadcast('email:sync:status', getStatus());
-    return { success: false, error: err.message };
+    _lastStatus = { ..._lastStatus, status: 'error', error: err.message };
+    return { success: false, upserted: total, error: err.message };
   } finally {
     _syncing = false;
+    broadcast('email:sync:status', getStatus());
+    // Even a failed account can have persisted earlier pages or folders.
+    if (attempted.length > 0) {
+      broadcast('email:data:updated', { upserted: total, projectId, accountId });
+      refreshIndexes(attempted);
+    }
   }
 }
 

@@ -47,7 +47,7 @@ import {
 import { looksLikeOpaqueId } from '@/lib/social/socialQueues';
 import { invokeWithTimeout } from '@/lib/utils/ipcTimeout';
 import { cn } from '@/lib/utils';
-import type { EmailErrorInfo } from '@/components/email/EmailErrorNotice';
+import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import { MailDashboard } from '@/components/email/MailDashboard';
 import { MailDetailPanel } from '@/components/email/MailDetailPanel';
 import { MailComposePanel } from '@/components/email/MailComposePanel';
@@ -206,6 +206,7 @@ type EmailFolderPickerProps = {
   folderOptions: EmailFolderRow[];
   currentFolder: EmailFolderRow | undefined;
   onSelectFolder: (name: string) => void;
+  disabled?: boolean;
 };
 
 /** Folder command menu in the mail toolbar — extracted for S3776. */
@@ -215,6 +216,7 @@ function EmailFolderPicker({
   folderOptions,
   currentFolder,
   onSelectFolder,
+  disabled,
 }: EmailFolderPickerProps) {
   const { t } = useTranslation();
   const CurrentFolderIcon = currentFolder ? folderIcon(currentFolder.name) : Folder01Icon;
@@ -229,6 +231,7 @@ function EmailFolderPicker({
             size="sm"
             className="min-w-0 max-w-[10rem] justify-between gap-1.5 @[48rem]/email:max-w-xs"
             aria-label={t('email.folders.openMenu')}
+            disabled={disabled}
           />
         }
       >
@@ -269,21 +272,23 @@ type EmailAccountPickerProps = {
   accounts: EmailAccountOption[];
   activeAccountId: string | null;
   onSelectAccount: (id: string) => void;
+  disabled?: boolean;
 };
 
 /** Visible only when the project has more than one mailbox. */
-function EmailAccountPicker({ accounts, activeAccountId, onSelectAccount }: EmailAccountPickerProps) {
+function EmailAccountPicker({ accounts, activeAccountId, onSelectAccount, disabled }: EmailAccountPickerProps) {
   const { t } = useTranslation();
   if (accounts.length <= 1) return null;
   const unknown = t('email.unknown_account');
   const selected = accounts.find((a) => a.id === activeAccountId) ?? accounts[0];
   const items = accounts.map((a) => ({
     value: a.id,
-    label: emailAccountLabel(a, unknown),
+    label: a.email || emailAccountLabel(a, unknown),
   }));
 
   return (
     <Select
+      disabled={disabled}
       value={selected?.id ?? null}
       onValueChange={(next) => {
         if (next) onSelectAccount(next);
@@ -296,13 +301,13 @@ function EmailAccountPicker({ accounts, activeAccountId, onSelectAccount }: Emai
         aria-label={t('email.account_label')}
       >
         <SelectValue>
-          {selected ? emailAccountLabel(selected, unknown) : t('email.account_label')}
+          {selected ? selected.email || emailAccountLabel(selected, unknown) : t('email.account_label')}
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {accounts.map((a) => (
           <SelectItem key={a.id} value={a.id}>
-            {emailAccountLabel(a, unknown)}
+            {a.email || emailAccountLabel(a, unknown)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -320,6 +325,8 @@ type EmailDetailSidePanelProps = {
   folder: string;
   message: unknown;
   projectId: string;
+  accountId: string;
+  accountLabel: string;
   onCloseCompose: () => void;
   onCloseDetail: () => void;
   onReply: () => void;
@@ -336,6 +343,8 @@ function EmailDetailSidePanel({
   folder,
   message,
   projectId,
+  accountId,
+  accountLabel,
   onCloseCompose,
   onCloseDetail,
   onReply,
@@ -359,6 +368,8 @@ function EmailDetailSidePanel({
           replyTo={composing.replyTo}
           folder={folder}
           projectId={projectId}
+          accountId={accountId}
+          accountLabel={accountLabel}
           onClose={onCloseCompose}
           onSent={onSent}
         />
@@ -379,10 +390,15 @@ function EmailDetailSidePanel({
 }
 
 export default function EmailView() {
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  return <EmailWorkspace key={projectId} projectId={projectId} />;
+}
+
+function EmailWorkspace({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const openSettingsTab = useTabStore((s) => s.openSettingsTab);
-  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
+  const [accountLoadVersion, setAccountLoadVersion] = useState(0);
   const [hasAccount, setHasAccount] = useState<boolean | null>(null);
   const [accounts, setAccounts] = useState<EmailAccountOption[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
@@ -398,6 +414,7 @@ export default function EmailView() {
   const [composing, setComposing] = useState<EmailComposeState | null>(null);
   const [error, setError] = useState<EmailErrorInfo | null>(null);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [focusIntent, setFocusIntent] = useState<EmailFocusIntent | null>(null);
   const [filter, setFilter] = useState<MailFilter>('all');
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
@@ -406,10 +423,21 @@ export default function EmailView() {
   const [selfEmails, setSelfEmails] = useState<Set<string>>(() => new Set());
   /** True after a remote search merged into inbox — clear restores folder list. */
   const searchMergedRef = useRef(false);
-  /** Skip folder/sent effects once after bootstrap already fetched. */
-  const skipFolderRefreshRef = useRef(false);
-  const skipSentRefreshRef = useRef(false);
+  const [foldersAccountId, setFoldersAccountId] = useState<string | null>(null);
+  const contextKey = `${activeAccountId}/${folder}`;
+  const contextRef = useRef(contextKey);
+  contextRef.current = contextKey;
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const inboxRequest = useRef(0);
+  const sentRequest = useRef(0);
   const openMessageSeqRef = useRef(0);
+  useEffect(() => () => {
+    inboxRequest.current += 1;
+    sentRequest.current += 1;
+    openMessageSeqRef.current += 1;
+    contextRef.current = '';
+  }, []);
 
   const loadPeople = useCallback(async () => {
     try {
@@ -423,6 +451,9 @@ export default function EmailView() {
   }, [projectId]);
 
   const refreshInbox = useCallback(async () => {
+    if (!activeAccountId || foldersAccountId !== activeAccountId || contextRef.current !== contextKey) return;
+    const request = ++inboxRequest.current;
+    const current = () => request === inboxRequest.current && contextRef.current === contextKey;
     setLoading(true);
     setError(null);
     try {
@@ -432,15 +463,21 @@ export default function EmailView() {
         pageSize: LIST_PAGE_SIZE,
         ...accountScope(activeAccountId),
       });
+      if (!current()) return;
       if (res.success) setInbox((res.envelopes as MailEnvelope[]) || []);
       else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
+    } catch (err) {
+      if (current()) setError({ error: err instanceof Error ? err.message : String(err) });
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [activeAccountId, folder, projectId]);
+  }, [activeAccountId, folder, projectId, foldersAccountId, contextKey]);
 
   const refreshSent = useCallback(
     async (folderList: EmailFolderRow[]) => {
+      if (!activeAccountId || foldersAccountId !== activeAccountId || contextRef.current !== contextKey) return;
+      const request = ++sentRequest.current;
+      const current = () => request === sentRequest.current && contextRef.current === contextKey;
       const sentName = findSentFolder(folderList);
       if (!sentName) {
         setSent([]);
@@ -453,12 +490,13 @@ export default function EmailView() {
           pageSize: LIST_PAGE_SIZE,
           ...accountScope(activeAccountId),
         });
+        if (!current()) return;
         if (res.success) setSent((res.envelopes as MailEnvelope[]) || []);
       } catch {
-        setSent([]);
+        if (current()) setSent([]);
       }
     },
-    [activeAccountId, projectId],
+    [activeAccountId, projectId, foldersAccountId, contextKey],
   );
 
   const syncNow = useCallback(async () => {
@@ -470,62 +508,50 @@ export default function EmailView() {
         projectId,
         ...accountScope(activeAccountId),
       });
+      if (contextRef.current !== contextKey) return;
       if (res && res.success === false) {
         setSyncError(res.error || t('email.sync_failed'));
       }
-      // Always land on INBOX after sync (not "Todos" / All Mail).
-      const inboxName =
-        folders.find((x) => x.name.toUpperCase() === 'INBOX')?.name || 'INBOX';
-      setFolder(inboxName);
-      setQuery('');
-      setFilter('all');
-      setSelected(null);
-      setMessage(null);
-      setComposing(null);
-      const inboxRes = await window.electron.email.listEnvelopes({
-        folder: inboxName,
-        projectId,
-        pageSize: LIST_PAGE_SIZE,
-        ...accountScope(activeAccountId),
-      });
-      if (inboxRes.success) setInbox((inboxRes.envelopes as MailEnvelope[]) || []);
-      else setError({ error: inboxRes.error, errorCode: inboxRes.errorCode, helpUrl: inboxRes.helpUrl });
+      await refreshInbox();
       await refreshSent(folders);
     } catch (err) {
-      setSyncError(err instanceof Error ? err.message : t('email.sync_failed'));
+      if (contextRef.current === contextKey) setSyncError(err instanceof Error ? err.message : t('email.sync_failed'));
     } finally {
       setSyncing(false);
     }
-  }, [activeAccountId, folders, projectId, refreshSent, syncing, t]);
-
-  useEffect(() => {
-    const unsubStatus = window.electron.email.onSyncStatus?.((data) => {
-      setSyncing(Boolean(data?.syncing) || data?.status === 'syncing');
-      if (typeof data?.lastSync === 'number') setLastSyncAt(data.lastSync);
-      if (data?.error) setSyncError(String(data.error));
-      else if (data?.status === 'idle' || data?.status === 'ok') setSyncError(null);
-    });
-    const unsubData = window.electron.email.onDataUpdated?.(() => {
-      void refreshInbox();
-      void refreshSent(folders);
-    });
-    void window.electron.email.syncStatus?.({ projectId }).then((res) => {
-      if (!res?.success) return;
-      const status = (res as { data?: { syncing?: boolean; lastSync?: number | null; error?: string | null } })
-        .data;
-      if (!status) return;
-      setSyncing(Boolean(status.syncing));
-      if (typeof status.lastSync === 'number') setLastSyncAt(status.lastSync);
-      if (status.error) setSyncError(String(status.error));
-    });
-    return () => {
-      unsubStatus?.();
-      unsubData?.();
-    };
-  }, [folders, projectId, refreshInbox, refreshSent]);
+  }, [activeAccountId, folders, projectId, refreshInbox, refreshSent, syncing, t, contextKey]);
 
   useEffect(() => {
     let cancelled = false;
+    const applyStatus = (data?: { syncing?: boolean; status?: string; lastSync?: number | null; error?: string | null; projectId?: string | null; accountId?: string | null }) => {
+      if (cancelled || !data) return;
+      setSyncing(Boolean(data.syncing) || data.status === 'syncing');
+      if ((data.projectId && data.projectId !== projectId) || (data.accountId && data.accountId !== activeAccountId)) return;
+      if (typeof data.lastSync === 'number') setLastSyncAt(data.lastSync);
+      setSyncError(data.error || null);
+    };
+    const unsubStatus = window.electron.email.onSyncStatus?.(applyStatus);
+    const unsubData = window.electron.email.onDataUpdated?.((data) => {
+      if ((data?.projectId && data.projectId !== projectId) || (data?.accountId && data.accountId !== activeAccountId)) return;
+      void refreshInbox();
+      void refreshSent(folders);
+    });
+    void window.electron.email.syncStatus?.({ projectId, ...accountScope(activeAccountId) }).then((res) => {
+      if (res?.success) applyStatus(res.data);
+    }).catch((err: unknown) => {
+      if (!cancelled) setSyncError(err instanceof Error ? err.message : String(err));
+    });
+    return () => {
+      cancelled = true;
+      unsubStatus?.();
+      unsubData?.();
+    };
+  }, [activeAccountId, folders, projectId, refreshInbox, refreshSent]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHasAccount(null);
+    setError(null);
     (async () => {
       try {
         const res = await invokeWithTimeout(
@@ -533,6 +559,7 @@ export default function EmailView() {
           30_000,
         );
         if (cancelled) return;
+        if (!res.success) throw new Error(res.error || t('email.sync_failed'));
         const listed = parseEmailAccounts(res.accounts);
         setAccounts(listed);
         const ok = res.success && listed.length > 0;
@@ -545,37 +572,8 @@ export default function EmailView() {
               .filter(Boolean),
           ),
         );
-        const f = await invokeWithTimeout(
-          () => window.electron.email.listFolders({ projectId }),
-          30_000,
-        );
-        if (cancelled) return;
-        const parsed = f.success ? parseFolders(f.folders) : [];
-        const folderList = parsed.length > 0 ? parsed : [{ name: 'INBOX' }];
-        setFolders(folderList);
-        const inboxName =
-          folderList.find((x) => x.name.toUpperCase() === 'INBOX')?.name || 'INBOX';
-        setFolder(inboxName);
+        setActiveAccountId(listed[0].id);
         void loadPeople();
-        // Load inbox immediately — do not only rely on the folder/hasAccount effect
-        // (that path can be skipped if AppShell remounts mid-flight).
-        const inboxRes = await window.electron.email.listEnvelopes({
-          folder: inboxName,
-          projectId,
-          pageSize: LIST_PAGE_SIZE,
-        });
-        if (cancelled) return;
-        if (inboxRes.success) setInbox((inboxRes.envelopes as MailEnvelope[]) || []);
-        else {
-          setError({
-            error: inboxRes.error,
-            errorCode: inboxRes.errorCode,
-            helpUrl: inboxRes.helpUrl,
-          });
-        }
-        skipFolderRefreshRef.current = true;
-        skipSentRefreshRef.current = true;
-        void refreshSent(folderList);
       } catch (err) {
         if (cancelled) return;
         setHasAccount(false);
@@ -587,7 +585,25 @@ export default function EmailView() {
     return () => {
       cancelled = true;
     };
-  }, [loadPeople, projectId, refreshSent]);
+  }, [loadPeople, projectId, t, accountLoadVersion]);
+
+  useEffect(() => {
+    if (!activeAccountId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await window.electron.email.listFolders({ projectId, accountId: activeAccountId });
+        if (cancelled) return;
+        if (!res.success) throw new Error(res.error || t('email.sync_failed'));
+        const parsed = parseFolders(res.folders);
+        setFolders(parsed.length ? parsed : [{ name: 'INBOX' }]);
+        setFoldersAccountId(activeAccountId);
+      } catch (err) {
+        if (!cancelled) setError({ error: err instanceof Error ? err.message : String(err) });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeAccountId, projectId, t]);
 
   const folderOptions = useMemo(() => {
     const names = folders.map((f) => f.name);
@@ -597,7 +613,11 @@ export default function EmailView() {
 
   const currentFolder = folderOptions.find((f) => f.name === folder) ?? folderOptions[0];
 
-  const changeFolder = (next: string) => {
+  const changeFolder = useCallback((next: string) => {
+    if (composing) return;
+    openMessageSeqRef.current += 1;
+    inboxRequest.current += 1;
+    setInbox([]);
     setFolder(next);
     setQuery('');
     setSelected(null);
@@ -605,37 +625,43 @@ export default function EmailView() {
     setComposing(null);
     setFolderMenuOpen(false);
     setFilter('all');
-  };
+  }, [composing]);
 
-  const changeAccount = (nextId: string) => {
-    if (!nextId || nextId === activeAccountId) return;
+  const changeAccount = useCallback((nextId: string) => {
+    if (!nextId || nextId === activeAccountId || composing) return;
+    openMessageSeqRef.current += 1;
+    inboxRequest.current += 1;
+    sentRequest.current += 1;
+    setFoldersAccountId(null);
+    setFolders([]);
+    setFolder('INBOX');
+    setInbox([]);
+    setSent([]);
+    setError(null);
+    setSyncError(null);
+    setLastSyncAt(null);
     setActiveAccountId(nextId);
     setSelected(null);
     setMessage(null);
     setComposing(null);
     setQuery('');
     setFilter('all');
-  };
+  }, [activeAccountId, composing]);
 
   useEffect(() => {
     if (hasAccount !== true) return;
-    if (skipFolderRefreshRef.current) {
-      skipFolderRefreshRef.current = false;
-      return;
-    }
     void refreshInbox();
   }, [folder, hasAccount, refreshInbox]);
 
   useEffect(() => {
     if (hasAccount !== true) return;
-    if (skipSentRefreshRef.current) {
-      skipSentRefreshRef.current = false;
-      return;
-    }
     void refreshSent(folders);
   }, [folders, hasAccount, refreshSent]);
 
   const runSearch = useCallback(async (raw: string) => {
+    if (!activeAccountId || foldersAccountId !== activeAccountId) return;
+    const request = ++inboxRequest.current;
+    const current = () => request === inboxRequest.current && contextRef.current === contextKey && queryRef.current.trim() === raw.trim();
     const q = raw.trim();
     if (!q) {
       searchMergedRef.current = false;
@@ -658,6 +684,7 @@ export default function EmailView() {
         pageSize: LIST_PAGE_SIZE,
         ...accountScope(activeAccountId),
       });
+      if (!current()) return;
       if (res.success) {
         const remote = (res.envelopes as MailEnvelope[]) || [];
         // Merge into local cache so from:/subject: filters still apply on the full set.
@@ -670,10 +697,12 @@ export default function EmailView() {
       } else {
         setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
       }
+    } catch (err) {
+      if (current()) setError({ error: err instanceof Error ? err.message : String(err) });
     } finally {
-      setLoading(false);
+      if (request === inboxRequest.current && contextRef.current === contextKey) setLoading(false);
     }
-  }, [activeAccountId, folder, projectId, refreshInbox]);
+  }, [activeAccountId, folder, projectId, refreshInbox, foldersAccountId, contextKey]);
 
   // Local filter is instant; remote search deepens results after a short pause.
   // Clearing the query restores the folder listing after a remote merge.
@@ -696,15 +725,15 @@ export default function EmailView() {
   const openMessage = useCallback(
     async (env: MailEnvelope, folderName?: string) => {
       const seq = ++openMessageSeqRef.current;
-      const f = folderName ?? folder;
+      const f = env.folder ?? folderName ?? folder;
       setComposing(null);
-      setSelected(env);
+      setSelected({ ...env, folder: f });
       setReadingId(env.id);
       setMessage(null);
       setError(null);
       try {
         const res = await window.electron.email.read({
-          messageId: env.id,
+          messageId: env.dbId ?? env.id,
           folder: f,
           projectId,
           ...accountScope(env.accountId ?? activeAccountId),
@@ -712,6 +741,8 @@ export default function EmailView() {
         if (openMessageSeqRef.current !== seq) return;
         if (res.success) setMessage(res.message);
         else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
+      } catch (err) {
+        if (openMessageSeqRef.current === seq) setError({ error: err instanceof Error ? err.message : String(err) });
       } finally {
         if (openMessageSeqRef.current === seq) setReadingId(null);
       }
@@ -719,8 +750,6 @@ export default function EmailView() {
     [activeAccountId, folder, projectId],
   );
 
-  const sentFolderName = useMemo(() => findSentFolder(folders), [folders]);
-  const sentIds = useMemo(() => new Set(sent.map((e) => e.id)), [sent]);
 
   const askManyAbout = useCallback(
     (env: MailEnvelope | null, prompt: string) => {
@@ -731,7 +760,7 @@ export default function EmailView() {
             title: env.subject || t('email.no_subject'),
             uid: env.id,
             dbId: env.dbId ?? null,
-            folder,
+            folder: env.folder ?? folder,
             accountId: env.accountId ?? null,
           }),
         );
@@ -743,85 +772,47 @@ export default function EmailView() {
     [folder, t],
   );
 
-  const applyEmailFocus = useCallback(
-    async (intent: EmailFocusIntent) => {
-      if (hasAccount !== true) return;
-      const targetFolder = intent.folder?.trim() || folder;
-      const focusAccountId = intent.accountId?.trim() || activeAccountId;
-      if (intent.accountId?.trim()) setActiveAccountId(intent.accountId.trim());
-      setComposing(null);
-      setQuery('');
-      setError(null);
-
-      const loadFolder = async (f: string): Promise<MailEnvelope[]> => {
-        setLoading(true);
-        try {
-          const res = await window.electron.email.listEnvelopes({
-            folder: f,
-            projectId,
-            pageSize: LIST_PAGE_SIZE,
-            ...accountScope(focusAccountId),
-          });
-          if (res.success) {
-            const list = (res.envelopes as MailEnvelope[]) || [];
-            if (f.toUpperCase() === 'INBOX' || f === folder) setInbox(list);
-            return list;
-          }
-          setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
-          return [];
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      if (targetFolder !== folder) {
-        setFolder(targetFolder);
-        setSelected(null);
-        setMessage(null);
-      }
-
-      const list = await loadFolder(targetFolder);
-      const uidStr = intent.uid != null ? String(intent.uid) : null;
-      const match =
-        list.find((env) => env.dbId === intent.sourceId) ||
-        (uidStr ? list.find((env) => String(env.id) === uidStr) : undefined) ||
-        list.find((env) => env.id === intent.sourceId);
-
-      if (match) await openMessage(match, targetFolder);
-    },
-    [activeAccountId, folder, hasAccount, openMessage, projectId],
-  );
-
   useEffect(() => {
-    const onFocus = (e: Event) => {
-      const detail = (
-        e as CustomEvent<{ sourceId?: string; folder?: string; uid?: string | number; accountId?: string }>
-      ).detail;
+    const onFocus = (event: Event) => {
+      const detail = (event as CustomEvent<EmailFocusIntent>).detail;
       if (!detail?.sourceId) return;
       useOpenIntentStore.getState().consume('email');
-      void applyEmailFocus({
-        sourceId: detail.sourceId,
-        ...(detail.folder ? { folder: detail.folder } : {}),
-        ...(detail.uid != null ? { uid: detail.uid } : {}),
-        ...(detail.accountId ? { accountId: detail.accountId } : {}),
-      });
+      setFocusIntent(detail);
     };
     window.addEventListener('dome:focus-email', onFocus);
     return () => window.removeEventListener('dome:focus-email', onFocus);
-  }, [applyEmailFocus]);
+  }, []);
 
   useEffect(() => {
     if (hasAccount !== true) return;
     const pending = useOpenIntentStore.getState().consume('email');
-    if (pending) {
-      void applyEmailFocus({
-        sourceId: pending.sourceId,
-        ...(pending.folder ? { folder: pending.folder } : {}),
-        ...(pending.uid != null ? { uid: pending.uid } : {}),
-        ...(pending.accountId ? { accountId: pending.accountId } : {}),
-      });
+    if (pending) setFocusIntent(pending);
+  }, [hasAccount]);
+
+  useEffect(() => {
+    if (!focusIntent || composing || !activeAccountId) return;
+    const targetAccount = focusIntent.accountId || activeAccountId;
+    if (!accounts.some((account) => account.id === targetAccount)) {
+      setFocusIntent(null);
+      return;
     }
-  }, [hasAccount, applyEmailFocus]);
+    if (targetAccount !== activeAccountId) {
+      changeAccount(targetAccount);
+      return;
+    }
+    const targetFolder = focusIntent.folder || folder;
+    if (targetFolder !== folder) {
+      changeFolder(targetFolder);
+      return;
+    }
+    if (foldersAccountId !== activeAccountId || loading) return;
+    const match = inbox.find((env) => env.dbId === focusIntent.sourceId) ||
+      inbox.find((env) => String(env.id) === String(focusIntent.uid ?? focusIntent.sourceId));
+    if (match) {
+      setFocusIntent(null);
+      void openMessage(match);
+    }
+  }, [focusIntent, composing, accounts, activeAccountId, folder, foldersAccountId, loading, inbox, openMessage, changeAccount, changeFolder]);
 
   const matchedCount = useMemo(
     () => (query.trim() ? filterEnvelopesByQuery(inbox, query).length : null),
@@ -829,12 +820,15 @@ export default function EmailView() {
   );
 
   if (hasAccount === null) return <EmailLoadingState />;
-  if (hasAccount === false) return <EmailEmptyAccountState onConnect={openSettingsTab} />;
+  if (hasAccount === false) return error ? (
+    <ListState variant="error" errorMessage={error.error || t('email.sync_failed')} retryLabel={t('common.retry')} onRetry={() => setAccountLoadVersion((value) => value + 1)} />
+  ) : <EmailEmptyAccountState onConnect={openSettingsTab} />;
 
   const syncDescription = emailSyncDescription(syncError, syncing, lastSyncAt, t);
   const detailOpen = composing != null || selected != null;
 
   const startCompose = () => {
+    openMessageSeqRef.current += 1;
     setSelected(null);
     setMessage(null);
     setComposing({ mode: 'new' });
@@ -868,7 +862,8 @@ export default function EmailView() {
             type="button"
             variant="outline"
             size="sm"
-            disabled={syncing}
+            aria-label={t('email.sync_now')}
+            disabled={syncing || !activeAccountId}
             onClick={() => {
               syncNow().catch(() => {});
             }}
@@ -880,7 +875,7 @@ export default function EmailView() {
             )}
             <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
           </Button>
-          <Button type="button" size="sm" onClick={startCompose}>
+          <Button type="button" size="sm" onClick={startCompose} disabled={Boolean(composing) || !activeAccountId} aria-label={t('email.compose')}>
             <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
             <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
           </Button>
@@ -892,6 +887,7 @@ export default function EmailView() {
             accounts={accounts}
             activeAccountId={activeAccountId}
             onSelectAccount={changeAccount}
+            disabled={Boolean(composing)}
           />
           <EmailFolderPicker
             open={folderMenuOpen}
@@ -899,6 +895,7 @@ export default function EmailView() {
             folderOptions={folderOptions}
             currentFolder={currentFolder}
             onSelectFolder={changeFolder}
+            disabled={Boolean(composing)}
           />
 
           <HubSearch
@@ -924,7 +921,8 @@ export default function EmailView() {
             composing && 'hidden min-[720px]:flex min-[720px]:max-w-[42%] min-[1100px]:max-w-none',
           )}
         >
-          <MailDashboard
+          {error && !selected ? <EmailErrorNotice info={error} /> : null}
+          {!error && (foldersAccountId !== activeAccountId || (loading && inbox.length === 0 && sent.length === 0)) ? <EmailLoadingState /> : <MailDashboard
             inbox={inbox}
             sent={sent}
             networkEmails={networkEmails}
@@ -932,14 +930,12 @@ export default function EmailView() {
             query={query}
             filter={filter}
             onFilter={setFilter}
-            selectedId={selected?.id}
+            selectedId={selected?.dbId ?? selected?.id}
             onOpen={(env) => {
-              const openInSent =
-                filter === 'recent_sent' || (sentFolderName != null && sentIds.has(env.id));
-              openMessage(env, openInSent ? sentFolderName ?? undefined : undefined).catch(() => {});
+              if (!composing) void openMessage(env);
             }}
             resultCount={matchedCount}
-          />
+          />}
         </div>
 
         {detailOpen ? (
@@ -948,11 +944,14 @@ export default function EmailView() {
             selected={selected}
             readingId={readingId}
             error={error}
-            folder={folder}
+            folder={selected?.folder ?? folder}
             message={message}
             projectId={projectId}
+            accountId={composing?.replyTo?.accountId ?? activeAccountId ?? ''}
+            accountLabel={accounts.find((account) => account.id === (composing?.replyTo?.accountId ?? activeAccountId))?.email || t('email.unknown_account')}
             onCloseCompose={() => setComposing(null)}
             onCloseDetail={() => {
+              openMessageSeqRef.current += 1;
               setSelected(null);
               setMessage(null);
             }}
