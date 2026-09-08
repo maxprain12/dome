@@ -255,13 +255,7 @@ function AccountFicha({
     <HubDetailPane
       icon={network ? <ProviderMark provider={network} className="size-10 text-sm" /> : null}
       title={title}
-      badge={
-        <Badge variant={account?.status === 'active' ? 'lime' : 'outline'}>
-          {account
-            ? t(account.status === 'active' ? 'social.studio.accounts.active' : `social.settings.status_${account.status}`)
-            : t('social.studio.accounts.setup')}
-        </Badge>
-      }
+      badge={<ConnectionStatusBadge account={account} />}
       toolbar={
         <div className="flex items-center gap-1.5">
           <Button type="button" size="sm" onClick={onConfigure} disabled={!provider}>
@@ -282,51 +276,17 @@ function AccountFicha({
           ) : null}
 
           {account?.lastError ? <Alert variant="destructive"><AlertDescription>{account.lastError}</AlertDescription></Alert> : null}
-          <SectionCard title={t('social.studio.crm.tab_info')}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <ReadField
-                label={t('social.studio.nav.accounts')}
-                value={account ? socialAccountLabel(account) : t('social.studio.accounts.not_connected')}
-              />
-              {network === 'linkedin' && account ? (
-                <ReadField
-                  label={t('social.settings.account_kind_member')}
-                  value={t(account.accountKind === 'organization' ? 'social.settings.account_kind_organization' : 'social.settings.account_kind_member')}
-                />
-              ) : null}
-              {account?.lastSyncAt ? (
-                <p className="text-xs text-muted-foreground">{t('social.hub.last_sync', { time: new Date(account.lastSyncAt).toLocaleString() })}</p>
-              ) : null}
-            </div>
-            {account && hasSocialCloud && account.status === 'active' ? (
-              <Field orientation="horizontal" className="mt-3">
-                <Checkbox
-                  checked={Boolean(account.cloudPublishing)}
-                  onCheckedChange={(checked) => {
-                    toggleCloud(checked === true).catch((reason) => onError(reason instanceof Error ? reason.message : 'Error'));
-                  }}
-                />
-                <FieldLabel>{t('social.settings.cloud_publishing')}</FieldLabel>
-              </Field>
-            ) : null}
-            {account ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-2"
-                onClick={() => {
-                  disconnect().catch((reason) => onError(reason instanceof Error ? reason.message : 'Error'));
-                }}
-              >
-                {t('social.settings.disconnect')}
-              </Button>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {network ? t(`social.settings.hint_${network}`) : null}
-              </p>
-            )}
-          </SectionCard>
+          <AccountInfoSection
+            account={account}
+            network={network}
+            hasSocialCloud={hasSocialCloud}
+            onDisconnect={() => {
+              disconnect().catch((reason) => onError(reason instanceof Error ? reason.message : 'Error'));
+            }}
+            onToggleCloud={(checked) => {
+              toggleCloud(checked).catch((reason) => onError(reason instanceof Error ? reason.message : 'Error'));
+            }}
+          />
           <SectionCard title={t('social.settings.oauth_port')}>
             <div className="flex flex-wrap items-end gap-2">
               <Input
@@ -345,6 +305,76 @@ function AccountFicha({
         </div>
       </ScrollArea>
     </HubDetailPane>
+  );
+}
+
+function ConnectionStatusBadge({ account }: { account: SocialAccount | null }) {
+  const { t } = useTranslation();
+  return (
+    <Badge variant={account?.status === 'active' ? 'lime' : 'outline'}>
+      {account
+        ? t(account.status === 'active' ? 'social.studio.accounts.active' : `social.settings.status_${account.status}`)
+        : t('social.studio.accounts.setup')}
+    </Badge>
+  );
+}
+
+function AccountInfoSection({
+  account,
+  network,
+  hasSocialCloud,
+  onDisconnect,
+  onToggleCloud,
+}: {
+  account: SocialAccount | null;
+  network: SocialProvider | null | undefined;
+  hasSocialCloud: boolean;
+  onDisconnect: () => void;
+  onToggleCloud: (enabled: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <SectionCard title={t('social.studio.crm.tab_info')}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ReadField
+          label={t('social.studio.nav.accounts')}
+          value={account ? socialAccountLabel(account) : t('social.studio.accounts.not_connected')}
+        />
+        {network === 'linkedin' && account ? (
+          <ReadField
+            label={t('social.settings.account_kind_member')}
+            value={t(account.accountKind === 'organization' ? 'social.settings.account_kind_organization' : 'social.settings.account_kind_member')}
+          />
+        ) : null}
+        {account?.lastSyncAt ? (
+          <p className="text-xs text-muted-foreground">{t('social.hub.last_sync', { time: new Date(account.lastSyncAt).toLocaleString() })}</p>
+        ) : null}
+      </div>
+      {account && hasSocialCloud && account.status === 'active' ? (
+        <Field orientation="horizontal" className="mt-3">
+          <Checkbox
+            checked={Boolean(account.cloudPublishing)}
+            onCheckedChange={(checked) => onToggleCloud(checked === true)}
+          />
+          <FieldLabel>{t('social.settings.cloud_publishing')}</FieldLabel>
+        </Field>
+      ) : null}
+      {account ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-2"
+          onClick={onDisconnect}
+        >
+          {t('social.settings.disconnect')}
+        </Button>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {network ? t(`social.settings.hint_${network}`) : null}
+        </p>
+      )}
+    </SectionCard>
   );
 }
 
