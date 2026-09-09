@@ -43,6 +43,12 @@ export interface AILocalOpenAICompatConfigProps {
   onAvailabilityChange?: (available: boolean | null) => void;
 }
 
+type LocalOpenAICompatModel = {
+  id: string;
+  name: string;
+  contextWindow: number;
+};
+
 /** Local OpenAI-compatible endpoint (vLLM / LM Studio): URL, optional key, live models. */
 export default function AILocalOpenAICompatConfig({
   provider,
@@ -59,7 +65,7 @@ export default function AILocalOpenAICompatConfig({
   const { t } = useTranslation();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
-  const [models, setModels] = useState<Array<{ id: string; name: string; contextWindow: number }>>([]);
+  const [models, setModels] = useState<LocalOpenAICompatModel[]>([]);
   const [contextWindowInput, setContextWindowInput] = useState('');
   const [loadingModels, setLoadingModels] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -133,74 +139,25 @@ export default function AILocalOpenAICompatConfig({
 
   return (
     <div className={cn('flex flex-col gap-4', wrapInCard && 'rounded-xl border bg-card p-4')}>
-      <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t('settings.ai.status')}
-          </span>
-          {checking ? (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Spinner /> {t('settings.ai.status_checking')}
-            </span>
-          ) : available === true ? (
-            <span className="flex items-center gap-1 text-xs font-medium text-primary">
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} /> {t('settings.ai.status_connected')}
-            </span>
-          ) : available === false ? (
-            <span className="flex items-center gap-1 text-xs font-medium text-destructive">
-              <HugeiconsIcon icon={CancelCircleIcon} /> {t('settings.ai.status_disconnected')}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">{t('settings.ai.status_unverified')}</span>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            void persistBaseUrl()
-              .then(() => refreshStatus())
-              .catch(() => {});
-          }}
-          disabled={checking}
-        >
-          {checking ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-          )}
-          {t('settings.ai.test_btn')}
-        </Button>
-      </div>
+      <LocalOpenAIStatusRow
+        checking={checking}
+        available={available}
+        onCheck={() => {
+          void persistBaseUrl()
+            .then(() => refreshStatus())
+            .catch(() => {});
+        }}
+      />
 
-      {available === false ? (
-        <Alert role="note" variant="destructive">
-          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
-          <AlertDescription className="flex flex-col gap-1 text-xs">
-            <span>
-              {t(hintKey)}{' '}
-              <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
-                {docsUrl.replace(/^https:\/\//, '')}
-              </a>
-            </span>
-            {statusError ? <span className="font-mono text-[11px] opacity-90">{statusError}</span> : null}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {available === true && models.length === 0 && !loadingModels ? (
-        <Alert role="note">
-          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
-          <AlertDescription className="text-xs">
-            {t(
-              provider === 'lmstudio'
-                ? 'settings.ai.local_openai_no_models_lmstudio'
-                : 'settings.ai.local_openai_no_models_vllm',
-            )}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <LocalOpenAIAlerts
+        available={available}
+        models={models}
+        loadingModels={loadingModels}
+        statusError={statusError}
+        hintKey={hintKey}
+        docsUrl={docsUrl}
+        provider={provider}
+      />
 
       <Field>
         <FieldLabel htmlFor={`ai-${provider}-url`}>{t('settings.ai.base_url')}</FieldLabel>
@@ -248,67 +205,17 @@ export default function AILocalOpenAICompatConfig({
         </Field>
       ) : null}
 
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t('settings.ai.chat_model')}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => {
-              void refreshStatus().catch(() => {});
-            }}
-            disabled={loadingModels}
-          >
-            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-            {t('settings.ai.refresh')}
-          </Button>
-        </div>
-        {loadingModels ? (
-          <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-            <Spinner className="text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{t('settings.ai.loading_models')}</span>
-          </div>
-        ) : models.length > 0 ? (
-          <ModelSelector
-            models={models.map((m) => ({
-              id: m.id,
-              name: m.name,
-              description: '',
-              reasoning: false,
-              input: ['text'],
-              contextWindow: m.contextWindow,
-              maxTokens: 0,
-            }))}
-            selectedModelId={model}
-            onChange={(id) => {
-              onModelChange(id);
-              const listed = models.find((m) => m.id === id);
-              const ctx = parseContextWindow(listed?.contextWindow);
-              if (ctx > 0) {
-                void persistContextWindow(provider, ctx);
-              }
-            }}
-            searchable
-            showBadges={false}
-            showDescription={false}
-            showContextWindow
-            placeholder={t('settings.ai.select_local_model')}
-            disabled={loadingModels}
-            providerType="ollama"
-            providerId={provider}
-          />
-        ) : (
-          <Input
-            value={model}
-            onChange={(e) => onModelChange(e.target.value)}
-            placeholder={t('settings.ai.select_local_model')}
-            aria-label={t('settings.ai.chat_model')}
-          />
-        )}
-      </div>
+      <LocalOpenAIModelField
+        models={models}
+        loading={loadingModels}
+        model={model}
+        provider={provider}
+        onModelChange={onModelChange}
+        onRefresh={() => {
+          void refreshStatus().catch(() => {});
+        }}
+        onPersistContextWindow={persistContextWindow}
+      />
 
       <Field>
         <FieldLabel htmlFor={`ai-${provider}-context-window`}>
@@ -334,6 +241,207 @@ export default function AILocalOpenAICompatConfig({
         />
         <p className="mt-1 text-[11px] text-muted-foreground">{t('settings.ai.context_window_hint')}</p>
       </Field>
+    </div>
+  );
+}
+
+interface LocalOpenAIStatusRowProps {
+  checking: boolean;
+  available: boolean | null;
+  onCheck: () => void;
+}
+
+function LocalOpenAIStatusRow({ checking, available, onCheck }: LocalOpenAIStatusRowProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t('settings.ai.status')}
+        </span>
+        <LocalOpenAIStatusBadge checking={checking} available={available} />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onCheck}
+        disabled={checking}
+      >
+        {checking ? (
+          <Spinner data-icon="inline-start" />
+        ) : (
+          <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+        )}
+        {t('settings.ai.test_btn')}
+      </Button>
+    </div>
+  );
+}
+
+interface LocalOpenAIStatusBadgeProps {
+  checking: boolean;
+  available: boolean | null;
+}
+
+function LocalOpenAIStatusBadge({ checking, available }: LocalOpenAIStatusBadgeProps) {
+  const { t } = useTranslation();
+  if (checking) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Spinner /> {t('settings.ai.status_checking')}
+      </span>
+    );
+  }
+  if (available === true) {
+    return (
+      <span className="flex items-center gap-1 text-xs font-medium text-primary">
+        <HugeiconsIcon icon={CheckmarkCircle02Icon} /> {t('settings.ai.status_connected')}
+      </span>
+    );
+  }
+  if (available === false) {
+    return (
+      <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+        <HugeiconsIcon icon={CancelCircleIcon} /> {t('settings.ai.status_disconnected')}
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">{t('settings.ai.status_unverified')}</span>;
+}
+
+interface LocalOpenAIAlertsProps {
+  available: boolean | null;
+  models: LocalOpenAICompatModel[];
+  loadingModels: boolean;
+  statusError: string | null;
+  hintKey: string;
+  docsUrl: string;
+  provider: LocalOpenAICompatProvider;
+}
+
+function LocalOpenAIAlerts({
+  available,
+  models,
+  loadingModels,
+  statusError,
+  hintKey,
+  docsUrl,
+  provider,
+}: LocalOpenAIAlertsProps) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {available === false ? (
+        <Alert role="note" variant="destructive">
+          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+          <AlertDescription className="flex flex-col gap-1 text-xs">
+            <span>
+              {t(hintKey)}{' '}
+              <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
+                {docsUrl.replace(/^https:\/\//, '')}
+              </a>
+            </span>
+            {statusError ? <span className="font-mono text-[11px] opacity-90">{statusError}</span> : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {available === true && models.length === 0 && !loadingModels ? (
+        <Alert role="note">
+          <HugeiconsIcon icon={Alert02Icon} aria-hidden />
+          <AlertDescription className="text-xs">
+            {t(
+              provider === 'lmstudio'
+                ? 'settings.ai.local_openai_no_models_lmstudio'
+                : 'settings.ai.local_openai_no_models_vllm',
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </>
+  );
+}
+
+interface LocalOpenAIModelFieldProps {
+  models: LocalOpenAICompatModel[];
+  loading: boolean;
+  model: string;
+  provider: LocalOpenAICompatProvider;
+  onModelChange: (value: string) => void;
+  onRefresh: () => void;
+  onPersistContextWindow: (provider: LocalOpenAICompatProvider, tokens: number) => Promise<void>;
+}
+
+function LocalOpenAIModelField({
+  models,
+  loading,
+  model,
+  provider,
+  onModelChange,
+  onRefresh,
+  onPersistContextWindow,
+}: LocalOpenAIModelFieldProps) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t('settings.ai.chat_model')}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+          {t('settings.ai.refresh')}
+        </Button>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+          <Spinner className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{t('settings.ai.loading_models')}</span>
+        </div>
+      ) : models.length > 0 ? (
+        <ModelSelector
+          models={models.map((m) => ({
+            id: m.id,
+            name: m.name,
+            description: '',
+            reasoning: false,
+            input: ['text'],
+            contextWindow: m.contextWindow,
+            maxTokens: 0,
+          }))}
+          selectedModelId={model}
+          onChange={(id) => {
+            onModelChange(id);
+            const listed = models.find((m) => m.id === id);
+            const ctx = parseContextWindow(listed?.contextWindow);
+            if (ctx > 0) {
+              void onPersistContextWindow(provider, ctx);
+            }
+          }}
+          searchable
+          showBadges={false}
+          showDescription={false}
+          showContextWindow
+          placeholder={t('settings.ai.select_local_model')}
+          disabled={loading}
+          providerType="ollama"
+          providerId={provider}
+        />
+      ) : (
+        <Input
+          value={model}
+          onChange={(e) => onModelChange(e.target.value)}
+          placeholder={t('settings.ai.select_local_model')}
+          aria-label={t('settings.ai.chat_model')}
+        />
+      )}
     </div>
   );
 }
