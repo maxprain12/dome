@@ -1242,6 +1242,7 @@ function createBaseSchema(db) {
               external_url TEXT,
               error TEXT,
               notes TEXT,
+              source_json TEXT,
               created_by TEXT NOT NULL DEFAULT 'user',
               group_id TEXT,
               created_at INTEGER NOT NULL,

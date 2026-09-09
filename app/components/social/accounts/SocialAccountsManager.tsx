@@ -33,11 +33,11 @@ import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialAccount, SocialProvider } from '@/components/social/socialTypes';
 import { SocialMessagingFlags } from '@/components/social/accounts/SocialMessagingFlags';
 import { HubDetailPane } from '@/components/shared/HubDetailPane';
+import { DetailModal } from '@/components/shared/DetailModal';
 import { ProviderMark, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import {
   SocialDirectoryColumn,
   SocialDirectoryRow,
-  SocialFichaEmpty,
   SocialHubSplit,
 } from '@/components/social/workspace/SocialDirectoryColumn';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -164,7 +164,8 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
             )}
           </ul>
         </SocialDirectoryColumn>
-        {selected?.kind === 'account' ? (
+        {selected ? <DetailModal title={selected.kind === 'account' ? socialAccountLabel(selected.account) : PROVIDER_NAMES[selected.provider.provider]} onClose={() => setSelectedKey(null)} bare>
+        {selected.kind === 'account' ? (
           <AccountFicha
             account={selected.account}
             provider={providers.find((item) => item.provider === selected.account.provider) ?? null}
@@ -180,7 +181,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
             onChanged={load}
             onError={setError}
           />
-        ) : selected?.kind === 'provider' ? (
+        ) : (
           <AccountFicha
             account={null}
             provider={selected.provider}
@@ -193,13 +194,8 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
             onChanged={load}
             onError={setError}
           />
-        ) : (
-          <SocialFichaEmpty
-            icon={<HugeiconsIcon icon={Settings01Icon} className="size-8" />}
-            title={t('social.studio.crm.detail_empty_account')}
-            description={t('social.studio.crm.detail_empty_account_hint')}
-          />
         )}
+        </DetailModal> : null}
       </SocialHubSplit>
       <ProviderConfigurationDialog
         provider={editing}

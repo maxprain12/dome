@@ -146,7 +146,7 @@ export default function RunSummaryModal({
               {t('pipelines.report_generating')}
             </div>
           ) : reportMd ? (
-            <div className={cn('rounded-md border bg-muted/30 p-3', typesetDocsClass, 'max-h-72 overflow-y-auto text-foreground')}>
+            <div className={cn(typesetDocsClass, 'text-foreground')}>
               <MarkdownRenderer content={reportMd} />
             </div>
           ) : (

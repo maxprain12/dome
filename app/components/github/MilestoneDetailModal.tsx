@@ -213,7 +213,7 @@ export default function MilestoneDetailModal({
       icon={<HugeiconsIcon icon={Target02Icon} />}
       badges={<div className="flex flex-wrap items-center gap-1.5">{headerActions}</div>}
       footer={milestone ? footer : undefined}
-      className="h-full rounded-none border-0 ring-0 md:rounded-lg md:ring-1"
+      size="reading"
     >
       {loading && !milestone ? (
         <p className="text-sm text-muted-foreground">

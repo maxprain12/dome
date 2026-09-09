@@ -62,7 +62,7 @@ export function HubDirectoryColumn({
   const showTitleRow = Boolean(title || action);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col border-r md:w-96 md:basis-[36%] md:shrink-0">
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col">
       {showTitleRow ? (
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
           {title ? <h2 className={hubPageTitleClass}>{title}</h2> : <span />}

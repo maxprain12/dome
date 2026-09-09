@@ -334,7 +334,7 @@ type EmailDetailSidePanelProps = {
   onSent: () => void;
 };
 
-/** Compose / read pane beside the dashboard — extracted for S3776. */
+/** Compose / read modals keep the underlying mailbox at full width. */
 function EmailDetailSidePanel({
   composing,
   selected,
@@ -354,14 +354,7 @@ function EmailDetailSidePanel({
   if (!composing && !selected) return null;
 
   return (
-    <div
-      className={cn(
-        'flex h-full min-h-0 w-full flex-col border-l bg-background studio-view-enter',
-        composing
-          ? 'absolute inset-0 z-10 min-[720px]:static min-[720px]:inset-auto min-[720px]:z-auto min-[720px]:min-w-0 min-[720px]:flex-1 min-[720px]:max-w-2xl'
-          : 'absolute inset-0 z-10 md:static md:inset-auto md:z-auto md:w-[28rem] md:shrink-0 lg:w-[32rem]',
-      )}
-    >
+    <>
       {composing ? (
         <MailComposePanel
           mode={composing.mode}
@@ -385,7 +378,7 @@ function EmailDetailSidePanel({
           onAskMany={onAskMany}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -917,8 +910,6 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
         <div
           className={cn(
             'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
-            // Give the compose pane room: collapse list on narrow, shrink on md+.
-            composing && 'hidden min-[720px]:flex min-[720px]:max-w-[42%] min-[1100px]:max-w-none',
           )}
         >
           {error && !selected ? <EmailErrorNotice info={error} /> : null}

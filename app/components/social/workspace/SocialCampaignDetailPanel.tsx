@@ -1,3 +1,4 @@
+import { useDetailModalClose } from '@/components/shared/DetailModal';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { BubbleChatIcon, Megaphone02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
@@ -28,6 +29,7 @@ export function SocialCampaignDetailPanel({
   onCompose: () => void;
   onSelectPost?: (post: SocialPost) => void;
 }) {
+  const closeDetail = useDetailModalClose();
   const { t } = useTranslation();
   const campaignPosts = posts.filter((post) => post.campaignId === campaign.id);
   const total = campaignPosts.length;
@@ -36,6 +38,7 @@ export function SocialCampaignDetailPanel({
   const unavailable = t('social.studio.crm.unavailable');
 
   const handleMany = () => {
+    closeDetail?.();
     const many = useManyStore.getState();
     many.addPinnedResource({
       id: campaign.id,

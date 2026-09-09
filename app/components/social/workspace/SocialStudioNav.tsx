@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   BarChartIcon,
+  MagicWand01Icon,
   BubbleChatIcon,
   Calendar03Icon,
   DashboardSquare01Icon,
@@ -33,6 +34,7 @@ const NAV_ITEMS: Array<{ id: SocialSection; icon: IconSvgElement; labelKey: stri
   { id: 'overview', icon: DashboardSquare01Icon, labelKey: 'social.studio.nav.overview' },
   { id: 'content', icon: File02Icon, labelKey: 'social.studio.nav.content' },
   { id: 'campaigns', icon: Megaphone02Icon, labelKey: 'social.studio.nav.campaigns' },
+  { id: 'automations', icon: MagicWand01Icon, labelKey: 'social.direct.title' },
   { id: 'events', icon: Calendar03Icon, labelKey: 'social.studio.nav.events' },
   { id: 'insights', icon: BarChartIcon, labelKey: 'social.studio.nav.insights' },
   { id: 'inbox', icon: BubbleChatIcon, labelKey: 'social.studio.nav.inbox' },

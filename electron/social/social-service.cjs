@@ -217,6 +217,9 @@ function createSocialService(database, windowManager) {
         externalUrl: item.externalUrl || null,
         publishedAt: item.publishedAt,
         metrics: item.metrics || null,
+        media: item.media,
+        linkUrl: item.linkUrl,
+        source: item.source,
       });
       if (result.skipped) continue;
       if (result.created) {
@@ -729,6 +732,15 @@ function createSocialService(database, windowManager) {
         ]),
       ),
       liveReplyRules: store.getLiveReplyRules(),
+      accounts: store.listAccounts().map((row) => {
+        const account = store.serializeAccount(row);
+        const flags = messagingFlags(account.provider);
+        return {
+          accountId: account.id,
+          listComments: account.status === 'active' && accountSupports(account, 'listComments', flags),
+          sendDm: account.status === 'active' && accountSupports(account, 'sendDm', flags),
+        };
+      }),
     };
   }
 

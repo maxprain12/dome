@@ -21,14 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { DetailModal } from '@/components/shared/DetailModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
@@ -220,18 +213,17 @@ export default function PluginsSection() {
         <PluginRuntimeDialog plugin={runtimePlugin} onClose={() => setRuntimePlugin(null)} />
       ) : null}
 
-      <Sheet
+      <DetailModal
         open={Boolean(selectedPlugin)}
-        onOpenChange={(open) => {
-          if (!open) setSelectedPlugin(null);
-        }}
+        onClose={() => setSelectedPlugin(null)}
+        title={selectedPlugin?.name}
+        description={selectedPlugin?.description}
+        size="compact"
+        footer={selectedPlugin?.type === 'view' && selectedPlugin.enabled ? (
+          <Button type="button" onClick={() => { setRuntimePlugin(selectedPlugin); setSelectedPlugin(null); }}>{t('settings.plugins.open')}</Button>
+        ) : null}
       >
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{selectedPlugin?.name}</SheetTitle>
-            <SheetDescription>{selectedPlugin?.description}</SheetDescription>
-          </SheetHeader>
-          <div className="flex flex-col gap-4 overflow-y-auto px-6">
+          <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">v{selectedPlugin?.version}</Badge>
               <Badge variant="outline">{selectedPlugin?.author}</Badge>
@@ -257,21 +249,7 @@ export default function PluginsSection() {
               <p className="break-all text-xs text-muted-foreground">{selectedPlugin.repo}</p>
             ) : null}
           </div>
-          <SheetFooter>
-            {selectedPlugin?.type === 'view' && selectedPlugin.enabled ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setRuntimePlugin(selectedPlugin);
-                  setSelectedPlugin(null);
-                }}
-              >
-                {t('settings.plugins.open')}
-              </Button>
-            ) : null}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      </DetailModal>
 
       <ConfirmDialog
         isOpen={pendingUninstallId !== null}

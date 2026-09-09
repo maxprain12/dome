@@ -14,6 +14,7 @@ import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
 import { askStudioMany } from '@/components/studio-hub/askStudioMany';
 import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
+import { DetailColumns } from '@/components/shared/DetailModal';
 import { Badge } from '@/components/ui/badge';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
@@ -353,6 +354,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   };
 
   const askMany = () => {
+    onClose();
     const repoUri =
       repo?.html_url
       || (repo?.full_name ? `https://github.com/${repo.full_name}` : '')
@@ -445,11 +447,12 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     <InlineDetailCard
       onClose={onClose}
       containerName="issue-card"
-      title={t('github.dash_task_title', { number: initial.number })}
+      title={initial.title}
+      description={t('github.dash_task_title', { number: initial.number })}
       icon={<HugeiconsIcon icon={CircleDotIcon} />}
       badges={<div className="flex flex-wrap items-center gap-1.5">{headerActions}</div>}
       footer={footer}
-      className="h-full rounded-none border-0 ring-0 md:rounded-lg md:ring-1"
+      size="wide"
     >
       {editing ? (
         <FieldGroup>
@@ -580,12 +583,10 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
           </Field>
         </FieldGroup>
       ) : (
-        <div className="flex flex-col gap-4">
+        <DetailColumns context={
+          <div className="flex min-w-0 flex-col gap-4">
           {/* Header: title + status + open button */}
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold leading-tight text-foreground">
-              {initial.title}
-            </h2>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={initial.state === 'open' ? 'secondary' : 'outline'} className="gap-1">
                 {initial.state === 'open' ? <HugeiconsIcon icon={CircleDotIcon} size={11} /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} size={11} />}
@@ -600,8 +601,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
           {/* Meta grid */}
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg p-3"
-            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+            className="grid grid-cols-1 gap-5"
           >
             <div className="flex items-start gap-2 min-w-0">
               <HugeiconsIcon icon={Target02Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
@@ -629,7 +629,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               </div>
             </div>
 
-            <div className="flex items-start gap-2 min-w-0 sm:col-span-2">
+            <div className="flex items-start gap-2 min-w-0">
               <HugeiconsIcon icon={AtSignIcon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
               <div className="flex flex-col min-w-0 gap-1">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -651,7 +651,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
             </div>
 
             {labels.length > 0 && (
-              <div className="flex items-start gap-2 min-w-0 sm:col-span-2">
+              <div className="flex items-start gap-2 min-w-0">
                 <HugeiconsIcon icon={Tag01Icon} size={13} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
                 <div className="flex flex-col min-w-0 gap-1">
                   <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -678,6 +678,9 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
             />
           ) : null}
 
+          </div>
+        }>
+          <div className="flex min-w-0 flex-col gap-5">
           {/* Body */}
           {body.trim() ? (
             <GithubMarkdownBody content={body} />
@@ -755,7 +758,8 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
             </TabsContent>
             <TabsContent value="timeline"><IssueTimeline events={timeline} /></TabsContent>
           </Tabs>
-        </div>
+          </div>
+        </DetailColumns>
       )}
     </InlineDetailCard>
   );

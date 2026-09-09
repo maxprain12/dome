@@ -2,7 +2,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Link02Icon,
   Comment01Icon,
-  Cancel01Icon,
   FolderOpenIcon,
   File02Icon,
 } from '@hugeicons/core-free-icons';
@@ -14,6 +13,7 @@ import RelationsTab from './RelationsTab';
 import { type Resource } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { RESOURCE_RELATIONS_CHANGED } from '@/lib/utils/content-resources';
+import { DetailModal, useDetailModalClose } from '@/components/shared/DetailModal';
 
 export type SidePanelTab = 'relations' | 'backlinks' | 'workspace' | 'pdf';
 
@@ -127,16 +127,8 @@ export default function SidePanel({
 
   const effectiveTab: TabType = (tabs.includes(activeTab) ? activeTab : tabs[0]) ?? 'relations';
 
-  return (
-    <div
-      className={embedded ? 'flex h-full min-w-0 flex-col' : 'flex h-full shrink-0 flex-col border-l'}
-      style={embedded ? undefined : {
-        width: 'min(30vw, 380px)',
-        minWidth: '280px',
-        background: 'var(--background)',
-        borderColor: 'var(--border)',
-      }}
-    >
+  const content = (
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div
         className="flex flex-col gap-2 p-3 border-b shrink-0"
         style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
@@ -169,14 +161,6 @@ export default function SidePanel({
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg shrink-0 transition-[background-color,opacity,box-shadow] duration-200 hover:bg-accent opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 text-muted-foreground"
-            aria-label={t('workspace.side_panel_close')}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} size={16} />
-          </button>
         </div>
       </div>
 
@@ -196,10 +180,16 @@ export default function SidePanel({
       </div>
     </div>
   );
+  return embedded ? content : (
+    <DetailModal title={resource.title} description={t('workspace.side_panel_tabs_aria')} onClose={onClose} bodyClassName="overflow-hidden p-0">
+      {content}
+    </DetailModal>
+  );
 }
 
 function BacklinksTab({ resourceId }: { resourceId: string }) {
   const { t } = useTranslation();
+  const closeDetail = useDetailModalClose();
   const [backlinks, setBacklinks] = useState<ResourceSemanticBacklink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -267,6 +257,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.source_id, link.source_type);
+                closeDetail?.();
               }}
               aria-label={`Open ${link.source_title || 'Untitled'}`}
             >

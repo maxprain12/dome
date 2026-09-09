@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { HubMasterDetail } from '@/components/shared/HubMasterDetail';
 import { HubPaneState } from '@/components/shared/HubPaneState';
 import { SectionCard } from '@/components/shared/SectionCard';
+import { DetailModal } from '@/components/shared/DetailModal';
 import { focusPerson } from '@/lib/store/useOpenIntentStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import type { SocialReplyDraft } from '@/lib/social/socialQueues';
@@ -30,7 +31,7 @@ export function SocialInboxHub({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const pending = useMemo(() => drafts.filter(isPendingDraft), [drafts]);
-  const selected = pending.find((draft) => draft.id === selectedId) ?? pending[0] ?? null;
+  const selected = pending.find((draft) => draft.id === selectedId) ?? null;
 
   const run = async (id: string, work: () => Promise<void>) => {
     setBusyId(id);
@@ -63,6 +64,7 @@ export function SocialInboxHub({
         });
       }
       if (personId) {
+        setSelectedId(null);
         useTabStore.getState().openPeopleTab();
         focusPerson({ personId });
       }
@@ -77,6 +79,7 @@ export function SocialInboxHub({
       });
       const person = res.success ? res.data?.people?.[0] : undefined;
       if (person?.id) {
+        setSelectedId(null);
         useTabStore.getState().openPeopleTab();
         focusPerson({ personId: person.id });
         return;
@@ -102,7 +105,7 @@ export function SocialInboxHub({
 
   return (
     <HubMasterDetail className="@container/social-row">
-      <div className="flex h-full min-h-0 w-full flex-col border-r md:w-96 md:basis-[36%] md:shrink-0">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col">
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
           <h2 className="text-base font-semibold tracking-tight">{t('social.studio.nav.inbox')}</h2>
           <Badge variant="outline">{pending.length}</Badge>
@@ -134,18 +137,7 @@ export function SocialInboxHub({
         </ScrollArea>
       </div>
       {selected ? (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-            <SectionCard title={t('social.studio.inbox.comment')}>
-              <p className="text-sm">{selected.commentText || '—'}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {selected.commentAuthor || t('social.studio.inbox.unknown_author')}
-                {selected.hashtag ? ` · #${selected.hashtag}` : ''}
-              </p>
-            </SectionCard>
-            <SectionCard title={t('social.studio.inbox.draft_reply')}>
-              <p className="whitespace-pre-wrap text-sm">{selected.replyBody || '—'}</p>
-            </SectionCard>
+        <DetailModal title={selected.commentAuthor || t('social.studio.inbox.unknown_author')} onClose={() => setSelectedId(null)} description={selected.provider} size="compact" footer={
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -182,11 +174,21 @@ export function SocialInboxHub({
                 {t('social.studio.inbox.approve_reply')}
               </Button>
             </div>
+        }>
+            <SectionCard title={t('social.studio.inbox.comment')}>
+              <p className="whitespace-pre-wrap text-sm">{selected.commentText || '—'}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {selected.commentAuthor || t('social.studio.inbox.unknown_author')}
+                {selected.hashtag ? ` · #${selected.hashtag}` : ''}
+              </p>
+            </SectionCard>
+            <SectionCard title={t('social.studio.inbox.draft_reply')}>
+              <p className="whitespace-pre-wrap text-sm">{selected.replyBody || '—'}</p>
+            </SectionCard>
             {!selected.commentAuthorExternalId ? (
               <p className="text-xs text-muted-foreground">{t('social.studio.inbox.send_needs_author')}</p>
             ) : null}
-          </div>
-        </ScrollArea>
+        </DetailModal>
       ) : null}
     </HubMasterDetail>
   );

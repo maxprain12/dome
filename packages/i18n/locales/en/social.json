@@ -26,6 +26,7 @@
   "agent_action_analytics": "Analytics",
   "agent_ask_many": "Ask Many",
   "metrics": {
+    "clicks": "clicks",
     "title": "Post metrics",
     "pending": "No metrics yet — sync the feed or refresh metrics.",
     "likes": "likes",
@@ -279,7 +280,15 @@
     "trigger_auto": "automatic"
   },
   "studio": {
-    "nav": {"overview": "Overview", "content": "Content", "campaigns": "Campaigns", "events": "Events", "insights": "Insights", "inbox": "Inbox", "accounts": "Accounts"},
+    "nav": {
+      "overview": "Overview",
+      "content": "Content",
+      "campaigns": "Campaigns",
+      "events": "Events",
+      "insights": "Insights",
+      "inbox": "Inbox",
+      "accounts": "Accounts"
+    },
     "inbox": {
       "empty_title": "No pending comments",
       "empty_description": "Matched Instagram comments and draft replies will land here so you can create a contact, open the timeline, or approve a reply.",
@@ -291,9 +300,25 @@
       "approve_reply": "Approve reply",
       "send_needs_author": "Cannot send: this comment has no author id from the network. Create a contact instead, or reconnect with messaging scopes."
     },
-    "rail": {"subtitle": "Editorial studio"},
-    "header": {"workspace": "Social workspace", "sections": "Social sections"},
-    "status": {"draft": "Draft", "scheduled": "Scheduled", "publishing": "Publishing", "published": "Published", "failed": "Failed", "active": "Active", "archived": "Archived", "paused": "Paused", "generating": "Generating", "ready": "Ready"},
+    "rail": {
+      "subtitle": "Editorial studio"
+    },
+    "header": {
+      "workspace": "Social workspace",
+      "sections": "Social sections"
+    },
+    "status": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "publishing": "Publishing",
+      "published": "Published",
+      "failed": "Failed",
+      "active": "Active",
+      "archived": "Archived",
+      "paused": "Paused",
+      "generating": "Generating",
+      "ready": "Ready"
+    },
     "overview": {
       "eyebrow": "Today's briefing",
       "attention_title": "{{count}} items need your attention",
@@ -333,9 +358,28 @@
       "series_engagements": "Engagements",
       "metrics_scope": "Posts imported or created in Dome and published in this period. Interactions are lifetime totals; — means data is unavailable."
     },
-    "content": {"eyebrow": "Editorial library", "title": "Content", "description": "Review the status, performance, and destination of every post.", "empty_description": "Create a post or change the filters to get started."},
-    "campaigns": {"eyebrow": "Narratives", "title": "Campaigns", "description": "Group posts around an outcome and track their progress.", "no_goal": "No goal defined", "progress": "{{progress}}% published", "empty_description": "Create a campaign to organize your next launch.", "dialog_description": "Choose a clear name and the outcome you want to achieve."},
-    "events": {"eyebrow": "Live experiences", "title": "Events", "description": "Design public cards, communicate changes, and automate replies.", "editor_eyebrow": "Event design", "editor_description": "Information shown on the public page and Wallet passes."},
+    "content": {
+      "eyebrow": "Editorial library",
+      "title": "Content",
+      "description": "Review the status, performance, and destination of every post.",
+      "empty_description": "Create a post or change the filters to get started."
+    },
+    "campaigns": {
+      "eyebrow": "Narratives",
+      "title": "Campaigns",
+      "description": "Group posts around an outcome and track their progress.",
+      "no_goal": "No goal defined",
+      "progress": "{{progress}}% published",
+      "empty_description": "Create a campaign to organize your next launch.",
+      "dialog_description": "Choose a clear name and the outcome you want to achieve."
+    },
+    "events": {
+      "eyebrow": "Live experiences",
+      "title": "Events",
+      "description": "Design public cards, communicate changes, and automate replies.",
+      "editor_eyebrow": "Event design",
+      "editor_description": "Information shown on the public page and Wallet passes."
+    },
     "insights": {
       "eyebrow": "Performance",
       "title": "Insights",
@@ -368,7 +412,19 @@
       "zero_title": "Insights is ready when you publish",
       "zero_description": "Connect accounts, publish posts or event cards, then generate an AI report for this period."
     },
-    "accounts": {"eyebrow": "Distribution", "title": "Accounts", "description": "Connect, review, and configure where your work is published.", "connected_count": "{{count}} connected accounts", "not_connected": "Not connected yet", "active": "Active", "setup": "Set up", "manage": "Manage", "configure": "Configure {{provider}}", "add_account": "Add another account", "multi_account_hint": "Connect several accounts from the same network in this vault. Authorize each account separately; authorizing the same account again updates its connection."},
+    "accounts": {
+      "eyebrow": "Distribution",
+      "title": "Accounts",
+      "description": "Connect, review, and configure where your work is published.",
+      "connected_count": "{{count}} connected accounts",
+      "not_connected": "Not connected yet",
+      "active": "Active",
+      "setup": "Set up",
+      "manage": "Manage",
+      "configure": "Configure {{provider}}",
+      "add_account": "Add another account",
+      "multi_account_hint": "Connect several accounts from the same network in this vault. Authorize each account separately; authorizing the same account again updates its connection."
+    },
     "crm": {
       "filter_by": "Filter",
       "sort_az": "A–Z",
@@ -389,7 +445,19 @@
       "detail_empty_account": "Select an account",
       "detail_empty_account_hint": "Choose an account or channel to connect and configure."
     },
-    "composer": {"eyebrow": "New story", "destinations": "Destinations", "choose_account": "Choose account", "account_required": "Choose an active account for each destination.", "content_description": "Write one strong piece and adapt its destination from the same base.", "copy": "Copy", "media_description": "Add an image or video from your computer or a public URL.", "library_description": "Choose an image or video already saved in your Dome library.", "discard_title": "Discard this draft?", "discard_description": "Changes from this session cannot be recovered.", "discard": "Discard"},
+    "composer": {
+      "eyebrow": "New story",
+      "destinations": "Destinations",
+      "choose_account": "Choose account",
+      "account_required": "Choose an active account for each destination.",
+      "content_description": "Write one strong piece and adapt its destination from the same base.",
+      "copy": "Copy",
+      "media_description": "Add an image or video from your computer or a public URL.",
+      "library_description": "Choose an image or video already saved in your Dome library.",
+      "discard_title": "Discard this draft?",
+      "discard_description": "Changes from this session cannot be recovered.",
+      "discard": "Discard"
+    },
     "inspector": {
       "title": "Social detail",
       "description": "Review the content, performance, and available actions.",
@@ -586,5 +654,70 @@
       "dm_click": "DM link clicks",
       "other": "{{key}}"
     }
+  },
+  "native": {
+    "media": "Publication media",
+    "document": "Document",
+    "open_document": "Open document",
+    "media_unavailable": "This media is unavailable. Sync or open the original post.",
+    "previous_media": "Previous media",
+    "next_media": "Next media",
+    "more": "Show more",
+    "less": "Show less",
+    "votes": "{{count}} votes",
+    "metrics_unavailable": "Metrics not yet available",
+    "inspect": "View details",
+    "back_content": "Back to content",
+    "content_description": "Your posts, with each network’s character and room to breathe.",
+    "network": "Social network",
+    "order": "Post order",
+    "recent": "Newest first",
+    "oldest": "Oldest first",
+    "layout": "Content view",
+    "gallery": "Gallery",
+    "feed": "Feed",
+    "format_reel": "Reel",
+    "format_carousel": "Carousel",
+    "format_video": "Video",
+    "format_image": "Photo",
+    "format_poll": "Poll",
+    "format_article": "Article"
+  },
+  "direct": {
+    "title": "DM automations",
+    "description": "Turn a comment into a conversation. Create keyword replies without banners or event cards.",
+    "active_count": "{{count}} active",
+    "new": "New automation",
+    "edit": "Edit automation",
+    "account": "Source account",
+    "keyword": "When a comment contains…",
+    "keyword_example": "GUIDE",
+    "keyword_hint": "Matches the whole keyword, with or without #, regardless of case.",
+    "message": "Direct message",
+    "message_placeholder": "Hi {{author}}, here is the information you requested: {{link}}",
+    "variables": "Personalize with {{author}}, {{hashtag}}, {{comment}} and {{link}}.",
+    "optional_link": "Destination link (optional)",
+    "delivery": "How to reply",
+    "review": "Review in inbox",
+    "live": "Send automatically",
+    "permissions": "The account needs comment and messaging permissions for automatic delivery. Save the rule and complete the connection in Accounts.",
+    "save": "Save automation",
+    "saving": "Saving…",
+    "saved": "Automation saved",
+    "error": "Could not load or save the automation. Try again.",
+    "preview": "Preview",
+    "preview_title": "This is how the conversation starts.",
+    "when": "Someone comments your keyword",
+    "then": "Dome prepares your reply",
+    "example_author": "Alex",
+    "live_hint": "The message sends when the network and account permit it. Failures appear in the inbox.",
+    "review_hint": "The reply is saved in your inbox for review before sending.",
+    "runtime": "Runs while Dome is open. Periodically checks comments on posts from the last 30 days; each comment is processed once. No event card required.",
+    "your_rules": "Your automations",
+    "empty": "Your next conversation starts here",
+    "empty_hint": "Choose a keyword and write what you want to share.",
+    "toggle": "Enable or pause {{keyword}}",
+    "edit_rule": "Edit {{keyword}}",
+    "delete_rule": "Delete {{keyword}}"
   }
 }

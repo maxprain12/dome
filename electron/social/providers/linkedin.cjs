@@ -1,3 +1,4 @@
+const { linkedinContent } = require('../social-source-content.cjs');
 'use strict';
 
 /* eslint-disable no-console */
@@ -326,7 +327,7 @@ async function fetchPostMetrics(store, post) {
   };
 }
 
-async function mapPostsFromElements(accessToken, elements) {
+async function mapPostsFromElements(accessToken, elements, account) {
   const posts = [];
   for (const el of elements) {
     const id = el.id || el.$URN || null;
@@ -366,6 +367,12 @@ async function mapPostsFromElements(accessToken, elements) {
       externalUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}/`,
       publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
       metrics,
+      ...await linkedinContent(el, account, (id) => {
+        const kind = id.split(':')[2];
+        const endpoint = { image: 'images', video: 'videos', document: 'documents' }[kind];
+        if (!endpoint) return Promise.resolve({});
+        return linkedinFetch(accessToken, `https://api.linkedin.com/rest/${endpoint}/${encodeURIComponent(id)}`);
+      }),
     });
   }
   return posts;
@@ -407,7 +414,7 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
   }
 
   const elements = data?.elements || data?.posts || [];
-  const posts = await mapPostsFromElements(accessToken, elements);
+  const posts = await mapPostsFromElements(accessToken, elements, account);
   if (kind === 'member' && posts.length === 0) {
     return { posts: [], skipped: 'linkedin_member' };
   }

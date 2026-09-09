@@ -55,11 +55,11 @@ import type {
   SocialPost,
 } from '@/components/social/socialTypes';
 import { HubDetailPane } from '@/components/shared/HubDetailPane';
+import { DetailModal } from '@/components/shared/DetailModal';
 import { ActionIcon, ReadField, SectionCard } from '@/components/social/crm/socialCrmChrome';
 import {
   SocialDirectoryColumn,
   SocialDirectoryRow,
-  SocialFichaEmpty,
   SocialHubSplit,
 } from '@/components/social/workspace/SocialDirectoryColumn';
 
@@ -146,6 +146,7 @@ export function SocialEventsStudio({
           </Alert>
         </div>
       ) : selected ? (
+        <DetailModal title={socialEventCardLabel(selected)} onClose={() => setSelectedId(null)} bare size="wide">
         <EventFicha
           card={selected}
           cards={cards}
@@ -154,13 +155,8 @@ export function SocialEventsStudio({
           onEdit={() => onEdit(selected)}
           onReload={load}
         />
-      ) : (
-        <SocialFichaEmpty
-          icon={<HugeiconsIcon icon={Calendar03Icon} className="size-8" />}
-          title={t('social.studio.crm.detail_empty_event')}
-          description={t('social.studio.crm.detail_empty_event_hint')}
-        />
-      )}
+        </DetailModal>
+      ) : null}
     </SocialHubSplit>
   );
 }

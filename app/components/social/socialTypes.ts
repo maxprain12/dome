@@ -17,7 +17,13 @@ export interface SocialAccount {
 }
 
 export interface SocialMediaItem {
-  type?: 'image' | 'video' | 'reel';
+  type?: 'image' | 'video' | 'reel' | 'document';
+  thumbnailUrl?: string;
+  externalId?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+  durationMs?: number;
   /** Public https URL (only path Instagram photos accept). */
   url?: string;
   /** Local file picked from the user's machine. */
@@ -62,7 +68,29 @@ export interface SocialCampaign {
   failed: number;
 }
 
+export interface SocialPostSource {
+  authorName?: string;
+  authorHandle?: string;
+  avatarUrl?: string;
+  format?: string;
+  link?: { title?: string; description?: string; imageUrl?: string };
+  quote?: { body: string; authorName?: string; authorHandle?: string; url?: string };
+  poll?: { question?: string; options: Array<{ position: number; label: string; votes?: number }>; endsAt?: string; status?: string };
+}
+
+export interface SocialReplyRule {
+  id: string;
+  enabled?: boolean;
+  mode?: 'live' | 'draft_only';
+  hashtag: string;
+  replyTemplate?: string;
+  linkUrl?: string | null;
+  accountIds?: string[] | null;
+  postIds?: string[] | null;
+}
+
 export interface SocialPost {
+  source?: SocialPostSource | null;
   id: string;
   accountId: string | null;
   provider: SocialProvider;

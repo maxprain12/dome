@@ -408,7 +408,7 @@ const loadCalendars = useCallback(async () => {
         </div>
 
         {showModal ? (
-          <div className="flex h-[min(70vh,32rem)] min-h-0 w-full shrink-0 flex-col md:h-auto md:w-72 lg:w-80">
+          <>
             <EventModal
               key={selectedEvent?.id ?? `new-${initialModalDate?.getTime() ?? 'blank'}`}
               event={selectedEvent}
@@ -420,15 +420,14 @@ const loadCalendars = useCallback(async () => {
               onSave={handleSave}
               onDelete={selectedEvent ? handleDelete : undefined}
             />
-          </div>
-        ) : (
+          </>
+        ) : null}
           <aside className="h-64 shrink-0 md:h-auto md:w-72 lg:w-80">
             <CalendarUpcoming
               events={upcomingEvents}
               onEventClick={(ev) => void handleEventClick(ev)}
             />
           </aside>
-        )}
       </div>
 
       {showImport && importPreview ? (
@@ -507,4 +506,3 @@ const loadCalendars = useCallback(async () => {
     </CalendarHero>
   );
 }
-

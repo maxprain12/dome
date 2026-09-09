@@ -272,7 +272,7 @@ type PipelinesDetailDockProps = {
   onCreateWorkflow: () => void;
 };
 
-/** Card / stage side panel — extracted so PipelinesBoard stays under S3776. */
+/** Card and stage dialogs preserve the board's layout and scroll position. */
 function PipelinesDetailDock({
   liveOpenItem,
   liveConfigStage,
@@ -294,7 +294,7 @@ function PipelinesDetailDock({
   if (!liveOpenItem && !liveConfigStage) return null;
 
   return (
-    <div className="absolute inset-0 z-10 flex h-full min-h-0 w-full flex-col border-l bg-background min-[900px]:static min-[900px]:inset-auto min-[900px]:z-auto min-[900px]:w-[22rem] min-[900px]:shrink-0 lg:w-[28rem]">
+    <>
       {liveOpenItem ? (
         <CardDetailModal
           item={liveOpenItem}
@@ -326,7 +326,7 @@ function PipelinesDetailDock({
           onCreateWorkflow={onCreateWorkflow}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 

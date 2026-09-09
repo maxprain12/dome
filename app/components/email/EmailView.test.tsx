@@ -77,10 +77,11 @@ describe('mail account and message context', () => {
     expect(screen.getByText('Enviando desde secondary@example.com')).toBeVisible();
     fireEvent.change(screen.getByLabelText('Para'), { target: { value: 'recipient@example.com' } });
     fireEvent.change(screen.getByLabelText('Mensaje'), { target: { value: 'My draft' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Sincronizar' }));
-    await waitFor(() => expect(window.electron.email.syncNow).toHaveBeenCalled());
+    const notifyData = vi.mocked(window.electron.email.onDataUpdated).mock.calls.at(-1)?.[0];
+    await act(async () => { notifyData?.({ projectId: 'vault', accountId: 'secondary' }); });
     expect(screen.getByLabelText('Mensaje')).toHaveValue('My draft');
-    expect(screen.getByRole('combobox')).toBeDisabled();
+    expect(screen.getByRole('dialog', { name: 'Redactar' })).toBeVisible();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
     expect(window.electron.email.send).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'secondary', projectId: 'vault', body: 'My draft' }));
   });

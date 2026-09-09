@@ -57,6 +57,7 @@ import PersonTimeline from './PersonTimeline';
 import { coreProfileValue, mergeProfileParts, splitProfile } from './personProfileFields';
 import { ActionIcon } from '@/components/shared/ActionIcon';
 import { HubDetailPane } from '@/components/shared/HubDetailPane';
+import { useDetailModalClose } from '@/components/shared/DetailModal';
 import { ReadField } from '@/components/shared/ReadField';
 import { SectionCard } from '@/components/shared/SectionCard';
 import { hubSectionClass, hubSectionTitleClass } from '@/components/shared/hubChrome';
@@ -107,6 +108,7 @@ export default function PersonDetailPanel({
   customs = [],
   onManageStatuses,
 }: PersonDetailPanelProps) {
+  const closeDetail = useDetailModalClose();
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState(person.displayName);
   const [primaryEmail, setPrimaryEmail] = useState(person.primaryEmail ?? '');
@@ -198,9 +200,11 @@ export default function PersonDetailPanel({
     if (!emailHref) return;
     openExternalHref(emailHref);
     useTabStore.getState().openEmailTab();
+    closeDetail?.();
   };
 
   const handleMany = () => {
+    closeDetail?.();
     openManyWithCombinedContext({
       person: {
         id: person.id,
@@ -221,6 +225,7 @@ export default function PersonDetailPanel({
     if (social.kind === 'native_post') {
       useTabStore.getState().openSocialTab();
       focusSocialPost({ postId: social.postId });
+      closeDetail?.();
       return;
     }
     openExternalHref(social.href);
@@ -277,11 +282,11 @@ export default function PersonDetailPanel({
                 <HugeiconsIcon icon={Share08Icon} />
                 {t('people.action_open_social')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenPipelines}>
+              <DropdownMenuItem onClick={() => { onOpenPipelines(); closeDetail?.(); }}>
                 <HugeiconsIcon icon={WorkflowSquare01Icon} />
                 {t('people.add_to_pipeline')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenCalendar}>
+              <DropdownMenuItem onClick={() => { onOpenCalendar(); closeDetail?.(); }}>
                 <HugeiconsIcon icon={Calendar03Icon} />
                 {t('people.link_to_calendar')}
               </DropdownMenuItem>
@@ -332,7 +337,7 @@ export default function PersonDetailPanel({
 
         <TabsContent value="info" className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="flex flex-col gap-4 p-3">
+            <div className="grid gap-5 p-5 md:grid-cols-2 [&>*:last-child]:md:col-span-2">
               {igLead ? (
                 <InstagramLeadCard
                   person={person}
