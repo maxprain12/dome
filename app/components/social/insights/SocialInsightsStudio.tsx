@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { BarChartIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
+import { DetailModal } from '@/components/shared/DetailModal';
 import { Spinner } from '@/components/ui/spinner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
@@ -23,12 +24,14 @@ const PERIODS: InsightsPeriodDays[] = [7, 30, 90];
 interface SocialInsightsStudioProps {
   selectedReport?: SocialReport | null;
   onSelectReport: (report: SocialReport) => void;
+  onCloseReport: () => void;
   onOpenEvents: () => void;
 }
 
 export function SocialInsightsStudio({
   selectedReport = null,
   onSelectReport,
+  onCloseReport,
   onOpenEvents,
 }: SocialInsightsStudioProps) {
   const { t } = useTranslation();
@@ -67,6 +70,7 @@ export function SocialInsightsStudio({
 
   return (
     <SocialHubSplit>
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
       <SocialDirectoryColumn
         title={t('social.studio.nav.insights')}
         action={
@@ -104,21 +108,17 @@ export function SocialInsightsStudio({
           ))}
         </ul>
       </SocialDirectoryColumn>
-      {selectedReport ? (
-        <SocialReportDetailPanel report={selectedReport} />
-      ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-4 p-4">
-            <p className="text-sm text-muted-foreground">
-              {t('social.studio.crm.detail_empty_report_hint')}
-            </p>
-            <SocialEventInsights
-              onOpenPeople={() => openPeopleTab()}
-              onOpenEvents={onOpenEvents}
-            />
+            <SocialEventInsights onOpenPeople={() => openPeopleTab()} onOpenEvents={onOpenEvents} />
           </div>
         </ScrollArea>
-      )}
+      </div>
+      {selectedReport ? (
+        <DetailModal title={selectedReport.title || t('social.reports.untitled')} onClose={onCloseReport} bare size="reading">
+        <SocialReportDetailPanel report={selectedReport} />
+        </DetailModal>
+      ) : null}
     </SocialHubSplit>
   );
 }

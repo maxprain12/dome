@@ -27,7 +27,9 @@ import { cn } from '@/lib/utils';
  * - Empty/loading detalle: `HubPaneState` (rail: `ListState`; connect: `HubSurface`)
  *
  * Layout
- * - `HubMasterDetail` — rail + detail split
+ * - `DetailModal` — entity detail with compact header, bounded body and persistent actions
+ * - `DetailColumns` — primary content and contextual metadata inside the modal
+ * - `HubMasterDetail` — full-width directory container; selected records open in DetailModal
  * - `HubDirectoryColumn` — rail title, HubSearch, filter Select, sort, extraToolbar
  * - `HubDetailPane` — ficha: icon, title, badge, subtitle, overflow actions, toolbar, tabs
  * - `HubPaneState` — empty/loading/error of a detail pane
@@ -37,8 +39,8 @@ import { cn } from '@/lib/utils';
  * - Calendar — `HubSectionShell` (`layout=canvas`)
  * - People — `HubSectionShell` + `HubMasterDetail` + `HubDirectoryColumn` (`layout=directory`)
  * - Social — `HubPageHeader` + `HubDirectoryColumn` / `HubDetailPane` (`layout=directory`)
- * - Email — `HubSectionShell`; body stays `layout=overlay` (compose/detail `absolute`, not HubMasterDetail)
- * - GitHub — `HubSectionShell`; body stays `layout=overlay` (issue/milestone sidebar, not HubMasterDetail)
+ * - Email — `HubSectionShell`; reading and compose use DetailModal
+ * - GitHub — `HubSectionShell`; issues and milestones use DetailModal
  * - Marketplace — `HubPageHeader` + `HubSearch` + `ToggleGroup` (`layout=grid`)
  * - Pipelines — `HubPageHeader` + kanban canvas; dashboard cards use `selectionSurfaceClass`
  * - Agents / Workflows / Automations / Runs — `HubPageHeader` + `HubSearch` + `HubMetricGrid` (`layout=grid`)

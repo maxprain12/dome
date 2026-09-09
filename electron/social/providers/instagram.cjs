@@ -1,3 +1,4 @@
+const { instagramContent } = require('../social-source-content.cjs');
 'use strict';
 
 /* eslint-disable no-console */
@@ -280,7 +281,7 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
   const data = await igFetch(`/${igUserId}/media`, {
     accessToken,
     params: {
-      fields: 'id,caption,timestamp,permalink,like_count,comments_count,media_type',
+      fields: 'id,caption,timestamp,permalink,like_count,comments_count,media_type,media_product_type,media_url,thumbnail_url,username,children{id,media_type,media_url,thumbnail_url}',
       limit: capped,
     },
   });
@@ -303,6 +304,7 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
     posts.push({
       externalPostId: String(m.id),
       body: m.caption || '',
+      ...instagramContent(m, account),
       externalUrl: m.permalink || null,
       publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
       metrics: {

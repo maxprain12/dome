@@ -91,7 +91,7 @@ function GitHubDetailSidebar({
   onOpenIssueFromMilestone: (issueId: string) => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-l bg-background studio-view-enter md:w-80 lg:w-[28rem]">
+    <>
       {openMilestoneId ? (
         <MilestoneDetailModal
           milestoneId={openMilestoneId}
@@ -100,7 +100,7 @@ function GitHubDetailSidebar({
         />
       ) : null}
       {openIssueId ? <IssueDetailPanel issueId={openIssueId} onClose={onCloseIssue} /> : null}
-    </div>
+    </>
   );
 }
 

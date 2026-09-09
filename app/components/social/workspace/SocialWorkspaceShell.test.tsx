@@ -96,7 +96,6 @@ describe('SocialWorkspaceShell', () => {
       });
     });
     expect(await screen.findByRole('heading', { name: 'Lanzamiento' })).toBeVisible();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(document.querySelector('[data-slot="sheet-content"]')).not.toBeInTheDocument();
   });
 
@@ -109,7 +108,10 @@ describe('SocialWorkspaceShell', () => {
         provider: 'instagram',
         status: 'published',
         body: 'Foto del estudio',
-        media: [],
+        media: [
+          { type: 'image', url: 'https://example.com/studio.jpg', alt: 'Vista del estudio' },
+          { type: 'image', url: 'https://example.com/desk.jpg', alt: 'Mesa del estudio' },
+        ],
         linkUrl: null,
         topics: [],
         campaign: null,
@@ -141,8 +143,18 @@ describe('SocialWorkspaceShell', () => {
     render(<SocialWorkspaceShell />);
     expect(await screen.findByRole('heading', { name: 'Publicaciones recientes' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: /Foto del estudio/i }));
-    expect(screen.getByRole('heading', { name: 'Contenido' })).toBeVisible();
+    const detail = screen.getByRole('dialog', { name: 'Foto del estudio' });
+    expect(detail).toBeVisible();
     expect(await screen.findByRole('tab', { name: 'Resumen' })).toBeVisible();
+    expect(within(detail).getByRole('img', { name: 'Vista del estudio' })).toBeVisible();
+    await user.click(within(detail).getByRole('button', { name: 'Medio siguiente' }));
+    const secondImage = within(detail).getByRole('img', { name: 'Mesa del estudio' });
+    await user.click(within(detail).getByRole('tab', { name: 'Notas' }));
+    expect(secondImage).toBeVisible();
+    await user.click(within(detail).getByRole('tab', { name: 'Resumen' }));
+    expect(within(detail).getByRole('img', { name: 'Mesa del estudio' })).toBe(secondImage);
+    await user.click(within(detail).getByRole('button', { name: 'Cerrar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     workspaceData.posts = [];
   });
 
@@ -175,7 +187,7 @@ describe('SocialWorkspaceShell', () => {
     await user.click(await screen.findByRole('tab', { name: 'Cuentas' }));
 
     expect(await screen.findByRole('heading', { name: 'Cuentas' })).toBeVisible();
-    expect(screen.getByText('Selecciona una cuenta')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('opens a post inspector with summary/comments/notes tabs and saves notes', async () => {
@@ -255,7 +267,7 @@ describe('SocialWorkspaceShell', () => {
     await user.click(await screen.findByRole('tab', { name: 'Contenido' }));
     await user.click(await screen.findByRole('button', { name: /Hola mundo Dome/i }));
 
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Hola mundo Dome' })).toBeVisible();
     expect(screen.getByRole('tab', { name: 'Resumen' })).toBeVisible();
     expect(screen.getByRole('tab', { name: /Comentarios/ })).toBeVisible();
     expect(screen.getByRole('tab', { name: 'Notas' })).toBeVisible();
@@ -275,6 +287,11 @@ describe('SocialWorkspaceShell', () => {
         notes: 'Recordar follow-up',
       });
     });
+
+    expect(screen.getByRole('tab', { name: 'Notas' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Notas internas')).toHaveValue('Recordar follow-up');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     workspaceData.posts = [];
   });

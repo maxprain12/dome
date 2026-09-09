@@ -1345,7 +1345,8 @@ function buildQueries(db) {
     `),
     updateImportedSocialPost: db.prepare(`
       UPDATE social_posts
-      SET body = ?, external_url = ?, published_at = COALESCE(?, published_at), updated_at = ?
+      SET body = ?, external_url = ?, published_at = COALESCE(?, published_at), updated_at = ?,
+          media = COALESCE(?, media), link_url = COALESCE(?, link_url), source_json = COALESCE(?, source_json)
       WHERE id = ?
     `),
     updateSocialPostNotes: db.prepare(`

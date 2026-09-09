@@ -1,4 +1,8 @@
 'use strict';
+function parseSource(raw) {
+  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+
 
 /* eslint-disable no-console */
 
@@ -284,6 +288,7 @@ function createSocialStore(database) {
       status: row.status,
       body: row.body,
       media: parseJsonArray(row.media),
+      source: parseSource(row.source_json),
       mediaStorage: parseJsonArray(row.media_storage),
       linkUrl: row.link_url,
       topics: parseJsonArray(row.topics),
@@ -422,6 +427,9 @@ function createSocialStore(database) {
     externalUrl = null,
     publishedAt = null,
     metrics = null,
+    media = null,
+    linkUrl = null,
+    source = null,
   }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
     const ext = String(externalPostId || '').trim();
@@ -435,10 +443,13 @@ function createSocialStore(database) {
         return { post: serializePost(existing), created: false, skipped: true };
       }
       q().updateImportedSocialPost.run(
-        String(body || existing.body || ''),
+        String(body ?? existing.body ?? ''),
         externalUrl || existing.external_url,
         pubAt,
         now,
+        Array.isArray(media) && media.length ? JSON.stringify(media) : null,
+        linkUrl,
+        source ? JSON.stringify(source) : null,
         existing.id,
       );
       if (metrics && typeof metrics === 'object') {
@@ -457,8 +468,8 @@ function createSocialStore(database) {
       provider,
       'published',
       String(body || ''),
-      '[]',
-      null,
+      JSON.stringify(media || []),
+      linkUrl,
       '[]',
       null,
       null,
@@ -474,6 +485,9 @@ function createSocialStore(database) {
       now,
       now,
     );
+    if (source) {
+      q().updateImportedSocialPost.run(String(body || ''), externalUrl, pubAt, now, null, linkUrl, JSON.stringify(source), id);
+    }
     if (metrics && typeof metrics === 'object') {
       insertMetric(id, metrics);
     }
@@ -856,7 +870,7 @@ function createSocialStore(database) {
       const raw = q().getSetting.get(LIVE_REPLY_RULES_KEY)?.value;
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch { /* fall through */ }
     return [

@@ -1,41 +1,42 @@
-# SOP: Inline detail surfaces (master–detail)
+# SOP: Entity detail modals
 
-Use this when redesigning a Dome hub/list screen so detail does **not** cover the list with Sheet/Drawer/Dialog. Canonical examples: Calendar (`EventDetailChrome` + `CalendarPage`), Seguimiento (`IssueDetailChrome` + `GitHubView`).
+Updated 2026-09-09 by explicit product direction: entity details use the Social publication modal pattern throughout Dome.
 
-Shared chrome: [`app/components/shared/InlineDetailCard.tsx`](../../app/components/shared/InlineDetailCard.tsx).
+## Shared composition
 
----
+Use `app/components/shared/DetailModal.tsx` for record details. It composes the existing shadcn/Base UI Dialog with a compact header, bounded height, scrollable content and persistent actions.
+
+- `size="compact"`: short forms, calendar events and simple records; reduced height.
+- `size="reading"`: documents, reports, objectives and catalog entries.
+- `size="wide"`: media, email readers and tasks with substantial context.
+- `DetailColumns`: primary description or document plus contextual metadata. Stack at narrow widths; `fill` bounds independent desktop scrolling for readers.
+- `bare`: domain content provides its own header and scrolling. Use `DetailModalClose` in that header, or `HubDetailPane` which already provides it.
+- Existing `InlineDetailCard` callers delegate to this same modal. New callers should compose `DetailModal` directly.
 
 ## Rules
 
-1. **Master–detail inline** — Page is `flex` → main `flex-1 min-w-0` + detail column `md:w-72 lg:w-96` (or `lg:w-[28rem]` if dense). When detail opens, **replace** the secondary aside (Upcoming / feed / empty) — do not stack three columns or overlay.
+1. Opening a detail must not resize, hide, replace or reset its source list, dashboard or calendar. Remove the old side-column wrapper.
+2. Open on explicit selection, never automatically on the first item. Clear the selection on close and invalidate pending detail requests.
+3. One identity header. Put long descriptions in the body, contextual metadata in a secondary column, and actions in the footer. Keep the author, title, status and close control readable.
+4. Use the domain's useful tabs: comments/activity for tasks, identity/history for people, preview/comments/notes for Social.
+5. Use existing dirty-form guards for explicit close/Escape. Backdrop dismissal is disabled by default for editing surfaces; opt in for pure readers.
+6. Keep Base UI focus trapping and nested dialogs. Confirmations and pickers must return to the originating detail without losing form state.
+7. When an action opens Many or another workspace, close the detail so the destination is accessible.
+8. No custom Node access, new windows or new modal primitives. Use semantic color tokens and translated labels.
+9. Workspace navigation and active conversation/editor panels are workspaces, not entity details; keep their established behavior.
 
-2. **Forbidden for primary detail** — `Sheet` / `Drawer` / centered `Dialog` that covers the list. **Allowed exceptions:** destructive `AlertDialog`, one-shot pickers (`ResourcePicker`, Command palette), OAuth/connect flows.
+## Validation
 
-3. **Chrome** — Compose in `app/components/shared/` via `InlineDetailCard` (Card + close + scroll body + footer). Domain wrappers (`EventDetailChrome`, `IssueDetailChrome`) only — never `*V2` / deprecated aliases.
+- Open and close with keyboard and button; return focus to the source.
+- Long content, narrow windows, loading/error/empty states.
+- Edit/save and nested confirmation cancel preserve the record.
+- Source list size and scroll remain unchanged.
+- Typecheck, renderer regressions, lint, build and UI contracts.
 
-4. **Identity with pills** — shadcn `Badge` / `ColorPill`; entity color via `style={{ backgroundColor }}` or variant. **Never** a top gradient/accent strip. Override Badge clip: `h-auto overflow-visible leading-none [&_svg]:size-2.5` (base `h-5 overflow-hidden` clips icons).
+## References
 
-5. **Clickable rows** — Do not put title + meta (labels) as siblings inside a `Button` with default `inline-flex` without `flex-col`. Prefer: title button + pills as siblings below; always `text-foreground` on titles.
-
-6. **Inline forms** — Create/edit in the Card/column, not a Dialog. Use Field / Input / Select / DateTimePicker. When changing start time, auto-bump end if `end <= start`.
-
----
-
-## Checklist for a new `plans/0xx` redesign
-
-Copy into the plan before implementation:
-
-- [ ] Inventory of Sheet / Dialog / Drawer on the surface
-- [ ] Which secondary column is hidden when detail opens
-- [ ] List of pills / labels / status chips
-- [ ] Smoke: open/close detail, create, destructive confirm
-- [ ] `pnpm run typecheck`
-
----
-
-## Related
-
-- [shadcn-ui.md](./shadcn-ui.md) — primitives vs shared compositions
-- Calendar: `app/components/calendar/EventDetailChrome.tsx`, `app/pages/CalendarPage.tsx`
-- GitHub: `app/components/github/IssueDetailChrome.tsx`, `app/components/github/GitHubView.tsx`
+- Shared implementation: `app/components/shared/DetailModal.tsx`
+- Social media: `app/components/social/workspace/SocialContentHub.tsx`
+- Mail reader: `app/components/email/MailDetailPanel.tsx`
+- Seguimiento: `app/components/github/IssueDetailPanel.tsx`
+- [shadcn-ui.md](./shadcn-ui.md)

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   BubbleChatIcon,
+  Cancel01Icon,
   Copy01Icon,
   Edit02Icon,
   ExternalLinkIcon,
@@ -11,8 +12,10 @@ import {
   SentIcon,
 } from '@hugeicons/core-free-icons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DialogClose } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,20 +28,19 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import ListState from '@/components/shared/ListState';
-import { HubDetailPane } from '@/components/shared/HubDetailPane';
-import type { SocialComment, SocialMetric, SocialPost } from '@/components/social/socialTypes';
+import type { SocialAccount, SocialComment, SocialMetric, SocialPost } from '@/components/social/socialTypes';
 import {
-  ActionIcon,
   PROVIDER_LABELS,
   ProviderMark,
-  ReadField,
-  SectionCard,
-  formatSocialBody,
   postStatusBadgeVariant,
 } from '@/components/social/crm/socialCrmChrome';
 import { formatSocialWhen, socialPostLabel } from '@/lib/social/socialQueues';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { useDetailModalClose } from '@/components/shared/DetailModal';
+
+import { SocialPostAuthor, SocialPostMedia, SocialPostPreview, socialWebUrl } from './SocialPostPreview';
 
 type PostTab = 'summary' | 'comments' | 'notes';
 
@@ -178,16 +180,19 @@ function pinPostInMany(post: SocialPost, snippet: string) {
 
 export function SocialPostDetailPanel({
   post,
+  account,
   onEdit,
   onPublish,
   onPostUpdated,
 }: {
   post: SocialPost;
+  account?: SocialAccount;
   onEdit: () => void;
   onPublish: () => void;
   onPostUpdated: (post: SocialPost) => void;
 }) {
   const { t, i18n } = useTranslation();
+  const closeDetail = useDetailModalClose();
   const [tab, setTab] = useState<PostTab>('summary');
   const commentsErrorFallback = t('social.studio.inspector.comments_error');
   const {
@@ -199,18 +204,17 @@ export function SocialPostDetailPanel({
   } = usePostComments(post, tab, commentsErrorFallback);
   const [notesDraft, setNotesDraft] = useState(post.notes ?? '');
   const [notesSaving, setNotesSaving] = useState(false);
-  const unavailable = t('people.action_unavailable');
   const canPublish = post.status === 'draft' || post.status === 'failed';
-  const when = formatSocialWhen(
-    post.publishedAt ?? post.scheduledAt ?? post.updatedAt,
-    i18n.language,
-  );
+  const canEdit = canPublish || post.status === 'scheduled';
+  const hasMedia = Boolean(post.media?.length);
+  const externalUrl = socialWebUrl(post.externalUrl);
   const commentsCount = post.metrics?.comments;
 
   useEffect(() => {
     setNotesDraft(post.notes ?? '');
-    setTab('summary');
   }, [post.id, post.notes]);
+
+  useEffect(() => { setTab('summary'); }, [post.id]);
 
   const handleSaveNotes = () => {
     setNotesSaving(true);
@@ -223,6 +227,7 @@ export function SocialPostDetailPanel({
 
   const handleMany = () => {
     pinPostInMany(post, t('social.agent_prompt_about', { snippet: post.body.slice(0, 120) }));
+    closeDetail?.();
   };
 
   const handleCopyLink = () => {
@@ -245,22 +250,15 @@ export function SocialPostDetailPanel({
   };
 
   return (
-    <HubDetailPane
-      icon={<ProviderMark provider={post.provider} className="size-10 text-sm" />}
-      title={socialPostLabel(post, 80)}
-      badge={
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex shrink-0 items-center gap-3 border-b px-5 py-3">
+        <SocialPostAuthor post={post} account={account} />
+        <div className="hidden items-center gap-2 sm:flex">
+          <ProviderMark provider={post.provider} />
         <Badge variant={postStatusBadgeVariant(post.status)}>
           {t(`social.studio.status.${post.status}`)}
         </Badge>
-      }
-      subtitle={
-        <p className="max-w-full truncate text-xs text-muted-foreground">
-          {[PROVIDER_LABELS[post.provider], when, post.campaign || t('social.studio.inspector.organic')]
-            .filter(Boolean)
-            .join(', ')}
-        </p>
-      }
-      actions={
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={<Button type="button" variant="ghost" size="icon-sm" />}
@@ -280,37 +278,15 @@ export function SocialPostDetailPanel({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      }
-      toolbar={
-        <div className="flex items-center gap-1.5">
-          <ActionIcon
-            label={t('common.edit')}
-            available={post.status === 'draft' || post.status === 'scheduled' || post.status === 'failed'}
-            unavailableLabel={unavailable}
-            icon={Edit02Icon}
-            onClick={onEdit}
-          />
-          <ActionIcon
-            label={canPublish ? t('social.hub.publish_now') : t('social.hub.open_post')}
-            available={canPublish || Boolean(post.externalUrl)}
-            unavailableLabel={unavailable}
-            icon={canPublish ? SentIcon : ExternalLinkIcon}
-            onClick={() => {
-              if (canPublish) onPublish();
-              else if (post.externalUrl) window.open(post.externalUrl, '_blank', 'noreferrer');
-            }}
-          />
-          <ActionIcon
-            label={t('social.agent_ask_many')}
-            available
-            unavailableLabel={unavailable}
-            icon={BubbleChatIcon}
-            onClick={handleMany}
-          />
-        </div>
-      }
-    >
-
+        <DialogClose render={<Button variant="ghost" size="icon-sm" />} aria-label={t('common.close')}>
+          <HugeiconsIcon icon={Cancel01Icon} />
+        </DialogClose>
+      </header>
+      <div className={cn('grid min-h-0 flex-1 grid-cols-1', hasMedia && 'grid-rows-[min(30dvh,16rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,1.35fr)_minmax(22rem,1fr)] md:grid-rows-1')}>
+        {hasMedia ? <section aria-label={t('social.native.media')} className="min-h-0 min-w-0 border-b bg-muted/30 md:border-b-0 md:border-r">
+          <SocialPostMedia key={post.id} media={post.media} fit />
+        </section> : null}
+        <div className="flex min-h-0 min-w-0 flex-col">
       <Tabs
         value={tab}
         onValueChange={(value) => {
@@ -318,7 +294,7 @@ export function SocialPostDetailPanel({
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
+        <TabsList variant="line" className="w-full shrink-0 justify-start rounded-none border-b px-4 py-2 group-data-horizontal/tabs:h-12">
           <TabsTrigger value="summary">{t('social.studio.inspector.tab_summary')}</TabsTrigger>
           <TabsTrigger value="comments">
             {t('social.studio.inspector.tab_comments')}
@@ -332,34 +308,27 @@ export function SocialPostDetailPanel({
         </TabsList>
         <TabsContent value="summary" className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="flex flex-col gap-4 p-3">
-              <SectionCard title={t('social.studio.composer.copy')}>
-                <p className="whitespace-pre-wrap text-xs leading-5">
-                  {formatSocialBody(post.body) || t('social.hub.no_text')}
-                </p>
-              </SectionCard>
-              <SectionCard title={t('social.metrics.title')}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <ReadField
-                    label={t('social.metrics.impressions')}
-                    value={post.metrics?.impressions != null ? Intl.NumberFormat().format(post.metrics.impressions) : ''}
-                  />
-                  <ReadField
-                    label={t('social.metrics.likes')}
-                    value={post.metrics?.likes != null ? Intl.NumberFormat().format(post.metrics.likes) : ''}
-                  />
-                  <ReadField
-                    label={t('social.metrics.comments')}
-                    value={post.metrics?.comments != null ? Intl.NumberFormat().format(post.metrics.comments) : ''}
-                  />
-                  <ReadField
-                    label={t('social.metrics.shares')}
-                    value={post.metrics?.shares != null ? Intl.NumberFormat().format(post.metrics.shares) : ''}
-                  />
-                </div>
-              </SectionCard>
+            <div className="pb-5">
+              <SocialPostPreview key={post.id} post={post} detail />
+              <section className="mx-5 border-t py-5">
+                <h3 className="mb-4 text-xs font-medium text-muted-foreground">{t('social.metrics.title')}</h3>
+                <dl className="grid grid-cols-2 gap-x-5 gap-y-4">
+                  {(['impressions', 'likes', 'comments', 'shares', 'saves', 'clicks'] as const).map((metric) => (
+                    <div key={metric}>
+                      <dt className="text-xs text-muted-foreground">{t(`social.metrics.${metric}`)}</dt>
+                      <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{post.metrics?.[metric] != null ? Intl.NumberFormat(i18n.language).format(post.metrics[metric]) : '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+              <div className="mx-5 flex flex-wrap items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
+                <span>{PROVIDER_LABELS[post.provider]}</span><span aria-hidden="true">·</span>
+                <span>{post.campaign || t('social.studio.inspector.organic')}</span>
+                {post.source?.format ? <Badge variant="outline">{t(`social.native.format_${post.source.format}`, { defaultValue: post.source.format })}</Badge> : null}
+                <Badge variant={postStatusBadgeVariant(post.status)} className="sm:hidden">{t(`social.studio.status.${post.status}`)}</Badge>
+              </div>
               {post.error ? (
-                <Alert variant="destructive">
+                <Alert variant="destructive" className="mx-5 mt-4 w-auto">
                   <AlertDescription>{post.error}</AlertDescription>
                 </Alert>
               ) : null}
@@ -378,7 +347,7 @@ export function SocialPostDetailPanel({
           />
         </TabsContent>
         <TabsContent value="notes" className="min-h-0 flex-1 overflow-hidden">
-          <div className="flex h-full flex-col gap-3 p-3">
+          <div className="flex h-full flex-col gap-3 overflow-y-auto p-5">
             <Field className="min-h-0 flex-1">
               <FieldLabel htmlFor={`social-post-notes-${post.id}`}>
                 {t('social.studio.inspector.notes_label')}
@@ -388,7 +357,7 @@ export function SocialPostDetailPanel({
                 value={notesDraft}
                 onChange={(event) => setNotesDraft(event.target.value)}
                 placeholder={t('social.studio.inspector.notes_placeholder')}
-                className="min-h-0 flex-1 resize-none"
+                className="min-h-24 flex-1 resize-none"
               />
               <p className="text-xs text-muted-foreground">{t('social.studio.inspector.notes_hint')}</p>
             </Field>
@@ -404,7 +373,17 @@ export function SocialPostDetailPanel({
           </div>
         </TabsContent>
       </Tabs>
-    </HubDetailPane>
+          <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-3">
+            <Button variant="ghost" size="sm" onClick={handleMany}><HugeiconsIcon icon={BubbleChatIcon} />{t('social.agent_ask_many')}</Button>
+            <div className="ml-auto flex items-center gap-2">
+              {canEdit ? <Button variant="ghost" size="icon-sm" aria-label={t('common.edit')} title={t('common.edit')} onClick={onEdit}><HugeiconsIcon icon={Edit02Icon} /></Button> : null}
+              {canPublish ? <Button size="sm" onClick={onPublish}><HugeiconsIcon icon={SentIcon} />{t('social.hub.publish_now')}</Button> : null}
+              {!canPublish && externalUrl ? <Button nativeButton={false} variant="outline" size="sm" render={<a href={externalUrl} target="_blank" rel="noreferrer" aria-label={t('social.hub.open_post')} />}><HugeiconsIcon icon={ExternalLinkIcon} />{t('social.hub.open_post')}</Button> : null}
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -477,18 +456,21 @@ function CommentsPane({
   const anonymous = t('social.studio.inspector.comments_anonymous');
   return (
     <ScrollArea className="h-full">
-      <ul className="flex flex-col p-3">
+      <ul className="flex flex-col px-5 py-2">
         {comments.map((comment) => (
-          <li key={comment.id} className="border-b border-border/80 py-2.5 last:border-b-0">
+          <li key={comment.id} className="flex gap-3 border-b border-border/60 py-4 last:border-b-0">
+            <Avatar><AvatarFallback>{commentAuthorLabel(comment, anonymous).slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+            <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="truncate text-xs font-semibold">{commentAuthorLabel(comment, anonymous)}</p>
+              <p className="truncate text-sm font-semibold">{commentAuthorLabel(comment, anonymous)}</p>
               {comment.createdAt ? (
                 <span className="shrink-0 text-[11px] text-muted-foreground">
                   {formatSocialWhen(comment.createdAt, language)}
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 whitespace-pre-wrap text-xs leading-5">{comment.text || '—'}</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{comment.text || '—'}</p>
+            </div>
           </li>
         ))}
       </ul>

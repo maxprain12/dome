@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { SocialAutomationsStudio } from '@/components/social/automations/SocialAutomationsStudio';
 import { useTranslation } from 'react-i18next';
 import { SocialAccountsManager } from '@/components/social/accounts/SocialAccountsManager';
 import { SocialComposerWorkspace } from '@/components/social/composer/SocialComposerWorkspace';
@@ -220,6 +221,8 @@ function SectionBody({
         <SocialContentHub
           title={t('social.studio.nav.content')}
           posts={filteredPosts}
+          accounts={accounts}
+          onClosePost={() => onSelect({ kind: 'none' })}
           filter={contentFilter}
           onFilter={(next) => onContentFilter(next as SocialContentFilter)}
           filterItems={contentFilterItems(t)}
@@ -240,6 +243,7 @@ function SectionBody({
           posts={posts}
           selectedCampaign={selectedCampaign}
           onSelect={(campaign) => onSelect({ kind: 'campaign', campaign })}
+          onClose={() => onSelect({ kind: 'none' })}
           onCreate={onCreateCampaign}
           onComposeCampaign={onComposeCampaign}
           onSelectPost={(post) => onSelect({ kind: 'post', post })}
@@ -247,6 +251,8 @@ function SectionBody({
           onQueryChange={onQueryChange}
         />
       );
+    case 'automations':
+      return <SocialAutomationsStudio accounts={accounts} posts={posts} initialAccountId={accountId} onOpenInbox={() => onNavigate('inbox')} onOpenAccounts={() => onNavigate('accounts')} />;
     case 'events':
       return <SocialEventsStudio accounts={accounts} posts={posts} onEdit={onEditEvent} />;
     case 'insights':
@@ -254,6 +260,7 @@ function SectionBody({
         <SocialInsightsStudio
           selectedReport={selection.kind === 'report' ? selection.report : null}
           onSelectReport={(report) => onSelect({ kind: 'report', report })}
+          onCloseReport={() => onSelect({ kind: 'none' })}
           onOpenEvents={() => onNavigate('events')}
         />
       );

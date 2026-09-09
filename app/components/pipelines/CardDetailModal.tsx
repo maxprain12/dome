@@ -16,6 +16,7 @@ import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import { typesetDocsClass } from '@/lib/typeset';
 import RunSummaryModal from './RunSummaryModal';
 import { InlineDetailCard, ColorPill } from '@/components/shared/InlineDetailCard';
+import { DetailColumns } from '@/components/shared/DetailModal';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -459,9 +460,7 @@ export default function CardDetailModal({
     .filter((f) => (f.type === 'description' || f.type === 'note') && (f.text ?? '').trim())
     .map((f) => f.text ?? '')
     .join('\n\n');
-  const headerTitle = stage?.title
-    ? `${stage.title} — ${title.trim() || item.title}`
-    : title.trim() || item.title;
+  const headerTitle = title.trim() || item.title;
   const badgeLabel = [pipelineName, stage?.title].filter(Boolean).join(' — ');
   const metaItems = [
     {
@@ -817,7 +816,7 @@ export default function CardDetailModal({
       {item.calendarEventId && (
         <Button
           type="button"
-          onClick={() => openCalendarTab()}
+          onClick={() => { openCalendarTab(); onClose(); }}
           className="flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-2 py-1.5 text-left"
         >
           <HugeiconsIcon icon={CalendarClockIcon} size={16} className="shrink-0 text-primary" />
@@ -921,9 +920,9 @@ export default function CardDetailModal({
   const renderMetaItem = (meta: { label: string; value: string; icon?: ReactNode }): ReactNode => (
     <div
       key={meta.label}
-      className="min-w-0 rounded-xl border border-border bg-muted/40 px-3 py-2"
+      className="min-w-0 border-b border-border/60 py-3 last:border-0"
     >
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium text-muted-foreground">
         {meta.label}
       </dt>
       <dd className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-foreground">
@@ -938,13 +937,12 @@ export default function CardDetailModal({
   );
 
   const renderReadOnlyBody = (): ReactNode => (
-    <div className="flex flex-col gap-5">
-      <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <DetailColumns context={<dl className="flex flex-col">
         {metaItems.map(renderMetaItem)}
-      </dl>
+      </dl>}>
+    <div className="flex flex-col gap-5">
       {descriptionMarkdown ? (
         <>
-          <Separator />
           <section className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">{t('pipelines.field_description')}</p>
             <div className={cn(typesetDocsClass, 'text-sm text-foreground')}>
@@ -962,7 +960,7 @@ export default function CardDetailModal({
               className={cn(
                 'rounded-md border bg-muted/30 p-3',
                 typesetDocsClass,
-                'max-h-64 overflow-y-auto text-foreground',
+                'text-foreground',
               )}
             >
               <MarkdownRenderer content={item.lastOutput} />
@@ -971,6 +969,7 @@ export default function CardDetailModal({
         </>
       ) : null}
     </div>
+    </DetailColumns>
   );
 
   const renderBody = (): ReactNode =>
@@ -985,8 +984,8 @@ export default function CardDetailModal({
         cardTitle={item.title}
         events={events}
         hasCalendar={!!item.calendarEventId}
-        onOpenReport={(rid, title) => openResourceTab(rid, 'artifact', title)}
-        onOpenCalendar={() => openCalendarTab()}
+        onOpenReport={(rid, title) => { openResourceTab(rid, 'artifact', title); onClose(); }}
+        onOpenCalendar={() => { openCalendarTab(); onClose(); }}
         onClose={() => setSummary(null)}
       />
     );
@@ -995,6 +994,7 @@ export default function CardDetailModal({
   return (
     <>
       <InlineDetailCard
+        size="wide"
         onClose={onClose}
         title={headerTitle}
         badges={badgeLabel ? <ColorPill>{badgeLabel}</ColorPill> : undefined}

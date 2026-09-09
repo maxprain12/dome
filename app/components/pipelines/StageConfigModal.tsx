@@ -157,7 +157,7 @@ export default function StageConfigModal({
         onClose={() => setCreatingAgent(false)}
         title={t('agents.new_agent')}
         containerName="pipeline-stage-agent"
-        className="h-full min-h-0"
+        bodyClassName="overflow-hidden"
       >
         <div className="h-full min-h-0">
           <Suspense fallback={null}>
@@ -190,7 +190,7 @@ export default function StageConfigModal({
             {t('pipelines.delete')}
           </Button>
           <div className="flex-1" />
-          <Button onClick={() => void save()} disabled={saving}>
+          <Button onClick={() => save()} disabled={saving}>
             {saving ? t('pipelines.saving') : t('pipelines.save')}
           </Button>
         </>

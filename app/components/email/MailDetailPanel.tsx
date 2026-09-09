@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { InlineDetailCard, ColorPill } from '@/components/shared/InlineDetailCard';
+import { InlineDetailCard } from '@/components/shared/InlineDetailCard';
+import { DetailColumns } from '@/components/shared/DetailModal';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import EmailBody from '@/components/email/EmailBody';
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import { useTranslation } from 'react-i18next';
@@ -37,7 +39,7 @@ export function MailDetailPanel({
   onReply: () => void;
   onAskMany: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const senderName = fromName(selected.from);
   const senderEmail = fromEmail(selected.from);
   const displayName = senderName || senderEmail || t('email.unknown_sender');
@@ -46,18 +48,11 @@ export function MailDetailPanel({
   return (
     <InlineDetailCard
       onClose={onClose}
+      size="wide"
+      bodyClassName="overflow-hidden"
       title={selected.subject || t('email.no_subject')}
-      description={
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate">{displayName}</span>
-          {senderEmail && senderEmail !== displayName.toLowerCase() ? (
-            <span className="truncate text-muted-foreground">&lt;{senderEmail}&gt;</span>
-          ) : null}
-        </span>
-      }
-      badges={
+      badges={chips.length ?
         <>
-          <ColorPill>{emailFolderLabel(folder, t)}</ColorPill>
           {chips.map((c) => (
             <Badge
               key={c.key}
@@ -67,22 +62,29 @@ export function MailDetailPanel({
               {c.label}
             </Badge>
           ))}
-        </>
+        </> : undefined
       }
       footer={
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" onClick={onReply}>
             {t('email.reply')}
           </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={onAskMany}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => { onAskMany(); onClose(); }}>
             {t('email.agent_ask_many')}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-            {t('common.close')}
           </Button>
         </div>
       }
     >
+      <DetailColumns fill context={
+        <div className="flex flex-col gap-5">
+          <div className="flex items-center gap-3"><Avatar size="lg"><AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><p className="break-words text-sm font-semibold">{displayName}</p><p className="break-all text-xs text-muted-foreground">{senderEmail}</p></div></div>
+          <dl className="flex flex-col gap-4 text-sm">
+            <div><dt className="text-xs text-muted-foreground">{t('email.reader.meta.folder')}</dt><dd className="mt-1">{emailFolderLabel(folder, t)}</dd></div>
+            {selected.date ? <div><dt className="text-xs text-muted-foreground">{t('email.reader.meta.date')}</dt><dd className="mt-1">{Number.isNaN(Date.parse(selected.date)) ? selected.date : new Date(selected.date).toLocaleString(i18n.language)}</dd></div> : null}
+            <div><dt className="text-xs text-muted-foreground">{t('email.reader.meta.messageId')}</dt><dd className="mt-1 break-all text-xs">{selected.id}</dd></div>
+          </dl>
+        </div>
+      }>
       {error ? (
         <div className="mb-3">
           <EmailErrorNotice info={error} compact />
@@ -101,6 +103,7 @@ export function MailDetailPanel({
           <EmailBody message={message} />
         </div>
       )}
+      </DetailColumns>
     </InlineDetailCard>
   );
 }

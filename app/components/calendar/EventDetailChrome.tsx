@@ -10,7 +10,7 @@ export const EventColorPill = ColorPill;
 export type EventDetailChromeProps = InlineDetailCardProps;
 
 /**
- * Calendar event ficha — thin wrapper over shared InlineDetailCard.
+ * Calendar event detail — shared modal with calendar identity and persistent actions.
  */
 export function EventDetailChrome({
   children,
@@ -18,7 +18,7 @@ export function EventDetailChrome({
   ...rest
 }: EventDetailChromeProps) {
   return (
-    <InlineDetailCard containerName="event-card" footer={footer ?? <span />} {...rest}>
+    <InlineDetailCard containerName="event-card" size="compact" footer={footer} {...rest}>
       {children}
     </InlineDetailCard>
   );

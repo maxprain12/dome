@@ -20,7 +20,7 @@ Configuración actual: [`components.json`](../../components.json) en la raíz de
 
 **Migración COMPLETADA (jul-2026):** `app/components/ui/` contiene SOLO componentes shadcn originales (sin barrel `index.ts`; importar cada componente por su ruta). Las composiciones de app sin equivalente shadcn viven en `app/components/shared/` (SubpageHeader, ListState, Toolbar, DatePicker, DateTimePicker, FilterChipGroup, ResourceIcon, CollapsibleRow, DrawerLayout, ActiveFilterBanner, ConfirmDialog, PromptModal, ThemeProvider, WindowControls, SearchField, EntityIcon, ErrorState, LoadingState, HorizontalScrollArea, **InlineDetailCard**). No crear wrappers nuevos en `ui/`; no añadir Mantine ni primitivos ad-hoc. OJO: `input.tsx` y `textarea.tsx` usan `forwardRef` (React 18) — re-aplicar si se regeneran con el CLI.
 
-**Master–detail (list + side Card, no Sheet):** see [inline-detail-surfaces.md](./inline-detail-surfaces.md).
+**Entity details (standard centered modal):** use `DetailModal`, with domain-specific content and optional `DetailColumns`. See [inline-detail-surfaces.md](./inline-detail-surfaces.md).
 
 ---
 

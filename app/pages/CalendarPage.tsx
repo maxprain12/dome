@@ -359,8 +359,8 @@ const loadCalendars = useCallback(async () => {
       syncing={syncing}
       upcomingCount={upcomingEvents.length}
       onOpenSettings={openCalendarSettings}
-      onImport={() => void openImport()}
-      onSync={() => void handleSyncNow()}
+        onImport={() => openImport()}
+        onSync={() => handleSyncNow()}
       onNewEvent={openNewEvent}
     >
       {calendars.length > 0 ? (
@@ -401,14 +401,14 @@ const loadCalendars = useCallback(async () => {
               onCurrentDateChange={setCurrentDate}
               onViewModeChange={setViewMode}
               onDayClick={handleDayClick}
-              onEventClick={(ev) => void handleEventClick(ev)}
-              onEventDateChange={(p) => void handleEventDateChange(p)}
+            onEventClick={(ev) => handleEventClick(ev)}
+            onEventDateChange={(p) => handleEventDateChange(p)}
             />
           )}
         </div>
 
         {showModal ? (
-          <div className="flex h-[min(70vh,32rem)] min-h-0 w-full shrink-0 flex-col md:h-auto md:w-72 lg:w-80">
+          <>
             <EventModal
               key={selectedEvent?.id ?? `new-${initialModalDate?.getTime() ?? 'blank'}`}
               event={selectedEvent}
@@ -420,15 +420,14 @@ const loadCalendars = useCallback(async () => {
               onSave={handleSave}
               onDelete={selectedEvent ? handleDelete : undefined}
             />
-          </div>
-        ) : (
+          </>
+        ) : null}
           <aside className="h-64 shrink-0 md:h-auto md:w-72 lg:w-80">
             <CalendarUpcoming
               events={upcomingEvents}
-              onEventClick={(ev) => void handleEventClick(ev)}
+        onEventClick={(ev) => handleEventClick(ev)}
             />
           </aside>
-        )}
       </div>
 
       {showImport && importPreview ? (
@@ -476,7 +475,7 @@ const loadCalendars = useCallback(async () => {
                 type="button"
                 disabled={importBusy || importPreview.events.length === 0}
                 loading={importBusy}
-                onClick={() => void runImport()}
+                  onClick={() => runImport()}
               >
                 {t('calendarPage.import_confirm')}
               </Button>
@@ -507,4 +506,3 @@ const loadCalendars = useCallback(async () => {
     </CalendarHero>
   );
 }
-

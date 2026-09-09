@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 74;
+const SCHEMA_HEAD = 75;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1337,6 +1337,17 @@ function migration74(db, version) {
   console.log('[DB] Migration 74 complete - people identity sources');
 }
 
+function migration75(db, version) {
+  if (version >= 75) return;
+  if (tableExists(db, 'social_posts')) {
+    const columns = db.prepare("PRAGMA table_info('social_posts')").all();
+    if (!columns.some((column) => column.name === 'source_json')) {
+      db.exec('ALTER TABLE social_posts ADD COLUMN source_json TEXT');
+    }
+  }
+  setSchemaVersion(db, 75);
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1398,6 +1409,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration72(db, version);
   migration73(db, version);
   migration74(db, version);
+  migration75(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

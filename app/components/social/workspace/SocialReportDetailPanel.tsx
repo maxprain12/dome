@@ -1,3 +1,4 @@
+import { useDetailModalClose } from '@/components/shared/DetailModal';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { BarChartIcon, BubbleChatIcon } from '@hugeicons/core-free-icons';
@@ -15,11 +16,13 @@ export function SocialReportDetailPanel({
 }: {
   report: SocialReport;
 }) {
+  const closeDetail = useDetailModalClose();
   const { t } = useTranslation();
   const unavailable = t('social.studio.crm.unavailable');
   const title = report.title || t('social.reports.untitled');
 
   const handleMany = () => {
+    closeDetail?.();
     const many = useManyStore.getState();
     many.setPendingManyHandoff(t('social.agent_prompt_report', { title }));
     many.setOpen(true);
@@ -51,7 +54,7 @@ export function SocialReportDetailPanel({
             available
             unavailableLabel={unavailable}
             icon={BarChartIcon}
-            onClick={() => useTabStore.getState().openPeopleTab()}
+            onClick={() => { useTabStore.getState().openPeopleTab(); closeDetail?.(); }}
           />
         </div>
       }

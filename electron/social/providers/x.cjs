@@ -1,3 +1,4 @@
+const { xContent } = require('../social-source-content.cjs');
 'use strict';
 
 /* eslint-disable no-console */
@@ -204,14 +205,18 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
     accessToken,
     `/users/${encodeURIComponent(userId)}/tweets` +
       `?max_results=${capped}&exclude=retweets,replies` +
-      `&tweet.fields=created_at,public_metrics,text`,
+      `&tweet.fields=created_at,public_metrics,text,author_id,attachments,entities,note_tweet,referenced_tweets` +
+      `&expansions=author_id,attachments.media_keys,attachments.poll_ids,referenced_tweets.id,referenced_tweets.id.author_id` +
+      `&media.fields=type,url,preview_image_url,alt_text,width,height,duration_ms,variants` +
+      `&user.fields=name,username,profile_image_url&poll.fields=options,end_datetime,voting_status`,
   );
   const posts = (data?.data || []).map((t) => {
     const m = t.public_metrics || {};
     const publishedAt = t.created_at ? Date.parse(t.created_at) : null;
     return {
       externalPostId: String(t.id),
-      body: t.text || '',
+      body: t.note_tweet?.text || t.text || '',
+      ...xContent(t, data.includes, account),
       externalUrl: handle ? `https://x.com/${handle}/status/${t.id}` : null,
       publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
       metrics: {

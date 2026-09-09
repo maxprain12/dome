@@ -1,21 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { File02Icon, Megaphone02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { Megaphone02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
+import { DetailModal } from '@/components/shared/DetailModal';
 import type { SocialCampaign, SocialPost } from '@/components/social/socialTypes';
-import { ProviderMark } from '@/components/social/crm/socialCrmChrome';
-import { formatSocialWhen, socialPostLabel } from '@/lib/social/socialQueues';
 import type { SocialContentFilter } from './socialWorkspaceTypes';
 import {
   SocialDirectoryColumn,
   SocialDirectoryRow,
-  SocialFichaEmpty,
   SocialHubSplit,
   type SortDir,
 } from './SocialDirectoryColumn';
 import { SocialCampaignDetailPanel } from './SocialCampaignDetailPanel';
-import { SocialPostDetailPanel } from './SocialPostDetailPanel';
 
 function sortByLabel<T>(items: T[], label: (item: T) => string, dir: SortDir): T[] {
   const next = [...items];
@@ -26,112 +23,14 @@ function sortByLabel<T>(items: T[], label: (item: T) => string, dir: SortDir): T
   return next;
 }
 
-export function SocialContentHub({
-  title,
-  posts,
-  filter,
-  onFilter,
-  filterItems,
-  selectedPost,
-  onSelectPost,
-  onCompose,
-  onPublish,
-  onEditPost,
-  onPostUpdated,
-  query,
-  onQueryChange,
-}: {
-  title: string;
-  posts: SocialPost[];
-  filter: string;
-  onFilter: (filter: string) => void;
-  filterItems: Array<{ value: string; label: string }>;
-  selectedPost: SocialPost | null;
-  onSelectPost: (post: SocialPost) => void;
-  onCompose: () => void;
-  onPublish: (post: SocialPost) => void;
-  onEditPost: (post: SocialPost) => void;
-  onPostUpdated: (post: SocialPost) => void;
-  query: string;
-  onQueryChange: (query: string) => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const [sortDir, setSortDir] = useState<SortDir>('az');
-  const sorted = useMemo(
-    () => sortByLabel(posts, (post) => socialPostLabel(post), sortDir),
-    [posts, sortDir],
-  );
-
-  return (
-    <SocialHubSplit>
-      <SocialDirectoryColumn
-        title={title}
-        action={
-          <Button type="button" size="sm" onClick={onCompose}>
-            <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
-            {t('social.hub.new_post')}
-          </Button>
-        }
-        query={query}
-        onQueryChange={onQueryChange}
-        queryPlaceholder={t('social.agent_search')}
-        filter={filter}
-        onFilterChange={onFilter}
-        filterItems={filterItems}
-        filterAriaLabel={t('social.studio.crm.filter_by')}
-        sortDir={sortDir}
-        onSortDir={setSortDir}
-        sortAzLabel={t('social.studio.crm.sort_az')}
-        sortZaLabel={t('social.studio.crm.sort_za')}
-        empty={
-          posts.length === 0
-            ? {
-                icon: <HugeiconsIcon icon={File02Icon} className="size-8" />,
-                title: t('social.agent_queue_empty'),
-                description: t('social.studio.content.empty_description'),
-              }
-            : undefined
-        }
-      >
-        <ul className="flex flex-col">
-          {sorted.map((post) => (
-            <SocialDirectoryRow
-              key={post.id}
-              selected={selectedPost?.id === post.id}
-              onClick={() => onSelectPost(post)}
-              mark={<ProviderMark provider={post.provider} />}
-              title={socialPostLabel(post)}
-              subtitle={formatSocialWhen(
-                post.publishedAt ?? post.scheduledAt ?? post.updatedAt,
-                i18n.language,
-              )}
-            />
-          ))}
-        </ul>
-      </SocialDirectoryColumn>
-      {selectedPost ? (
-        <SocialPostDetailPanel
-          post={selectedPost}
-          onEdit={() => onEditPost(selectedPost)}
-          onPublish={() => onPublish(selectedPost)}
-          onPostUpdated={onPostUpdated}
-        />
-      ) : (
-        <SocialFichaEmpty
-          icon={<HugeiconsIcon icon={File02Icon} className="size-8" />}
-          title={t('social.studio.crm.detail_empty_post')}
-          description={t('social.studio.crm.detail_empty_post_hint')}
-        />
-      )}
-    </SocialHubSplit>
-  );
-}
+export { SocialContentHub } from './SocialContentHub';
 
 export function SocialCampaignsHub({
   campaigns,
   posts,
   selectedCampaign,
   onSelect,
+  onClose,
   onCreate,
   onComposeCampaign,
   onSelectPost,
@@ -142,6 +41,7 @@ export function SocialCampaignsHub({
   posts: SocialPost[];
   selectedCampaign: SocialCampaign | null;
   onSelect: (campaign: SocialCampaign) => void;
+  onClose: () => void;
   onCreate: () => void;
   onComposeCampaign: (campaign: SocialCampaign) => void;
   onSelectPost: (post: SocialPost) => void;
@@ -202,19 +102,15 @@ export function SocialCampaignsHub({
         </ul>
       </SocialDirectoryColumn>
       {selectedCampaign ? (
+        <DetailModal title={selectedCampaign.name} onClose={onClose} bare>
         <SocialCampaignDetailPanel
           campaign={selectedCampaign}
           posts={posts}
           onCompose={() => onComposeCampaign(selectedCampaign)}
           onSelectPost={onSelectPost}
         />
-      ) : (
-        <SocialFichaEmpty
-          icon={<HugeiconsIcon icon={Megaphone02Icon} className="size-8" />}
-          title={t('social.studio.crm.detail_empty_campaign')}
-          description={t('social.studio.crm.detail_empty_campaign_hint')}
-        />
-      )}
+        </DetailModal>
+      ) : null}
     </SocialHubSplit>
   );
 }

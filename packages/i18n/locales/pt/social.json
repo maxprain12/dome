@@ -26,6 +26,7 @@
   "agent_action_analytics": "Analítica",
   "agent_ask_many": "Perguntar ao Many",
   "metrics": {
+    "clicks": "cliques",
     "title": "Métricas do post",
     "pending": "Sem métricas ainda — sincronize o feed ou atualize as métricas.",
     "likes": "likes",
@@ -279,7 +280,15 @@
     "trigger_auto": "automático"
   },
   "studio": {
-    "nav": {"overview": "Início", "content": "Conteúdo", "campaigns": "Campanhas", "events": "Eventos", "insights": "Insights", "inbox": "Caixa", "accounts": "Contas"},
+    "nav": {
+      "overview": "Início",
+      "content": "Conteúdo",
+      "campaigns": "Campanhas",
+      "events": "Eventos",
+      "insights": "Insights",
+      "inbox": "Caixa",
+      "accounts": "Contas"
+    },
     "inbox": {
       "empty_title": "Nenhum comentário pendente",
       "empty_description": "Comentários do Instagram e rascunhos de resposta aparecem aqui para criar um contato, ver a timeline ou aprovar a resposta.",
@@ -291,9 +300,25 @@
       "approve_reply": "Aprovar resposta",
       "send_needs_author": "Não é possível enviar: o comentário não tem id de autor. Crie um contato ou reconecte com scopes de mensagens."
     },
-    "rail": {"subtitle": "Estúdio editorial"},
-    "header": {"workspace": "Espaço Social", "sections": "Seções do Social"},
-    "status": {"draft": "Rascunho", "scheduled": "Agendada", "publishing": "Publicando", "published": "Publicada", "failed": "Falhou", "active": "Ativa", "archived": "Arquivada", "paused": "Pausada", "generating": "Gerando", "ready": "Pronta"},
+    "rail": {
+      "subtitle": "Estúdio editorial"
+    },
+    "header": {
+      "workspace": "Espaço Social",
+      "sections": "Seções do Social"
+    },
+    "status": {
+      "draft": "Rascunho",
+      "scheduled": "Agendada",
+      "publishing": "Publicando",
+      "published": "Publicada",
+      "failed": "Falhou",
+      "active": "Ativa",
+      "archived": "Arquivada",
+      "paused": "Pausada",
+      "generating": "Gerando",
+      "ready": "Pronta"
+    },
     "overview": {
       "eyebrow": "Briefing de hoje",
       "attention_title": "{{count}} itens precisam da sua atenção",
@@ -333,9 +358,28 @@
       "series_engagements": "Interações",
       "metrics_scope": "Publicações importadas ou criadas no Dome e publicadas no período. As interações são acumuladas; — indica dados indisponíveis."
     },
-    "content": {"eyebrow": "Biblioteca editorial", "title": "Conteúdo", "description": "Revise status, desempenho e destino de cada publicação.", "empty_description": "Crie uma publicação ou altere os filtros para começar."},
-    "campaigns": {"eyebrow": "Narrativas", "title": "Campanhas", "description": "Agrupe publicações em torno de um objetivo e acompanhe o progresso.", "no_goal": "Sem objetivo definido", "progress": "{{progress}}% publicado", "empty_description": "Crie uma campanha para organizar o próximo lançamento.", "dialog_description": "Defina um nome claro e o resultado que deseja alcançar."},
-    "events": {"eyebrow": "Experiências ao vivo", "title": "Eventos", "description": "Crie cartões públicos, comunique mudanças e automatize respostas.", "editor_eyebrow": "Design do evento", "editor_description": "Informações exibidas na página pública e nos passes Wallet."},
+    "content": {
+      "eyebrow": "Biblioteca editorial",
+      "title": "Conteúdo",
+      "description": "Revise status, desempenho e destino de cada publicação.",
+      "empty_description": "Crie uma publicação ou altere os filtros para começar."
+    },
+    "campaigns": {
+      "eyebrow": "Narrativas",
+      "title": "Campanhas",
+      "description": "Agrupe publicações em torno de um objetivo e acompanhe o progresso.",
+      "no_goal": "Sem objetivo definido",
+      "progress": "{{progress}}% publicado",
+      "empty_description": "Crie uma campanha para organizar o próximo lançamento.",
+      "dialog_description": "Defina um nome claro e o resultado que deseja alcançar."
+    },
+    "events": {
+      "eyebrow": "Experiências ao vivo",
+      "title": "Eventos",
+      "description": "Crie cartões públicos, comunique mudanças e automatize respostas.",
+      "editor_eyebrow": "Design do evento",
+      "editor_description": "Informações exibidas na página pública e nos passes Wallet."
+    },
     "insights": {
       "eyebrow": "Desempenho",
       "title": "Insights",
@@ -368,7 +412,19 @@
       "zero_title": "Insights ficará pronto quando você publicar",
       "zero_description": "Conecte contas, publique posts ou cartões de evento e gere um relatório de IA deste período."
     },
-    "accounts": {"eyebrow": "Distribuição", "title": "Contas", "description": "Conecte, revise e configure onde seu trabalho é publicado.", "connected_count": "{{count}} contas conectadas", "not_connected": "Ainda não conectada", "active": "Ativa", "setup": "Configurar", "manage": "Gerenciar", "configure": "Configurar {{provider}}", "add_account": "Adicionar outra conta", "multi_account_hint": "Ligue várias contas da mesma rede neste vault. Autorize cada conta separadamente; autorizar novamente a mesma conta atualiza a ligação."},
+    "accounts": {
+      "eyebrow": "Distribuição",
+      "title": "Contas",
+      "description": "Conecte, revise e configure onde seu trabalho é publicado.",
+      "connected_count": "{{count}} contas conectadas",
+      "not_connected": "Ainda não conectada",
+      "active": "Ativa",
+      "setup": "Configurar",
+      "manage": "Gerenciar",
+      "configure": "Configurar {{provider}}",
+      "add_account": "Adicionar outra conta",
+      "multi_account_hint": "Ligue várias contas da mesma rede neste vault. Autorize cada conta separadamente; autorizar novamente a mesma conta atualiza a ligação."
+    },
     "crm": {
       "filter_by": "Filtrar",
       "sort_az": "A–Z",
@@ -389,7 +445,19 @@
       "detail_empty_account": "Selecione uma conta",
       "detail_empty_account_hint": "Escolha uma conta ou canal para conectar."
     },
-    "composer": {"eyebrow": "Nova história", "destinations": "Destinos", "choose_account": "Escolher conta", "account_required": "Escolha uma conta ativa para cada destino.", "content_description": "Escreva uma peça forte e adapte o destino a partir da mesma base.", "copy": "Texto", "media_description": "Adicione imagem ou vídeo do computador ou por URL pública.", "library_description": "Escolha uma imagem ou vídeo já salvo na sua biblioteca Dome.", "discard_title": "Descartar este rascunho?", "discard_description": "As alterações desta sessão não poderão ser recuperadas.", "discard": "Descartar"},
+    "composer": {
+      "eyebrow": "Nova história",
+      "destinations": "Destinos",
+      "choose_account": "Escolher conta",
+      "account_required": "Escolha uma conta ativa para cada destino.",
+      "content_description": "Escreva uma peça forte e adapte o destino a partir da mesma base.",
+      "copy": "Texto",
+      "media_description": "Adicione imagem ou vídeo do computador ou por URL pública.",
+      "library_description": "Escolha uma imagem ou vídeo já salvo na sua biblioteca Dome.",
+      "discard_title": "Descartar este rascunho?",
+      "discard_description": "As alterações desta sessão não poderão ser recuperadas.",
+      "discard": "Descartar"
+    },
     "inspector": {
       "title": "Detalhe Social",
       "description": "Revise o conteúdo, o desempenho e as ações disponíveis.",
@@ -586,5 +654,70 @@
       "dm_click": "Cliques do DM",
       "other": "{{key}}"
     }
+  },
+  "native": {
+    "media": "Mídia da publicação",
+    "document": "Documento",
+    "open_document": "Abrir documento",
+    "media_unavailable": "Esta mídia está indisponível. Sincronize ou abra a publicação original.",
+    "previous_media": "Mídia anterior",
+    "next_media": "Próxima mídia",
+    "more": "Ver mais",
+    "less": "Ver menos",
+    "votes": "{{count}} votos",
+    "metrics_unavailable": "Métricas ainda indisponíveis",
+    "inspect": "Ver detalhes",
+    "back_content": "Voltar ao conteúdo",
+    "content_description": "Suas publicações, com o caráter de cada rede e o espaço do Dome.",
+    "network": "Rede social",
+    "order": "Ordem das publicações",
+    "recent": "Mais recentes",
+    "oldest": "Mais antigas",
+    "layout": "Vista de conteúdo",
+    "gallery": "Galeria",
+    "feed": "Feed",
+    "format_reel": "Reel",
+    "format_carousel": "Carrossel",
+    "format_video": "Vídeo",
+    "format_image": "Foto",
+    "format_poll": "Enquete",
+    "format_article": "Artigo"
+  },
+  "direct": {
+    "title": "Automações DM",
+    "description": "De um comentário a uma conversa. Crie respostas por palavra-chave, sem banners nem cartões.",
+    "active_count": "{{count}} ativas",
+    "new": "Nova automação",
+    "edit": "Editar automação",
+    "account": "Conta de origem",
+    "keyword": "Quando um comentário contiver…",
+    "keyword_example": "GUIA",
+    "keyword_hint": "Corresponde à palavra inteira, com ou sem #, sem diferenciar maiúsculas.",
+    "message": "Mensagem direta",
+    "message_placeholder": "Olá {{author}}, aqui estão as informações que você pediu: {{link}}",
+    "variables": "Personalize com {{author}}, {{hashtag}}, {{comment}} e {{link}}.",
+    "optional_link": "Link de destino (opcional)",
+    "delivery": "Como responder",
+    "review": "Revisar na caixa de entrada",
+    "live": "Enviar automaticamente",
+    "permissions": "A conta precisa de permissões de comentários e mensagens para envio automático. Salve a regra e complete a conexão em Contas.",
+    "save": "Salvar automação",
+    "saving": "Salvando…",
+    "saved": "Automação salva",
+    "error": "Não foi possível carregar ou salvar a automação. Tente novamente.",
+    "preview": "Prévia",
+    "preview_title": "Assim começa a conversa.",
+    "when": "Alguém comenta sua palavra-chave",
+    "then": "O Dome prepara sua resposta",
+    "example_author": "Alex",
+    "live_hint": "A mensagem será enviada se a rede e a conta permitirem. As falhas aparecem na caixa de entrada.",
+    "review_hint": "A resposta é salva na caixa de entrada para revisão antes do envio.",
+    "runtime": "Funciona enquanto o Dome está aberto. Verifica periodicamente comentários de publicações dos últimos 30 dias; cada comentário é processado uma vez. Não requer cartão de evento.",
+    "your_rules": "Suas automações",
+    "empty": "Sua próxima conversa começa aqui",
+    "empty_hint": "Escolha uma palavra-chave e escreva o que deseja compartilhar.",
+    "toggle": "Ativar ou pausar {{keyword}}",
+    "edit_rule": "Editar {{keyword}}",
+    "delete_rule": "Excluir {{keyword}}"
   }
 }

@@ -9,6 +9,7 @@ import MentionHeaderInput from './MentionHeaderInput';
 import RelationChip from './RelationChip';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { RESOURCE_RELATIONS_CHANGED } from '@/lib/utils/content-resources';
+import { useDetailModalClose } from '@/components/shared/DetailModal';
 
 interface TagRow {
   id: string;
@@ -31,6 +32,7 @@ function openWorkspaceResource(id: string, type: string) {
 
 export default function RelationsTab({ resourceId }: { resourceId: string }) {
   const { t } = useTranslation();
+  const closeDetail = useDetailModalClose();
   const openSemanticGraphTab = useTabStore((s) => s.openSemanticGraphTab);
   const [outRows, setOutRows] = useState<OutEdgeRow[]>([]);
   const [tags, setTags] = useState<TagRow[]>([]);
@@ -169,7 +171,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
             background: 'var(--card)',
             color: 'var(--foreground)',
           }}
-          onClick={() => openSemanticGraphTab(resourceId)}
+          onClick={() => { openSemanticGraphTab(resourceId); closeDetail?.(); }}
         >
           <HugeiconsIcon icon={Share08Icon} size={14} />
           {t('workspace.relations_open_graph')}
@@ -199,7 +201,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   variant="tag"
                   title={tag.name}
                   accentColor={tag.color ?? undefined}
-                  onRemove={() => void removeTag(tag.id)}
+                  onRemove={() => removeTag(tag.id)}
                   removeDisabled={removingTagId === tag.id}
                 />
               ))}
@@ -221,8 +223,8 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   resourceType={row.target_type}
                   similarity={row.similarity}
                   relationState={row.relation_type}
-                  onOpen={() => openWorkspaceResource(row.target_id, row.target_type || 'note')}
-                  onRemove={() => void removeEdge(row.id)}
+                  onOpen={() => { openWorkspaceResource(row.target_id, row.target_type || 'note'); closeDetail?.(); }}
+                  onRemove={() => removeEdge(row.id)}
                   removeDisabled={removingEdgeId === row.id}
                 />
               ))}
@@ -245,8 +247,8 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   resourceType="url"
                   similarity={row.similarity}
                   relationState={row.relation_type}
-                  onOpen={() => openWorkspaceResource(row.target_id, 'url')}
-                  onRemove={() => void removeEdge(row.id)}
+                  onOpen={() => { openWorkspaceResource(row.target_id, 'url'); closeDetail?.(); }}
+                  onRemove={() => removeEdge(row.id)}
                   removeDisabled={removingEdgeId === row.id}
                 />
               ))}

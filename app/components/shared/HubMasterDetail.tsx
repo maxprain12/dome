@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/** Split rail + detail used by Social, People, and other hubs. */
+/** Full-width hub directory; entity details are rendered through DetailModal portals. */
 export function HubMasterDetail({
   children,
   className,

@@ -11,9 +11,8 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { type Resource } from '@/types';
 import { mergeResourceOnBroadcast } from '@/lib/utils/resource-metadata';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { DetailModal } from '@/components/shared/DetailModal';
+
 
 const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
 const VideoPlayer = lazy(() => import('../viewers/VideoPlayer'));
@@ -139,7 +138,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setContext = useManyStore((s) => s.setContext);
-  const isNarrow = useIsMobile();
   const prevContextKeyRef = useRef<string | null>(null);
 
   // Load resource data
@@ -369,48 +367,13 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         mediaFocusMode={resource.type === 'audio' || resource.type === 'video'}
       />
 
-      {/* Main Content + a single contextual inspector */}
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel id="workspace-viewer" minSize={420}>
-          <div className="relative h-full overflow-hidden">
-            {renderViewer()}
-            {activeStudioOutput ? (
-              <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} />
-            ) : null}
-          </div>
-        </ResizablePanel>
-
-        {inspectorOpen && !isNarrow ? (
-          <>
-            <ResizableHandle aria-label="Redimensionar inspector" />
-            <ResizablePanel id="workspace-inspector" defaultSize={360} minSize={300} maxSize={520} groupResizeBehavior="preserve-pixel-size">
-              <WorkspaceInspector
-                resource={resource}
-                activeTab={inspectorTab}
-                onActiveTabChange={selectInspectorTab}
-                onClose={closeInspector}
-                onEditMetadata={handleShowMetadata}
-              />
-            </ResizablePanel>
-          </>
-        ) : null}
-      </ResizablePanelGroup>
-
-      {isNarrow ? (
-        <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open) closeInspector(); }}>
-          <SheetContent side="right" showCloseButton={false} className="w-[min(92vw,28rem)] p-0">
-            <SheetTitle className="sr-only">Inspector</SheetTitle>
-            <SheetDescription className="sr-only">{resource.title}</SheetDescription>
-            <WorkspaceInspector
-              resource={resource}
-              activeTab={inspectorTab}
-              onActiveTabChange={selectInspectorTab}
-              onClose={closeInspector}
-              onEditMetadata={handleShowMetadata}
-            />
-          </SheetContent>
-        </Sheet>
-      ) : null}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {renderViewer()}
+        {activeStudioOutput ? <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} /> : null}
+      </div>
+      <DetailModal open={inspectorOpen} onClose={closeInspector} title={resource.title} bare>
+        <WorkspaceInspector resource={resource} activeTab={inspectorTab} onActiveTabChange={selectInspectorTab} onClose={closeInspector} onEditMetadata={handleShowMetadata} />
+      </DetailModal>
 
       {/* Metadata Modal */}
       <MetadataModal

@@ -191,7 +191,7 @@ export function HubDirectoryColumn({
   const showToolbar = Boolean(onQueryChange || onFilterChange || onSortDir || extraToolbar);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col border-r md:w-96 md:basis-[36%] md:shrink-0">
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col">
       <TitleRow title={title} action={action} />
       {showToolbar ? (
         <div className="flex flex-col gap-2 border-b px-3 py-2.5">

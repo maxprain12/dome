@@ -72,8 +72,8 @@ export default function WorkspaceInspector({
   }, []);
 
   return (
-    <aside className="flex h-full min-h-0 min-w-0 flex-col bg-background" aria-label={t('workspace.inspector', 'Inspector')}>
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col" aria-label={t('workspace.inspector', 'Inspector')}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-5 py-4">
         <div className="min-w-0">
           <h2 ref={headingRef} tabIndex={-1} className="truncate text-sm font-medium outline-none">
             {t('workspace.inspector', 'Inspector')}
@@ -94,19 +94,19 @@ export default function WorkspaceInspector({
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details" aria-label={t('workspace.details', 'Detalles')}>
               <HugeiconsIcon icon={File02Icon} />
-              <span className="hidden xl:inline">{t('workspace.details', 'Detalles')}</span>
+              <span className="hidden sm:inline">{t('workspace.details', 'Detalles')}</span>
             </TabsTrigger>
             <TabsTrigger value="relations" aria-label={t('workspace.side_panel_tab_relations')}>
               <HugeiconsIcon icon={Link02Icon} />
-              <span className="hidden xl:inline">{t('workspace.side_panel_tab_relations')}</span>
+              <span className="hidden sm:inline">{t('workspace.side_panel_tab_relations')}</span>
             </TabsTrigger>
             <TabsTrigger value="sources" aria-label={t('workspace.sources')}>
               <HugeiconsIcon icon={FolderTreeIcon} />
-              <span className="hidden xl:inline">{t('workspace.sources')}</span>
+              <span className="hidden sm:inline">{t('workspace.sources')}</span>
             </TabsTrigger>
             <TabsTrigger value="outputs" aria-label={t('studio.title')}>
               <HugeiconsIcon icon={SparklesIcon} />
-              <span className="hidden xl:inline">{t('studio.title')}</span>
+              <span className="hidden sm:inline">{t('studio.title')}</span>
             </TabsTrigger>
           </TabsList>
         </div>

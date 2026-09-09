@@ -4,7 +4,8 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Delete02Icon, PlusSignIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { HubMasterDetail } from '@/components/shared/HubMasterDetail';
-import { HubPane, HubPaneState } from '@/components/shared/HubPaneState';
+import { HubPaneState } from '@/components/shared/HubPaneState';
+import { DetailModal } from '@/components/shared/DetailModal';
 import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
@@ -49,6 +50,7 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
     deleting,
     enriching,
     selectPerson,
+    clearSelection,
     selectPersonRef,
     saveProfile,
     addNote,
@@ -178,7 +180,7 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
           deleting={deleting}
         />
 
-        <HubPane>
+        <DetailModal open={Boolean(selectedId)} onClose={clearSelection} title={selectedPerson?.displayName || t('people.loading')} size="wide" bare={Boolean(selectedPerson)}>
           {selectedId && detailLoading ? (
             <HubPaneState variant="loading" loadingLabel={t('people.loading')} />
           ) : selectedPerson ? (
@@ -207,7 +209,7 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
               description={t('people.detail_empty_description')}
             />
           )}
-        </HubPane>
+        </DetailModal>
       </HubMasterDetail>
 
       <AppModal open={creating} onOpenChange={setCreating}>

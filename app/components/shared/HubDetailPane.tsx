@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { hubFichaTitleClass } from '@/components/shared/hubChrome';
 import { cn } from '@/lib/utils';
+import { DetailModalClose } from './DetailModal';
 
 export function HubDetailPane({
   icon,
@@ -27,25 +28,23 @@ export function HubDetailPane({
   return (
     <div className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
       {hasHeader ? (
-        <div className="relative flex flex-col items-center gap-2 border-b px-3 pb-4 pt-4">
-          {actions ? (
-            <div className="absolute right-3 top-3 flex items-center gap-1">{actions}</div>
-          ) : null}
+        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-4">
           {icon}
           {title ? (
-            <div className="flex max-w-full flex-col items-center gap-1 text-center">
-              <div className="flex max-w-full items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h2 className={hubFichaTitleClass}>{title}</h2>
                 {badge}
               </div>
               {subtitle}
             </div>
           ) : null}
-          {toolbar}
-        </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1">{actions}<DetailModalClose /></div>
+        </header>
       ) : null}
       {tabs}
       {children}
+      {toolbar ? <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t px-5 py-3">{toolbar}</footer> : null}
     </div>
   );
 }
