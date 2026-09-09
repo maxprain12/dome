@@ -31,6 +31,43 @@ interface AISetupStepProps {
 
 type OnboardingProviderType = AIProviderType | 'skip';
 
+/**
+ * Build the AI provider config to persist for non-Dome, non-skip providers.
+ * Returns `null` when a cloud provider is selected without an API key, so the
+ * caller can abort without saving. Extracted from `handleNext` for S3776.
+ */
+function buildAIConfig(input: {
+  provider: AIProviderType;
+  apiKey: string;
+  model: string;
+  ollamaBaseURL: string;
+  ollamaModel: string;
+  localCompatBaseURL: string;
+}): Partial<AISettings> | null {
+  const config: Partial<AISettings> = {
+    provider: input.provider,
+  };
+
+  if (isCloudAIProvider(input.provider)) {
+    if (!input.apiKey.trim()) return null;
+    config.api_key = input.apiKey;
+    config.model = input.model;
+  }
+
+  if (input.provider === 'ollama') {
+    config.ollama_base_url = input.ollamaBaseURL;
+    config.ollama_model = input.ollamaModel;
+  }
+
+  if (isLocalOpenAICompatProvider(input.provider)) {
+    config.base_url = input.localCompatBaseURL;
+    config.model = input.model;
+    if (input.apiKey.trim()) config.api_key = input.apiKey;
+  }
+
+  return config;
+}
+
 export default function AISetupStep({
   onComplete,
   onValidationChange,
@@ -91,26 +128,15 @@ export default function AISetupStep({
       return;
     }
 
-    const config: Partial<AISettings> = {
+    const config = buildAIConfig({
       provider: provider as AIProviderType,
-    };
-
-    if (isCloudAIProvider(provider)) {
-      if (!apiKey.trim()) return;
-      config.api_key = apiKey;
-      config.model = model;
-    }
-
-    if (provider === 'ollama') {
-      config.ollama_base_url = ollamaBaseURL;
-      config.ollama_model = ollamaModel;
-    }
-
-    if (isLocalOpenAICompatProvider(provider)) {
-      config.base_url = localCompatBaseURL;
-      config.model = model;
-      if (apiKey.trim()) config.api_key = apiKey;
-    }
+      apiKey,
+      model,
+      ollamaBaseURL,
+      ollamaModel,
+      localCompatBaseURL,
+    });
+    if (!config) return;
 
     try {
       await saveAIConfig(config);
