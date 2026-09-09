@@ -400,10 +400,15 @@ function getRateLimitStatus() {
  * @param {string} itemType - Type of item (agent, workflow, mcp, skill)
  * @returns {Promise<Array>} Array of parsed marketplace items
  */
+async function parseDirectoryItem(item, owner, repo, ref) {
+  const content = await getFileContent(owner, repo, item.path, ref);
+  return item.name.endsWith('.json') ? JSON.parse(content) : content;
+}
+
 async function fetchDirectoryItems(owner, repo, path, ref = 'main', itemType = 'agent') {
   try {
     const contents = await getRepoContents(owner, repo, path, ref);
-    
+
     if (!Array.isArray(contents)) {
       return [];
     }
@@ -411,24 +416,25 @@ async function fetchDirectoryItems(owner, repo, path, ref = 'main', itemType = '
     const items = [];
     for (const item of contents) {
       if (item.type === 'file' && (item.name.endsWith('.json') || item.name.endsWith('.yaml') || item.name.endsWith('.yml'))) {
+        let parsed;
         try {
-          const content = await getFileContent(owner, repo, item.path, ref);
-          const parsed = item.name.endsWith('.json') ? JSON.parse(content) : content;
-          
-          // Add source metadata
-          if (typeof parsed === 'object' && parsed !== null) {
-            parsed._source = {
-              type: 'github',
-              owner,
-              repo,
-              path: item.path,
-              ref,
-              url: item.html_url
-            };
-            items.push(parsed);
-          }
+          parsed = await parseDirectoryItem(item, owner, repo, ref);
         } catch (parseErr) {
           console.warn(`[GitHub] Failed to parse ${item.path}:`, parseErr.message);
+          continue;
+        }
+
+        // Add source metadata
+        if (typeof parsed === 'object' && parsed !== null) {
+          parsed._source = {
+            type: 'github',
+            owner,
+            repo,
+            path: item.path,
+            ref,
+            url: item.html_url
+          };
+          items.push(parsed);
         }
       }
     }
