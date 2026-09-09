@@ -86,6 +86,16 @@ function normalizeResource(r: Resource): Resource {
     };
 }
 
+/**
+ * Insert a freshly-created resource at the head of `prev`, skipping if an entry
+ * with the same id already exists. Extracted from the `resource:created` listener
+ * to keep that handler's nesting depth ≤ 4 (Sonar S2004).
+ */
+function prependResourceIfNew(prev: Resource[], resource: Resource): Resource[] {
+    if (prev.some(r => r.id === resource.id)) return prev;
+    return [normalizeResource(resource), ...prev];
+}
+
 /** Merge a partial update into a single resource; returns the original when id mismatches. */
 function mergeResourceUpdate(resource: Resource, id: string, updates: Partial<Resource>): Resource {
     if (resource.id !== id) return resource;
@@ -192,10 +202,7 @@ export function useResources(filter?: ResourceFilter) {
 
         // Listener: Recurso creado
         const unsubscribeCreate = window.electron.on('resource:created', (resource: Resource) => {
-            setResources(prev => {
-                if (prev.some(r => r.id === resource.id)) return prev;
-                return [normalizeResource(resource), ...prev];
-            });
+            setResources(prev => prependResourceIfNew(prev, resource));
         });
 
         // Listener: Recurso actualizado
