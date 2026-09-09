@@ -164,7 +164,7 @@ export default function MilestoneDetailModal({
         {t('github.new_milestone_cancel')}
       </Button>
       <Button disabled={saving}
-  onClick={() => void save()}
+            onClick={() => save()}
   size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
         {t('github.dash_save')}
       </Button>
@@ -175,14 +175,14 @@ export default function MilestoneDetailModal({
         {milestone?.state === 'open' ? (
           <Button variant="outline"
   disabled={saving}
-  onClick={() => void setMilestoneState('closed')}
+              onClick={() => setMilestoneState('closed')}
   size="sm">
             {t('github.dash_mark_done')}
           </Button>
         ) : (
           <Button variant="outline"
   disabled={saving}
-  onClick={() => void setMilestoneState('open')}
+              onClick={() => setMilestoneState('open')}
   size="sm">
             {t('github.dash_reopen')}
           </Button>

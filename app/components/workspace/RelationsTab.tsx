@@ -201,7 +201,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   variant="tag"
                   title={tag.name}
                   accentColor={tag.color ?? undefined}
-                  onRemove={() => void removeTag(tag.id)}
+                  onRemove={() => removeTag(tag.id)}
                   removeDisabled={removingTagId === tag.id}
                 />
               ))}
@@ -224,7 +224,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   similarity={row.similarity}
                   relationState={row.relation_type}
                   onOpen={() => { openWorkspaceResource(row.target_id, row.target_type || 'note'); closeDetail?.(); }}
-                  onRemove={() => void removeEdge(row.id)}
+                  onRemove={() => removeEdge(row.id)}
                   removeDisabled={removingEdgeId === row.id}
                 />
               ))}
@@ -248,7 +248,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   similarity={row.similarity}
                   relationState={row.relation_type}
                   onOpen={() => { openWorkspaceResource(row.target_id, 'url'); closeDetail?.(); }}
-                  onRemove={() => void removeEdge(row.id)}
+                  onRemove={() => removeEdge(row.id)}
                   removeDisabled={removingEdgeId === row.id}
                 />
               ))}

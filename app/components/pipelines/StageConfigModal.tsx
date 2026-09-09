@@ -190,7 +190,7 @@ export default function StageConfigModal({
             {t('pipelines.delete')}
           </Button>
           <div className="flex-1" />
-          <Button onClick={() => void save()} disabled={saving}>
+          <Button onClick={() => save()} disabled={saving}>
             {saving ? t('pipelines.saving') : t('pipelines.save')}
           </Button>
         </>

@@ -40,6 +40,37 @@ function resolveImageSrc(
   return null;
 }
 
+function pushRedactedTextSegment(
+  segments: UserMessageVisualSegment[],
+  content: string,
+  start: number,
+  end: number,
+): void {
+  if (start >= end) return;
+  const text = redactBase64FromText(content.slice(start, end));
+  if (text) segments.push({ type: 'text', value: text });
+}
+
+function buildImageOrTextSegment(
+  full: string,
+  rawSrc: string,
+  alt: string,
+  images?: UserMessageImageRef[],
+): UserMessageVisualSegment | null {
+  const resolved = resolveImageSrc(rawSrc, images);
+  if (resolved) {
+    return {
+      type: 'image',
+      src: resolved.src,
+      alt: alt ? alt : resolved.alt,
+    };
+  }
+  if (!DOME_ATT_RE.test(rawSrc)) {
+    return { type: 'text', value: redactBase64FromText(full) };
+  }
+  return null;
+}
+
 /**
  * Split markdown-style ![alt](url) image references from plain text.
  * Resolves dome-att:// ids via optional structured image attachments.
@@ -49,36 +80,20 @@ export function parseUserMessageVisualSegments(
   images?: UserMessageImageRef[],
 ): UserMessageVisualSegment[] {
   const segments: UserMessageVisualSegment[] = [];
-  let lastIndex = 0;
-  let m: RegExpExecArray | null;
   const trimmed = typeof content === 'string' ? content : '';
   const re = new RegExp(IMAGE_RE.source, IMAGE_RE.flags);
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(trimmed)) !== null) {
     const [full, alt, rawSrc] = m;
     const start = m.index;
-    if (start > lastIndex) {
-      const text = redactBase64FromText(trimmed.slice(lastIndex, start));
-      if (text) segments.push({ type: 'text', value: text });
-    }
-    const resolved = resolveImageSrc(String(rawSrc), images);
-    if (resolved) {
-      segments.push({
-        type: 'image',
-        src: resolved.src,
-        alt: alt ? String(alt) : resolved.alt,
-      });
-    } else if (!DOME_ATT_RE.test(String(rawSrc))) {
-      segments.push({ type: 'text', value: redactBase64FromText(full) });
-    }
+    pushRedactedTextSegment(segments, trimmed, lastIndex, start);
+    const segment = buildImageOrTextSegment(full, String(rawSrc), String(alt), images);
+    if (segment) segments.push(segment);
     lastIndex = start + full.length;
   }
-  if (lastIndex < trimmed.length) {
-    const text = redactBase64FromText(trimmed.slice(lastIndex));
-    if (text) segments.push({ type: 'text', value: text });
-  }
-  if (!segments.length) {
-    const text = redactBase64FromText(trimmed);
-    return text ? [{ type: 'text', value: text }] : [];
-  }
-  return segments;
+  pushRedactedTextSegment(segments, trimmed, lastIndex, trimmed.length);
+  if (segments.length) return segments;
+  const text = redactBase64FromText(trimmed);
+  return text ? [{ type: 'text', value: text }] : [];
 }

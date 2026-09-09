@@ -90,7 +90,7 @@ export default function PluginsSection() {
       title={t('settings.plugins.title', 'Plugins')}
       description={t('settings.plugins.subtitle')}
       actions={
-        <Button type="button" variant="outline" size="sm" onClick={() => void handleInstall()}>
+          <Button type="button" variant="outline" size="sm" onClick={() => handleInstall()}>
           <HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />
           {t('settings.plugins.install_from_folder')}
         </Button>
@@ -118,7 +118,7 @@ export default function PluginsSection() {
             <EmptyDescription>{t('settings.plugins.empty_desc')}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button type="button" variant="outline" onClick={() => void handleInstall()}>
+            <Button type="button" variant="outline" onClick={() => handleInstall()}>
               <HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />
               {t('settings.plugins.install_from_folder')}
             </Button>
@@ -156,7 +156,7 @@ export default function PluginsSection() {
                 <>
                   <Switch
                     checked={plugin.enabled}
-                    onCheckedChange={(enabled) => void handleToggleEnabled(plugin.id, enabled)}
+                    onCheckedChange={(enabled) => handleToggleEnabled(plugin.id, enabled)}
                     aria-label={plugin.name}
                   />
                   <DropdownMenu>
