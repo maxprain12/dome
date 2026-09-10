@@ -1,13 +1,11 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  BubbleChatIcon,
   Cancel01Icon,
   Delete02Icon,
   ExternalLinkIcon,
   HistoryIcon,
-  InformationCircleIcon,
   Maximize02Icon,
   Minimize02Icon,
   MoreHorizontalIcon,
@@ -23,15 +21,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ManyAvatar, { type ManyAvatarState } from '@/components/many/ManyAvatar';
-import type { ManyStatus } from '@/lib/store/useManyStore';
+import ManyViewTabs, {
+  type ManyPanelViewId,
+  type ManyViewLabels,
+} from './ManyViewTabs';
 import { cn } from '@/lib/utils';
 
-export type ManyPanelViewId = 'chat' | 'history' | 'context';
+export type { ManyPanelViewId } from './ManyViewTabs';
+export type ManyHeaderStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
 interface ManyHeaderProps {
-  status: ManyStatus;
+  status: ManyHeaderStatus;
   sessionTitle?: string;
   contextDescription: string;
   loadingHint?: string;
@@ -54,6 +55,11 @@ interface ManyHeaderProps {
   onToggleFullscreen?: () => void;
   showPopoutToggle?: boolean;
   onPopout?: () => void;
+  manyImageSrc?: string;
+  viewLabels?: ManyViewLabels;
+  viewPresentation?: 'icons' | 'labels';
+  secondaryActions?: ReactNode;
+  overflowActions?: ReactNode;
 }
 
 type Translator = (key: string) => string;
@@ -65,13 +71,25 @@ function pickPlatformFlags(): { isMac: boolean; needsRightChromeInset: boolean }
   if (typeof window === 'undefined') {
     return { isMac: false, needsRightChromeInset: false };
   }
-  const isMac = Boolean(window.electron?.isMac ?? window.electron?.platform === 'darwin');
-  const needsRightChromeInset = Boolean(window.electron?.isWindows || window.electron?.isLinux);
+  const runtimeWindow = globalThis.window as Window & {
+    electron?: {
+      isMac?: boolean;
+      isWindows?: boolean;
+      isLinux?: boolean;
+      platform?: string;
+    };
+  };
+  const isMac = Boolean(
+    runtimeWindow.electron?.isMac ?? runtimeWindow.electron?.platform === 'darwin',
+  );
+  const needsRightChromeInset = Boolean(
+    runtimeWindow.electron?.isWindows || runtimeWindow.electron?.isLinux,
+  );
   return { isMac, needsRightChromeInset };
 }
 
 /** Map runtime status → avatar halo state. */
-function pickAvatarState(status: ManyStatus): ManyAvatarState {
+function pickAvatarState(status: ManyHeaderStatus): ManyAvatarState {
   if (status === 'speaking') return 'speaking';
   if (status === 'thinking') return 'thinking';
   return 'idle';
@@ -83,7 +101,7 @@ function pickAvatarState(status: ManyStatus): ManyAvatarState {
  * same word appeared three times at once. The animated avatar carries the
  * status here without adding a third copy of the label.
  */
-function pickStatusLabel(status: ManyStatus, t: Translator): string | null {
+function pickStatusLabel(status: ManyHeaderStatus, t: Translator): string | null {
   return status === 'speaking' ? t('many.speaking') : null;
 }
 
@@ -141,7 +159,7 @@ function buildHeaderClassName(
   isMac: boolean,
   needsRightChromeInset: boolean,
 ): string {
-  const base = '@container/header flex shrink-0 items-center gap-2.5 border-b';
+  const base = '@container/header flex shrink-0 flex-wrap items-center gap-2.5 border-b';
   if (!isPopout) return cn(base, 'px-3 py-2');
   // Match shell TitleBar: fixed height + traffic-light / overlay insets.
   return cn(
@@ -154,16 +172,26 @@ function buildHeaderClassName(
 
 // ── JSX sections (rendered as plain functions, not components, to stay cheap) ──
 
-function renderAvatar(isPopout: boolean, avatarState: ManyAvatarState) {
+function renderAvatar(
+  isPopout: boolean,
+  avatarState: ManyAvatarState,
+  manyImageSrc?: string,
+) {
   return (
     <>
       <ManyAvatar
         size={isPopout ? 'sm' : 'md'}
         state={avatarState}
+        imageSrc={manyImageSrc}
         className={cn(isPopout ? 'inline-flex' : 'hidden @[380px]/header:inline-flex')}
       />
       {!isPopout ? (
-        <ManyAvatar size="sm" state={avatarState} className="inline-flex @[380px]/header:hidden" />
+        <ManyAvatar
+          size="sm"
+          state={avatarState}
+          imageSrc={manyImageSrc}
+          className="inline-flex @[380px]/header:hidden"
+        />
       ) : null}
     </>
   );
@@ -204,29 +232,23 @@ function renderViewSwitcher(
   view: ManyPanelViewId,
   onViewChange: (view: ManyPanelViewId) => void,
   t: Translator,
+  labels?: ManyViewLabels,
+  presentation?: 'icons' | 'labels',
 ) {
   if (!showViewSwitcher) return null;
   return (
-    <Tabs
+    <ManyViewTabs
       value={view}
-      onValueChange={(value) => onViewChange(value as ManyPanelViewId)}
-    >
-      <TabsList>
-        <TabsTrigger value="chat" title={t('chat.messages')} aria-label={t('chat.messages')}>
-          <HugeiconsIcon icon={BubbleChatIcon} />
-        </TabsTrigger>
-        <TabsTrigger value="history" title={t('many.history')} aria-label={t('many.history')}>
-          <HugeiconsIcon icon={HistoryIcon} />
-        </TabsTrigger>
-        <TabsTrigger
-          value="context"
-          title={t('many.context_title')}
-          aria-label={t('many.context_title')}
-        >
-          <HugeiconsIcon icon={InformationCircleIcon} />
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+      onValueChange={onViewChange}
+      labels={
+        labels ?? {
+          chat: t('chat.messages'),
+          history: t('many.history'),
+          context: t('many.context_title'),
+        }
+      }
+      presentation={presentation}
+    />
   );
 }
 
@@ -276,6 +298,7 @@ function renderOverflowMenu(
   canClear: boolean,
   onClear: () => void,
   t: Translator,
+  overflowActions?: ReactNode,
 ) {
   return (
     <DropdownMenu>
@@ -293,6 +316,7 @@ function renderOverflowMenu(
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="end" className="min-w-52">
         <DropdownMenuGroup>
+          {overflowActions}
           {showFullscreenToggle && onToggleFullscreen ? (
             <DropdownMenuItem onClick={onToggleFullscreen}>
               <HugeiconsIcon icon={isFullscreenActive ? Minimize02Icon : Maximize02Icon} />
@@ -365,6 +389,11 @@ export default memo(function ManyHeader({
   onToggleFullscreen,
   showPopoutToggle = false,
   onPopout,
+  manyImageSrc,
+  viewLabels,
+  viewPresentation,
+  secondaryActions,
+  overflowActions,
 }: ManyHeaderProps) {
   const { t } = useTranslation();
 
@@ -388,10 +417,17 @@ export default memo(function ManyHeader({
 
   return (
     <header data-status={status} className={headerClassName}>
-      {renderAvatar(isPopout, avatarState)}
+      {renderAvatar(isPopout, avatarState, manyImageSrc)}
       {renderTitleBlock(titleText, statusLabel, subtitleText, isPopout)}
       <div className="no-drag flex shrink-0 items-center gap-0.5">
-        {renderViewSwitcher(showViewSwitcher, view, onViewChange, t)}
+        {renderViewSwitcher(
+          showViewSwitcher,
+          view,
+          onViewChange,
+          t,
+          viewLabels,
+          viewPresentation,
+        )}
         {renderHistoryToggle(showHistoryToggle, onToggleHistory, historyOpen, t)}
         {renderNewChatButton(onStartNewChat, t)}
         {renderOverflowMenu(
@@ -404,9 +440,15 @@ export default memo(function ManyHeader({
           canClear,
           onClear,
           t,
+          overflowActions,
         )}
         {renderCloseButton(showCloseButton, onClose, t)}
       </div>
+      {secondaryActions ? (
+        <div className="no-drag flex basis-full items-center gap-1 border-t px-1 pt-2">
+          {secondaryActions}
+        </div>
+      ) : null}
     </header>
   );
 });

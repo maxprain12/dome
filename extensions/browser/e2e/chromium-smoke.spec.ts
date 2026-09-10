@@ -5,13 +5,26 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const extensionPath = path.resolve(root, '../.output/chrome-mv3');
+const playwrightChromePath = chromium.executablePath();
+const playwrightArmChromePath = playwrightChromePath.replace(
+  'chrome-mac-x64',
+  'chrome-mac-arm64',
+);
+const browserExecutable =
+  existsSync(playwrightChromePath)
+    ? playwrightChromePath
+    : existsSync(playwrightArmChromePath)
+      ? playwrightArmChromePath
+      : undefined;
 
 test.describe('Chrome extension smoke', () => {
   test('loads the unpacked MV3 service worker', async () => {
     test.skip(!existsSync(path.join(extensionPath, 'manifest.json')), 'Run extension:build first');
     const context = await chromium.launchPersistentContext('', {
       // Full Chromium (not headless-shell). CI wraps this in xvfb.
-      channel: 'chromium',
+      ...(browserExecutable
+        ? { executablePath: browserExecutable }
+        : { channel: 'chromium' as const }),
       headless: true,
       args: [
         `--disable-extensions-except=${extensionPath}`,

@@ -65,19 +65,43 @@ describe('http client', () => {
         controller.close();
       },
     });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => ({
         ok: true,
         status: 200,
         body: stream,
-      })),
+      }),
     );
+    vi.stubGlobal('fetch', fetchMock);
     const chunks: string[] = [];
-    const result = await streamManyHttp('dxt_x', { action: 'summarize', text: 'page' }, (event) => {
-      if (event.type === 'delta' && event.text) chunks.push(event.text);
-    });
+    const result = await streamManyHttp(
+      'dxt_x',
+      {
+        action: 'summarize',
+        text: 'page',
+        model: 'model-readable',
+        thinkingLevel: 'medium',
+        toolsEnabled: true,
+        resourceToolsEnabled: false,
+        memoryEnabled: true,
+        projectId: 'project-1',
+        mcpServerIds: ['GitHub'],
+      },
+      (event) => {
+        if (event.type === 'delta' && event.text) chunks.push(event.text);
+      },
+    );
     expect(result.success).toBe(true);
     expect(chunks.join('')).toBe('Hi there');
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model: 'model-readable',
+      thinkingLevel: 'medium',
+      toolsEnabled: true,
+      resourceToolsEnabled: false,
+      memoryEnabled: true,
+      projectId: 'project-1',
+      mcpServerIds: ['GitHub'],
+    });
   });
 });

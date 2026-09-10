@@ -24,6 +24,15 @@ export interface ManyHitlInlineCardProps {
   showReject?: boolean;
   showApproveAll?: boolean;
   expiresSeconds?: number | null;
+  labels?: {
+    title: string;
+    approve: string;
+    approveAll: string;
+    reject: string;
+    edit: string;
+    expires: (seconds: number) => string;
+    paused: string;
+  };
   className?: string;
 }
 
@@ -45,6 +54,7 @@ export default function ManyHitlInlineCard({
   showReject = true,
   showApproveAll = true,
   expiresSeconds = null,
+  labels,
   className,
 }: ManyHitlInlineCardProps) {
   const { t } = useTranslation();
@@ -64,7 +74,7 @@ export default function ManyHitlInlineCard({
           <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-wide text-warning">
-              {t('many.hitl_confirm_title')}
+              {labels?.title ?? t('many.hitl_confirm_title')}
             </p>
             <p className="mt-0.5 text-sm">
               <span className="font-medium">{action}</span>
@@ -96,29 +106,30 @@ export default function ManyHitlInlineCard({
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" onClick={onApprove}>
             <HugeiconsIcon icon={Tick02Icon} data-icon="inline-start" />
-            {t('many.hitl_approve')}
+            {labels?.approve ?? t('many.hitl_approve')}
           </Button>
           {showApproveAll && onApproveAll ? (
             <Button type="button" size="sm" variant="secondary" onClick={onApproveAll}>
-              {t('many.hitl_approve_session')}
+              {labels?.approveAll ?? t('many.hitl_approve_session')}
             </Button>
           ) : null}
           {showReject ? (
             <Button type="button" size="sm" variant="outline" className="text-destructive" onClick={onReject}>
-              {t('chat.reject')}
+              {labels?.reject ?? t('chat.reject')}
             </Button>
           ) : null}
           {showEditArgs && onEditArgs ? (
             <Button type="button" size="sm" variant="ghost" onClick={onEditArgs}>
               <HugeiconsIcon icon={PencilEdit01Icon} data-icon="inline-start" />
-              {t('chat.edit_args')}
+              {labels?.edit ?? t('chat.edit_args')}
             </Button>
           ) : null}
           <span className="flex-1" aria-hidden />
           <span className="text-xs tabular-nums text-muted-foreground">
             {expiresSeconds != null && expiresSeconds > 0
-              ? t('many.hitl_expires', { seconds: expiresSeconds })
-              : t('many.hitl_run_paused')}
+              ? labels?.expires(expiresSeconds) ??
+                t('many.hitl_expires', { seconds: expiresSeconds })
+              : labels?.paused ?? t('many.hitl_run_paused')}
           </span>
         </div>
       </div>

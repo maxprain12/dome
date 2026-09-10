@@ -7,6 +7,7 @@ interface ManyAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   state?: ManyAvatarState;
   showStateDot?: boolean;
+  imageSrc?: string;
   className?: string;
 }
 
@@ -25,11 +26,12 @@ export default function ManyAvatar({
   size = 'md',
   state = 'idle',
   showStateDot = false,
+  imageSrc,
   className,
 }: ManyAvatarProps) {
   return (
     <span className={cn('relative inline-flex shrink-0', WRAPPER_SIZE[size], className)}>
-      <ManyIcon className="absolute inset-[8%] size-[84%]" />
+      <ManyIcon src={imageSrc} className="absolute inset-[8%] size-[84%]" />
       {showStateDot && state !== 'idle' ? (
         <span
           aria-hidden

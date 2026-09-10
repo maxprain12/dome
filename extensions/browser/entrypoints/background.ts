@@ -1,5 +1,9 @@
 import { cancelMany, request, streamManyHttp } from '../src/lib/http';
-import type { ManyStreamBody } from '../src/lib/http';
+import type { ManyResumeBody, ManyStreamBody } from '../src/lib/http';
+import {
+  CONTENT_PING_MESSAGE,
+  CONTENT_PROTOCOL_VERSION,
+} from '../src/lib/content-protocol';
 
 const CONTENT_FILE = '/content-scripts/panel.js';
 
@@ -18,9 +22,12 @@ async function injectPanel(tabId: number) {
 async function ping(tabId: number): Promise<boolean> {
   try {
     const reply = (await browser.tabs.sendMessage(tabId, {
-      type: 'DOME_PING',
-    })) as { ok?: boolean };
-    return reply?.ok === true;
+      type: CONTENT_PING_MESSAGE,
+    })) as { ok?: boolean; protocolVersion?: number };
+    return (
+      reply?.ok === true &&
+      reply.protocolVersion === CONTENT_PROTOCOL_VERSION
+    );
   } catch {
     return false;
   }
@@ -190,42 +197,70 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onConnect.addListener((port) => {
-    if (port.name !== 'dome-ai') return;
+    if (port.name !== 'dome-ai' && port.name !== 'dome-ai-v2') return;
     let current: { token: string; streamId: string } | null = null;
     port.onDisconnect.addListener(() => {
       if (current)
         cancelMany(current.token, current.streamId).catch(() => undefined);
     });
+    const runTransport = (
+      token: string,
+      streamId: string,
+      requestSpec:
+        | { path: '/v1/ai/stream'; body: ManyStreamBody }
+        | { path: '/v1/ai/resume'; body: ManyResumeBody },
+    ) => {
+      current = { token, streamId };
+      streamManyHttp(token, requestSpec, (event) => {
+        try {
+          port.postMessage(event);
+        } catch {
+          cancelMany(token, streamId).catch(() => undefined);
+        }
+      })
+        .then((result) => {
+          current = null;
+          if (!result.success) {
+            port.postMessage({ type: 'error', error: result.error });
+            return;
+          }
+          port.postMessage({
+            type: 'transport_end',
+            terminal: result.data.terminal,
+          });
+        })
+        .catch((err: unknown) => {
+          const error = err instanceof Error ? err.message : 'AI error';
+          try {
+            port.postMessage({ type: 'error', error });
+          } catch {
+            /* port closed */
+          }
+        });
+    };
     port.onMessage.addListener(
-      (msg: { token?: string; body?: ManyStreamBody }) => {
+      (
+        msg:
+          | { kind?: 'stream'; token?: string; body?: ManyStreamBody }
+          | { kind: 'resume'; token?: string; body?: ManyResumeBody },
+      ) => {
         const token = msg.token;
-        const body = msg.body;
-        if (!token || !body) {
+        if (!token || !msg.body) {
           port.postMessage({ type: 'error', error: 'Invalid Many request' });
           return;
         }
-        const streamId = body.streamId || `ext_${Date.now()}`;
-        current = { token, streamId };
-        streamManyHttp(token, { ...body, streamId }, (event) => {
-          try {
-            port.postMessage(event);
-          } catch {
-            cancelMany(token, streamId).catch(() => undefined);
-          }
-        })
-          .then((result) => {
-            if (!result.success)
-              port.postMessage({ type: 'error', error: result.error });
-            else port.postMessage({ type: 'done' });
-          })
-          .catch((err: unknown) => {
-            const error = err instanceof Error ? err.message : 'AI error';
-            try {
-              port.postMessage({ type: 'error', error });
-            } catch {
-              /* port closed */
-            }
+        if (msg.kind === 'resume') {
+          runTransport(token, msg.body.streamId, {
+            path: '/v1/ai/resume',
+            body: msg.body,
           });
+          return;
+        }
+        const streamId = msg.body.streamId || `ext_${Date.now()}`;
+        runTransport(token, streamId, {
+          path: '/v1/ai/stream',
+          body: { ...msg.body, streamId },
+        });
       },
     );
   });

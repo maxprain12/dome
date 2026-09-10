@@ -11,7 +11,7 @@ import {
   type BudgetBreakdown,
   type ContextSegmentId,
   type LiveTokenUsage,
-} from '@/lib/chat/contextUsage';
+} from '../../lib/chat/contextUsage';
 import { cn } from '@/lib/utils';
 
 interface ContextUsageIndicatorProps {
