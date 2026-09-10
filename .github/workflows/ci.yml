@@ -221,3 +221,39 @@ jobs:
           fi
 
           echo "✅ Architecture check passed — no forbidden imports in renderer."
+
+  browser-extension:
+    name: Browser extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Unit tests
+        run: pnpm run extension:test
+
+      - name: Extension typecheck
+        run: pnpm --filter @dome/browser-extension run typecheck
+
+      - name: Build Chrome, Edge, Firefox and Safari
+        run: pnpm run extension:build
+
+      - name: Manifest smoke
+        run: EXTENSION_REQUIRE_BUILD=1 pnpm --filter @dome/browser-extension exec vitest run src/lib/manifest-smoke.test.ts
+
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Load unpacked extension
+        run: xvfb-run --auto-servernum pnpm run extension:smoke

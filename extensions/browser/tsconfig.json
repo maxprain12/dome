@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "src",
+    "entrypoints",
+    "wxt.config.ts",
+    "vitest.config.ts",
+    ".wxt/wxt.d.ts"
+  ],
+  "extends": "./.wxt/tsconfig.json"
+}

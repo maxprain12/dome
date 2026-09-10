@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "Dome" },
+  "extDescription": { "message": "Save contacts, notes and links from the web into Dome." },
+  "actionTitle": { "message": "Open Dome" },
+  "addSelection": { "message": "Add selection to Dome note" }
+}

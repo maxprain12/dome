@@ -1,0 +1,88 @@
+/* Shared by Dome Desktop and the browser extension. */
+:root, :host {
+  /* chrome #F4F4F5 · ink #27272A · surfaces #FAFAFA */
+  --background: oklch(0.967 0 0);
+  --foreground: oklch(0.274 0 0);
+  --card: oklch(0.985 0 0);
+  --card-foreground: oklch(0.274 0 0);
+  --popover: oklch(0.985 0 0);
+  --popover-foreground: oklch(0.274 0 0);
+  /* ink #27272A · on-cta #FAFAFA · hover #3F3F46 */
+  --primary: oklch(0.274 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-hover: oklch(0.370 0 0);
+  --secondary: oklch(0.967 0 0);
+  --secondary-foreground: oklch(0.274 0 0);
+  --muted: oklch(0.967 0 0);
+  /* muted text #71717A */
+  --muted-foreground: oklch(0.552 0 0);
+  --accent: oklch(0.967 0 0);
+  --accent-foreground: oklch(0.274 0 0);
+  /* error #BD3F32 */
+  --destructive: oklch(0.546 0.164 29.3);
+  /* border/input #E4E4E7 · ring = ink */
+  --border: oklch(0.920 0 0);
+  --input: oklch(0.920 0 0);
+  --ring: oklch(0.274 0 0);
+  /* brand tints kept for Many mark / rare chips: lime #DDE9B2 · mint #EEF5E0 · lavender #CFD1EB */
+  --brand-lime: oklch(0.911 0.073 117.9);
+  --brand-mint: oklch(0.959 0.029 122);
+  --brand-lavender: oklch(0.867 0.036 282.2);
+  --chart-1: oklch(0.370 0 0);
+  --chart-2: oklch(0.552 0 0);
+  --chart-3: oklch(0.705 0 0);
+  --chart-4: oklch(0.820 0 0);
+  --chart-5: oklch(0.274 0 0);
+  /* 6px base — editorial, not pill. Avatars/spinners stay rounded-full. */
+  --radius: 0.375rem;
+  --sidebar: oklch(0.967 0 0);
+  --sidebar-foreground: oklch(0.274 0 0);
+  --sidebar-primary: oklch(0.274 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0 0);
+  --sidebar-accent-foreground: oklch(0.274 0 0);
+  --sidebar-border: oklch(0.920 0 0);
+  --sidebar-ring: oklch(0.274 0 0);
+}
+
+.dark {
+  /* #18181B / #27272A / #FAFAFA */
+  --background: oklch(0.210 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.274 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.274 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  /* ink inverted #FAFAFA · fg #18181B · hover #FFFFFF */
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.210 0 0);
+  --primary-hover: oklch(1 0 0);
+  --secondary: oklch(0.370 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.370 0 0);
+  --muted-foreground: oklch(0.705 0 0);
+  --accent: oklch(0.370 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  /* #E07066 */
+  --destructive: oklch(0.674 0.142 26.7);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.985 0 0);
+  /* dark tints: lime #3A4228 · mint #2A3020 · lavender #2E2F3A */
+  --brand-lime: oklch(0.364 0.043 122.5);
+  --brand-mint: oklch(0.298 0.029 124.8);
+  --brand-lavender: oklch(0.309 0.02 281.1);
+  --chart-1: oklch(0.920 0 0);
+  --chart-2: oklch(0.705 0 0);
+  --chart-3: oklch(0.552 0 0);
+  --chart-4: oklch(0.450 0 0);
+  --chart-5: oklch(0.820 0 0);
+  --sidebar: oklch(0.274 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.210 0 0);
+  --sidebar-accent: oklch(0.370 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.985 0 0);
+}

@@ -2,6 +2,7 @@
 packages:
   - '.'
   - 'packages/*'
+  - 'extensions/*'
 
 # Fresh publishes (<24h) would otherwise fail resolution in CI/dev.
 minimumReleaseAge: 0

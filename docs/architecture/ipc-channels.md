@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-08T11:30:24.960Z
+> Última generación: 2026-09-09T22:32:11.679Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -103,6 +103,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `automations:notifyContext` | `electron/ipc/agents/runs.cjs:139` |
 | `automations:runNow` | `electron/ipc/agents/runs.cjs:129` |
 | `automations:upsert` | `electron/ipc/agents/runs.cjs:108` |
+| `browser-extension:pair-cancel` | `electron/ipc/integrations/browser-extension.cjs:39` |
+| `browser-extension:pair-start` | `electron/ipc/integrations/browser-extension.cjs:32` |
+| `browser-extension:revoke` | `electron/ipc/integrations/browser-extension.cjs:46` |
+| `browser-extension:status` | `electron/ipc/integrations/browser-extension.cjs:18` |
 | `browser:get-active-tab-macos` | `electron/ipc/integrations/browser-context.cjs:5` |
 | `calendar:connectGoogle` | `electron/ipc/integrations/calendar.cjs:11` |
 | `calendar:createEvent` | `electron/ipc/integrations/calendar.cjs:64` |

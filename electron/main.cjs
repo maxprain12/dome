@@ -1034,7 +1034,17 @@ function tryInitTranscriptionShortcut() {
   }
 }
 
-// Auto-start Dome MCP server if enabled in settings
+function tryStartBrowserExtensionBridge() {
+  try {
+    const browserExtension = require('./browser-extension/index.cjs');
+    browserExtension.start({ database, fileStorage, windowManager }).catch((e) =>
+      console.warn('[Main] Browser extension bridge failed:', e?.message),
+    );
+  } catch (err) {
+    console.warn('[Main] Browser extension bridge:', err?.message || err);
+  }
+}
+
 function tryAutoStartDomeMcpServer() {
   try {
     const q = database.getQueries();
@@ -1299,6 +1309,7 @@ app
     startDomeSessionManager(database, windowManager);
 
     tryInitTranscriptionShortcut();
+    tryStartBrowserExtensionBridge();
     tryAutoStartDomeMcpServer();
     trySyncSentryConsent();
 
@@ -1358,6 +1369,11 @@ app.on('before-quit', async () => {
     require('./mcp/mcp-client.cjs').closeAllMcpClients?.();
   } catch (e) {
     console.warn('[Main] MCP client cleanup failed:', e?.message);
+  }
+  try {
+    require('./browser-extension/index.cjs').stop();
+  } catch (e) {
+    console.warn('[Main] browser extension bridge stop:', e?.message);
   }
   try {
     require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();

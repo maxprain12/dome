@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "Dome" },
+  "extDescription": { "message": "Guarde contactos, notas e ligações da web no Dome." },
+  "actionTitle": { "message": "Abrir Dome" },
+  "addSelection": { "message": "Adicionar seleção à nota do Dome" }
+}

@@ -18,5 +18,6 @@ describe('settings registry', () => {
     expect(resolveSettingsSection('transcription')).toBe('ai');
     expect(resolveSettingsSection('unknown')).toBe('general');
     expect(new Set(SETTINGS_ENTRIES.map((entry) => entry.id)).size).toBe(SETTINGS_ENTRIES.length);
+    expect(SETTINGS_ENTRIES.map((entry) => entry.id)).toContain('browser_extension');
   });
 });
