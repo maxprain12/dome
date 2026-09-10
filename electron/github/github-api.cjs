@@ -58,6 +58,26 @@ function getRateLimitWaitMs(res) {
   return Math.max(0, reset * 1000 - Date.now()) + 1000;
 }
 
+// Parses the GitHub `Link` header for `rel="next"`. Returns the URL or null.
+function parseNextLink(linkHeader) {
+  if (!linkHeader) return null;
+  const m = /<([^>]+)>;\s*rel="next"/.exec(linkHeader);
+  return m ? m[1] : null;
+}
+
+// Defensive array extraction for paginated list responses.
+function pageItems(res) {
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+// Invokes the streamPages `onPage` callback; returns the numeric delta it yields
+// (callers use this to accumulate `total` for progress reporting).
+function invokeOnPage(onPage, items, pageIndex) {
+  if (typeof onPage !== 'function') return 0;
+  const r = onPage(items, { page: pageIndex });
+  return typeof r === 'number' ? r : 0;
+}
+
 async function readSuccessBody(res) {
   const text = await res.text();
   try {
@@ -140,10 +160,8 @@ async function getAllPages(path, { etag, maxPages = MAX_PAGES } = {}) {
       first = false;
       if (res.status === 304) return { items: null, etag };
     }
-    if (Array.isArray(res.data)) all.push(...res.data);
-    const link = res.headers.get('link') || '';
-    const m = /<([^>]+)>;\s*rel="next"/.exec(link);
-    next = m ? m[1] : null;
+    all.push(...pageItems(res));
+    next = parseNextLink(res.headers.get('link'));
     pages += 1;
   }
   return { items: all, etag: firstEtag };
@@ -183,14 +201,8 @@ async function streamPages(path, { etag, maxPages = MAX_PAGES, onPage } = {}) {
       first = false;
       if (res.status === 304) return { etag, pages, total, notModified: true };
     }
-    const items = Array.isArray(res.data) ? res.data : [];
-    if (typeof onPage === 'function') {
-      const r = onPage(items, { page: pages });
-      if (typeof r === 'number') total += r;
-    }
-    const link = res.headers.get('link') || '';
-    const m = /<([^>]+)>;\s*rel="next"/.exec(link);
-    next = m ? m[1] : null;
+    total += invokeOnPage(onPage, pageItems(res), pages);
+    next = parseNextLink(res.headers.get('link'));
     pages += 1;
   }
   return { etag: firstEtag, pages, total, notModified: false };
