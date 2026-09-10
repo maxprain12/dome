@@ -130,6 +130,281 @@ function finalizeArtifactSearchSurface(queries, resource) {
   }
 }
 
+/** No useful text for indexing — placeholder sources from upstream extraction steps. */
+function isUnindexableText(text, source) {
+  return (
+    !text ||
+    source === 'empty' ||
+    source === 'blocked_no_vision_ocr' ||
+    source === 'vision_ocr_failed'
+  );
+}
+
+/** Truncate oversized documents so embeddings don't OOM. */
+function truncateForIndexing(text) {
+  if (text.length <= MAX_INDEXABLE_TEXT_CHARS) return text;
+  return (
+    text.slice(0, MAX_INDEXABLE_TEXT_CHARS) +
+    '\n\n[Dome: texto truncado para indexación por límite de tamaño]'
+  );
+}
+
+/**
+ * Extract text from a PDF resource via cloud OCR. Returns null on failure
+ * (caller keeps the previously-resolved plain text).
+ * @param {Record<string, any>} resource
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ */
+async function tryExtractPdfText(resource, queries) {
+  if (!(resource.type === 'pdf' && resource.vault_path)) return null;
+  try {
+    return await extractPdfTextWithCloud(resource, queries);
+  } catch (e) {
+    console.warn('[indexing.pipeline] pdf transcription', e?.message || e);
+    return null;
+  }
+}
+
+/**
+ * Extract text from an image resource via cloud vision (caption + OCR).
+ * @param {Record<string, any>} resource
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ */
+async function tryExtractImageText(resource, queries) {
+  if (!(resource.type === 'image' && resource.vault_path)) return null;
+  if (!cloudLlm.isCloudLlmAvailable(() => queries)) return null;
+  try {
+    const fullPath = require('../storage/vault-store.cjs').getResourceFilePath(
+      resource,
+      queries,
+      fileStorage,
+    );
+    if (!fullPath || !fs.existsSync(fullPath)) return null;
+    const mime = resource.file_mime_type || 'image/png';
+    const b64 = fs.readFileSync(fullPath).toString('base64');
+    const dataUrl = `data:${mime};base64,${b64}`;
+    const gen = (o) => cloudLlm.generateText({ ...o, getQueries: () => queries });
+    const caption = await cloudLlmTasks.runCaptionOnImageDataUrl(gen, dataUrl);
+    const ocr = await cloudLlmTasks.runOcrOnImageDataUrl(gen, dataUrl);
+    const title = String(resource.title || '').trim();
+    const cap = String(caption || '').trim();
+    const oc = String(ocr || '').trim();
+    const text = [title, cap && `Descripcion: ${cap}`, oc && `Texto: ${oc}`]
+      .filter(Boolean)
+      .join('\n\n');
+    return { text, source: 'cloud_image' };
+  } catch (e) {
+    console.warn('[indexing.pipeline] cloud image', e?.message || e);
+    return null;
+  }
+}
+
+/**
+ * Resolve the indexable text/source for a resource, layering PDF / image
+ * transcription on top of the base text. Each special extractor is opt-in
+ * and swallows its own errors so one failure doesn't poison the whole
+ * pipeline.
+ * @param {Record<string, any>} resource
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ */
+async function resolveIndexableText(queries, resource) {
+  let { text, source } = getIndexableText(resource, queries);
+  const pdfResult = await tryExtractPdfText(resource, queries);
+  if (pdfResult) {
+    text = pdfResult.text;
+    source = pdfResult.source;
+  }
+  const imageResult = await tryExtractImageText(resource, queries);
+  if (imageResult) {
+    text = imageResult.text;
+    source = imageResult.source;
+  }
+  return { text, source };
+}
+
+/**
+ * Drop every stored artifact for `resourceId` (sqlite + Lance). Used when
+ * we know there is nothing meaningful to index anymore.
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ * @param {string} resourceId
+ * @param {Record<string, any>} resource
+ */
+async function purgeStoredArtifacts(queries, resourceId, resource) {
+  queries.deleteChunksByResource.run(resourceId);
+  queries.deleteSemanticAutoFromSource.run(resourceId);
+  try {
+    await lancedb.deleteChunksForResource(resourceId);
+  } catch (e) {
+    console.warn('[indexing.pipeline] lance delete', e?.message || e);
+  }
+  finalizeArtifactSearchSurface(queries, resource);
+}
+
+/**
+ * Chunk `text` honoring the active context window, attaching PDF page markers
+ * when relevant. Returns `{ ok: true, chunks }` or `{ ok: false, error }`.
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ * @param {Record<string, any>} resource
+ * @param {string} text
+ */
+async function buildChunksForResource(queries, resource, text) {
+  try {
+    const ctxTokens = await getActiveContextTokensSafe(() => queries);
+    const chunks = await chunkTextForEmbeddings(text, { contextTokens: ctxTokens });
+    if (resource.type === 'pdf' && String(text).includes('<!-- page:')) {
+      assignPageNumbersFromMarkers(text, chunks);
+    }
+    return { ok: true, chunks };
+  } catch {
+    return { ok: false, error: 'chunking_failed' };
+  }
+}
+
+/**
+ * Embed an array of chunk texts. Returns `{ ok, vectors }` or
+ * `{ ok: false, message }` so callers can react without throwing.
+ * @param {string[]} texts
+ */
+async function embedChunkTexts(texts) {
+  try {
+    const vectors = await embedDocuments(texts);
+    return { ok: true, vectors };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Map chunks + vectors to LanceDB rows.
+ * @param {Array<{ text: string, char_start?: number, char_end?: number, page_number?: number }>} chunks
+ * @param {Float32Array[]} vectors
+ * @param {Record<string, any>} resource
+ * @param {string} resourceId
+ */
+function buildLanceRows(chunks, vectors, resource, resourceId) {
+  return chunks.map((ch, i) => ({
+    chunk_index: i,
+    text: ch.text,
+    vector: vectors[i],
+    char_start: ch.char_start ?? -1,
+    char_end: ch.char_end ?? -1,
+    page_number: ch.page_number ?? -1,
+    res_title: String(resource.title || ''),
+    res_type: String(resource.type || ''),
+    project_id: String(resource.project_id || ''),
+  }));
+}
+
+/**
+ * Write the freshly-indexed chunks (plus lexical index) for `resourceId` to
+ * LanceDB. Returns `{ ok: true }` or `{ ok: false, error, message }`.
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ * @param {Record<string, any>} resource
+ * @param {string} resourceId
+ * @param {Array<{ text: string, char_start?: number, char_end?: number, page_number?: number }>} chunks
+ * @param {Float32Array[]} vectors
+ */
+async function writeResourceToLance(queries, resource, resourceId, chunks, vectors) {
+  const lanceRows = buildLanceRows(chunks, vectors, resource, resourceId);
+  try {
+    await lancedb.replaceResourceChunks(resourceId, lanceRows);
+    await lancedb.upsertLexForResource({
+      resource_id: resourceId,
+      title: String(resource.title || ''),
+      type: String(resource.type || ''),
+      project_id: resource.project_id,
+      content: String(resource.content || ''),
+    });
+    return { ok: true };
+  } catch (e) {
+    const message = String(e?.message || e);
+    return { ok: false, error: 'lance_write_failed', message };
+  }
+}
+
+/**
+ * Scan a sample of other indexed resources, compute their centroids, and
+ * upsert the top-K semantic auto-edges that pass `threshold`.
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ * @param {string} resourceId
+ * @param {Float32Array[]} vectors
+ * @param {number} threshold
+ * @param {number} neighborBudget
+ * @param {number} now
+ */
+async function scanAndUpsertRelations(queries, resourceId, vectors, threshold, neighborBudget, now) {
+  const myCentroid = centroidL2Normalized(sampleEvenlyForCentroid(vectors));
+  if (!myCentroid) return [];
+
+  let otherIds = [];
+  try {
+    otherIds = await lancedb.listIndexedResourceIdsExcluding(resourceId);
+  } catch (e) {
+    console.warn('[indexing.pipeline] lance list neighbors', e?.message || e);
+  }
+  const sampled = sampleNeighborIds(otherIds, neighborBudget);
+  const relations = [];
+  let relScan = 0;
+  for (const otherId of sampled) {
+    relScan += 1;
+    if (relScan % 48 === 0) {
+      await new Promise((r) => setImmediate(r));
+    }
+    const candidate = await tryReadNeighborCentroid(otherId);
+    if (!candidate) continue;
+    const sim = dotNormalized(myCentroid, candidate);
+    if (sim >= threshold) {
+      relations.push({ targetId: otherId, sim });
+    }
+  }
+  relations.sort((a, b) => b.sim - a.sim);
+  const topK = relations.slice(0, TOP_K);
+  for (const r of topK) {
+    upsertAutoEdge(queries, resourceId, r.targetId, r.sim, now);
+    upsertAutoEdge(queries, r.targetId, resourceId, r.sim, now);
+  }
+  return topK;
+}
+
+/**
+ * Read + L2-normalize the centroid of another resource for relation scoring.
+ * Returns null when the resource has no vectors or the centroid degenerates.
+ * @param {string} otherId
+ */
+async function tryReadNeighborCentroid(otherId) {
+  let ovecs = [];
+  try {
+    ovecs = await lancedb.sampleVectorsForCentroid(otherId, MAX_EMBEDDINGS_FOR_CENTROID);
+  } catch {
+    return null;
+  }
+  if (!ovecs.length) return null;
+  return centroidL2Normalized(ovecs);
+}
+
+/**
+ * Normalize the user-supplied indexing options, applying defaults.
+ * @param {{ threshold?: number, neighborScanBudget?: number, skipSemanticRelations?: boolean }} options
+ */
+function resolveIndexOptions(options) {
+  const threshold =
+    typeof options.threshold === 'number' ? options.threshold : DEFAULT_THRESHOLD;
+  const neighborBudget =
+    typeof options.neighborScanBudget === 'number' && options.neighborScanBudget > 0
+      ? Math.floor(options.neighborScanBudget)
+      : MAX_NEIGHBOR_CANDIDATES;
+  const skipRelations = options.skipSemanticRelations === true;
+  return { threshold, neighborBudget, skipRelations };
+}
+
+/**
+ * Cap a chunk list at the maximum supported per resource.
+ * @param {any[]} chunks
+ */
+function capChunks(chunks) {
+  return chunks.length > MAX_CHUNKS_PER_RESOURCE ? chunks.slice(0, MAX_CHUNKS_PER_RESOURCE) : chunks;
+}
+
 /**
  * @param {import('better-sqlite3').Statement} q
  * @param {string} src
@@ -193,208 +468,68 @@ function createIndexer(opts) {
    * @param {{ threshold?: number, neighborScanBudget?: number, skipSemanticRelations?: boolean }} [options]
    */
   async function indexResourceImpl(resourceId, options = {}) {
-    const threshold =
-      typeof options.threshold === 'number' ? options.threshold : DEFAULT_THRESHOLD;
-    const skipRelations = options.skipSemanticRelations === true;
-    const neighborBudget =
-      typeof options.neighborScanBudget === 'number' && options.neighborScanBudget > 0
-        ? Math.floor(options.neighborScanBudget)
-        : MAX_NEIGHBOR_CANDIDATES;
     const queries = getQueries();
     const resource = queries.getResourceById.get(resourceId);
-    if (!resource) {
-      return { ok: false, error: 'not_found' };
-    }
-    if (!shouldIndexResourceType(resource.type)) {
-      return { ok: true, skipped: true };
-    }
+    if (!resource) return { ok: false, error: 'not_found' };
+    if (!shouldIndexResourceType(resource.type)) return { ok: true, skipped: true };
+    if (!isConfigured()) return { ok: true, skipped: true, reason: 'embeddings_not_configured' };
 
-    if (!isConfigured()) {
-      return { ok: true, skipped: true, reason: 'embeddings_not_configured' };
-    }
+    const { threshold, neighborBudget, skipRelations } = resolveIndexOptions(options);
 
-    let { text, source } = getIndexableText(resource, queries);
+    const { text, source } = await resolveIndexableText(queries, resource);
 
-    if (resource.type === 'pdf' && resource.vault_path) {
-      try {
-        const tr = await extractPdfTextWithCloud(resource, queries);
-        text = tr.text;
-        source = tr.source;
-      } catch (e) {
-        console.warn('[indexing.pipeline] pdf transcription', e?.message || e);
-      }
-    }
-
-    if (resource.type === 'image' && cloudLlm.isCloudLlmAvailable(() => queries) && resource.vault_path) {
-      try {
-        const fullPath = require('../storage/vault-store.cjs').getResourceFilePath(resource, queries, fileStorage);
-        if (fullPath && fs.existsSync(fullPath)) {
-          const mime = resource.file_mime_type || 'image/png';
-          const b64 = fs.readFileSync(fullPath).toString('base64');
-          const dataUrl = `data:${mime};base64,${b64}`;
-          const gen = (o) => cloudLlm.generateText({ ...o, getQueries: () => queries });
-          const caption = await cloudLlmTasks.runCaptionOnImageDataUrl(gen, dataUrl);
-          const ocr = await cloudLlmTasks.runOcrOnImageDataUrl(gen, dataUrl);
-          const title = String(resource.title || '').trim();
-          const cap = String(caption || '').trim();
-          const oc = String(ocr || '').trim();
-          text = [title, cap && `Descripcion: ${cap}`, oc && `Texto: ${oc}`].filter(Boolean).join('\n\n');
-          source = 'cloud_image';
-        }
-      } catch (e) {
-        console.warn('[indexing.pipeline] cloud image', e?.message || e);
-      }
-    }
-
-    if (
-      !text ||
-      source === 'empty' ||
-      source === 'blocked_no_vision_ocr' ||
-      source === 'vision_ocr_failed'
-    ) {
-      queries.deleteChunksByResource.run(resourceId);
-      queries.deleteSemanticAutoFromSource.run(resourceId);
-      try {
-        await lancedb.deleteChunksForResource(resourceId);
-      } catch (e) {
-        console.warn('[indexing.pipeline] lance delete (empty)', e?.message || e);
-      }
-      finalizeArtifactSearchSurface(queries, resource);
+    if (isUnindexableText(text, source)) {
+      await purgeStoredArtifacts(queries, resourceId, resource);
       return { ok: true, skipped: true, reason: 'empty_text' };
     }
 
-    if (text.length > MAX_INDEXABLE_TEXT_CHARS) {
-      text =
-        text.slice(0, MAX_INDEXABLE_TEXT_CHARS) +
-        '\n\n[Dome: texto truncado para indexación por límite de tamaño]';
+    const truncated = truncateForIndexing(text);
+    const chunkResult = await buildChunksForResource(queries, resource, truncated);
+    if (!chunkResult.ok) {
+      await purgeStoredArtifacts(queries, resourceId, resource);
+      return { ok: false, error: chunkResult.error };
     }
-
-    let chunks;
-    try {
-      const ctxTokens = await getActiveContextTokensSafe(() => queries);
-      chunks = await chunkTextForEmbeddings(text, { contextTokens: ctxTokens });
-      if (resource.type === 'pdf' && String(text).includes('<!-- page:')) {
-        assignPageNumbersFromMarkers(text, chunks);
-      }
-    } catch {
-      try {
-        await lancedb.deleteChunksForResource(resourceId);
-      } catch {
-        /* ignore */
-      }
-      finalizeArtifactSearchSurface(queries, resource);
-      return { ok: false, error: 'chunking_failed' };
-    }
+    const chunks = chunkResult.chunks;
     if (chunks.length === 0) {
-      queries.deleteChunksByResource.run(resourceId);
-      queries.deleteSemanticAutoFromSource.run(resourceId);
-      try {
-        await lancedb.deleteChunksForResource(resourceId);
-      } catch (e) {
-        console.warn('[indexing.pipeline] lance delete (no chunks)', e?.message || e);
-      }
-      finalizeArtifactSearchSurface(queries, resource);
+      await purgeStoredArtifacts(queries, resourceId, resource);
       return { ok: true, skipped: true, reason: 'no_chunks' };
     }
+    const finalChunks = capChunks(chunks);
 
-    if (chunks.length > MAX_CHUNKS_PER_RESOURCE) {
-      chunks = chunks.slice(0, MAX_CHUNKS_PER_RESOURCE);
-    }
-
-    let vectors;
-    try {
-      vectors = await embedDocuments(chunks.map((c) => c.text));
-    } catch (e) {
+    const embedResult = await embedChunkTexts(finalChunks.map((c) => c.text));
+    if (!embedResult.ok) {
       await resetPipeline();
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error('[indexing.pipeline] embedding_failed', resourceId, msg);
+      console.error('[indexing.pipeline] embedding_failed', resourceId, embedResult.message);
       finalizeArtifactSearchSurface(queries, resource);
-      return { ok: false, error: 'embedding_failed', message: msg };
+      return { ok: false, error: 'embedding_failed', message: embedResult.message };
     }
+    const vectors = embedResult.vectors;
     const now = Date.now();
 
     queries.deleteChunksByResource.run(resourceId);
-
-    const lanceRows = chunks.map((ch, i) => ({
-      chunk_index: i,
-      text: ch.text,
-      vector: vectors[i],
-      char_start: ch.char_start ?? -1,
-      char_end: ch.char_end ?? -1,
-      page_number: ch.page_number ?? -1,
-      res_title: String(resource.title || ''),
-      res_type: String(resource.type || ''),
-      project_id: String(resource.project_id || ''),
-    }));
-    try {
-      await lancedb.replaceResourceChunks(resourceId, lanceRows);
-      await lancedb.upsertLexForResource({
-        resource_id: resourceId,
-        title: String(resource.title || ''),
-        type: String(resource.type || ''),
-        project_id: resource.project_id,
-        content: String(resource.content || ''),
-      });
-    } catch (e) {
-      console.error('[indexing.pipeline] lance write', resourceId, e?.message || e);
+    const writeResult = await writeResourceToLance(queries, resource, resourceId, finalChunks, vectors);
+    if (!writeResult.ok) {
+      console.error('[indexing.pipeline] lance write', resourceId, writeResult.message);
       finalizeArtifactSearchSurface(queries, resource);
-      return { ok: false, error: 'lance_write_failed', message: String(e?.message || e) };
+      return { ok: false, error: writeResult.error, message: writeResult.message };
     }
 
     queries.deleteSemanticAutoFromSource.run(resourceId);
-
-    const myCentroid = centroidL2Normalized(sampleEvenlyForCentroid(vectors));
-    if (!myCentroid) {
-      finalizeArtifactSearchSurface(queries, resource);
-      return { ok: true, count: 0, chunks: chunks.length, textSource: source };
-    }
-
-    if (skipRelations) {
-      finalizeArtifactSearchSurface(queries, resource);
-      return { ok: true, count: 0, chunks: chunks.length, textSource: source };
-    }
-
-    /** @type {{ targetId: string, sim: number }[]} */
-    const relations = [];
-    let otherIds = [];
-    try {
-      otherIds = await lancedb.listIndexedResourceIdsExcluding(resourceId);
-    } catch (e) {
-      console.warn('[indexing.pipeline] lance list neighbors', e?.message || e);
-    }
-    const rawOtherCount = otherIds.length;
-    otherIds = sampleNeighborIds(otherIds, neighborBudget);
-    let relScan = 0;
-    for (const otherId of otherIds) {
-      relScan += 1;
-      if (relScan % 48 === 0) {
-        await new Promise((r) => setImmediate(r));
-      }
-      let ovecs = [];
-      try {
-        ovecs = await lancedb.sampleVectorsForCentroid(otherId, MAX_EMBEDDINGS_FOR_CENTROID);
-      } catch {
-        continue;
-      }
-      if (!ovecs.length) continue;
-      const c = centroidL2Normalized(ovecs);
-      if (!c) continue;
-      const sim = dotNormalized(myCentroid, c);
-      if (sim >= threshold) {
-        relations.push({ targetId: otherId, sim });
-      }
-    }
-    relations.sort((a, b) => b.sim - a.sim);
-    const topK = relations.slice(0, TOP_K);
-
-    for (const r of topK) {
-      upsertAutoEdge(queries, resourceId, r.targetId, r.sim, now);
-      upsertAutoEdge(queries, r.targetId, resourceId, r.sim, now);
-    }
-
     finalizeArtifactSearchSurface(queries, resource);
 
-    return { ok: true, count: topK.length, chunks: chunks.length, textSource: source };
+    if (skipRelations) {
+      return { ok: true, count: 0, chunks: finalChunks.length, textSource: source };
+    }
+
+    const topK = await scanAndUpsertRelations(
+      queries,
+      resourceId,
+      vectors,
+      threshold,
+      neighborBudget,
+      now,
+    );
+    return { ok: true, count: topK.length, chunks: finalChunks.length, textSource: source };
   }
 
   /**
