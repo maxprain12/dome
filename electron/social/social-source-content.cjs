@@ -65,42 +65,86 @@ function xContent(post, includes = {}, account = {}) {
   };
 }
 
+function linkedinMediaType(id) {
+  if (/:video:/.test(id || '')) return 'video';
+  if (/:document:/.test(id || '')) return 'document';
+  return 'image';
+}
+
+async function linkedinAttachment(item, resolveAsset) {
+  const id = item.id || item.media;
+  let asset = {};
+  if (id && /^urn:li:(image|video|document):/.test(id)) {
+    try {
+      asset = await resolveAsset(id);
+    } catch {
+      /* retain attachment and show source fallback */
+    }
+  }
+  return {
+    externalId: id,
+    type: linkedinMediaType(id),
+    url: webUrl(asset.downloadUrl || item.originalUrl),
+    thumbnailUrl: webUrl(asset.thumbnail || item.thumbnails?.[0]?.url),
+    alt: item.altText || asset.altText,
+    name: item.title?.text || item.title,
+    width: asset.aspectRatioWidth,
+    height: asset.aspectRatioHeight,
+  };
+}
+
+async function linkedinArticleImage(article, resolveAsset) {
+  if (!article?.thumbnail) return undefined;
+  try {
+    return webUrl((await resolveAsset(article.thumbnail)).downloadUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+function linkedinFormat(content) {
+  if (content.article) return 'article';
+  if (content.multiImage) return 'carousel';
+  if (content.poll) return 'poll';
+  return undefined;
+}
+
+function linkedinPollOption(option, index) {
+  return {
+    position: index + 1,
+    label: option.text,
+    votes: option.voteCount,
+  };
+}
+
+function linkedinPoll(pollContent) {
+  if (!pollContent) return undefined;
+  return {
+    question: pollContent.question,
+    options: (pollContent.options || []).map(linkedinPollOption),
+    status: pollContent.votingStatus,
+  };
+}
+
 async function linkedinContent(post, account, resolveAsset) {
   const content = post.content || {};
   const legacy = post.specificContent?.['com.linkedin.ugc.ShareContent'];
   const attachments = content.multiImage?.images || (content.media ? [content.media] : legacy?.media || []);
   const media = [];
   for (const item of attachments) {
-    const id = item.id || item.media;
-    let asset = {};
-    if (id && /^urn:li:(image|video|document):/.test(id)) {
-      try { asset = await resolveAsset(id); } catch { /* retain attachment and show source fallback */ }
-    }
-    media.push({
-      externalId: id,
-      type: /:video:/.test(id || '') ? 'video' : /:document:/.test(id || '') ? 'document' : 'image',
-      url: webUrl(asset.downloadUrl || item.originalUrl),
-      thumbnailUrl: webUrl(asset.thumbnail || item.thumbnails?.[0]?.url),
-      alt: item.altText || asset.altText,
-      name: item.title?.text || item.title,
-      width: asset.aspectRatioWidth,
-      height: asset.aspectRatioHeight,
-    });
+    media.push(await linkedinAttachment(item, resolveAsset));
   }
   const article = content.article;
-  let articleImage;
-  if (article?.thumbnail) {
-    try { articleImage = webUrl((await resolveAsset(article.thumbnail)).downloadUrl); } catch { /* optional preview */ }
-  }
+  const articleImage = await linkedinArticleImage(article, resolveAsset);
   return {
     media,
     linkUrl: webUrl(article?.source || legacy?.media?.find((item) => item.originalUrl)?.originalUrl),
     source: {
       authorName: account.display_name || account.displayName,
       authorHandle: account.handle,
-      format: article ? 'article' : content.multiImage ? 'carousel' : content.poll ? 'poll' : undefined,
+      format: linkedinFormat(content),
       link: article ? { title: article.title, description: article.description, imageUrl: articleImage } : undefined,
-      poll: content.poll ? { question: content.poll.question, options: (content.poll.options || []).map((option, index) => ({ position: index + 1, label: option.text, votes: option.voteCount })), status: content.poll.votingStatus } : undefined,
+      poll: linkedinPoll(content.poll),
     },
   };
 }
