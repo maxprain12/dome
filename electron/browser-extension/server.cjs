@@ -16,6 +16,11 @@ const {
   AiStreamBodySchema,
   AiCancelBodySchema,
   AiToolResultBodySchema,
+  AiResumeBodySchema,
+  SessionPinBodySchema,
+  ResourceSearchBodySchema,
+  ResourceHydrateBodySchema,
+  ModelsQuerySchema,
   isAllowedExtensionOrigin,
   corsHeaders,
 } = require('./protocol.cjs');
@@ -86,6 +91,59 @@ function createRateLimiter({ windowMs, max }) {
   };
 }
 
+function writeSse(res, payload) {
+  if (res.writableEnded || res.destroyed) return;
+  const serialized = JSON.stringify(payload);
+  if (Buffer.byteLength(serialized, 'utf8') > 250_000) {
+    res.write(
+      `data: ${JSON.stringify({
+        type: 'error',
+        error: 'Stream event exceeded the bridge size limit',
+      })}\n\n`,
+    );
+    return;
+  }
+  res.write(`data: ${serialized}\n\n`);
+}
+
+function relayStreamChunk(send, chunk) {
+  if (!chunk || typeof chunk !== 'object') return false;
+  switch (chunk.type) {
+    case 'text':
+      if (chunk.text) send({ type: 'delta', event: 'text', text: chunk.text });
+      return false;
+    case 'thinking':
+      if (chunk.text) send({ type: 'reasoning', text: chunk.text });
+      return false;
+    case 'interrupt':
+      send({
+        type: 'approval',
+        threadId: chunk.threadId,
+        actionRequests: chunk.actionRequests || [],
+        reviewConfigs: chunk.reviewConfigs || [],
+      });
+      return false;
+    case 'done':
+      send({ type: 'done' });
+      return true;
+    case 'error':
+      send({ type: 'error', error: chunk.error || 'AI error' });
+      return false;
+    case 'browser_tool':
+    case 'tool_call':
+    case 'tool_progress':
+    case 'tool_result':
+    case 'usage':
+    case 'compaction':
+    case 'budget':
+    case 'harness':
+      send(chunk);
+      return false;
+    default:
+      return false;
+  }
+}
+
 function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
   const pairLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 10 });
   const apiLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 120 });
@@ -96,18 +154,27 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     return typeof req.headers.origin === 'string' ? req.headers.origin : '';
   }
 
+  function requireLoopbackHost(req, res) {
+    const expected = `${HOST}:${listenPort}`;
+    if (req.headers.host !== expected) {
+      json(res, 403, { success: false, error: 'Host not allowed' }, originOf(req));
+      return false;
+    }
+    return true;
+  }
+
   function requireOrigin(req, res) {
     const origin = originOf(req);
-    if (origin && !isAllowedExtensionOrigin(origin) && origin !== 'null') {
+    if (!isAllowedExtensionOrigin(origin)) {
       json(res, 403, { success: false, error: 'Origin not allowed' }, origin);
       return null;
     }
-    return origin || 'null';
+    return origin;
   }
 
   function requireClient(req, res, origin) {
     const token = bearerToken(req);
-    const client = token ? pairing.resolveToken(token) : null;
+    const client = token ? pairing.resolveToken(token, origin) : null;
     if (!client) {
       json(
         res,
@@ -141,7 +208,7 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       return;
     }
     try {
-      const result = pairing.pair(parsed.data);
+      const result = pairing.pair(parsed.data, origin);
       json(res, 200, { success: true, data: result }, origin);
     } catch (err) {
       json(
@@ -198,37 +265,87 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       'X-Accel-Buffering': 'no',
       ...corsHeaders(origin),
     });
-    const send = (payload) => {
-      res.write(`data: ${JSON.stringify(payload)}\n\n`);
-    };
+    const send = (payload) => writeSse(res, payload);
+    let completed = false;
     res.on('close', () => {
-      many.cancel(streamId);
+      if (!completed) many.cancel(streamId, client.id);
     });
     try {
-      send({ type: 'start', streamId });
-      await many.stream({
+      send({ type: 'start', streamId, protocolVersion: PROTOCOL_VERSION });
+      let emittedDone = false;
+      const outcome = await many.stream({
         ...parsed.data,
         streamId,
         clientId: client.id,
         onChunk: (chunk) => {
-          if (!chunk || typeof chunk !== 'object') return;
-          if (chunk.type === 'browser_tool') send(chunk);
-          if (chunk.type === 'text' && chunk.text)
-            send({ type: 'delta', text: chunk.text });
-          if (chunk.type === 'error')
-            send({ type: 'error', error: chunk.error || 'AI error' });
-          if (chunk.type === 'done') send({ type: 'done' });
+          emittedDone = relayStreamChunk(send, chunk) || emittedDone;
         },
       });
-      send({ type: 'done' });
+      const interrupted =
+        outcome?.result &&
+        typeof outcome.result === 'object' &&
+        outcome.result.__interrupt__ === true;
+      if (!interrupted && !emittedDone) send({ type: 'done' });
     } catch (err) {
       send({ type: 'error', error: err.message || 'AI error' });
     } finally {
+      completed = true;
+      res.end();
+    }
+  }
+
+  async function handleAiResume(req, res, origin) {
+    const client = requireClient(req, res, origin);
+    if (!client) return;
+    const body = await readBody(req, MAX_BODY_BYTES);
+    const parsed = AiResumeBodySchema.safeParse(body);
+    if (!parsed.success) {
+      json(res, 400, { success: false, error: 'Invalid payload' }, origin);
+      return;
+    }
+    many.approval(parsed.data.streamId, client.id);
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      ...corsHeaders(origin),
+    });
+    const send = (payload) => writeSse(res, payload);
+    let completed = false;
+    res.on('close', () => {
+      if (!completed) many.cancel(parsed.data.streamId, client.id);
+    });
+    try {
+      send({
+        type: 'start',
+        streamId: parsed.data.streamId,
+        resumed: true,
+        protocolVersion: PROTOCOL_VERSION,
+      });
+      let emittedDone = false;
+      const outcome = await many.resume({
+        ...parsed.data,
+        clientId: client.id,
+        onChunk: (chunk) => {
+          emittedDone = relayStreamChunk(send, chunk) || emittedDone;
+        },
+      });
+      const interrupted =
+        outcome?.result &&
+        typeof outcome.result === 'object' &&
+        outcome.result.__interrupt__ === true;
+      if (!interrupted && !emittedDone) send({ type: 'done' });
+    } catch (err) {
+      send({ type: 'error', error: err.message || 'AI resume error' });
+    } finally {
+      completed = true;
       res.end();
     }
   }
 
   async function route(req, res) {
+    if (!requireLoopbackHost(req, res)) return;
     const origin = requireOrigin(req, res);
     if (origin == null) return;
 
@@ -266,10 +383,83 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       return;
     }
 
+    if (req.method === 'GET' && path === '/v1/bootstrap') {
+      await handleAuthorizedJson(req, res, origin, null, async () => ({
+        ...(await many.bootstrap()),
+        context: capture.context(),
+      }));
+      return;
+    }
+
+    if (req.method === 'GET' && path === '/v1/config') {
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.getConfig(),
+      );
+      return;
+    }
+
+    if (
+      req.method === 'GET' &&
+      (path === '/v1/catalogs/skills' || path === '/v1/skills')
+    ) {
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.getSkillsCatalog(),
+      );
+      return;
+    }
+
+    if (
+      req.method === 'GET' &&
+      (path === '/v1/catalogs/mcp' || path === '/v1/mcp')
+    ) {
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.getMcpCatalog(),
+      );
+      return;
+    }
+
+    if (
+      req.method === 'GET' &&
+      (path === '/v1/catalogs/models' || path === '/v1/models')
+    ) {
+      const query = Object.fromEntries(url.searchParams.entries());
+      const parsedQuery = ModelsQuerySchema.safeParse(query);
+      if (!parsedQuery.success) {
+        json(res, 400, { success: false, error: 'Invalid query' }, origin);
+        return;
+      }
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.getModelsCatalog(),
+      );
+      return;
+    }
+
     if (req.method === 'GET' && path === '/v1/projects') {
       await handleAuthorizedJson(req, res, origin, null, async () => ({
         projects: capture.listProjects(),
       }));
+      return;
+    }
+
+    if (req.method === 'POST' && path === '/v1/resources/search') {
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        ResourceSearchBodySchema,
+        async (body) => many.searchResources(body),
+      );
+      return;
+    }
+
+    if (req.method === 'POST' && path === '/v1/resources/hydrate') {
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        ResourceHydrateBodySchema,
+        async (body) => many.hydrateResources(body),
+      );
       return;
     }
 
@@ -360,9 +550,50 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       );
       return;
     }
+    if (req.method === 'DELETE' && sessionMatch) {
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.deleteSession(sessionMatch[1]),
+      );
+      return;
+    }
+
+    const sessionPinMatch =
+      /^\/v1\/ai\/sessions\/([a-zA-Z0-9:_-]{1,120})\/pin$/.exec(path);
+    if (req.method === 'PUT' && sessionPinMatch) {
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        SessionPinBodySchema,
+        async (body) => many.pinSession(sessionPinMatch[1], body.pinned),
+      );
+      return;
+    }
 
     if (req.method === 'POST' && path === '/v1/ai/stream') {
       await handleAiStream(req, res, origin);
+      return;
+    }
+
+    const approvalMatch =
+      /^\/v1\/ai\/approvals\/([a-zA-Z0-9:_-]{1,80})$/.exec(path);
+    if (req.method === 'GET' && approvalMatch) {
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        null,
+        async (_body, _req, client) =>
+          many.approval(approvalMatch[1], client.id),
+      );
+      return;
+    }
+
+    if (
+      req.method === 'POST' &&
+      (path === '/v1/ai/resume' || path === '/v1/ai/approve')
+    ) {
+      await handleAiResume(req, res, origin);
       return;
     }
 
@@ -383,8 +614,7 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
         res,
         origin,
         AiCancelBodySchema,
-        AiToolResultBodySchema,
-        async (body) => many.cancel(body.streamId),
+        async (body, _req, client) => many.cancel(body.streamId, client.id),
       );
       return;
     }

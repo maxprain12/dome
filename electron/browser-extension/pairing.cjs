@@ -1,7 +1,11 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { PAIR_TTL_MS, TOKEN_PREFIX } = require('./protocol.cjs');
+const {
+  PAIR_TTL_MS,
+  TOKEN_PREFIX,
+  isAllowedExtensionOrigin,
+} = require('./protocol.cjs');
 
 const CLIENTS_KEY = 'browser_extension_clients';
 const PAIR_KEY = 'browser_extension_pair';
@@ -66,7 +70,10 @@ function createPairing({ getQueries }) {
     return { cancelled: true };
   }
 
-  function pair({ code, clientName }) {
+  function pair({ code, clientName }, origin) {
+    if (!isAllowedExtensionOrigin(origin)) {
+      throw new Error('A valid browser extension origin is required');
+    }
     const state = readPairState();
     if (!state || typeof state.codeHash !== 'string') {
       throw new Error('No pairing code is active. Generate one in Dome Settings.');
@@ -89,6 +96,7 @@ function createPairing({ getQueries }) {
       id,
       name: String(clientName || 'Browser').slice(0, 80),
       tokenHash: sha256(token),
+      origin,
       createdAt: now,
       lastSeenAt: now,
     });
@@ -97,11 +105,14 @@ function createPairing({ getQueries }) {
     return { token, clientId: id };
   }
 
-  function resolveToken(token) {
+  function resolveToken(token, origin) {
+    if (!isAllowedExtensionOrigin(origin)) return null;
     if (typeof token !== 'string' || !token.startsWith(TOKEN_PREFIX)) return null;
     const hash = sha256(token);
     const clients = readClients();
-    const client = clients.find((c) => c && c.tokenHash === hash);
+    const client = clients.find(
+      (c) => c && c.tokenHash === hash && c.origin === origin,
+    );
     if (!client) return null;
     client.lastSeenAt = Date.now();
     writeClients(clients);

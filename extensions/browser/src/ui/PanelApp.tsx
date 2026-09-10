@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   ContactDraft,
@@ -8,21 +14,28 @@ import type {
 import * as api from '../lib/client';
 import { detectMediaKind } from '../lib/extractors';
 import type { PageContext } from '../lib/browser-context';
-import type { ReactNode } from 'react';
 import { Button } from '../../../../app/components/ui/button';
+import { DropdownMenuItem } from '../../../../app/components/ui/dropdown-menu';
 import { Input } from '../../../../app/components/ui/input';
 import { Textarea } from '../../../../app/components/ui/textarea';
-import DesktopSelect from './DesktopSelect';
+import ManyHeader, {
+  type ManyPanelViewId,
+} from '../../../../app/components/many/panel/ManyHeader';
 import manyMark from '../../../../public/many.png?inline';
 import { formatWebCitation } from '../lib/citation';
 import { loadSession, saveSession, type SessionState } from '../lib/session';
 import NotePane from './NotePane';
 import type { MarkdownNoteEditorHandle } from '../../../../app/components/markdown/MarkdownNoteEditor';
-import ManyAssistant, { type Task } from './ManyAssistant';
+import ManyAssistant, {
+  type ManyAssistantHandle,
+  type ManyAssistantHeaderState,
+  type Task,
+} from './ManyAssistant';
 import { Icon } from './Icon';
 import './panel.css';
 
-const tasks: Task[] = ['agent', 'capture', 'note', 'contact'];
+type SecondaryTask = Exclude<Task, 'agent'>;
+const secondaryTasks: SecondaryTask[] = ['capture', 'note', 'contact'];
 type Notice = { kind: 'ok' | 'error'; text: string; link?: string };
 
 export default function PanelApp({
@@ -37,12 +50,15 @@ export default function PanelApp({
   const { t } = useTranslation();
   const [session, setSession] = useState<SessionState | null>(null);
   const [code, setCode] = useState('');
-  const [tab, setTab] = useState<Task>(
-    () => (localStorage.getItem('dome.activeTask') as Task) || 'agent',
+  const [view, setView] = useState<ManyPanelViewId>(
+    () =>
+      (localStorage.getItem('dome.manyView') as ManyPanelViewId | null) ||
+      'chat',
   );
+  const [task, setTask] = useState<SecondaryTask | null>(null);
   useEffect(() => {
-    localStorage.setItem('dome.activeTask', tab);
-  }, [tab]);
+    localStorage.setItem('dome.manyView', view);
+  }, [view]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [note, setNote] = useState<api.NoteDetail | null>(null);
@@ -121,12 +137,36 @@ export default function PanelApp({
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const panelRef = useRef<HTMLDivElement>(null);
+  const manyRef = useRef<ManyAssistantHandle>(null);
+  const [manyHeaderState, setManyHeaderState] =
+    useState<ManyAssistantHeaderState>({
+      status: 'idle',
+      canClear: false,
+      interactionLocked: false,
+    });
+  useEffect(() => {
+    const header = panelRef.current?.querySelector('header');
+    const newChatLabel = t('many.newChat');
+    header?.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      if (button.getAttribute('aria-label') === newChatLabel) {
+        button.disabled = manyHeaderState.interactionLocked;
+      }
+    });
+    header?.querySelectorAll<HTMLButtonElement>('[role="tab"]').forEach((tab) => {
+      tab.disabled = manyHeaderState.interactionLocked;
+    });
+  }, [manyHeaderState.interactionLocked, t]);
+  const activeTask: Task = task ?? 'agent';
 
   const notify = useCallback(
     (task: Task, value?: Notice) =>
       setNotices((prev) => ({ ...prev, [task]: value })),
     [],
   );
+  const openManyChat = useCallback(() => {
+    setTask(null);
+    setView('chat');
+  }, []);
   const persist = useCallback(async (next: SessionState) => {
     setSession(next);
     await saveSession(next);
@@ -253,7 +293,8 @@ export default function PanelApp({
         | { text: string; url: string; title: string }
         | undefined;
       if (!quote) return;
-      setTab('note');
+      setView('chat');
+      setTask('note');
       appendText(formatWebCitation(quote));
       browser.storage.local.remove('dome.pendingQuote');
     };
@@ -343,7 +384,7 @@ export default function PanelApp({
     if (
       (event.metaKey || event.ctrlKey) &&
       event.key === 's' &&
-      tab === 'note' &&
+      task === 'note' &&
       connected
     ) {
       event.preventDefault();
@@ -359,11 +400,11 @@ export default function PanelApp({
   }, []);
 
   const changeProject = (id: string) =>
-    perform(tab, async () => {
+    perform(activeTask, async () => {
       if (!session?.token || dirty) return;
       const result = await api.listNotes(session.token, id);
       if (!result.success) {
-        notify(tab, { kind: 'error', text: t('error') });
+        notify(activeTask, { kind: 'error', text: t('error') });
         return;
       }
       setNotes(result.data.notes);
@@ -452,70 +493,68 @@ export default function PanelApp({
       'No accessible web page. Ask the user to open a website if needed.'
     );
   };
-  const many = (task: Task) =>
+  const many =
     session?.token && (
       <ManyAssistant
-        task={task}
+        ref={manyRef}
+        view={view}
+        task={activeTask}
         projectId={projectId}
         tabId={snapshot.tabId}
         token={session.token}
         getContext={() =>
           [
-            manyContext(task),
+            manyContext(activeTask),
             `Page sections: ${JSON.stringify(snapshot.headings)}`,
           ].join('\n\n')
         }
-        title={snapshot.title}
-        url={snapshot.url}
+        page={snapshot}
+        browserTools={browserTools}
         disabled={busy || !connected}
-        onApply={(output) => {
-          if (task === 'contact') {
-            const notes = `${contact.notes || ''}\n\n${output}`.trim();
-            if (notes.length > 4000) {
-              notify('contact', { kind: 'error', text: t('contactTooLong') });
-              return false;
-            }
-            setContact((previous) => ({ ...previous, notes }));
-          } else {
-            appendText(`\n\n${output}\n`);
-            setTab('note');
-          }
-          notify(task === 'contact' ? 'contact' : 'note', {
-            kind: 'ok',
-            text: t('applied'),
-          });
-          return true;
-        }}
+        onOpenChat={openManyChat}
+        onHeaderStateChange={setManyHeaderState}
+        onApply={
+          task
+            ? (output) => {
+                if (activeTask === 'contact') {
+                  const notes = `${contact.notes || ''}\n\n${output}`.trim();
+                  if (notes.length > 4000) {
+                    notify('contact', {
+                      kind: 'error',
+                      text: t('contactTooLong'),
+                    });
+                    return false;
+                  }
+                  setContact((previous) => ({ ...previous, notes }));
+                } else {
+                  appendText(`\n\n${output}\n`);
+                  setView('chat');
+                  setTask('note');
+                }
+                notify(activeTask === 'contact' ? 'contact' : 'note', {
+                  kind: 'ok',
+                  text: t('applied'),
+                });
+                return true;
+              }
+            : undefined
+        }
       />
     );
 
   return (
     <div
       ref={panelRef}
-      className={`dome-panel${dark ? ' dark' : ''}${tab === 'agent' ? ' agent-view' : ''}`}
+      className={`dome-panel${dark ? ' dark' : ''}${!task && view === 'chat' ? ' agent-view' : ''}`}
       aria-label="Dome"
     >
-      <header className="panel-header">
-        <div className="brand">
-          <img src={manyMark} alt="" width="28" height="28" />
-          <strong>Dome</strong>
-          <span className="browser-label">/ Browser</span>
-        </div>
-        <div className="header-actions">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t('appearance')}
-            onClick={() => {
-              setDark(!dark);
-              browser.storage.local
-                .set({ 'dome.appearance': dark ? 'light' : 'dark' })
-                .catch(() => undefined);
-            }}
-          >
-            <Icon name={dark ? 'sun' : 'moon'} />
-          </Button>
+      {!session?.token ? (
+        <header className="panel-header">
+          <div className="brand">
+            <img src={manyMark} alt="" width="28" height="28" />
+            <strong>Dome</strong>
+            <span className="browser-label">/ Browser</span>
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -525,8 +564,8 @@ export default function PanelApp({
           >
             <Icon name="close" />
           </Button>
-        </div>
-      </header>
+        </header>
+      ) : null}
       {!session ? (
         <div className="panel-content" role="status">
           {t('connecting')}
@@ -574,26 +613,108 @@ export default function PanelApp({
         </div>
       ) : (
         <>
-          <div className="workspace-row">
-            <label htmlFor="dome-project">{t('workspace')}</label>
-            <DesktopSelect
-              label={t('workspace')}
-              value={projectId}
-              disabled={busy || dirty || !connected}
-              onChange={changeProject}
-              items={projects.map((project) => ({
-                value: project.id,
-                label: project.name,
-              }))}
-            />
-          </div>
+          <ManyHeader
+            status={manyHeaderState.status}
+            sessionTitle={manyHeaderState.sessionTitle}
+            contextDescription={snapshot.title}
+            view={view}
+            onViewChange={(next) => {
+              if (manyHeaderState.interactionLocked) return;
+              setTask(null);
+              setView(next);
+            }}
+            showViewSwitcher
+            onStartNewChat={() => {
+              if (!manyHeaderState.interactionLocked) {
+                manyRef.current?.startNewChat();
+              }
+            }}
+            onClear={() => {
+              if (!manyHeaderState.interactionLocked) {
+                manyRef.current?.clearChat();
+              }
+            }}
+            canClear={
+              manyHeaderState.canClear &&
+              !manyHeaderState.interactionLocked
+            }
+            onClose={onClose}
+            showClose
+            showFullscreenToggle={false}
+            showPopoutToggle={false}
+            manyImageSrc={manyMark}
+            viewLabels={{
+              chat: t('chat'),
+              history: t('history'),
+              context: t('context'),
+            }}
+            viewPresentation="icons"
+            secondaryActions={
+              <>
+                {secondaryTasks.map((secondaryTask) => (
+                  <Button
+                    key={secondaryTask}
+                    id={`dome-action-${secondaryTask}`}
+                    type="button"
+                    variant={task === secondaryTask ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="min-w-0 flex-1"
+                    aria-pressed={task === secondaryTask}
+                    disabled={manyHeaderState.interactionLocked}
+                    onClick={() => {
+                      setView('chat');
+                      setTask(secondaryTask);
+                    }}
+                  >
+                    <Icon name={secondaryTask} />
+                    {t(secondaryTask)}
+                  </Button>
+                ))}
+              </>
+            }
+            overflowActions={
+              <>
+                <DropdownMenuItem
+                    disabled={manyHeaderState.interactionLocked}
+                  onClick={() => {
+                    setDark(!dark);
+                    browser.storage.local
+                      .set({ 'dome.appearance': dark ? 'light' : 'dark' })
+                      .catch(() => undefined);
+                  }}
+                >
+                  <Icon name={dark ? 'sun' : 'moon'} />
+                  {t('appearance')}
+                </DropdownMenuItem>
+                {projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    disabled={
+                      manyHeaderState.interactionLocked ||
+                      busy ||
+                      dirty ||
+                      !connected ||
+                      project.id === projectId
+                    }
+                    onClick={() => {
+                      changeProject(project.id).catch(() =>
+                        setConnectionError(t('error')),
+                      );
+                    }}
+                  >
+                    {project.name}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            }
+          />
           {connectionError && (
             <div className="connection-error" role="alert">
               <p>{connectionError}</p>
               <Button
                 type="button"
                 disabled={busy}
-                onClick={() => perform(tab, () => connect(session))}
+                onClick={() => perform(activeTask, () => connect(session))}
               >
                 {t('retry')}
               </Button>
@@ -612,55 +733,12 @@ export default function PanelApp({
               </Button>
             </div>
           )}
-          {browserTools}
-          <nav className="tabs" aria-label="Dome">
-            <div role="tablist">
-              {tasks.map((task) => (
-                <Button
-                  key={task}
-                  id={`dome-tab-${task}`}
-                  type="button"
-                  variant="ghost"
-                  role="tab"
-                  tabIndex={tab === task ? 0 : -1}
-                  aria-controls={`dome-pane-${task}`}
-                  aria-selected={tab === task}
-                  onClick={() => setTab(task)}
-                  onKeyDown={(event) => {
-                    const index = tasks.indexOf(task);
-                    const next =
-                      event.key === 'ArrowRight'
-                        ? tasks[(index + 1) % tasks.length]
-                        : event.key === 'ArrowLeft'
-                          ? tasks[(index + tasks.length - 1) % tasks.length]
-                          : event.key === 'Home'
-                            ? tasks[0]
-                            : event.key === 'End'
-                              ? tasks[tasks.length - 1]
-                              : null;
-                    if (next) {
-                      event.preventDefault();
-                      setTab(next);
-                      (
-                        event.currentTarget.parentElement?.querySelector(
-                          `#dome-tab-${next}`,
-                        ) as HTMLElement
-                      )?.focus();
-                    }
-                  }}
-                >
-                  <Icon name={task === 'agent' ? 'arrow' : task} />
-                  {t(task)}
-                </Button>
-              ))}
-            </div>
-          </nav>
-          <div className="panel-scroll" hidden={tab === 'agent'}>
+          <div className="panel-scroll" hidden={!task}>
             <section
               id="dome-pane-capture"
               role="tabpanel"
-              aria-labelledby="dome-tab-capture"
-              hidden={tab !== 'capture'}
+              aria-labelledby="dome-action-capture"
+              hidden={task !== 'capture'}
               className="panel-content"
             >
               <p className="eyebrow">{t('page')}</p>
@@ -728,8 +806,8 @@ export default function PanelApp({
             <section
               id="dome-pane-note"
               role="tabpanel"
-              aria-labelledby="dome-tab-note"
-              hidden={tab !== 'note'}
+              aria-labelledby="dome-action-note"
+              hidden={task !== 'note'}
               className="panel-content"
             >
               <NotePane
@@ -784,8 +862,8 @@ export default function PanelApp({
             <section
               id="dome-pane-contact"
               role="tabpanel"
-              aria-labelledby="dome-tab-contact"
-              hidden={tab !== 'contact'}
+              aria-labelledby="dome-action-contact"
+              hidden={task !== 'contact'}
               className="panel-content"
             >
               <div className="contact-heading">
@@ -956,7 +1034,7 @@ export default function PanelApp({
               {renderNotice('contact')}
             </section>
           </div>
-          {many(tab)}
+          {many}
           <footer className="panel-footer">
             <span
               className={

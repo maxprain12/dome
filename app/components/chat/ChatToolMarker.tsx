@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
-import type { ToolCallData } from './ChatToolCard';
+
+export type ChatToolStatus = 'pending' | 'running' | 'success' | 'error';
 
 export interface ChatToolMarkerProps {
   label: ReactNode;
   summary?: string | null;
-  status: ToolCallData['status'];
+  status: ChatToolStatus;
   icon: IconSvgElement;
   expanded?: boolean;
   expandable?: boolean;
@@ -117,7 +118,7 @@ export function ChatToolMarker({
 
 export interface ChatToolGroupMarkerProps {
   label: ReactNode;
-  status: ToolCallData['status'];
+  status: ChatToolStatus;
   icon: IconSvgElement;
   expanded?: boolean;
   onToggle: () => void;
