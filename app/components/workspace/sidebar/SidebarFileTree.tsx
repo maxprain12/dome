@@ -47,23 +47,360 @@ export interface TreeNodeProps {
   onToggleSelect?: (id: string) => void;
 }
 
+// ── Pure helpers (kept outside the component so they don't add to its complexity) ──
+
+function pickRowBackground(
+  isSelected: boolean,
+  isDragOver: boolean,
+  isFolder: boolean,
+  folderColor: string,
+  hovered: boolean,
+): string {
+  if (isSelected) return 'color-mix(in srgb, var(--primary) 10%, transparent)';
+  if (isDragOver && isFolder) return `${folderColor}22`;
+  if (hovered) return 'var(--accent)';
+  return 'transparent';
+}
+
+function pickRowOutline(
+  isSelected: boolean,
+  isDragOver: boolean,
+  isFolder: boolean,
+  folderColor: string,
+): string {
+  if (isSelected) return '1px solid color-mix(in srgb, var(--primary) 40%, transparent)';
+  if (isDragOver && isFolder) return `1.5px dashed ${folderColor}`;
+  return 'none';
+}
+
+function pickFolderColor(
+  isFolder: boolean,
+  resource: Resource | undefined,
+): string {
+  return isFolder && resource ? getFolderColor(resource) : 'var(--primary)';
+}
+
+function buildDragHandlers(
+  inSelectionMode: boolean,
+  node: TreeNodeData,
+  onDragStart: (n: TreeNodeData) => void,
+  onDragOver: (e: React.DragEvent, n: TreeNodeData) => void,
+  onDragLeave: () => void,
+  onDrop: (e: React.DragEvent, n: TreeNodeData) => void,
+  onDragEnd: () => void,
+  onContextMenu: (e: React.MouseEvent, r: Resource) => void,
+) {
+  return {
+    onDragStart: () => {
+      if (!inSelectionMode) onDragStart(node);
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (!inSelectionMode) onDragOver(e, node);
+    },
+    onDragLeave: onDragLeave,
+    onDrop: (e: React.DragEvent) => {
+      if (!inSelectionMode) onDrop(e, node);
+    },
+    onDragEnd: onDragEnd,
+    onContextMenu: (e: React.MouseEvent) => {
+      if (node.resource && !inSelectionMode) {
+        e.preventDefault();
+        onContextMenu(e, node.resource);
+      }
+    },
+  };
+}
+
+// ── JSX sections ──
+
+function SelectionCheckbox({
+  isSelected,
+  onToggleSelect,
+  nodeId,
+}: {
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  nodeId: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggleSelect(nodeId);
+      }}
+      className="shrink-0 flex items-center justify-center rounded mr-1 transition-colors"
+      style={{
+        width: 14,
+        height: 14,
+        border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+        background: isSelected ? 'var(--primary)' : 'var(--background)',
+        flexShrink: 0,
+      }}
+      aria-checked={isSelected}
+    >
+      {isSelected ? (
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+          <path
+            d="M1.5 4L3.5 6L6.5 2"
+            stroke="white"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : null}
+    </button>
+  );
+}
+
+function ChevronToggle({ isFolder, isExpanded }: { isFolder: boolean; isExpanded: boolean }) {
+  if (!isFolder) return null;
+  return (
+    <HugeiconsIcon
+      icon={ChevronDownIcon}
+      className={`size-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
+      strokeWidth={2.5}
+    />
+  );
+}
+
+function NodeIcon({
+  isFolder,
+  isExpanded,
+  hasChildren,
+  folderColor,
+  nodeType,
+  nodeName,
+}: {
+  isFolder: boolean;
+  isExpanded: boolean;
+  hasChildren: boolean;
+  folderColor: string;
+  nodeType: TreeNodeData['type'];
+  nodeName: string;
+}) {
+  if (!isFolder) {
+    return (
+      <span className="shrink-0 text-muted-foreground">
+        <ResourceIcon
+          type={nodeType}
+          name={nodeName}
+          size={14}
+          className="size-3.5"
+          strokeWidth={1.75}
+        />
+      </span>
+    );
+  }
+  // Folder icon: closed when collapsed (or empty), open when expanded
+  const icon = isExpanded && hasChildren ? FolderOpenIcon : Folder01Icon;
+  return (
+    <span className="shrink-0 relative flex items-center justify-center">
+      <HugeiconsIcon
+        icon={icon}
+        className="size-3.5"
+        style={{ color: folderColor }}
+        strokeWidth={1.75}
+        fill={`${folderColor}33`}
+      />
+    </span>
+  );
+}
+
+function NodeNameField({
+  isRenaming,
+  isFolder,
+  renameRef,
+  renameValue,
+  setRenameValue,
+  handleRenameKeyDown,
+  onRenameCommit,
+  nodeId,
+  nodeName,
+}: {
+  isRenaming: boolean;
+  isFolder: boolean;
+  renameRef: React.RefObject<HTMLInputElement>;
+  renameValue: string;
+  setRenameValue: (v: string) => void;
+  handleRenameKeyDown: (e: React.KeyboardEvent) => void;
+  onRenameCommit: (id: string, value: string) => void;
+  nodeId: string;
+  nodeName: string;
+}) {
+  if (isRenaming) {
+    return (
+      <input
+        ref={renameRef}
+        type="text"
+        value={renameValue}
+        onChange={(e) => setRenameValue(e.target.value)}
+        onKeyDown={handleRenameKeyDown}
+        onBlur={() => onRenameCommit(nodeId, renameValue)}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="Rename"
+        className="flex-1 outline-none rounded px-1"
+        style={{
+          fontSize: 12,
+          background: 'var(--card)',
+          border: '1px solid var(--primary)',
+          color: 'var(--foreground)',
+          minWidth: 0,
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      className="truncate flex-1 dome-fs-tree-name"
+      style={{ fontSize: 12, fontWeight: isFolder ? 500 : 400 }}
+    >
+      {nodeName}
+    </span>
+  );
+}
+
+function RowMoreButton({
+  visible,
+  onContextMenu,
+  resource,
+}: {
+  visible: boolean;
+  onContextMenu: (e: React.MouseEvent, r: Resource) => void;
+  resource: Resource | undefined;
+}) {
+  if (!visible) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (resource) onContextMenu(e, resource);
+      }}
+      className="shrink-0 flex items-center justify-center rounded-md transition-colors"
+      style={{
+        width: 20,
+        height: 20,
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        color: 'var(--muted-foreground)',
+        flexShrink: 0,
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = 'var(--background)';
+        (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+        (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted-foreground)';
+      }}
+    >
+      <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
+    </button>
+  );
+}
+
+function TreeChildren({
+  node,
+  depth,
+  expandedIds,
+  onToggle,
+  onSelect,
+  onOpenFolder,
+  renameId,
+  dragOverId,
+  onContextMenu,
+  onRenameCommit,
+  onRenameCancel,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  selectedIds,
+  onToggleSelect,
+}: TreeNodeProps) {
+  if (!isExpandedWithChildren(node, expandedIds)) return null;
+  // Constant per-level offset (containers nest, so indentation stays
+  // linear even in deep trees); the guide line sits under the chevron.
+  return (
+    <div style={{ borderLeft: '1px solid var(--border)', marginLeft: 13, minWidth: 0 }}>
+      {node.children!.map((child) => (
+        <TreeNode
+          key={child.id}
+          node={child}
+          depth={depth + 1}
+          expandedIds={expandedIds}
+          onToggle={onToggle}
+          onSelect={onSelect}
+          onOpenFolder={onOpenFolder}
+          renameId={renameId}
+          dragOverId={dragOverId}
+          onContextMenu={onContextMenu}
+          onRenameCommit={onRenameCommit}
+          onRenameCancel={onRenameCancel}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onDragEnd={onDragEnd}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** True only for folders that are expanded AND have children to render. */
+function isExpandedWithChildren(node: TreeNodeData, expandedIds: Set<string>): boolean {
+  if (node.type !== 'folder') return false;
+  if (!expandedIds.has(node.id)) return false;
+  return Boolean(node.children && node.children.length > 0);
+}
+
 export function TreeNode({
-  node, depth, expandedIds, onToggle, onSelect, onOpenFolder, renameId, dragOverId,
-  onContextMenu, onRenameCommit, onRenameCancel,
-  onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
-  selectedIds, onToggleSelect,
+  node,
+  depth,
+  expandedIds,
+  onToggle,
+  onSelect,
+  onOpenFolder,
+  renameId,
+  dragOverId,
+  onContextMenu,
+  onRenameCommit,
+  onRenameCancel,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  selectedIds,
+  onToggleSelect,
 }: TreeNodeProps) {
   const isFolder = node.type === 'folder';
   const isExpanded = expandedIds.has(node.id);
-  const hasChildren = isFolder && node.children && node.children.length > 0;
+  const hasChildren = isFolder && Boolean(node.children && node.children.length > 0);
   const isRenaming = renameId === node.id;
   const isDragOver = dragOverId === node.id;
   const [hovered, setHovered] = useState(false);
   const [renameValue, setRenameValue] = useState(node.name);
   const renameRef = useRef<HTMLInputElement>(null);
+  const isSelected = selectedIds?.has(node.id) ?? false;
+  const inSelectionMode = Boolean(onToggleSelect);
+  const folderColor = pickFolderColor(isFolder, node.resource);
+  const rowBg = pickRowBackground(isSelected, isDragOver, isFolder, folderColor, hovered);
+  const rowOutline = pickRowOutline(isSelected, isDragOver, isFolder, folderColor);
 
   useEffect(() => {
-    if (isRenaming) { setRenameValue(node.name); const timer = setTimeout(() => renameRef.current?.select(), 10); return () => clearTimeout(timer); }
+    if (!isRenaming) return;
+    setRenameValue(node.name);
+    const timer = setTimeout(() => renameRef.current?.select(), 10);
+    return () => clearTimeout(timer);
   }, [isRenaming, node.name]);
 
   const handleClick = () => {
@@ -71,25 +408,30 @@ export function TreeNode({
     if (isFolder) {
       onToggle(node.id);
       onOpenFolder(node.id, node.name, node.resource?.project_id);
-    } else {
-      onSelect(node);
+      return;
     }
+    onSelect(node);
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); onRenameCommit(node.id, renameValue); }
-    if (e.key === 'Escape') onRenameCancel();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onRenameCommit(node.id, renameValue);
+    } else if (e.key === 'Escape') {
+      onRenameCancel();
+    }
   };
 
-  const folderColor = isFolder && node.resource ? getFolderColor(node.resource) : 'var(--primary)';
-
-  const isSelected = selectedIds?.has(node.id) ?? false;
-  const inSelectionMode = Boolean(onToggleSelect);
-
-  let rowBg = 'transparent';
-  if (isSelected) rowBg = 'color-mix(in srgb, var(--primary) 10%, transparent)';
-  else if (isDragOver && isFolder) rowBg = `${folderColor}22`;
-  else if (hovered) rowBg = 'var(--accent)';
+  const dragHandlers = buildDragHandlers(
+    inSelectionMode,
+    node,
+    onDragStart,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+    onDragEnd,
+    onContextMenu,
+  );
 
   return (
     <div>
@@ -101,136 +443,97 @@ export function TreeNode({
           height: 28,
           background: rowBg,
           minWidth: 0,
-          outline: isSelected ? '1px solid color-mix(in srgb, var(--primary) 40%, transparent)' : isDragOver && isFolder ? `1.5px dashed ${folderColor}` : 'none',
+          outline: rowOutline,
           outlineOffset: -1,
         }}
         draggable={!isRenaming && !inSelectionMode}
-        onDragStart={() => !inSelectionMode && onDragStart(node)}
-        onDragOver={(e) => !inSelectionMode && onDragOver(e, node)}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => !inSelectionMode && onDrop(e, node)}
-        onDragEnd={onDragEnd}
+        onDragStart={dragHandlers.onDragStart}
+        onDragOver={dragHandlers.onDragOver}
+        onDragLeave={dragHandlers.onDragLeave}
+        onDrop={dragHandlers.onDrop}
+        onDragEnd={dragHandlers.onDragEnd}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onContextMenu={(e) => { if (node.resource && !inSelectionMode) { e.preventDefault(); onContextMenu(e, node.resource); } }}
+        onContextMenu={dragHandlers.onContextMenu}
       >
-        {/* Selection checkbox — only shown in selection mode */}
-        {inSelectionMode && (
-          <button
-            type="button"
-            role="checkbox"
-            onClick={(e) => { e.stopPropagation(); onToggleSelect!(node.id); }}
-            className="shrink-0 flex items-center justify-center rounded mr-1 transition-colors"
-            style={{
-              width: 14, height: 14,
-              border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
-              background: isSelected ? 'var(--primary)' : 'var(--background)',
-              flexShrink: 0,
-            }}
-            aria-checked={isSelected}
-          >
-            {isSelected && (
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </button>
-        )}
+        {inSelectionMode ? (
+          <SelectionCheckbox
+            isSelected={isSelected}
+            onToggleSelect={onToggleSelect!}
+            nodeId={node.id}
+          />
+        ) : null}
 
         <button
           type="button"
           onClick={inSelectionMode ? () => onToggleSelect!(node.id) : handleClick}
           className="flex items-center flex-1 text-left min-w-0"
-          style={{ gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: hovered ? 'var(--foreground)' : 'var(--muted-foreground)', padding: 0, minWidth: 0 }}
+          style={{
+            gap: 5,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: hovered ? 'var(--foreground)' : 'var(--muted-foreground)',
+            padding: 0,
+            minWidth: 0,
+          }}
         >
-          <span className="shrink-0 flex items-center justify-center" style={{ width: 14, height: 14 }}>
-            {isFolder
-              ? <HugeiconsIcon icon={ChevronDownIcon} className={`size-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
-              : null}
+          <span
+            className="shrink-0 flex items-center justify-center"
+            style={{ width: 14, height: 14 }}
+          >
+            <ChevronToggle isFolder={isFolder} isExpanded={isExpanded} />
           </span>
 
-          {/* Folder icon: closed when collapsed (or empty), open when expanded */}
-          {isFolder ? (
-            <span className="shrink-0 relative flex items-center justify-center">
-              {isExpanded && hasChildren ? (
-                <HugeiconsIcon icon={FolderOpenIcon} className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
-              ) : (
-                <HugeiconsIcon icon={Folder01Icon} className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
-              )}
-            </span>
-          ) : (
-            <span className="shrink-0 text-muted-foreground">
-              <ResourceIcon type={node.type} name={node.name} size={14} className="size-3.5" strokeWidth={1.75} />
-            </span>
-          )}
+          <NodeIcon
+            isFolder={isFolder}
+            isExpanded={isExpanded}
+            hasChildren={hasChildren}
+            folderColor={folderColor}
+            nodeType={node.type}
+            nodeName={node.name}
+          />
 
-          {isRenaming ? (
-            <input
-              ref={renameRef}
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={handleRenameKeyDown}
-              onBlur={() => onRenameCommit(node.id, renameValue)}
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Rename"
-              className="flex-1 outline-none rounded px-1"
-              style={{ fontSize: 12, background: 'var(--card)', border: '1px solid var(--primary)', color: 'var(--foreground)', minWidth: 0 }}
-            />
-          ) : (
-            <span className="truncate flex-1 dome-fs-tree-name" style={{ fontSize: 12, fontWeight: isFolder ? 500 : 400 }}>{node.name}</span>
-          )}
+          <NodeNameField
+            isRenaming={isRenaming}
+            isFolder={isFolder}
+            renameRef={renameRef}
+            renameValue={renameValue}
+            setRenameValue={setRenameValue}
+            handleRenameKeyDown={handleRenameKeyDown}
+            onRenameCommit={onRenameCommit}
+            nodeId={node.id}
+            nodeName={node.name}
+          />
         </button>
 
-        {hovered && !isRenaming && node.resource && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); if (node.resource) onContextMenu(e, node.resource); }}
-            className="shrink-0 flex items-center justify-center rounded-md transition-colors"
-            style={{ width: 20, height: 20, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)', flexShrink: 0 }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--background)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted-foreground)';
-            }}
-          >
-            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
-          </button>
-        )}
+        <RowMoreButton
+          visible={hovered && !isRenaming && Boolean(node.resource)}
+          onContextMenu={onContextMenu}
+          resource={node.resource}
+        />
       </div>
 
-      {isExpanded && hasChildren && (
-        // Constant per-level offset (containers nest, so indentation stays
-        // linear even in deep trees); the guide line sits under the chevron.
-        <div style={{ borderLeft: '1px solid var(--border)', marginLeft: 13, minWidth: 0 }}>
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              expandedIds={expandedIds}
-              onToggle={onToggle}
-              onSelect={onSelect}
-              onOpenFolder={onOpenFolder}
-              renameId={renameId}
-              dragOverId={dragOverId}
-              onContextMenu={onContextMenu}
-              onRenameCommit={onRenameCommit}
-              onRenameCancel={onRenameCancel}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop}
-              onDragEnd={onDragEnd}
-              selectedIds={selectedIds}
-              onToggleSelect={onToggleSelect}
-            />
-          ))}
-        </div>
-      )}
+      <TreeChildren
+        node={node}
+        depth={depth}
+        expandedIds={expandedIds}
+        onToggle={onToggle}
+        onSelect={onSelect}
+        onOpenFolder={onOpenFolder}
+        renameId={renameId}
+        dragOverId={dragOverId}
+        onContextMenu={onContextMenu}
+        onRenameCommit={onRenameCommit}
+        onRenameCancel={onRenameCancel}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
+        selectedIds={selectedIds}
+        onToggleSelect={onToggleSelect}
+      />
     </div>
   );
 }
