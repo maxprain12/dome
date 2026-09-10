@@ -485,6 +485,28 @@ test.beforeEach(async () => {
             { headers: { 'Content-Type': 'text/event-stream' } },
           );
         }
+        if (requestMode === 'browser-navigate') {
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                state.agentController = controller;
+                emit({
+                  type: 'start',
+                  streamId: body.streamId,
+                  protocolVersion: 2,
+                });
+                emit({
+                  type: 'browser_tool',
+                  streamId: body.streamId,
+                  callId: 'browser-navigate-call',
+                  name: 'browser_navigate',
+                  args: { url: 'https://dome-fixture.test/next' },
+                });
+              },
+            }),
+            { headers: { 'Content-Type': 'text/event-stream' } },
+          );
+        }
         if (requestMode === 'approval') {
           return sse([
             {
@@ -747,6 +769,11 @@ test('usa composer avanzado, recursos, adjuntos y SSE rico', async () => {
   ]);
   expect(stream?.body.attachments.images[0].name).toBe('research.png');
   expect(stream?.body.memoryEnabled).toBe(false);
+  expect(stream?.body.browserTools).toBe(true);
+  expect(stream?.body.text).toContain(
+    'The economics team models how technology affects work and growth.',
+  );
+  expect(stream?.body.prompt).toContain('Use the browser tools');
   const modelCatalog = requests.find((request) =>
     String(request.url).includes('/catalogs/models'),
   );
@@ -977,6 +1004,21 @@ test('revisa una browser-tool antes de modificar la página', async () => {
   await expect(page.getByText('Action completed.', { exact: true })).toBeVisible();
 });
 
+test('permite al agente navegar la pestaña seleccionada', async () => {
+  await setStreamMode('browser-navigate');
+  await page
+    .getByRole('textbox', { name: /Pregunta a Many/ })
+    .fill('Navega a la siguiente página');
+  await page
+    .getByRole('button', { name: 'Preguntar a Many', exact: true })
+    .click();
+
+  await expect(sourcePage).toHaveURL('https://dome-fixture.test/next');
+  await expect(
+    page.getByText('Action completed.', { exact: true }),
+  ).toBeVisible();
+});
+
 test('preserva captura, notas y contactos como acciones secundarias', async () => {
   await page
     .getByRole('button', { name: 'Capturar', exact: true })
@@ -984,12 +1026,21 @@ test('preserva captura, notas y contactos como acciones secundarias', async () =
   await expect(
     page.getByRole('tab', { name: 'Chat', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.many-assistant')).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: 'Volver a Many', exact: true }),
+  ).toBeVisible();
   await page
     .getByRole('button', { name: 'Guardar en Dome', exact: true })
     .click();
   await expect(
     page.getByRole('link', { name: /Abrir en Dome/ }),
   ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Volver a Many', exact: true })
+    .click();
+  await expect(page.locator('#dome-pane-capture')).toBeHidden();
+  await expect(page.locator('.many-assistant')).toBeVisible();
   await page
     .getByRole('button', { name: 'Resumir página', exact: true })
     .click();
@@ -1002,6 +1053,11 @@ test('preserva captura, notas y contactos como acciones secundarias', async () =
   await expect(
     page.locator('#dome-pane-note .ProseMirror'),
   ).toContainText('Original note.');
+  await expect(page.locator('.many-assistant')).toBeHidden();
+  await page
+    .getByRole('button', { name: 'Volver a Many', exact: true })
+    .click();
+  await expect(page.locator('#dome-pane-note')).toBeHidden();
 
   await page
     .getByRole('button', { name: 'Contacto', exact: true })
@@ -1017,6 +1073,9 @@ test('preserva captura, notas y contactos como acciones secundarias', async () =
     .fill('Mathematician');
   await page.getByLabel('Correo electrónico').fill('ada@example.test');
   await page
+    .getByRole('button', { name: 'Volver a Many', exact: true })
+    .click();
+  await page
     .getByRole('textbox', { name: /Pregunta a Many/ })
     .fill('Resume este perfil');
   await page
@@ -1031,6 +1090,7 @@ test('preserva captura, notas y contactos como acciones secundarias', async () =
   await expect(page.getByLabel('Contexto y notas')).toHaveValue(
     /A useful insight/,
   );
+  await expect(page.locator('.many-assistant')).toBeHidden();
   await saveContact.click();
 
   const requests = await recordedRequests();

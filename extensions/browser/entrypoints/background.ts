@@ -1,5 +1,9 @@
 import { cancelMany, request, streamManyHttp } from '../src/lib/http';
 import type { ManyResumeBody, ManyStreamBody } from '../src/lib/http';
+import {
+  CONTENT_PING_MESSAGE,
+  CONTENT_PROTOCOL_VERSION,
+} from '../src/lib/content-protocol';
 
 const CONTENT_FILE = '/content-scripts/panel.js';
 
@@ -18,9 +22,12 @@ async function injectPanel(tabId: number) {
 async function ping(tabId: number): Promise<boolean> {
   try {
     const reply = (await browser.tabs.sendMessage(tabId, {
-      type: 'DOME_PING',
-    })) as { ok?: boolean };
-    return reply?.ok === true;
+      type: CONTENT_PING_MESSAGE,
+    })) as { ok?: boolean; protocolVersion?: number };
+    return (
+      reply?.ok === true &&
+      reply.protocolVersion === CONTENT_PROTOCOL_VERSION
+    );
   } catch {
     return false;
   }

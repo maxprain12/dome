@@ -32,13 +32,29 @@ export function createToolRunner({
   signal: AbortSignal;
 }) {
   let snapshot: AgentSnapshot | null = null;
-  const read = async () => {
-    if (tabId === undefined)
-      throw new Error('No browser tab selected. Open a website first.');
-    snapshot = (await browser.runtime.sendMessage({
+  const requestSnapshot = async () =>
+    (await browser.runtime.sendMessage({
       type: 'DOME_AGENT_READ',
       tabId,
     })) as AgentSnapshot;
+  const read = async () => {
+    if (tabId === undefined)
+      throw new Error('No browser tab selected. Open a website first.');
+    snapshot = await requestSnapshot();
+    if (snapshot.error === 'pageAccess' && /^https?:\/\//.test(snapshot.url)) {
+      const origin = new URL(snapshot.url).origin;
+      const approved = await review({
+        name: 'browser_read_page',
+        detail: snapshot.url,
+        origin,
+      });
+      if (!approved)
+        throw new Error('User declined access to the current page.');
+      if (signal.aborted) throw new Error('Cancelled');
+      snapshot = await requestSnapshot();
+    }
+    if (snapshot.error === 'unsupportedPage')
+      throw new Error('Open an HTTP(S) website first.');
     if (snapshot.error)
       throw new Error(
         'This site needs access. Use Allow this site in the sidebar, then try again.',

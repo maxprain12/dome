@@ -84,6 +84,21 @@ body {
 .panel-content {
   padding: 20px 18px;
 }
+.task-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 41px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.task-toolbar > span {
+  padding-right: 8px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+}
 .panel-content > .eyebrow {
   color: var(--muted-foreground);
   font-size: 11px;
@@ -250,6 +265,9 @@ body {
   font-size: 11px;
   padding: 6px 9px;
   background: var(--background);
+}
+.task-view .many-assistant {
+  display: none;
 }
 .many-composer {
   display: flex;

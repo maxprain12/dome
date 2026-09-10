@@ -56,6 +56,7 @@ export default function PanelApp({
       'chat',
   );
   const [task, setTask] = useState<SecondaryTask | null>(null);
+  const [taskPaneOpen, setTaskPaneOpen] = useState(false);
   useEffect(() => {
     localStorage.setItem('dome.manyView', view);
   }, [view]);
@@ -165,6 +166,11 @@ export default function PanelApp({
   );
   const openManyChat = useCallback(() => {
     setTask(null);
+    setTaskPaneOpen(false);
+    setView('chat');
+  }, []);
+  const closeTaskPane = useCallback(() => {
+    setTaskPaneOpen(false);
     setView('chat');
   }, []);
   const persist = useCallback(async (next: SessionState) => {
@@ -295,6 +301,7 @@ export default function PanelApp({
       if (!quote) return;
       setView('chat');
       setTask('note');
+      setTaskPaneOpen(true);
       appendText(formatWebCitation(quote));
       browser.storage.local.remove('dome.pendingQuote');
     };
@@ -526,10 +533,12 @@ export default function PanelApp({
                     return false;
                   }
                   setContact((previous) => ({ ...previous, notes }));
+                  setTaskPaneOpen(true);
                 } else {
                   appendText(`\n\n${output}\n`);
                   setView('chat');
                   setTask('note');
+                  setTaskPaneOpen(true);
                 }
                 notify(activeTask === 'contact' ? 'contact' : 'note', {
                   kind: 'ok',
@@ -545,7 +554,7 @@ export default function PanelApp({
   return (
     <div
       ref={panelRef}
-      className={`dome-panel${dark ? ' dark' : ''}${!task && view === 'chat' ? ' agent-view' : ''}`}
+      className={`dome-panel${dark ? ' dark' : ''}${taskPaneOpen ? ' task-view' : ''}${!taskPaneOpen && view === 'chat' ? ' agent-view' : ''}`}
       aria-label="Dome"
     >
       {!session?.token ? (
@@ -621,6 +630,7 @@ export default function PanelApp({
             onViewChange={(next) => {
               if (manyHeaderState.interactionLocked) return;
               setTask(null);
+              setTaskPaneOpen(false);
               setView(next);
             }}
             showViewSwitcher
@@ -662,8 +672,13 @@ export default function PanelApp({
                     aria-pressed={task === secondaryTask}
                     disabled={manyHeaderState.interactionLocked}
                     onClick={() => {
+                      if (taskPaneOpen && task === secondaryTask) {
+                        closeTaskPane();
+                        return;
+                      }
                       setView('chat');
                       setTask(secondaryTask);
+                      setTaskPaneOpen(true);
                     }}
                   >
                     <Icon name={secondaryTask} />
@@ -733,7 +748,20 @@ export default function PanelApp({
               </Button>
             </div>
           )}
-          <div className="panel-scroll" hidden={!task}>
+          <div className="task-toolbar" hidden={!taskPaneOpen}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={manyHeaderState.interactionLocked}
+              onClick={closeTaskPane}
+            >
+              <Icon name="back" />
+              {t('backToMany')}
+            </Button>
+            <span>{task ? t(task) : ''}</span>
+          </div>
+          <div className="panel-scroll" hidden={!taskPaneOpen}>
             <section
               id="dome-pane-capture"
               role="tabpanel"

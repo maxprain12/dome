@@ -1,0 +1,2 @@
+export const CONTENT_PROTOCOL_VERSION = 2;
+export const CONTENT_PING_MESSAGE = 'DOME_AGENT_PING';

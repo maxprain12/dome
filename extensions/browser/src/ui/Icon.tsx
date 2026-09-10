@@ -3,6 +3,7 @@ export type IconName =
   | 'note'
   | 'contact'
   | 'close'
+  | 'back'
   | 'arrow'
   | 'check'
   | 'sun'
@@ -14,6 +15,7 @@ const paths: Record<IconName, string> = {
   note: 'M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8M8 16h6',
   contact: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2',
   close: 'm6 6 12 12M6 18 18 6',
+  back: 'M19 12H5m5 5-5-5 5-5',
   arrow: 'M5 12h14m-5-5 5 5-5 5',
   check: 'm5 12 4 4L19 6',
   sun: 'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',

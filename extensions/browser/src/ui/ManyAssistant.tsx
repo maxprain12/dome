@@ -355,7 +355,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   const run = async (instruction: string) => {
     if (interactionLocked) return;
     const context = getContext();
-    if (!context.trim() && images.length === 0) {
+    if (!context.trim() && images.length === 0 && !toolsEnabled) {
       setError(t('emptyContext'));
       return;
     }
@@ -388,7 +388,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           mcpServerIds: toolsEnabled ? mcpServerIds : [],
           pinnedResources: resourceToolsEnabled ? pins : [],
           attachments: bodyImages.length > 0 ? { images: bodyImages } : undefined,
-          prompt: `${displayPrompt}\nRespond in ${i18n.language}. Task: ${task}.`,
+          prompt: `${displayPrompt}\nRespond in ${i18n.language}. Task: ${task}. Use the browser tools whenever the request depends on the current page or asks you to navigate or interact.`,
       }),
       onStarted: () =>
         browser.storage.local.set({ 'dome.manyThread': threadId }),

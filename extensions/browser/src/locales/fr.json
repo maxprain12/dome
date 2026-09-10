@@ -81,6 +81,7 @@
   "history": "Historique",
   "chat": "Chat",
   "context": "Contexte",
+  "backToMany": "Retour à Many",
   "manyNavigation": "Navigation de Many",
   "pageActions": "Actions de page",
   "currentContext": "Contexte actuel",

@@ -2,14 +2,20 @@ import { createPageAgent } from '../src/lib/page-agent';
 import { extractContact } from '../src/lib/extractors';
 import { getPageSnapshot } from '../src/lib/page-content';
 import type { PageAction } from '../src/lib/browser-context';
+import {
+  CONTENT_PING_MESSAGE,
+  CONTENT_PROTOCOL_VERSION,
+} from '../src/lib/content-protocol';
 
 export default defineContentScript({
   matches: ['http://*/*', 'https://*/*'],
   registration: 'runtime',
   main() {
-    const host = globalThis as typeof globalThis & { __domeReader?: boolean };
-    if (host.__domeReader) return;
-    host.__domeReader = true;
+    const host = globalThis as typeof globalThis & {
+      __domeReaderProtocol?: number;
+    };
+    if (host.__domeReaderProtocol === CONTENT_PROTOCOL_VERSION) return;
+    host.__domeReaderProtocol = CONTENT_PROTOCOL_VERSION;
     document.querySelector('dome-capture-panel')?.remove();
     const agent = createPageAgent();
     const headings = () =>
@@ -33,7 +39,14 @@ export default defineContentScript({
               value?: string;
             };
       }) => {
-        if (message.type === 'DOME_PING') return Promise.resolve({ ok: true });
+        if (
+          message.type === 'DOME_PING' ||
+          message.type === CONTENT_PING_MESSAGE
+        )
+          return Promise.resolve({
+            ok: true,
+            protocolVersion: CONTENT_PROTOCOL_VERSION,
+          });
         if (message.type === 'DOME_AGENT_READ')
           return Promise.resolve(agent.read());
         if (message.type === 'DOME_SNAPSHOT')
