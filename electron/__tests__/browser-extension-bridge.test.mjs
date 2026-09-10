@@ -244,6 +244,7 @@ describe('browser extension HTTP server', () => {
     };
     const many = createManyService({
       getDatabase: () => ({}),
+      getNativeToolDefinitions: () => [],
       resolveProviderConfig: async () => ({ provider: 'openai', model: 'gpt', apiKey: 'k', baseUrl: undefined }),
       runManyAgent: async ({ onChunk }) => {
         onChunk?.({ type: 'text', text: 'Hello from Many' });
@@ -467,7 +468,7 @@ describe('Many browser sessions', () => {
   function service(runManyAgent = async () => ({})) {
     const metas = [{ id: 'desktop-session', updatedAt: 2 }, { id: 'canvas-hidden', updatedAt: 1 }];
     const repo = { list: async () => metas, open: async () => ({ buildContext: async () => ({ messages: [{ role: 'user', content: 'Earlier question' }, { role: 'assistant', content: [{ type: 'text', text: 'Earlier answer' }, { type: 'thinking', thinking: 'Private reasoning' }] }] }) }) };
-    return createManyService({ getDatabase: () => ({}), resolveProviderConfig: async () => ({ provider: 'test', model: 'test' }), runManyAgent,
+    return createManyService({ getDatabase: () => ({}), getNativeToolDefinitions: () => [], resolveProviderConfig: async () => ({ provider: 'test', model: 'test' }), runManyAgent,
       getBridge: () => ({ SESSION_CWD: 'dome', getSessionRepo: async () => repo, findSessionMetadata: async id => metas.find(meta => meta.id === id), isRootSessionMeta: meta => !meta.id.startsWith('canvas-') }),
     });
   }
@@ -853,6 +854,7 @@ describe('Many browser runtime parity', () => {
     const resumeCalls = [];
     const many = createManyService({
       getDatabase: () => ({}),
+      getNativeToolDefinitions: () => [],
       resolveProviderConfig: async () => ({
         provider: 'openai',
         model: 'gpt-test',
@@ -1167,7 +1169,7 @@ describe('Many browser runtime parity', () => {
 it('executes browser tools through authenticated request/result round trips', async () => {
   let many;
   const results = [];
-  many = createManyService({ getDatabase: () => ({}), resolveProviderConfig: async () => ({ provider: 'test', model: 'test' }),
+  many = createManyService({ getDatabase: () => ({}), getNativeToolDefinitions: () => [], resolveProviderConfig: async () => ({ provider: 'test', model: 'test' }),
     runManyAgent: async ({ browserTools, signal }) => {
       assert.ok(browserTools.some(tool => tool.name === 'dome_create_note'));
       const read = browserTools.find(tool => tool.name === 'browser_read_page');
