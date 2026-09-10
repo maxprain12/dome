@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { notifications } from '@/lib/notifications';
 import type { Resource, TranscriptionSegment } from '@/types';
 import {
@@ -29,6 +30,21 @@ interface StructuredTranscriptWorkspaceProps {
   onToggleMiniPlayer: () => void;
   /** When false, auto-scroll to the active segment is disabled even if “follow playback” is on */
   isPlaying?: boolean;
+}
+
+function captureKindLabel(captureKind: string | undefined, t: TFunction): string {
+  switch (captureKind) {
+    case 'microphone':
+      return t('media.capture_mic');
+    case 'system':
+      return t('media.capture_system');
+    case 'mic_and_system':
+      return t('media.capture_mic_and_system');
+    case 'call':
+      return t('media.capture_call');
+    default:
+      return t('media.capture_file');
+  }
 }
 
 export default function StructuredTranscriptWorkspace({
@@ -110,16 +126,7 @@ export default function StructuredTranscriptWorkspace({
     if (!structured?.session) return null;
     const { captureKind, callPlatform } = structured.session;
     if (captureKind === 'file' && callPlatform === 'unknown') return null;
-    const cap =
-      captureKind === 'microphone'
-        ? t('media.capture_mic')
-        : captureKind === 'system'
-          ? t('media.capture_system')
-          : captureKind === 'mic_and_system'
-            ? t('media.capture_mic_and_system')
-            : captureKind === 'call'
-              ? t('media.capture_call')
-              : t('media.capture_file');
+    const cap = captureKindLabel(captureKind, t);
     const platformKeyMap: Record<string, string> = {
       teams: 'media.platform_teams',
       slack: 'media.platform_slack',

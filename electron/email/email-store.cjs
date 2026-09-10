@@ -254,35 +254,23 @@ function mapMessageRow(row) {
   };
 }
 
+function safeJsonParse(value) {
+  try {
+    return value == null ? null : JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 /** Normalize a live Himalaya envelope for the renderer (same shape as cache). */
 function normalizeEnvelope(env, ctx = {}) {
   if (!env || typeof env !== 'object') return null;
   const fields = envelopeToFields(env);
   if (!fields.uid) return null;
-  let flags = null;
-  try {
-    flags = fields.flagsJson ? JSON.parse(fields.flagsJson) : null;
-  } catch {
-    flags = null;
-  }
-  let from = null;
-  let to = null;
-  let cc = null;
-  try {
-    from = JSON.parse(fields.fromJson);
-  } catch {
-    from = null;
-  }
-  try {
-    to = JSON.parse(fields.toJson);
-  } catch {
-    to = null;
-  }
-  try {
-    cc = JSON.parse(fields.ccJson);
-  } catch {
-    cc = null;
-  }
+  const flags = safeJsonParse(fields.flagsJson);
+  const from = safeJsonParse(fields.fromJson);
+  const to = safeJsonParse(fields.toJson);
+  const cc = safeJsonParse(fields.ccJson);
   const accountId = typeof ctx.accountId === 'string' && ctx.accountId.trim() ? ctx.accountId.trim() : '';
   const folderRemote = typeof ctx.folder === 'string' && ctx.folder.trim() ? ctx.folder.trim() : '';
   let dbId;
