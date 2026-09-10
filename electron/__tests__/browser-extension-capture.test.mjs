@@ -109,6 +109,7 @@ function service() {
   people.upserts = [];
   return createCaptureService({
     database: currentDb,
+    fileStorage: {},
     windowManager: { broadcast() {} },
     vaultStore: vault,
     peopleStore: people,
@@ -131,6 +132,7 @@ describe('browser extension capture service', () => {
     const db = createFakeDb();
     const capture = createCaptureService({
       database: db,
+      fileStorage: {},
       vaultStore: {
         ...vault,
         writeNoteMarkdown: ({ id, markdown }) => {
