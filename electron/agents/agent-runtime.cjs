@@ -930,6 +930,12 @@ async function setupHarness(surface, opts) {
     await bridge.buildAllTools(database, opts, executeToolInMain),
     workspaceSession,
   );
+  // Native capabilities supplied by trusted main-process callers (never serialized IPC definitions).
+  if (Array.isArray(opts.browserTools)) {
+    for (const tool of opts.browserTools) {
+      if (typeof tool?.execute === 'function' && !tools.some(existing => existing.name === tool.name)) tools.push(tool);
+    }
+  }
   const subagentToolNames = ['task', 'delegate_to_agent'];
 
   if (surface === 'many') {

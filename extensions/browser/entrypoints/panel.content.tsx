@@ -1,84 +1,85 @@
-import { createRoot, type Root } from 'react-dom/client';
-import { I18nextProvider } from 'react-i18next';
-import { extensionI18n, initializeI18n } from '../src/lib/i18n';
-import PanelApp from '../src/ui/PanelApp';
-import { highlightCurrentSelection } from '../src/lib/page-content';
-import { setPendingSelection } from '../src/lib/pending-selection';
-
-const BOOT = '__domePanelBooted';
-const FLAG = '__domePanelOpen';
-
-type Host = typeof globalThis & {
-  [BOOT]?: boolean;
-  [FLAG]?: boolean;
-};
+import { createPageAgent } from '../src/lib/page-agent';
+import { extractContact } from '../src/lib/extractors';
+import { getPageSnapshot } from '../src/lib/page-content';
+import type { PageAction } from '../src/lib/browser-context';
 
 export default defineContentScript({
   matches: ['http://*/*', 'https://*/*'],
   registration: 'runtime',
-  cssInjectionMode: 'ui',
-  async main(ctx) {
-    const g = globalThis as Host;
-    if (g[BOOT]) return;
-    g[BOOT] = true;
-
-    await initializeI18n();
-    let panelContainer: HTMLElement | null = null;
-    const close = () => {
-      if (panelContainer) panelContainer.hidden = true;
-      g[FLAG] = false;
-    };
-
-    const ui = await createShadowRootUi(ctx, {
-      name: 'dome-capture-panel',
-      position: 'overlay',
-      alignment: 'top-right',
-      zIndex: 2147483646,
-      onMount(container) {
-        panelContainer = container;
-        const root = createRoot(container);
-        root.render(
-          <I18nextProvider i18n={extensionI18n}>
-            <PanelApp onClose={close} />
-          </I18nextProvider>,
-        );
-        g[FLAG] = true;
-        return root;
-      },
-      onRemove(root) {
-        (root as Root | undefined)?.unmount();
-        g[FLAG] = false;
-      },
-    });
-
-    const ensure = () => {
-      if (!panelContainer) ui.mount();
-      else panelContainer.hidden = false;
-      g[FLAG] = true;
-    };
-    const toggle = () => {
-      if (g[FLAG]) close();
-      else ensure();
-    };
-
-    toggle();
-
+  main() {
+    const host = globalThis as typeof globalThis & { __domeReader?: boolean };
+    if (host.__domeReader) return;
+    host.__domeReader = true;
+    document.querySelector('dome-capture-panel')?.remove();
+    const agent = createPageAgent();
+    const headings = () =>
+      Array.from(
+        document.querySelectorAll(
+          'main h1, main h2, main h3, article h1, article h2, article h3',
+        ),
+      )
+        .filter((el) => (el as HTMLElement).offsetHeight > 0)
+        .slice(0, 80);
     browser.runtime.onMessage.addListener(
-      (message: { type?: string; text?: string }) => {
-        if (message?.type === 'DOME_PING')
-          return { ok: true, open: Boolean(g[FLAG]) };
-        if (message?.type === 'DOME_TOGGLE') {
-          toggle();
+      (message: {
+        type?: string;
+        url?: string;
+        action?:
+          | PageAction
+          | {
+              kind: 'click' | 'fill';
+              snapshotId: string;
+              elementId: string;
+              value?: string;
+            };
+      }) => {
+        if (message.type === 'DOME_PING') return Promise.resolve({ ok: true });
+        if (message.type === 'DOME_AGENT_READ')
+          return Promise.resolve(agent.read());
+        if (message.type === 'DOME_SNAPSHOT')
+          return Promise.resolve({
+            ...getPageSnapshot(),
+            contact: extractContact(document, location.href),
+            headings: headings().map((el, index) => ({
+              index,
+              text: (el.textContent || '').trim().slice(0, 160),
+            })),
+          });
+        if (message.type !== 'DOME_ACT' || message.url !== location.href)
           return;
+        const action = message.action;
+        if (action?.kind === 'click' || action?.kind === 'fill')
+          return Promise.resolve(agent.act(action));
+        if (action?.kind === 'scroll') {
+          if (action.direction === 'top')
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          else
+            window.scrollBy({
+              top: innerHeight * 0.75 * (action.direction === 'up' ? -1 : 1),
+              behavior: 'smooth',
+            });
+          return Promise.resolve({ ok: true });
         }
-        if (message?.type === 'DOME_ENSURE') {
-          ensure();
-          return;
+        if (action?.kind === 'heading') {
+          const heading = headings()[action.index];
+          heading?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return Promise.resolve({ ok: Boolean(heading) });
         }
-        if (message?.type === 'DOME_ADD_SELECTION' && message.text) {
-          ensure();
-          highlightCurrentSelection();
-          setPendingSelection(message.text);
+        if (action?.kind === 'find') {
+          const finder = window as Window & {
+            find?: (
+              text: string,
+              caseSensitive: boolean,
+              backwards: boolean,
+              wrap: boolean,
+            ) => boolean;
+          };
+          return Promise.resolve({
+            ok: Boolean(
+              action.text.trim() &&
+                finder.find?.(action.text.slice(0, 200), false, false, true),
+            ),
+          });
         }
       },
     );

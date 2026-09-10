@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   ContactDraft,
@@ -6,12 +6,14 @@ import type {
   ProjectSummary,
 } from '../lib/protocol';
 import * as api from '../lib/client';
-import { extractContact, detectMediaKind } from '../lib/extractors';
-import { getPageSnapshot, getSelectionText } from '../lib/page-content';
-import {
-  consumePendingSelection,
-  subscribePendingSelection,
-} from '../lib/pending-selection';
+import { detectMediaKind } from '../lib/extractors';
+import type { PageContext } from '../lib/browser-context';
+import type { ReactNode } from 'react';
+import { Button } from '../../../../app/components/ui/button';
+import { Input } from '../../../../app/components/ui/input';
+import { Textarea } from '../../../../app/components/ui/textarea';
+import DesktopSelect from './DesktopSelect';
+import manyMark from '../../../../public/many.png?inline';
 import { formatWebCitation } from '../lib/citation';
 import { loadSession, saveSession, type SessionState } from '../lib/session';
 import NotePane from './NotePane';
@@ -20,14 +22,27 @@ import ManyAssistant, { type Task } from './ManyAssistant';
 import { Icon } from './Icon';
 import './panel.css';
 
-const tasks: Task[] = ['capture', 'note', 'contact'];
+const tasks: Task[] = ['agent', 'capture', 'note', 'contact'];
 type Notice = { kind: 'ok' | 'error'; text: string; link?: string };
 
-export default function PanelApp({ onClose }: { onClose: () => void }) {
+export default function PanelApp({
+  onClose,
+  snapshot,
+  browserTools,
+}: {
+  onClose: () => void;
+  snapshot: PageContext;
+  browserTools: ReactNode;
+}) {
   const { t } = useTranslation();
   const [session, setSession] = useState<SessionState | null>(null);
   const [code, setCode] = useState('');
-  const [tab, setTab] = useState<Task>('capture');
+  const [tab, setTab] = useState<Task>(
+    () => (localStorage.getItem('dome.activeTask') as Task) || 'agent',
+  );
+  useEffect(() => {
+    localStorage.setItem('dome.activeTask', tab);
+  }, [tab]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [note, setNote] = useState<api.NoteDetail | null>(null);
@@ -43,9 +58,12 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
   const [dark, setDark] = useState(
     () => matchMedia('(prefers-color-scheme: dark)').matches,
   );
-  const snapshot = useMemo(() => getPageSnapshot(), []);
+  const initialTitle = useRef(snapshot.title);
+  if (!initialTitle.current && snapshot.title)
+    initialTitle.current = snapshot.title;
+  const contextUrl = useRef(snapshot.url);
   const [selection, setSelection] = useState(snapshot.selection);
-  const detected = useMemo(() => extractContact(document, location.href), []);
+  const detected = snapshot.contact;
   const [contact, setContact] = useState<ContactDraft>(
     () =>
       detected || {
@@ -55,6 +73,44 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
         pageUrl: snapshot.url,
       },
   );
+  useEffect(() => {
+    setSelection(snapshot.selection);
+    if (contextUrl.current !== snapshot.url || !contact.displayName) {
+      contextUrl.current = snapshot.url;
+      const saved = localStorage.getItem(`dome.contactDraft:${snapshot.url}`);
+      try {
+        setContact(
+          saved
+            ? JSON.parse(saved)
+            : snapshot.contact || {
+                displayName: '',
+                source: 'manual',
+                externalId: crypto.randomUUID(),
+                pageUrl: snapshot.url,
+              },
+        );
+      } catch {
+        setContact(
+          snapshot.contact || {
+            displayName: '',
+            source: 'manual',
+            externalId: crypto.randomUUID(),
+            pageUrl: snapshot.url,
+          },
+        );
+      }
+    }
+  }, [snapshot]);
+  useEffect(() => {
+    if (contact.pageUrl && contact.displayName)
+      localStorage.setItem(
+        `dome.contactDraft:${contact.pageUrl}`,
+        JSON.stringify(contact),
+      );
+  }, [contact]);
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+  }, [dark]);
   const projectId = session?.projectId || '';
   const editorRef = useRef<MarkdownNoteEditorHandle>(null);
   const operation = useRef(false);
@@ -83,12 +139,12 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
   const applyNote = useCallback(
     (next: api.NoteDetail | null) => {
       setNote(next);
-      setTitle(next?.title || snapshot.title.slice(0, 200));
+      setTitle(next?.title || initialTitle.current.slice(0, 200));
       replaceDraft(next?.markdown || '');
       setDirty(false);
       setConflict(null);
     },
-    [replaceDraft, snapshot.title],
+    [replaceDraft],
   );
 
   const connect = useCallback(
@@ -132,8 +188,25 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
     loadSession()
       .then(async (loaded) => {
         setSession(loaded);
-        setTitle(snapshot.title.slice(0, 200));
+        setTitle(initialTitle.current.slice(0, 200));
         await connect(loaded);
+        const raw = localStorage.getItem('dome.noteDraft');
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw);
+            if (
+              saved.projectId === loaded.projectId &&
+              saved.noteId === loaded.noteId
+            ) {
+              replaceDraft(saved.markdown);
+              setTitle(saved.title);
+              setNote(saved.note);
+              setDirty(true);
+            }
+          } catch {
+            /* Ignore an invalid local draft. */
+          }
+        }
       })
       .catch(() => setConnectionError(t('offline')));
     browser.storage.local
@@ -146,20 +219,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
           setDark(stored['dome.appearance'] === 'dark');
       })
       .catch(() => undefined);
-  }, [connect, snapshot.title, t]);
-
-  useEffect(() => {
-    const update = () => {
-      const text = getSelectionText();
-      if (
-        text &&
-        !panelRef.current?.contains(document.getSelection()?.anchorNode || null)
-      )
-        setSelection(text);
-    };
-    document.addEventListener('selectionchange', update);
-    return () => document.removeEventListener('selectionchange', update);
-  }, []);
+  }, [connect, t]);
 
   const appendText = useCallback(
     (text: string) => {
@@ -170,23 +230,47 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
     },
     [replaceDraft],
   );
-  useEffect(
-    () =>
-      subscribePendingSelection((text) => {
-        consumePendingSelection();
-        setSelection(text);
-        setTab('note');
-        appendText(
-          formatWebCitation({ text, title: snapshot.title, url: snapshot.url }),
-        );
-        notify('note', { kind: 'ok', text: t('selectionAdded') });
+  const savedDraftRef = useRef<() => void>(() => undefined);
+  savedDraftRef.current = () => {
+    if (dirtyRef.current)
+      localStorage.setItem(
+        'dome.noteDraft',
+        JSON.stringify({
+          projectId,
+          noteId: session?.noteId,
+          note,
+          title,
+          markdown: editorRef.current?.getMarkdown() ?? draftRef.current,
+        }),
+      );
+  };
+  useEffect(() => {
+    savedDraftRef.current();
+  }, [draftMd, title, dirty]);
+  useEffect(() => {
+    const changed = (changes: Record<string, { newValue?: unknown }>) => {
+      const quote = changes['dome.pendingQuote']?.newValue as
+        | { text: string; url: string; title: string }
+        | undefined;
+      if (!quote) return;
+      setTab('note');
+      appendText(formatWebCitation(quote));
+      browser.storage.local.remove('dome.pendingQuote');
+    };
+    browser.storage.onChanged.addListener(changed);
+    browser.storage.local.get('dome.pendingQuote').then((value) =>
+      changed({
+        'dome.pendingQuote': { newValue: value['dome.pendingQuote'] },
       }),
-    [appendText, notify, snapshot.title, snapshot.url, t],
-  );
+    );
+    return () => browser.storage.onChanged.removeListener(changed);
+  }, [appendText]);
 
-  // Keep the panel mounted when closed, so in-progress drafts and streams survive toggling.
+  // Persist the current editor document when the native sidebar is destroyed.
+
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
+      savedDraftRef.current();
       if (dirtyRef.current) {
         event.preventDefault();
         event.returnValue = '';
@@ -236,6 +320,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
         else notify('note', { kind: 'error', text: t('error') });
         return;
       }
+      localStorage.removeItem('dome.noteDraft');
       applyNote(result.data);
       await persist({ ...session, noteId: result.data.id });
       setNotes((items) => [
@@ -296,6 +381,8 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
       }
       const result = await api.getNote(session.token, id);
       if (result.success) {
+        localStorage.removeItem('dome.noteDraft');
+        localStorage.removeItem('dome.noteDraft');
         applyNote(result.data);
         await persist({ ...session, noteId: id });
       } else notify('note', { kind: 'error', text: t('error') });
@@ -344,7 +431,12 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
   };
   const manyContext = (task: Task) => {
     if (task === 'contact')
-      return [contact.displayName, contact.displayLabel, contact.notes]
+      return [
+        contact.displayName,
+        contact.displayLabel,
+        contact.notes,
+        JSON.stringify(contact.profile || {}),
+      ]
         .filter(Boolean)
         .join('\n');
     if (task === 'note')
@@ -354,15 +446,25 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
       ]
         .filter(Boolean)
         .join('\n\n');
-    return selection || snapshot.readableText;
+    return (
+      selection ||
+      snapshot.readableText ||
+      'No accessible web page. Ask the user to open a website if needed.'
+    );
   };
   const many = (task: Task) =>
     session?.token && (
       <ManyAssistant
-        key={`${task}:${projectId}:${task === 'note' ? note?.id || 'new' : ''}`}
         task={task}
+        projectId={projectId}
+        tabId={snapshot.tabId}
         token={session.token}
-        getContext={() => manyContext(task)}
+        getContext={() =>
+          [
+            manyContext(task),
+            `Page sections: ${JSON.stringify(snapshot.headings)}`,
+          ].join('\n\n')
+        }
         title={snapshot.title}
         url={snapshot.url}
         disabled={busy || !connected}
@@ -390,23 +492,20 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={panelRef}
-      role="dialog"
-      aria-modal="false"
-      className={`dome-panel${dark ? ' dark' : ''}`}
+      className={`dome-panel${dark ? ' dark' : ''}${tab === 'agent' ? ' agent-view' : ''}`}
       aria-label="Dome"
     >
       <header className="panel-header">
         <div className="brand">
-          <span className="dome-mark" aria-hidden="true">
-            D
-          </span>
+          <img src={manyMark} alt="" width="28" height="28" />
           <strong>Dome</strong>
           <span className="browser-label">/ Browser</span>
         </div>
         <div className="header-actions">
-          <button
+          <Button
             type="button"
-            className="icon-button"
+            variant="ghost"
+            size="icon"
             aria-label={t('appearance')}
             onClick={() => {
               setDark(!dark);
@@ -416,15 +515,16 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
             }}
           >
             <Icon name={dark ? 'sun' : 'moon'} />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="icon-button"
+            variant="ghost"
+            size="icon"
             aria-label={t('close')}
             onClick={onClose}
           >
             <Icon name="close" />
-          </button>
+          </Button>
         </div>
       </header>
       {!session ? (
@@ -446,7 +546,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
           >
             <label className="field">
               {t('pairCode')}
-              <input
+              <Input
                 autoComplete="off"
                 spellCheck={false}
                 maxLength={12}
@@ -457,14 +557,14 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 }
               />
             </label>
-            <button
+            <Button
               type="submit"
-              className="primary full-width"
+              className="full-width"
               disabled={busy || code.trim().length < 6}
             >
               {t(busy ? 'working' : 'pair')}
               <Icon name="arrow" />
-            </button>
+            </Button>
           </form>
           {connectionError && (
             <p role="alert" className="status error">
@@ -476,30 +576,28 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
         <>
           <div className="workspace-row">
             <label htmlFor="dome-project">{t('workspace')}</label>
-            <select
-              id="dome-project"
+            <DesktopSelect
+              label={t('workspace')}
               value={projectId}
               disabled={busy || dirty || !connected}
-              onChange={(event) => changeProject(event.target.value)}
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+              onChange={changeProject}
+              items={projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+              }))}
+            />
           </div>
           {connectionError && (
             <div className="connection-error" role="alert">
               <p>{connectionError}</p>
-              <button
+              <Button
                 type="button"
                 disabled={busy}
                 onClick={() => perform(tab, () => connect(session))}
               >
                 {t('retry')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={busy}
                 onClick={() => {
@@ -511,16 +609,18 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 }}
               >
                 {t('newCode')}
-              </button>
+              </Button>
             </div>
           )}
+          {browserTools}
           <nav className="tabs" aria-label="Dome">
             <div role="tablist">
               {tasks.map((task) => (
-                <button
+                <Button
                   key={task}
                   id={`dome-tab-${task}`}
                   type="button"
+                  variant="ghost"
                   role="tab"
                   tabIndex={tab === task ? 0 : -1}
                   aria-controls={`dome-pane-${task}`}
@@ -536,7 +636,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                           : event.key === 'Home'
                             ? tasks[0]
                             : event.key === 'End'
-                              ? tasks[2]
+                              ? tasks[tasks.length - 1]
                               : null;
                     if (next) {
                       event.preventDefault();
@@ -549,13 +649,13 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                     }
                   }}
                 >
-                  <Icon name={task} />
+                  <Icon name={task === 'agent' ? 'arrow' : task} />
                   {t(task)}
-                </button>
+                </Button>
               ))}
             </div>
           </nav>
-          <div className="panel-scroll">
+          <div className="panel-scroll" hidden={tab === 'agent'}>
             <section
               id="dome-pane-capture"
               role="tabpanel"
@@ -567,7 +667,10 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
               <article className="page-preview">
                 <span className="source-domain">
                   <Icon name="link" />
-                  {new URL(snapshot.url).hostname.replace(/^www\./, '')}
+                  {(snapshot.url ? new URL(snapshot.url).hostname : '').replace(
+                    /^www\./,
+                    '',
+                  )}
                 </span>
                 <h1>{snapshot.title}</h1>
                 <p className="page-excerpt">
@@ -583,10 +686,16 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 </a>
               </article>
               <p className="helper">{t('captureHint')}</p>
-              <button
+              <Button
                 type="button"
-                className="primary full-width"
-                disabled={busy || !connected || !projectId}
+                className="full-width"
+                disabled={
+                  busy ||
+                  !connected ||
+                  !projectId ||
+                  Boolean(snapshot.error) ||
+                  !snapshot.url
+                }
                 onClick={() =>
                   perform('capture', async () => {
                     const result = await api.captureUrl(session.token!, {
@@ -613,9 +722,8 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
               >
                 <Icon name="capture" />
                 {t(busy ? 'working' : 'savePage')}
-              </button>
+              </Button>
               {renderNotice('capture')}
-              {many('capture')}
             </section>
             <section
               id="dome-pane-note"
@@ -645,7 +753,8 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                   setDraftMd(markdown);
                   setDirty(
                     markdown !== (note?.markdown || '') ||
-                      title !== (note?.title || snapshot.title.slice(0, 200)),
+                      title !==
+                        (note?.title || initialTitle.current.slice(0, 200)),
                   );
                 }}
                 onTitle={(value) => {
@@ -671,7 +780,6 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 }}
               />
               {renderNotice('note')}
-              {many('note')}
             </section>
             <section
               id="dome-pane-contact"
@@ -689,7 +797,8 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 <div>
                   <strong>{t(detected ? 'detected' : 'manual')}</strong>
                   <p>
-                    {detected?.displayLabel || new URL(snapshot.url).hostname}
+                    {detected?.displayLabel ||
+                      (snapshot.url ? new URL(snapshot.url).hostname : '')}
                   </p>
                 </div>
               </div>
@@ -718,7 +827,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
               >
                 <label className="field">
                   {t('name')}
-                  <input
+                  <Input
                     required
                     maxLength={200}
                     value={contact.displayName}
@@ -734,7 +843,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 </label>
                 <label className="field">
                   {t('headline')}
-                  <input
+                  <Input
                     maxLength={200}
                     value={contact.displayLabel || ''}
                     disabled={busy}
@@ -748,7 +857,7 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 </label>
                 <label className="field">
                   {t('email')}
-                  <input
+                  <Input
                     type="email"
                     value={contact.primaryEmail || ''}
                     disabled={busy}
@@ -760,9 +869,67 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                     }
                   />
                 </label>
+                {(['location', 'company', 'phone', 'website'] as const).map(
+                  (field) => (
+                    <label className="field" key={field}>
+                      {t(field)}
+                      <Input
+                        value={String(contact.profile?.[field] || '')}
+                        maxLength={500}
+                        onChange={(event) =>
+                          setContact({
+                            ...contact,
+                            profile: {
+                              ...contact.profile,
+                              [field]: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  ),
+                )}
+                {(
+                  [
+                    'about',
+                    'experience',
+                    'education',
+                    'skills',
+                    'certifications',
+                    'languages',
+                    'links',
+                  ] as const
+                ).map((field) =>
+                  contact.profile?.[field] ? (
+                    <details className="profile-section" key={field}>
+                      <summary>{t(field)}</summary>
+                      <Textarea
+                        aria-label={t(field)}
+                        value={String(contact.profile[field])}
+                        maxLength={6000}
+                        rows={5}
+                        onChange={(event) =>
+                          setContact({
+                            ...contact,
+                            profile: {
+                              ...contact.profile,
+                              [field]: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </details>
+                  ) : null,
+                )}
+                <p className="helper">
+                  {t('profileSource')}{' '}
+                  <a href={contact.pageUrl} target="_blank" rel="noreferrer">
+                    {t('page')}
+                  </a>
+                </p>
                 <label className="field">
                   {t('contactNotes')}
-                  <textarea
+                  <Textarea
                     maxLength={4000}
                     rows={3}
                     value={contact.notes || ''}
@@ -772,9 +939,9 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                     }
                   />
                 </label>
-                <button
+                <Button
                   type="submit"
-                  className="primary full-width"
+                  className="full-width"
                   disabled={
                     busy ||
                     !connected ||
@@ -784,12 +951,12 @@ export default function PanelApp({ onClose }: { onClose: () => void }) {
                 >
                   <Icon name="contact" />
                   {t(busy ? 'working' : 'saveContact')}
-                </button>
+                </Button>
               </form>
               {renderNotice('contact')}
-              {many('contact')}
             </section>
           </div>
+          {many(tab)}
           <footer className="panel-footer">
             <span
               className={

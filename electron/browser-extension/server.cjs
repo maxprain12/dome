@@ -15,6 +15,7 @@ const {
   CaptureUrlBodySchema,
   AiStreamBodySchema,
   AiCancelBodySchema,
+  AiToolResultBodySchema,
   isAllowedExtensionOrigin,
   corsHeaders,
 } = require('./protocol.cjs');
@@ -36,7 +37,9 @@ function readBody(req, limit) {
       size += chunk.length;
       if (size > limit) {
         req.destroy();
-        reject(Object.assign(new Error('Payload too large'), { statusCode: 413 }));
+        reject(
+          Object.assign(new Error('Payload too large'), { statusCode: 413 }),
+        );
         return;
       }
       chunks.push(chunk);
@@ -50,7 +53,9 @@ function readBody(req, limit) {
       try {
         resolve(JSON.parse(raw));
       } catch {
-        reject(Object.assign(new Error('Invalid JSON body'), { statusCode: 400 }));
+        reject(
+          Object.assign(new Error('Invalid JSON body'), { statusCode: 400 }),
+        );
       }
     });
     req.on('error', reject);
@@ -104,7 +109,12 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     const token = bearerToken(req);
     const client = token ? pairing.resolveToken(token) : null;
     if (!client) {
-      json(res, 401, { success: false, error: 'Pair the extension with Dome first' }, origin);
+      json(
+        res,
+        401,
+        { success: false, error: 'Pair the extension with Dome first' },
+        origin,
+      );
       return null;
     }
     if (!apiLimiter.take(client.id)) {
@@ -116,7 +126,12 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
 
   async function handlePair(req, res, origin) {
     if (!pairLimiter.take(req.socket.remoteAddress || 'local')) {
-      json(res, 429, { success: false, error: 'Too many pairing attempts' }, origin);
+      json(
+        res,
+        429,
+        { success: false, error: 'Too many pairing attempts' },
+        origin,
+      );
       return;
     }
     const body = await readBody(req, MAX_BODY_BYTES);
@@ -129,7 +144,12 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       const result = pairing.pair(parsed.data);
       json(res, 200, { success: true, data: result }, origin);
     } catch (err) {
-      json(res, err.statusCode || 400, { success: false, error: err.message }, origin);
+      json(
+        res,
+        err.statusCode || 400,
+        { success: false, error: err.message },
+        origin,
+      );
     }
   }
 
@@ -138,18 +158,26 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     if (!client) return;
     let body = {};
     if (req.method !== 'GET') body = await readBody(req, MAX_BODY_BYTES);
-    const parsed = schema ? schema.safeParse(body) : { success: true, data: body };
+    const parsed = schema
+      ? schema.safeParse(body)
+      : { success: true, data: body };
     if (schema && !parsed.success) {
       json(res, 400, { success: false, error: 'Invalid payload' }, origin);
       return;
     }
     try {
-      const data = await fn(parsed.data, req);
+      const data = await fn(parsed.data, req, client);
       json(res, 200, { success: true, data }, origin);
     } catch (err) {
       const status = err.statusCode || 500;
-      const extra = err.payload && typeof err.payload === 'object' ? err.payload : {};
-      json(res, status, { success: false, error: err.message, ...extra }, origin);
+      const extra =
+        err.payload && typeof err.payload === 'object' ? err.payload : {};
+      json(
+        res,
+        status,
+        { success: false, error: err.message, ...extra },
+        origin,
+      );
     }
   }
 
@@ -173,7 +201,7 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     const send = (payload) => {
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
     };
-    req.on('close', () => {
+    res.on('close', () => {
       many.cancel(streamId);
     });
     try {
@@ -181,10 +209,14 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       await many.stream({
         ...parsed.data,
         streamId,
+        clientId: client.id,
         onChunk: (chunk) => {
           if (!chunk || typeof chunk !== 'object') return;
-          if (chunk.type === 'text' && chunk.text) send({ type: 'delta', text: chunk.text });
-          if (chunk.type === 'error') send({ type: 'error', error: chunk.error || 'AI error' });
+          if (chunk.type === 'browser_tool') send(chunk);
+          if (chunk.type === 'text' && chunk.text)
+            send({ type: 'delta', text: chunk.text });
+          if (chunk.type === 'error')
+            send({ type: 'error', error: chunk.error || 'AI error' });
           if (chunk.type === 'done') send({ type: 'done' });
         },
       });
@@ -210,7 +242,15 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
     if (req.method === 'GET' && path === '/v1/health') {
-      json(res, 200, { success: true, data: { ok: true, version: PROTOCOL_VERSION, port: listenPort } }, origin);
+      json(
+        res,
+        200,
+        {
+          success: true,
+          data: { ok: true, version: PROTOCOL_VERSION, port: listenPort },
+        },
+        origin,
+      );
       return;
     }
 
@@ -220,54 +260,104 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     }
 
     if (req.method === 'GET' && path === '/v1/context') {
-      await handleAuthorizedJson(req, res, origin, null, async () => capture.context());
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        capture.context(),
+      );
       return;
     }
 
     if (req.method === 'GET' && path === '/v1/projects') {
-      await handleAuthorizedJson(req, res, origin, null, async () => ({ projects: capture.listProjects() }));
+      await handleAuthorizedJson(req, res, origin, null, async () => ({
+        projects: capture.listProjects(),
+      }));
       return;
     }
 
     if (req.method === 'GET' && path === '/v1/notes') {
       await handleAuthorizedJson(req, res, origin, null, async () => ({
-        notes: capture.listNotes(url.searchParams.get('projectId') || undefined),
+        notes: capture.listNotes(
+          url.searchParams.get('projectId') || undefined,
+        ),
       }));
       return;
     }
 
     const noteMatch = /^\/v1\/notes\/([^/]+)$/.exec(path);
     if (noteMatch && req.method === 'GET') {
-      await handleAuthorizedJson(req, res, origin, null, async () => capture.getNote(noteMatch[1]));
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        capture.getNote(noteMatch[1]),
+      );
       return;
     }
     if (noteMatch && req.method === 'PUT') {
-      await handleAuthorizedJson(req, res, origin, UpdateNoteBodySchema, async (body) =>
-        capture.updateNote(noteMatch[1], body),
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        UpdateNoteBodySchema,
+        async (body) => capture.updateNote(noteMatch[1], body),
       );
       return;
     }
 
     const appendMatch = /^\/v1\/notes\/([^/]+)\/append$/.exec(path);
     if (appendMatch && req.method === 'POST') {
-      await handleAuthorizedJson(req, res, origin, AppendNoteBodySchema, async (body) =>
-        capture.appendSelection(appendMatch[1], body),
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        AppendNoteBodySchema,
+        async (body) => capture.appendSelection(appendMatch[1], body),
       );
       return;
     }
 
     if (req.method === 'POST' && path === '/v1/notes') {
-      await handleAuthorizedJson(req, res, origin, CreateNoteBodySchema, async (body) => capture.createNote(body));
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        CreateNoteBodySchema,
+        async (body) => capture.createNote(body),
+      );
       return;
     }
 
     if (req.method === 'POST' && path === '/v1/contact') {
-      await handleAuthorizedJson(req, res, origin, ContactBodySchema, async (body) => capture.saveContact(body));
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        ContactBodySchema,
+        async (body) => capture.saveContact(body),
+      );
       return;
     }
 
     if (req.method === 'POST' && path === '/v1/capture-url') {
-      await handleAuthorizedJson(req, res, origin, CaptureUrlBodySchema, async (body) => capture.saveUrl(body));
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        CaptureUrlBodySchema,
+        async (body) => capture.saveUrl(body),
+      );
+      return;
+    }
+
+    if (req.method === 'GET' && path === '/v1/ai/sessions') {
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.listSessions(),
+      );
+      return;
+    }
+    const sessionMatch = /^\/v1\/ai\/sessions\/([a-zA-Z0-9:_-]{1,120})$/.exec(
+      path,
+    );
+    if (req.method === 'GET' && sessionMatch) {
+      await handleAuthorizedJson(req, res, origin, null, async () =>
+        many.readSession(sessionMatch[1]),
+      );
       return;
     }
 
@@ -276,8 +366,26 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       return;
     }
 
+    if (req.method === 'POST' && path === '/v1/ai/tool-result') {
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        AiToolResultBodySchema,
+        async (body, _req, client) =>
+          many.completeTool({ ...body, clientId: client.id }),
+      );
+      return;
+    }
     if (req.method === 'POST' && path === '/v1/ai/cancel') {
-      await handleAuthorizedJson(req, res, origin, AiCancelBodySchema, async (body) => many.cancel(body.streamId));
+      await handleAuthorizedJson(
+        req,
+        res,
+        origin,
+        AiCancelBodySchema,
+        AiToolResultBodySchema,
+        async (body) => many.cancel(body.streamId),
+      );
       return;
     }
 
@@ -285,15 +393,26 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
   }
 
   function listen() {
-    if (httpServer) return Promise.resolve({ success: true, port: listenPort, alreadyRunning: true });
+    if (httpServer)
+      return Promise.resolve({
+        success: true,
+        port: listenPort,
+        alreadyRunning: true,
+      });
     const requested = Number(port);
-    listenPort = Number.isFinite(requested) && requested >= 0 ? requested : DEFAULT_PORT;
+    listenPort =
+      Number.isFinite(requested) && requested >= 0 ? requested : DEFAULT_PORT;
     return new Promise((resolve) => {
       httpServer = http.createServer((req, res) => {
         route(req, res).catch((err) => {
           const origin = originOf(req) || 'null';
           const status = err.statusCode || 500;
-          json(res, status, { success: false, error: err.message || 'Server error' }, origin);
+          json(
+            res,
+            status,
+            { success: false, error: err.message || 'Server error' },
+            origin,
+          );
         });
       });
       httpServer.listen(listenPort, HOST, () => {

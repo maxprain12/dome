@@ -8,7 +8,15 @@
     "skipLibCheck": true,
     "noEmit": true,
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "paths": {
+      "@/*": [
+        "../../app/*"
+      ],
+      "@/lib/utils": [
+        "../../app/lib/cn.ts"
+      ]
+    }
   },
   "include": [
     "src",

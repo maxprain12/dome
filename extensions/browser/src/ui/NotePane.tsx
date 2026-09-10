@@ -1,3 +1,6 @@
+import { Button } from '../../../../app/components/ui/button';
+import { Input } from '../../../../app/components/ui/input';
+import DesktopSelect from './DesktopSelect';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import MarkdownNoteEditor from '../../../../app/components/markdown/MarkdownNoteEditor';
@@ -32,21 +35,21 @@ export default function NotePane(props: Props) {
     <div className="note-pane">
       <label className="field">
         {t('note')}
-        <select
-          aria-label={t('note')}
+        <DesktopSelect
+          label={t('note')}
           value={props.note?.id || ''}
           disabled={props.busy || props.dirty}
-          onChange={(event) => props.onSelect(event.target.value)}
-        >
-          <option value="">{t('newNote')}</option>
-          {props.notes.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.title}
-            </option>
-          ))}
-        </select>
+          onChange={props.onSelect}
+          items={[
+            { value: '', label: t('newNote') },
+            ...props.notes.map((item) => ({
+              value: item.id,
+              label: item.title,
+            })),
+          ]}
+        />
       </label>
-      <input
+      <Input
         className="note-title"
         aria-label={t('noteTitle')}
         value={props.title}
@@ -78,43 +81,42 @@ export default function NotePane(props: Props) {
         <div className="conflict" role="alert">
           <p>{t('conflict')}</p>
           <div className="dome-row">
-            <button
+            <Button
               type="button"
               disabled={props.busy}
               onClick={() => props.onSave(true)}
             >
               {t('saveCopy')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               disabled={props.busy}
               onClick={props.onRemote}
             >
               {t('loadRemote')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
       <div className="dome-row">
-        <button
+        <Button
           type="button"
-          className="primary"
           disabled={props.busy || !props.title.trim() || !!props.conflict}
           onClick={() => props.onSave()}
         >
           <Icon name="check" />
           {t(props.busy ? 'working' : 'saveNote')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="secondary"
+          variant="outline"
           disabled={props.busy || !props.selection}
           title={t('selectionHint')}
           onClick={props.onQuote}
         >
           <Icon name="plus" />
           {t('addSelection')}
-        </button>
+        </Button>
       </div>
       {props.dirty && <p className="helper">{t('unsavedHint')}</p>}
     </div>
