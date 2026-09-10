@@ -67,3 +67,24 @@ describe('detectMediaKind', () => {
     expect(detectMediaKind('https://example.com/blog/post')).toBe('article');
   });
 });
+
+it('extracts the main LinkedIn profile and sections without recommendation identities', () => {
+  const doc = htmlDoc(`<main><section><h1>Alejandro Cano</h1><div class="text-body-medium">Desarrollador Filemaker</div><span class="text-body-small inline t-black--light">Madrid, España</span></section><section><div id="experience"></div><h2>Experiencia</h2><p>Desarrollador · Example · 2025</p><span aria-hidden="true">Duplicate inaccessible label</span></section><section><div id="education"></div><h2>Educación</h2><p>IES Cervantes</p></section></main><aside><h1>Someone Else</h1><a href="mailto:wrong@example.com">Email</a></aside>`);
+  const contact = extractContact(doc, 'https://www.linkedin.com/in/alejandro/');
+  expect(contact?.displayName).toBe('Alejandro Cano');
+  expect(contact?.displayLabel).toBe('Desarrollador Filemaker');
+  expect(contact?.profile?.location).toBe('Madrid, España');
+  expect(contact?.profile?.experience).toContain('Example');
+  expect(contact?.profile?.experience).not.toContain('Duplicate');
+  expect(contact?.profile?.education).toContain('Cervantes');
+  expect(contact?.primaryEmail).toBeUndefined();
+});
+it('reads public GitHub profile facts without treating repositories as contacts', () => {
+  const doc = htmlDoc(`<main><div class="h-card"><span itemprop="name">Ada Lovelace</span><div class="p-note">Mathematician</div><span itemprop="worksFor">Analytical Engine</span><span itemprop="homeLocation">London</span><a href="mailto:ada@example.com">Email</a><a itemprop="url" href="https://ada.example">Site</a></div></main>`);
+  const contact = extractContact(doc, 'https://github.com/ada');
+  expect(contact?.source).toBe('github');
+  expect(contact?.primaryEmail).toBe('ada@example.com');
+  expect(contact?.profile?.company).toBe('Analytical Engine');
+  expect(contact?.profile?.website).toBe('https://ada.example');
+  expect(extractContact(doc, 'https://github.com/ada/engine')).toBeNull();
+});

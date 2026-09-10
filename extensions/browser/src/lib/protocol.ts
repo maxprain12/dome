@@ -6,6 +6,7 @@ export type IdentitySource =
   | 'social_linkedin'
   | 'social_instagram'
   | 'social_x'
+  | 'github'
   | 'website'
   | 'email'
   | 'manual';

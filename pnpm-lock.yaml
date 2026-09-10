@@ -501,6 +501,15 @@ importers:
 
   extensions/browser:
     dependencies:
+      '@fontsource-variable/inter':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@hugeicons/core-free-icons':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@hugeicons/react':
+        specifier: ^1.1.9
+        version: 1.1.9(react@18.3.1)
       '@milkdown/crepe':
         specifier: ^7.21.2
         version: 7.21.2(prosemirror-model@1.25.9)(prosemirror-state@1.4.4)(prosemirror-view@1.41.9)(typescript@5.9.3)
@@ -513,6 +522,9 @@ importers:
       '@milkdown/utils':
         specifier: ^7.21.2
         version: 7.21.2
+      '@shadcn/react':
+        specifier: ^0.2.1
+        version: 0.2.1(@types/react@18.3.31)(react@18.3.1)
       i18next:
         specifier: ^25.10.10
         version: 25.10.10(typescript@5.9.3)
@@ -531,7 +543,19 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      shadcn:
+        specifier: ^4.13.0
+        version: 4.13.1(@cfworker/json-schema@4.1.1)(typescript@5.9.3)
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
     devDependencies:
+      '@base-ui/react':
+        specifier: ^1.4.1
+        version: 1.6.0(@date-fns/tz@1.5.0)(@types/react@18.3.31)(date-fns@4.4.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tailwindcss/vite':
+        specifier: ^4.3.2
+        version: 4.3.3(vite@7.3.6(@types/node@26.2.0)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(sugarss@5.0.1(postcss@8.5.26))(tsx@4.22.4)(yaml@2.9.0))
       '@types/react':
         specifier: ^18.3.26
         version: 18.3.31
@@ -541,9 +565,15 @@ importers:
       '@wxt-dev/module-react':
         specifier: ^1.1.5
         version: 1.2.2(vite@7.3.6(@types/node@26.2.0)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(sugarss@5.0.1(postcss@8.5.26))(tsx@4.22.4)(yaml@2.9.0))(wxt@0.20.27(@types/node@26.2.0)(eslint@9.39.4(jiti@2.7.0))(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.2)(sass-embedded@1.100.0)(sass@1.100.0)(sugarss@5.0.1(postcss@8.5.26))(tsx@4.22.4)(yaml@2.9.0))
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.3.0)
+      tailwindcss:
+        specifier: ^4.3.2
+        version: 4.3.3
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -12980,6 +13010,13 @@ snapshots:
       '@tailwindcss/oxide': 4.3.3
       tailwindcss: 4.3.3
       vite: 7.3.6(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(sugarss@5.0.1(postcss@8.5.16))(tsx@4.22.4)(yaml@2.9.0)
+
+  '@tailwindcss/vite@4.3.3(vite@7.3.6(@types/node@26.2.0)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(sugarss@5.0.1(postcss@8.5.26))(tsx@4.22.4)(yaml@2.9.0))':
+    dependencies:
+      '@tailwindcss/node': 4.3.3
+      '@tailwindcss/oxide': 4.3.3
+      tailwindcss: 4.3.3
+      vite: 7.3.6(@types/node@26.2.0)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(sugarss@5.0.1(postcss@8.5.26))(tsx@4.22.4)(yaml@2.9.0)
 
   '@testing-library/dom@10.4.1':
     dependencies:

@@ -1,5 +1,12 @@
+import type { ToolRequest } from './agent-tools';
 import type { ContactDraft } from './protocol';
-import type { ApiResult, CaptureResult, ManyStreamBody, NoteDetail, PairResult } from './http';
+import type {
+  ApiResult,
+  CaptureResult,
+  ManyStreamBody,
+  NoteDetail,
+  PairResult,
+} from './http';
 
 export type { ApiResult, CaptureResult, NoteDetail, PairResult } from './http';
 
@@ -15,7 +22,10 @@ async function send<T>(message: HttpMessage): Promise<ApiResult<T>> {
   try {
     return (await browser.runtime.sendMessage(message)) as ApiResult<T>;
   } catch {
-    return { success: false, error: 'Could not reach the Dome extension background page.' };
+    return {
+      success: false,
+      error: 'Could not reach the Dome extension background page.',
+    };
   }
 }
 
@@ -29,11 +39,18 @@ export function pair(code: string, clientName: string) {
 }
 
 export function health() {
-  return send<{ ok: boolean; version: number; port: number }>({ type: 'DOME_HTTP', path: '/v1/health' });
+  return send<{ ok: boolean; version: number; port: number }>({
+    type: 'DOME_HTTP',
+    path: '/v1/health',
+  });
 }
 
 export function getContext(token: string) {
-  return send<{ projectId: string; projectName: string; projects: Array<{ id: string; name: string }> }>({
+  return send<{
+    projectId: string;
+    projectName: string;
+    projects: Array<{ id: string; name: string }>;
+  }>({
     type: 'DOME_HTTP',
     path: '/v1/context',
     token,
@@ -41,7 +58,9 @@ export function getContext(token: string) {
 }
 
 export function listNotes(token: string, projectId: string) {
-  return send<{ notes: Array<{ id: string; title: string; updatedAt: number }> }>({
+  return send<{
+    notes: Array<{ id: string; title: string; updatedAt: number }>;
+  }>({
     type: 'DOME_HTTP',
     path: `/v1/notes?projectId=${encodeURIComponent(projectId)}`,
     token,
@@ -49,30 +68,69 @@ export function listNotes(token: string, projectId: string) {
 }
 
 export function getNote(token: string, id: string) {
-  return send<NoteDetail>({ type: 'DOME_HTTP', path: `/v1/notes/${id}`, token });
+  return send<NoteDetail>({
+    type: 'DOME_HTTP',
+    path: `/v1/notes/${id}`,
+    token,
+  });
 }
 
-export function createNote(token: string, body: { projectId: string; title: string; markdown?: string }) {
-  return send<NoteDetail>({ type: 'DOME_HTTP', path: '/v1/notes', method: 'POST', token, body });
+export function createNote(
+  token: string,
+  body: { projectId: string; title: string; markdown?: string },
+) {
+  return send<NoteDetail>({
+    type: 'DOME_HTTP',
+    path: '/v1/notes',
+    method: 'POST',
+    token,
+    body,
+  });
 }
 
 export function updateNote(
   token: string,
   id: string,
-  body: { markdown: string; expectedUpdatedAt: number; expectedRevision?: string; title?: string },
+  body: {
+    markdown: string;
+    expectedUpdatedAt: number;
+    expectedRevision?: string;
+    title?: string;
+  },
 ) {
-  return send<NoteDetail>({ type: 'DOME_HTTP', path: `/v1/notes/${id}`, method: 'PUT', token, body });
+  return send<NoteDetail>({
+    type: 'DOME_HTTP',
+    path: `/v1/notes/${id}`,
+    method: 'PUT',
+    token,
+    body,
+  });
 }
 
 export function appendSelection(
   token: string,
   id: string,
-  body: { text: string; title?: string; url: string; expectedUpdatedAt: number; capturedAt?: number },
+  body: {
+    text: string;
+    title?: string;
+    url: string;
+    expectedUpdatedAt: number;
+    capturedAt?: number;
+  },
 ) {
-  return send<NoteDetail>({ type: 'DOME_HTTP', path: `/v1/notes/${id}/append`, method: 'POST', token, body });
+  return send<NoteDetail>({
+    type: 'DOME_HTTP',
+    path: `/v1/notes/${id}/append`,
+    method: 'POST',
+    token,
+    body,
+  });
 }
 
-export function saveContact(token: string, body: ContactDraft & { projectId: string }) {
+export function saveContact(
+  token: string,
+  body: ContactDraft & { projectId: string },
+) {
   return send<{ person: { id: string; displayName: string } }>({
     type: 'DOME_HTTP',
     path: '/v1/contact',
@@ -84,9 +142,21 @@ export function saveContact(token: string, body: ContactDraft & { projectId: str
 
 export function captureUrl(
   token: string,
-  body: { projectId: string; url: string; title: string; readableText?: string; mediaKind?: string },
+  body: {
+    projectId: string;
+    url: string;
+    title: string;
+    readableText?: string;
+    mediaKind?: string;
+  },
 ) {
-  return send<CaptureResult>({ type: 'DOME_HTTP', path: '/v1/capture-url', method: 'POST', token, body });
+  return send<CaptureResult>({
+    type: 'DOME_HTTP',
+    path: '/v1/capture-url',
+    method: 'POST',
+    token,
+    body,
+  });
 }
 
 export function cancelMany(token: string, streamId: string) {
@@ -103,10 +173,12 @@ export async function streamMany(
   token: string,
   body: ManyStreamBody,
   onDelta: (text: string) => void,
+  onTool?: (request: ToolRequest) => Promise<Record<string, unknown>>,
 ): Promise<ApiResult<{ text: string }>> {
   return new Promise((resolve) => {
     const port = browser.runtime.connect({ name: 'dome-ai' });
     let full = '';
+    let toolQueue = Promise.resolve();
     let settled = false;
     const finish = (result: ApiResult<{ text: string }>) => {
       if (settled) return;
@@ -118,14 +190,49 @@ export async function streamMany(
       }
       resolve(result);
     };
-    port.onMessage.addListener((event: { type?: string; text?: string; error?: string }) => {
-      if (event.type === 'delta' && event.text) {
-        full += event.text;
-        onDelta(event.text);
-      }
-      if (event.type === 'error') finish({ success: false, error: event.error || 'AI error' });
-      if (event.type === 'done') finish({ success: true, data: { text: full } });
-    });
+    port.onMessage.addListener(
+      (
+        event: { type?: string; text?: string; error?: string } | ToolRequest,
+      ) => {
+        if (event.type === 'browser_tool' && 'callId' in event) {
+          toolQueue = toolQueue
+            .then(async () => {
+              if (settled) return;
+              const result = onTool
+                ? await onTool(event)
+                : {
+                    success: false,
+                    error: 'Update the extension to enable tools.',
+                  };
+              if (!settled)
+                await send({
+                  type: 'DOME_HTTP',
+                  path: '/v1/ai/tool-result',
+                  method: 'POST',
+                  token,
+                  body: {
+                    streamId: event.streamId,
+                    callId: event.callId,
+                    result,
+                  },
+                });
+            })
+            .catch(() =>
+              finish({ success: false, error: 'Browser tool failed' }),
+            );
+          return;
+        }
+        if ('callId' in event) return;
+        if (event.type === 'delta' && event.text) {
+          full += event.text;
+          onDelta(event.text);
+        }
+        if (event.type === 'error')
+          finish({ success: false, error: event.error || 'AI error' });
+        if (event.type === 'done')
+          finish({ success: true, data: { text: full } });
+      },
+    );
     port.onDisconnect.addListener(() => {
       finish(
         full
@@ -134,5 +241,21 @@ export async function streamMany(
       );
     });
     port.postMessage({ token, body });
+  });
+}
+
+export type ChatMessage = { role: 'user' | 'assistant'; text: string };
+export function listManySessions(token: string) {
+  return send<{ sessions: Array<{ id: string; title: string }> }>({
+    type: 'DOME_HTTP',
+    path: '/v1/ai/sessions',
+    token,
+  });
+}
+export function readManySession(token: string, id: string) {
+  return send<{ id: string; messages: ChatMessage[] }>({
+    type: 'DOME_HTTP',
+    path: `/v1/ai/sessions/${encodeURIComponent(id).replace(/%3A/gi, ':')}`,
+    token,
   });
 }

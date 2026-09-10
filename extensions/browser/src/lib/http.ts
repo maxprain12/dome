@@ -1,3 +1,4 @@
+import type { ToolRequest } from './agent-tools';
 import { BASE_URL } from './protocol';
 import type { ContactDraft, NoteSummary, ProjectSummary } from './protocol';
 
@@ -34,7 +35,9 @@ export type HttpRequest = {
 };
 
 export async function request<T>(opts: HttpRequest): Promise<ApiResult<T>> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
   let res: Response;
   try {
@@ -44,7 +47,10 @@ export async function request<T>(opts: HttpRequest): Promise<ApiResult<T>> {
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     });
   } catch {
-    return { success: false, error: 'Dome is not open. Launch the desktop app and try again.' };
+    return {
+      success: false,
+      error: 'Dome is not open. Launch the desktop app and try again.',
+    };
   }
   let payload: Record<string, unknown> = {};
   const text = await res.text();
@@ -58,7 +64,10 @@ export async function request<T>(opts: HttpRequest): Promise<ApiResult<T>> {
   if (!res.ok || payload.success === false) {
     return {
       success: false,
-      error: typeof payload.error === 'string' ? payload.error : `Request failed (${res.status})`,
+      error:
+        typeof payload.error === 'string'
+          ? payload.error
+          : `Request failed (${res.status})`,
       conflict: payload.conflict === true,
       note: payload.note as NoteDetail | undefined,
     };
@@ -67,15 +76,25 @@ export async function request<T>(opts: HttpRequest): Promise<ApiResult<T>> {
 }
 
 export function pair(code: string, clientName: string) {
-  return request<PairResult>({ path: '/v1/pair', method: 'POST', body: { code, clientName } });
+  return request<PairResult>({
+    path: '/v1/pair',
+    method: 'POST',
+    body: { code, clientName },
+  });
 }
 
 export function health() {
-  return request<{ ok: boolean; version: number; port: number }>({ path: '/v1/health' });
+  return request<{ ok: boolean; version: number; port: number }>({
+    path: '/v1/health',
+  });
 }
 
 export function getContext(token: string) {
-  return request<{ projectId: string; projectName: string; projects: ProjectSummary[] }>({
+  return request<{
+    projectId: string;
+    projectName: string;
+    projects: ProjectSummary[];
+  }>({
     path: '/v1/context',
     token,
   });
@@ -92,27 +111,59 @@ export function getNote(token: string, id: string) {
   return request<NoteDetail>({ path: `/v1/notes/${id}`, token });
 }
 
-export function createNote(token: string, body: { projectId: string; title: string; markdown?: string }) {
-  return request<NoteDetail>({ path: '/v1/notes', method: 'POST', token, body });
+export function createNote(
+  token: string,
+  body: { projectId: string; title: string; markdown?: string },
+) {
+  return request<NoteDetail>({
+    path: '/v1/notes',
+    method: 'POST',
+    token,
+    body,
+  });
 }
 
 export function updateNote(
   token: string,
   id: string,
-  body: { markdown: string; expectedUpdatedAt: number; expectedRevision?: string; title?: string },
+  body: {
+    markdown: string;
+    expectedUpdatedAt: number;
+    expectedRevision?: string;
+    title?: string;
+  },
 ) {
-  return request<NoteDetail>({ path: `/v1/notes/${id}`, method: 'PUT', token, body });
+  return request<NoteDetail>({
+    path: `/v1/notes/${id}`,
+    method: 'PUT',
+    token,
+    body,
+  });
 }
 
 export function appendSelection(
   token: string,
   id: string,
-  body: { text: string; title?: string; url: string; expectedUpdatedAt: number; capturedAt?: number },
+  body: {
+    text: string;
+    title?: string;
+    url: string;
+    expectedUpdatedAt: number;
+    capturedAt?: number;
+  },
 ) {
-  return request<NoteDetail>({ path: `/v1/notes/${id}/append`, method: 'POST', token, body });
+  return request<NoteDetail>({
+    path: `/v1/notes/${id}/append`,
+    method: 'POST',
+    token,
+    body,
+  });
 }
 
-export function saveContact(token: string, body: ContactDraft & { projectId: string }) {
+export function saveContact(
+  token: string,
+  body: ContactDraft & { projectId: string },
+) {
   return request<{ person: { id: string; displayName: string } }>({
     path: '/v1/contact',
     method: 'POST',
@@ -123,9 +174,20 @@ export function saveContact(token: string, body: ContactDraft & { projectId: str
 
 export function captureUrl(
   token: string,
-  body: { projectId: string; url: string; title: string; readableText?: string; mediaKind?: string },
+  body: {
+    projectId: string;
+    url: string;
+    title: string;
+    readableText?: string;
+    mediaKind?: string;
+  },
 ) {
-  return request<CaptureResult>({ path: '/v1/capture-url', method: 'POST', token, body });
+  return request<CaptureResult>({
+    path: '/v1/capture-url',
+    method: 'POST',
+    token,
+    body,
+  });
 }
 
 export function cancelMany(token: string, streamId: string) {
@@ -138,6 +200,8 @@ export function cancelMany(token: string, streamId: string) {
 }
 
 export type ManyStreamBody = {
+  browserTools?: boolean;
+  threadId?: string;
   action: 'summarize' | 'key_ideas' | 'ask';
   text: string;
   prompt?: string;
@@ -149,7 +213,11 @@ export type ManyStreamBody = {
 export async function streamManyHttp(
   token: string,
   body: ManyStreamBody,
-  onEvent: (event: { type: string; text?: string; error?: string; streamId?: string }) => void,
+  onEvent: (
+    event:
+      | { type: string; text?: string; error?: string; streamId?: string }
+      | ToolRequest,
+  ) => void,
 ): Promise<ApiResult<{ text: string }>> {
   let res: Response;
   try {
@@ -162,7 +230,10 @@ export async function streamManyHttp(
       body: JSON.stringify(body),
     });
   } catch {
-    return { success: false, error: 'Dome is not open. Launch the desktop app and try again.' };
+    return {
+      success: false,
+      error: 'Dome is not open. Launch the desktop app and try again.',
+    };
   }
   if (!res.ok || !res.body) {
     return { success: false, error: `AI request failed (${res.status})` };
@@ -187,9 +258,10 @@ export async function streamManyHttp(
           error?: string;
           streamId?: string;
         };
-        if (event.type) onEvent({ type: event.type, text: event.text, error: event.error, streamId: event.streamId });
+        if (event.type) onEvent(event as Parameters<typeof onEvent>[0]);
         if (event.type === 'delta' && event.text) full += event.text;
-        if (event.type === 'error') return { success: false, error: event.error || 'AI error' };
+        if (event.type === 'error')
+          return { success: false, error: event.error || 'AI error' };
       } catch {
         /* ignore malformed SSE */
       }

@@ -11,6 +11,8 @@ function readManifest(rel: string) {
   if (!existsSync(file)) return null;
   return JSON.parse(readFileSync(file, 'utf8')) as {
     manifest_version: number;
+    side_panel?: { default_path: string };
+    sidebar_action?: { default_panel: string };
     permissions?: string[];
     host_permissions?: string[];
     content_scripts?: unknown[];
@@ -34,6 +36,8 @@ describe('cross-browser extension manifests', () => {
     }
 
     expect(manifests.length).toBeGreaterThanOrEqual(2);
+    expect(readManifest('.output/chrome-mv3/manifest.json')?.side_panel?.default_path).toBe('sidebar.html');
+    expect(readManifest('.output/firefox-mv3/manifest.json')?.sidebar_action?.default_panel).toBe('sidebar.html');
     for (const manifest of manifests) {
       expect(manifest?.permissions).toEqual(expect.arrayContaining(['activeTab', 'scripting', 'storage', 'contextMenus']));
       const hosts = [...(manifest?.host_permissions || []), ...(manifest?.permissions || [])];

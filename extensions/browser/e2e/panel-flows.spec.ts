@@ -14,10 +14,11 @@ import { fileURLToPath } from 'node:url';
 const root = path.dirname(fileURLToPath(import.meta.url));
 let context: BrowserContext;
 let page: Page;
+let sourcePage: Page;
 let worker: Worker;
 let extensionPath: string;
 
-// Exercise the actual compiled content script and editor in a ShadowRoot. The
+// Exercise the compiled sidebar and isolated page reader. The
 // bridge is stubbed inside this test's worker; no user's Desktop data is touched.
 test.beforeEach(async () => {
   extensionPath = mkdtempSync(path.join(tmpdir(), 'dome-extension-test-'));
@@ -36,7 +37,7 @@ test.beforeEach(async () => {
     channel: 'chromium',
     headless: true,
     locale: 'es-ES',
-    viewport: { width: 1100, height: 1000 },
+    viewport: { width: 408, height: 1000 },
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
@@ -67,6 +68,8 @@ test.beforeEach(async () => {
       requests: [] as any[],
       conflict: false,
       streamDelay: 0,
+      agentMode: '' as string,
+      agentController: null as ReadableStreamDefaultController | null,
     });
     globalThis.fetch = async (input, init) => {
       const url = String(input);
@@ -112,7 +115,25 @@ test.beforeEach(async () => {
         return ok({ id: 'u1', domeLink: 'dome://resource/u1/url' });
       if (url.endsWith('/contact'))
         return ok({ person: { id: 'c1', displayName: body.displayName } });
+      if (url.endsWith('/ai/sessions')) return ok({ sessions: [{ id: 'desktop-session', title: 'Desktop conversation' }] });
+      if (url.endsWith('/ai/sessions/desktop-session')) return ok({ id: 'desktop-session', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] });
+      if (url.endsWith('/ai/tool-result') && state.agentController) {
+        const emit = (event: unknown) => state.agentController!.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+        if (body.callId === '00000000-0000-4000-8000-000000000001') {
+          const data = body.result.data;
+          const input = data.elements.find((element: any) => element.label === 'Search fixture');
+          emit({ type: 'browser_tool', streamId: 'agent-test', callId: '00000000-0000-4000-8000-000000000002', name: state.agentMode === 'fill' ? 'browser_fill' : 'dome_create_note', args: state.agentMode === 'fill' ? { snapshotId: data.snapshotId, elementId: input.id, value: 'Ada Lovelace' } : { title: 'Agent note', markdown: '# Saved by Many\n\nSource: ' + data.url } });
+        } else {
+          emit({ type: 'delta', text: body.result.success ? 'Action completed.' : 'Action declined.' });
+          emit({ type: 'done' }); state.agentController.close(); state.agentController = null;
+        }
+        return ok({ accepted: true });
+      }
       if (url.endsWith('/ai/stream')) {
+        if (state.agentMode) return new Response(new ReadableStream({ start(controller) {
+          state.agentController = controller;
+          controller.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ type: 'browser_tool', streamId: 'agent-test', callId: '00000000-0000-4000-8000-000000000001', name: 'browser_read_page', args: {} }) + '\n\n'));
+        } }), { headers: { 'Content-Type': 'text/event-stream' } });
         if (state.streamDelay)
           await new Promise((resolve) =>
             setTimeout(resolve, state.streamDelay),
@@ -128,22 +149,27 @@ test.beforeEach(async () => {
   await context.route('https://dome-fixture.test/**', (route) =>
     route.fulfill({
       contentType: 'text/html',
-      body: '<html><head><title>Scenarios for our economic future</title><style>html{font-size:30px}body{font:30px Georgia,serif;color:maroon;background:#f7f5f0}button{font-size:40px}</style></head><body><article><h1>Scenarios for our economic future</h1><p>The economics team models how technology affects work and growth.</p></article></body></html>',
+      body: '<html><head><title>Scenarios for our economic future</title><style>html{font-size:30px}body{font:30px Georgia,serif;color:maroon;background:#f7f5f0}button{font-size:40px}</style></head><body><article><h1>Scenarios for our economic future</h1><p>The economics team models how technology affects work and growth.</p><input aria-label="Search fixture"/><button type="button">Continue</button></article></body></html>',
     }),
   );
-  page = await context.newPage();
-  await page.goto('https://dome-fixture.test/article');
+  sourcePage = await context.newPage();
+  await sourcePage.goto('https://dome-fixture.test/article');
   await worker.evaluate(async () => {
     const chrome = (globalThis as any).chrome;
     const tabs = await chrome.tabs.query({
       url: 'https://dome-fixture.test/*',
     });
+    await chrome.storage.local.set({ 'dome.sourceTab': tabs[0].id });
     await chrome.scripting.executeScript({
       target: { tabId: tabs[0].id },
       files: ['content-scripts/panel.js'],
     });
   });
+  await expect(sourcePage.locator('.dome-panel, dome-capture-panel')).toHaveCount(0);
+  page = await context.newPage();
+  await page.goto(`chrome-extension://${new URL(worker.url()).host}/sidebar.html`);
   await expect(page.locator('.connection-dot.connected')).toBeVisible();
+  await expect(page.locator('.context-line')).toContainText('Scenarios for our economic future');
 });
 
 test.afterEach(async () => {
@@ -152,7 +178,9 @@ test.afterEach(async () => {
 });
 
 test('isolates Desktop styling, captures pages and embeds Many in the three tasks', async () => {
-  await expect(page.getByRole('tab')).toHaveCount(3);
+  await expect(page.getByRole('tab')).toHaveCount(4);
+  await expect(page.locator('.many-welcome')).toBeVisible();
+  await page.getByRole('tab', { name: /Capturar|Capture/ }).click();
   const panel = page.locator('.dome-panel');
   const style = await panel.evaluate((element) => ({
     font: getComputedStyle(element).fontFamily,
@@ -199,23 +227,13 @@ test('preserves edited notes, quotes, conflicts and hidden panel drafts', async 
     const tabs = await chrome.tabs.query({
       url: 'https://dome-fixture.test/*',
     });
-    await chrome.tabs.sendMessage(tabs[0].id, {
-      type: 'DOME_ADD_SELECTION',
-      text: 'A cited passage',
-    });
+    await chrome.storage.local.set({ 'dome.pendingQuote': { text: 'A cited passage', url: tabs[0].url, title: tabs[0].title, id: 'quote1' } });
   });
   await expect(editor).toContainText('My unsaved draft.');
   await expect(editor).toContainText('A cited passage');
-  await page.getByRole('button', { name: /Cerrar panel|Close panel/ }).click();
-  await expect(page.locator('.dome-panel')).toBeHidden();
-  await worker.evaluate(async () => {
-    const chrome = (globalThis as any).chrome;
-    const tabs = await chrome.tabs.query({
-      url: 'https://dome-fixture.test/*',
-    });
-    await chrome.tabs.sendMessage(tabs[0].id, { type: 'DOME_TOGGLE' });
-    (globalThis as any).__test.conflict = true;
-  });
+  await page.reload();
+  await expect(page.locator('.connection-dot.connected')).toBeVisible();
+  await worker.evaluate(() => { (globalThis as any).__test.conflict = true; });
   await expect(editor).toContainText('My unsaved draft.');
   await page
     .getByRole('button', { name: /Guardar nota|Save note/, exact: true })
@@ -294,7 +312,8 @@ test('offers labeled manual contact entry, validates and applies Many to contact
 test('uses Desktop rich-text shortcuts and sends the latest draft to Many', async () => {
   await page.getByRole('tab', { name: /Notas|Notes/ }).click();
   const editor = page.locator('#dome-pane-note .ProseMirror');
-  await page.getByRole('combobox', { name: /Notas|Notes/ }).selectOption('');
+  await page.getByRole('combobox', { name: /Notas|Notes/ }).click();
+  await page.getByRole('option', { name: /Nueva nota|New note/ }).click();
   await expect(editor).toHaveText('');
   await editor.pressSequentially('# Heading');
   await editor.press('Enter');
@@ -304,7 +323,7 @@ test('uses Desktop rich-text shortcuts and sends the latest draft to Many', asyn
     .getByRole('button', { name: /Mejorar borrador|Improve draft/ })
     .click();
   await expect(
-    page.locator('#dome-pane-note .rendered-markdown'),
+    page.locator('.many-assistant .rendered-markdown').last(),
   ).toContainText('A useful insight');
   const sent = await worker.evaluate(() =>
     (globalThis as any).__test.requests.find((request: any) =>
@@ -334,12 +353,61 @@ test('stops Many without appending late output and permits a new request', async
     .getByRole('button', { name: /Resumir página|Summarize page/ })
     .click();
   await page.getByRole('button', { name: /Detener|Stop/, exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: /Resumir página|Summarize page/ }),
-  ).toBeEnabled();
-  await page
-    .getByRole('button', { name: /Ideas clave|Key ideas/, exact: true })
-    .click();
+  await page.getByRole('textbox', { name: /Preguntar a Many|Ask Many/, exact: true }).fill('Key ideas please');
+  await page.getByRole('button', { name: /Preguntar a Many|Ask Many/, exact: true }).click();
   await expect(page.locator('.rendered-markdown h2')).toHaveText('Key ideas');
   await expect(page.locator('.rendered-markdown li')).toHaveCount(1);
+});
+
+
+test('continues a Desktop conversation and uses the same thread across tasks', async () => {
+  await page.getByRole('button', { name: /Historial|History/ }).click();
+  await page.getByRole('combobox', { name: /Conversaciones de Many|Many conversations/ }).click();
+  await page.getByRole('option', { name: 'Desktop conversation' }).click();
+  await expect(page.locator('.many-transcript')).toContainText('Earlier answer');
+  await page.getByRole('textbox', { name: /Preguntar a Many|Ask Many/, exact: true }).fill('Continue this');
+  await page.getByRole('button', { name: /Preguntar a Many|Ask Many/, exact: true }).click();
+  await expect(page.locator('.rendered-markdown h2')).toHaveText('Key ideas');
+  await page.getByRole('tab', { name: /Notas|Notes/ }).click();
+  await expect(page.locator('.many-transcript')).toContainText('Earlier answer');
+  const request = await worker.evaluate(() => (globalThis as any).__test.requests.find((r: any) => r.url.endsWith('/ai/stream')));
+  expect(request.body.threadId).toBe('desktop-session');
+});
+
+test('refreshes context after navigation and provides page tools without injecting UI', async () => {
+  await page.getByText(/Herramientas de página|Page tools/, { exact: true }).click();
+  await page.getByRole('textbox', { name: /Buscar texto en la página|Find text on this page/ }).fill('technology');
+  await page.getByRole('button', { name: /Buscar|Find/, exact: true }).click();
+  await expect(page.getByText(/Listo|Done/, { exact: true })).toBeVisible();
+  await expect(sourcePage.locator('dome-capture-panel, .dome-panel')).toHaveCount(0);
+  await sourcePage.goto('https://dome-fixture.test/another-page');
+  await page.bringToFront();
+  await page.getByRole('button', { name: /Actualizar|Refresh/, exact: true }).click();
+  await page.getByRole('tab', { name: /Capturar|Capture/ }).click();
+  await expect(page.locator('.source-url')).toHaveText('https://dome-fixture.test/another-page');
+});
+
+
+test('opens Many first and executes read and create-note tools inside the conversation', async () => {
+  await expect(page.getByRole('tab', { name: 'Many', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await worker.evaluate(() => { (globalThis as any).__test.agentMode = 'note'; });
+  await page.getByRole('textbox', { name: /Preguntar a Many|Ask Many/, exact: true }).fill('Read this page and create a note');
+  await page.getByRole('button', { name: /Preguntar a Many|Ask Many/, exact: true }).click();
+  await expect(page.locator('.many-transcript')).toContainText('Action completed.');
+  await expect(page.locator('.agent-steps')).toContainText(/Crear nota|Create note/);
+  const request = await worker.evaluate(() => (globalThis as any).__test.requests.find((r: any) => r.url.endsWith('/notes') && r.method === 'POST'));
+  expect(request.body.title).toBe('Agent note');
+  expect(request.body.markdown).toContain('https://dome-fixture.test/article');
+  await page.locator('.dome-panel').screenshot({ path: '/tmp/dome-extension-agent.png' });
+});
+
+test('previews a form action and fills the exact inspected element after confirmation', async () => {
+  await worker.evaluate(() => { (globalThis as any).__test.agentMode = 'fill'; });
+  await page.getByRole('textbox', { name: /Preguntar a Many|Ask Many/, exact: true }).fill('Fill the search field with Ada Lovelace');
+  await page.getByRole('button', { name: /Preguntar a Many|Ask Many/, exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('Search fixture');
+  await expect(sourcePage.getByRole('textbox', { name: 'Search fixture' })).toHaveValue('');
+  await page.getByRole('button', { name: /Ejecutar acción|Execute action/, exact: true }).click();
+  await expect(sourcePage.getByRole('textbox', { name: 'Search fixture' })).toHaveValue('Ada Lovelace');
+  await expect(page.locator('.many-transcript')).toContainText('Action completed.');
 });

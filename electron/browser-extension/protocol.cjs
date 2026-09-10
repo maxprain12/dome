@@ -21,7 +21,7 @@ const EXTENSION_PROTOCOLS = new Set([
 ]);
 
 const IdentitySourceSchema = z.enum([
-  'social_linkedin',
+  'social_linkedin', 'github',
   'social_instagram',
   'social_x',
   'website',
@@ -78,6 +78,8 @@ const CaptureUrlBodySchema = z.object({
 });
 
 const AiStreamBodySchema = z.object({
+  browserTools: z.boolean().optional(),
+  threadId: z.string().regex(/^[a-zA-Z0-9:_-]{1,120}$/).optional(),
   action: z.enum(['summarize', 'key_ideas', 'ask']),
   text: z.string().min(1).max(MAX_PAGE_TEXT_CHARS),
   prompt: z.string().max(4_000).optional(),
@@ -85,6 +87,8 @@ const AiStreamBodySchema = z.object({
   title: z.string().max(300).optional(),
   streamId: z.string().min(1).max(80).optional(),
 });
+
+const AiToolResultBodySchema = z.object({ streamId: z.string().min(1).max(80), callId: z.string().uuid(), result: z.record(z.string(), z.unknown()) });
 
 const AiCancelBodySchema = z.object({
   streamId: z.string().min(1).max(80),
@@ -132,6 +136,7 @@ module.exports = {
   CaptureUrlBodySchema,
   AiStreamBodySchema,
   AiCancelBodySchema,
+  AiToolResultBodySchema,
   isAllowedExtensionOrigin,
   corsHeaders,
 };

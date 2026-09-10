@@ -211,3 +211,50 @@ describe('browser extension HTTP server', () => {
     assert.match(sse, /Hello from Many/);
   });
 });
+
+describe('Many browser sessions', () => {
+  function service(runManyAgent = async () => ({})) {
+    const metas = [{ id: 'desktop-session', updatedAt: 2 }, { id: 'canvas-hidden', updatedAt: 1 }];
+    const repo = { list: async () => metas, open: async () => ({ buildContext: async () => ({ messages: [{ role: 'user', content: 'Earlier question' }, { role: 'assistant', content: [{ type: 'text', text: 'Earlier answer' }, { type: 'thinking', thinking: 'Private reasoning' }] }] }) }) };
+    return createManyService({ getDatabase: () => ({}), resolveProviderConfig: async () => ({ provider: 'test', model: 'test' }), runManyAgent,
+      getBridge: () => ({ SESSION_CWD: 'dome', getSessionRepo: async () => repo, findSessionMetadata: async id => metas.find(meta => meta.id === id), isRootSessionMeta: meta => !meta.id.startsWith('canvas-') }),
+    });
+  }
+  it('lists root conversations and exposes only user-facing text', async () => {
+    const many = service();
+    assert.deepEqual((await many.listSessions()).sessions.map(s => s.id), ['desktop-session']);
+    const state = await many.readSession('desktop-session');
+    assert.equal(state.messages[1].text, 'Earlier answer');
+    await assert.rejects(many.readSession('canvas-hidden'), /not available/);
+  });
+  it('continues an existing thread and validates new conversation ids', async () => {
+    const calls = [];
+    const many = service(async options => { calls.push(options); });
+    await many.stream({ action: 'ask', text: 'Current page', prompt: 'Continue', threadId: 'desktop-session', streamId: 'one' });
+    await many.stream({ action: 'ask', text: 'Next page', prompt: 'Next', threadId: 'desktop-session', streamId: 'two' });
+    assert.deepEqual(calls.map(call => call.threadId), ['desktop-session', 'desktop-session']);
+    assert.match(calls[1].messages[1].content, /Next page/);
+    await assert.rejects(many.stream({ action: 'ask', text: 'x', threadId: 'unknown' }), /not available/);
+    await assert.rejects(many.stream({ action: 'ask', text: 'x', threadId: 'canvas-hidden' }), /not available/);
+  });
+});
+
+it('executes browser tools through authenticated request/result round trips', async () => {
+  let many;
+  const results = [];
+  many = createManyService({ getDatabase: () => ({}), resolveProviderConfig: async () => ({ provider: 'test', model: 'test' }),
+    runManyAgent: async ({ browserTools, signal }) => {
+      assert.ok(browserTools.some(tool => tool.name === 'dome_create_note'));
+      const read = browserTools.find(tool => tool.name === 'browser_read_page');
+      results.push(await read.execute('call', {}, signal));
+      await assert.rejects(browserTools.find(tool => tool.name === 'browser_click').execute('call', { snapshotId: 123 }, signal));
+    },
+  });
+  await many.stream({ action: 'ask', text: 'page', browserTools: true, clientId: 'paired-client', streamId: 'stream', onChunk: event => {
+    if (event.type !== 'browser_tool') return;
+    assert.throws(() => many.completeTool({ ...event, clientId: 'other-client', result: {} }), /not available/);
+    many.completeTool({ ...event, clientId: 'paired-client', result: { success: true, title: 'Real page' } });
+    assert.throws(() => many.completeTool({ ...event, clientId: 'paired-client', result: {} }), /not available/);
+  } });
+  assert.match(results[0].content[0].text, /Real page/);
+});
