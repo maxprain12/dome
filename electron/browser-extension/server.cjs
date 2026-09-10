@@ -196,6 +196,66 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     }
   }
 
+  const STATIC_ROUTES = new Map([
+    [
+      'GET /v1/health',
+      (_req, res, origin) =>
+        json(res, 200, { success: true, data: { ok: true, version: PROTOCOL_VERSION, port: listenPort } }, origin),
+    ],
+    ['POST /v1/pair', (req, res, origin) => handlePair(req, res, origin)],
+    [
+      'GET /v1/context',
+      (req, res, origin) => handleAuthorizedJson(req, res, origin, null, async () => capture.context()),
+    ],
+    [
+      'GET /v1/projects',
+      (req, res, origin) =>
+        handleAuthorizedJson(req, res, origin, null, async () => ({ projects: capture.listProjects() })),
+    ],
+    [
+      'GET /v1/notes',
+      (req, res, origin, url) =>
+        handleAuthorizedJson(req, res, origin, null, async () => ({
+          notes: capture.listNotes(url.searchParams.get('projectId') || undefined),
+        })),
+    ],
+    [
+      'POST /v1/notes',
+      (req, res, origin) =>
+        handleAuthorizedJson(req, res, origin, CreateNoteBodySchema, async (body) => capture.createNote(body)),
+    ],
+    [
+      'POST /v1/contact',
+      (req, res, origin) =>
+        handleAuthorizedJson(req, res, origin, ContactBodySchema, async (body) => capture.saveContact(body)),
+    ],
+    [
+      'POST /v1/capture-url',
+      (req, res, origin) =>
+        handleAuthorizedJson(req, res, origin, CaptureUrlBodySchema, async (body) => capture.saveUrl(body)),
+    ],
+    ['POST /v1/ai/stream', (req, res, origin) => handleAiStream(req, res, origin)],
+    [
+      'POST /v1/ai/cancel',
+      (req, res, origin) =>
+        handleAuthorizedJson(req, res, origin, AiCancelBodySchema, async (body) => many.cancel(body.streamId)),
+    ],
+  ]);
+
+  async function handleNoteResource(req, res, origin, id) {
+    if (req.method === 'GET') {
+      await handleAuthorizedJson(req, res, origin, null, async () => capture.getNote(id));
+      return;
+    }
+    if (req.method === 'PUT') {
+      await handleAuthorizedJson(req, res, origin, UpdateNoteBodySchema, async (body) =>
+        capture.updateNote(id, body),
+      );
+      return;
+    }
+    json(res, 404, { success: false, error: 'Not found' }, origin);
+  }
+
   async function route(req, res) {
     const origin = requireOrigin(req, res);
     if (origin == null) return;
@@ -209,42 +269,15 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
     const url = new URL(req.url || '/', `http://${HOST}`);
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
-    if (req.method === 'GET' && path === '/v1/health') {
-      json(res, 200, { success: true, data: { ok: true, version: PROTOCOL_VERSION, port: listenPort } }, origin);
-      return;
-    }
-
-    if (req.method === 'POST' && path === '/v1/pair') {
-      await handlePair(req, res, origin);
-      return;
-    }
-
-    if (req.method === 'GET' && path === '/v1/context') {
-      await handleAuthorizedJson(req, res, origin, null, async () => capture.context());
-      return;
-    }
-
-    if (req.method === 'GET' && path === '/v1/projects') {
-      await handleAuthorizedJson(req, res, origin, null, async () => ({ projects: capture.listProjects() }));
-      return;
-    }
-
-    if (req.method === 'GET' && path === '/v1/notes') {
-      await handleAuthorizedJson(req, res, origin, null, async () => ({
-        notes: capture.listNotes(url.searchParams.get('projectId') || undefined),
-      }));
+    const handler = STATIC_ROUTES.get(`${req.method} ${path}`);
+    if (handler) {
+      await handler(req, res, origin, url);
       return;
     }
 
     const noteMatch = /^\/v1\/notes\/([^/]+)$/.exec(path);
-    if (noteMatch && req.method === 'GET') {
-      await handleAuthorizedJson(req, res, origin, null, async () => capture.getNote(noteMatch[1]));
-      return;
-    }
-    if (noteMatch && req.method === 'PUT') {
-      await handleAuthorizedJson(req, res, origin, UpdateNoteBodySchema, async (body) =>
-        capture.updateNote(noteMatch[1], body),
-      );
+    if (noteMatch && (req.method === 'GET' || req.method === 'PUT')) {
+      await handleNoteResource(req, res, origin, noteMatch[1]);
       return;
     }
 
@@ -253,31 +286,6 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       await handleAuthorizedJson(req, res, origin, AppendNoteBodySchema, async (body) =>
         capture.appendSelection(appendMatch[1], body),
       );
-      return;
-    }
-
-    if (req.method === 'POST' && path === '/v1/notes') {
-      await handleAuthorizedJson(req, res, origin, CreateNoteBodySchema, async (body) => capture.createNote(body));
-      return;
-    }
-
-    if (req.method === 'POST' && path === '/v1/contact') {
-      await handleAuthorizedJson(req, res, origin, ContactBodySchema, async (body) => capture.saveContact(body));
-      return;
-    }
-
-    if (req.method === 'POST' && path === '/v1/capture-url') {
-      await handleAuthorizedJson(req, res, origin, CaptureUrlBodySchema, async (body) => capture.saveUrl(body));
-      return;
-    }
-
-    if (req.method === 'POST' && path === '/v1/ai/stream') {
-      await handleAiStream(req, res, origin);
-      return;
-    }
-
-    if (req.method === 'POST' && path === '/v1/ai/cancel') {
-      await handleAuthorizedJson(req, res, origin, AiCancelBodySchema, async (body) => many.cancel(body.streamId));
       return;
     }
 
