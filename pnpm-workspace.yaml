@@ -31,3 +31,5 @@ allowBuilds:
   onnxruntime-node: false
   '@google/genai': false
   '@sentry/cli': true
+  # Legacy web-ext fallback; supported Node versions already provide spawnSync.
+  spawn-sync: false
