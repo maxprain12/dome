@@ -843,6 +843,31 @@ declare global {
         };
       };
 
+      browserExtension: {
+        status: () => Promise<{
+          success: boolean;
+          data?: {
+            running: boolean;
+            port: number | null;
+            version?: number;
+            pairing?: { active: boolean; expiresAt: number | null };
+            clients?: Array<{ id: string; name: string; createdAt: number; lastSeenAt: number }>;
+          };
+          error?: string;
+        }>;
+        pairStart: () => Promise<{
+          success: boolean;
+          data?: { code: string; expiresAt: number };
+          error?: string;
+        }>;
+        pairCancel: () => Promise<{ success: boolean; data?: { cancelled: boolean }; error?: string }>;
+        revoke: (payload: { clientId: string }) => Promise<{
+          success: boolean;
+          data?: { revoked: boolean };
+          error?: string;
+        }>;
+      };
+
       people: {
         list: (payload?: string | { projectId?: string; leadStatus?: string; limit?: number }) => Promise<{
           success: boolean;

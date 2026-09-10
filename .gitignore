@@ -9,6 +9,12 @@ out
 dist
 *.tgz
 
+# Browser extension (WXT)
+extensions/browser/.output
+extensions/browser/.wxt
+extensions/browser/test-results
+extensions/browser/playwright-report
+
 # code coverage
 coverage
 

@@ -66,6 +66,7 @@ const claudeOAuthHandlers = require('./integrations/claude-oauth.cjs');
 const openaiCodexOAuthHandlers = require('./integrations/openai-codex-oauth.cjs');
 const githubHandlers = require('./integrations/github.cjs');
 const peopleHandlers = require('./integrations/people.cjs');
+const browserExtensionHandlers = require('./integrations/browser-extension.cjs');
 
 let _ipcRegistered = false;
 
@@ -194,6 +195,7 @@ function registerAll(deps) {
   openaiCodexOAuthHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   githubHandlers.register({ ipcMain: secureIpcMain, windowManager });
   peopleHandlers.register({ ipcMain: secureIpcMain, windowManager });
+  browserExtensionHandlers.register({ ipcMain: secureIpcMain, windowManager });
 }
 
 module.exports = { registerAll };

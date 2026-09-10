@@ -1,0 +1,21 @@
+{
+  "title": "Extensão do navegador",
+  "subtitle": "Emparelhe a extensão Dome para guardar contactos, notas e ligações a partir do Chrome, Edge, Firefox ou Safari.",
+  "status_label": "Ponte local",
+  "bridge": "Ligação",
+  "bridge_desc": "O Dome escuta em localhost para a extensão enviar capturas enquanto a app está aberta.",
+  "status_running": "A correr na porta {{port}}",
+  "status_stopped": "Parado — abra o Dome para capturar",
+  "refresh": "Atualizar",
+  "pair_label": "Emparelhamento",
+  "pair_code": "Código de emparelhamento",
+  "pair_desc": "Gere um código no Dome e cole-o na extensão. Expira em 10 minutos.",
+  "generate_code": "Gerar código",
+  "cancel_code": "Cancelar código",
+  "code_expires": "Válido por 10 minutos. Não o partilhe.",
+  "clients_label": "Navegadores emparelhados",
+  "no_clients": "Ainda não há navegadores emparelhados.",
+  "client_seen": "Emparelhado com esta biblioteca Dome",
+  "revoke": "Revogar",
+  "error_generic": "Não foi possível atualizar a ponte da extensão."
+}

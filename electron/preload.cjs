@@ -746,6 +746,11 @@ const ALLOWED_CHANNELS = {
     'people:ingest',
     'people:delete',
     'people:enrich',
+    // Browser extension local bridge
+    'browser-extension:status',
+    'browser-extension:pair-start',
+    'browser-extension:pair-cancel',
+    'browser-extension:revoke',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -1277,6 +1282,16 @@ const electronHandler = {
     repo: {
       setLocalPath: (payload) => ipcRenderer.invoke('coding:repo:setLocalPath', payload),
     },
+  },
+
+  // ============================================
+  // BROWSER EXTENSION BRIDGE
+  // ============================================
+  browserExtension: {
+    status: () => ipcRenderer.invoke('browser-extension:status'),
+    pairStart: () => ipcRenderer.invoke('browser-extension:pair-start'),
+    pairCancel: () => ipcRenderer.invoke('browser-extension:pair-cancel'),
+    revoke: (payload) => ipcRenderer.invoke('browser-extension:revoke', payload),
   },
 
   // ============================================

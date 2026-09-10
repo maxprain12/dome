@@ -1,0 +1,21 @@
+{
+  "title": "Browser extension",
+  "subtitle": "Pair the Dome extension to save contacts, notes and links from Chrome, Edge, Firefox or Safari.",
+  "status_label": "Local bridge",
+  "bridge": "Connection",
+  "bridge_desc": "Dome listens on localhost so the extension can send captures while the app is open.",
+  "status_running": "Running on port {{port}}",
+  "status_stopped": "Stopped — open Dome to capture",
+  "refresh": "Refresh",
+  "pair_label": "Pairing",
+  "pair_code": "Pairing code",
+  "pair_desc": "Generate a code in Dome, then paste it into the extension. Codes expire in 10 minutes.",
+  "generate_code": "Generate code",
+  "cancel_code": "Cancel code",
+  "code_expires": "Valid for 10 minutes. Do not share it.",
+  "clients_label": "Paired browsers",
+  "no_clients": "No browsers paired yet.",
+  "client_seen": "Paired with this Dome library",
+  "revoke": "Revoke",
+  "error_generic": "Could not update the browser extension bridge."
+}

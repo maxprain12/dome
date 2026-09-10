@@ -1,0 +1,21 @@
+{
+  "title": "Extension de navigateur",
+  "subtitle": "Associez l'extension Dome pour enregistrer contacts, notes et liens depuis Chrome, Edge, Firefox ou Safari.",
+  "status_label": "Pont local",
+  "bridge": "Connexion",
+  "bridge_desc": "Dome écoute en localhost pour que l'extension envoie des captures tant que l'app est ouverte.",
+  "status_running": "Actif sur le port {{port}}",
+  "status_stopped": "Arrêté — ouvrez Dome pour capturer",
+  "refresh": "Actualiser",
+  "pair_label": "Association",
+  "pair_code": "Code d'association",
+  "pair_desc": "Générez un code dans Dome puis collez-le dans l'extension. Il expire au bout de 10 minutes.",
+  "generate_code": "Générer un code",
+  "cancel_code": "Annuler le code",
+  "code_expires": "Valable 10 minutes. Ne le partagez pas.",
+  "clients_label": "Navigateurs associés",
+  "no_clients": "Aucun navigateur associé pour le moment.",
+  "client_seen": "Associé à cette bibliothèque Dome",
+  "revoke": "Révoquer",
+  "error_generic": "Impossible de mettre à jour le pont de l'extension."
+}

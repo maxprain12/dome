@@ -21,7 +21,8 @@
     "calendar": "Calendar",
     "email": "Email",
     "dome_mcp": "Dome as MCP",
-    "social": "Social"
+    "social": "Social",
+    "browser_extension": "Browser extension"
   },
   "groups": {
     "account": "Account",

@@ -14,6 +14,7 @@ import {
   PaintBoardIcon,
   Plug02Icon,
   PuzzleIcon,
+  Link01Icon,
   ServerStack01Icon,
   Settings01Icon,
   Share08Icon,
@@ -43,7 +44,8 @@ export type SettingsSection =
   | 'kb_llm'
   | 'calendar'
   | 'email'
-  | 'social';
+  | 'social'
+  | 'browser_extension';
 
 /** Sections reachable from the nav (legacy aliases resolve into these). */
 type NavSection = Exclude<SettingsSection, 'transcription'>;
@@ -92,6 +94,7 @@ const GROUP_DEFS: GroupDef[] = [
   {
     labelKey: 'settings.groups.automation_extensions',
     sections: [
+      { id: 'browser_extension', icon: Link01Icon },
       { id: 'mcp', icon: Plug02Icon },
       { id: 'dome_mcp', icon: ServerStack01Icon },
       { id: 'skills', icon: MagicWand01Icon },
@@ -118,6 +121,7 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   language: lazy(() => import('./sections/LanguageSection')),
   features: lazy(() => import('./sections/FeaturesSection')),
   ai: lazy(() => import('./sections/AISection')),
+  browser_extension: lazy(() => import('./sections/BrowserExtensionSection')),
   mcp: lazy(() => import('./sections/McpSection')),
   dome_mcp: lazy(() => import('./sections/DomeMcpSection')),
   skills: lazy(() => import('./sections/SkillsSection')),
