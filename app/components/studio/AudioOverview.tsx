@@ -71,6 +71,366 @@ function getSpeakerColor(speaker: string): string {
   return 'var(--muted-foreground)';
 }
 
+function computeProgress(currentTime: number, duration: number): number {
+  return duration > 0 ? (currentTime / duration) * 100 : 0;
+}
+
+// =============================================================================
+// Sub-components
+// =============================================================================
+
+interface AudioHeaderProps {
+  title?: string;
+  formatLabel: string;
+  onClose?: () => void;
+  closeLabel: string;
+}
+
+function AudioHeader({ title, formatLabel, onClose, closeLabel }: AudioHeaderProps) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border">
+      <div className="flex items-center gap-2 min-w-0">
+        <HugeiconsIcon icon={Mic01Icon} size={16} className="text-primary" />
+        <h3 className="text-sm font-semibold truncate text-foreground">
+          {title || 'Audio Overview'}
+        </h3>
+        <span
+          className="text-xs px-2 py-0.5 rounded-full shrink-0"
+          style={{
+            background: 'var(--muted)',
+            color: 'var(--muted-foreground)',
+          }}
+        >
+          {formatLabel}
+        </span>
+      </div>
+      {onClose && (
+        <Button
+          type="button"
+          onClick={onClose}
+          variant="ghost"
+          className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          aria-label={closeLabel}
+          title={closeLabel}
+        >
+          <HugeiconsIcon icon={Cancel01Icon} size={16} />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function GeneratingIndicator() {
+  return (
+    <div
+      className="flex items-center justify-center gap-3 px-4 py-6 border-b shrink-0"
+      style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
+    >
+      <HugeiconsIcon icon={Loading03Icon} size={20} className="animate-spin text-primary" />
+      <span className="text-sm text-muted-foreground">Generating audio...</span>
+    </div>
+  );
+}
+
+function NoAudioIndicator() {
+  return (
+    <div
+      className="flex items-center justify-center gap-2 p-4 border-b shrink-0"
+      style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
+    >
+      <HugeiconsIcon icon={Mic01Icon} size={16} className="text-muted-foreground" />
+      <span className="text-xs text-muted-foreground">
+        No audio generated yet. Transcript only.
+      </span>
+    </div>
+  );
+}
+
+interface ProgressBarProps {
+  progress: number;
+  onSeek: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSeekKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  ariaLabel: string;
+  inputRef: React.RefObject<HTMLInputElement>;
+}
+
+function ProgressBar({ progress, onSeek, onSeekKeyDown, ariaLabel, inputRef }: ProgressBarProps) {
+  return (
+    <input
+      ref={inputRef}
+      type="range"
+      min={0}
+      max={100}
+      step={0.1}
+      value={progress}
+      aria-label={ariaLabel}
+      className="w-full h-1.5 rounded-full cursor-pointer mb-3 accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-muted"
+      onChange={onSeek}
+      onKeyDown={onSeekKeyDown}
+    />
+  );
+}
+
+interface PlayPauseButtonProps {
+  isPlaying: boolean;
+  onClick: () => void;
+}
+
+function PlayPauseButton({ isPlaying, onClick }: PlayPauseButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-center size-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      style={{
+        background: 'var(--primary)',
+        color: 'var(--primary-foreground)',
+      }}
+      aria-label={isPlaying ? 'Pause' : 'Play'}
+      title={isPlaying ? 'Pause' : 'Play'}
+    >
+      {isPlaying ? (
+        <HugeiconsIcon icon={PauseIcon} size={18} />
+      ) : (
+        <HugeiconsIcon icon={PlayIcon} size={18} className="ml-0.5" />
+      )}
+    </button>
+  );
+}
+
+interface SkipButtonProps {
+  direction: 'forward' | 'backward';
+  onClick: () => void;
+}
+
+function SkipButton({ direction, onClick }: SkipButtonProps) {
+  const isForward = direction === 'forward';
+  return (
+    <Button
+      type="button"
+      onClick={onClick}
+      variant="ghost"
+      className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      aria-label={isForward ? 'Forward 15 seconds' : 'Rewind 15 seconds'}
+      title={isForward ? 'Forward 15s' : 'Rewind 15s'}
+    >
+      <HugeiconsIcon
+        icon={isForward ? NextIcon : PreviousIcon}
+        size={16}
+        className="text-muted-foreground"
+      />
+    </Button>
+  );
+}
+
+interface MuteButtonProps {
+  isMuted: boolean;
+  onClick: () => void;
+}
+
+function MuteButton({ isMuted, onClick }: MuteButtonProps) {
+  return (
+    <Button
+      type="button"
+      onClick={onClick}
+      variant="ghost"
+      className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      aria-label={isMuted ? 'Unmute' : 'Mute'}
+      title={isMuted ? 'Unmute' : 'Mute'}
+    >
+      <HugeiconsIcon
+        icon={isMuted ? VolumeOffIcon : VolumeHighIcon}
+        size={14}
+        className="text-muted-foreground"
+      />
+    </Button>
+  );
+}
+
+interface PlaybackSpeedButtonProps {
+  speed: number;
+  onClick: () => void;
+}
+
+function PlaybackSpeedButton({ speed, onClick }: PlaybackSpeedButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs font-semibold px-1.5 py-0.5 rounded transition-colors"
+      style={{
+        color: 'var(--muted-foreground)',
+        background: 'var(--muted)',
+      }}
+      title="Playback speed"
+    >
+      {speed}x
+    </button>
+  );
+}
+
+interface PlayerControlsProps {
+  progress: number;
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+  isMuted: boolean;
+  playbackSpeed: number;
+  progressBarRef: React.RefObject<HTMLInputElement>;
+  onSeek: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSeekKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onTogglePlay: () => void;
+  onSkipForward: () => void;
+  onSkipBackward: () => void;
+  onToggleMute: () => void;
+  onCycleSpeed: () => void;
+  seekAriaLabel: string;
+}
+
+function PlayerControls({
+  progress,
+  currentTime,
+  duration,
+  isPlaying,
+  isMuted,
+  playbackSpeed,
+  progressBarRef,
+  onSeek,
+  onSeekKeyDown,
+  onTogglePlay,
+  onSkipForward,
+  onSkipBackward,
+  onToggleMute,
+  onCycleSpeed,
+  seekAriaLabel,
+}: PlayerControlsProps) {
+  return (
+    <div className="p-4 border-b shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <ProgressBar
+        progress={progress}
+        onSeek={onSeek}
+        onSeekKeyDown={onSeekKeyDown}
+        ariaLabel={seekAriaLabel}
+        inputRef={progressBarRef}
+      />
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-mono tabular-nums w-20 text-muted-foreground">
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
+        <div className="flex items-center gap-2">
+          <SkipButton direction="backward" onClick={onSkipBackward} />
+          <PlayPauseButton isPlaying={isPlaying} onClick={onTogglePlay} />
+          <SkipButton direction="forward" onClick={onSkipForward} />
+        </div>
+        <div className="flex items-center gap-2 w-20 justify-end">
+          <MuteButton isMuted={isMuted} onClick={onToggleMute} />
+          <PlaybackSpeedButton speed={playbackSpeed} onClick={onCycleSpeed} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface PlayerSectionProps extends PlayerControlsProps {
+  isGenerating: boolean;
+  hasAudio: boolean;
+}
+
+function PlayerSection({ isGenerating, hasAudio, ...controls }: PlayerSectionProps) {
+  if (isGenerating) return <GeneratingIndicator />;
+  if (!hasAudio) return <NoAudioIndicator />;
+  return <PlayerControls {...controls} />;
+}
+
+interface TranscriptLineProps {
+  line: AudioTranscript['lines'][number];
+  isActive: boolean;
+  speakerColor: string;
+  onClick: () => void;
+  refSetter: (el: HTMLDivElement | null) => void;
+}
+
+function TranscriptLine({
+  line,
+  isActive,
+  speakerColor,
+  onClick,
+  refSetter,
+}: TranscriptLineProps) {
+  return (
+    <button
+      type="button"
+      ref={refSetter as unknown as React.Ref<HTMLButtonElement>}
+      className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 w-full text-left border-0"
+      style={{
+        background: isActive ? 'var(--muted)' : 'transparent',
+        borderLeft: isActive ? `3px solid ${speakerColor}` : '3px solid transparent',
+      }}
+      onClick={onClick}
+    >
+      <div className="shrink-0 pt-0.5">
+        <span
+          className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+          style={{
+            background: isActive ? speakerColor : 'var(--muted)',
+            color: isActive ? 'var(--primary-foreground)' : speakerColor,
+          }}
+        >
+          {line.speaker}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-sm leading-relaxed"
+          style={{
+            color: isActive ? 'var(--foreground)' : 'var(--muted-foreground)',
+          }}
+        >
+          {line.text}
+        </p>
+        {line.startTime !== undefined && (
+          <span className="text-xs mt-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground">
+            {formatTime(line.startTime)}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+interface TranscriptListProps {
+  lines: AudioTranscript['lines'];
+  activeLineIndex: number;
+  transcriptRef: React.RefObject<HTMLDivElement>;
+  onLineClick: (index: number) => void;
+  onLineRef: (index: number, el: HTMLDivElement | null) => void;
+}
+
+function TranscriptList({
+  lines,
+  activeLineIndex,
+  transcriptRef,
+  onLineClick,
+  onLineRef,
+}: TranscriptListProps) {
+  return (
+    <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4">
+      <div className="max-w-2xl mx-auto flex flex-col gap-y-3">
+        {lines.map((line, index) => (
+          <TranscriptLine
+            key={index}
+            line={line}
+            isActive={index === activeLineIndex}
+            speakerColor={getSpeakerColor(line.speaker)}
+            onClick={() => onLineClick(index)}
+            refSetter={(el) => onLineRef(index, el)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -287,225 +647,46 @@ export default function AudioOverview({
   // Render
   // -------------------------------------------------------
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const progress = computeProgress(currentTime, duration);
   const hasAudio = !!audioUrl && isAudioLoaded;
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <HugeiconsIcon icon={Mic01Icon} size={16} className="text-primary" />
-          <h3
-            className="text-sm font-semibold truncate text-foreground"
-          >
-            {title || 'Audio Overview'}
-          </h3>
-          <span
-            className="text-xs px-2 py-0.5 rounded-full shrink-0"
-            style={{
-              background: 'var(--muted)',
-              color: 'var(--muted-foreground)',
-            }}
-          >
-            {getFormatLabel(transcript.format)}
-          </span>
-        </div>
-        {onClose && (
-          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
-            <HugeiconsIcon icon={Cancel01Icon} size={16} />
-          </Button>
-        )}
-      </div>
-
-      {/* Audio Player */}
-      {isGenerating ? (
-        <div
-          className="flex items-center justify-center gap-3 px-4 py-6 border-b shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
-        >
-          <HugeiconsIcon icon={Loading03Icon}
-            size={20}
-            className="animate-spin text-primary"
-          />
-          <span className="text-sm text-muted-foreground">
-            Generating audio...
-          </span>
-        </div>
-      ) : hasAudio ? (
-        <div
-          className="p-4 border-b shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
-        >
-          {/* Progress bar */}
-          <input
-            ref={progressBarRef}
-            type="range"
-            min={0}
-            max={100}
-            step={0.1}
-            value={progress}
-            aria-label={t('studio.seek_audio', { defaultValue: 'Buscar posición en audio' })}
-            className="w-full h-1.5 rounded-full cursor-pointer mb-3 accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-muted"
-            onChange={handleSeek}
-            onKeyDown={handleSeekKeyDown}
-          />
-
-          {/* Controls */}
-          <div className="flex items-center justify-between">
-            {/* Time */}
-            <span
-              className="text-xs font-mono tabular-nums w-20 text-muted-foreground"
-            >
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
-
-            {/* Center controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                onClick={skipBackward}
-                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                aria-label="Rewind 15 seconds"
-                title="Rewind 15s"
-              >
-                <HugeiconsIcon icon={PreviousIcon} size={16} className="text-muted-foreground" />
-              </Button>
-              <button
-                type="button"
-                onClick={togglePlay}
-                className="flex items-center justify-center size-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                style={{
-                  background: 'var(--primary)',
-                  color: 'var(--primary-foreground)',
-                }}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-                title={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={18} /> : <HugeiconsIcon icon={PlayIcon} size={18} className="ml-0.5" />}
-              </button>
-              <Button
-                type="button"
-                onClick={skipForward}
-                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                aria-label="Forward 15 seconds"
-                title="Forward 15s"
-              >
-                <HugeiconsIcon icon={NextIcon} size={16} className="text-muted-foreground" />
-              </Button>
-            </div>
-
-            {/* Right controls */}
-            <div className="flex items-center gap-2 w-20 justify-end">
-              <Button
-                type="button"
-                onClick={() => setIsMuted(!isMuted)}
-                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? (
-                  <HugeiconsIcon icon={VolumeOffIcon} size={14} className="text-muted-foreground" />
-                ) : (
-                  <HugeiconsIcon icon={VolumeHighIcon} size={14} className="text-muted-foreground" />
-                )}
-              </Button>
-              <button
-                type="button"
-                onClick={cyclePlaybackSpeed}
-                className="text-xs font-semibold px-1.5 py-0.5 rounded transition-colors"
-                style={{
-                  color: 'var(--muted-foreground)',
-                  background: 'var(--muted)',
-                }}
-                title="Playback speed"
-              >
-                {playbackSpeed}x
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* No audio available - show message */
-        <div
-          className="flex items-center justify-center gap-2 p-4 border-b shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
-        >
-          <HugeiconsIcon icon={Mic01Icon} size={16} className="text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">
-            No audio generated yet. Transcript only.
-          </span>
-        </div>
-      )}
-
-      {/* Transcript */}
-      <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-2xl mx-auto flex flex-col gap-y-3">
-          {transcript.lines.map((line, index) => {
-            const isActive = index === activeLineIndex;
-            const speakerColor = getSpeakerColor(line.speaker);
-
-            return (
-              <button
-                type="button"
-                key={index}
-                ref={(el) => {
-                  if (el) lineRefMap.set(index, el);
-                  else lineRefMap.delete(index);
-                }}
-                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 w-full text-left border-0"
-                style={{
-                  background: isActive ? 'var(--muted)' : 'transparent',
-                  borderLeft: isActive
-                    ? `3px solid ${speakerColor}`
-                    : '3px solid transparent',
-                }}
-                onClick={() => handleLineClick(index)}
-              >
-                {/* Speaker label */}
-                <div className="shrink-0 pt-0.5">
-                  <span
-                    className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
-                    style={{
-                      background: isActive
-                        ? speakerColor
-                        : 'var(--muted)',
-                      color: isActive
-                        ? 'var(--primary-foreground)'
-                        : speakerColor,
-                    }}
-                  >
-                    {line.speaker}
-                  </span>
-                </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm leading-relaxed"
-                    style={{
-                      color: isActive
-                        ? 'var(--foreground)'
-                        : 'var(--muted-foreground)',
-                    }}
-                  >
-                    {line.text}
-                  </p>
-                  {line.startTime !== undefined && (
-                    <span
-                      className="text-xs mt-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground"
-                    >
-                      {formatTime(line.startTime)}
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <AudioHeader
+        title={title}
+        formatLabel={getFormatLabel(transcript.format)}
+        onClose={onClose}
+        closeLabel={t('studio.close_button')}
+      />
+      <PlayerSection
+        isGenerating={isGenerating}
+        hasAudio={hasAudio}
+        progress={progress}
+        currentTime={currentTime}
+        duration={duration}
+        isPlaying={isPlaying}
+        isMuted={isMuted}
+        playbackSpeed={playbackSpeed}
+        progressBarRef={progressBarRef}
+        onSeek={handleSeek}
+        onSeekKeyDown={handleSeekKeyDown}
+        onTogglePlay={togglePlay}
+        onSkipForward={skipForward}
+        onSkipBackward={skipBackward}
+        onToggleMute={() => setIsMuted(!isMuted)}
+        onCycleSpeed={cyclePlaybackSpeed}
+        seekAriaLabel={t('studio.seek_audio', { defaultValue: 'Buscar posición en audio' })}
+      />
+      <TranscriptList
+        lines={transcript.lines}
+        activeLineIndex={activeLineIndex}
+        transcriptRef={transcriptRef}
+        onLineClick={handleLineClick}
+        onLineRef={(index, el) => {
+          if (el) lineRefMap.set(index, el);
+          else lineRefMap.delete(index);
+        }}
+      />
     </div>
   );
 }
