@@ -308,83 +308,66 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   }
 
   if (config.api_key !== undefined) {
-    if (config.provider !== undefined) {
-      await db.setSetting(`ai_api_key_${config.provider}`, config.api_key);
-    }
-    await db.setSetting('ai_api_key', config.api_key);
+    await writeProviderScopedSetting('api_key', config.provider, config.api_key);
   }
 
-  if (config.model !== undefined) {
-    await db.setSetting('ai_model', config.model);
-  }
-
-  if (config.embedding_model !== undefined) {
-    await db.setSetting('ai_embedding_model', config.embedding_model);
-  }
+  await writeStringSetting('ai_model', config.model);
+  await writeStringSetting('ai_embedding_model', config.embedding_model);
 
   if (config.base_url !== undefined) {
-    if (config.provider !== undefined) {
-      await db.setSetting(`ai_base_url_${config.provider}`, config.base_url);
-    }
-    await db.setSetting('ai_base_url', config.base_url);
+    await writeProviderScopedSetting('base_url', config.provider, config.base_url);
   }
 
-  if (config.ollama_base_url !== undefined) {
-    await db.setSetting('ollama_base_url', config.ollama_base_url);
-  }
+  await writeStringSetting('ollama_base_url', config.ollama_base_url);
+  await writeStringSetting('ollama_model', config.ollama_model);
+  await writeStringSetting('ollama_api_key', config.ollama_api_key);
+  await writeStringSetting('ollama_embedding_model', config.ollama_embedding_model);
+  await writeNumberSetting('ollama_temperature', config.ollama_temperature);
+  await writeNumberSetting('ollama_top_p', config.ollama_top_p);
+  await writeNumberSetting('ollama_num_predict', config.ollama_num_predict);
+  await writeBoolSetting('ollama_show_thinking', config.ollama_show_thinking);
 
-  if (config.ollama_model !== undefined) {
-    await db.setSetting('ollama_model', config.ollama_model);
-  }
+  await writeStringSetting('embeddings_provider', config.embeddings_provider);
+  await writeStringSetting('embeddings_api_key', config.embeddings_api_key);
+  await writeStringSetting('embeddings_model', config.embeddings_model);
+  await writeStringSetting('embeddings_base_url', config.embeddings_base_url);
+  await writeStringSetting('web_search_provider', config.web_search_provider);
+  await writeStringSetting('web_search_tavily_key', config.web_search_tavily_key);
+  await writeStringSetting('web_search_brave_key', config.web_search_brave_key);
+  await writeStringSetting('web_fetch_provider', config.web_fetch_provider);
+}
 
-  if (config.ollama_api_key !== undefined) {
-    await db.setSetting('ollama_api_key', config.ollama_api_key);
+async function writeStringSetting(key: string, value: string | undefined): Promise<void> {
+  if (value !== undefined) {
+    await db.setSetting(key, value);
   }
+}
 
-  if (config.ollama_embedding_model !== undefined) {
-    await db.setSetting('ollama_embedding_model', config.ollama_embedding_model);
+async function writeNumberSetting(key: string, value: number | undefined): Promise<void> {
+  if (value !== undefined) {
+    await db.setSetting(key, value.toString());
   }
+}
 
-  if (config.ollama_temperature !== undefined) {
-    await db.setSetting('ollama_temperature', config.ollama_temperature.toString());
+async function writeBoolSetting(key: string, value: boolean | undefined): Promise<void> {
+  if (value !== undefined) {
+    await db.setSetting(key, value ? 'true' : 'false');
   }
+}
 
-  if (config.ollama_top_p !== undefined) {
-    await db.setSetting('ollama_top_p', config.ollama_top_p.toString());
+/**
+ * Writes the per-provider credential slot (`ai_${prefix}_${provider}`) when a
+ * provider is supplied, plus the legacy/shared fallback key (`ai_${prefix}`).
+ */
+async function writeProviderScopedSetting(
+  prefix: 'api_key' | 'base_url',
+  provider: AISettings['provider'] | undefined,
+  value: string,
+): Promise<void> {
+  if (provider !== undefined) {
+    await db.setSetting(`ai_${prefix}_${provider}`, value);
   }
-
-  if (config.ollama_num_predict !== undefined) {
-    await db.setSetting('ollama_num_predict', config.ollama_num_predict.toString());
-  }
-
-  if (config.ollama_show_thinking !== undefined) {
-    await db.setSetting('ollama_show_thinking', config.ollama_show_thinking ? 'true' : 'false');
-  }
-
-  if (config.embeddings_provider !== undefined) {
-    await db.setSetting('embeddings_provider', config.embeddings_provider);
-  }
-  if (config.embeddings_api_key !== undefined) {
-    await db.setSetting('embeddings_api_key', config.embeddings_api_key);
-  }
-  if (config.embeddings_model !== undefined) {
-    await db.setSetting('embeddings_model', config.embeddings_model);
-  }
-  if (config.embeddings_base_url !== undefined) {
-    await db.setSetting('embeddings_base_url', config.embeddings_base_url);
-  }
-  if (config.web_search_provider !== undefined) {
-    await db.setSetting('web_search_provider', config.web_search_provider);
-  }
-  if (config.web_search_tavily_key !== undefined) {
-    await db.setSetting('web_search_tavily_key', config.web_search_tavily_key);
-  }
-  if (config.web_search_brave_key !== undefined) {
-    await db.setSetting('web_search_brave_key', config.web_search_brave_key);
-  }
-  if (config.web_fetch_provider !== undefined) {
-    await db.setSetting('web_fetch_provider', config.web_fetch_provider);
-  }
+  await db.setSetting(`ai_${prefix}`, value);
 }
 
 /** Subscribe to cloud-pulled settings updates (main → renderer). */
