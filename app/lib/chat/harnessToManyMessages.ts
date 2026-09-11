@@ -196,24 +196,124 @@ function parseToolResultPayload(msg: PiMessage): { result: unknown; status: 'suc
   return { result: truncateToolResultForRenderer(msg.content ?? ''), status };
 }
 
-function consumeAssistantTurn(
-  raw: unknown[],
-  startIndex: number,
-  messageIndex: number,
-): { nextIndex: number; message?: HarnessManyMessage } {
-  const toolCallsById = new Map<string, ToolCallData>();
-  const toolCallOrder: string[] = [];
-  const textParts: string[] = [];
-  const thinkingParts: string[] = [];
+type AssistantTurnState = {
+  toolCallsById: Map<string, ToolCallData>;
+  toolCallOrder: string[];
+  textParts: string[];
+  thinkingParts: string[];
   // Prose length at the moment each call was issued. The session content array
   // is already ordered, so the interleaving is recoverable here — flattening it
   // into "all text" + "all tools" is what made a reloaded turn show every card
   // above the reply.
-  const offsetByToolCallId = new Map<string, number>();
+  offsetByToolCallId: Map<string, number>;
   /** Length of `textParts.join('\n\n')` so far, tracked instead of re-joining. */
-  let joinedTextLength = 0;
-  let timestamp = Date.now();
+  joinedTextLength: number;
+  timestamp: number;
+};
 
+function createAssistantTurnState(): AssistantTurnState {
+  return {
+    toolCallsById: new Map(),
+    toolCallOrder: [],
+    textParts: [],
+    thinkingParts: [],
+    offsetByToolCallId: new Map(),
+    joinedTextLength: 0,
+    timestamp: Date.now(),
+  };
+}
+
+function appendAssistantText(state: AssistantTurnState, text: string): void {
+  if (pushAssistantTextPart(state.textParts, text)) {
+    state.joinedTextLength = state.textParts.join('\n\n').length;
+  }
+}
+
+function appendAssistantThinking(state: AssistantTurnState, thinking: string): void {
+  state.thinkingParts.push(thinking);
+}
+
+function registerAssistantToolCallBlock(
+  state: AssistantTurnState,
+  block: PiContentBlock,
+): void {
+  if (!block.id || !block.name) return;
+  if (!state.toolCallsById.has(block.id)) {
+    state.toolCallOrder.push(block.id);
+    state.offsetByToolCallId.set(block.id, state.joinedTextLength);
+  }
+  const prev = state.toolCallsById.get(block.id);
+  state.toolCallsById.set(block.id, {
+    id: block.id,
+    name: block.name,
+    arguments: block.arguments ?? prev?.arguments ?? {},
+    status: prev?.status ?? 'running',
+    result: prev?.result,
+    error: prev?.error,
+  });
+}
+
+function handleAssistantContentBlock(
+  state: AssistantTurnState,
+  block: unknown,
+): void {
+  if (!block || typeof block !== 'object') return;
+  const b = block as PiContentBlock;
+  if (b.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
+    appendAssistantText(state, b.text);
+  } else if (b.type === 'thinking' && typeof b.thinking === 'string' && b.thinking.trim()) {
+    appendAssistantThinking(state, b.thinking);
+  } else if (b.type === 'toolCall') {
+    registerAssistantToolCallBlock(state, b);
+  }
+}
+
+function handleAssistantMessage(state: AssistantTurnState, msg: PiMessage): void {
+  state.timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : state.timestamp;
+  if (Array.isArray(msg.content)) {
+    for (const block of msg.content) {
+      handleAssistantContentBlock(state, block);
+    }
+    return;
+  }
+  appendAssistantText(state, extractTextFromContent(msg.content));
+}
+
+function recordToolResult(state: AssistantTurnState, msg: PiMessage): void {
+  if (!msg.toolCallId) return;
+  const id = String(msg.toolCallId);
+  const { result, status } = parseToolResultPayload(msg);
+  const errorField =
+    status === 'error'
+      ? { error: typeof result === 'string' ? result : 'Tool error' }
+      : {};
+  const existing = state.toolCallsById.get(id);
+  if (existing) {
+    state.toolCallsById.set(id, {
+      ...existing,
+      name: existing.name || msg.toolName || 'tool',
+      status,
+      result,
+      ...errorField,
+    });
+    return;
+  }
+  if (!state.toolCallOrder.includes(id)) state.toolCallOrder.push(id);
+  state.toolCallsById.set(id, {
+    id,
+    name: msg.toolName ?? 'tool',
+    arguments: {},
+    status,
+    result,
+    ...errorField,
+  });
+}
+
+function advanceAssistantTurnIndex(
+  raw: unknown[],
+  startIndex: number,
+  state: AssistantTurnState,
+): number {
   let i = startIndex;
   while (i < raw.length) {
     const item = raw[i];
@@ -225,107 +325,87 @@ function consumeAssistantTurn(
     // Pins are persisted after the assistant turn. Stop so the outer loop
     // can attach `dome.pins` to the preceding user instead of swallowing them.
     if (msg.role === 'user' || msg.role === 'custom') break;
-
     if (msg.role === 'assistant') {
-      timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : timestamp;
-      if (Array.isArray(msg.content)) {
-        for (const block of msg.content) {
-          if (!block || typeof block !== 'object') continue;
-          const b = block as PiContentBlock;
-          if (b.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
-            if (pushAssistantTextPart(textParts, b.text)) {
-              joinedTextLength = textParts.join('\n\n').length;
-            }
-          } else if (b.type === 'thinking' && typeof b.thinking === 'string' && b.thinking.trim()) {
-            thinkingParts.push(b.thinking);
-          } else if (b.type === 'toolCall' && b.id && b.name) {
-            if (!toolCallsById.has(b.id)) {
-              toolCallOrder.push(b.id);
-              offsetByToolCallId.set(b.id, joinedTextLength);
-            }
-            const prev = toolCallsById.get(b.id);
-            toolCallsById.set(b.id, {
-              id: b.id,
-              name: b.name,
-              arguments: b.arguments ?? prev?.arguments ?? {},
-              status: prev?.status ?? 'running',
-              result: prev?.result,
-              error: prev?.error,
-            });
-          }
-        }
-      } else {
-        const text = extractTextFromContent(msg.content);
-        if (pushAssistantTextPart(textParts, text)) {
-          joinedTextLength = textParts.join('\n\n').length;
-        }
-      }
+      handleAssistantMessage(state, msg);
       i += 1;
       continue;
     }
-
-    if (msg.role === 'toolResult' && msg.toolCallId) {
-      const id = String(msg.toolCallId);
-      const { result, status } = parseToolResultPayload(msg);
-      const existing = toolCallsById.get(id);
-      if (existing) {
-        toolCallsById.set(id, {
-          ...existing,
-          name: existing.name || msg.toolName || 'tool',
-          status,
-          result,
-          ...(status === 'error' ? { error: typeof result === 'string' ? result : 'Tool error' } : {}),
-        });
-      } else {
-        if (!toolCallOrder.includes(id)) toolCallOrder.push(id);
-        toolCallsById.set(id, {
-          id,
-          name: msg.toolName ?? 'tool',
-          arguments: {},
-          status,
-          result,
-          ...(status === 'error' ? { error: typeof result === 'string' ? result : 'Tool error' } : {}),
-        });
-      }
+    if (msg.role === 'toolResult') {
+      recordToolResult(state, msg);
       i += 1;
       continue;
     }
-
     i += 1;
   }
+  return i;
+}
 
-  const rawContent = textParts.join('\n\n');
+function applyToolCallOffset(
+  tc: ToolCallData,
+  offset: number | undefined,
+  leadingTrimmed: number,
+  contentLength: number,
+): ToolCallData {
+  if (typeof offset !== 'number') return tc;
+  return {
+    ...tc,
+    contentOffset: Math.min(Math.max(offset - leadingTrimmed, 0), contentLength),
+  };
+}
+
+function finalizeAssistantToolCalls(
+  state: AssistantTurnState,
+  leadingTrimmed: number,
+  contentLength: number,
+): ToolCallData[] | undefined {
+  const toolCalls = state.toolCallOrder
+    .map((id) => state.toolCallsById.get(id))
+    .filter((tc): tc is ToolCallData => Boolean(tc))
+    .map((tc) =>
+      tc.status === 'running' ? { ...tc, status: 'success' as const } : tc,
+    )
+    .map((tc) =>
+      applyToolCallOffset(
+        tc,
+        state.offsetByToolCallId.get(tc.id),
+        leadingTrimmed,
+        contentLength,
+      ),
+    );
+  return toolCalls.length > 0 ? coalesceDuplicateToolCalls(toolCalls) : undefined;
+}
+
+function consumeAssistantTurn(
+  raw: unknown[],
+  startIndex: number,
+  messageIndex: number,
+): { nextIndex: number; message?: HarnessManyMessage } {
+  const state = createAssistantTurnState();
+  const nextIndex = advanceAssistantTurnIndex(raw, startIndex, state);
+
+  const rawContent = state.textParts.join('\n\n');
   const content = rawContent.trim();
   // `trim()` drops leading whitespace, so shift the offsets by the same amount.
   const leadingTrimmed = rawContent.length - rawContent.trimStart().length;
 
-  const toolCalls = toolCallOrder
-    .map((id) => toolCallsById.get(id))
-    .filter((tc): tc is ToolCallData => Boolean(tc))
-    .map((tc) => (tc.status === 'running' ? { ...tc, status: 'success' as const } : tc))
-    .map((tc) => {
-      const offset = offsetByToolCallId.get(tc.id);
-      if (typeof offset !== 'number') return tc;
-      return {
-        ...tc,
-        contentOffset: Math.min(Math.max(offset - leadingTrimmed, 0), content.length),
-      };
-    });
-
-  const coalescedTools = toolCalls.length > 0 ? coalesceDuplicateToolCalls(toolCalls) : undefined;
+  const coalescedTools = finalizeAssistantToolCalls(
+    state,
+    leadingTrimmed,
+    content.length,
+  );
   if (!content && !coalescedTools?.length) {
-    return { nextIndex: i };
+    return { nextIndex };
   }
 
   return {
-    nextIndex: i,
+    nextIndex,
     message: {
-      id: `msg-${timestamp}-${messageIndex}`,
+      id: `msg-${state.timestamp}-${messageIndex}`,
       role: 'assistant',
       content,
-      timestamp,
+      timestamp: state.timestamp,
       toolCalls: coalescedTools,
-      thinking: thinkingParts.length > 0 ? thinkingParts.join('\n') : undefined,
+      thinking: state.thinkingParts.length > 0 ? state.thinkingParts.join('\n') : undefined,
     },
   };
 }
