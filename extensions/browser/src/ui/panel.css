@@ -22,6 +22,7 @@ body {
   flex-direction: column;
   background: var(--background);
   overflow: hidden;
+  position: relative;
 }
 .dome-panel [hidden] {
   display: none !important;
@@ -387,41 +388,71 @@ body {
 .footer-name {
   margin-left: auto;
 }
+.pairing-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
 .pairing {
-  padding: 28px 24px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 48px 24px 32px;
   overflow-y: auto;
-}
-.pairing h1 {
-  font-size: 22px;
-  letter-spacing: -0.6px;
-  margin: 18px 0 8px;
-}
-.pairing p {
-  color: var(--muted-foreground);
-  font-size: 12px;
-}
-.pairing form {
-  display: grid;
-  gap: 16px;
-  margin-top: 24px;
-}
-.pairing input {
-  font-size: 20px;
-  letter-spacing: 5px;
-  text-transform: uppercase;
   text-align: center;
 }
-.pair-illustration {
-  display: grid;
-  place-items: center;
-  height: 44px;
-  width: 44px;
-  background: var(--brand-lime);
-  border-radius: 10px;
+.pairing-title {
+  width: 100%;
+  margin: 4px 0 0;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  text-align: center;
 }
-.pair-illustration svg {
-  width: 24px;
-  height: 24px;
+.pairing-help,
+.pairing-error {
+  width: 100%;
+  max-width: 18rem;
+  margin: 0;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pairing-error {
+  color: var(--destructive);
+}
+.pairing-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: min(100%, 18rem);
+  margin-top: 8px;
+}
+.pairing-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-align: center;
+}
+.pairing-code input {
+  width: 100%;
+  height: 2.75rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  text-align: center;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 @media (prefers-reduced-motion: reduce) {
   .dome-panel *,

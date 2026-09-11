@@ -104,7 +104,7 @@ export default function NotePane(props: Props) {
           disabled={props.busy || !props.title.trim() || !!props.conflict}
           onClick={() => props.onSave()}
         >
-          <Icon name="check" />
+          <Icon name="check" data-icon="inline-start" />
           {t(props.busy ? 'working' : 'saveNote')}
         </Button>
         <Button
@@ -114,7 +114,7 @@ export default function NotePane(props: Props) {
           title={t('selectionHint')}
           onClick={props.onQuote}
         >
-          <Icon name="plus" />
+          <Icon name="plus" data-icon="inline-start" />
           {t('addSelection')}
         </Button>
       </div>

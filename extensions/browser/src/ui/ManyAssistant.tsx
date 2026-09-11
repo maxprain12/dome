@@ -810,6 +810,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         >
           <Icon
             name={appliedMessageId === lastAssistant.id ? 'check' : 'plus'}
+            data-icon="inline-start"
           />
           {appliedMessageId === lastAssistant.id
             ? t('applied')
