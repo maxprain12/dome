@@ -331,6 +331,30 @@ function getDefaultCwd() {
 }
 
 /**
+ * Best-effort cleanup of the temp script file and (if present) the cells dir.
+ * Swallows errors so cleanup never aborts the caller.
+ * @param {string} scriptPath
+ * @param {string|null} cellsDirToClean
+ */
+function cleanupTempFiles(scriptPath, cellsDirToClean) {
+  try {
+    fs.unlinkSync(scriptPath);
+  } catch {
+    // Ignore cleanup errors
+  }
+  if (!cellsDirToClean) return;
+  try {
+    const files = fs.readdirSync(cellsDirToClean);
+    for (const f of files) {
+      fs.unlinkSync(path.join(cellsDirToClean, f));
+    }
+    fs.rmdirSync(cellsDirToClean);
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+/**
  * Run Python code and return NotebookOutput-compatible result
  * @param {string} code - Python source code
  * @param {{ cells?: string[]; targetCellIndex?: number; cwd?: string; venvPath?: string; timeoutMs?: number }} options
@@ -438,22 +462,7 @@ async function runPythonCode(code, options = {}) {
       if (settled) return;
       settled = true;
 
-      try {
-        fs.unlinkSync(scriptPath);
-      } catch {
-        // Ignore cleanup errors
-      }
-      if (cellsDirToClean) {
-        try {
-          const files = fs.readdirSync(cellsDirToClean);
-          for (const f of files) {
-            fs.unlinkSync(path.join(cellsDirToClean, f));
-          }
-          fs.rmdirSync(cellsDirToClean);
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
+      cleanupTempFiles(scriptPath, cellsDirToClean);
 
       if (stdout) {
         const collected = options.collectAllCells ? splitCollectedCellStdout(stdout) : null;
