@@ -32,7 +32,7 @@ export default function HomePage() {
 
     const delay = (ms: number) =>
       new Promise<void>((resolve) => {
-        scheduleTimeout(() => resolve(), ms);
+        scheduleTimeout(resolve, ms);
       });
 
     async function init() {

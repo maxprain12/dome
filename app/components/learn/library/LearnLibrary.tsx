@@ -19,6 +19,52 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import type { LearnDeckItem } from '@/lib/learn/types';
 
+function buildSectionLabels(t: (key: string, fallback: string) => string): Record<LearnSectionId, string> {
+  return {
+    all: t('learn.tab_all', 'All'),
+    decks: t('learn.tab_decks', 'Flashcards'),
+    mindmaps: t('learn.tab_mindmaps', 'Mind maps'),
+    quizzes: t('learn.tab_quizzes', 'Quizzes'),
+    guides: t('learn.tab_guides', 'Guides'),
+    faqs: t('learn.tab_faqs', 'FAQs'),
+    timelines: t('learn.tab_timelines', 'Timelines'),
+    tables: t('learn.tab_tables', 'Tables'),
+  };
+}
+
+function LearnEmptyFiltered({
+  activeSection,
+  searchQuery,
+}: {
+  activeSection: LearnSectionId;
+  searchQuery: string;
+}) {
+  const { t } = useTranslation();
+  const sectionLabels = buildSectionLabels(t);
+  const filterLabel = activeSection !== 'all' ? sectionLabels[activeSection] : null;
+  const isSearching = searchQuery.trim().length > 0;
+
+  return (
+    <div className="@container/learn flex h-full min-w-0 flex-col gap-4 overflow-y-auto p-4 @[36rem]/learn:p-5">
+      <LearnHeader />
+      <LearnKpiStrip />
+      <LearnStreakStrip />
+      <LearnFilterBar />
+      <Empty className="flex-none py-10 @[36rem]/learn:py-16"><EmptyHeader><EmptyTitle>
+          {isSearching
+            ? t('learn.filter_no_search', 'No results for your search')
+            : t('learn.filter_no_section', 'No {{section}} yet', {
+                section: filterLabel ?? t('learn.content', 'content'),
+              })}
+        </EmptyTitle><EmptyDescription>
+          {isSearching
+            ? t('learn.filter_no_search_sub', 'Try another term or clear the search filter.')
+            : t('learn.filter_no_section_sub', 'Generate content or switch to another category.')}
+        </EmptyDescription></EmptyHeader></Empty>
+    </div>
+  );
+}
+
 export default function LearnLibrary() {
   const { t } = useTranslation();
   const {
@@ -96,49 +142,10 @@ export default function LearnLibrary() {
   }
 
   if (filtered.length === 0) {
-    const sectionLabels: Record<LearnSectionId, string> = {
-      all: t('learn.tab_all', 'All'),
-      decks: t('learn.tab_decks', 'Flashcards'),
-      mindmaps: t('learn.tab_mindmaps', 'Mind maps'),
-      quizzes: t('learn.tab_quizzes', 'Quizzes'),
-      guides: t('learn.tab_guides', 'Guides'),
-      faqs: t('learn.tab_faqs', 'FAQs'),
-      timelines: t('learn.tab_timelines', 'Timelines'),
-      tables: t('learn.tab_tables', 'Tables'),
-    };
-    const filterLabel = activeSection !== 'all' ? sectionLabels[activeSection] : null;
-
-    return (
-      <div className="@container/learn flex h-full min-w-0 flex-col gap-4 overflow-y-auto p-4 @[36rem]/learn:p-5">
-        <LearnHeader />
-        <LearnKpiStrip />
-        <LearnStreakStrip />
-        <LearnFilterBar />
-        <Empty className="flex-none py-10 @[36rem]/learn:py-16"><EmptyHeader><EmptyTitle>
-            {searchQuery.trim()
-              ? t('learn.filter_no_search', 'No results for your search')
-              : t('learn.filter_no_section', 'No {{section}} yet', {
-                  section: filterLabel ?? t('learn.content', 'content'),
-                })}
-          </EmptyTitle><EmptyDescription>
-            {searchQuery.trim()
-              ? t('learn.filter_no_search_sub', 'Try another term or clear the search filter.')
-              : t('learn.filter_no_section_sub', 'Generate content or switch to another category.')}
-          </EmptyDescription></EmptyHeader></Empty>
-      </div>
-    );
+    return <LearnEmptyFiltered activeSection={activeSection} searchQuery={searchQuery} />;
   }
 
-  const sectionLabels: Record<LearnSectionId, string> = {
-    all: t('learn.tab_all', 'All'),
-    decks: t('learn.tab_decks', 'Flashcards'),
-    mindmaps: t('learn.tab_mindmaps', 'Mind maps'),
-    quizzes: t('learn.tab_quizzes', 'Quizzes'),
-    guides: t('learn.tab_guides', 'Guides'),
-    faqs: t('learn.tab_faqs', 'FAQs'),
-    timelines: t('learn.tab_timelines', 'Timelines'),
-    tables: t('learn.tab_tables', 'Tables'),
-  };
+  const sectionLabels = buildSectionLabels(t);
 
   const sectionTitle = activeSection !== 'all' ? sectionLabels[activeSection] : null;
   const filteredItemCount = filtered.reduce((sum, item) => sum + item.count, 0);
