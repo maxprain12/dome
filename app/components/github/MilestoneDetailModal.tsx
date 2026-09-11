@@ -31,6 +31,18 @@ function inputToDueOn(value: string): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
+function filterMilestoneIssues(
+  allIssues: GitHubIssueRow[],
+  milestoneNumber: number | undefined,
+  showClosedIssues: boolean,
+): GitHubIssueRow[] {
+  if (milestoneNumber == null) return [];
+  return allIssues
+    .filter((i) => i.milestone_number === milestoneNumber)
+    .filter((i) => showClosedIssues || i.state === 'open')
+    .sort((a, b) => b.number - a.number);
+}
+
 export default function MilestoneDetailModal({
   milestoneId,
   onClose,
@@ -81,16 +93,10 @@ export default function MilestoneDetailModal({
   const milestone = full ?? summary ?? null;
   const milestoneNumber = milestone?.number;
 
-  const issues = useMemo(() => {
-    if (milestoneNumber == null) return [];
-    const matched: typeof allIssues = [];
-    for (const i of allIssues) {
-      if (i.milestone_number !== milestoneNumber) continue;
-      if (!showClosedIssues && i.state !== 'open') continue;
-      matched.push(i);
-    }
-    return matched.sort((a, b) => b.number - a.number);
-  }, [allIssues, milestoneNumber, showClosedIssues]);
+  const issues = useMemo(
+    () => filterMilestoneIssues(allIssues, milestoneNumber, showClosedIssues),
+    [allIssues, milestoneNumber, showClosedIssues],
+  );
 
   const totalIssues = (milestone?.open_issues ?? 0) + (milestone?.closed_issues ?? 0);
   const progressPct =
@@ -155,46 +161,7 @@ export default function MilestoneDetailModal({
     </a>
   ) : null;
 
-  const footer = editing ? (
-    <div className="flex items-center justify-end gap-2 w-full">
-      <Button variant="ghost"
-  onClick={() => setEditing(false)}
-  disabled={saving}
-  size="sm">
-        {t('github.new_milestone_cancel')}
-      </Button>
-      <Button disabled={saving}
-            onClick={() => save()}
-  size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
-        {t('github.dash_save')}
-      </Button>
-    </div>
-  ) : (
-    <div className="flex items-center justify-between gap-2 w-full flex-wrap">
-      <div className="flex items-center gap-2">
-        {milestone?.state === 'open' ? (
-          <Button variant="outline"
-  disabled={saving}
-              onClick={() => setMilestoneState('closed')}
-  size="sm">
-            {t('github.dash_mark_done')}
-          </Button>
-        ) : (
-          <Button variant="outline"
-  disabled={saving}
-              onClick={() => setMilestoneState('open')}
-  size="sm">
-            {t('github.dash_reopen')}
-          </Button>
-        )}
-      </div>
-      <Button variant="secondary"
-  onClick={() => setEditing(true)}
-  size="sm">{<HugeiconsIcon icon={PencilIcon} size={13} />}
-        {t('github.dash_edit')}
-      </Button>
-    </div>
-  );
+  const footer = renderFooter();
 
   return (
     <InlineDetailCard
@@ -215,178 +182,276 @@ export default function MilestoneDetailModal({
       footer={milestone ? footer : undefined}
       size="reading"
     >
-      {loading && !milestone ? (
-        <p className="text-sm text-muted-foreground">
-          {t('github.loading')}
-        </p>
-      ) : null}
-
-      {error ? (
-        <p className="text-sm mb-3 flex items-center gap-1 text-destructive" role="alert">
-          <HugeiconsIcon icon={Cancel01Icon} size={14} />
-          {error}
-        </p>
-      ) : null}
-
-      {milestone && editing ? (
-        <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              {t('github.new_milestone_title_label')}
-            </span>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="text-base font-semibold"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              {t('github.new_milestone_description_label')}
-            </span>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="resize-y text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 max-w-xs">
-            <span className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1 text-muted-foreground">
-              <HugeiconsIcon icon={Calendar03Icon} size={11} />
-              {t('github.new_milestone_due_label')}
-            </span>
-            <DatePicker
-              value={dueDate}
-              onChange={setDueDate}
-              placeholder={t('github.new_milestone_due_placeholder')}
-            />
-          </label>
-        </div>
-      ) : null}
-
-      {milestone && !editing ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <HugeiconsIcon icon={Flag02Icon} size={14} />
-              #{milestone.number}
-            </span>
-            <span
-              className="text-xs px-2 py-0.5 rounded-full font-medium"
-              style={{
-                background: milestone.state === 'open' ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'var(--accent)',
-                color: milestone.state === 'open' ? 'var(--primary)' : 'var(--muted-foreground)',
-              }}
-            >
-              {milestone.state === 'open' ? t('github.state_open') : t('github.state_closed')}
-            </span>
-            {milestone.due_on ? (
-              <span className="inline-flex items-center gap-1">
-                <HugeiconsIcon icon={Calendar03Icon} size={14} />
-                {t('github.due_on', {
-                  date: new Date(milestone.due_on).toLocaleDateString(undefined, {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  }),
-                })}
-              </span>
-            ) : (
-              <span>{t('github.no_due_date')}</span>
-            )}
-          </div>
-
-          <div>
-            <div className="h-1.5 rounded-full overflow-hidden bg-accent">
-              <div
-                className="h-full w-full origin-left rounded-full bg-primary transition-transform [transition-duration:var(--duration-ui)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
-                style={{ transform: `scaleX(${progressPct / 100})` }}
-              />
-            </div>
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              {t('github.new_milestone_description_label')}
-            </h3>
-            {description.trim() ? (
-              <MarkdownBody
-                content={description}
-                className="max-h-48 overflow-y-auto"
-              />
-            ) : (
-              <p className="text-sm italic text-muted-foreground">{t('github.no_description')}</p>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {t('github.dash_tasks')}
-              </h3>
-              <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground">
-                <Checkbox checked={showClosedIssues} onCheckedChange={setShowClosedIssues} />
-                {t('github.dash_show_done')}
-              </label>
-            </div>
-            <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto rounded-lg p-1" style={{ border: '1px solid var(--border)' }}>
-              {issues.length === 0 ? (
-                <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
-                  {t('github.dash_section_empty')}
-                </div>
-              ) : (
-                issues.map((issue) => {
-                  const labels = parseLabels(issue.labels);
-                  return (
-                    <div
-                      key={issue.id}
-                      className="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-foreground hover:bg-accent"
-                    >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void toggleIssue(issue);
-                        }}
-                        className={
-                          issue.state === 'closed'
-                            ? 'mt-0.5 size-[18px] shrink-0 text-(--success)'
-                            : 'mt-0.5 size-[18px] shrink-0 text-muted-foreground'
-                        }
-                        aria-label={issue.state === 'open' ? t('github.dash_mark_done') : t('github.dash_reopen')}
-                      >
-                        {issue.state === 'closed' ? (
-                          <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" />
-                        ) : (
-                          <HugeiconsIcon icon={CircleIcon} className="size-3.5" />
-                        )}
-                      </Button>
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onOpenIssue(issue.id)}
-                          className="flex min-w-0 items-center gap-2 text-left"
-                        >
-                          <span className="inline-flex shrink-0 items-center gap-0.5 font-mono text-[11px] text-muted-foreground">
-                            <HugeiconsIcon icon={HashIcon} className="size-2.5" />
-                            {issue.number}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{issue.title}</span>
-                        </button>
-                        <IssueLabelPills labels={labels} max={2} />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {renderLoading()}
+      {renderError()}
+      {renderEditingForm()}
+      {renderViewMode()}
     </InlineDetailCard>
   );
+
+  function renderLoading() {
+    if (!(loading && !milestone)) return null;
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t('github.loading')}
+      </p>
+    );
+  }
+
+  function renderError() {
+    if (!error) return null;
+    return (
+      <p className="text-sm mb-3 flex items-center gap-1 text-destructive" role="alert">
+        <HugeiconsIcon icon={Cancel01Icon} size={14} />
+        {error}
+      </p>
+    );
+  }
+
+  function renderEditingForm() {
+    if (!milestone || !editing) return null;
+    return (
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t('github.new_milestone_title_label')}
+          </span>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="text-base font-semibold"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t('github.new_milestone_description_label')}
+          </span>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            className="resize-y text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 max-w-xs">
+          <span className="text-[11px] font-medium uppercase tracking-wide inline-flex items-center gap-1 text-muted-foreground">
+            <HugeiconsIcon icon={Calendar03Icon} size={11} />
+            {t('github.new_milestone_due_label')}
+          </span>
+          <DatePicker
+            value={dueDate}
+            onChange={setDueDate}
+            placeholder={t('github.new_milestone_due_placeholder')}
+          />
+        </label>
+      </div>
+    );
+  }
+
+  function renderViewMode() {
+    if (!milestone || editing) return null;
+    return (
+      <div className="flex flex-col gap-4">
+        {renderMetaRow(milestone)}
+        {renderProgressBar()}
+        {renderDescription()}
+        {renderIssuesSection()}
+      </div>
+    );
+  }
+
+  function renderMetaRow(m: MilestoneFull) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <HugeiconsIcon icon={Flag02Icon} size={14} />
+          #{m.number}
+        </span>
+        {renderStateBadge(m)}
+        {renderDueDate(m)}
+      </div>
+    );
+  }
+
+  function renderStateBadge(m: MilestoneFull) {
+    const isOpen = m.state === 'open';
+    return (
+      <span
+        className="text-xs px-2 py-0.5 rounded-full font-medium"
+        style={{
+          background: isOpen ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'var(--accent)',
+          color: isOpen ? 'var(--primary)' : 'var(--muted-foreground)',
+        }}
+      >
+        {isOpen ? t('github.state_open') : t('github.state_closed')}
+      </span>
+    );
+  }
+
+  function renderDueDate(m: MilestoneFull) {
+    if (!m.due_on) {
+      return <span>{t('github.no_due_date')}</span>;
+    }
+    return (
+      <span className="inline-flex items-center gap-1">
+        <HugeiconsIcon icon={Calendar03Icon} size={14} />
+        {t('github.due_on', {
+          date: new Date(m.due_on).toLocaleDateString(undefined, {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+        })}
+      </span>
+    );
+  }
+
+  function renderProgressBar() {
+    return (
+      <div>
+        <div className="h-1.5 rounded-full overflow-hidden bg-accent">
+          <div
+            className="h-full w-full origin-left rounded-full bg-primary transition-transform [transition-duration:var(--duration-ui)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
+            style={{ transform: `scaleX(${progressPct / 100})` }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  function renderDescription() {
+    return (
+      <div className="min-w-0">
+        <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('github.new_milestone_description_label')}
+        </h3>
+        {description.trim() ? (
+          <MarkdownBody
+            content={description}
+            className="max-h-48 overflow-y-auto"
+          />
+        ) : (
+          <p className="text-sm italic text-muted-foreground">{t('github.no_description')}</p>
+        )}
+      </div>
+    );
+  }
+
+  function renderIssuesSection() {
+    return (
+      <div>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t('github.dash_tasks')}
+          </h3>
+          <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground">
+            <Checkbox checked={showClosedIssues} onCheckedChange={setShowClosedIssues} />
+            {t('github.dash_show_done')}
+          </label>
+        </div>
+        <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto rounded-lg p-1" style={{ border: '1px solid var(--border)' }}>
+          {issues.length === 0 ? renderEmptyIssues() : issues.map(renderIssueRow)}
+        </div>
+      </div>
+    );
+  }
+
+  function renderEmptyIssues() {
+    return (
+      <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
+        {t('github.dash_section_empty')}
+      </div>
+    );
+  }
+
+  function renderIssueRow(issue: GitHubIssueRow) {
+    const labels = parseLabels(issue.labels);
+    const isClosed = issue.state === 'closed';
+    return (
+      <div
+        key={issue.id}
+        className="group flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-foreground hover:bg-accent"
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void toggleIssue(issue);
+          }}
+          className={
+            isClosed
+              ? 'mt-0.5 size-[18px] shrink-0 text-(--success)'
+              : 'mt-0.5 size-[18px] shrink-0 text-muted-foreground'
+          }
+          aria-label={issue.state === 'open' ? t('github.dash_mark_done') : t('github.dash_reopen')}
+        >
+          {isClosed ? (
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" />
+          ) : (
+            <HugeiconsIcon icon={CircleIcon} className="size-3.5" />
+          )}
+        </Button>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => onOpenIssue(issue.id)}
+            className="flex min-w-0 items-center gap-2 text-left"
+          >
+            <span className="inline-flex shrink-0 items-center gap-0.5 font-mono text-[11px] text-muted-foreground">
+              <HugeiconsIcon icon={HashIcon} className="size-2.5" />
+              {issue.number}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{issue.title}</span>
+          </button>
+          <IssueLabelPills labels={labels} max={2} />
+        </div>
+      </div>
+    );
+  }
+
+  function renderFooter() {
+    if (editing) {
+      return (
+        <div className="flex items-center justify-end gap-2 w-full">
+          <Button variant="ghost"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            size="sm">
+            {t('github.new_milestone_cancel')}
+          </Button>
+          <Button disabled={saving}
+            onClick={() => save()}
+            size="sm">{saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
+            {t('github.dash_save')}
+          </Button>
+        </div>
+      );
+    }
+    if (!milestone) return null;
+    return (
+      <div className="flex items-center justify-between gap-2 w-full flex-wrap">
+        <div className="flex items-center gap-2">{renderStateToggleButton(milestone)}</div>
+        <Button variant="secondary"
+          onClick={() => setEditing(true)}
+          size="sm">{<HugeiconsIcon icon={PencilIcon} size={13} />}
+          {t('github.dash_edit')}
+        </Button>
+      </div>
+    );
+  }
+
+  function renderStateToggleButton(m: MilestoneFull) {
+    const isOpen = m.state === 'open';
+    return (
+      <Button variant="outline"
+        disabled={saving}
+        onClick={() => setMilestoneState(isOpen ? 'closed' : 'open')}
+        size="sm">
+        {isOpen ? t('github.dash_mark_done') : t('github.dash_reopen')}
+      </Button>
+    );
+  }
 }
