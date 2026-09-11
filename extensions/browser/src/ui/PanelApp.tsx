@@ -200,7 +200,9 @@ export default function PanelApp({
       const result = await api.getContext(loaded.token);
       if (!result.success) {
         setConnected(false);
-        setConnectionError(t('offline'));
+        setConnectionError(
+          t(/pair|expired|code/i.test(result.error) ? 'invalidCode' : 'offline'),
+        );
         return;
       }
       setProjects(result.data.projects);

@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const {
   isAllowedExtensionOrigin,
   corsHeaders,
+  requestOrigin,
+  EXTENSION_ORIGIN_HEADER,
   PairBodySchema,
   MAX_BODY_BYTES,
   PROTOCOL_VERSION,
@@ -62,6 +64,32 @@ describe('browser extension protocol', () => {
     assert.equal(isAllowedExtensionOrigin(''), false);
     assert.equal(isAllowedExtensionOrigin('https://evil.example'), false);
     assert.equal(corsHeaders('https://evil.example')['Access-Control-Allow-Origin'], undefined);
+    assert.equal(
+      requestOrigin({ origin: 'chrome-extension://abcd' }),
+      'chrome-extension://abcd',
+    );
+    assert.equal(
+      requestOrigin({ [EXTENSION_ORIGIN_HEADER]: 'chrome-extension://sw' }),
+      'chrome-extension://sw',
+    );
+    assert.equal(
+      requestOrigin({
+        origin: 'null',
+        [EXTENSION_ORIGIN_HEADER]: 'chrome-extension://sw',
+      }),
+      'chrome-extension://sw',
+    );
+    assert.equal(
+      requestOrigin({
+        origin: 'https://evil.example',
+        [EXTENSION_ORIGIN_HEADER]: 'chrome-extension://sw',
+      }),
+      'https://evil.example',
+    );
+    assert.equal(
+      corsHeaders('chrome-extension://abcd')['Access-Control-Allow-Headers'],
+      `Content-Type, Authorization, ${EXTENSION_ORIGIN_HEADER}`,
+    );
   });
 
   it('rejects tiny pairing payloads', () => {
@@ -307,6 +335,32 @@ describe('browser extension HTTP server', () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     assert.equal(missingOrigin.status, 403);
+
+    const serviceWorkerOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        [EXTENSION_ORIGIN_HEADER]: origin,
+      },
+    });
+    assert.equal(serviceWorkerOrigin.status, 200);
+
+    const nullOriginWithHeader = await fetch(`http://127.0.0.1:${port}/v1/context`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: 'null',
+        [EXTENSION_ORIGIN_HEADER]: origin,
+      },
+    });
+    assert.equal(nullOriginWithHeader.status, 200);
+
+    const spoofedHeader = await fetch(`http://127.0.0.1:${port}/v1/context`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: 'https://evil.example',
+        [EXTENSION_ORIGIN_HEADER]: origin,
+      },
+    });
+    assert.equal(spoofedHeader.status, 403);
 
     const wrongHost = await rawRequest({
       port,

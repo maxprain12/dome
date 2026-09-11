@@ -22,6 +22,7 @@ const {
   ResourceHydrateBodySchema,
   ModelsQuerySchema,
   isAllowedExtensionOrigin,
+  requestOrigin,
   corsHeaders,
 } = require('./protocol.cjs');
 
@@ -151,7 +152,7 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
   let listenPort = port;
 
   function originOf(req) {
-    return typeof req.headers.origin === 'string' ? req.headers.origin : '';
+    return requestOrigin(req.headers);
   }
 
   function requireLoopbackHost(req, res) {
