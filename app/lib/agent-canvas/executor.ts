@@ -378,53 +378,66 @@ async function streamAgentChunks(
   return agentOutput;
 }
 
+/** Build the payload for a text-input node. */
+function buildTextInputPayload(data: TextInputNodeData): CanvasNodePayload {
+  return {
+    kind: 'text',
+    text: data.value ?? '',
+  };
+}
+
+/** Build the payload for a document node. */
+function buildDocumentPayload(d: DocumentNodeData): CanvasNodePayload {
+  const resolvedTitle = d.resourceTitle || 'Documento';
+  const resource: CanvasResourceReference | undefined = d.resourceId
+    ? {
+        resourceId: d.resourceId,
+        resourceType: d.resourceType ?? 'document',
+        resourceTitle: resolvedTitle,
+        resourceContent: d.resourceContent,
+        metadata: d.resourceMetadata ?? null,
+      }
+    : undefined;
+  const fallbackText = d.resourceId ? `[Documento: ${resolvedTitle}]` : '';
+  return {
+    kind: resource ? 'resource' : 'text',
+    text: d.resourceContent || fallbackText,
+    resources: resource ? [resource] : undefined,
+  };
+}
+
+/** Build the payload for an image node. */
+function buildImagePayload(d: ImageNodeData): CanvasNodePayload {
+  const resource: CanvasResourceReference | undefined =
+    d.resourceId && d.resourceTitle
+      ? {
+          resourceId: d.resourceId,
+          resourceType: d.resourceType ?? 'image',
+          resourceTitle: d.resourceTitle,
+          resourceUrl: d.resourceUrl,
+          metadata: d.resourceMetadata ?? null,
+        }
+      : undefined;
+  return {
+    kind: resource ? 'resource' : 'text',
+    text: d.resourceTitle ? `[Imagen: ${d.resourceTitle}]` : '',
+    resources: resource ? [resource] : undefined,
+  };
+}
+
 /** Resolve the "output value" of a non-agent node (text-input, document, image). */
 function resolveStaticNodeOutput(node: WorkflowNode<CanvasNodeData>): CanvasNodePayload {
   const data = node.data;
-  if (data.type === 'text-input') {
-    return {
-      kind: 'text',
-      text: (data as TextInputNodeData).value ?? '',
-    };
+  switch (data.type) {
+    case 'text-input':
+      return buildTextInputPayload(data);
+    case 'document':
+      return buildDocumentPayload(data);
+    case 'image':
+      return buildImagePayload(data);
+    default:
+      return { kind: 'text', text: '' };
   }
-  if (data.type === 'document') {
-    const d = data as DocumentNodeData;
-    const resolvedTitle = d.resourceTitle || 'Documento';
-    const resource =
-      d.resourceId
-        ? ({
-            resourceId: d.resourceId,
-            resourceType: d.resourceType ?? 'document',
-            resourceTitle: resolvedTitle,
-            resourceContent: d.resourceContent,
-            metadata: d.resourceMetadata ?? null,
-          } satisfies CanvasResourceReference)
-        : undefined;
-    return {
-      kind: resource ? 'resource' : 'text',
-      text: d.resourceContent || (d.resourceId ? `[Documento: ${resolvedTitle}]` : ''),
-      resources: resource ? [resource] : undefined,
-    };
-  }
-  if (data.type === 'image') {
-    const d = data as ImageNodeData;
-    const resource =
-      d.resourceId && d.resourceTitle
-        ? ({
-            resourceId: d.resourceId,
-            resourceType: d.resourceType ?? 'image',
-            resourceTitle: d.resourceTitle,
-            resourceUrl: d.resourceUrl,
-            metadata: d.resourceMetadata ?? null,
-          } satisfies CanvasResourceReference)
-        : undefined;
-    return {
-      kind: resource ? 'resource' : 'text',
-      text: d.resourceTitle ? `[Imagen: ${d.resourceTitle}]` : '',
-      resources: resource ? [resource] : undefined,
-    };
-  }
-  return { kind: 'text', text: '' };
 }
 
 /** Execute a single agent node, streaming chunks back to the store. */
