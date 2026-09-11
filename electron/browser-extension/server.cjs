@@ -166,11 +166,12 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
 
   function requireOrigin(req, res) {
     const origin = originOf(req);
-    if (!isAllowedExtensionOrigin(origin)) {
-      json(res, 403, { success: false, error: 'Origin not allowed' }, origin);
-      return null;
-    }
-    return origin;
+    if (isAllowedExtensionOrigin(origin)) return origin;
+    // Chrome service workers omit Origin (or send "null") on loopback fetch.
+    // Web pages always send an Origin, so an empty value is not a website.
+    if (!origin || origin === 'null') return '';
+    json(res, 403, { success: false, error: 'Origin not allowed' }, origin);
+    return null;
   }
 
   function requireClient(req, res, origin) {

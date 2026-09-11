@@ -61,6 +61,8 @@ function mapSocialPostPushRow(row) {
   delete out.external_url;
   delete out.error;
   delete out.attempts;
+  // Local-only until dome-provider catalog+column `source_json` is deployed.
+  delete out.source_json;
   if (out.status !== 'draft' && out.status !== 'scheduled') {
     delete out.status;
   }

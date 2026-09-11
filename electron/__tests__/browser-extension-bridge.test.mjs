@@ -204,6 +204,18 @@ describe('browser extension pairing', () => {
     );
     const pairing = createPairing({ getQueries: () => queries });
     assert.equal(pairing.resolveToken(token, 'chrome-extension://dome-test'), null);
+    assert.equal(pairing.resolveToken(token, ''), null);
+  });
+
+  it('authenticates a paired token on loopback when Origin is omitted', () => {
+    const queries = memoryQueries();
+    const pairing = createPairing({ getQueries: () => queries });
+    const started = pairing.startPairing();
+    const origin = 'chrome-extension://abcd';
+    const paired = pairing.pair({ code: started.code, clientName: 'SW' }, origin);
+    assert.ok(pairing.resolveToken(paired.token, origin));
+    assert.ok(pairing.resolveToken(paired.token, ''));
+    assert.equal(pairing.resolveToken(paired.token, 'chrome-extension://other'), null);
   });
 });
 
@@ -329,12 +341,12 @@ describe('browser extension HTTP server', () => {
     const nullOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
       headers: { Authorization: `Bearer ${token}`, Origin: 'null' },
     });
-    assert.equal(nullOrigin.status, 403);
+    assert.equal(nullOrigin.status, 200);
 
     const missingOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    assert.equal(missingOrigin.status, 403);
+    assert.equal(missingOrigin.status, 200);
 
     const serviceWorkerOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
       headers: {
