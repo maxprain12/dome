@@ -35,6 +35,8 @@ interface QuestionResult {
   selected: number | string | null;
 }
 
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
 function shuffleQuestions(items: QuizQuestion[]): QuizQuestion[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -88,6 +90,518 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
         {score}%
       </text>
     </svg>
+  );
+}
+
+function getScoreColor(score: number): string {
+  return score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--destructive)';
+}
+
+function getScoreLabel(score: number, t: TranslateFn): string {
+  return score >= 70 ? t('quiz.great_job') : score >= 40 ? t('quiz.good_effort') : t('quiz.keep_studying');
+}
+
+function getQuizStyles(learnMode: boolean): { frame: string; header: string; option: string } {
+  return {
+    frame: learnMode ? 'lr-frame lr-quiz' : '',
+    header: learnMode
+      ? 'lr-quiz-hd'
+      : 'flex items-center justify-between px-4 py-3 border-b',
+    option: learnMode
+      ? 'lr-quiz-opt'
+      : 'flex items-center gap-3 p-4 rounded-lg text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150',
+  };
+}
+
+interface EmptyStateProps {
+  learnMode: boolean;
+  title?: string;
+  onClose?: () => void;
+  t: TranslateFn;
+}
+
+function EmptyState({ learnMode, title, onClose, t }: EmptyStateProps) {
+  const { frame: frameClass, header: headerClass } = getQuizStyles(learnMode);
+
+  return (
+    <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
+      <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
+        <h3 className="text-sm font-semibold text-foreground">
+          {title || t('quiz.title')}
+        </h3>
+        {onClose && (
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
+        )}
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-8">
+        <HugeiconsIcon icon={AlertCircleIcon} className="size-12 mb-4 text-muted-foreground" />
+        <p className="text-lg font-medium text-foreground">
+          {t('studio.quiz_data_corrupted')}
+        </p>
+        {onClose && (
+          <Button type="button" onClick={onClose} variant="secondary" className="mt-6">{t('quiz.close')}</Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ResultsViewProps {
+  learnMode: boolean;
+  title?: string;
+  onClose?: () => void;
+  totalQuestions: number;
+  correctCount: number;
+  questionResults: QuestionResult[];
+  allQuestions: QuizQuestion[];
+  onRestart: (opts?: { onlyMissed?: boolean; shuffle?: boolean }) => void;
+  t: TranslateFn;
+}
+
+function ResultsView({
+  learnMode,
+  title,
+  onClose,
+  totalQuestions,
+  correctCount,
+  questionResults,
+  allQuestions,
+  onRestart,
+  t,
+}: ResultsViewProps) {
+  const { frame: frameClass, header: headerClass } = getQuizStyles(learnMode);
+  const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+  const missedCount = totalQuestions - correctCount;
+  const scoreColor = getScoreColor(score);
+  const scoreLabel = getScoreLabel(score, t);
+
+  return (
+    <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
+      <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
+        <h3 className="text-sm font-semibold text-foreground">
+          {title || t('quiz.title')} — {t('quiz.results')}
+        </h3>
+        {onClose && (
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-8">
+        <div className="max-w-lg mx-auto text-center">
+          {learnMode ? (
+            <ScoreRing score={score} />
+          ) : (
+            <div className="text-6xl font-bold mb-2" style={{ color: scoreColor }}>
+              {score}%
+            </div>
+          )}
+          <div className="text-lg font-medium mb-1 text-foreground">
+            {scoreLabel}
+          </div>
+          <div className="text-sm mb-6 text-muted-foreground">
+            {t('quiz.correct_count', { correct: correctCount, total: totalQuestions })}
+          </div>
+          {learnMode && questionResults.length > 0 && (
+            <div className="lr-quiz-breakdown text-left mb-6 flex flex-col gap-y-2">
+              {questionResults.map((r, i) => {
+                const q = allQuestions.find((qq) => qq.id === r.questionId);
+                const truncated = q?.question?.slice(0, 80) ?? r.questionId;
+                const needsEllipsis = !!q?.question && q.question.length > 80;
+                return (
+                  <div key={r.questionId} className="flex items-start gap-2 text-sm">
+                    <HugeiconsIcon
+                      icon={r.correct ? CheckmarkCircle02Icon : CancelCircleIcon}
+                      size={16}
+                      className={`shrink-0 mt-0.5 ${r.correct ? 'text-[var(--success)]' : 'text-destructive'}`}
+                    />
+                    <span className="text-muted-foreground">
+                      {i + 1}. {truncated}
+                      {needsEllipsis ? '…' : ''}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Button type="button" onClick={() => onRestart()} variant="secondary" className="flex items-center gap-2">
+              <HugeiconsIcon icon={RotateLeft01Icon} size={16} /> {t('quiz.try_again')}
+            </Button>
+            {learnMode && missedCount > 0 && (
+              <Button
+                type="button"
+                onClick={() => onRestart({ onlyMissed: true })}
+                variant="secondary" className="flex items-center gap-2"
+              >
+                {t('learn.quiz_retry_missed', { count: missedCount })}
+              </Button>
+            )}
+            {learnMode && (
+              <Button
+                type="button"
+                onClick={() => onRestart({ shuffle: true })}
+                variant="ghost" className="flex items-center gap-2"
+              >
+                <HugeiconsIcon icon={ShuffleIcon} size={16} /> {t('quiz.shuffle', { defaultValue: 'Shuffle' })}
+              </Button>
+            )}
+            {onClose && (
+              <Button type="button" onClick={onClose} variant="ghost">{t('quiz.close')}</Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface OptionButtonProps {
+  idx: number;
+  option: string;
+  isSelected: boolean;
+  isCorrect: boolean;
+  isWrong: boolean;
+  showExplanation: boolean;
+  optionClass?: string;
+  onSelect: (idx: number) => void;
+}
+
+function MultipleChoiceOptionButton({
+  idx,
+  option,
+  isSelected,
+  isCorrect,
+  isWrong,
+  showExplanation,
+  optionClass,
+  onSelect,
+}: OptionButtonProps) {
+  const borderColor = isCorrect
+    ? 'var(--success)'
+    : isWrong
+      ? 'var(--destructive)'
+      : isSelected
+        ? 'var(--primary)'
+        : 'var(--border)';
+  const background = isCorrect
+    ? 'var(--success-bg)'
+    : isWrong
+      ? 'color-mix(in srgb, var(--destructive) 12%, transparent)'
+      : isSelected
+        ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
+        : 'var(--card)';
+  const markerBg = isCorrect
+    ? 'var(--success)'
+    : isWrong
+      ? 'var(--destructive)'
+      : isSelected
+        ? 'var(--primary)'
+        : 'var(--muted)';
+  const markerColor =
+    isCorrect || isWrong || isSelected ? 'var(--primary-foreground)' : 'var(--muted-foreground)';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(idx)}
+      className={optionClass}
+      style={{
+        border: `2px solid ${borderColor}`,
+        background,
+        cursor: showExplanation ? 'default' : 'pointer',
+      }}
+    >
+      <span
+        className="size-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+        style={{ background: markerBg, color: markerColor }}
+      >
+        {String.fromCharCode(65 + idx)}
+      </span>
+      <span className="text-sm text-foreground">{option}</span>
+      {isCorrect && <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} className="ml-auto shrink-0 text-[var(--success)]" />}
+      {isWrong && <HugeiconsIcon icon={CancelCircleIcon} size={18} className="ml-auto shrink-0 text-destructive" />}
+    </button>
+  );
+}
+
+function TrueFalseOptionButton({
+  idx,
+  option,
+  isSelected,
+  isCorrect,
+  isWrong,
+  showExplanation,
+  onSelect,
+}: OptionButtonProps) {
+  const borderColor = isCorrect
+    ? 'var(--success)'
+    : isWrong
+      ? 'var(--destructive)'
+      : isSelected
+        ? 'var(--primary)'
+        : 'var(--border)';
+  const background = isCorrect
+    ? 'var(--success-bg)'
+    : isWrong
+      ? 'color-mix(in srgb, var(--destructive) 12%, transparent)'
+      : isSelected
+        ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
+        : 'var(--card)';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(idx)}
+      className="flex-1 p-4 rounded-lg text-center text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+      style={{
+        border: `2px solid ${borderColor}`,
+        background,
+        color: 'var(--foreground)',
+        cursor: showExplanation ? 'default' : 'pointer',
+      }}
+    >
+      {option}
+    </button>
+  );
+}
+
+interface QuizViewProps {
+  learnMode: boolean;
+  title?: string;
+  onClose?: () => void;
+  currentQuestion: QuizQuestion;
+  currentIndex: number;
+  totalQuestions: number;
+  elapsedSec: number;
+  showExplanation: boolean;
+  selectedAnswer: number | string | null;
+  onSelectAnswer: (answer: number | string) => void;
+  onSubmit: () => void;
+  onNext: () => void;
+  onSkip: () => void;
+  onAskMany: () => void;
+  t: TranslateFn;
+}
+
+interface QuizHeaderProps {
+  learnMode: boolean;
+  headerClass: string;
+  title?: string;
+  currentIndex: number;
+  totalQuestions: number;
+  elapsedSec: number;
+  showExplanation: boolean;
+  onClose?: () => void;
+  onAskMany: () => void;
+  t: TranslateFn;
+}
+
+function QuizHeader({
+  learnMode,
+  headerClass,
+  title,
+  currentIndex,
+  totalQuestions,
+  elapsedSec,
+  showExplanation,
+  onClose,
+  onAskMany,
+  t,
+}: QuizHeaderProps) {
+  const minutes = Math.floor(elapsedSec / 60);
+  const seconds = String(elapsedSec % 60).padStart(2, '0');
+
+  return (
+    <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
+      <div className="flex items-center gap-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          {title || t('quiz.title')}
+        </h3>
+        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--card)', color: 'var(--muted-foreground)' }}>
+          {currentIndex + 1} / {totalQuestions}
+        </span>
+        {learnMode && (
+          <span className="lr-quiz-timer text-xs tabular-nums text-muted-foreground">
+            {minutes}:{seconds}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {learnMode && showExplanation && (
+          <button type="button" onClick={onAskMany} className="lr-btn lr-btn-ghost flex items-center gap-1 text-xs">
+            <HugeiconsIcon icon={BubbleChatIcon} size={14} /> {t('learn.quiz_ask_many')}
+          </button>
+        )}
+        {onClose && (
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface QuizFooterProps {
+  learnMode: boolean;
+  showExplanation: boolean;
+  isLast: boolean;
+  selectedAnswer: number | string | null;
+  onSkip: () => void;
+  onSubmit: () => void;
+  onNext: () => void;
+  t: TranslateFn;
+}
+
+function QuizFooter({
+  learnMode,
+  showExplanation,
+  isLast,
+  selectedAnswer,
+  onSkip,
+  onSubmit,
+  onNext,
+  t,
+}: QuizFooterProps) {
+  return (
+    <div className="px-6 py-4 border-t flex justify-between gap-3 border-border">
+      {learnMode && !showExplanation && (
+        <Button type="button" onClick={onSkip} variant="ghost" className="text-sm">
+          {t('learn.quiz_skip')}
+        </Button>
+      )}
+      <div className="flex justify-end gap-3 ml-auto">
+        {!showExplanation ? (
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={selectedAnswer === null}
+            style={{ opacity: selectedAnswer === null ? 0.5 : 1 }}
+          >
+            {t('quiz.check_answer')}
+          </Button>
+        ) : (
+          <Button type="button" onClick={onNext} className="flex items-center gap-2">
+            {isLast ? t('quiz.see_results') : <>{t('quiz.next')} <HugeiconsIcon icon={ArrowRight02Icon} size={16} /></>}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuizView({
+  learnMode,
+  title,
+  onClose,
+  currentQuestion,
+  currentIndex,
+  totalQuestions,
+  elapsedSec,
+  showExplanation,
+  selectedAnswer,
+  onSelectAnswer,
+  onSubmit,
+  onNext,
+  onSkip,
+  onAskMany,
+  t,
+}: QuizViewProps) {
+  const { frame: frameClass, header: headerClass, option: optionClass } = getQuizStyles(learnMode);
+  const correctIdx = currentQuestion.correct;
+  const isLast = currentIndex >= totalQuestions - 1;
+
+  return (
+    <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
+      <QuizHeader
+        learnMode={learnMode}
+        headerClass={headerClass}
+        title={title}
+        currentIndex={currentIndex}
+        totalQuestions={totalQuestions}
+        elapsedSec={elapsedSec}
+        showExplanation={showExplanation}
+        onClose={onClose}
+        onAskMany={onAskMany}
+        t={t}
+      />
+
+      <div className="h-1 bg-muted">
+        <div
+          className="h-full origin-left transition-transform duration-150 ease-[var(--ease-out)] motion-reduce:transition-none"
+          style={{
+            transform: `scaleX(${(currentIndex + (showExplanation ? 1 : 0)) / totalQuestions})`,
+            background: 'var(--primary)',
+          }}
+        />
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="max-w-2xl mx-auto">
+          <h2 className={`mb-6 ${learnMode ? 'lr-quiz-q' : 'text-lg font-medium'}`} style={{ color: 'var(--foreground)' }}>
+            {currentQuestion.question}
+          </h2>
+
+          {currentQuestion.source_citation?.passage && learnMode && (
+            <p className="lr-quiz-cite text-xs mb-4 italic text-muted-foreground">
+              {t('learn.quiz_source_from', {
+                source: currentQuestion.source_citation.passage.slice(0, 120),
+              })}
+            </p>
+          )}
+
+          {currentQuestion.type === 'multiple_choice' && currentQuestion.options && (
+            <div className="flex flex-col gap-3">
+              {currentQuestion.options.map((option, idx) => (
+                <MultipleChoiceOptionButton
+                  key={idx}
+                  idx={idx}
+                  option={option}
+                  isSelected={selectedAnswer === idx}
+                  isCorrect={showExplanation && idx === correctIdx}
+                  isWrong={showExplanation && selectedAnswer === idx && idx !== correctIdx}
+                  showExplanation={showExplanation}
+                  optionClass={optionClass}
+                  onSelect={onSelectAnswer}
+                />
+              ))}
+            </div>
+          )}
+
+          {currentQuestion.type === 'true_false' && (
+            <div className="flex gap-3">
+              {[t('quiz.true_option'), t('quiz.false_option')].map((option, idx) => (
+                <TrueFalseOptionButton
+                  key={option}
+                  idx={idx}
+                  option={option}
+                  isSelected={selectedAnswer === idx}
+                  isCorrect={showExplanation && idx === correctIdx}
+                  isWrong={showExplanation && selectedAnswer === idx && idx !== correctIdx}
+                  showExplanation={showExplanation}
+                  onSelect={onSelectAnswer}
+                />
+              ))}
+            </div>
+          )}
+
+          {showExplanation && currentQuestion.explanation && (
+            <div className={`mt-3 p-3 rounded-lg ${learnMode ? 'lr-quiz-explain' : ''} bg-muted border border-border`}>
+              <div className="text-xs font-semibold uppercase mb-2 text-foreground">{t('quiz.explanation')}</div>
+              <MarkdownRenderer content={currentQuestion.explanation} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <QuizFooter
+        learnMode={learnMode}
+        showExplanation={showExplanation}
+        isLast={isLast}
+        selectedAnswer={selectedAnswer}
+        onSkip={onSkip}
+        onSubmit={onSubmit}
+        onNext={onNext}
+        t={t}
+      />
+    </div>
   );
 }
 
@@ -311,266 +825,49 @@ export default function Quiz({
     handleSelectAnswer,
   ]);
 
-  const frameClass = learnMode ? 'lr-frame lr-quiz' : '';
-  const headerClass = learnMode ? 'lr-quiz-hd' : 'flex items-center justify-between px-4 py-3 border-b';
-  const optionClass = learnMode ? 'lr-quiz-opt' : 'flex items-center gap-3 p-4 rounded-lg text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150';
+  const hasNoQuestions = data.questions.length === 0;
 
-  if (data.questions.length === 0) {
-    return (
-      <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
-        <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
-          <h3 className="text-sm font-semibold text-foreground">
-            {title || t('quiz.title')}
-          </h3>
-          {onClose && (
-            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
-          )}
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center p-8">
-          <HugeiconsIcon icon={AlertCircleIcon} className="size-12 mb-4 text-muted-foreground" />
-          <p className="text-lg font-medium text-foreground">
-            {t('studio.quiz_data_corrupted')}
-          </p>
-          {onClose && (
-            <Button type="button" onClick={onClose} variant="secondary" className="mt-6">{t('quiz.close')}</Button>
-          )}
-        </div>
-      </div>
-    );
+  if (hasNoQuestions) {
+    return <EmptyState learnMode={learnMode} title={title} onClose={onClose} t={t} />;
   }
 
   if (!currentQuestion && !isFinished) return null;
 
   if (isFinished) {
-    const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-    const missedCount = totalQuestions - correctCount;
     return (
-      <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
-        <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
-          <h3 className="text-sm font-semibold text-foreground">
-            {title || t('quiz.title')} — {t('quiz.results')}
-          </h3>
-          {onClose && (
-            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
-          )}
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-8">
-          <div className="max-w-lg mx-auto text-center">
-            {learnMode ? (
-              <ScoreRing score={score} />
-            ) : (
-              <div className="text-6xl font-bold mb-2" style={{ color: score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--destructive)' }}>
-                {score}%
-              </div>
-            )}
-            <div className="text-lg font-medium mb-1 text-foreground">
-              {score >= 70 ? t('quiz.great_job') : score >= 40 ? t('quiz.good_effort') : t('quiz.keep_studying')}
-            </div>
-            <div className="text-sm mb-6 text-muted-foreground">
-              {t('quiz.correct_count', { correct: correctCount, total: totalQuestions })}
-            </div>
-            {learnMode && questionResults.length > 0 && (
-              <div className="lr-quiz-breakdown text-left mb-6 flex flex-col gap-y-2">
-                {questionResults.map((r, i) => {
-                  const q = data.questions.find((qq) => qq.id === r.questionId);
-                  return (
-                    <div key={r.questionId} className="flex items-start gap-2 text-sm">
-                      {r.correct ? (
-                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} className="shrink-0 mt-0.5 text-[var(--success)]" />
-                      ) : (
-                        <HugeiconsIcon icon={CancelCircleIcon} size={16} className="shrink-0 mt-0.5 text-destructive" />
-                      )}
-                      <span className="text-muted-foreground">
-                        {i + 1}. {q?.question?.slice(0, 80) ?? r.questionId}
-                        {q?.question && q.question.length > 80 ? '…' : ''}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-3 justify-center">
-              <Button type="button" onClick={() => handleRestart()} variant="secondary" className="flex items-center gap-2">
-                <HugeiconsIcon icon={RotateLeft01Icon} size={16} /> {t('quiz.try_again')}
-              </Button>
-              {learnMode && missedCount > 0 && (
-                <Button
-                  type="button"
-                  onClick={() => handleRestart({ onlyMissed: true })}
-                  variant="secondary" className="flex items-center gap-2"
-                >
-                  {t('learn.quiz_retry_missed', { count: missedCount })}
-                </Button>
-              )}
-              {learnMode && (
-                <Button
-                  type="button"
-                  onClick={() => handleRestart({ shuffle: true })}
-                  variant="ghost" className="flex items-center gap-2"
-                >
-                  <HugeiconsIcon icon={ShuffleIcon} size={16} /> {t('quiz.shuffle', { defaultValue: 'Shuffle' })}
-                </Button>
-              )}
-              {onClose && (
-                <Button type="button" onClick={onClose} variant="ghost">{t('quiz.close')}</Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <ResultsView
+        learnMode={learnMode}
+        title={title}
+        onClose={onClose}
+        totalQuestions={totalQuestions}
+        correctCount={correctCount}
+        questionResults={questionResults}
+        allQuestions={data.questions}
+        onRestart={handleRestart}
+        t={t}
+      />
     );
   }
 
   if (!currentQuestion) return null;
 
   return (
-    <div className={`flex flex-col h-full ${frameClass}`} style={{ background: 'var(--background)' }}>
-      <div className={headerClass} style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-semibold text-foreground">
-            {title || t('quiz.title')}
-          </h3>
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--card)', color: 'var(--muted-foreground)' }}>
-            {currentIndex + 1} / {totalQuestions}
-          </span>
-          {learnMode && (
-            <span className="lr-quiz-timer text-xs tabular-nums text-muted-foreground">
-              {Math.floor(elapsedSec / 60)}:{String(elapsedSec % 60).padStart(2, '0')}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {learnMode && showExplanation && (
-            <button type="button" onClick={askMany} className="lr-btn lr-btn-ghost flex items-center gap-1 text-xs">
-              <HugeiconsIcon icon={BubbleChatIcon} size={14} /> {t('learn.quiz_ask_many')}
-            </button>
-          )}
-          {onClose && (
-            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
-          )}
-        </div>
-      </div>
-
-      <div className="h-1 bg-muted">
-        <div
-          className="h-full origin-left transition-transform duration-150 ease-[var(--ease-out)] motion-reduce:transition-none"
-          style={{
-            transform: `scaleX(${(currentIndex + (showExplanation ? 1 : 0)) / totalQuestions})`,
-            background: 'var(--primary)',
-          }}
-        />
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto">
-          <h2 className={`mb-6 ${learnMode ? 'lr-quiz-q' : 'text-lg font-medium'}`} style={{ color: 'var(--foreground)' }}>
-            {currentQuestion.question}
-          </h2>
-
-          {currentQuestion.source_citation?.passage && learnMode && (
-            <p className="lr-quiz-cite text-xs mb-4 italic text-muted-foreground">
-              {t('learn.quiz_source_from', {
-                source: currentQuestion.source_citation.passage.slice(0, 120),
-              })}
-            </p>
-          )}
-
-          {currentQuestion.type === 'multiple_choice' && currentQuestion.options && (
-            <div className="flex flex-col gap-3">
-              {currentQuestion.options.map((option, idx) => {
-                const isSelected = selectedAnswer === idx;
-                const isCorrect = showExplanation && idx === currentQuestion.correct;
-                const isWrong = showExplanation && isSelected && idx !== currentQuestion.correct;
-
-                return (
-                  <button
-                    type="button"
-                    key={idx}
-                    onClick={() => handleSelectAnswer(idx)}
-                    className={optionClass}
-                    style={{
-                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--destructive)' : isSelected ? 'var(--primary)' : 'var(--border)'}`,
-                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : isSelected ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--card)',
-                      cursor: showExplanation ? 'default' : 'pointer',
-                    }}
-                  >
-                    <span className="size-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
-                      style={{
-                        background: isCorrect ? 'var(--success)' : isWrong ? 'var(--destructive)' : isSelected ? 'var(--primary)' : 'var(--muted)',
-                        color: (isCorrect || isWrong || isSelected) ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
-                      }}
-                    >
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className="text-sm text-foreground">{option}</span>
-                    {isCorrect && <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} className="ml-auto shrink-0 text-[var(--success)]" />}
-                    {isWrong && <HugeiconsIcon icon={CancelCircleIcon} size={18} className="ml-auto shrink-0 text-destructive" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {currentQuestion.type === 'true_false' && (
-            <div className="flex gap-3">
-              {[t('quiz.true_option'), t('quiz.false_option')].map((option, idx) => {
-                const isSelected = selectedAnswer === idx;
-                const isCorrect = showExplanation && idx === currentQuestion.correct;
-                const isWrong = showExplanation && isSelected && idx !== currentQuestion.correct;
-
-                return (
-                  <button
-                    type="button"
-                    key={option}
-                    onClick={() => handleSelectAnswer(idx)}
-                    className="flex-1 p-4 rounded-lg text-center text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]"
-                    style={{
-                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--destructive)' : isSelected ? 'var(--primary)' : 'var(--border)'}`,
-                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'color-mix(in srgb, var(--destructive) 12%, transparent)' : isSelected ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--card)',
-                      color: 'var(--foreground)',
-                      cursor: showExplanation ? 'default' : 'pointer',
-                    }}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {showExplanation && currentQuestion.explanation && (
-            <div className={`mt-3 p-3 rounded-lg ${learnMode ? 'lr-quiz-explain' : ''} bg-muted border border-border`}>
-              <div className="text-xs font-semibold uppercase mb-2 text-foreground">{t('quiz.explanation')}</div>
-              <MarkdownRenderer content={currentQuestion.explanation} />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="px-6 py-4 border-t flex justify-between gap-3 border-border">
-        {learnMode && !showExplanation && (
-          <Button type="button" onClick={handleSkip} variant="ghost" className="text-sm">
-            {t('learn.quiz_skip')}
-          </Button>
-        )}
-        <div className="flex justify-end gap-3 ml-auto">
-          {!showExplanation ? (
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={selectedAnswer === null}
-              
-              style={{ opacity: selectedAnswer === null ? 0.5 : 1 }}
-            >
-              {t('quiz.check_answer')}
-            </Button>
-          ) : (
-            <Button type="button" onClick={handleNext} className="flex items-center gap-2">
-              {currentIndex < totalQuestions - 1 ? <>{t('quiz.next')} <HugeiconsIcon icon={ArrowRight02Icon} size={16} /></> : t('quiz.see_results')}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
+    <QuizView
+      learnMode={learnMode}
+      title={title}
+      onClose={onClose}
+      currentQuestion={currentQuestion}
+      currentIndex={currentIndex}
+      totalQuestions={totalQuestions}
+      elapsedSec={elapsedSec}
+      showExplanation={showExplanation}
+      selectedAnswer={selectedAnswer}
+      onSelectAnswer={handleSelectAnswer}
+      onSubmit={handleSubmit}
+      onNext={handleNext}
+      onSkip={handleSkip}
+      onAskMany={askMany}
+      t={t}
+    />
   );
 }
