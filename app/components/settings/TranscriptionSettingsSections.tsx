@@ -306,60 +306,243 @@ const TranscriptionSettingsSections = forwardRef<
     showToast('success', t('settings.transcription.preset_openai_desc'));
   };
 
+  const renderPermissionsSection = () => {
+    if (!isMac) {
+      return (
+        <p className="px-4 py-3 text-xs text-muted-foreground">
+          {t('settings.transcription.perm_os_managed')}
+        </p>
+      );
+    }
+    return (
+      <>
+        <PermissionRow
+          label={t('settings.transcription.perm_mic')}
+          status={micPerm}
+          loading={permLoading}
+          onRequest={async () => {
+            setPermLoading(true);
+            try {
+              await window.electron?.transcription?.requestMic?.();
+              await loadPermissions();
+            } finally {
+              setPermLoading(false);
+            }
+          }}
+        />
+        <PermissionRow
+          label={t('settings.transcription.perm_screen')}
+          status={screenPerm}
+          loading={permLoading}
+          onRequest={async () => {
+            setPermLoading(true);
+            try {
+              await window.electron?.transcription?.requestScreen?.();
+              await loadPermissions();
+            } finally {
+              setPermLoading(false);
+            }
+          }}
+          onOpenPrefs={() =>
+            window.electron
+              ?.invoke?.(
+                'open-external-url',
+                'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+              )
+              .catch((err) => {
+                console.error('[TranscriptionSettings] Failed to open system preferences:', err);
+              })
+          }
+        />
+        {screenPerm === 'granted' ? (
+          <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground">
+            {t('settings.transcription.perm_screen_restart_hint')}
+          </p>
+        ) : null}
+      </>
+    );
+  };
+
+  const renderModelOptions = (isGroq: boolean) => {
+    if (isGroq) {
+      return (
+        <>
+          <SelectItem value={MODEL_GROQ_TURBO}>
+            {t('settings.transcription.model_option_groq_turbo')}
+          </SelectItem>
+          <SelectItem value={MODEL_GROQ_LARGE}>
+            {t('settings.transcription.model_option_groq_large')}
+          </SelectItem>
+        </>
+      );
+    }
+    return (
+      <>
+        <SelectItem value="whisper-1">{t('settings.transcription.model_option_whisper1')}</SelectItem>
+        <SelectItem value="gpt-4o-transcribe">
+          {t('settings.transcription.model_option_gpt4o_transcribe')}
+        </SelectItem>
+        <SelectItem value="gpt-4o-mini-transcribe">
+          {t('settings.transcription.model_option_gpt4o_mini_transcribe')}
+        </SelectItem>
+        <SelectItem value="gpt-4o-transcribe-diarize">
+          {t('settings.transcription.model_option_gpt4o_transcribe_diarize')}
+        </SelectItem>
+        <SelectItem value={MODEL_GROQ_TURBO}>whisper-large-v3-turbo</SelectItem>
+        <SelectItem value={MODEL_GROQ_LARGE}>whisper-large-v3</SelectItem>
+      </>
+    );
+  };
+
+  const renderSummaryModelSelector = () => {
+    if (summaryModels.length > 0) {
+      return (
+        <ModelSelector
+          models={summaryModels}
+          selectedModelId={summaryModel}
+          onChange={setSummaryModel}
+          showBadges={false}
+          showDescription={false}
+          showContextWindow={false}
+          searchable={summaryModels.length > 5}
+          placeholder={t('settings.transcription.call_summary_model_placeholder')}
+          disabled={summaryModelsLoading}
+          providerType="cloud"
+        />
+      );
+    }
+    return (
+      <Input
+        value={summaryModel}
+        onChange={(e) => setSummaryModel(e.target.value)}
+        placeholder={t('settings.transcription.call_summary_model_placeholder')}
+        aria-label={t('settings.transcription.call_summary_model')}
+      />
+    );
+  };
+
+  const renderAdvancedSection = () => (
+    <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+      <CollapsibleTrigger className="cursor-pointer text-sm font-medium text-primary">
+        {showAdvanced
+          ? t('settings.transcription.advanced_hide')
+          : t('settings.transcription.advanced_show')}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-3 flex flex-col gap-4 border-l-2 pl-3">
+        {sttProvider === 'groq' ? (
+          <SettingsGroup title={t('settings.transcription.section_groq_key')}>
+            <div className="flex flex-col gap-2 px-4 py-4">
+              <Field>
+                <FieldLabel htmlFor="tr-groq-key">
+                  {t('settings.transcription.groq_key_help')}
+                </FieldLabel>
+                <Input
+                  id="tr-groq-key"
+                  type="password"
+                  value={groqKey}
+                  onChange={(e) => setGroqKey(e.target.value)}
+                  placeholder={t('settings.transcription.groq_key_placeholder')}
+                  autoComplete="off"
+                />
+                {hasGroqKey ? (
+                  <FieldDescription>
+                    {t('settings.transcription.groq_key_saved')}
+                  </FieldDescription>
+                ) : null}
+              </Field>
+              {hasGroqKey ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="self-start"
+                  onClick={() => void handleClearGroqKey()}
+                >
+                  {t('settings.transcription.clear_groq_key')}
+                </Button>
+              ) : null}
+            </div>
+          </SettingsGroup>
+        ) : null}
+
+        <SettingsGroup title={t('settings.transcription.section_key')}>
+          <div className="flex flex-col gap-2 px-4 py-4">
+            <Field>
+              <FieldLabel htmlFor="tr-dedicated-key">
+                {t('settings.transcription.key_help')}
+              </FieldLabel>
+              <Input
+                id="tr-dedicated-key"
+                type="password"
+                value={dedicatedKey}
+                onChange={(e) => setDedicatedKey(e.target.value)}
+                placeholder={t('settings.transcription.key_placeholder')}
+                autoComplete="off"
+              />
+              {hasDedicatedKey ? (
+                <FieldDescription>{t('settings.transcription.key_saved')}</FieldDescription>
+              ) : null}
+            </Field>
+            {hasDedicatedKey ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="self-start"
+                onClick={() => void handleClearDedicatedKey()}
+              >
+                {t('settings.transcription.clear_key')}
+              </Button>
+            ) : null}
+          </div>
+        </SettingsGroup>
+
+        <SettingsGroup title={t('settings.transcription.section_api_prompt')}>
+          <div className="flex flex-col gap-4 px-4 py-4">
+            <Field>
+              <FieldLabel htmlFor="tr-api-base-url">
+                {t('settings.transcription.api_base_url')}
+              </FieldLabel>
+              <Input
+                id="tr-api-base-url"
+                value={apiBaseUrl}
+                onChange={(e) => setApiBaseUrl(e.target.value)}
+                placeholder={t('settings.transcription.api_base_url_placeholder')}
+                autoComplete="off"
+              />
+              <FieldDescription>{t('settings.transcription.api_base_url_help')}</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="tr-prompt">{t('settings.transcription.prompt')}</FieldLabel>
+              <Textarea
+                id="tr-prompt"
+                className="min-h-[72px] resize-y"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={3}
+                placeholder={t('settings.transcription.prompt_placeholder')}
+              />
+              <FieldDescription>{t('settings.transcription.prompt_help')}</FieldDescription>
+            </Field>
+          </div>
+        </SettingsGroup>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+
+  const renderSaveButton = () => {
+    if (embedded) return null;
+    return (
+      <Button type="button" className="self-start" onClick={() => void handleSave()}>
+        {saved ? t('settings.transcription.saved') : t('settings.transcription.save')}
+      </Button>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <SettingsGroup title={t('settings.transcription.section_permissions')}>
-        {!isMac ? (
-          <p className="px-4 py-3 text-xs text-muted-foreground">
-            {t('settings.transcription.perm_os_managed')}
-          </p>
-        ) : (
-          <>
-            <PermissionRow
-              label={t('settings.transcription.perm_mic')}
-              status={micPerm}
-              loading={permLoading}
-              onRequest={async () => {
-                setPermLoading(true);
-                try {
-                  await window.electron?.transcription?.requestMic?.();
-                  await loadPermissions();
-                } finally {
-                  setPermLoading(false);
-                }
-              }}
-            />
-            <PermissionRow
-              label={t('settings.transcription.perm_screen')}
-              status={screenPerm}
-              loading={permLoading}
-              onRequest={async () => {
-                setPermLoading(true);
-                try {
-                  await window.electron?.transcription?.requestScreen?.();
-                  await loadPermissions();
-                } finally {
-                  setPermLoading(false);
-                }
-              }}
-              onOpenPrefs={() =>
-                window.electron
-                  ?.invoke?.(
-                    'open-external-url',
-                    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
-                  )
-                  .catch((err) => {
-                    console.error('[TranscriptionSettings] Failed to open system preferences:', err);
-                  })
-              }
-            />
-            {screenPerm === 'granted' ? (
-              <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground">
-                {t('settings.transcription.perm_screen_restart_hint')}
-              </p>
-            ) : null}
-          </>
-        )}
+        {renderPermissionsSection()}
       </SettingsGroup>
 
       <SettingsGroup
@@ -409,33 +592,7 @@ const TranscriptionSettingsSections = forwardRef<
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {sttProvider === 'groq' ? (
-                    <>
-                      <SelectItem value={MODEL_GROQ_TURBO}>
-                        {t('settings.transcription.model_option_groq_turbo')}
-                      </SelectItem>
-                      <SelectItem value={MODEL_GROQ_LARGE}>
-                        {t('settings.transcription.model_option_groq_large')}
-                      </SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="whisper-1">
-                        {t('settings.transcription.model_option_whisper1')}
-                      </SelectItem>
-                      <SelectItem value="gpt-4o-transcribe">
-                        {t('settings.transcription.model_option_gpt4o_transcribe')}
-                      </SelectItem>
-                      <SelectItem value="gpt-4o-mini-transcribe">
-                        {t('settings.transcription.model_option_gpt4o_mini_transcribe')}
-                      </SelectItem>
-                      <SelectItem value="gpt-4o-transcribe-diarize">
-                        {t('settings.transcription.model_option_gpt4o_transcribe_diarize')}
-                      </SelectItem>
-                      <SelectItem value={MODEL_GROQ_TURBO}>whisper-large-v3-turbo</SelectItem>
-                      <SelectItem value={MODEL_GROQ_LARGE}>whisper-large-v3</SelectItem>
-                    </>
-                  )}
+                  {renderModelOptions(sttProvider === 'groq')}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -537,27 +694,7 @@ const TranscriptionSettingsSections = forwardRef<
           }
         />
         <SettingsRow title={t('settings.transcription.call_summary_model')}>
-          {summaryModels.length > 0 ? (
-            <ModelSelector
-              models={summaryModels}
-              selectedModelId={summaryModel}
-              onChange={setSummaryModel}
-              showBadges={false}
-              showDescription={false}
-              showContextWindow={false}
-              searchable={summaryModels.length > 5}
-              placeholder={t('settings.transcription.call_summary_model_placeholder')}
-              disabled={summaryModelsLoading}
-              providerType="cloud"
-            />
-          ) : (
-            <Input
-              value={summaryModel}
-              onChange={(e) => setSummaryModel(e.target.value)}
-              placeholder={t('settings.transcription.call_summary_model_placeholder')}
-              aria-label={t('settings.transcription.call_summary_model')}
-            />
-          )}
+          {renderSummaryModelSelector()}
         </SettingsRow>
         <SettingsRow
           title={t('settings.transcription.call_auto_summary')}
@@ -571,118 +708,9 @@ const TranscriptionSettingsSections = forwardRef<
         />
       </SettingsGroup>
 
-      <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-        <CollapsibleTrigger className="cursor-pointer text-sm font-medium text-primary">
-          {showAdvanced
-            ? t('settings.transcription.advanced_hide')
-            : t('settings.transcription.advanced_show')}
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 flex flex-col gap-4 border-l-2 pl-3">
-          {sttProvider === 'groq' ? (
-            <SettingsGroup title={t('settings.transcription.section_groq_key')}>
-              <div className="flex flex-col gap-2 px-4 py-4">
-                <Field>
-                  <FieldLabel htmlFor="tr-groq-key">
-                    {t('settings.transcription.groq_key_help')}
-                  </FieldLabel>
-                  <Input
-                    id="tr-groq-key"
-                    type="password"
-                    value={groqKey}
-                    onChange={(e) => setGroqKey(e.target.value)}
-                    placeholder={t('settings.transcription.groq_key_placeholder')}
-                    autoComplete="off"
-                  />
-                  {hasGroqKey ? (
-                    <FieldDescription>
-                      {t('settings.transcription.groq_key_saved')}
-                    </FieldDescription>
-                  ) : null}
-                </Field>
-                {hasGroqKey ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    className="self-start"
-                    onClick={() => void handleClearGroqKey()}
-                  >
-                    {t('settings.transcription.clear_groq_key')}
-                  </Button>
-                ) : null}
-              </div>
-            </SettingsGroup>
-          ) : null}
+      {renderAdvancedSection()}
 
-          <SettingsGroup title={t('settings.transcription.section_key')}>
-            <div className="flex flex-col gap-2 px-4 py-4">
-              <Field>
-                <FieldLabel htmlFor="tr-dedicated-key">
-                  {t('settings.transcription.key_help')}
-                </FieldLabel>
-                <Input
-                  id="tr-dedicated-key"
-                  type="password"
-                  value={dedicatedKey}
-                  onChange={(e) => setDedicatedKey(e.target.value)}
-                  placeholder={t('settings.transcription.key_placeholder')}
-                  autoComplete="off"
-                />
-                {hasDedicatedKey ? (
-                  <FieldDescription>{t('settings.transcription.key_saved')}</FieldDescription>
-                ) : null}
-              </Field>
-              {hasDedicatedKey ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="self-start"
-                  onClick={() => void handleClearDedicatedKey()}
-                >
-                  {t('settings.transcription.clear_key')}
-                </Button>
-              ) : null}
-            </div>
-          </SettingsGroup>
-
-          <SettingsGroup title={t('settings.transcription.section_api_prompt')}>
-            <div className="flex flex-col gap-4 px-4 py-4">
-              <Field>
-                <FieldLabel htmlFor="tr-api-base-url">
-                  {t('settings.transcription.api_base_url')}
-                </FieldLabel>
-                <Input
-                  id="tr-api-base-url"
-                  value={apiBaseUrl}
-                  onChange={(e) => setApiBaseUrl(e.target.value)}
-                  placeholder={t('settings.transcription.api_base_url_placeholder')}
-                  autoComplete="off"
-                />
-                <FieldDescription>{t('settings.transcription.api_base_url_help')}</FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="tr-prompt">{t('settings.transcription.prompt')}</FieldLabel>
-                <Textarea
-                  id="tr-prompt"
-                  className="min-h-[72px] resize-y"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  rows={3}
-                  placeholder={t('settings.transcription.prompt_placeholder')}
-                />
-                <FieldDescription>{t('settings.transcription.prompt_help')}</FieldDescription>
-              </Field>
-            </div>
-          </SettingsGroup>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {!embedded ? (
-        <Button type="button" className="self-start" onClick={() => void handleSave()}>
-          {saved ? t('settings.transcription.saved') : t('settings.transcription.save')}
-        </Button>
-      ) : null}
+      {renderSaveButton()}
     </div>
   );
 });

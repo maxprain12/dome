@@ -88,36 +88,198 @@ export function SocialPostPreview({ post, account, compact = false, detail = fal
     { key: 'likes', icon: FavouriteIcon }, { key: 'comments', icon: BubbleChatIcon },
     { key: 'shares', icon: Share01Icon }, { key: 'impressions', icon: ViewIcon }, { key: 'saves', icon: Bookmark01Icon },
   ] as const;
-  const text = <div className="px-5 py-4">
-    <p className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]', compact && !expanded && 'line-clamp-5')}><PublicationText text={post.body || t('social.hub.no_text')} /></p>
-    {compact && post.body.length > 220 ? <Button variant="link" size="sm" className="h-auto px-0 pt-2" onClick={() => setExpanded(!expanded)}>{t(expanded ? 'social.native.less' : 'social.native.more')}</Button> : null}
-  </div>;
-  return <article className={cn('min-w-0 overflow-hidden', !detail && 'rounded-2xl border bg-card text-card-foreground', !detail && post.provider === 'x' && 'rounded-xl')} data-provider={post.provider}>
-    {!detail ? <header className="flex items-center gap-3 px-5 py-4">
+
+  const renderTextBlock = () => (
+    <div className="px-5 py-4">
+      <p className={cn('whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]', compact && !expanded && 'line-clamp-5')}>
+        <PublicationText text={post.body || t('social.hub.no_text')} />
+      </p>
+      {compact && post.body.length > 220 ? (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto px-0 pt-2"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {t(expanded ? 'social.native.less' : 'social.native.more')}
+        </Button>
+      ) : null}
+    </div>
+  );
+
+  const renderHeader = () => (
+    <header className="flex items-center gap-3 px-5 py-4">
       <SocialPostAuthor post={post} account={account} />
       <ProviderMark provider={post.provider} />
-    </header> : null}
-    {!imageFirst ? text : null}
-    {!detail ? <SocialPostMedia key={post.id} media={post.media || []} compact={compact} /> : null}
-    {imageFirst ? text : null}
-    {source?.quote ? <blockquote className="mx-5 mb-4 rounded-xl border p-4"><p className="mb-2 text-xs font-semibold">{source.quote.authorName || source.quote.authorHandle}</p><p className="whitespace-pre-wrap text-sm"><PublicationText text={source.quote.body} /></p>{socialWebUrl(source.quote.url) ? <a href={socialWebUrl(source.quote.url)} target="_blank" rel="noreferrer" className="mt-2 block text-xs text-primary underline">{t('social.hub.open_post')}</a> : null}</blockquote> : null}
-    {source?.poll ? <div className="mx-5 mb-4 flex flex-col gap-2"><p className="text-sm font-semibold">{source.poll.question}</p>{source.poll.options.map((option) => <div key={option.position} className="flex justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2 text-sm"><span>{option.label}</span>{option.votes != null ? <span className="tabular-nums text-muted-foreground">{t('social.native.votes', { count: option.votes })}</span> : null}</div>)}</div> : null}
-    {socialWebUrl(post.linkUrl) ? <a href={socialWebUrl(post.linkUrl)} target="_blank" rel="noreferrer" className="mx-5 mb-4 flex flex-col overflow-hidden rounded-xl border transition-colors hover:bg-muted/40">
-      {socialWebUrl(source?.link?.imageUrl) ? <img src={socialWebUrl(source?.link?.imageUrl)} alt={source?.link?.title || ''} loading="lazy" className="max-h-48 w-full object-cover" /> : null}
-      <div className="p-3"><p className="text-xs text-muted-foreground">{new URL(post.linkUrl!).hostname}</p><p className="mt-1 text-sm font-medium">{source?.link?.title || post.linkUrl}</p>{source?.link?.description ? <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{source.link.description}</p> : null}</div>
-    </a> : null}
-    {!detail ? <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t px-5 py-3">
-      {metrics.map(({ key, icon }) => post.metrics?.[key] != null ? <span key={key} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground" title={t(`social.metrics.${key}`)}><HugeiconsIcon icon={icon} className="size-4" /><span className="sr-only">{t(`social.metrics.${key}`)}: </span>{Intl.NumberFormat(i18n.language, { notation: 'compact' }).format(post.metrics[key]!)}</span> : null)}
-      {!post.metrics && post.status === 'published' ? <span className="text-xs text-muted-foreground">{t('social.native.metrics_unavailable')}</span> : null}
-    </div> : null}
-    {!detail ? <footer className="flex flex-wrap items-center gap-2 bg-muted/25 px-5 py-3">
-      <Badge variant={postStatusBadgeVariant(post.status)}>{t(`social.studio.status.${post.status}`)}</Badge>
-      {source?.format ? <Badge variant="outline">{t(`social.native.format_${source.format}`, { defaultValue: source.format })}</Badge> : null}
-      {post.campaign ? <span className="truncate text-xs text-muted-foreground">{post.campaign}</span> : null}
-      <div className="ml-auto flex items-center gap-2">
-        {onInspect ? <Button variant="ghost" size="sm" onClick={onInspect} aria-label={`${t('social.native.inspect')}: ${formatSocialBody(post.body).slice(0, 80)}`}>{t('social.native.inspect')}</Button> : null}
-        {socialWebUrl(post.externalUrl) ? <Button nativeButton={false} variant="ghost" size="icon-sm" render={<a href={socialWebUrl(post.externalUrl)} target="_blank" rel="noreferrer"><span className="sr-only">{t('social.hub.open_post')}</span></a>} aria-label={t('social.hub.open_post')}><HugeiconsIcon icon={ExternalLinkIcon} /></Button> : null}
+    </header>
+  );
+
+  const renderQuote = () => {
+    if (!source?.quote) return null;
+    const quoteUrl = socialWebUrl(source.quote.url);
+    return (
+      <blockquote className="mx-5 mb-4 rounded-xl border p-4">
+        <p className="mb-2 text-xs font-semibold">
+          {source.quote.authorName || source.quote.authorHandle}
+        </p>
+        <p className="whitespace-pre-wrap text-sm">
+          <PublicationText text={source.quote.body} />
+        </p>
+        {quoteUrl ? (
+          <a
+            href={quoteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block text-xs text-primary underline"
+          >
+            {t('social.hub.open_post')}
+          </a>
+        ) : null}
+      </blockquote>
+    );
+  };
+
+  const renderPoll = () => {
+    if (!source?.poll) return null;
+    return (
+      <div className="mx-5 mb-4 flex flex-col gap-2">
+        <p className="text-sm font-semibold">{source.poll.question}</p>
+        {source.poll.options.map((option) => (
+          <div
+            key={option.position}
+            className="flex justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2 text-sm"
+          >
+            <span>{option.label}</span>
+            {option.votes != null ? (
+              <span className="tabular-nums text-muted-foreground">
+                {t('social.native.votes', { count: option.votes })}
+              </span>
+            ) : null}
+          </div>
+        ))}
       </div>
-    </footer> : null}
-  </article>;
+    );
+  };
+
+  const renderLinkPreview = () => {
+    const linkUrl = socialWebUrl(post.linkUrl);
+    if (!linkUrl) return null;
+    const linkImage = socialWebUrl(source?.link?.imageUrl);
+    return (
+      <a
+        href={linkUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mx-5 mb-4 flex flex-col overflow-hidden rounded-xl border transition-colors hover:bg-muted/40"
+      >
+        {linkImage ? (
+          <img
+            src={linkImage}
+            alt={source?.link?.title || ''}
+            loading="lazy"
+            className="max-h-48 w-full object-cover"
+          />
+        ) : null}
+        <div className="p-3">
+          <p className="text-xs text-muted-foreground">{new URL(post.linkUrl!).hostname}</p>
+          <p className="mt-1 text-sm font-medium">{source?.link?.title || post.linkUrl}</p>
+          {source?.link?.description ? (
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+              {source.link.description}
+            </p>
+          ) : null}
+        </div>
+      </a>
+    );
+  };
+
+  const renderMetrics = () => (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t px-5 py-3">
+      {metrics.map(({ key, icon }) =>
+        post.metrics?.[key] != null ? (
+          <span
+            key={key}
+            className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground"
+            title={t(`social.metrics.${key}`)}
+          >
+            <HugeiconsIcon icon={icon} className="size-4" />
+            <span className="sr-only">{t(`social.metrics.${key}`)}: </span>
+            {Intl.NumberFormat(i18n.language, { notation: 'compact' }).format(post.metrics[key]!)}
+          </span>
+        ) : null
+      )}
+      {!post.metrics && post.status === 'published' ? (
+        <span className="text-xs text-muted-foreground">
+          {t('social.native.metrics_unavailable')}
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const renderFooter = () => {
+    const externalUrl = socialWebUrl(post.externalUrl);
+    return (
+      <footer className="flex flex-wrap items-center gap-2 bg-muted/25 px-5 py-3">
+        <Badge variant={postStatusBadgeVariant(post.status)}>
+          {t(`social.studio.status.${post.status}`)}
+        </Badge>
+        {source?.format ? (
+          <Badge variant="outline">
+            {t(`social.native.format_${source.format}`, { defaultValue: source.format })}
+          </Badge>
+        ) : null}
+        {post.campaign ? (
+          <span className="truncate text-xs text-muted-foreground">{post.campaign}</span>
+        ) : null}
+        <div className="ml-auto flex items-center gap-2">
+          {onInspect ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onInspect}
+              aria-label={`${t('social.native.inspect')}: ${formatSocialBody(post.body).slice(0, 80)}`}
+            >
+              {t('social.native.inspect')}
+            </Button>
+          ) : null}
+          {externalUrl ? (
+            <Button
+              nativeButton={false}
+              variant="ghost"
+              size="icon-sm"
+              render={
+                <a href={externalUrl} target="_blank" rel="noreferrer">
+                  <span className="sr-only">{t('social.hub.open_post')}</span>
+                </a>
+              }
+              aria-label={t('social.hub.open_post')}
+            >
+              <HugeiconsIcon icon={ExternalLinkIcon} />
+            </Button>
+          ) : null}
+        </div>
+      </footer>
+    );
+  };
+
+  return (
+    <article
+      className={cn(
+        'min-w-0 overflow-hidden',
+        !detail && 'rounded-2xl border bg-card text-card-foreground',
+        !detail && post.provider === 'x' && 'rounded-xl'
+      )}
+      data-provider={post.provider}
+    >
+      {!detail ? renderHeader() : null}
+      {!imageFirst ? renderTextBlock() : null}
+      {!detail ? <SocialPostMedia key={post.id} media={post.media || []} compact={compact} /> : null}
+      {imageFirst ? renderTextBlock() : null}
+      {renderQuote()}
+      {renderPoll()}
+      {renderLinkPreview()}
+      {!detail ? renderMetrics() : null}
+      {!detail ? renderFooter() : null}
+    </article>
+  );
 }
