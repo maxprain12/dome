@@ -7,17 +7,24 @@ afterEach(() => {
 
 describe('http client', () => {
   it('maps a pairing payload', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
+    vi.stubGlobal('browser', {
+      runtime: { getURL: () => 'chrome-extension://dome-test/' },
+    });
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => ({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ success: true, data: { token: 'dxt_abc', clientId: 'c1' } }),
-      })),
+        text: async () =>
+          JSON.stringify({ success: true, data: { token: 'dxt_abc', clientId: 'c1' } }),
+      }),
     );
+    vi.stubGlobal('fetch', fetchMock);
     const result = await request<{ token: string }>({ path: '/v1/pair', method: 'POST', body: { code: 'ABCD2345' } });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.token).toBe('dxt_abc');
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      'X-Dome-Extension-Origin': 'chrome-extension://dome-test',
+    });
   });
 
   it('explains when Dome is closed', async () => {
@@ -56,6 +63,9 @@ describe('http client', () => {
   });
 
   it('parses Many SSE deltas', async () => {
+    vi.stubGlobal('browser', {
+      runtime: { getURL: () => 'chrome-extension://dome-test/' },
+    });
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -102,6 +112,9 @@ describe('http client', () => {
       memoryEnabled: true,
       projectId: 'project-1',
       mcpServerIds: ['GitHub'],
+    });
+    expect(init?.headers).toMatchObject({
+      'X-Dome-Extension-Origin': 'chrome-extension://dome-test',
     });
   });
 });

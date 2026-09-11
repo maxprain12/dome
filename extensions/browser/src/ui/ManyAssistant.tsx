@@ -257,7 +257,8 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       try {
         const result = await api.readManySession(token, id);
         if (!result.success) {
-          setError(t('sessionsUnavailable'));
+          if (navigate) setError(t('sessionsUnavailable'));
+          else browser.storage.local.remove('dome.manyThread').catch(() => undefined);
           return;
         }
         setThreadId(id);
@@ -308,12 +309,13 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       .get('dome.manyThread')
       .then((stored) => {
         const saved = stored['dome.manyThread'];
-        if (typeof saved === 'string') {
-          openSession(saved, false).catch(() => setError(t('sessionsUnavailable')));
-        }
+        if (typeof saved !== 'string') return;
+        openSession(saved, false).catch(() => {
+          browser.storage.local.remove('dome.manyThread').catch(() => undefined);
+        });
       })
-      .catch(() => setError(t('sessionsUnavailable')));
-  }, [openSession, t]);
+      .catch(() => undefined);
+  }, [openSession]);
 
   useEffect(() => {
     if (view !== 'history') return;
@@ -808,6 +810,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         >
           <Icon
             name={appliedMessageId === lastAssistant.id ? 'check' : 'plus'}
+            data-icon="inline-start"
           />
           {appliedMessageId === lastAssistant.id
             ? t('applied')

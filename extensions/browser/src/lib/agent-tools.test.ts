@@ -54,7 +54,8 @@ it('solicita acceso y reintenta la lectura de la pestaña para el agente', async
 it('permite navegar aunque la página actual todavía no tenga contexto', async () => {
   const sendMessage = vi
     .fn()
-    .mockResolvedValue({ success: true, url: 'https://example.test/next' });
+    .mockResolvedValueOnce({ success: true, url: 'https://example.test/next' })
+    .mockResolvedValueOnce(pageSnapshot);
   vi.stubGlobal('browser', {
     runtime: { sendMessage },
     permissions: { contains: vi.fn().mockResolvedValue(true) },
@@ -78,10 +79,80 @@ it('permite navegar aunque la página actual todavía no tenga contexto', async 
   expect(result).toEqual({
     success: true,
     url: 'https://example.test/next',
+    data: pageSnapshot,
   });
   expect(sendMessage).toHaveBeenCalledWith({
     type: 'DOME_NAVIGATE',
     tabId: 12,
     url: 'https://example.test/next',
+  });
+});
+
+it('devuelve un snapshot fresco después de hacer scroll', async () => {
+  const nextSnapshot = { ...pageSnapshot, snapshotId: 'snapshot-2', readableText: 'Experiencia\nEngineer' };
+  const sendMessage = vi
+    .fn()
+    .mockResolvedValueOnce(pageSnapshot)
+    .mockResolvedValueOnce({ ok: true })
+    .mockResolvedValueOnce(nextSnapshot);
+  vi.stubGlobal('browser', { runtime: { sendMessage } });
+  const runTool = createToolRunner({
+    token: 'token',
+    projectId: 'project',
+    tabId: 12,
+    review: vi.fn(),
+    signal: new AbortController().signal,
+  });
+
+  const result = await runTool({
+    type: 'browser_tool',
+    callId: 'scroll-1',
+    streamId: 'stream-1',
+    name: 'browser_scroll',
+    args: { headingText: 'Experiencia' },
+  } satisfies ToolRequest);
+
+  expect(result).toEqual({ success: true, data: nextSnapshot });
+  expect(sendMessage).toHaveBeenNthCalledWith(2, {
+    type: 'DOME_PAGE_ACTION',
+    tabId: 12,
+    url: pageSnapshot.url,
+    action: { kind: 'scroll', headingText: 'Experiencia' },
+  });
+});
+
+it('adjunta una captura de la pestaña visible cuando se pide screenshot', async () => {
+  const sendMessage = vi
+    .fn()
+    .mockResolvedValueOnce(pageSnapshot)
+    .mockResolvedValueOnce({ dataUrl: 'data:image/jpeg;base64,/9j/4AAQ' });
+  vi.stubGlobal('browser', { runtime: { sendMessage } });
+  const runTool = createToolRunner({
+    token: 'token',
+    projectId: 'project',
+    tabId: 12,
+    review: vi.fn(),
+    signal: new AbortController().signal,
+  });
+
+  const result = await runTool({
+    type: 'browser_tool',
+    callId: 'shot-1',
+    streamId: 'stream-1',
+    name: 'browser_screenshot',
+    args: {},
+  } satisfies ToolRequest);
+
+  expect(result).toEqual({
+    success: true,
+    data: {
+      url: pageSnapshot.url,
+      title: pageSnapshot.title,
+      screenshot: 'data:image/jpeg;base64,/9j/4AAQ',
+    },
+  });
+  expect(sendMessage).toHaveBeenCalledWith({
+    type: 'DOME_CAPTURE_TAB',
+    tabId: 12,
   });
 });

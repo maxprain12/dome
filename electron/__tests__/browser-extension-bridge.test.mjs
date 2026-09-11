@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const {
   isAllowedExtensionOrigin,
   corsHeaders,
+  requestOrigin,
+  EXTENSION_ORIGIN_HEADER,
   PairBodySchema,
   MAX_BODY_BYTES,
   PROTOCOL_VERSION,
@@ -62,6 +64,32 @@ describe('browser extension protocol', () => {
     assert.equal(isAllowedExtensionOrigin(''), false);
     assert.equal(isAllowedExtensionOrigin('https://evil.example'), false);
     assert.equal(corsHeaders('https://evil.example')['Access-Control-Allow-Origin'], undefined);
+    assert.equal(
+      requestOrigin({ origin: 'chrome-extension://abcd' }),
+      'chrome-extension://abcd',
+    );
+    assert.equal(
+      requestOrigin({ [EXTENSION_ORIGIN_HEADER]: 'chrome-extension://sw' }),
+      'chrome-extension://sw',
+    );
+    assert.equal(
+      requestOrigin({
+        origin: 'null',
+        [EXTENSION_ORIGIN_HEADER]: 'chrome-extension://sw',
+      }),
+      'chrome-extension://sw',
+    );
+    assert.equal(
+      requestOrigin({
+        origin: 'https://evil.example',
+        [EXTENSION_ORIGIN_HEADER]: 'chrome-extension://sw',
+      }),
+      'https://evil.example',
+    );
+    assert.equal(
+      corsHeaders('chrome-extension://abcd')['Access-Control-Allow-Headers'],
+      `Content-Type, Authorization, ${EXTENSION_ORIGIN_HEADER}`,
+    );
   });
 
   it('rejects tiny pairing payloads', () => {
@@ -176,6 +204,18 @@ describe('browser extension pairing', () => {
     );
     const pairing = createPairing({ getQueries: () => queries });
     assert.equal(pairing.resolveToken(token, 'chrome-extension://dome-test'), null);
+    assert.equal(pairing.resolveToken(token, ''), null);
+  });
+
+  it('authenticates a paired token on loopback when Origin is omitted', () => {
+    const queries = memoryQueries();
+    const pairing = createPairing({ getQueries: () => queries });
+    const started = pairing.startPairing();
+    const origin = 'chrome-extension://abcd';
+    const paired = pairing.pair({ code: started.code, clientName: 'SW' }, origin);
+    assert.ok(pairing.resolveToken(paired.token, origin));
+    assert.ok(pairing.resolveToken(paired.token, ''));
+    assert.equal(pairing.resolveToken(paired.token, 'chrome-extension://other'), null);
   });
 });
 
@@ -301,12 +341,38 @@ describe('browser extension HTTP server', () => {
     const nullOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
       headers: { Authorization: `Bearer ${token}`, Origin: 'null' },
     });
-    assert.equal(nullOrigin.status, 403);
+    assert.equal(nullOrigin.status, 200);
 
     const missingOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    assert.equal(missingOrigin.status, 403);
+    assert.equal(missingOrigin.status, 200);
+
+    const serviceWorkerOrigin = await fetch(`http://127.0.0.1:${port}/v1/context`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        [EXTENSION_ORIGIN_HEADER]: origin,
+      },
+    });
+    assert.equal(serviceWorkerOrigin.status, 200);
+
+    const nullOriginWithHeader = await fetch(`http://127.0.0.1:${port}/v1/context`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: 'null',
+        [EXTENSION_ORIGIN_HEADER]: origin,
+      },
+    });
+    assert.equal(nullOriginWithHeader.status, 200);
+
+    const spoofedHeader = await fetch(`http://127.0.0.1:${port}/v1/context`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: 'https://evil.example',
+        [EXTENSION_ORIGIN_HEADER]: origin,
+      },
+    });
+    assert.equal(spoofedHeader.status, 403);
 
     const wrongHost = await rawRequest({
       port,
@@ -772,6 +838,7 @@ describe('Many browser runtime parity', () => {
     assert.equal(runs[0].messages[0].content.includes('PROJECT MEMORY'), false);
     assert.equal(runs[0].messages[0].content.includes('untrusted source data'), true);
     assert.equal(runs[0].messages[0].content.includes('browser_read_page before answering'), true);
+    assert.equal(runs[0].messages[0].content.includes('do not call get_tool_definition for browser_*'), true);
     assert.deepEqual(memoryLoads[0], {
       memoryEnabled: false,
       projectId: 'project-1',

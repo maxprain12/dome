@@ -106,13 +106,16 @@ function createPairing({ getQueries }) {
   }
 
   function resolveToken(token, origin) {
-    if (!isAllowedExtensionOrigin(origin)) return null;
     if (typeof token !== 'string' || !token.startsWith(TOKEN_PREFIX)) return null;
     const hash = sha256(token);
     const clients = readClients();
-    const client = clients.find(
-      (c) => c && c.tokenHash === hash && c.origin === origin,
-    );
+    const client = isAllowedExtensionOrigin(origin)
+      ? clients.find((c) => c && c.tokenHash === hash && c.origin === origin)
+      : !origin || origin === 'null'
+        ? clients.find(
+            (c) => c && c.tokenHash === hash && isAllowedExtensionOrigin(c.origin),
+          )
+        : null;
     if (!client) return null;
     client.lastSeenAt = Date.now();
     writeClients(clients);

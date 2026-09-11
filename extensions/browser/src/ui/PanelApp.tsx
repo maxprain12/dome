@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Link01Icon } from '@hugeicons/core-free-icons';
 import type {
   ContactDraft,
   NoteSummary,
@@ -17,7 +19,9 @@ import type { PageContext } from '../lib/browser-context';
 import { Button } from '../../../../app/components/ui/button';
 import { DropdownMenuItem } from '../../../../app/components/ui/dropdown-menu';
 import { Input } from '../../../../app/components/ui/input';
+import { Spinner } from '../../../../app/components/ui/spinner';
 import { Textarea } from '../../../../app/components/ui/textarea';
+import ManyAvatar from '../../../../app/components/many/ManyAvatar';
 import ManyHeader, {
   type ManyPanelViewId,
 } from '../../../../app/components/many/panel/ManyHeader';
@@ -200,7 +204,9 @@ export default function PanelApp({
       const result = await api.getContext(loaded.token);
       if (!result.success) {
         setConnected(false);
-        setConnectionError(t('offline'));
+        setConnectionError(
+          t(/pair|expired|code/i.test(result.error) ? 'invalidCode' : 'offline'),
+        );
         return;
       }
       setProjects(result.data.projects);
@@ -468,7 +474,7 @@ export default function PanelApp({
           className={`status ${value.kind}`}
           role={value.kind === 'error' ? 'alert' : 'status'}
         >
-          {value.kind === 'ok' && <Icon name="check" />}
+          {value.kind === 'ok' && <Icon name="check" data-icon="inline-start" />}
           <span>
             {value.text}
             {value.link && <a href={value.link}>{t('openDome')} ↗</a>}
@@ -558,67 +564,67 @@ export default function PanelApp({
       aria-label="Dome"
     >
       {!session?.token ? (
-        <header className="panel-header">
-          <div className="brand">
-            <img src={manyMark} alt="" width="28" height="28" />
-            <strong>Dome</strong>
-            <span className="browser-label">/ Browser</span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t('close')}
-            onClick={onClose}
-          >
-            <Icon name="close" />
-          </Button>
-        </header>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="pairing-close"
+          aria-label={t('close')}
+          onClick={onClose}
+        >
+          <Icon name="close" />
+        </Button>
       ) : null}
       {!session ? (
-        <div className="panel-content" role="status">
-          {t('connecting')}
+        <div className="pairing" role="status">
+          <ManyAvatar size="lg" imageSrc={manyMark} />
+          <p className="pairing-help">{t('connecting')}</p>
         </div>
       ) : !session.token ? (
-        <div className="panel-content pairing">
-          <div className="pair-illustration">
-            <Icon name="link" />
-          </div>
-          <h1>{t('pairTitle')}</h1>
-          <p>{t('pairHelp')}</p>
+        <div className="pairing">
+          <ManyAvatar size="lg" imageSrc={manyMark} />
+          <h1 className="pairing-title">{t('pairTitle')}</h1>
+          <p className="pairing-help">{t('pairHelp')}</p>
           <form
+            className="pairing-form"
             onSubmit={(event) => {
               event.preventDefault();
               pairing();
             }}
           >
-            <label className="field">
+            <label className="pairing-code" htmlFor="dome-pair-code">
               {t('pairCode')}
               <Input
+                id="dome-pair-code"
                 autoComplete="off"
                 spellCheck={false}
                 maxLength={12}
                 placeholder="ABCD2345"
+                aria-invalid={connectionError ? true : undefined}
                 value={code}
                 onChange={(event) =>
                   setCode(event.target.value.toUpperCase().replace(/\s/g, ''))
                 }
               />
             </label>
+            {connectionError ? (
+              <p role="alert" className="pairing-error">
+                {connectionError}
+              </p>
+            ) : null}
             <Button
               type="submit"
-              className="full-width"
+              className="w-full"
               disabled={busy || code.trim().length < 6}
             >
+              {busy ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <HugeiconsIcon icon={Link01Icon} data-icon="inline-start" />
+              )}
               {t(busy ? 'working' : 'pair')}
-              <Icon name="arrow" />
             </Button>
           </form>
-          {connectionError && (
-            <p role="alert" className="status error">
-              {connectionError}
-            </p>
-          )}
         </div>
       ) : (
         <>
@@ -681,7 +687,7 @@ export default function PanelApp({
                       setTaskPaneOpen(true);
                     }}
                   >
-                    <Icon name={secondaryTask} />
+                    <Icon name={secondaryTask} data-icon="inline-start" />
                     {t(secondaryTask)}
                   </Button>
                 ))}
@@ -756,7 +762,7 @@ export default function PanelApp({
               disabled={manyHeaderState.interactionLocked}
               onClick={closeTaskPane}
             >
-              <Icon name="back" />
+              <Icon name="back" data-icon="inline-start" />
               {t('backToMany')}
             </Button>
             <span>{task ? t(task) : ''}</span>
@@ -826,7 +832,7 @@ export default function PanelApp({
                   })
                 }
               >
-                <Icon name="capture" />
+                <Icon name="capture" data-icon="inline-start" />
                 {t(busy ? 'working' : 'savePage')}
               </Button>
               {renderNotice('capture')}
@@ -1055,7 +1061,7 @@ export default function PanelApp({
                     !contact.displayName.trim()
                   }
                 >
-                  <Icon name="contact" />
+                  <Icon name="contact" data-icon="inline-start" />
                   {t(busy ? 'working' : 'saveContact')}
                 </Button>
               </form>

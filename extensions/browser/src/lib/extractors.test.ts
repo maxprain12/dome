@@ -68,6 +68,24 @@ describe('detectMediaKind', () => {
   });
 });
 
+it('extracts LinkedIn sections from visible headings when anchors are missing', () => {
+  const doc = htmlDoc(`<main><section><h1>Santiago Gómez</h1><div class="text-body-medium break-words">Full-stack engineer</div><span class="text-body-small inline t-black--light">Madrid</span></section><section><h2>Acerca de</h2><p>Construye productos con IA.</p></section><section><h2>Experiencia</h2><p>Staff Engineer · Acme · 2024</p></section><section><h2>Educación</h2><p>Universidad Complutense</p></section><section><h2>Proyectos</h2><p>Dome browser tools</p></section></main>`);
+  const contact = extractContact(doc, 'https://www.linkedin.com/in/sgomez-dev/');
+  expect(contact?.displayName).toBe('Santiago Gómez');
+  expect(contact?.displayLabel).toBe('Full-stack engineer');
+  expect(contact?.profile?.about).toContain('productos');
+  expect(contact?.profile?.experience).toContain('Acme');
+  expect(contact?.profile?.education).toContain('Complutense');
+  expect(contact?.profile?.projects).toContain('Dome');
+  expect(contact?.profile?.extractionNote).toBeUndefined();
+});
+
+it('marks a LinkedIn handle-only page as incomplete instead of inventing jobs', () => {
+  const doc = htmlDoc(`<main><section><h1>Santiago Gómez</h1></section></main>`);
+  const contact = extractContact(doc, 'https://www.linkedin.com/in/sgomez-dev/');
+  expect(contact?.profile?.extractionNote).toMatch(/Scroll those headings/i);
+  expect(contact?.profile?.experience).toBeUndefined();
+});
 it('extracts the main LinkedIn profile and sections without recommendation identities', () => {
   const doc = htmlDoc(`<main><section><h1>Alejandro Cano</h1><div class="text-body-medium">Desarrollador Filemaker</div><span class="text-body-small inline t-black--light">Madrid, España</span></section><section><div id="experience"></div><h2>Experiencia</h2><p>Desarrollador · Example · 2025</p><span aria-hidden="true">Duplicate inaccessible label</span></section><section><div id="education"></div><h2>Educación</h2><p>IES Cervantes</p></section></main><aside><h1>Someone Else</h1><a href="mailto:wrong@example.com">Email</a></aside>`);
   const contact = extractContact(doc, 'https://www.linkedin.com/in/alejandro/');

@@ -90,6 +90,21 @@ describe('applyToolStubs', () => {
     assert.equal(isStubParameters(full.offered[0].parameters), false);
   });
 
+  it('keeps injected browser tools fully schemed', () => {
+    const tools = [
+      {
+        name: 'browser_scroll',
+        description: 'Scroll the controlled page.',
+        parameters: { type: 'object', properties: { direction: { type: 'string' } } },
+      },
+    ];
+    const stubbed = applyToolStubs(tools);
+    assert.equal(isStubParameters(stubbed.offered[0].parameters), true);
+    const full = applyToolStubs(tools, { expandedNames: ['browser_scroll'] });
+    assert.equal(isStubParameters(full.offered[0].parameters), false);
+    assert.equal(full.offered[0], tools[0]);
+  });
+
   it('references real catalog names for the core set', () => {
     const ghosts = CORE_FULL_SCHEMA_TOOLS.filter(
       (n) => !catalogNames.includes(n) && n !== 'task' && n !== 'delegate_to_agent',

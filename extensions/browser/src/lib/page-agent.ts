@@ -8,6 +8,10 @@ export interface BrowserElement {
   href?: string;
   inputType?: string;
 }
+
+const SEE_MORE_RE =
+  /ver m[aá]s|see more|show all|mostrar todos|ver todo|see all|mostrar m[aá]s/i;
+
 export function createPageAgent(doc: Document = document) {
   let snapshotId = '';
   let snapshotUrl = '';
@@ -42,18 +46,23 @@ export function createPageAgent(doc: Document = document) {
     /cc-|one-time-code|current-password|new-password/.test(
       node.getAttribute('autocomplete') || '',
     );
+  function collectCandidates(): HTMLElement[] {
+    const all = Array.from(
+      doc.querySelectorAll<HTMLElement>(
+        'a[href], button, input, textarea, select, [role="button"], [role="link"]',
+      ),
+    ).filter((node) => visible(node) && !sensitive(node));
+    const primary = all.slice(0, 150);
+    const extras = all.filter(
+      (node) => SEE_MORE_RE.test(label(node)) && !primary.includes(node),
+    );
+    return [...primary, ...extras.slice(0, 20)];
+  }
   function read() {
     snapshotId = crypto.randomUUID();
     snapshotUrl = doc.location.href;
     elements.clear();
-    const candidates = Array.from(
-      doc.querySelectorAll<HTMLElement>(
-        'a[href], button, input, textarea, select, [role="button"], [role="link"]',
-      ),
-    )
-      .filter((node) => visible(node) && !sensitive(node))
-      .slice(0, 150);
-    const inventory: BrowserElement[] = candidates.map((node, index) => {
+    const inventory: BrowserElement[] = collectCandidates().map((node, index) => {
       const id = `e${index + 1}`;
       elements.set(id, { node, signature: signature(node) });
       return {

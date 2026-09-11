@@ -26,6 +26,7 @@ const EXTENSION_PROTOCOLS = new Set([
   'safari-web-extension:',
   'safari-extension:',
 ]);
+const EXTENSION_ORIGIN_HEADER = 'x-dome-extension-origin';
 
 const IdentitySourceSchema = z.enum([
   'social_linkedin', 'github',
@@ -189,10 +190,21 @@ function isAllowedExtensionOrigin(origin) {
   }
 }
 
+function requestOrigin(headers) {
+  const origin = typeof headers?.origin === 'string' ? headers.origin.trim() : '';
+  const fallback = headers?.[EXTENSION_ORIGIN_HEADER];
+  const header = Array.isArray(fallback) ? fallback[0] : fallback;
+  const declared = typeof header === 'string' ? header.trim() : '';
+  // Service workers often omit Origin (or send "null"). Trust the header only then.
+  // A page Origin must win so a website cannot spoof chrome-extension:// via the header.
+  if (origin && origin !== 'null') return origin;
+  return declared || origin;
+}
+
 function corsHeaders(origin) {
   const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': `Content-Type, Authorization, ${EXTENSION_ORIGIN_HEADER}`,
     'Access-Control-Max-Age': '600',
     Vary: 'Origin',
   };
@@ -220,6 +232,8 @@ module.exports = {
   StreamIdSchema,
   ResourceIdSchema,
   EXTENSION_PROTOCOLS,
+  EXTENSION_ORIGIN_HEADER,
+  requestOrigin,
   PairBodySchema,
   CreateNoteBodySchema,
   UpdateNoteBodySchema,

@@ -1,6 +1,25 @@
 import type { ToolRequest } from './agent-tools';
-import { BASE_URL } from './protocol';
 import type { ContactDraft, NoteSummary, ProjectSummary } from './protocol';
+import { BASE_URL } from './protocol';
+
+const EXTENSION_ORIGIN_HEADER = 'X-Dome-Extension-Origin';
+
+function extensionOrigin(): string | undefined {
+  try {
+    const parsed = new URL(browser.runtime.getURL('/'));
+    if (!parsed.protocol || !parsed.hostname) return undefined;
+    return `${parsed.protocol}//${parsed.hostname}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function loopbackHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const origin = extensionOrigin();
+  return origin
+    ? { ...extra, [EXTENSION_ORIGIN_HEADER]: origin }
+    : extra;
+}
 
 export type NoteDetail = {
   id: string;
@@ -320,10 +339,10 @@ export interface StreamResult {
 }
 
 export async function request<T>(opts: HttpRequest): Promise<ApiResult<T>> {
-  const headers: Record<string, string> = {
+  const headers = loopbackHeaders({
     'Content-Type': 'application/json',
-  };
-  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+    ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+  });
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${opts.path}`, {
@@ -391,10 +410,10 @@ export async function streamManyHttp(
   try {
     res = await fetch(`${BASE_URL}${requestSpec.path}`, {
       method: 'POST',
-      headers: {
+      headers: loopbackHeaders({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
-      },
+      }),
       body: JSON.stringify(requestSpec.body),
     });
   } catch {
