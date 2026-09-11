@@ -7,6 +7,12 @@ import {
   CONTENT_PROTOCOL_VERSION,
 } from '../src/lib/content-protocol';
 
+function settle(ms = 700) {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+}
+
 export default defineContentScript({
   matches: ['http://*/*', 'https://*/*'],
   registration: 'runtime',
@@ -26,6 +32,17 @@ export default defineContentScript({
       )
         .filter((el) => (el as HTMLElement).offsetHeight > 0)
         .slice(0, 80);
+    const scrollToHeading = (text: string) => {
+      const needle = text.replace(/\s+/g, ' ').trim().toLowerCase();
+      const heading = headings().find((el) =>
+        (el.textContent || '')
+          .replace(/\s+/g, ' ')
+          .toLowerCase()
+          .includes(needle),
+      );
+      heading?.scrollIntoView({ behavior: 'auto', block: 'start' });
+      return Boolean(heading);
+    };
     browser.runtime.onMessage.addListener(
       (message: {
         type?: string;
@@ -61,25 +78,37 @@ export default defineContentScript({
         if (message.type !== 'DOME_ACT' || message.url !== location.href)
           return;
         const action = message.action;
-        if (action?.kind === 'click' || action?.kind === 'fill')
-          return Promise.resolve(agent.act(action));
+        if (action?.kind === 'click' || action?.kind === 'fill') {
+          const result = agent.act(action);
+          if (action.kind === 'click') {
+            return settle(400).then(() => result);
+          }
+          return Promise.resolve(result);
+        }
         if (action?.kind === 'scroll') {
+          if (action.headingText?.trim()) {
+            const ok = scrollToHeading(action.headingText);
+            return settle().then(() => ({ ok }));
+          }
           if (action.direction === 'top')
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            globalThis.scrollTo({ top: 0, behavior: 'auto' });
           else
-            window.scrollBy({
-              top: innerHeight * 0.75 * (action.direction === 'up' ? -1 : 1),
-              behavior: 'smooth',
+            globalThis.scrollBy({
+              top:
+                globalThis.innerHeight *
+                0.75 *
+                (action.direction === 'up' ? -1 : 1),
+              behavior: 'auto',
             });
-          return Promise.resolve({ ok: true });
+          return settle().then(() => ({ ok: true }));
         }
         if (action?.kind === 'heading') {
           const heading = headings()[action.index];
-          heading?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          return Promise.resolve({ ok: Boolean(heading) });
+          heading?.scrollIntoView({ behavior: 'auto', block: 'center' });
+          return settle().then(() => ({ ok: Boolean(heading) }));
         }
         if (action?.kind === 'find') {
-          const finder = window as Window & {
+          const finder = globalThis as typeof globalThis & {
             find?: (
               text: string,
               caseSensitive: boolean,
@@ -87,12 +116,11 @@ export default defineContentScript({
               wrap: boolean,
             ) => boolean;
           };
-          return Promise.resolve({
-            ok: Boolean(
-              action.text.trim() &&
-                finder.find?.(action.text.slice(0, 200), false, false, true),
-            ),
-          });
+          const ok = Boolean(
+            action.text.trim() &&
+              finder.find?.(action.text.slice(0, 200), false, false, true),
+          );
+          return settle(400).then(() => ({ ok }));
         }
       },
     );

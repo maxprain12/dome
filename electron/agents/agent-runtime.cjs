@@ -988,10 +988,18 @@ async function setupHarness(surface, opts) {
 
   // Many / agent-chat: send one-line stubs for the catalog and keep full
   // schemas only for the core set. `get_tool_definition` expands a stub.
+  // Browser-extension tools are the actual job on that surface — stubbing them
+  // left the model calling browser_extract_contact with an empty schema.
   const useStubs = surface === 'many' || surface === 'agent-chat';
+  const browserToolNames = Array.isArray(opts.browserTools)
+    ? opts.browserTools.map((tool) => tool?.name).filter(Boolean)
+    : [];
   const { applyToolStubs } = require('../tools/tool-stubs.cjs');
   const stubbed = useStubs
-    ? applyToolStubs(registeredTools, { coding: Boolean(workspaceSession) })
+    ? applyToolStubs(registeredTools, {
+        coding: Boolean(workspaceSession),
+        expandedNames: browserToolNames,
+      })
     : {
         offered: registeredTools,
         fullByName: new Map(registeredTools.map((tool) => [tool.name, tool])),
@@ -1004,12 +1012,23 @@ async function setupHarness(surface, opts) {
   // registered and narrow what this turn *offers* — the harness's
   // `activeToolNames` contract. The catalog stays introspectable via
   // `get_tool_definition`, and `setTools` can widen the set mid-session.
-  const { resolveActiveToolNames } = require('../tools/tool-cap.cjs');
-  const activeToolNames = resolveActiveToolNames(offeredTools, {
+  const { resolveActiveToolNames, OPENAI_COMPAT_MAX_TOOLS } = require('../tools/tool-cap.cjs');
+  let activeToolNames = resolveActiveToolNames(offeredTools, {
     provider,
     model,
     coding: Boolean(workspaceSession),
   });
+  if (activeToolNames && browserToolNames.length > 0) {
+    const kept = [];
+    const seen = new Set();
+    for (const name of [...browserToolNames, ...activeToolNames]) {
+      if (!name || seen.has(name)) continue;
+      if (kept.length >= OPENAI_COMPAT_MAX_TOOLS) break;
+      seen.add(name);
+      kept.push(name);
+    }
+    activeToolNames = kept;
+  }
 
   const resources = await bridge.loadSkillsResources();
   const env = new NodeExecutionEnv({ cwd: workspaceSession?.cwd ?? process.cwd() });

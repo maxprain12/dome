@@ -32,7 +32,7 @@
     "lint": "eslint app/",
     "extension:dev": "pnpm --filter @dome/browser-extension run dev",
     "extension:build": "pnpm --filter @dome/browser-extension run build",
-    "extension:test": "pnpm --filter @dome/browser-extension run test && node --test electron/__tests__/browser-extension-bridge.test.mjs electron/__tests__/browser-extension-capture.test.mjs",
+    "extension:test": "pnpm --filter @dome/browser-extension run test && node --test electron/__tests__/browser-extension-bridge.test.mjs electron/__tests__/browser-extension-capture.test.mjs electron/__tests__/browser-tools.test.mjs",
     "extension:safari": "pnpm --filter @dome/browser-extension run build:safari && pnpm --filter @dome/browser-extension run package:safari",
     "extension:smoke": "playwright test --config extensions/browser/playwright.config.ts",
     "test:ui": "vitest run --config vitest.renderer.config.ts",

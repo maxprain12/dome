@@ -154,6 +154,81 @@ function cleanText(element: Element | null, limit = 6000): string {
     .trim()
     .slice(0, limit);
 }
+
+function normalizeHeading(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const LINKEDIN_SECTIONS: Record<string, string[]> = {
+  about: ['about', 'acerca de', 'info', 'informacion'],
+  experience: ['experience', 'experiencia'],
+  education: ['education', 'educacion', 'formacion academica', 'formacion'],
+  skills: ['skills', 'aptitudes'],
+  certifications: [
+    'licenses and certifications',
+    'licencias y certificaciones',
+    'certifications',
+    'certificaciones',
+    'licenses',
+    'licencias',
+  ],
+  projects: ['projects', 'proyectos'],
+  services: ['services', 'servicios'],
+  languages: ['languages', 'idiomas'],
+};
+
+function headingMatches(text: string, aliases: string[]): boolean {
+  const normalized = normalizeHeading(text);
+  if (!normalized) return false;
+  return aliases.some(
+    (alias) => normalized === alias || normalized.startsWith(`${alias} `),
+  );
+}
+
+function findSectionByHeading(
+  root: ParentNode,
+  aliases: string[],
+): Element | null {
+  for (const heading of root.querySelectorAll('h2, h3')) {
+    if (!headingMatches(heading.textContent || '', aliases)) continue;
+    return heading.closest('section') || heading.parentElement;
+  }
+  return null;
+}
+
+function firstBetween(
+  start: Element | null,
+  end: Element | null,
+  selector: string,
+  scope: ParentNode,
+): Element | null {
+  if (!start) return scope.querySelector(selector);
+  for (const node of scope.querySelectorAll(selector)) {
+    const afterStart =
+      (start.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !==
+      0;
+    if (!afterStart) continue;
+    if (end) {
+      const afterEnd =
+        (end.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !==
+        0;
+      if (afterEnd) continue;
+    }
+    return node;
+  }
+  return null;
+}
+
+function looksLikeSocialChrome(text: string): boolean {
+  return /\d[\d.,]*\s*(\+|k)?\s*(followers?|conexiones|connections|seguidores)/i.test(
+    text,
+  );
+}
 function extractProfileFacts(
   doc: Document,
   source?: IdentitySource,
@@ -170,19 +245,38 @@ function extractProfileFacts(
   let profile: ParentNode = root;
   if (source === 'social_linkedin') {
     const name = root.querySelector('h1');
+    const firstH2 = root.querySelector('h2');
     profile =
       name?.closest('section') ||
       name?.parentElement ||
       doc.createElement('div');
     facts.name = cleanText(name, 200);
-    facts.headline = text(
-      '.text-body-medium, [data-anonymize="headline"], .top-card-layout__headline',
-      profile,
-    );
+    const headlineEl =
+      firstBetween(
+        name,
+        firstH2,
+        '.text-body-medium.break-words, [data-anonymize="headline"], .top-card-layout__headline, .text-body-medium',
+        root,
+      ) ||
+      profile.querySelector(
+        '.text-body-medium, [data-anonymize="headline"], .top-card-layout__headline',
+      );
+    facts.headline = cleanText(headlineEl, 400);
     facts.location = text(
       '.text-body-small.inline.t-black--light, [data-anonymize="location"], .top-card-layout__first-subline',
       profile,
     );
+    if (!facts.location) {
+      facts.location = cleanText(
+        firstBetween(
+          name,
+          firstH2,
+          '.text-body-small.inline.t-black--light, [data-anonymize="location"]',
+          root,
+        ),
+        200,
+      );
+    }
     facts.company = text(
       '[data-field="experience_company_logo"] [aria-hidden="true"], [aria-label*="Current company"]',
       profile,
@@ -199,6 +293,8 @@ function extractProfileFacts(
       skills: ['skills'],
       certifications: ['licenses_and_certifications', 'certifications'],
       languages: ['languages'],
+      projects: ['projects'],
+      services: ['services'],
     };
     for (const [field, ids] of Object.entries(sections)) {
       for (const id of ids) {
@@ -209,6 +305,22 @@ function extractProfileFacts(
           break;
         }
       }
+      if (!facts[field]) {
+        const byHeading = findSectionByHeading(
+          root,
+          LINKEDIN_SECTIONS[field] || ids,
+        );
+        if (byHeading) facts[field] = cleanText(byHeading);
+      }
+    }
+    if (
+      !facts.about &&
+      !facts.experience &&
+      !facts.education &&
+      !facts.projects
+    ) {
+      facts.extractionNote =
+        'Profile chrome loaded, but About/Experience/Education were empty. Scroll those headings into view and extract again.';
     }
     // LinkedIn's explicit contact-info dialog belongs to this profile; recommendations do not.
     const dialog = doc.querySelector(
@@ -305,6 +417,12 @@ export function extractContact(
         .trim() ||
       handle
     ).trim();
+    const ogHeadline =
+      social.source === 'social_linkedin' && looksLikeSocialChrome(ogDesc)
+        ? ''
+        : social.source === 'social_linkedin'
+          ? ogDesc
+          : '';
     return {
       displayName,
       source: social.source,
@@ -312,20 +430,23 @@ export function extractContact(
       displayLabel: (
         facts.headline ||
         ld?.jobTitle ||
-        (social.source === 'social_linkedin' ? ogDesc : '') ||
+        ogHeadline ||
         `@${handle.replace(/^@/, '')}`
       ).slice(0, 200),
       primaryEmail: facts.email || ld?.email,
       avatarUrl: facts.avatar || ld?.image || ogImage || undefined,
       notes:
-        (facts.about || ld?.description || ogDesc || '').slice(0, 4000) ||
+        (facts.about ||
+          ld?.description ||
+          (looksLikeSocialChrome(ogDesc) ? '' : ogDesc) ||
+          '').slice(0, 4000) ||
         undefined,
       profile: {
         ...facts,
         name: undefined,
         email: undefined,
         avatar: undefined,
-        headline: facts.headline || ld?.jobTitle || ogDesc || undefined,
+        headline: facts.headline || ld?.jobTitle || (looksLikeSocialChrome(ogDesc) ? '' : ogDesc) || undefined,
         handle,
         sourceUrl: parsed.href,
         extractedAt: new Date().toISOString(),

@@ -16,6 +16,7 @@ export interface ToolReview {
 export type AgentSnapshot = PageContext & {
   snapshotId: string;
   elements: BrowserElement[];
+  screenshot?: string;
 };
 
 export function createToolRunner({
@@ -37,7 +38,23 @@ export function createToolRunner({
       type: 'DOME_AGENT_READ',
       tabId,
     })) as AgentSnapshot;
-  const read = async () => {
+  const captureTab = async () =>
+    (await browser.runtime.sendMessage({
+      type: 'DOME_CAPTURE_TAB',
+      tabId,
+    })) as { dataUrl?: string; error?: string };
+  const withScreenshot = async (
+    page: AgentSnapshot,
+    includeScreenshot: boolean,
+  ): Promise<AgentSnapshot> => {
+    if (!includeScreenshot) return page;
+    const shot = await captureTab();
+    if (!shot?.dataUrl) {
+      return page;
+    }
+    return { ...page, screenshot: shot.dataUrl };
+  };
+  const read = async (includeScreenshot = false) => {
     if (tabId === undefined)
       throw new Error('No browser tab selected. Open a website first.');
     snapshot = await requestSnapshot();
@@ -59,6 +76,7 @@ export function createToolRunner({
       throw new Error(
         'This site needs access. Use Allow this site in the sidebar, then try again.',
       );
+    snapshot = await withScreenshot(snapshot, includeScreenshot);
     return snapshot;
   };
   const pageAction = async (action: unknown) => {
@@ -79,6 +97,22 @@ export function createToolRunner({
       throw new Error('Note belongs to another project.');
     return note.data;
   };
+  const rereadAfter = async (actionResult: {
+    ok?: boolean;
+    success?: boolean;
+    error?: string;
+  }) => {
+    const failed =
+      actionResult?.ok === false ||
+      actionResult?.success === false ||
+      Boolean(actionResult?.error && actionResult.ok !== true && actionResult.success !== true);
+    snapshot = await requestSnapshot();
+    return {
+      success: !failed,
+      ...(actionResult?.error ? { error: actionResult.error } : {}),
+      data: snapshot,
+    };
+  };
   return async ({
     name,
     args,
@@ -86,9 +120,31 @@ export function createToolRunner({
     try {
       if (signal.aborted) return { success: false, error: 'Cancelled' };
       if (name === 'browser_read_page')
-        return { success: true, data: await read() };
+        return {
+          success: true,
+          data: await read(args.includeScreenshot === true),
+        };
+      if (name === 'browser_screenshot') {
+        const page = snapshot || (await read(false));
+        const shot = await captureTab();
+        if (!shot?.dataUrl) {
+          return {
+            success: false,
+            error: shot?.error || 'Could not capture the visible tab.',
+            data: { url: page.url, title: page.title },
+          };
+        }
+        return {
+          success: true,
+          data: {
+            url: page.url,
+            title: page.title,
+            screenshot: shot.dataUrl,
+          },
+        };
+      }
       if (name === 'browser_extract_contact')
-        return { success: true, data: (await read()).contact };
+        return { success: true, data: (await read(false)).contact };
       if (name === 'browser_navigate') {
         const url = new URL(String(args.url));
         if (!['http:', 'https:'].includes(url.protocol))
@@ -103,15 +159,24 @@ export function createToolRunner({
         }
         if (signal.aborted) return { success: false, error: 'Cancelled' };
         snapshot = null;
-        return browser.runtime.sendMessage({
+        const nav = (await browser.runtime.sendMessage({
           type: 'DOME_NAVIGATE',
           tabId,
           url: url.href,
-        });
+        })) as { success?: boolean; url?: string; error?: string };
+        if (nav?.success === false) return { ...nav };
+        snapshot = await requestSnapshot();
+        return { success: true, url: nav?.url || url.href, data: snapshot };
       }
       if (name === 'browser_go_back') {
         snapshot = null;
-        return browser.runtime.sendMessage({ type: 'DOME_GO_BACK', tabId });
+        const back = (await browser.runtime.sendMessage({
+          type: 'DOME_GO_BACK',
+          tabId,
+        })) as { success?: boolean; error?: string };
+        if (back?.success === false) return { ...back };
+        snapshot = await requestSnapshot();
+        return { success: true, data: snapshot };
       }
       if (name === 'browser_click' || name === 'browser_fill') {
         const element = snapshot?.elements.find(
@@ -127,19 +192,25 @@ export function createToolRunner({
         )
           return { success: false, error: 'User declined action' };
         if (signal.aborted) return { success: false, error: 'Cancelled' };
-        return pageAction({
+        const acted = (await pageAction({
           kind: name === 'browser_click' ? 'click' : 'fill',
           ...args,
-        });
+        })) as { success?: boolean; ok?: boolean; error?: string };
+        if (name === 'browser_fill') return { ...acted };
+        return rereadAfter(acted);
       }
       if (name === 'browser_scroll' || name === 'browser_find') {
-        if (!snapshot) await read();
-        const result = await pageAction(
+        if (!snapshot) await read(false);
+        const headingText =
+          typeof args.headingText === 'string' ? args.headingText.trim() : '';
+        const result = (await pageAction(
           name === 'browser_find'
             ? { kind: 'find', text: args.text }
-            : { kind: 'scroll', direction: args.direction },
-        );
-        return { success: result.ok === true };
+            : headingText
+              ? { kind: 'scroll', headingText }
+              : { kind: 'scroll', direction: args.direction || 'down' },
+        )) as { ok?: boolean; success?: boolean; error?: string };
+        return rereadAfter(result);
       }
       if (!projectId) throw new Error('Select a Dome project first.');
       if (name === 'dome_list_notes') return api.listNotes(token, projectId);
@@ -160,7 +231,7 @@ export function createToolRunner({
         });
       }
       if (name === 'dome_capture_page') {
-        const page = await read();
+        const page = await read(false);
         return api.captureUrl(token, {
           projectId,
           url: page.url,
@@ -169,7 +240,7 @@ export function createToolRunner({
         });
       }
       if (name === 'dome_save_contact') {
-        const contact = (await read()).contact;
+        const contact = (await read(false)).contact;
         if (!contact) throw new Error('No person detected on this page.');
         return api.saveContact(token, {
           ...contact,

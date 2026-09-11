@@ -72,6 +72,7 @@ async function readPage(tabId?: number, agent = false) {
     readableText: '',
     contact: null,
     headings: [],
+    sections: [],
     error: 'pageAccess',
   };
   if (!tab?.id || !isHttpTab(tab))
@@ -86,6 +87,74 @@ async function readPage(tabId?: number, agent = false) {
     };
   } catch {
     return fallback;
+  }
+}
+
+function waitForTabComplete(tabId: number, timeoutMs = 12_000): {
+  promise: Promise<void>;
+  cancel: () => void;
+} {
+  let finish = () => undefined;
+  const promise = new Promise<void>((resolve) => {
+    const timer = globalThis.setTimeout(() => finish(), timeoutMs);
+    const onUpdated = (id: number, info: { status?: string }) => {
+      if (id === tabId && info.status === 'complete') finish();
+    };
+    finish = () => {
+      globalThis.clearTimeout(timer);
+      browser.tabs.onUpdated.removeListener(onUpdated);
+      resolve();
+    };
+    browser.tabs.onUpdated.addListener(onUpdated);
+  });
+  return { promise, cancel: () => finish() };
+}
+
+async function navigateTab(tabId: number, url: string) {
+  const wait = waitForTabComplete(tabId);
+  try {
+    await browser.tabs.update(tabId, { url });
+    await wait.promise;
+    return { success: true, url };
+  } catch (error) {
+    wait.cancel();
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Navigation failed',
+    };
+  }
+}
+
+async function captureTab(tabId?: number) {
+  let tab = (
+    await browser.tabs.query({ active: true, lastFocusedWindow: true })
+  )[0];
+  if (tab?.url === browser.runtime.getURL('/sidebar.html')) {
+    const saved = await browser.storage.local.get('dome.sourceTab');
+    if (typeof saved['dome.sourceTab'] === 'number')
+      tab = await browser.tabs.get(saved['dome.sourceTab']);
+  }
+  if (tabId !== undefined) tab = await browser.tabs.get(tabId);
+  if (!tab?.id || tab.windowId === undefined || !isHttpTab(tab)) {
+    return { error: 'unsupportedPage' };
+  }
+  try {
+    const tabsApi = browser.tabs as typeof browser.tabs & {
+      captureTab?: (
+        id: number,
+        opts: { format: 'jpeg'; quality: number },
+      ) => Promise<string>;
+    };
+    const dataUrl =
+      typeof tabsApi.captureTab === 'function'
+        ? await tabsApi.captureTab(tab.id, { format: 'jpeg', quality: 55 })
+        : await browser.tabs.captureVisibleTab(tab.windowId, {
+            format: 'jpeg',
+            quality: 55,
+          });
+    return dataUrl ? { dataUrl } : { error: 'pageAccess' };
+  } catch {
+    return { error: 'pageAccess' };
   }
 }
 
@@ -165,10 +234,10 @@ export default defineBackground(() => {
             success: false,
             error: 'Only web URLs are supported.',
           });
-        return browser.tabs
-          .update(message.tabId, { url })
-          .then(() => ({ success: true, url }));
+        return navigateTab(message.tabId, url);
       }
+      if (message.type === 'DOME_CAPTURE_TAB')
+        return captureTab(message.tabId);
       if (message.type === 'DOME_GO_BACK' && typeof message.tabId === 'number')
         return browser.tabs
           .goBack(message.tabId)

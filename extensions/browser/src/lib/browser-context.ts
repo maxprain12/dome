@@ -8,12 +8,17 @@ export interface PageContext {
   readableText: string;
   contact: ContactDraft | null;
   headings: Array<{ index: number; text: string }>;
+  sections?: Array<{ heading: string; text: string }>;
   error?: string;
 }
 export type PageAction =
   | { kind: 'find'; text: string }
   | { kind: 'heading'; index: number }
-  | { kind: 'scroll'; direction: 'up' | 'down' | 'top' };
+  | {
+      kind: 'scroll';
+      direction?: 'up' | 'down' | 'top';
+      headingText?: string;
+    };
 export const emptyContext: PageContext = {
   url: '',
   title: '',
@@ -21,6 +26,7 @@ export const emptyContext: PageContext = {
   readableText: '',
   contact: null,
   headings: [],
+  sections: [],
 };
 export async function readActivePage(): Promise<PageContext> {
   return browser.runtime.sendMessage({ type: 'DOME_READ_PAGE' });

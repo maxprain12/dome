@@ -838,6 +838,7 @@ describe('Many browser runtime parity', () => {
     assert.equal(runs[0].messages[0].content.includes('PROJECT MEMORY'), false);
     assert.equal(runs[0].messages[0].content.includes('untrusted source data'), true);
     assert.equal(runs[0].messages[0].content.includes('browser_read_page before answering'), true);
+    assert.equal(runs[0].messages[0].content.includes('do not call get_tool_definition for browser_*'), true);
     assert.deepEqual(memoryLoads[0], {
       memoryEnabled: false,
       projectId: 'project-1',
