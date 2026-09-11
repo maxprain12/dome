@@ -84,6 +84,45 @@ function chunkText(text, opts = {}) {
     chunks.push({ text: slice, char_start: s, char_end: e });
   }
 
+  /**
+   * Find the best cut point within `[rs, winEnd)` using `sep`, preferring cuts
+   * that make forward progress (`>= minProgress`) and stay within `maxChars`.
+   * @returns {number} absolute cut index, or -1 when no suitable cut exists.
+   */
+  function findCut(rs, winEnd, sep, minProgress) {
+    const window = full.slice(rs, winEnd);
+    let pos = window.length;
+    while (pos > 0) {
+      const idx = window.lastIndexOf(sep, pos - 1);
+      if (idx < 0) return -1;
+      const absCut = rs + idx + sep.length;
+      if (absCut > re) {
+        pos = idx - 1;
+        continue;
+      }
+      if (absCut - rs <= maxChars && absCut > rs) {
+        if (absCut - rs >= minProgress) {
+          return absCut;
+        }
+        pos = idx;
+        continue;
+      }
+      pos = idx;
+    }
+    return -1;
+  }
+
+  /**
+   * Fallback when no separator works: emit fixed-size slices with overlap.
+   */
+  function flushFixedSlices(rs) {
+    while (rs < re) {
+      const end = Math.min(rs + maxChars, re);
+      pushSlice(rs, end);
+      rs = Math.max(end - overlapChars, rs + 1);
+    }
+  }
+
   let rs = 0;
   const re = full.length;
   let sepIdx = 0;
@@ -97,28 +136,7 @@ function chunkText(text, opts = {}) {
 
     const sep = separators[sepIdx] ?? ' ';
     const winEnd = Math.min(rs + maxChars, re);
-    const window = full.slice(rs, winEnd);
-
-    let cut = -1;
-    let pos = window.length;
-    while (pos > 0) {
-      const idx = window.lastIndexOf(sep, pos - 1);
-      if (idx < 0) break;
-      const absCut = rs + idx + sep.length;
-      if (absCut > re) {
-        pos = idx - 1;
-        continue;
-      }
-      if (absCut - rs <= maxChars && absCut > rs) {
-        if (absCut - rs >= minProgress) {
-          cut = absCut;
-          break;
-        }
-        pos = idx;
-        continue;
-      }
-      pos = idx;
-    }
+    const cut = findCut(rs, winEnd, sep, minProgress);
 
     if (cut > rs) {
       pushSlice(rs, cut);
@@ -132,11 +150,7 @@ function chunkText(text, opts = {}) {
       continue;
     }
 
-    while (rs < re) {
-      const end = Math.min(rs + maxChars, re);
-      pushSlice(rs, end);
-      rs = Math.max(end - overlapChars, rs + 1);
-    }
+    flushFixedSlices(rs);
     break;
   }
 
