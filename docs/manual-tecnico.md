@@ -640,16 +640,16 @@ Los plugins se guardan en:
 
 ### Configuración en Dome Desktop
 
-La URL base del provider se obtiene desde [`electron/dome-provider-url.cjs`](../../electron/dome-provider-url.cjs):
+La URL base del provider se obtiene desde [`electron/ai/dome-provider-url.cjs`](../../electron/ai/dome-provider-url.cjs):
 
 1. `process.env.DOME_PROVIDER_URL` (override en desarrollo / pruebas)
 2. Valor incluido en `electron/app-credentials.cjs` por `node scripts/embed-env.cjs` (clave `DOME_PROVIDER_URL`, opcional en CI)
-3. App empaquetada (`app.isPackaged`): `https://provider.dome.app`
+3. App empaquetada (`app.isPackaged`): `https://dome-provider.dowi.es`
 4. Desarrollo sin `.env`: `http://localhost:3001` (alineado con `APP_URL` de dome-provider)
 
 En desarrollo, puedes seguir usando `DOME_PROVIDER_URL=http://localhost:3001` en el `.env` de Dome.
 
-### OAuth session (`electron/dome-oauth.cjs`)
+### OAuth session (`electron/auth/dome-oauth.cjs`)
 
 ```javascript
 // Obtiene o refresca sesión

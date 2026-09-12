@@ -30,7 +30,7 @@ La integración es **completamente opcional**. Dome funciona perfectamente sin P
    - code_challenge: SHA256(code_verifier) en base64url
 
 3. Dome abre el browser del OS en:
-   https://provider.dome.app/api/oauth/authorize
+   https://dome-provider.dowi.es/api/oauth/authorize
      ?client_id=dome-desktop
      &redirect_uri=dome://dome-auth/oauth/callback
      &code_challenge=xxx
@@ -61,9 +61,9 @@ La integración es **completamente opcional**. Dome funciona perfectamente sin P
 
 | Archivo | Rol |
 |---------|-----|
-| `electron/dome-provider-url.cjs` | URL base del provider (env, embed CI, fallback prod `:3001` dev) |
-| `electron/dome-oauth.cjs` | Gestión de sesión OAuth con el Provider |
-| `electron/ipc/dome-auth.cjs` | IPC handlers para `dome-auth:*` channels |
+| `electron/ai/dome-provider-url.cjs` | URL base del provider (env, embed CI, fallback prod / `:3001` dev) |
+| `electron/auth/dome-oauth.cjs` | Gestión de sesión OAuth con el Provider |
+| `electron/ipc/integrations/dome-auth.cjs` | IPC handlers para `dome-auth:*` channels |
 | `electron/ipc/agent-team.cjs` | Usa Provider como proveedor AI para Agent Teams |
 | `electron/ipc/ai.cjs` | Usa Provider como proveedor AI para el chat |
 | `electron/main.cjs` | Intercepta deep links `dome://dome-auth/oauth/callback` |
@@ -71,7 +71,7 @@ La integración es **completamente opcional**. Dome funciona perfectamente sin P
 
 ---
 
-## `electron/dome-oauth.cjs`
+## `electron/auth/dome-oauth.cjs`
 
 ```javascript
 // Obtener o refrescar sesión (usado por ai.cjs y agent-team.cjs)
@@ -128,7 +128,7 @@ El cliente AI (`app/lib/ai/client.ts`) trata al Provider como un endpoint OpenAI
 # .env o .env.local en el proyecto dome/
 DOME_PROVIDER_URL=http://localhost:3001        # Override explícito (dev o staging)
 # Producción empaquetada: si no defines DOME_PROVIDER_URL, el main process usa
-# https://provider.dome.app (o el valor en app-credentials tras `embed-env`).
+# https://dome-provider.dowi.es (o el valor en app-credentials tras `embed-env`).
 
 VITE_ENABLE_DOME_PROVIDER=true                 # Habilita la opción "Dome" en Settings
 ```

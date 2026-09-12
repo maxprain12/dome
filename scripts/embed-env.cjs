@@ -5,7 +5,7 @@
  *
  * Usage: node scripts/embed-env.cjs
  * Env vars read: DOME_GOOGLE_DRIVE_CLIENT_ID, DOME_GOOGLE_DRIVE_CLIENT_SECRET,
- *               DOME_PROVIDER_URL (optional; empty → runtime uses packaged https://provider.dome.app),
+ *               DOME_PROVIDER_URL (optional; empty → runtime uses packaged https://dome-provider.dowi.es),
  *               DOME_GITHUB_CLIENT_ID (GitHub OAuth App client id for project sync; public, safe to bake),
  *               SUPABASE_URL, SUPABASE_ANON_KEY (onboarding native login; anon key is public by
  *                 design — dome-provider's own web bundle already ships it — safe to bake),
