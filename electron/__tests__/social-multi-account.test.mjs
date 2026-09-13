@@ -39,6 +39,17 @@ function fixture() {
     insertMetric: (id) => calls.push(['post-metric', id]),
     getLatestMetric: () => ({}),
     upsertImportedPost: (post) => { calls.push(['import', post.accountId]); return { created: true }; },
+    deleteAccount: (id) => {
+      const deletedPostIds = posts.filter((post) => post.accountId === id).map((post) => post.id);
+      for (const postId of deletedPostIds) {
+        const index = posts.findIndex((post) => post.id === postId);
+        if (index >= 0) posts.splice(index, 1);
+      }
+      const accountIndex = accounts.findIndex((account) => account.id === id);
+      if (accountIndex >= 0) accounts.splice(accountIndex, 1);
+      return { deletedPostIds };
+    },
+    purgeUnlinkedPosts: () => [],
   };
   const provider = {
     publishPost: async (_, post) => { calls.push(['publish', post.accountId]); return {}; },
@@ -49,8 +60,9 @@ function fixture() {
   const { createSocialService } = loadModule('../social/social-service.cjs', {
     './social-store.cjs': { createSocialStore: () => store, PROVIDERS: ['instagram'] },
     './social-oauth.cjs': { createSocialOAuth: () => ({}) },
-    './social-calendar-bridge.cjs': { syncPostEvent: async () => {} },
+    './social-calendar-bridge.cjs': { syncPostEvent: async () => {}, removePostEvent: async () => {} },
     './providers/instagram.cjs': provider,
+    '../people/people-store.cjs': { findPersonByIdentity: () => null },
   });
   const service = createSocialService({ getQueries: () => ({ touchSocialAccountSync: { run: () => {} } }) });
   return { service, accounts, posts, calls, provider };
@@ -99,6 +111,23 @@ describe('Social account boundaries', () => {
     assert.equal(result.imported, 1);
     assert.equal(result.accounts[0].error, 'Permission denied');
     assert.equal(result.accounts[1].imported, 1);
+  });
+
+  it('skips metrics for posts without a live account', async () => {
+    const { service, posts, calls } = fixture();
+    posts[0].accountId = null;
+    await service.refreshAllMetrics();
+    assert.equal(calls.some(([, id]) => id === 'post-a' || id == null), false);
+    assert.ok(calls.some(([action, id]) => action === 'fetch-post' && id === 'ig-b'));
+  });
+
+  it('disconnect drops that account’s posts and stops requesting its metrics', async () => {
+    const { service, accounts, posts, calls } = fixture();
+    service.disconnect('ig-a');
+    assert.equal(accounts.some((account) => account.id === 'ig-a'), false);
+    assert.equal(posts.some((post) => post.accountId === 'ig-a'), false);
+    await service.refreshAllMetrics();
+    assert.equal(calls.some(([, id]) => id === 'ig-a' || id === 'post-a'), false);
   });
 
   it('rejects a missing sync target and avoids other accounts for comments', async () => {

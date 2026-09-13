@@ -9,6 +9,16 @@ import { cn } from '@/lib/utils';
 const DetailModalContext = createContext<(() => void) | null>(null);
 export function useDetailModalClose() { return useContext(DetailModalContext); }
 
+export function DetailCloseProvider({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return <DetailModalContext.Provider value={onClose}>{children}</DetailModalContext.Provider>;
+}
+
 export function DetailModalClose() {
   const close = useContext(DetailModalContext);
   const { t } = useTranslation();

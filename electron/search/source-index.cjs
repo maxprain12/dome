@@ -460,6 +460,7 @@ function indexSocialPosts() {
       .prepare(
         `SELECT p.*
          FROM social_posts p
+         INNER JOIN social_accounts a ON a.id = p.account_id
          ORDER BY p.updated_at DESC
          LIMIT 2000`,
       )
@@ -518,7 +519,12 @@ function countEmailsForProject(projectId = null) {
 function countSocialForProject(_projectId = null) {
   // Social is vault-global (no project_id on posts/accounts).
   try {
-    return db().prepare('SELECT COUNT(*) AS n FROM social_posts').get()?.n || 0;
+    return db()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM social_posts p
+         INNER JOIN social_accounts a ON a.id = p.account_id`,
+      )
+      .get()?.n || 0;
   } catch {
     return 0;
   }
@@ -665,6 +671,7 @@ function searchSocialDirect(rawTerms, _projectId = null, limit = DOMAIN_CAP) {
   // No project filter — social_posts/accounts have no project_id.
   const sql = `SELECT p.id AS source_id, p.body, p.topics, p.provider, p.status, p.account_id, p.campaign
              FROM social_posts p
+             INNER JOIN social_accounts a ON a.id = p.account_id
              WHERE ${termClauses}
              ORDER BY p.updated_at DESC LIMIT ?`;
   params.push(cap);

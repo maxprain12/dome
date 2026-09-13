@@ -469,7 +469,7 @@ declare global {
             hasPipelinesCloud: boolean;
             features: string[];
           };
-          domains?: Record<string, { enabled: boolean; lastPushAt: number; lastPullCursor?: string }>;
+          domains?: Record<string, { enabled: boolean; lastPushAt: number; lastPullCursor?: string; lastError?: string | null }>;
           error?: string;
         }>;
         setDomainEnabled: (args: {

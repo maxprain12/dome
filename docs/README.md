@@ -3,6 +3,7 @@
 Documentación del proyecto Dome Desktop (**v2.8.9**). Además de este índice:
 
 - **[Posicionamiento](product/positioning.md)** — Pro / Study / Dev, dos polos, qué se vende.
+- **[Marketing](marketing/analisis-mercado.md)** — análisis de mercado y [draft de web](marketing/draft-web.md) (IA estilo ChatGPT Overview).
 - **[Ediciones](product/editions.md)** — matriz módulo→edición, freeze, DoD.
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
@@ -77,6 +78,7 @@ pnpm run check:ipc-inventory # tras añadir canales IPC
 | **Plugins** | [plugins.md](features/plugins.md) | Pets & Views |
 | **Cloud Storage** | [cloud-storage-setup.md](features/cloud-storage-setup.md) | OAuth, file picker |
 | **Dome Provider** | [dome-provider-integration.md](features/dome-provider-integration.md) | Backend provider |
+| **Instagram / Meta go-live** | [instagram-meta-go-live.md](features/instagram-meta-go-live.md) | App Review, Tech Provider, OAuth HTTPS sin dome-provider |
 
 ### Infraestructura técnica
 
@@ -104,7 +106,7 @@ pnpm run check:ipc-inventory # tras añadir canales IPC
 | Repo | Documentación |
 |------|----------------|
 | **dome-provider** | Backend OAuth, proxy IA, billing — ver [MASTER.md](../MASTER.md) |
-| **landing-page-dome** | Sitio Astro, descarga, marca web — no vive en este repo |
+| **landing-page-dome** | Sitio Astro, descarga — implementación; el brief vive en [marketing/](marketing/analisis-mercado.md) |
 
 ---
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { nativeSourceFromGraph } = require('./instagram-native.cjs');
+
 // Normalize only display data, never credentials or raw provider responses.
 function webUrl(value) {
   if (typeof value !== 'string') return undefined;
@@ -9,12 +11,21 @@ function webUrl(value) {
   } catch { return undefined; }
 }
 
+function instagramMediaType(item, post) {
+  const product = item.media_product_type || post.media_product_type;
+  if (product === 'REELS' || item.media_type === 'VIDEO') {
+    return product === 'REELS' ? 'reel' : 'video';
+  }
+  return 'image';
+}
+
 function instagramContent(post, account) {
   const children = post.children?.data;
   const items = Array.isArray(children) && children.length ? children : [post];
+  const native = nativeSourceFromGraph(post);
   return {
     media: items.map((item) => ({
-      type: item.media_type === 'VIDEO' ? 'video' : 'image',
+      type: instagramMediaType(item, post),
       url: webUrl(item.media_url),
       thumbnailUrl: webUrl(item.thumbnail_url),
       externalId: item.id,
@@ -24,6 +35,7 @@ function instagramContent(post, account) {
       authorName: account.display_name || account.displayName || post.username,
       authorHandle: post.username || account.handle,
       format: post.media_product_type === 'REELS' ? 'reel' : post.media_type === 'CAROUSEL_ALBUM' ? 'carousel' : post.media_type === 'VIDEO' ? 'video' : 'image',
+      ...native,
     },
   };
 }

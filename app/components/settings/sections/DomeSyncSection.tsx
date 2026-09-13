@@ -13,7 +13,7 @@ import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 import { useDomeSession } from '@/lib/hooks/useDomeSession';
 import { showToast } from '@/lib/store/useToastStore';
 
-type DomainState = { enabled: boolean; lastPushAt: number };
+type DomainState = { enabled: boolean; lastPushAt: number; lastError?: string | null };
 
 /** Domains shown in settings, in restore order. Feature gates which appear. */
 const DOMAIN_ROWS: Array<{
@@ -238,6 +238,7 @@ function DomeSyncConnectedView({
           <SettingsRow
             key={domain}
             title={t(labelKey)}
+            description={domainState[domain]?.lastError || undefined}
             control={
               <Switch
                 checked={domainState[domain]?.enabled !== false}

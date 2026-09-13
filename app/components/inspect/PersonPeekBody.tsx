@@ -22,8 +22,17 @@ function profileString(profile: Record<string, unknown> | undefined, key: string
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-export function PersonPeekBody({ personId }: { personId: string }) {
+export function PersonPeekBody({
+  personId,
+  onOpenInPeople,
+  openLabel,
+}: {
+  personId: string;
+  onOpenInPeople?: () => void;
+  openLabel?: string;
+}) {
   const { t } = useTranslation();
+  const openPeopleLabel = openLabel || t('inspect.open_in_people');
   const [person, setPerson] = useState<PersonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -64,6 +73,10 @@ export function PersonPeekBody({ personId }: { personId: string }) {
   }, [personId]);
 
   const openInPeople = () => {
+    if (onOpenInPeople) {
+      onOpenInPeople();
+      return;
+    }
     useTabStore.getState().openPeopleTab();
     focusPerson({ personId });
   };
@@ -76,7 +89,7 @@ export function PersonPeekBody({ personId }: { personId: string }) {
       <div className="flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">{t('inspect.load_error')}</p>
         <Button type="button" size="sm" onClick={openInPeople}>
-          {t('inspect.open_in_people')}
+          {openPeopleLabel}
         </Button>
       </div>
     );
@@ -170,7 +183,7 @@ export function PersonPeekBody({ personId }: { personId: string }) {
       </section>
 
       <Button type="button" size="sm" className="self-start" onClick={openInPeople}>
-        {t('inspect.open_in_people')}
+        {openPeopleLabel}
       </Button>
     </div>
   );

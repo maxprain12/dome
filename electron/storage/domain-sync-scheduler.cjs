@@ -11,6 +11,12 @@
 const domainSync = require('./domain-sync.cjs');
 const planGate = require('./plan-gate.cjs');
 const actionQueue = require('./action-queue-consumer.cjs');
+const {
+  domainErrorTracker,
+  formatDomainSyncError,
+  isTransportFailure,
+} = require('./domain-sync-errors.cjs');
+const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 
 const INTERVAL_MS = 60_000;
 const SSE_RETRY_MIN_MS = 5_000;
@@ -183,14 +189,22 @@ async function tick() {
 
     pendingDomains.clear();
 
+    const providerUrl = getDomeProviderBaseUrl();
     for (const domain of domains) {
+      if (domainErrorTracker.shouldSkip(domain)) continue;
       try {
         const result = await domainSync.syncDomain(deps, domain);
         if (result && result.success === false) {
-          console.warn(`[domain-sync] ${domain} sync error:`, String(result.error).slice(0, 300));
+          const message = String(result.error).slice(0, 300);
+          console.warn(`[domain-sync] ${domain} sync error:`, message);
+          domainErrorTracker.recordFailure(domain, message, { transport: false });
+        } else {
+          domainErrorTracker.recordSuccess(domain);
         }
       } catch (err) {
-        console.warn('[domain-sync] tick failed', domain, err?.message || err);
+        const message = formatDomainSyncError(err, providerUrl);
+        console.warn('[domain-sync] tick failed', domain, message);
+        domainErrorTracker.recordFailure(domain, message, { transport: isTransportFailure(err) });
       }
     }
 
@@ -228,10 +242,15 @@ async function tick() {
   }
 }
 
+function getDomainLastErrors() {
+  return domainErrorTracker.getAllLastErrors();
+}
+
 module.exports = {
   init,
   start,
   stop,
   notifyDomainChanged,
   tick,
+  getDomainLastErrors,
 };

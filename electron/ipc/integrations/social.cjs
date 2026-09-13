@@ -32,6 +32,12 @@ const PostNotesSchema = z.object({
 const CommentsListSchema = z.object({
   postId: z.string().min(1),
   cursor: z.string().min(1).optional().nullable(),
+  projectId: z.string().min(1).optional().nullable(),
+});
+const CommentReplySchema = z.object({
+  postId: z.string().min(1),
+  commentId: z.string().min(1),
+  text: z.string().min(1).max(2200),
 });
 const MediaItemSchema = z
   .object({
@@ -53,6 +59,26 @@ const MediaPreviewSchema = z
     resourceId: z.string().min(1).optional(),
   })
   .refine((m) => Boolean(m.path || m.resourceId), { message: 'path or resourceId required' });
+const InstagramLocationSchema = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(200),
+});
+const InstagramUserTagSchema = z.object({
+  username: z.string().min(1).max(80),
+  x: z.number().min(0).max(1).optional(),
+  y: z.number().min(0).max(1).optional(),
+});
+const PostSourceSchema = z.object({
+  authorName: z.string().max(200).optional(),
+  authorHandle: z.string().max(80).optional(),
+  avatarUrl: z.string().url().optional(),
+  format: z.string().max(40).optional(),
+  location: InstagramLocationSchema.optional(),
+  userTags: z.array(InstagramUserTagSchema).max(20).optional(),
+  collaborators: z.array(z.string().min(1).max(80)).max(3).optional(),
+  audioName: z.string().max(120).optional(),
+  audioType: z.enum(['MUSIC', 'ORIGINAL_SOUND']).optional(),
+}).optional().nullable();
 const PostCreateSchema = z.object({
   provider: ProviderSchema,
   accountId: z.string().optional().nullable(),
@@ -66,6 +92,7 @@ const PostCreateSchema = z.object({
   eventCardPublicUrl: z.string().url().optional().nullable(),
   scheduledAt: z.number().int().positive().optional().nullable(),
   groupId: z.string().optional().nullable(),
+  source: PostSourceSchema,
 });
 const PostUpdateSchema = z.object({
   postId: z.string().min(1),
@@ -81,7 +108,12 @@ const PostUpdateSchema = z.object({
     eventCardPublicUrl: z.string().url().nullable().optional(),
     scheduledAt: z.number().int().positive().nullable().optional(),
     status: z.enum(['draft', 'scheduled']).optional(),
+    source: PostSourceSchema,
   }),
+});
+const InstagramLocationSearchSchema = z.object({
+  accountId: z.string().min(1),
+  query: z.string().min(1).max(200),
 });
 const CampaignCreateSchema = z.object({
   name: z.string().min(1).max(200),
@@ -280,12 +312,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     void socialCalendarBridge.syncPostEvent(latest);
     return latest;
   }));
-  ipcMain.handle('social:posts:delete', wrap(PostIdSchema, ({ postId }) => {
-    service.store.deletePost(postId);
-    windowManager.broadcast?.('social:post-updated', { id: postId, deleted: true });
-    void socialCalendarBridge.removePostEvent(postId);
-    return { deleted: true };
-  }));
+  ipcMain.handle('social:posts:delete', wrap(PostIdSchema, ({ postId }) => service.deletePost(postId)));
   ipcMain.handle('social:posts:publish', wrap(PostIdSchema, ({ postId }) => service.publishPost(postId)));
   ipcMain.handle('social:posts:updateNotes', wrap(PostNotesSchema, ({ postId, notes }) => {
     const post = service.store.updatePostNotes(postId, notes ?? null);
@@ -295,8 +322,14 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('social:posts:sync', wrap(FeedSyncSchema, ({ accountId, limit }) =>
     service.syncPlatformFeed({ accountId: accountId || null, limit: limit || 25 }),
   ));
-  ipcMain.handle('social:comments:list', wrap(CommentsListSchema, ({ postId, cursor }) =>
-    service.listPostComments({ postId, cursor: cursor || null }),
+  ipcMain.handle('social:instagram:searchLocations', wrap(InstagramLocationSearchSchema, ({ accountId, query }) =>
+    service.searchInstagramLocations({ accountId, query }),
+  ));
+  ipcMain.handle('social:comments:list', wrap(CommentsListSchema, ({ postId, cursor, projectId }) =>
+    service.listPostComments({ postId, cursor: cursor || null, projectId: projectId || null }),
+  ));
+  ipcMain.handle('social:comments:reply', wrap(CommentReplySchema, ({ postId, commentId, text }) =>
+    service.replyToComment({ postId, commentId, text }),
   ));
 
   // Media pickers — local files (native dialog) and vault image/video resources

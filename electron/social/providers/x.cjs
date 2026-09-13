@@ -241,7 +241,7 @@ async function listComments(store, { accountId, externalPostId, cursor } = {}) {
   const query = encodeURIComponent(`conversation_id:${externalPostId} is:reply`);
   let path =
     `/tweets/search/recent?query=${query}&max_results=50` +
-    `&tweet.fields=created_at,author_id,conversation_id,text` +
+    `&tweet.fields=created_at,author_id,conversation_id,text,referenced_tweets` +
     `&expansions=author_id&user.fields=name,username`;
   if (cursor) path += `&next_token=${encodeURIComponent(cursor)}`;
   let data;
@@ -257,12 +257,16 @@ async function listComments(store, { accountId, externalPostId, cursor } = {}) {
     .filter((t) => String(t.id) !== String(externalPostId))
     .map((t) => {
       const u = users.get(t.author_id);
+      const repliedTo = (t.referenced_tweets || []).find((ref) => ref.type === 'replied_to');
+      const parentId =
+        repliedTo && String(repliedTo.id) !== String(externalPostId) ? String(repliedTo.id) : null;
       return normalizeComment({
         id: t.id,
         text: t.text,
-        authorName: u?.name || u?.username || null,
-        authorExternalId: t.author_id || null,
+        authorName: u?.username || u?.name || null,
+        authorExternalId: t.author_id || u?.username || null,
         createdAt: t.created_at,
+        parentId,
       });
     });
   return {
@@ -294,6 +298,20 @@ async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
   return { externalMessageId: String(externalMessageId) };
 }
 
+async function replyToComment(store, { accountId, commentId, text } = {}) {
+  if (!commentId) throw new Error('X reply requires a tweet id.');
+  const body = String(text || '').trim();
+  if (!body) throw new Error('X reply text is empty.');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const result = await xFetch(accessToken, '/tweets', {
+    method: 'POST',
+    body: { text: body.slice(0, 280), reply: { in_reply_to_tweet_id: String(commentId) } },
+  });
+  const id = result?.data?.id || null;
+  if (!id) throw new Error('X did not return a reply id.');
+  return { id: String(id) };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken: null, // X user-context tokens cannot be hand-issued; use OAuth
@@ -303,6 +321,7 @@ module.exports = {
   fetchAccountMetrics,
   listRecentPosts,
   listComments,
+  replyToComment,
   sendDm,
   supportsManualToken: false,
   requiresMedia: false,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { accountSupports, parseScopes } from '../social/social-messaging.cjs';
+import { accountSupports, nestComments, parseScopes } from '../social/social-messaging.cjs';
 
 describe('social-messaging accountSupports', () => {
   it('parses comma and space scopes', () => {
@@ -69,5 +69,34 @@ describe('social-messaging accountSupports', () => {
       ),
       false,
     );
+  });
+});
+
+describe('nestComments', () => {
+  it('nests replies under the parent and keeps orphans as roots', () => {
+    const nested = nestComments([
+      { id: 'c2', text: 'reply', parentId: 'c1', createdAt: 2, authorName: 'ana' },
+      { id: 'c1', text: 'root', parentId: null, createdAt: 1, authorName: 'max' },
+      { id: 'c3', text: 'orphan', parentId: 'missing', createdAt: 3, authorName: 'leo' },
+    ]);
+    assert.equal(nested.length, 2);
+    assert.equal(nested[0].id, 'c1');
+    assert.equal(nested[0].replies.length, 1);
+    assert.equal(nested[0].replies[0].id, 'c2');
+    assert.equal(nested[1].id, 'c3');
+  });
+
+  it('merges a top-level copy with its nested reply and keeps a single thread', () => {
+    const nested = nestComments([
+      { id: 'c1', text: 'Info', parentId: null, createdAt: 1, authorName: 'mery_sugy' },
+      { id: 'c2', text: 'Revisa tu DM', parentId: null, createdAt: 2, authorName: 'dome_ia' },
+      { id: 'c2', text: 'Revisa tu DM', parentId: 'c1', createdAt: 2, authorName: null },
+    ]);
+    assert.equal(nested.length, 1);
+    assert.equal(nested[0].id, 'c1');
+    assert.equal(nested[0].replies.length, 1);
+    assert.equal(nested[0].replies[0].id, 'c2');
+    assert.equal(nested[0].replies[0].authorName, 'dome_ia');
+    assert.equal(nested[0].replies[0].parentId, 'c1');
   });
 });

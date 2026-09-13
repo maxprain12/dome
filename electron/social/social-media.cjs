@@ -8,12 +8,13 @@
  *
  * - LinkedIn: Assets API registerUpload → PUT binary → digitalmediaAsset URN.
  * - X: API v2 chunked upload (initialize → append ≤4MB chunks → finalize).
- * - Instagram: NO binary upload on the Instagram-Login variant (see note at
- *   the bottom) — photos and videos need a public https URL.
+ * - Instagram: Graph (Instagram Login) has no binary upload — photos and
+ *   videos need a public https URL. Local/vault files are uploaded to Dome
+ *   Provider first; the stored post keeps resourceId/path.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /** Keep in sync with electron/social/providers/linkedin.cjs LINKEDIN_VERSION. */
 const LINKEDIN_VERSION = '202601';
@@ -43,7 +44,12 @@ function mediaKindForExt(ext) {
 function resolveMediaItem(database, fileStorage, item) {
   if (!item || typeof item !== 'object') throw new Error('Invalid media item');
 
-  if (typeof item.url === 'string' && /^https:\/\//.test(item.url)) {
+  const resourceId = typeof item.resourceId === 'string' && item.resourceId ? item.resourceId : null;
+  const localPath = typeof item.path === 'string' && item.path ? item.path : null;
+
+  // Keep vault/local identity even if a public URL is also present — Instagram
+  // still needs an https URL at publish time, but the stored post must stay linked.
+  if (!resourceId && !localPath && typeof item.url === 'string' && /^https:\/\//.test(item.url)) {
     return {
       kind: 'url',
       url: item.url,
@@ -52,9 +58,9 @@ function resolveMediaItem(database, fileStorage, item) {
   }
 
   let filePath = null;
-  if (typeof item.resourceId === 'string' && item.resourceId) {
+  if (resourceId) {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(item.resourceId);
+    const resource = queries.getResourceById.get(resourceId);
     if (!resource) throw new Error(`Media resource not found: ${item.resourceId}`);
     if (resource.type !== 'image' && resource.type !== 'video') {
       throw new Error(`Resource "${resource.title}" is not an image/video (type: ${resource.type})`);
@@ -62,8 +68,8 @@ function resolveMediaItem(database, fileStorage, item) {
     const vaultStore = require('../storage/vault-store.cjs');
     filePath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
     if (!filePath) throw new Error(`Resource "${resource.title}" has no file in the vault`);
-  } else if (typeof item.path === 'string' && item.path) {
-    filePath = item.path;
+  } else if (localPath) {
+    filePath = localPath;
   } else {
     throw new Error('Media item needs url, path or resourceId');
   }
@@ -73,7 +79,14 @@ function resolveMediaItem(database, fileStorage, item) {
   const mediaKind = mediaKindForExt(ext);
   if (!mediaKind) throw new Error(`Unsupported media format: ${ext} (use jpg/png/gif/webp or mp4/mov)`);
   const size = fs.statSync(filePath).size;
-  return { kind: 'file', path: filePath, mime: MIME_BY_EXT[ext], size, mediaKind };
+  return {
+    kind: 'file',
+    path: filePath,
+    mime: MIME_BY_EXT[ext],
+    size,
+    mediaKind,
+    resourceId,
+  };
 }
 
 function resolveMediaItems(database, fileStorage, items) {
@@ -191,12 +204,10 @@ async function uploadXMedia(accessToken, source) {
   return String(mediaId);
 }
 
-// NOTE — Instagram has NO binary upload path on the "Instagram API with
-// Instagram Login" variant we use (graph.instagram.com): resumable uploads
-// (rupload.facebook.com) are exclusive to "Facebook Login for Business" apps.
-// Both photos AND videos need a public https URL until the ephemeral URL
-// bridge (dome-provider) exists. The instagram provider enforces this with a
-// clear error before any network call.
+// NOTE — Instagram Graph with Instagram Login has no binary upload
+// (rupload.facebook.com is Facebook-Login only). Local/vault files go through
+// Dome Provider (`POST /api/v1/social/media`) which returns a public https URL
+// for Meta to fetch. The social post keeps resourceId/path on `media`.
 
 module.exports = {
   resolveMediaItem,

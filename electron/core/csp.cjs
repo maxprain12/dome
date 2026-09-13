@@ -42,7 +42,7 @@ function buildCsp(isDev) {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       `style-src 'self' 'unsafe-inline' ${googleFontsStyle}`,
       "img-src 'self' app: data: blob: https: http://localhost:*",
-      "media-src 'self' app: blob: http://localhost:*",
+      "media-src 'self' app: data: blob: https: http://localhost:*",
       // data:/blob: required — viewers fetch() resource payloads returned as data URLs
       "connect-src 'self' data: blob: http://localhost:* ws://localhost:* https: wss:",
       `font-src 'self' data: ${googleFontsFiles}`,
@@ -58,7 +58,7 @@ function buildCsp(isDev) {
     "script-src 'self'",
     `style-src 'self' 'unsafe-inline' ${googleFontsStyle}`,
     "img-src 'self' app: data: blob: https:",
-    "media-src 'self' app: blob:",
+    "media-src 'self' app: data: blob: https:",
     "connect-src 'self' app: data: blob: https: wss:",
     `font-src 'self' data: ${googleFontsFiles}`,
     "object-src 'none'",

@@ -9,8 +9,7 @@ import { HubMasterDetail } from '@/components/shared/HubMasterDetail';
 import { HubPaneState } from '@/components/shared/HubPaneState';
 import { SectionCard } from '@/components/shared/SectionCard';
 import { DetailModal } from '@/components/shared/DetailModal';
-import { focusPerson } from '@/lib/store/useOpenIntentStore';
-import { useTabStore } from '@/lib/store/useTabStore';
+import { openPersonInHub } from '@/lib/store/useOpenIntentStore';
 import type { SocialReplyDraft } from '@/lib/social/socialQueues';
 import { useAppStore } from '@/lib/store/useAppStore';
 
@@ -64,9 +63,7 @@ export function SocialInboxHub({
         });
       }
       if (personId) {
-        setSelectedId(null);
-        useTabStore.getState().openPeopleTab();
-        focusPerson({ personId });
+        openPersonInHub(personId, () => setSelectedId(null));
       }
     });
 
@@ -79,9 +76,7 @@ export function SocialInboxHub({
       });
       const person = res.success ? res.data?.people?.[0] : undefined;
       if (person?.id) {
-        setSelectedId(null);
-        useTabStore.getState().openPeopleTab();
-        focusPerson({ personId: person.id });
+        openPersonInHub(person.id, () => setSelectedId(null));
         return;
       }
       await createPerson(draft);

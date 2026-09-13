@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { dispatchDomeEvent } from '@/lib/events/domeEvents';
+import { useTabStore } from '@/lib/store/useTabStore';
 
 const TTL_MS = 5000;
 
@@ -20,6 +21,7 @@ interface OpenIntentState {
   intent: OpenIntent | null;
   setIntent: (intent: OpenIntent) => void;
   consume: <K extends OpenIntent['kind']>(kind: K) => Extract<OpenIntent, { kind: K }> | null;
+  peek: <K extends OpenIntent['kind']>(kind: K) => Extract<OpenIntent, { kind: K }> | null;
 }
 
 function isFresh(intent: OpenIntent | null): intent is OpenIntent {
@@ -38,6 +40,11 @@ export const useOpenIntentStore = create<OpenIntentState>((set, get) => ({
       return null;
     }
     set({ intent: null });
+    return cur as Extract<OpenIntent, { kind: typeof kind }>;
+  },
+  peek: (kind) => {
+    const cur = get().intent;
+    if (!isFresh(cur) || cur.kind !== kind) return null;
     return cur as Extract<OpenIntent, { kind: typeof kind }>;
   },
 }));
@@ -85,4 +92,13 @@ export function focusPerson(detail: { personId: string }): void {
     at: Date.now(),
   });
   dispatchDomeEvent('dome:focus-person', detail);
+}
+
+/** Close the current dialog first. Opening People in the same tick nested-dialog-deadlocks. */
+export function openPersonInHub(personId: string, close?: (() => void) | null): void {
+  close?.();
+  globalThis.setTimeout(() => {
+    useTabStore.getState().openPeopleTab();
+    focusPerson({ personId });
+  }, 0);
 }

@@ -488,6 +488,30 @@ async function fetchAccountMetrics(store, account) {
   return fetchMemberAccountMetrics(store, account, accessToken);
 }
 
+function mapLinkedInComment(el, parentId = null) {
+  const actor = el?.actor || el?.commenter || null;
+  const text =
+    el?.message?.text ||
+    el?.commentary?.text ||
+    el?.message ||
+    '';
+  const id = el?.id || el?.$URN || null;
+  if (!id) return null;
+  const parentComment = parentId || el?.parentComment || el?.parent || null;
+  const resolvedParent =
+    typeof parentComment === 'string'
+      ? parentComment
+      : parentComment?.id || parentComment?.$URN || null;
+  return normalizeComment({
+    id,
+    text: typeof text === 'string' ? text : String(text || ''),
+    authorName: null,
+    authorExternalId: typeof actor === 'string' ? actor : actor?.id || null,
+    createdAt: el?.created?.time || el?.lastModified?.time || null,
+    parentId: resolvedParent && String(resolvedParent) !== String(id) ? String(resolvedParent) : null,
+  });
+}
+
 /**
  * Comments on a share/ugcPost via socialActions (works best with org CMA scopes).
  */
@@ -504,23 +528,22 @@ async function listComments(store, { accountId, externalPostId, cursor } = {}) {
     console.warn('[Social][LI] listComments failed:', err.message);
     return { comments: [] };
   }
-  const comments = (data?.elements || []).map((el) => {
-    const actor = el?.actor || el?.commenter || null;
-    const text =
-      el?.message?.text ||
-      el?.commentary?.text ||
-      el?.message ||
-      '';
-    const id = el?.id || el?.$URN || null;
-    if (!id) return null;
-    return normalizeComment({
-      id,
-      text: typeof text === 'string' ? text : String(text || ''),
-      authorName: null,
-      authorExternalId: typeof actor === 'string' ? actor : actor?.id || null,
-      createdAt: el?.created?.time || el?.lastModified?.time || null,
-    });
-  }).filter(Boolean);
+  const comments = (data?.elements || []).map((el) => mapLinkedInComment(el)).filter(Boolean);
+  const roots = comments.filter((comment) => !comment.parentId).slice(0, 20);
+  for (const root of roots) {
+    try {
+      const nested = await linkedinFetch(
+        accessToken,
+        `/socialActions/${encodeURIComponent(root.id)}/comments?count=20`,
+      );
+      for (const el of nested?.elements || []) {
+        const mapped = mapLinkedInComment(el, root.id);
+        if (mapped && !comments.some((row) => row.id === mapped.id)) comments.push(mapped);
+      }
+    } catch {
+      /* nested comments are best-effort */
+    }
+  }
   const nextStart = data?.paging?.start != null && data?.paging?.count != null
     ? data.paging.start + data.paging.count
     : undefined;
@@ -586,6 +609,29 @@ async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
   return { externalMessageId: String(externalMessageId) };
 }
 
+async function replyToComment(store, { accountId, commentId, text } = {}) {
+  if (!commentId) throw new Error('LinkedIn reply requires a comment id.');
+  const body = String(text || '').trim();
+  if (!body) throw new Error('LinkedIn reply text is empty.');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const account = store.getAccount(accountId);
+  const actor =
+    (account?.account_kind || account?.accountKind) === 'organization'
+      ? `urn:li:organization:${account.external_id}`
+      : `urn:li:person:${account.external_id}`;
+  const result = await linkedinFetch(
+    accessToken,
+    `/socialActions/${encodeURIComponent(commentId)}/comments`,
+    {
+      method: 'POST',
+      body: { actor, message: { text: body.slice(0, 3000) } },
+    },
+  );
+  const id = result?.id || result?.$URN || null;
+  if (!id) throw new Error('LinkedIn did not return a reply id.');
+  return { id: String(id) };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken,
@@ -595,6 +641,7 @@ module.exports = {
   fetchAccountMetrics,
   listRecentPosts,
   listComments,
+  replyToComment,
   sendDm,
   syncOrganizations,
   supportsManualToken: true,

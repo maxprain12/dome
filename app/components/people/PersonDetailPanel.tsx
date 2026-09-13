@@ -9,7 +9,6 @@ import {
   GlobeIcon,
   Mail01Icon,
   MoreHorizontalIcon,
-  PencilEdit02Icon,
   SaveIcon,
   SentIcon,
   Share08Icon,
@@ -17,20 +16,41 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Field, FieldLabel } from '@/components/ui/field';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field';
+import { Separator } from '@/components/ui/separator';
+import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import ListState from '@/components/shared/ListState';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { focusSocialPost } from '@/lib/store/useOpenIntentStore';
 import { leadStatusBadgeVariant, personDisplayLabel, personInitial } from './peopleLabels';
@@ -55,14 +75,13 @@ import InstagramLeadCard from './InstagramLeadCard';
 import PersonProfileEditor from './PersonProfileEditor';
 import PersonTimeline from './PersonTimeline';
 import { coreProfileValue, mergeProfileParts, splitProfile } from './personProfileFields';
-import { ActionIcon } from '@/components/shared/ActionIcon';
+import { identitySourceKey } from './peopleTable';
 import { HubDetailPane } from '@/components/shared/HubDetailPane';
 import { useDetailModalClose } from '@/components/shared/DetailModal';
-import { ReadField } from '@/components/shared/ReadField';
-import { SectionCard } from '@/components/shared/SectionCard';
-import { hubSectionClass, hubSectionTitleClass } from '@/components/shared/hubChrome';
 import { openManyWithCombinedContext } from '@/lib/many/openManyCombined';
-import { cn } from '@/lib/utils';
+
+const TAB_SCROLL =
+  'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none';
 
 function profileString(profile: Record<string, unknown> | undefined, key: string): string | null {
   const value = profile?.[key];
@@ -91,8 +110,6 @@ interface PersonDetailPanelProps {
   onManageStatuses?: () => void;
 }
 
-type EditCard = 'basic' | 'comms' | 'notes' | null;
-
 export default function PersonDetailPanel({
   person,
   saving,
@@ -117,7 +134,27 @@ export default function PersonDetailPanel({
   const [profile, setProfile] = useState<Record<string, unknown>>(person.profile ?? {});
   const [noteDraft, setNoteDraft] = useState('');
   const [dirty, setDirty] = useState(false);
-  const [editCard, setEditCard] = useState<EditCard>(null);
+  const [profileEpoch, setProfileEpoch] = useState(0);
+  const personStamp = [
+    person.id,
+    person.displayName,
+    person.leadStatus ?? '',
+    person.primaryEmail ?? '',
+    person.notes ?? '',
+    JSON.stringify(person.profile ?? {}),
+    String(person.identities?.length ?? 0),
+  ].join('\0');
+
+  const resetFromPerson = () => {
+    setDisplayName(person.displayName);
+    setPrimaryEmail(person.primaryEmail ?? '');
+    setLeadStatus(person.leadStatus ?? 'lead');
+    setNotes(person.notes ?? '');
+    setProfile(person.profile ?? {});
+    setDirty(false);
+    setNoteDraft('');
+    setProfileEpoch((n) => n + 1);
+  };
 
   useEffect(() => {
     setDisplayName(person.displayName);
@@ -127,30 +164,40 @@ export default function PersonDetailPanel({
     setProfile(person.profile ?? {});
     setDirty(false);
     setNoteDraft('');
-    setEditCard(null);
-  }, [person]);
+    setProfileEpoch((n) => n + 1);
+    // Reset when the server record actually changes, not when the hub passes a new object identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- personStamp is the derived server snapshot
+  }, [personStamp]);
 
   const markDirty = () => setDirty(true);
 
-  const handleSave = async () => {
-    const ok = await onSave({
+  const setProfileField = (key: string, value: string) => {
+    setProfile((current) => ({ ...current, [key]: value }));
+    markDirty();
+  };
+
+  const handleSave = () => {
+    onSave({
       displayName: displayName.trim(),
       primaryEmail: primaryEmail.trim() || undefined,
       leadStatus,
       notes,
       profile: mergeProfileParts(splitProfile(profile).core, splitProfile(profile).custom),
-    });
-    if (ok) {
-      setDirty(false);
-      setEditCard(null);
-    }
+    })
+      .then((ok) => {
+        if (ok) setDirty(false);
+      })
+      .catch(() => {});
   };
 
-  const handleAddNote = async () => {
+  const handleAddNote = () => {
     const summary = noteDraft.trim();
     if (!summary) return;
-    const ok = await onAddNote(summary);
-    if (ok) setNoteDraft('');
+    onAddNote(summary)
+      .then((ok) => {
+        if (ok) setNoteDraft('');
+      })
+      .catch(() => {});
   };
 
   const identities = person.identities ?? [];
@@ -164,22 +211,24 @@ export default function PersonDetailPanel({
       ? identities[0].meta.profile_picture_url
       : null);
   const dmSent = interactions.some(
-    (i) =>
-      i.payload?.dmSent === true ||
-      i.refType === 'dm_rule' ||
-      i.kind === 'instagram_comment_match',
+    (item) =>
+      item.payload?.dmSent === true ||
+      item.refType === 'dm_rule' ||
+      item.kind === 'instagram_comment_match',
   );
 
   const occupation = trimmedProfileField(profile, 'occupation');
-  const headerSubtitle = occupation || primaryEmail.trim() || null;
+  const headerSubtitle =
+    occupation ||
+    (igLead?.handle && !displayName.includes(igLead.handle) ? `@${igLead.handle.replace(/^@/, '')}` : null) ||
+    primaryEmail.trim() ||
+    null;
   const contact = { profile, identities };
   const callHref = telHref(personPhone(contact));
   const emailAddr = primaryEmail.trim();
   const emailHref = emailAddr.includes('@') ? `mailto:${emailAddr}` : null;
   const websiteHref = personWebsiteHref(contact);
   const social = personSocialAction(identities);
-  const unavailable = t('people.action_unavailable');
-  const editLabel = t('people.edit_section');
   const statusItems = useMemo(() => {
     const extraStatus =
       leadStatus && !isBuiltinPersonStatus(leadStatus) && !customs.some((row) => row.id === leadStatus)
@@ -231,8 +280,9 @@ export default function PersonDetailPanel({
     openExternalHref(social.href);
   };
 
-  const toggleCard = (card: Exclude<EditCard, null>) => {
-    setEditCard((cur) => (cur === card ? null : card));
+  const sourceLabel = (source: string) => {
+    const key = identitySourceKey(source);
+    return key === 'unknown' ? t('people.source_unknown') : t(`people.source_${key}`);
   };
 
   return (
@@ -251,29 +301,16 @@ export default function PersonDetailPanel({
         ) : null
       }
       actions={
-        <>
-          {dirty ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                handleSave().catch(() => {});
-              }}
-              disabled={saving}
-            >
-              <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />
-              {saving ? t('people.saving') : t('people.save')}
-            </Button>
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button type="button" variant="ghost" size="icon-sm" />}
-              aria-label={t('people.more_actions')}
-              title={t('people.more_actions')}
-            >
-              <HugeiconsIcon icon={MoreHorizontalIcon} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button type="button" variant="ghost" size="icon-sm" />}
+            aria-label={t('people.more_actions')}
+            title={t('people.more_actions')}
+          >
+            <HugeiconsIcon icon={MoreHorizontalIcon} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
               <DropdownMenuItem disabled={!websiteHref} onClick={handleWebsite}>
                 <HugeiconsIcon icon={GlobeIcon} />
                 {t('people.action_website')}
@@ -282,62 +319,55 @@ export default function PersonDetailPanel({
                 <HugeiconsIcon icon={Share08Icon} />
                 {t('people.action_open_social')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { onOpenPipelines(); closeDetail?.(); }}>
+              <DropdownMenuItem
+                onClick={() => {
+                  onOpenPipelines();
+                  closeDetail?.();
+                }}
+              >
                 <HugeiconsIcon icon={WorkflowSquare01Icon} />
                 {t('people.add_to_pipeline')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { onOpenCalendar(); closeDetail?.(); }}>
+              <DropdownMenuItem
+                onClick={() => {
+                  onOpenCalendar();
+                  closeDetail?.();
+                }}
+              >
                 <HugeiconsIcon icon={Calendar03Icon} />
                 {t('people.link_to_calendar')}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={deleting || saving}
-                onClick={onDelete}
-              >
+              <DropdownMenuItem variant="destructive" disabled={deleting || saving} onClick={onDelete}>
                 <HugeiconsIcon icon={Delete02Icon} />
                 {t('people.delete')}
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       }
       toolbar={
-        <div className="flex items-center gap-1.5">
-          <ActionIcon
-            label={t('people.action_call')}
-            available={Boolean(callHref)}
-            unavailableLabel={unavailable}
-            icon={Call02Icon}
-            onClick={handleCall}
-          />
-          <ActionIcon
-            label={t('people.action_email')}
-            available={Boolean(emailHref)}
-            unavailableLabel={unavailable}
-            icon={Mail01Icon}
-            onClick={handleEmail}
-          />
-          <ActionIcon
-            label={t('people.action_chat_many')}
-            available
-            unavailableLabel={unavailable}
-            icon={BubbleChatIcon}
-            onClick={handleMany}
-          />
+        <div className="flex w-full items-center justify-end gap-2">
+          {dirty ? (
+            <Button type="button" variant="outline" size="sm" onClick={resetFromPerson}>
+              {t('people.discard_changes')}
+            </Button>
+          ) : null}
+          <Button type="button" size="sm" disabled={!dirty || saving} onClick={handleSave}>
+            {saving ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SaveIcon} data-icon="inline-start" />}
+            {saving ? t('people.saving') : t('people.save')}
+          </Button>
         </div>
       }
     >
-      <Tabs defaultValue="info" className="flex min-h-0 flex-1 flex-col gap-0">
-        <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
+      <Tabs defaultValue="info" className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
+        <TabsList variant="line" className="w-full shrink-0 justify-start rounded-none border-b px-6">
           <TabsTrigger value="info">{t('people.tab_info')}</TabsTrigger>
           <TabsTrigger value="identities">{t('people.tab_identities')}</TabsTrigger>
           <TabsTrigger value="timeline">{t('people.tab_timeline')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="info" className="min-h-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="grid gap-5 p-5 md:grid-cols-2 [&>*:last-child]:md:col-span-2">
+        <TabsContent value="info" className={TAB_SCROLL}>
+          <div className="flex min-w-0 flex-col gap-8 p-6">
               {igLead ? (
                 <InstagramLeadCard
                   person={person}
@@ -348,271 +378,266 @@ export default function PersonDetailPanel({
                 />
               ) : null}
 
-              <SectionCard
-                title={t('people.section_basic')}
-                action={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-pressed={editCard === 'basic'}
-                    aria-label={editLabel}
-                    title={editLabel}
-                    onClick={() => toggleCard('basic')}
-                  >
-                    <HugeiconsIcon icon={PencilEdit02Icon} />
-                  </Button>
-                }
-              >
-                {editCard === 'basic' ? (
-                  <div className="grid gap-2.5 sm:grid-cols-2">
+              <FieldSet>
+                <FieldLegend>{t('people.section_basic')}</FieldLegend>
+                <FieldDescription>{t('people.section_basic_hint')}</FieldDescription>
+                <FieldGroup>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="people-display-name">{t('people.display_name_label')}</FieldLabel>
                       <Input
                         id="people-display-name"
                         value={displayName}
-                        onChange={(e) => {
-                          setDisplayName(e.target.value);
+                        onChange={(event) => {
+                          setDisplayName(event.target.value);
                           markDirty();
                         }}
                       />
                     </Field>
-                    {(['occupation', 'company', 'location', 'how_we_met'] as const).map((key) => (
-                      <Field key={key}>
-                        <FieldLabel htmlFor={`people-${key}`}>{t(`people.profile_${key}`)}</FieldLabel>
-                        <Input
-                          id={`people-${key}`}
-                          value={coreProfileValue(profile, key)}
-                          onChange={(e) => {
-                            setProfile({ ...profile, [key]: e.target.value });
-                            markDirty();
-                          }}
-                          placeholder={t(`people.profile_${key}_placeholder`)}
-                        />
-                      </Field>
-                    ))}
                     <Field>
                       <FieldLabel htmlFor="people-lead-status">{t('people.lead_status_label')}</FieldLabel>
                       <Select
                         value={leadStatus}
+                        items={statusItems}
                         onValueChange={(next) => {
-                          if (next != null) {
+                          if (typeof next === 'string' && next) {
                             setLeadStatus(next);
                             markDirty();
                           }
                         }}
-                        items={statusItems}
                       >
                         <SelectTrigger id="people-lead-status" className="w-full">
                           <SelectValue>{statusLabel}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {statusItems.map((item) => (
-                            <SelectItem key={item.value} value={item.value}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
+                          <SelectGroup>
+                            {statusItems.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                       {onManageStatuses ? (
-                        <Button type="button" variant="outline" size="sm" onClick={onManageStatuses}>
-                          {t('people.add_status')}
+                        <Button type="button" variant="ghost" size="sm" className="self-start" onClick={onManageStatuses}>
+                          {t('people.manage_statuses')}
                         </Button>
                       ) : null}
                     </Field>
+                    <Field>
+                      <FieldLabel htmlFor="people-occupation">{t('people.profile_occupation')}</FieldLabel>
+                      <Input
+                        id="people-occupation"
+                        value={coreProfileValue(profile, 'occupation')}
+                        onChange={(event) => setProfileField('occupation', event.target.value)}
+                        placeholder={t('people.profile_occupation_placeholder')}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="people-company">{t('people.profile_company')}</FieldLabel>
+                      <Input
+                        id="people-company"
+                        value={coreProfileValue(profile, 'company')}
+                        onChange={(event) => setProfileField('company', event.target.value)}
+                        placeholder={t('people.profile_company_placeholder')}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="people-location">{t('people.profile_location')}</FieldLabel>
+                      <Input
+                        id="people-location"
+                        value={coreProfileValue(profile, 'location')}
+                        onChange={(event) => setProfileField('location', event.target.value)}
+                        placeholder={t('people.profile_location_placeholder')}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="people-how-we-met">{t('people.profile_how_we_met')}</FieldLabel>
+                      <Input
+                        id="people-how-we-met"
+                        value={coreProfileValue(profile, 'how_we_met')}
+                        onChange={(event) => setProfileField('how_we_met', event.target.value)}
+                        placeholder={t('people.profile_how_we_met_placeholder')}
+                      />
+                    </Field>
                   </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ReadField label={t('people.display_name_label')} value={displayName} />
-                    <ReadField label={t('people.profile_occupation')} value={coreProfileValue(profile, 'occupation')} />
-                    <ReadField label={t('people.profile_company')} value={coreProfileValue(profile, 'company')} />
-                    <ReadField label={t('people.profile_location')} value={coreProfileValue(profile, 'location')} />
-                    <ReadField label={t('people.profile_how_we_met')} value={coreProfileValue(profile, 'how_we_met')} />
-                    <ReadField label={t('people.lead_status_label')} value={statusLabel} />
-                  </div>
-                )}
-              </SectionCard>
+                </FieldGroup>
+              </FieldSet>
 
-              <SectionCard
-                title={t('people.section_communication')}
-                action={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-pressed={editCard === 'comms'}
-                    aria-label={editLabel}
-                    title={editLabel}
-                    onClick={() => toggleCard('comms')}
-                  >
-                    <HugeiconsIcon icon={PencilEdit02Icon} />
-                  </Button>
-                }
-              >
-                {editCard === 'comms' ? (
-                  <div className="grid gap-2.5 sm:grid-cols-2">
+              <Separator />
+
+              <FieldSet>
+                <FieldLegend>{t('people.section_communication')}</FieldLegend>
+                <FieldDescription>{t('people.section_communication_hint')}</FieldDescription>
+                <FieldGroup>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="people-email">{t('people.email_label')}</FieldLabel>
                       <Input
                         id="people-email"
                         type="email"
                         value={primaryEmail}
-                        onChange={(e) => {
-                          setPrimaryEmail(e.target.value);
+                        onChange={(event) => {
+                          setPrimaryEmail(event.target.value);
                           markDirty();
                         }}
                       />
                     </Field>
-                    {(['phone', 'website'] as const).map((key) => (
-                      <Field key={key}>
-                        <FieldLabel htmlFor={`people-${key}`}>{t(`people.profile_${key}`)}</FieldLabel>
-                        <Input
-                          id={`people-${key}`}
-                          type={key === 'website' ? 'url' : 'tel'}
-                          value={coreProfileValue(profile, key)}
-                          onChange={(e) => {
-                            setProfile({ ...profile, [key]: e.target.value });
-                            markDirty();
-                          }}
-                          placeholder={t(`people.profile_${key}_placeholder`)}
-                        />
-                      </Field>
-                    ))}
+                    <Field>
+                      <FieldLabel htmlFor="people-phone">{t('people.profile_phone')}</FieldLabel>
+                      <Input
+                        id="people-phone"
+                        type="tel"
+                        value={coreProfileValue(profile, 'phone')}
+                        onChange={(event) => setProfileField('phone', event.target.value)}
+                        placeholder={t('people.profile_phone_placeholder')}
+                      />
+                    </Field>
+                    <Field className="sm:col-span-2">
+                      <FieldLabel htmlFor="people-website">{t('people.profile_website')}</FieldLabel>
+                      <Input
+                        id="people-website"
+                        type="url"
+                        value={coreProfileValue(profile, 'website')}
+                        onChange={(event) => setProfileField('website', event.target.value)}
+                        placeholder={t('people.profile_website_placeholder')}
+                      />
+                    </Field>
                   </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ReadField label={t('people.email_label')} value={primaryEmail} />
-                    <ReadField label={t('people.profile_phone')} value={coreProfileValue(profile, 'phone')} />
-                    <ReadField label={t('people.profile_website')} value={coreProfileValue(profile, 'website')} />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" disabled={!callHref} onClick={handleCall}>
+                      <HugeiconsIcon icon={Call02Icon} data-icon="inline-start" />
+                      {t('people.action_call')}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" disabled={!emailHref} onClick={handleEmail}>
+                      <HugeiconsIcon icon={Mail01Icon} data-icon="inline-start" />
+                      {t('people.action_email')}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleMany}>
+                      <HugeiconsIcon icon={BubbleChatIcon} data-icon="inline-start" />
+                      {t('people.action_chat_many')}
+                    </Button>
                   </div>
-                )}
-              </SectionCard>
+                </FieldGroup>
+              </FieldSet>
 
-              <SectionCard
-                title={t('people.section_notes')}
-                action={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-pressed={editCard === 'notes'}
-                    aria-label={editLabel}
-                    title={editLabel}
-                    onClick={() => toggleCard('notes')}
-                  >
-                    <HugeiconsIcon icon={PencilEdit02Icon} />
-                  </Button>
-                }
-              >
-                {editCard === 'notes' ? (
-                  <div className="flex flex-col gap-3">
+              <Separator />
+
+              <FieldSet>
+                <FieldLegend>{t('people.section_notes')}</FieldLegend>
+                <FieldDescription>{t('people.section_notes_hint')}</FieldDescription>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="people-notes" className="sr-only">
+                      {t('people.section_notes')}
+                    </FieldLabel>
                     <Textarea
+                      id="people-notes"
                       value={notes}
-                      onChange={(e) => {
-                        setNotes(e.target.value);
+                      onChange={(event) => {
+                        setNotes(event.target.value);
                         markDirty();
                       }}
                       placeholder={t('people.notes_placeholder')}
-                      className="min-h-20"
+                      className="min-h-28 resize-none"
                     />
-                    <div className="flex flex-col gap-2">
-                      <h4 className={hubSectionTitleClass}>
-                        {t('people.section_custom_fields')}
-                      </h4>
-                      <PersonProfileEditor
-                        profile={profile}
-                        onChange={(custom) => {
-                          setProfile(mergeProfileParts(splitProfile(profile).core, custom));
-                          markDirty();
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap text-xs">{notes.trim() || '—'}</p>
-                )}
-              </SectionCard>
-            </div>
-          </ScrollArea>
-        </TabsContent>
+                  </Field>
+                </FieldGroup>
+              </FieldSet>
 
-        <TabsContent value="identities" className="min-h-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="p-3">
-              <section className={hubSectionClass}>
-                <h3 className={hubSectionTitleClass}>
-                  {t('people.section_identities')}
-                </h3>
-                {identities.length === 0 ? (
-                  <ListState variant="empty" title={t('people.identities_empty')} compact />
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {identities.map((identity) => {
-                      const href = identityHref(identity);
-                      const label = identityLabel(identity);
-                      const key = `${identity.source}:${identity.externalId}`;
-                      if (href) {
-                        return (
-                          <a
-                            key={key}
-                            href={href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-                          >
-                            {label}
-                          </a>
-                        );
-                      }
-                      return (
-                        <Button key={key} type="button" variant="outline" size="sm">
-                          {label}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            </div>
-          </ScrollArea>
-        </TabsContent>
+              <Separator />
 
-        <TabsContent value="timeline" className="min-h-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="p-3">
-              <section className={hubSectionClass}>
-                <h3 className={hubSectionTitleClass}>
-                  {t('people.section_timeline')}
-                </h3>
-                <div className="flex items-start gap-1.5">
-                  <Textarea
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                    placeholder={t('people.add_note_placeholder')}
-                    className="min-h-9"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        handleAddNote().catch(() => {});
-                      }
+              <FieldSet>
+                <FieldLegend>{t('people.section_custom_fields')}</FieldLegend>
+                <FieldDescription>{t('people.section_custom_fields_hint')}</FieldDescription>
+                <FieldGroup>
+                  <PersonProfileEditor
+                    resetKey={profileEpoch}
+                    profile={profile}
+                    onChange={(custom) => {
+                      setProfile(mergeProfileParts(splitProfile(profile).core, custom));
+                      markDirty();
                     }}
                   />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      handleAddNote().catch(() => {});
-                    }}
-                    disabled={!noteDraft.trim() || addingNote}
-                  >
-                    <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />
-                    {t('people.add_note')}
-                  </Button>
-                </div>
-                <PersonTimeline interactions={interactions} />
-              </section>
+                </FieldGroup>
+              </FieldSet>
             </div>
-          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="identities" className={TAB_SCROLL}>
+          <div className="flex min-w-0 flex-col gap-3 p-6">
+              {identities.length === 0 ? (
+                <Empty className="border-0 py-10">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('people.identities_empty')}</EmptyTitle>
+                    <EmptyDescription>{t('people.identities_empty_hint')}</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                identities.map((identity) => {
+                  const href = identityHref(identity);
+                  const label = identityLabel(identity);
+                  const key = `${identity.source}:${identity.externalId}`;
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[0.6875rem] text-muted-foreground">{sourceLabel(identity.source)}</p>
+                        <p className="truncate text-sm font-medium">{label}</p>
+                      </div>
+                      {href ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          nativeButton={false}
+                          render={<a href={href} target="_blank" rel="noreferrer" aria-label={t('people.identity_open')} />}
+                        >
+                          {t('people.identity_open')}
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+        </TabsContent>
+
+        <TabsContent value="timeline" className={TAB_SCROLL}>
+          <div className="flex min-w-0 flex-col gap-4 p-6">
+              <FieldSet>
+                <FieldLegend>{t('people.section_timeline')}</FieldLegend>
+                <FieldDescription>{t('people.section_timeline_hint')}</FieldDescription>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="people-add-note">{t('people.add_note')}</FieldLabel>
+                    <Textarea
+                      id="people-add-note"
+                      value={noteDraft}
+                      onChange={(event) => setNoteDraft(event.target.value)}
+                      placeholder={t('people.add_note_placeholder')}
+                      className="min-h-20 resize-none"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                          event.preventDefault();
+                          handleAddNote();
+                        }
+                      }}
+                    />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="button" size="sm" disabled={!noteDraft.trim() || addingNote} onClick={handleAddNote}>
+                      {addingNote ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={SentIcon} data-icon="inline-start" />}
+                      {t('people.add_note')}
+                    </Button>
+                  </div>
+                </FieldGroup>
+              </FieldSet>
+              <PersonTimeline interactions={interactions} />
+            </div>
         </TabsContent>
       </Tabs>
     </HubDetailPane>

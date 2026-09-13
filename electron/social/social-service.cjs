@@ -11,6 +11,7 @@
 const { createSocialStore, PROVIDERS } = require('./social-store.cjs');
 const { createSocialOAuth } = require('./social-oauth.cjs');
 const calendarBridge = require('./social-calendar-bridge.cjs');
+const sourceIndex = require('../search/source-index.cjs');
 const insights = require('./social-insights.cjs');
 const {
   SOCIAL_PROVIDER_CAPABILITIES,
@@ -20,7 +21,8 @@ const {
   commentMatchesHashtag,
   renderReplyTemplate,
 } = require('./social-comment-match.cjs');
-const { accountSupports } = require('./social-messaging.cjs');
+const { accountSupports, nestComments } = require('./social-messaging.cjs');
+const peopleStore = require('../people/people-store.cjs');
 
 const PROVIDER_MODULES = {
   linkedin: require('./providers/linkedin.cjs'),
@@ -91,9 +93,22 @@ function createSocialService(database, windowManager) {
     return account;
   }
 
+  function forgetLocalPost(postId) {
+    void calendarBridge.removePostEvent?.(postId);
+    try {
+      sourceIndex.removeDocument('social_post', postId);
+    } catch {
+      /* FTS index is optional in tests / older DBs */
+    }
+  }
+
   function disconnect(accountId) {
-    store.deleteAccount(accountId);
+    const result = store.deleteAccount(accountId) || {};
+    const deletedPostIds = Array.isArray(result.deletedPostIds) ? result.deletedPostIds : [];
+    for (const postId of deletedPostIds) forgetLocalPost(postId);
     broadcast('social:account-updated', { id: accountId, deleted: true });
+    broadcast('social:posts-refresh', { deleted: deletedPostIds.length });
+    broadcast('social:metrics-updated', { source: 'disconnect' });
   }
 
   /** Discover/refresh LinkedIn company pages administered by a connected account. */
@@ -145,11 +160,36 @@ function createSocialService(database, windowManager) {
     }
   }
 
+  async function deletePost(postId) {
+    const post = store.getPost(postId);
+    if (!post) throw new Error(`Social post not found: ${postId}`);
+    let remoteDeleted = false;
+    let remoteError = null;
+    if (post.externalPostId) {
+      const mod = PROVIDER_MODULES[post.provider];
+      if (typeof mod?.deleteRemotePost === 'function') {
+        try {
+          const result = await mod.deleteRemotePost(store, post);
+          remoteDeleted = Boolean(result?.remoteDeleted);
+        } catch (err) {
+          remoteError = err instanceof Error ? err.message : String(err);
+          console.warn(`[Social] remote delete failed for ${postId}:`, remoteError);
+        }
+      }
+    }
+    store.deletePost(postId);
+    broadcast('social:post-updated', { id: postId, deleted: true });
+    void calendarBridge.removePostEvent(postId);
+    return { deleted: true, remoteDeleted, remoteError };
+  }
+
   // ── Metrics ──────────────────────────────────────────────────────────────
 
   async function refreshPostMetrics(postId) {
     const post = store.getPost(postId);
-    if (!post || post.status !== 'published' || !post.externalPostId) return null;
+    if (!post || post.status !== 'published' || !post.externalPostId || !post.accountId) return null;
+    const account = store.getAccount(post.accountId);
+    if (!account || account.status !== 'active') return null;
     const mod = providerModule(post.provider);
     try {
       const metric = await mod.fetchPostMetrics(store, post);
@@ -192,7 +232,12 @@ function createSocialService(database, windowManager) {
   async function refreshAllMetrics(accountId = null) {
     const accountsRefreshed = await refreshAccountMetrics(accountId);
     const posts = store.listRecentPublished({ sinceMs: Date.now() - METRICS_WINDOW_MS, limit: 100 })
-      .filter((post) => !accountId || post.accountId === accountId);
+      .filter((post) => {
+        if (!post.accountId) return false;
+        if (accountId && post.accountId !== accountId) return false;
+        const owner = store.getAccount(post.accountId);
+        return Boolean(owner && owner.status === 'active');
+      });
     let refreshed = 0;
     for (const post of posts) {
       const metric = await refreshPostMetrics(post.id);
@@ -295,12 +340,23 @@ function createSocialService(database, windowManager) {
   }
 
   /** Dashboard summary: counts, accounts, aggregate + per-post latest metrics. */
+  function forgetUnlinkedPosts() {
+    const purged = typeof store.purgeUnlinkedPosts === 'function' ? store.purgeUnlinkedPosts() : [];
+    if (purged.length === 0) return;
+    for (const postId of purged) forgetLocalPost(postId);
+    broadcast('social:posts-refresh', { deleted: purged.length });
+    broadcast('social:metrics-updated', { source: 'orphan-purge' });
+  }
+
   function getSummary() {
+    forgetUnlinkedPosts();
     const accounts = store.listAccounts();
+    const linkedAccountIds = new Set(accounts.map((account) => account.id));
     const counts = store.countPostsByStatus();
     const latestMetrics = store.listLatestMetrics();
     const metricByPost = new Map(latestMetrics.map((m) => [m.postId, m]));
-    const published = store.listRecentPublished({ sinceMs: Date.now() - METRICS_WINDOW_MS, limit: 200 });
+    const published = store.listRecentPublished({ sinceMs: Date.now() - METRICS_WINDOW_MS, limit: 200 })
+      .filter((post) => post.accountId && linkedAccountIds.has(post.accountId));
 
     const totals = { impressions: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
     const totalsKnown = {
@@ -580,14 +636,54 @@ function createSocialService(database, windowManager) {
     return { draft: updated, alreadySent: false };
   }
 
+  function attachAccountAuthors(comments, account) {
+    const handle = String(account?.handle || '').replace(/^@/, '').trim();
+    const display = String(account?.displayName || '').trim();
+    const ext = String(account?.externalId || account?.external_id || '').trim();
+    const handleLc = handle.toLowerCase();
+    const walk = (list) => {
+      for (const comment of list) {
+        const name = String(comment.authorName || '').replace(/^@/, '').trim();
+        const own =
+          Boolean(ext && comment.authorExternalId && String(comment.authorExternalId) === ext) ||
+          Boolean(handleLc && name && name.toLowerCase() === handleLc);
+        if (own) {
+          comment.isOwnAccount = true;
+          if (!comment.authorName) comment.authorName = handle || display || comment.authorName;
+        }
+        if (Array.isArray(comment.replies) && comment.replies.length) walk(comment.replies);
+      }
+    };
+    walk(comments);
+    return comments;
+  }
+
+  function attachPeopleToComments(comments, provider, projectId) {
+    if (typeof peopleStore.findPersonByIdentity !== 'function') return comments;
+    const walk = (list) => {
+      for (const comment of list) {
+        const person =
+          peopleStore.findPersonByIdentity(projectId, provider, comment.authorExternalId) ||
+          peopleStore.findPersonByIdentity(projectId, provider, comment.authorName);
+        if (person) {
+          comment.personId = person.id;
+          comment.personDisplayName = person.displayName;
+        }
+        if (Array.isArray(comment.replies) && comment.replies.length) walk(comment.replies);
+      }
+    };
+    walk(comments);
+    return comments;
+  }
+
   /**
    * List public comments for a Dome post (provider listComments).
    * Use only the post’s selected account and call the API
    * even when stored OAuth scopes omit the comment permission (manual tokens /
    * older reconnects). Permission failures return unsupported + reason.
-   * @param {{ postId: string, cursor?: string|null }} opts
+   * @param {{ postId: string, cursor?: string|null, projectId?: string|null }} opts
    */
-  async function listPostComments({ postId, cursor = null } = {}) {
+  async function listPostComments({ postId, cursor = null, projectId = null } = {}) {
     const post = store.getPost(postId);
     if (!post) throw new Error('Post not found');
     if (post.status !== 'published' || !post.externalPostId) {
@@ -622,8 +718,10 @@ function createSocialService(database, windowManager) {
         externalPostId: post.externalPostId,
         cursor: cursor || undefined,
       });
+      const nested = nestComments(Array.isArray(page?.comments) ? page.comments : []);
+      attachAccountAuthors(nested, account);
       return {
-        comments: Array.isArray(page?.comments) ? page.comments : [],
+        comments: attachPeopleToComments(nested, account.provider, projectId),
         nextCursor: page?.nextCursor,
         unsupported: false,
       };
@@ -714,6 +812,29 @@ function createSocialService(database, windowManager) {
     return { processed };
   }
 
+  async function replyToComment({ postId, commentId, text } = {}) {
+    const body = String(text || '').trim();
+    if (!body) throw new Error('Reply text is empty.');
+    const post = store.getPost(postId);
+    if (!post) throw new Error('Post not found');
+    const account = post.accountId ? store.serializeAccount(store.getAccount(post.accountId)) : null;
+    if (!account || account.status !== 'active' || account.provider !== post.provider) {
+      throw new Error('The selected account is unavailable. Reconnect it before replying.');
+    }
+    const mod = providerModule(account.provider);
+    if (typeof mod.replyToComment !== 'function') {
+      throw new Error(`${account.provider} does not support public comment replies from Dome.`);
+    }
+    const result = await mod.replyToComment(store, {
+      accountId: account.id,
+      commentId,
+      text: body,
+      post,
+    });
+    broadcast('social:drafts-updated', { commentId, replied: true });
+    return result;
+  }
+
   function getIntegrationCapabilities() {
     return {
       liveCommentDm: anyProviderSupportsLiveCommentDm(),
@@ -744,6 +865,14 @@ function createSocialService(database, windowManager) {
     };
   }
 
+  async function searchInstagramLocations({ accountId, query }) {
+    const account = store.getAccount(accountId);
+    if (!account || account.provider !== 'instagram') {
+      throw new Error('Instagram account not found');
+    }
+    return providerModule('instagram').searchLocations(store, account, { query });
+  }
+
   function startScheduler() {
     if (schedulerTimer) return;
     schedulerTimer = setInterval(() => void tick(), SCHEDULER_TICK_MS);
@@ -772,6 +901,7 @@ function createSocialService(database, windowManager) {
     disconnect,
     syncLinkedInOrganizations,
     publishPost,
+    deletePost,
     refreshPostMetrics,
     refreshAllMetrics,
     refreshAccountMetrics,
@@ -785,8 +915,10 @@ function createSocialService(database, windowManager) {
     createDraftFromMatchedComment,
     sendReplyDraft,
     listPostComments,
+    replyToComment,
     pollCommentsAndAutoReply,
     getIntegrationCapabilities,
+    searchInstagramLocations,
   };
 }
 

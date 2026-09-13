@@ -1,4 +1,3 @@
-const { instagramContent } = require('../social-source-content.cjs');
 'use strict';
 
 /* eslint-disable no-console */
@@ -6,40 +5,105 @@ const { instagramContent } = require('../social-source-content.cjs');
 /**
  * Instagram provider — "Instagram API with Instagram Login" (graph.instagram.com).
  * Needs a professional (Business/Creator) Instagram account and a Meta app with
- * the Instagram product. The dashboard token generator is the easiest way to
- * connect (paste the token in Settings); OAuth loopback also works while the
- * Meta app is in development mode.
+ * the Instagram product. OAuth uses https://dome.dowi.es/oauth/instagram/callback
+ * (landing bounce → local HTTP). Dashboard token paste remains available.
  *
- * Publishing requires publicly reachable media URLs (Instagram fetches them),
- * so image posts must reference an https URL, not a local file.
+ * Publishing: Instagram Graph fetches publicly reachable https URLs. Local and
+ * vault files are uploaded to Dome Provider first; `post.media` keeps path/resourceId.
  */
 
+const { instagramContent } = require('../social-source-content.cjs');
+
 const GRAPH = 'https://graph.instagram.com/v23.0';
+const FACEBOOK_GRAPH = 'https://graph.facebook.com/v23.0';
 const CONTAINER_POLL_MS = 2000;
 const CONTAINER_POLL_MAX = 15;
 const VIDEO_POLL_MAX = 150; // video processing can take minutes
 
+function asTokenString(value) {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
+function tokenPermissions(raw) {
+  if (Array.isArray(raw)) return raw.filter(Boolean).join(',') || null;
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  return null;
+}
+
+/** Instagram Login returns `{ data: [{ access_token, user_id, permissions }] }`, not a flat token. */
+function normalizeInstagramTokenResponse(payload) {
+  const row = Array.isArray(payload?.data) ? payload.data[0] : null;
+  const source = row && typeof row === 'object' ? row : payload;
+  return {
+    accessToken: asTokenString(source?.access_token) || asTokenString(payload?.access_token),
+    userId: asTokenString(source?.user_id) || asTokenString(payload?.user_id),
+    permissions: tokenPermissions(source?.permissions ?? payload?.permissions),
+  };
+}
+
+function isUnsupportedHttpMethodError(err) {
+  const msg = String(err?.message || '').toLowerCase();
+  return msg.includes('unsupported request') && msg.includes('method type');
+}
+
+function buildInstagramProfile(me, fallbackUserId) {
+  const externalId = asTokenString(me?.user_id) || asTokenString(me?.id) || asTokenString(fallbackUserId);
+  if (!externalId) return null;
+  const username = asTokenString(me?.username);
+  return {
+    externalId,
+    displayName: asTokenString(me?.name) || username || 'Instagram',
+    handle: username ? `@${username.replace(/^@/, '')}` : null,
+    followers: typeof me?.followers_count === 'number' ? me.followers_count : null,
+  };
+}
+
 const database = require('../../core/database.cjs');
 const fileStorage = require('../../storage/file-storage.cjs');
 const { resolveMediaItems } = require('../social-media.cjs');
+const {
+  planInstagramPublish,
+  toPublicPublishItems,
+} = require('../instagram-publish.cjs');
+const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
 const { normalizeComment } = require('../social-messaging.cjs');
+const {
+  MEDIA_FIELDS_BASE,
+  MEDIA_FIELDS_EXTRA,
+  isUnknownFieldError,
+  applyNativePublishParams,
+  parseFacebookPlaceQuery,
+  mapLocationSearchResults,
+  normalizeLocation,
+} = require('../instagram-native.cjs');
 
-async function igFetch(path, { method = 'GET', params = {}, accessToken, body } = {}) {
+async function igFetch(path, { method = 'GET', params = {}, accessToken, body, form } = {}) {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH}${path}`);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   }
-  if (accessToken && method === 'GET') url.searchParams.set('access_token', accessToken);
   const headers = {};
   let fetchBody;
-  if (body !== undefined) {
+  let httpMethod = method;
+  if (form) {
+    httpMethod = httpMethod === 'GET' ? 'POST' : httpMethod;
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    const encoded = new URLSearchParams();
+    for (const [k, v] of Object.entries(form)) {
+      if (v !== undefined && v !== null) encoded.set(k, String(v));
+    }
+    fetchBody = encoded.toString();
+  } else if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
     fetchBody = JSON.stringify(body);
   }
-  if (accessToken && method !== 'GET') {
+  if (accessToken && httpMethod === 'GET') url.searchParams.set('access_token', accessToken);
+  if (accessToken && httpMethod !== 'GET' && !form) {
     url.searchParams.set('access_token', accessToken);
   }
-  const res = await fetch(url, { method, headers, body: fetchBody });
+  const res = await fetch(url, { method: httpMethod, headers, body: fetchBody });
   const text = await res.text();
   let data;
   try {
@@ -56,44 +120,65 @@ async function igFetch(path, { method = 'GET', params = {}, accessToken, body } 
   return data;
 }
 
-async function fetchProfile(accessToken) {
-  const me = await igFetch('/me', {
-    accessToken,
-    params: { fields: 'user_id,username,name,followers_count' },
-  });
-  const externalId = me.user_id || me.id;
-  if (!externalId) throw new Error('Instagram did not return an account identity. Reconnect the account.');
-  return {
-    externalId: String(externalId),
-    displayName: me.name || me.username || 'Instagram',
-    handle: me.username ? `@${me.username}` : null,
-    followers: me.followers_count ?? null,
-  };
+async function igTokenRequest(path, form) {
+  try {
+    return await igFetch(path, { params: form });
+  } catch (err) {
+    if (!isUnsupportedHttpMethodError(err)) throw err;
+    return igFetch(path, { method: 'POST', form });
+  }
+}
+
+async function fetchProfile(accessToken, fallbackUserId) {
+  const fieldSets = ['user_id,username,name,followers_count', 'user_id,username'];
+  const paths = ['/me'];
+  if (fallbackUserId) paths.push(`/${encodeURIComponent(fallbackUserId)}`);
+  let lastErr;
+  for (const path of paths) {
+    for (const fields of fieldSets) {
+      try {
+        const me = await igFetch(path, { accessToken, params: { fields } });
+        const profile = buildInstagramProfile(me, fallbackUserId);
+        if (profile) return profile;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+  }
+  const fallback = buildInstagramProfile(null, fallbackUserId);
+  if (fallback) {
+    console.warn('[Social][IG] profile lookup failed, using token user id:', lastErr?.message || lastErr);
+    return fallback;
+  }
+  throw lastErr || new Error('Instagram did not return an account identity. Reconnect the account.');
 }
 
 async function exchangeLongLived(store, shortToken) {
   const { clientSecret } = store.getProviderConfig('instagram');
   if (!clientSecret) return { access_token: shortToken, expires_in: null };
-  const data = await igFetch('https://graph.instagram.com/access_token', {
-    params: { grant_type: 'ig_exchange_token', client_secret: clientSecret, access_token: shortToken },
-  });
-  return data;
+  const params = {
+    grant_type: 'ig_exchange_token',
+    client_secret: clientSecret,
+    access_token: shortToken,
+  };
+  return igTokenRequest('https://graph.instagram.com/access_token', params);
 }
 
 async function finalizeOAuthAccount(store, tokenData) {
-  const shortToken = tokenData.access_token;
+  const normalized = normalizeInstagramTokenResponse(tokenData);
+  const shortToken = normalized.accessToken;
   if (!shortToken) throw new Error('Instagram: no access_token in token response');
   const longLived = await exchangeLongLived(store, shortToken).catch((err) => {
     console.warn('[Social][IG] long-lived exchange failed, keeping short token:', err.message);
     return { access_token: shortToken, expires_in: 3600 };
   });
-  const profile = await fetchProfile(longLived.access_token);
+  const profile = await fetchProfile(longLived.access_token, normalized.userId);
   const tokens = {
     access_token: longLived.access_token,
     expires_at: longLived.expires_in ? Date.now() + longLived.expires_in * 1000 : null,
     obtained_at: Date.now(),
   };
-  return upsertAccount(store, profile, tokens, tokenData.permissions?.join?.(',') || null);
+  return upsertAccount(store, profile, tokens, normalized.permissions);
 }
 
 async function connectWithToken(store, { accessToken }) {
@@ -136,8 +221,9 @@ async function ensureAccessToken(store, accountId) {
   const nearExpiry = tokens.expires_at && tokens.expires_at - now < 10 * 24 * 60 * 60 * 1000;
   if (oldEnough && nearExpiry) {
     try {
-      const refreshed = await igFetch('https://graph.instagram.com/refresh_access_token', {
-        params: { grant_type: 'ig_refresh_token', access_token: tokens.access_token },
+      const refreshed = await igTokenRequest('https://graph.instagram.com/refresh_access_token', {
+        grant_type: 'ig_refresh_token',
+        access_token: tokens.access_token,
       });
       const next = {
         access_token: refreshed.access_token,
@@ -163,6 +249,18 @@ async function waitForContainer(igUserId, containerId, accessToken, maxPolls = C
   throw new Error('Instagram media container processing timed out.');
 }
 
+async function createMediaContainer(igUserId, accessToken, params, waitMax = 0) {
+  const container = await igFetch(`/${igUserId}/media`, {
+    method: 'POST',
+    accessToken,
+    params,
+  });
+  const containerId = container.id;
+  if (!containerId) throw new Error('Instagram did not return a media container id.');
+  if (waitMax > 0) await waitForContainer(igUserId, containerId, accessToken, waitMax);
+  return String(containerId);
+}
+
 async function publishPost(store, post) {
   const account = store.getAccount(post.accountId);
   if (!account) throw new Error('Instagram account not found for post');
@@ -171,32 +269,57 @@ async function publishPost(store, post) {
 
   const sources = resolveMediaItems(database, fileStorage, post.media);
   if (sources.length === 0) {
-    throw new Error('Instagram posts require at least one media item (photo URL, or a local/vault video).');
+    throw new Error('Instagram posts require at least one media item (photo, video, or vault file).');
   }
 
-  // "Instagram API with Instagram Login" (graph.instagram.com) has NO binary
-  // upload at all: resumable uploads are exclusive to Facebook-Login apps, so
-  // photos AND videos must be reachable at a public https URL.
-  const localFile = sources.find((s) => s.kind === 'file');
-  if (localFile) {
-    throw new Error(
-      'Instagram (with Instagram Login) cannot receive files directly — Meta downloads media from a public https URL. ' +
-      'Paste a public URL for the Instagram variant of this post; local files and vault resources work on LinkedIn and X.'
-    );
+  const { items, storagePaths } = await toPublicPublishItems(sources, (filePath, mime) =>
+    socialCloudAdapter.uploadMediaFile(database, filePath, mime),
+  );
+  const persisted = storagePaths.filter(Boolean);
+  if (persisted.length && post.id) {
+    store.setPostMediaStorage(post.id, persisted);
   }
 
-  const urlVideo = sources.find((s) => s.kind === 'url' && s.mediaKind === 'video');
-  const urlImage = sources.find((s) => s.kind === 'url' && s.mediaKind === 'image');
-  const containerParams = urlVideo
-    ? { media_type: 'REELS', video_url: urlVideo.url, caption: post.body || '' }
-    : { image_url: urlImage.url, caption: post.body || '' };
-  const container = await igFetch(`/${igUserId}/media`, {
-    method: 'POST',
-    accessToken,
-    params: containerParams,
-  });
-  const containerId = container.id;
-  if (urlVideo) await waitForContainer(igUserId, containerId, accessToken, VIDEO_POLL_MAX);
+  const plan = planInstagramPublish(items);
+  let containerId;
+  if (plan.mode === 'carousel') {
+    const childIds = [];
+    for (const item of plan.items) {
+      const isVideo = item.mediaKind === 'video';
+      const childParams = isVideo
+        ? { video_url: item.url, is_carousel_item: true }
+        : { image_url: item.url, is_carousel_item: true };
+      applyNativePublishParams(childParams, post.source, { isVideo, isCarouselItem: true });
+      childIds.push(await createMediaContainer(
+        igUserId,
+        accessToken,
+        childParams,
+        isVideo ? VIDEO_POLL_MAX : CONTAINER_POLL_MAX,
+      ));
+    }
+    const parentParams = {
+      media_type: 'CAROUSEL',
+      children: childIds.join(','),
+      caption: post.body || '',
+    };
+    applyNativePublishParams(parentParams, post.source, { isCarouselParent: true });
+    containerId = await createMediaContainer(igUserId, accessToken, parentParams, CONTAINER_POLL_MAX);
+  } else if (plan.mode === 'reel') {
+    const containerParams = {
+      media_type: 'REELS',
+      video_url: plan.items[0].url,
+      caption: post.body || '',
+    };
+    applyNativePublishParams(containerParams, post.source, { isVideo: true });
+    containerId = await createMediaContainer(igUserId, accessToken, containerParams, VIDEO_POLL_MAX);
+  } else {
+    const containerParams = {
+      image_url: plan.items[0].url,
+      caption: post.body || '',
+    };
+    applyNativePublishParams(containerParams, post.source, { isVideo: false });
+    containerId = await createMediaContainer(igUserId, accessToken, containerParams);
+  }
 
   const published = await igFetch(`/${igUserId}/media_publish`, {
     method: 'POST',
@@ -211,6 +334,15 @@ async function publishPost(store, post) {
   } catch { /* permalink is best-effort */ }
 
   return { externalPostId: String(published.id), externalUrl: permalink };
+}
+
+async function deleteRemotePost(store, post) {
+  if (!post?.externalPostId) return { remoteDeleted: false };
+  const account = store.getAccount(post.accountId);
+  if (!account) return { remoteDeleted: false };
+  const accessToken = await ensureAccessToken(store, account.id);
+  await igFetch(`/${post.externalPostId}`, { method: 'DELETE', accessToken });
+  return { remoteDeleted: true };
 }
 
 async function fetchPostMetrics(store, post) {
@@ -268,6 +400,37 @@ async function fetchAccountMetrics(store, account) {
   };
 }
 
+async function fetchMediaList(igUserId, accessToken, capped) {
+  try {
+    return await igFetch(`/${igUserId}/media`, {
+      accessToken,
+      params: { fields: `${MEDIA_FIELDS_BASE}${MEDIA_FIELDS_EXTRA}`, limit: capped },
+    });
+  } catch (err) {
+    if (!isUnknownFieldError(err)) throw err;
+    return igFetch(`/${igUserId}/media`, {
+      accessToken,
+      params: { fields: MEDIA_FIELDS_BASE, limit: capped },
+    });
+  }
+}
+
+async function enrichCollaborators(media, accessToken) {
+  let supported = true;
+  for (const item of media) {
+    if (!supported) break;
+    try {
+      const data = await igFetch(`/${item.id}/collaborators`, { accessToken });
+      item.collaborators = data?.data || [];
+    } catch (err) {
+      if (isUnknownFieldError(err) || (err && err.status === 400)) {
+        supported = false;
+        break;
+      }
+    }
+  }
+}
+
 /**
  * List recent media already published on Instagram (not created in Dome).
  * Enriches each item with insights (views/reach/saved/shares) when available.
@@ -278,14 +441,9 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
   const igUserId = account.external_id || account.externalId;
   if (!igUserId) throw new Error('Instagram account missing external id');
   const capped = Math.min(Math.max(Number(limit) || 25, 1), 50);
-  const data = await igFetch(`/${igUserId}/media`, {
-    accessToken,
-    params: {
-      fields: 'id,caption,timestamp,permalink,like_count,comments_count,media_type,media_product_type,media_url,thumbnail_url,username,children{id,media_type,media_url,thumbnail_url}',
-      limit: capped,
-    },
-  });
+  const data = await fetchMediaList(igUserId, accessToken, capped);
   const media = data?.data || [];
+  await enrichCollaborators(media, accessToken);
   const posts = [];
   for (const m of media) {
     const publishedAt = m.timestamp ? Date.parse(m.timestamp) : null;
@@ -301,10 +459,11 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
     } catch {
       /* insights often missing for stories / some media types */
     }
+    const content = instagramContent(m, account);
     posts.push({
       externalPostId: String(m.id),
       body: m.caption || '',
-      ...instagramContent(m, account),
+      ...content,
       externalUrl: m.permalink || null,
       publishedAt: Number.isFinite(publishedAt) ? publishedAt : null,
       metrics: {
@@ -321,6 +480,71 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
   return { posts };
 }
 
+async function facebookFetch(path, { accessToken, params = {} } = {}) {
+  const url = new URL(path.startsWith('http') ? path : `${FACEBOOK_GRAPH}${path}`);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+  }
+  url.searchParams.set('access_token', accessToken);
+  const res = await fetch(url);
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
+  if (!res.ok) {
+    const msg = data?.error?.message || text.slice(0, 500);
+    const err = new Error(`Facebook API ${res.status}: ${msg}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+/**
+ * Resolve a place name or Facebook Page URL to { id, name } for location_id.
+ * Pages Search often fails with Instagram Login tokens — callers should treat
+ * searchUnsupported as the URL fallback.
+ */
+async function searchLocations(store, account, { query } = {}) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const q = String(query || '').trim();
+  if (!q) return { locations: [], searchUnsupported: false };
+
+  const parsed = parseFacebookPlaceQuery(q);
+  if (parsed) {
+    try {
+      const page = await facebookFetch(`/${encodeURIComponent(parsed)}`, {
+        accessToken,
+        params: { fields: 'id,name,location' },
+      });
+      const location = normalizeLocation(page);
+      if (location?.id) return { locations: [location], searchUnsupported: false };
+    } catch {
+      /* fall through to name search */
+    }
+  }
+
+  try {
+    const data = await facebookFetch('/pages/search', {
+      accessToken,
+      params: { q, fields: 'id,name,location' },
+    });
+    const withPlace = (data?.data || []).filter((row) => row.location);
+    return {
+      locations: mapLocationSearchResults({ data: withPlace.length ? withPlace : data?.data }),
+      searchUnsupported: false,
+    };
+  } catch (err) {
+    if (err && (err.status === 400 || err.status === 403)) {
+      return { locations: [], searchUnsupported: true };
+    }
+    throw err;
+  }
+}
+
 /**
  * List comments on an Instagram media object.
  * @returns {{ comments: object[], nextCursor?: string }}
@@ -328,25 +552,85 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
 async function listComments(store, { accountId, externalPostId, cursor } = {}) {
   if (!externalPostId) return { comments: [] };
   const accessToken = await ensureAccessToken(store, accountId);
-  const params = {
-    fields: 'id,text,username,timestamp,from',
-    limit: 50,
-  };
+  const withReplies = 'id,text,username,timestamp,from{id,username},replies{id,text,username,timestamp,from{id,username}}';
+  const withRepliesPlain = 'id,text,username,timestamp,from,replies{id,text,username,timestamp,from}';
+  const base = 'id,text,username,timestamp,from';
+  const params = { fields: withReplies, limit: 50 };
   if (cursor) params.after = cursor;
-  const data = await igFetch(`/${externalPostId}/comments`, { accessToken, params });
-  const comments = (data?.data || []).map((c) =>
-    normalizeComment({
-      id: c.id,
-      text: c.text,
-      authorName: c.username || c.from?.username || null,
-      authorExternalId: c.from?.id || null,
-      createdAt: c.timestamp,
-    }),
-  );
+  let data;
+  try {
+    data = await igFetch(`/${externalPostId}/comments`, { accessToken, params });
+  } catch (err) {
+    if (!isUnknownFieldError(err)) throw err;
+    try {
+      data = await igFetch(`/${externalPostId}/comments`, {
+        accessToken,
+        params: { ...params, fields: withRepliesPlain },
+      });
+    } catch (retryErr) {
+      if (!isUnknownFieldError(retryErr)) throw retryErr;
+      data = await igFetch(`/${externalPostId}/comments`, {
+        accessToken,
+        params: { ...params, fields: base },
+      });
+    }
+  }
+  const comments = flattenIgComments(data?.data || []);
   return {
     comments,
     nextCursor: data?.paging?.cursors?.after || undefined,
   };
+}
+
+function mapIgComment(raw, parentId) {
+  const fromUsername = raw.from?.username || raw.user?.username || null;
+  const nestedParent = parentId || raw.parent_id || raw.parentId || null;
+  return normalizeComment({
+    id: raw.id,
+    text: raw.text,
+    authorName: raw.username || fromUsername || null,
+    authorExternalId: raw.from?.id || raw.user?.id || raw.username || fromUsername || null,
+    createdAt: raw.timestamp,
+    parentId: nestedParent,
+  });
+}
+
+function flattenIgComments(rows, parentId = null, out = [], seen = new Map()) {
+  for (const raw of rows) {
+    if (!raw?.id) continue;
+    const mapped = mapIgComment(raw, parentId);
+    const prev = seen.get(mapped.id);
+    if (prev) {
+      prev.text = prev.text || mapped.text;
+      prev.authorName = prev.authorName || mapped.authorName;
+      prev.authorExternalId = prev.authorExternalId || mapped.authorExternalId;
+      prev.createdAt = prev.createdAt ?? mapped.createdAt;
+      prev.parentId = prev.parentId || mapped.parentId;
+    } else {
+      seen.set(mapped.id, mapped);
+      out.push(mapped);
+    }
+    const nested = raw.replies?.data;
+    if (Array.isArray(nested) && nested.length) {
+      flattenIgComments(nested, raw.id, out, seen);
+    }
+  }
+  return out;
+}
+
+async function replyToComment(store, { accountId, commentId, text } = {}) {
+  if (!commentId) throw new Error('Instagram reply requires a comment id.');
+  const message = String(text || '').trim();
+  if (!message) throw new Error('Instagram reply text is empty.');
+  const accessToken = await ensureAccessToken(store, accountId);
+  const result = await igFetch(`/${commentId}/replies`, {
+    method: 'POST',
+    accessToken,
+    params: { message: message.slice(0, 2200) },
+  });
+  const id = result?.id || null;
+  if (!id) throw new Error('Instagram did not return a reply id.');
+  return { id: String(id) };
 }
 
 /**
@@ -376,15 +660,21 @@ async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
 }
 
 module.exports = {
+  normalizeInstagramTokenResponse,
+  isUnsupportedHttpMethodError,
+  buildInstagramProfile,
   finalizeOAuthAccount,
   connectWithToken,
   ensureAccessToken,
   publishPost,
+  deleteRemotePost,
   fetchPostMetrics,
   fetchAccountMetrics,
   listRecentPosts,
   listComments,
+  replyToComment,
   sendDm,
+  searchLocations,
   supportsManualToken: true,
   requiresMedia: true,
 };
