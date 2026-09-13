@@ -104,7 +104,7 @@
     "linkedin_sync_orgs_busy": "Buscando…",
     "account_kind_member": "Perfil personal",
     "account_kind_organization": "Página de empresa",
-    "hint_instagram": "Instagram: cuenta Business/Creator + app Meta con Instagram Login. Registra https://dome.dowi.es/oauth/instagram/callback (la de arriba) y pulsa Conectar. También puedes pegar un token del panel. Las fotos locales se suben por Dome Provider al publicar.",
+    "hint_instagram": "Instagram: cuenta Business/Creator + Instagram App ID de Dome-IG, no el App ID de Facebook de Dome IA. El login es con Instagram, no con Facebook. Registra https://dome.dowi.es/oauth/instagram/callback y pulsa Conectar. Hasta App Review, la cuenta tiene que ser Instagram Tester. También puedes pegar un token del panel.",
     "hint_x": "X: crea proyecto + app con OAuth 2.0 (tipo 'Native App' funciona sin secret gracias a PKCE), habilita Read and write y registra la redirect URI de arriba. Ojo: desde feb 2026 los nuevos developers pagan por uso (~$0.015/post).",
     "cloud_publishing": "Publicación en la nube",
     "cloud_publishing_consent": "Tus credenciales se guardan cifradas en Dome Cloud para publicar con la app de escritorio cerrada.",

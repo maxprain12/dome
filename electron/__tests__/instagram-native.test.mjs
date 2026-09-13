@@ -89,6 +89,10 @@ describe('instagram native import mapping', () => {
     assert.equal(parseFacebookPlaceQuery('https://facebook.com/PlazaMayor'), 'PlazaMayor');
     assert.equal(parseFacebookPlaceQuery('not a url'), null);
     assert.equal(isUnknownFieldError(new Error('(#100) Tried accessing nonexisting field (location)')), true);
+    assert.equal(
+      isUnknownFieldError(new Error('Instagram API 400: Tried accessing nonexisting field (collaborators)')),
+      true,
+    );
     assert.equal(isUnknownFieldError(new Error('Instagram API 500: boom')), false);
   });
 });

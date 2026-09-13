@@ -558,7 +558,9 @@ function createSocialService(database, windowManager) {
     broadcast('social:drafts-updated', { id: draft.id });
     try {
       const runEngine = require('../agents/run-engine.cjs');
-      void runEngine.fireContextualAutomations('social_comment_matched');
+      void runEngine.fireContextualAutomations('social_comment_matched').catch((err) => {
+        console.warn('[Social] contextual automation:', err?.message || err);
+      });
     } catch {
       /* run-engine may not be initialized in isolated tests */
     }
@@ -875,11 +877,11 @@ function createSocialService(database, windowManager) {
 
   function startScheduler() {
     if (schedulerTimer) return;
-    schedulerTimer = setInterval(() => void tick(), SCHEDULER_TICK_MS);
+    schedulerTimer = setInterval(() => { void tick().catch((err) => console.warn('[Social] tick:', err.message)); }, SCHEDULER_TICK_MS);
     metricsTimer = setInterval(() => void refreshAllMetrics().catch(() => {}), METRICS_POLL_MS);
     reportTimer = setInterval(() => void maybeGenerateAutoReport().catch(() => {}), REPORT_CHECK_MS);
     commentTimer = setInterval(() => void pollCommentsAndAutoReply().catch(() => {}), COMMENT_POLL_MS);
-    setTimeout(() => void tick(), 15 * 1000);
+    setTimeout(() => { void tick().catch((err) => console.warn('[Social] tick:', err.message)); }, 15 * 1000);
     setTimeout(() => void refreshAllMetrics().catch(() => {}), 90 * 1000);
     setTimeout(() => void maybeGenerateAutoReport().catch(() => {}), 3 * 60 * 1000);
     setTimeout(() => void pollCommentsAndAutoReply().catch(() => {}), 2 * 60 * 1000);

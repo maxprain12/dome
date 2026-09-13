@@ -5,7 +5,8 @@
 /**
  * Instagram provider — "Instagram API with Instagram Login" (graph.instagram.com).
  * Needs a professional (Business/Creator) Instagram account and a Meta app with
- * the Instagram product. OAuth uses https://dome.dowi.es/oauth/instagram/callback
+ * the Instagram product. OAuth uses Business Login for Instagram
+ * (`enable_fb_login=0`, Instagram App ID) via https://dome.dowi.es/oauth/instagram/callback
  * (landing bounce → local HTTP). Dashboard token paste remains available.
  *
  * Publishing: Instagram Graph fetches publicly reachable https URLs. Local and
@@ -14,8 +15,11 @@
 
 const { instagramContent } = require('../social-source-content.cjs');
 
-const GRAPH = 'https://graph.instagram.com/v23.0';
-const FACEBOOK_GRAPH = 'https://graph.facebook.com/v23.0';
+const GRAPH_HOST = 'https://graph.instagram.com';
+const GRAPH_VERSION = 'v25.0';
+const GRAPH = `${GRAPH_HOST}/${GRAPH_VERSION}`;
+const FACEBOOK_GRAPH = 'https://graph.facebook.com/v25.0';
+const IG_FETCH_TIMEOUT_MS = 20_000;
 const CONTAINER_POLL_MS = 2000;
 const CONTAINER_POLL_MAX = 15;
 const VIDEO_POLL_MAX = 150; // video processing can take minutes
@@ -48,15 +52,48 @@ function isUnsupportedHttpMethodError(err) {
   return msg.includes('unsupported request') && msg.includes('method type');
 }
 
+function isFetchNetworkError(err) {
+  if (!err) return false;
+  const name = String(err.name || '');
+  if (name === 'AbortError' || name === 'TimeoutError') return true;
+  const msg = String(err.message || '').toLowerCase();
+  if (msg === 'fetch failed' || msg.includes('aborted')) return true;
+  const code = err.cause?.code || err.code;
+  return code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'EAI_AGAIN';
+}
+
+const IG_GRAPH_ACCESS_HINT =
+  'Instagram Graph rejected this token. Add the Instagram account as Tester (App Roles → Instagram Testers) and accept the invite in Instagram → Settings → Apps and websites. Dome IA still lacks Business Verification; Meta often returns this generic 400 until that is complete.';
+
+function wrapInstagramGraphError(err) {
+  if (!isUnsupportedHttpMethodError(err)) return err;
+  if (String(err?.message || '').startsWith(IG_GRAPH_ACCESS_HINT)) return err;
+  const wrapped = new Error(`${IG_GRAPH_ACCESS_HINT} (${err.message})`);
+  wrapped.status = err.status;
+  wrapped.cause = err;
+  return wrapped;
+}
+
+/** Graph /me sometimes returns `{ data: [{ user_id, username }] }` like the token payload. */
+function unwrapInstagramUserPayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const row = Array.isArray(payload.data) ? payload.data[0] : null;
+  if (row && typeof row === 'object' && (row.user_id || row.username || row.id || row.name)) {
+    return row;
+  }
+  return payload;
+}
+
 function buildInstagramProfile(me, fallbackUserId) {
-  const externalId = asTokenString(me?.user_id) || asTokenString(me?.id) || asTokenString(fallbackUserId);
+  const user = unwrapInstagramUserPayload(me);
+  const externalId = asTokenString(user?.user_id) || asTokenString(user?.id) || asTokenString(fallbackUserId);
   if (!externalId) return null;
-  const username = asTokenString(me?.username);
+  const username = asTokenString(user?.username);
   return {
     externalId,
-    displayName: asTokenString(me?.name) || username || 'Instagram',
+    displayName: asTokenString(user?.name) || username || 'Instagram',
     handle: username ? `@${username.replace(/^@/, '')}` : null,
-    followers: typeof me?.followers_count === 'number' ? me.followers_count : null,
+    followers: typeof user?.followers_count === 'number' ? user.followers_count : null,
   };
 }
 
@@ -79,7 +116,7 @@ const {
   normalizeLocation,
 } = require('../instagram-native.cjs');
 
-async function igFetch(path, { method = 'GET', params = {}, accessToken, body, form } = {}) {
+async function igFetchOnce(path, { method = 'GET', params = {}, accessToken, body, form, authStyle = 'query' } = {}) {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH}${path}`);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
@@ -99,11 +136,26 @@ async function igFetch(path, { method = 'GET', params = {}, accessToken, body, f
     headers['Content-Type'] = 'application/json';
     fetchBody = JSON.stringify(body);
   }
-  if (accessToken && httpMethod === 'GET') url.searchParams.set('access_token', accessToken);
-  if (accessToken && httpMethod !== 'GET' && !form) {
+  if (accessToken && authStyle === 'bearer') {
+    headers.Authorization = `Bearer ${accessToken}`;
+  } else if (accessToken && httpMethod === 'GET') {
+    url.searchParams.set('access_token', accessToken);
+  } else if (accessToken && httpMethod !== 'GET' && !form) {
     url.searchParams.set('access_token', accessToken);
   }
-  const res = await fetch(url, { method: httpMethod, headers, body: fetchBody });
+  const init = { method: httpMethod, headers, signal: AbortSignal.timeout(IG_FETCH_TIMEOUT_MS) };
+  if (fetchBody !== undefined) init.body = fetchBody;
+  let res;
+  try {
+    res = await fetch(url, init);
+  } catch (err) {
+    if (!isFetchNetworkError(err)) throw err;
+    const code = err.cause?.code || err.code || (err.name === 'TimeoutError' || err.name === 'AbortError' ? 'timeout' : 'network');
+    const wrapped = new Error(`Instagram API unreachable (${code})`);
+    wrapped.status = 0;
+    wrapped.cause = err;
+    throw wrapped;
+  }
   const text = await res.text();
   let data;
   try {
@@ -112,12 +164,53 @@ async function igFetch(path, { method = 'GET', params = {}, accessToken, body, f
     data = { raw: text };
   }
   if (!res.ok) {
-    const msg = data?.error?.message || text.slice(0, 500);
+    const errBody = data?.error && typeof data.error === 'object' ? data.error : null;
+    const msg = errBody?.message || text.slice(0, 500);
     const err = new Error(`Instagram API ${res.status}: ${msg}`);
     err.status = res.status;
+    // Instagram Login has no /collaborators (Facebook Login only). Unknown
+    // fields are retried by callers; don't spam the console on every media item.
+    if (!isUnknownFieldError(err)) {
+      console.warn('[Social][IG] graph error', {
+        path: url.pathname,
+        method: httpMethod,
+        authStyle,
+        type: errBody?.type || null,
+        code: errBody?.code || res.status,
+        subcode: errBody?.error_subcode || null,
+        message: msg,
+        fbtrace_id: errBody?.fbtrace_id || null,
+      });
+    }
     throw err;
   }
   return data;
+}
+
+async function igFetch(path, opts = {}) {
+  const method = opts.method || 'GET';
+  const attempts = [];
+  if (method === 'GET' && opts.accessToken && !String(path).startsWith('http')) {
+    attempts.push({ path, opts: { ...opts, authStyle: 'query' } });
+    attempts.push({ path, opts: { ...opts, authStyle: 'bearer' } });
+    attempts.push({ path: `${GRAPH_HOST}${path}`, opts: { ...opts, authStyle: 'query' } });
+    attempts.push({ path: `${GRAPH_HOST}${path}`, opts: { ...opts, authStyle: 'bearer' } });
+  } else if (method === 'GET' && opts.params && Object.keys(opts.params).length > 0) {
+    attempts.push({ path, opts });
+    attempts.push({ path, opts: { method: 'POST', form: opts.params, accessToken: opts.accessToken } });
+  } else {
+    attempts.push({ path, opts });
+  }
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      return await igFetchOnce(attempt.path, attempt.opts);
+    } catch (err) {
+      lastErr = err;
+      if (!isUnsupportedHttpMethodError(err)) throw wrapInstagramGraphError(err);
+    }
+  }
+  throw wrapInstagramGraphError(lastErr);
 }
 
 async function igTokenRequest(path, form) {
@@ -147,10 +240,13 @@ async function fetchProfile(accessToken, fallbackUserId) {
   }
   const fallback = buildInstagramProfile(null, fallbackUserId);
   if (fallback) {
+    if (isUnsupportedHttpMethodError(lastErr)) {
+      throw wrapInstagramGraphError(lastErr);
+    }
     console.warn('[Social][IG] profile lookup failed, using token user id:', lastErr?.message || lastErr);
     return fallback;
   }
-  throw lastErr || new Error('Instagram did not return an account identity. Reconnect the account.');
+  throw lastErr ? wrapInstagramGraphError(lastErr) : new Error('Instagram did not return an account identity. Reconnect the account.');
 }
 
 async function exchangeLongLived(store, shortToken) {
@@ -168,6 +264,12 @@ async function finalizeOAuthAccount(store, tokenData) {
   const normalized = normalizeInstagramTokenResponse(tokenData);
   const shortToken = normalized.accessToken;
   if (!shortToken) throw new Error('Instagram: no access_token in token response');
+  console.warn('[Social][IG] short token', {
+    prefix: shortToken.slice(0, 4),
+    userId: normalized.userId || null,
+    permissions: normalized.permissions || null,
+    wrapped: Array.isArray(tokenData?.data),
+  });
   const longLived = await exchangeLongLived(store, shortToken).catch((err) => {
     console.warn('[Social][IG] long-lived exchange failed, keeping short token:', err.message);
     return { access_token: shortToken, expires_in: 3600 };
@@ -415,25 +517,11 @@ async function fetchMediaList(igUserId, accessToken, capped) {
   }
 }
 
-async function enrichCollaborators(media, accessToken) {
-  let supported = true;
-  for (const item of media) {
-    if (!supported) break;
-    try {
-      const data = await igFetch(`/${item.id}/collaborators`, { accessToken });
-      item.collaborators = data?.data || [];
-    } catch (err) {
-      if (isUnknownFieldError(err) || (err && err.status === 400)) {
-        supported = false;
-        break;
-      }
-    }
-  }
-}
-
 /**
  * List recent media already published on Instagram (not created in Dome).
  * Enriches each item with insights (views/reach/saved/shares) when available.
+ * Collaborator tags are Facebook Login only (`GET /{ig-media-id}/collaborators`
+ * does not exist on graph.instagram.com).
  * @returns {{ posts: Array<{ externalPostId, body, externalUrl, publishedAt, metrics }> }}
  */
 async function listRecentPosts(store, account, { limit = 25 } = {}) {
@@ -443,7 +531,6 @@ async function listRecentPosts(store, account, { limit = 25 } = {}) {
   const capped = Math.min(Math.max(Number(limit) || 25, 1), 50);
   const data = await fetchMediaList(igUserId, accessToken, capped);
   const media = data?.data || [];
-  await enrichCollaborators(media, accessToken);
   const posts = [];
   for (const m of media) {
     const publishedAt = m.timestamp ? Date.parse(m.timestamp) : null;
@@ -486,7 +573,17 @@ async function facebookFetch(path, { accessToken, params = {} } = {}) {
     if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   }
   url.searchParams.set('access_token', accessToken);
-  const res = await fetch(url);
+  let res;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(IG_FETCH_TIMEOUT_MS) });
+  } catch (err) {
+    if (!isFetchNetworkError(err)) throw err;
+    const code = err.cause?.code || err.code || 'network';
+    const wrapped = new Error(`Facebook API unreachable (${code})`);
+    wrapped.status = 0;
+    wrapped.cause = err;
+    throw wrapped;
+  }
   const text = await res.text();
   let data;
   try {
@@ -662,6 +759,9 @@ async function sendDm(store, { accountId, recipientExternalId, text } = {}) {
 module.exports = {
   normalizeInstagramTokenResponse,
   isUnsupportedHttpMethodError,
+  isFetchNetworkError,
+  wrapInstagramGraphError,
+  unwrapInstagramUserPayload,
   buildInstagramProfile,
   finalizeOAuthAccount,
   connectWithToken,
