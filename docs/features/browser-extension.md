@@ -38,3 +38,18 @@ Contactos solo detecta perfiles sociales y datos explícitos `Person`; un artíc
 - `pnpm run extension:smoke`: extensión compilada en Chromium, estilos frente a una página host, captura, editor enriquecido, citas, conflictos, contactos y cancelación de Many. El puente se simula dentro del navegador de prueba; no escribe en los datos de Desktop.
 
 Tras recompilar, recarga la extensión en la página de extensiones del navegador y recarga la pestaña donde estaba abierto el panel. Safari requiere el empaquetado nativo descrito en `extensions/browser/README.md`.
+
+## Percepción y acciones de Many
+
+`browser_read_page` devuelve la hora de captura, `viewportText` (texto en pantalla), `readableText` (documento renderizado, también fuera de pantalla), tablas y referencias frescas a controles. Lee marcos del mismo origen y Shadow DOM abierto; excluye contenido oculto por CSS. Prioriza controles en pantalla y expone estado deshabilitado, desplegado, opciones de select y paneles desplazables.
+
+Con un modelo con visión, la lectura adjunta por defecto una captura del viewport (`includeScreenshot: false` permite omitirla). Si no puede capturar la pestaña controlada, comunica el error y conserva la lectura DOM. Chrome/Edge comprueban la pestaña activa antes y después de capturar. Los marcos de otro origen y los gráficos canvas se señalan como límites de la lectura textual: una URL o contador sin cambios no demuestra que la vista siga igual.
+
+- `browser_select`: selecciona una opción nativa observada, tras revisión del usuario; no admite select múltiple ni opciones deshabilitadas.
+- `browser_scroll`: admite `bottom` y referencias `snapshotId` + `elementId` para desplazar un panel interno.
+- `browser_wait`: espera texto renderizado durante un máximo de diez segundos y devuelve una lectura nueva o un timeout explícito.
+- Click, fill y select invalidan referencias anteriores y devuelven el estado actualizado. Los eventos enviados se distinguen del resultado final de la aplicación.
+
+La extensión muestra una tarjeta de Dome con la acción, URL, contenido y alcance del permiso. Rechazar o pulsar Escape cancela la acción pendiente; las operaciones en marcha ofrecen Detener Many. Los permisos de sitio siguen siendo los del navegador y se pueden revocar desde su configuración. Las acciones de una ejecución se serializan para evitar que dos lecturas simultáneas invaliden sus referencias.
+
+La extracción está acotada: hasta 32 documentos/raíces, cinco niveles de marcos, 200 controles y ocho tablas (30 filas y 16 columnas cada una). Las respuestas grandes se reducen conservando JSON válido y marcando la truncación. No se accede a marcos de otro origen ni a Shadow DOM cerrado mediante este lector. Las pruebas usan páginas sintéticas; no modifican cuentas o paneles reales del usuario.

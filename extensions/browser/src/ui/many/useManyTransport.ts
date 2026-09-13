@@ -62,6 +62,7 @@ export function useManyTransport({
   refreshSessions,
   errorLabel,
 }: UseManyTransportOptions) {
+  const [browserActivity, setBrowserActivity] = useState<string | null>(null);
   const [phase, setPhase] = useState<RunPhase>('idle');
   const [pendingApproval, setPendingApproval] =
     useState<PendingApproval | null>(null);
@@ -266,6 +267,7 @@ export function useManyTransport({
             setReview({
               ...value,
               resolve: (approved) => {
+                if (reviewRef.current !== resolve || !isCurrentExecution(execution)) return;
                 reviewRef.current = null;
                 setReview(null);
                 resolve(approved);
@@ -273,14 +275,21 @@ export function useManyTransport({
             });
           }),
       });
-      return async (request: ToolRequest) => {
-        if (!isCurrentExecution(execution)) {
-          return { success: false, error: 'Run is no longer active' };
-        }
-        const result = await runner(request);
-        return isCurrentExecution(execution)
-          ? result
-          : { success: false, error: 'Run is no longer active' };
+      // Serialize browser operations: concurrent reads invalidate element references.
+      let queue = Promise.resolve();
+      return (request: ToolRequest) => {
+        const result = queue.then(async () => {
+          if (!isCurrentExecution(execution)) return { success: false, error: 'Run is no longer active' };
+          setBrowserActivity(request.name);
+          try {
+            const value = await runner(request);
+            return isCurrentExecution(execution) ? value : { success: false, error: 'Run is no longer active' };
+          } finally {
+            if (isCurrentExecution(execution)) setBrowserActivity(null);
+          }
+        });
+        queue = result.then(() => undefined, () => undefined);
+        return result;
       };
     },
     [isCurrentExecution, projectId, tabId, token],
@@ -296,7 +305,9 @@ export function useManyTransport({
       activeExecutionRef.current = null;
       abortController.current?.abort();
       reviewRef.current?.(false);
+      reviewRef.current = null;
       setReview(null);
+      setBrowserActivity(null);
       setPhase(execution.awaitingApproval ? 'awaiting_approval' : 'idle');
     },
     [isCurrentExecution, updateExecutionMessage],
@@ -450,7 +461,9 @@ export function useManyTransport({
     activeExecutionRef.current = null;
     abortController.current?.abort();
     reviewRef.current?.(false);
+    reviewRef.current = null;
     setReview(null);
+    setBrowserActivity(null);
     setPhase('idle');
     setPendingApproval(null);
     setApprovalEditOpen(false);
@@ -472,12 +485,14 @@ export function useManyTransport({
     activeExecutionRef.current = null;
     abortController.current?.abort();
     reviewRef.current?.(false);
+    reviewRef.current = null;
     if (execution) {
       api.cancelMany(token, execution.streamId).catch(() => undefined);
     }
   }, [token]);
 
   return {
+    browserActivity,
     approvalEditArgs,
     approvalEditOpen,
     interactionLocked,

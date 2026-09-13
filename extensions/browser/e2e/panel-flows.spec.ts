@@ -988,8 +988,8 @@ test('revisa una browser-tool antes de modificar la página', async () => {
     .getByRole('button', { name: 'Preguntar a Many', exact: true })
     .click();
 
-  const review = page.getByRole('alertdialog', {
-    name: 'Revisar acción en la web',
+  const review = page.getByRole('region', {
+    name: 'Rellenar campo',
   });
   await expect(review).toContainText('Search fixture');
   await expect(
@@ -1180,4 +1180,59 @@ test('mantiene regresión visual clara y oscura en 320, 400 y 600 px', async () 
       maxDiffPixelRatio: 0.02,
     });
   }
+});
+
+test('lee la vista actual de un dashboard con marcos y controles propios', async () => {
+  await sourcePage.evaluate(() => {
+    document.body.innerHTML = `<style>.old-view { display: none }</style>
+      <div class="old-view">8 old notifications</div><main><h1>Security overview</h1>
+      <iframe title="Vulnerability dashboard" style="width:100%;height:500px" srcdoc='<h2>Vulnerabilities</h2><table><tr><th>Asset</th><th>Pending</th></tr><tr><td>Wind farm</td><td>87</td></tr></table><select aria-label="Severity"><option value="all">All</option><option value="high">High</option></select><div role="button" tabindex="0">Open details</div><div aria-label="Results" style="overflow-y:auto;height:80px"><div style="height:600px">More results</div></div>'></iframe></main>`;
+  });
+  await expect(sourcePage.frameLocator('iframe').getByRole('heading', { name: 'Vulnerabilities' })).toBeVisible();
+  const tabId = await worker.evaluate(async (url) => {
+    const tabs = await (globalThis as any).chrome.tabs.query({ url });
+    return tabs[0].id as number;
+  }, fixtureUrl);
+  const read = () => page.evaluate((id) => (globalThis as any).chrome.runtime.sendMessage({ type: 'DOME_AGENT_READ', tabId: id }), tabId);
+  const snapshot = await read();
+  expect(snapshot.readableText).not.toContain('old notifications');
+  expect(snapshot.viewportText).toContain('Vulnerabilities');
+  expect(snapshot.tables[0].rows).toEqual([['Asset', 'Pending'], ['Wind farm', '87']]);
+  expect(snapshot.elements.some((element: any) => element.label === 'Open details')).toBe(true);
+  const select = snapshot.elements.find((element: any) => element.label === 'Severity');
+  const act = (action: Record<string, unknown>) => page.evaluate(({ id, url, action }) => (globalThis as any).chrome.runtime.sendMessage({ type: 'DOME_PAGE_ACTION', tabId: id, url, action }), { id: tabId, url: snapshot.url, action });
+  expect((await act({ kind: 'select', snapshotId: snapshot.snapshotId, elementId: select.id, value: 'high' })).success).toBe(true);
+  await expect(sourcePage.frameLocator('iframe').getByRole('combobox', { name: 'Severity' })).toHaveValue('high');
+  const next = await read();
+  const scroller = next.elements.find((element: any) => element.label === 'Results');
+  expect(scroller.scrollable).toBe(true);
+  expect((await act({ kind: 'scroll', snapshotId: next.snapshotId, elementId: scroller.id, direction: 'bottom' })).success).toBe(true);
+  expect(await sourcePage.frameLocator('iframe').getByLabel('Results').evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  await sourcePage.frameLocator('iframe').getByRole('heading').evaluate((node) => { node.textContent = 'Mitigation'; });
+  expect((await read()).viewportText).toContain('Mitigation');
+  // The extension sidebar is the active test tab; it must never be captured as the dashboard.
+  await page.bringToFront();
+  const shot = await page.evaluate((id) => (globalThis as any).chrome.runtime.sendMessage({ type: 'DOME_CAPTURE_TAB', tabId: id }), tabId);
+  expect(shot.dataUrl).toBeUndefined();
+  expect(shot.error).toContain('not visible');
+});
+
+test('permite rechazar una acción con teclado y muestra permisos con estilo Dome', async () => {
+  await setStreamMode('browser-fill');
+  await page.getByRole('textbox', { name: /Pregunta a Many/ }).fill('Fill the search field');
+  await page.getByRole('button', { name: 'Preguntar a Many', exact: true }).click();
+  const card = page.getByRole('region', { name: 'Rellenar campo' });
+  await expect(card).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Rechazar', exact: true })).toBeFocused();
+  await expect(card).toContainText('https://dome-fixture.test/article');
+  for (const dark of [false, true]) {
+    await page.locator('.dome-panel').evaluate((node, dark) => node.classList.toggle('dark', dark), dark);
+    await page.setViewportSize({ width: 320, height: 820 });
+    await expectNoHorizontalOverflow();
+    await card.screenshot({ path: `/tmp/dome-browser-permission-${dark ? 'dark' : 'light'}.png` });
+  }
+  await page.keyboard.press('Escape');
+  await expect(card).toHaveCount(0);
+  await expect(sourcePage.getByRole('textbox', { name: 'Search fixture' })).toHaveValue('');
+  await expect(page.getByText('Action declined.', { exact: true })).toBeVisible();
 });

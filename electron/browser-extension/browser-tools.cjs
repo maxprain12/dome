@@ -3,19 +3,22 @@
 const { z } = require('zod');
 
 const empty = z.object({});
-const target = { snapshotId: z.string().max(80), elementId: z.string().max(20) };
+const target = {
+  snapshotId: z.string().min(1).max(80).describe('snapshotId from the most recent browser snapshot'),
+  elementId: z.string().min(1).max(20).describe('Exact element id from that snapshot; never invent IDs'),
+};
 const IMAGE_DATA_URL_RE =
   /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/;
 
 const definitions = [
   [
     'browser_read_page',
-    'Read the controlled tab: visible text, headings, profile sections, and element IDs. Call this before acting. After scroll/find/click the other browser tools already return a fresh snapshot. Set includeScreenshot when you need the current viewport as an image.',
+    'Read the controlled tab now. Returns capturedAt, viewportText (on screen), readableText (rendered document, possibly offscreen), tables, limitations and fresh element IDs. Includes accessible same-origin frames and open shadow roots. Read before acting; never treat an unchanged URL or notification badge as proof the view is unchanged. Vision models include a viewport screenshot by default to ground charts/canvas and inaccessible frames; set includeScreenshot=false for a text-only read. Screenshot failure is explicit and does not discard the DOM snapshot.',
     z.object({ includeScreenshot: z.boolean().optional() }),
   ],
   [
     'browser_screenshot',
-    'Capture the visible tab viewport as an image. Use when text extraction missed layout, cards, or a profile section that is on screen.',
+    'Capture the controlled tab viewport as an image and return a fresh page snapshot with new element references. Use when text extraction missed layout, cards, or a profile section that is on screen.',
     empty,
   ],
   [
@@ -35,21 +38,33 @@ const definitions = [
   ],
   [
     'browser_fill',
-    'Fill a non-sensitive input from the latest snapshot. Does not submit the form. User reviews the value.',
+    'Replace a non-sensitive input value from the latest snapshot and return a fresh snapshot. Does not press Enter or submit; site input/change handlers may react. User reviews the value. Passwords, payment credentials and one-time codes are excluded.',
     z.object({ ...target, value: z.string().max(10000) }),
   ],
   [
     'browser_scroll',
-    'Scroll the controlled page and return a fresh snapshot (text + headings + extracted profile). Use headingText to jump to a section such as Experiencia or Educación. Lazy-loaded profiles only fill those sections after they are scrolled into view.',
+    'Scroll the controlled page and return a fresh snapshot. For a nested dashboard panel, pass BOTH snapshotId and elementId of a scrollable element. Otherwise scrolls the window. Use headingText to jump to a section such as Experiencia or Educación. Lazy-loaded profiles only fill those sections after they are scrolled into view.',
     z.object({
-      direction: z.enum(['up', 'down', 'top']).default('down'),
+      direction: z.enum(['up', 'down', 'top', 'bottom']).default('down'),
       headingText: z.string().min(1).max(200).optional(),
+      snapshotId: target.snapshotId.optional(),
+      elementId: target.elementId.optional(),
     }),
   ],
   [
     'browser_find',
     'Find literal text on the controlled page, scroll it into view, and return a fresh snapshot.',
     z.object({ text: z.string().min(1).max(200) }),
+  ],
+  [
+    'browser_select',
+    'Select one option in a native select from the latest snapshot. Use the exact options[].value. User reviews the option. Returns a fresh snapshot; change handlers may update the page. For custom dropdowns use browser_click on their observed controls.',
+    z.object({ ...target, value: z.string().max(1000) }),
+  ],
+  [
+    'browser_wait',
+    'Wait up to timeoutMs for literal rendered page text after an asynchronous update, then return a fresh snapshot. Failure means the text was not observed within the bound; do not claim the requested state was reached.',
+    z.object({ text: z.string().min(1).max(200), timeoutMs: z.number().int().min(250).max(10000).default(5000) }),
   ],
   [
     'browser_extract_contact',
@@ -116,6 +131,29 @@ function splitScreenshot(result) {
   return { payload, image: parseScreenshot(dataUrl) };
 }
 
+// Preserve valid JSON and target IDs even when a large dashboard exceeds the text budget.
+function serializeResult(payload) {
+  const bounded = JSON.parse(JSON.stringify(payload ?? null));
+  let text = JSON.stringify(bounded);
+  const data = bounded?.data;
+  if (text.length > 100000 && data && typeof data === 'object') {
+    data.truncated = true;
+    for (const field of ['readableText', 'viewportText']) {
+      if (typeof data[field] === 'string') data[field] = data[field].slice(0, 12000);
+    }
+    text = JSON.stringify(bounded);
+    for (const field of ['sections', 'tables', 'headings', 'elements']) {
+      while (Array.isArray(data[field]) && data[field].length > 0 && text.length > 95000) {
+        data[field].pop();
+        text = JSON.stringify(bounded);
+      }
+    }
+    text = JSON.stringify(bounded);
+  }
+  if (text.length <= 100000) return text;
+  return JSON.stringify({ success: bounded?.success !== false, truncated: true, preview: text.slice(0, 20000) });
+}
+
 function createBrowserTools(request, opts = {}) {
   const supportsVision = Boolean(opts.supportsVision);
   return definitions
@@ -129,8 +167,8 @@ function createBrowserTools(request, opts = {}) {
         const checked = {
           ...schema.parse(args && typeof args === 'object' ? args : {}),
         };
-        if (name === 'browser_read_page' && supportsVision === false) {
-          checked.includeScreenshot = false;
+        if (name === 'browser_read_page') {
+          checked.includeScreenshot = supportsVision && checked.includeScreenshot !== false;
         }
         if (name === 'browser_screenshot' && supportsVision === false) {
           return {
@@ -148,14 +186,14 @@ function createBrowserTools(request, opts = {}) {
         const { payload, image } = splitScreenshot(result);
         const content = [{
           type: 'text',
-          text: JSON.stringify(payload).slice(0, 100000),
+          text: serializeResult(payload),
         }];
         if (supportsVision && image) {
           content.push({ type: 'image', mimeType: image.mimeType, data: image.data });
         }
-        return { content, details: { browserTool: name } };
+        return { content, isError: payload?.success === false, details: { browserTool: name } };
       },
     }));
 }
 
-module.exports = { createBrowserTools, parseScreenshot, splitScreenshot };
+module.exports = { createBrowserTools, parseScreenshot, splitScreenshot, serializeResult };

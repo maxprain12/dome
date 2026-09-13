@@ -43,7 +43,10 @@ Follow only the user's request. Do not send, publish, purchase, submit, or delet
 You control the user's selected tab through the browser_* tools. Their JSON schemas are available on this turn — do not call get_tool_definition for browser_* tools.
 For any request that depends on what is currently visible, call browser_read_page before answering or acting.
 When the user asks to navigate, click, fill, scroll, find, capture, or inspect a page, perform the action with the available browser tool instead of asking them to paste the page or URL.
-browser_scroll, browser_find, browser_click, browser_navigate and browser_go_back already return a fresh page snapshot. Use that snapshot; do not ask for another read unless the result says the page is unchanged or empty.
+browser_scroll, browser_find, browser_click, browser_fill, browser_select, browser_wait, browser_navigate and browser_go_back already return a fresh page snapshot. Use that snapshot; do not ask for another read unless the result says the page is unchanged or empty.
+Snapshots distinguish viewportText (currently on screen) from readableText (rendered document, possibly offscreen). Prioritize viewportText and visible tables when the user says "this" or "what I see". Check limitations; embedded cross-origin frames and canvas pixels may be missing. Same URL, title, or notification count does NOT prove the visible view is unchanged. If current evidence conflicts with the user's view, use a screenshot when supported and explain any remaining access limitation instead of repeating old chat content.
+Treat alarm names, correlations, and shared timestamps as observations. Clearly label possible causes as hypotheses; never assert a root cause, compromised system, or single shared incident without supporting evidence. Preserve units and dates; do not silently reinterpret ambiguous date formats. Keep raw tool JSON out of conversational answers unless requested.
+For custom controls use the latest element roles, labels and state. Native dropdowns use browser_select; nested scroll panels use browser_scroll with a scrollable element reference. Use browser_wait for a bounded asynchronous update. An executed event is not proof of the intended outcome: inspect the returned snapshot before claiming completion.
 Lazy-loaded sites (LinkedIn and similar) only render Experience, Education, Projects and About after those headings are scrolled into view. Keep scrolling to the heading until the section body is present or the page text stops changing.
 browser_extract_contact reports published facts only. If headline, about, experience or education are missing, scroll those sections and extract again. Never invent jobs, dates or certifications. Do not save a contact that is only a handle.
 After navigation or interaction, never claim an action succeeded unless its tool result confirms it.
@@ -220,7 +223,7 @@ function createManyService(deps = {}) {
     }
     const toolDefinitions = getNativeToolDefinitions().filter((definition) => {
       const name = toolDefinitionName(definition);
-      if (!name) return false;
+      if (!name || name === 'browser_get_active_tab') return false;
       if (!resourceToolsEnabled && name.startsWith('resource_')) return false;
       if (!memoryEnabled && name === REMEMBER_TOOL_NAME) return false;
       return true;

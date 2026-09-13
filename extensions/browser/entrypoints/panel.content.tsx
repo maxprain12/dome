@@ -1,5 +1,6 @@
-import { createPageAgent } from '../src/lib/page-agent';
+import { createPageAgent, type ElementAction } from '../src/lib/page-agent';
 import { extractContact } from '../src/lib/extractors';
+import { pageRoots, rendered } from '../src/lib/page-dom';
 import { getPageSnapshot } from '../src/lib/page-content';
 import type { PageAction } from '../src/lib/browser-context';
 import {
@@ -25,13 +26,8 @@ export default defineContentScript({
     document.querySelector('dome-capture-panel')?.remove();
     const agent = createPageAgent();
     const headings = () =>
-      Array.from(
-        document.querySelectorAll(
-          'main h1, main h2, main h3, article h1, article h2, article h3',
-        ),
-      )
-        .filter((el) => (el as HTMLElement).offsetHeight > 0)
-        .slice(0, 80);
+      pageRoots(document).roots.flatMap(({ root }) => Array.from(root.querySelectorAll('h1, h2, h3, [role=heading]')))
+        .filter(rendered).slice(0, 80);
     const scrollToHeading = (text: string) => {
       const needle = text.replace(/\s+/g, ' ').trim().toLowerCase();
       const heading = headings().find((el) =>
@@ -49,13 +45,9 @@ export default defineContentScript({
         url?: string;
         action?:
           | PageAction
-          | {
-              kind: 'click' | 'fill';
-              snapshotId: string;
-              elementId: string;
-              value?: string;
-            };
+          | ElementAction;
       }) => {
+        if (host.__domeReaderProtocol !== CONTENT_PROTOCOL_VERSION) return;
         if (
           message.type === 'DOME_PING' ||
           message.type === CONTENT_PING_MESSAGE
@@ -64,9 +56,9 @@ export default defineContentScript({
             ok: true,
             protocolVersion: CONTENT_PROTOCOL_VERSION,
           });
-        if (message.type === 'DOME_AGENT_READ')
+        if (message.type === 'DOME_AGENT_READ_V4')
           return Promise.resolve(agent.read());
-        if (message.type === 'DOME_SNAPSHOT')
+        if (message.type === 'DOME_SNAPSHOT_V4')
           return Promise.resolve({
             ...getPageSnapshot(),
             contact: extractContact(document, location.href),
@@ -75,12 +67,12 @@ export default defineContentScript({
               text: (el.textContent || '').trim().slice(0, 160),
             })),
           });
-        if (message.type !== 'DOME_ACT' || message.url !== location.href)
+        if (message.type !== 'DOME_ACT_V4' || message.url !== location.href)
           return;
         const action = message.action;
-        if (action?.kind === 'click' || action?.kind === 'fill') {
+        if (action && ('elementId' in action)) {
           const result = agent.act(action);
-          if (action.kind === 'click') {
+          if (action.kind !== 'fill') {
             return settle(400).then(() => result);
           }
           return Promise.resolve(result);
@@ -90,8 +82,8 @@ export default defineContentScript({
             const ok = scrollToHeading(action.headingText);
             return settle().then(() => ({ ok }));
           }
-          if (action.direction === 'top')
-            globalThis.scrollTo({ top: 0, behavior: 'auto' });
+          if (action.direction === 'top' || action.direction === 'bottom')
+            globalThis.scrollTo({ top: action.direction === 'top' ? 0 : document.documentElement.scrollHeight, behavior: 'auto' });
           else
             globalThis.scrollBy({
               top:

@@ -6,6 +6,9 @@ export interface PageContext {
   title: string;
   selection: string;
   readableText: string;
+  viewportText?: string;
+  capturedAt?: string;
+  limitations?: string[];
   contact: ContactDraft | null;
   headings: Array<{ index: number; text: string }>;
   sections?: Array<{ heading: string; text: string }>;
@@ -16,7 +19,7 @@ export type PageAction =
   | { kind: 'heading'; index: number }
   | {
       kind: 'scroll';
-      direction?: 'up' | 'down' | 'top';
+      direction?: 'up' | 'down' | 'top' | 'bottom';
       headingText?: string;
     };
 export const emptyContext: PageContext = {

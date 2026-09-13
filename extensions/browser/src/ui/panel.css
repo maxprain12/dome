@@ -603,20 +603,29 @@ body {
   cursor: pointer;
   padding: 4px 0;
 }
-.agent-review {
-  margin: 0 12px;
-  padding: 12px;
+.browser-action-card {
+  margin: 8px 12px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
   flex-shrink: 0;
-}
-.agent-review p {
-  margin: 8px 0;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  max-height: 100px;
+  max-height: min(45dvh, 380px);
   overflow: auto;
 }
+.browser-action-card.is-review { border-inline-start: 3px solid var(--primary); }
+.browser-action-heading { display: flex; align-items: center; gap: 10px; }
+.browser-action-heading > div { flex: 1; min-width: 0; }
+.browser-action-heading strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.browser-action-eyebrow { color: var(--muted-foreground); font-size: 11px; }
+.browser-action-origin { color: var(--muted-foreground); font-size: 11px; overflow-wrap: anywhere; margin: 10px 0 6px; }
+.browser-action-detail { background: var(--muted); border-radius: var(--radius-sm); padding: 10px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 110px; overflow: auto; }
+.browser-action-hint { color: var(--muted-foreground); font-size: 11px; line-height: 1.6; margin: 8px 0; }
+.browser-action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.browser-action-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); animation: browser-action-pulse 1.4s ease-in-out infinite; }
+@keyframes browser-action-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .browser-action-pulse { animation: none; } }
 .rendered-markdown ul {
   list-style: disc;
 }

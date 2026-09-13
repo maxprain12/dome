@@ -213,5 +213,14 @@
     "context_segment_subagents": "Sous-agents",
     "context_segment_summarized": "Résumé",
     "context_segment_conversation": "Conversation"
-  }
+  },
+  "browserNeedsReview": "Many attend votre autorisation",
+  "browserWorking": "Many utilise le navigateur",
+  "browserAccessScope": "Autoriser l’accès à ce site. Vous pourrez le révoquer dans les permissions de l’extension.",
+  "browserActionScope": "Cette action sera exécutée une fois. Vérifiez la destination et le contenu avant de continuer.",
+  "browserWorkingHint": "Vous pouvez arrêter Many pendant la lecture ou une action dans cet onglet.",
+  "browserStop": "Arrêter Many",
+  "tool_browser_select": "Sélectionner une option",
+  "tool_browser_wait": "Attendre le contenu",
+  "tool_browser_screenshot": "Voir la capture de la page"
 }

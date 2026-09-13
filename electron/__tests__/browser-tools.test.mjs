@@ -55,3 +55,38 @@ describe('createBrowserTools', () => {
     assert.equal(result.content[1].data, '/9j/4AAQ');
   });
 });
+
+describe('browser result budgets and errors', () => {
+  it('keeps a large dashboard valid JSON with fresh IDs and explicit truncation', async () => {
+    const tools = createBrowserTools(async () => ({ success: true, data: {
+      snapshotId: 'fresh', url: 'https://example.test',
+      readableText: 'a'.repeat(32000), viewportText: 'b'.repeat(16000),
+      sections: Array.from({ length: 16 }, () => ({ heading: 'Section', text: 'c'.repeat(4000) })),
+      tables: Array.from({ length: 8 }, () => ({ rows: Array.from({ length: 30 }, () => Array(16).fill('cell'.repeat(75))) })),
+      elements: [{ id: 'e1', label: 'Details' }],
+    } }));
+    const result = await tools.find((tool) => tool.name === 'browser_read_page').execute('call', {});
+    const parsed = JSON.parse(result.content[0].text);
+    assert.equal(parsed.data.snapshotId, 'fresh');
+    assert.equal(parsed.data.truncated, true);
+    assert.equal(parsed.data.elements[0].id, 'e1');
+    assert.ok(result.content[0].text.length <= 100000);
+  });
+
+  it('marks a failed browser action as a tool error', async () => {
+    const tools = createBrowserTools(async () => ({ success: false, error: 'Page changed' }));
+    const result = await tools.find((tool) => tool.name === 'browser_click').execute('call', { snapshotId: 'snapshot', elementId: 'e1' });
+    assert.equal(result.isError, true);
+  });
+});
+
+it('grounds vision reads with a screenshot by default while allowing an explicit text-only read', async () => {
+  const seen = [];
+  const sighted = createBrowserTools(async (_name, args) => { seen.push(args); return { success: true }; }, { supportsVision: true });
+  const read = sighted.find((tool) => tool.name === 'browser_read_page');
+  await read.execute('automatic', {});
+  await read.execute('text', { includeScreenshot: false });
+  assert.deepEqual(seen.map((args) => args.includeScreenshot), [true, false]);
+  const blind = createBrowserTools(async (_name, args) => { assert.equal(args.includeScreenshot, false); return { success: true }; });
+  await blind.find((tool) => tool.name === 'browser_read_page').execute('blind', { includeScreenshot: true });
+});
