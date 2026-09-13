@@ -81,7 +81,7 @@ async function readPage(tabId?: number, agent = false) {
     if (!(await ping(tab.id))) await injectPanel(tab.id);
     return {
       ...(await browser.tabs.sendMessage(tab.id, {
-        type: agent ? 'DOME_AGENT_READ' : 'DOME_SNAPSHOT',
+        type: agent ? 'DOME_AGENT_READ_V4' : 'DOME_SNAPSHOT_V4',
       })),
       tabId: tab.id,
     };
@@ -125,6 +125,18 @@ async function navigateTab(tabId: number, url: string) {
   }
 }
 
+async function goBackTab(tabId: number) {
+  const wait = waitForTabComplete(tabId);
+  try {
+    await browser.tabs.goBack(tabId);
+    await wait.promise;
+    return { success: true };
+  } catch (error) {
+    wait.cancel();
+    return { success: false, error: error instanceof Error ? error.message : 'History navigation failed' };
+  }
+}
+
 async function captureTab(tabId?: number) {
   let tab = (
     await browser.tabs.query({ active: true, lastFocusedWindow: true })
@@ -148,14 +160,25 @@ async function captureTab(tabId?: number) {
     const dataUrl =
       typeof tabsApi.captureTab === 'function'
         ? await tabsApi.captureTab(tab.id, { format: 'jpeg', quality: 55 })
-        : await browser.tabs.captureVisibleTab(tab.windowId, {
-            format: 'jpeg',
-            quality: 55,
-          });
+        : await captureActiveTab(tab.id, tab.windowId, tab.url || '');
     return dataUrl ? { dataUrl } : { error: 'pageAccess' };
-  } catch {
-    return { error: 'pageAccess' };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'pageAccess' };
   }
+}
+
+async function captureActiveTab(tabId: number, windowId: number, url: string) {
+  const matches = async () => {
+    const active = (await browser.tabs.query({ active: true, windowId }))[0];
+    return active?.id === tabId && active.url === url;
+  };
+  if (!(await matches())) throw new Error('Controlled tab is not visible. Select it before taking a screenshot.');
+  const dataUrl = await browser.tabs.captureVisibleTab(windowId, {
+    format: 'jpeg',
+    quality: 55,
+  });
+  if (!(await matches())) throw new Error('Tab changed during capture. Read the page and try again.');
+  return dataUrl;
 }
 
 function setupContextMenu() {
@@ -239,16 +262,14 @@ export default defineBackground(() => {
       if (message.type === 'DOME_CAPTURE_TAB')
         return captureTab(message.tabId);
       if (message.type === 'DOME_GO_BACK' && typeof message.tabId === 'number')
-        return browser.tabs
-          .goBack(message.tabId)
-          .then(() => ({ success: true }));
+        return goBackTab(message.tabId);
       if (
         message.type === 'DOME_PAGE_ACTION' &&
         typeof message.tabId === 'number'
       ) {
         return browser.tabs
           .sendMessage(message.tabId, {
-            type: 'DOME_ACT',
+            type: 'DOME_ACT_V4',
             url: message.url,
             action: message.action,
           })

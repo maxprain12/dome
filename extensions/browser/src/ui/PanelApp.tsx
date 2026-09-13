@@ -502,8 +502,8 @@ export default function PanelApp({
         .join('\n\n');
     return (
       selection ||
-      snapshot.readableText ||
-      'No accessible web page. Ask the user to open a website if needed.'
+      (snapshot.viewportText ? `Captured: ${snapshot.capturedAt || 'unknown'}\nViewport text:\n${snapshot.viewportText}\n\nLimitations: ${(snapshot.limitations || []).join('; ')}\n\nRendered document (may include offscreen text):\n${snapshot.readableText}` : snapshot.readableText) ||
+      'No initial page text is available. Use browser_read_page to inspect the controlled tab and request site access if necessary.'
     );
   };
   const many =

@@ -213,5 +213,14 @@
     "context_segment_subagents": "Subagentes",
     "context_segment_summarized": "Resumen",
     "context_segment_conversation": "Conversación"
-  }
+  },
+  "browserNeedsReview": "Many necesita tu permiso",
+  "browserWorking": "Many está en el navegador",
+  "browserAccessScope": "Permitir acceso a este sitio. Podrás revocarlo desde los permisos de la extensión.",
+  "browserActionScope": "Se ejecutará esta acción una vez. Comprueba el destino y el contenido antes de continuar.",
+  "browserWorkingHint": "Puedes detener a Many mientras consulta o actúa en esta pestaña.",
+  "browserStop": "Detener Many",
+  "tool_browser_select": "Seleccionar opción",
+  "tool_browser_wait": "Esperar contenido",
+  "tool_browser_screenshot": "Ver captura de la página"
 }

@@ -12,11 +12,13 @@ export interface ToolReview {
   name: string;
   detail: string;
   origin?: string;
+  pageUrl?: string;
 }
 export type AgentSnapshot = PageContext & {
   snapshotId: string;
   elements: BrowserElement[];
   screenshot?: string;
+  screenshotError?: string;
 };
 
 export function createToolRunner({
@@ -50,11 +52,12 @@ export function createToolRunner({
     if (!includeScreenshot) return page;
     const shot = await captureTab();
     if (!shot?.dataUrl) {
-      return page;
+      return { ...page, screenshotError: shot?.error || 'Screenshot unavailable' };
     }
     return { ...page, screenshot: shot.dataUrl };
   };
   const read = async (includeScreenshot = false) => {
+    if (signal.aborted) throw new Error('Cancelled');
     if (tabId === undefined)
       throw new Error('No browser tab selected. Open a website first.');
     snapshot = await requestSnapshot();
@@ -80,6 +83,7 @@ export function createToolRunner({
     return snapshot;
   };
   const pageAction = async (action: unknown) => {
+    if (signal.aborted) throw new Error('Cancelled');
     if (!snapshot) throw new Error('Read browser_read_page first.');
     return browser.runtime.sendMessage({
       type: 'DOME_PAGE_ACTION',
@@ -102,14 +106,11 @@ export function createToolRunner({
     success?: boolean;
     error?: string;
   }) => {
-    const failed =
-      actionResult?.ok === false ||
-      actionResult?.success === false ||
-      Boolean(actionResult?.error && actionResult.ok !== true && actionResult.success !== true);
-    snapshot = await requestSnapshot();
+    const failed = actionResult?.ok !== true && actionResult?.success !== true;
+    snapshot = await read(false);
     return {
       success: !failed,
-      ...(actionResult?.error ? { error: actionResult.error } : {}),
+      ...(failed ? { error: actionResult?.error || 'Action was not confirmed. Inspect the fresh page before retrying.' } : {}),
       data: snapshot,
     };
   };
@@ -125,7 +126,7 @@ export function createToolRunner({
           data: await read(args.includeScreenshot === true),
         };
       if (name === 'browser_screenshot') {
-        const page = snapshot || (await read(false));
+        const page = await read(false);
         const shot = await captureTab();
         if (!shot?.dataUrl) {
           return {
@@ -137,8 +138,7 @@ export function createToolRunner({
         return {
           success: true,
           data: {
-            url: page.url,
-            title: page.title,
+            ...page,
             screenshot: shot.dataUrl,
           },
         };
@@ -165,7 +165,7 @@ export function createToolRunner({
           url: url.href,
         })) as { success?: boolean; url?: string; error?: string };
         if (nav?.success === false) return { ...nav };
-        snapshot = await requestSnapshot();
+        snapshot = await read(false);
         return { success: true, url: nav?.url || url.href, data: snapshot };
       }
       if (name === 'browser_go_back') {
@@ -175,10 +175,10 @@ export function createToolRunner({
           tabId,
         })) as { success?: boolean; error?: string };
         if (back?.success === false) return { ...back };
-        snapshot = await requestSnapshot();
+        snapshot = await read(false);
         return { success: true, data: snapshot };
       }
-      if (name === 'browser_click' || name === 'browser_fill') {
+      if (name === 'browser_click' || name === 'browser_fill' || name === 'browser_select') {
         const element = snapshot?.elements.find(
           (item) => item.id === args.elementId,
         );
@@ -187,30 +187,47 @@ export function createToolRunner({
         if (
           !(await review({
             name,
-            detail: `${element.label}${name === 'browser_fill' ? `\n${String(args.value).slice(0, 1000)}` : element.href ? `\n${element.href}` : ''}`,
+            pageUrl: snapshot?.url,
+            detail: `${element.label}${name === 'browser_fill' || name === 'browser_select' ? `\n${String(args.value)}` : element.href ? `\n${element.href}` : ''}`,
           }))
         )
           return { success: false, error: 'User declined action' };
         if (signal.aborted) return { success: false, error: 'Cancelled' };
         const acted = (await pageAction({
-          kind: name === 'browser_click' ? 'click' : 'fill',
           ...args,
+          kind: name === 'browser_click' ? 'click' : name === 'browser_select' ? 'select' : 'fill',
         })) as { success?: boolean; ok?: boolean; error?: string };
-        if (name === 'browser_fill') return { ...acted };
         return rereadAfter(acted);
       }
       if (name === 'browser_scroll' || name === 'browser_find') {
         if (!snapshot) await read(false);
         const headingText =
           typeof args.headingText === 'string' ? args.headingText.trim() : '';
+        if ((args.elementId || args.snapshotId) && (!args.elementId || args.snapshotId !== snapshot?.snapshotId)) throw new Error('Read a fresh snapshot and supply both target IDs.');
         const result = (await pageAction(
-          name === 'browser_find'
+          args.elementId ? { kind: 'scroll', elementId: args.elementId, snapshotId: args.snapshotId, direction: args.direction || 'down' } : name === 'browser_find'
             ? { kind: 'find', text: args.text }
             : headingText
               ? { kind: 'scroll', headingText }
               : { kind: 'scroll', direction: args.direction || 'down' },
         )) as { ok?: boolean; success?: boolean; error?: string };
         return rereadAfter(result);
+      }
+      if (name === 'browser_wait') {
+        const text = String(args.text || '').trim();
+        if (!text) throw new Error('Text is required.');
+        const deadline = Date.now() + Math.min(10000, Math.max(250, Number(args.timeoutMs) || 5000));
+        do {
+          if (signal.aborted) throw new Error('Cancelled');
+          const page = await read(false);
+          if (page.readableText.includes(text) || page.viewportText?.includes(text)) return { success: true, data: page };
+          await new Promise<void>((resolve) => {
+            const finish = () => { clearTimeout(timer); signal.removeEventListener('abort', finish); resolve(); };
+            const timer = setTimeout(finish, 250);
+            signal.addEventListener('abort', finish, { once: true });
+          });
+        } while (Date.now() < deadline);
+        return { success: false, error: 'Timed out waiting for page text.', data: snapshot };
       }
       if (!projectId) throw new Error('Select a Dome project first.');
       if (name === 'dome_list_notes') return api.listNotes(token, projectId);

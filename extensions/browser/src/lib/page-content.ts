@@ -1,3 +1,4 @@
+import { liveText, pageRoots, rendered, inViewport } from './page-dom';
 const MAX_PAGE_TEXT = 32_000;
 const MAX_SELECTION = 50_000;
 const MAX_SECTION_TEXT = 4_000;
@@ -8,8 +9,8 @@ export type PageSection = { heading: string; text: string };
 
 function readableRoot(doc: Document): HTMLElement | null {
   return (
-    doc.querySelector('main') ||
-    doc.querySelector('article') ||
+    Array.from(doc.querySelectorAll('main')).find(rendered) ||
+    Array.from(doc.querySelectorAll('article')).find(rendered) ||
     doc.body
   );
 }
@@ -23,18 +24,6 @@ function normalizeSpace(text: string): string {
     .trim();
 }
 
-function cloneReadableRoot(doc: Document): HTMLElement | null {
-  const root = readableRoot(doc);
-  if (!root) return null;
-  const clone = root.cloneNode(true) as HTMLElement;
-  clone
-    .querySelectorAll(
-      'script, style, nav, aside, footer, noscript, [hidden], [aria-hidden="true"]',
-    )
-    .forEach((node) => node.remove());
-  return clone;
-}
-
 export function getSelectionText(): string {
   return String(globalThis.getSelection?.()?.toString() || '')
     .trim()
@@ -42,17 +31,15 @@ export function getSelectionText(): string {
 }
 
 export function getReadableText(doc: Document = document): string {
-  const root = cloneReadableRoot(doc);
-  const text = normalizeSpace(
-    String(root?.innerText || root?.textContent || doc.body?.innerText || ''),
-  );
-  return text.slice(0, MAX_PAGE_TEXT);
+  return pageRoots(doc).roots.map(({ root }) =>
+    liveText(root.nodeType === 9 ? readableRoot(root as Document) || root : root),
+  ).filter(Boolean).join('\n\n').slice(0, MAX_PAGE_TEXT);
 }
 
 export function getHeadings(doc: Document = document): PageHeading[] {
   const root = readableRoot(doc);
   if (!root) return [];
-  return Array.from(root.querySelectorAll('h1, h2, h3'))
+  return pageRoots(doc).roots.flatMap(({ root: scope }) => Array.from(scope.querySelectorAll('h1, h2, h3, [role=heading]'))).filter(rendered)
     .map((el) => normalizeSpace((el.textContent || '').replace(/\s+/g, ' ')).slice(0, 160))
     .filter(Boolean)
     .slice(0, 80)
@@ -62,7 +49,7 @@ export function getHeadings(doc: Document = document): PageHeading[] {
 export function getSections(doc: Document = document): PageSection[] {
   const root = readableRoot(doc);
   if (!root) return [];
-  const headings = Array.from(root.querySelectorAll('h2'));
+  const headings = pageRoots(doc).roots.flatMap(({ root: scope }) => Array.from(scope.querySelectorAll('h2'))).filter(rendered);
   const seen = new Set<string>();
   const sections: PageSection[] = [];
   for (let i = 0; i < headings.length && sections.length < MAX_SECTIONS; i++) {
@@ -82,11 +69,7 @@ export function getSections(doc: Document = document): PageSection[] {
       );
     let body = '';
     if (sectionEl && !shared) {
-      const clone = sectionEl.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('script, style, nav, button, [aria-hidden="true"]').forEach((node) =>
-        node.remove(),
-      );
-      body = normalizeSpace(clone.innerText || clone.textContent || '');
+      body = normalizeSpace(liveText(sectionEl));
       if (body.toLowerCase().startsWith(key)) {
         body = body.slice(title.length).trim();
       }
@@ -95,9 +78,9 @@ export function getSections(doc: Document = document): PageSection[] {
       const parts: string[] = [];
       let node: ChildNode | null = heading.nextSibling;
       while (node && node !== end) {
-        if (node instanceof HTMLElement) {
+        if (node.nodeType === 1 && rendered(node as Element)) {
           const piece = normalizeSpace(
-            (node.innerText || node.textContent || '').replace(/\s+/g, ' '),
+            liveText(node).replace(/\s+/g, ' '),
           );
           if (piece) parts.push(piece);
         }
@@ -111,7 +94,23 @@ export function getSections(doc: Document = document): PageSection[] {
 }
 
 export function getPageSnapshot(doc: Document = document, href = location.href) {
+  const { roots, limitations } = pageRoots(doc);
+  const viewportText = roots.filter(({ frames }) => frames.every(inViewport))
+    .map(({ root }) => liveText(root, true, 16000)).filter(Boolean).join('\n\n').slice(0, 16000);
+  const tables = roots.flatMap(({ root }) => Array.from(root.querySelectorAll('table, [role=grid], [role=table]')))
+    .filter(rendered).slice(0, 8).map((table) => ({
+      label: table.getAttribute('aria-label') || table.querySelector('caption')?.textContent || '',
+      inViewport: inViewport(table),
+      rows: Array.from(table.querySelectorAll('tr, [role=row]')).filter(rendered).slice(0, 30).map((row) =>
+        Array.from(row.querySelectorAll('th, td, [role=cell], [role=gridcell], [role=columnheader]')).filter(rendered).slice(0, 16).map((cell) => liveText(cell, false, 300))),
+    }));
   return {
+    capturedAt: new Date().toISOString(),
+    viewportText,
+    viewport: { width: doc.defaultView?.innerWidth, height: doc.defaultView?.innerHeight, scrollX: doc.defaultView?.scrollX, scrollY: doc.defaultView?.scrollY },
+    tables,
+    limitations,
+    coverage: 'Rendered DOM, same-origin frames and open shadow roots. Text may include content outside the viewport; use viewportText for what is on screen. Tables are limited to 8 tables / 30 rows / 16 columns. Closed shadow roots and cross-origin frame contents are unavailable.',
     url: href,
     title: doc.title || href,
     selection: getSelectionText(),

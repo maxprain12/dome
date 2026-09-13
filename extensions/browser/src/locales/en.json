@@ -213,5 +213,14 @@
     "context_segment_subagents": "Subagents",
     "context_segment_summarized": "Summary",
     "context_segment_conversation": "Conversation"
-  }
+  },
+  "browserNeedsReview": "Many needs your permission",
+  "browserWorking": "Many is using the browser",
+  "browserAccessScope": "Allow access to this site. You can revoke it in the extension permissions.",
+  "browserActionScope": "This action will run once. Check the destination and content before continuing.",
+  "browserWorkingHint": "You can stop Many while it reads or acts in this tab.",
+  "browserStop": "Stop Many",
+  "tool_browser_select": "Select option",
+  "tool_browser_wait": "Wait for content",
+  "tool_browser_screenshot": "View page screenshot"
 }

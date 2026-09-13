@@ -23,6 +23,7 @@ import ManyHistorySurface from '../../../../app/components/many/panel/ManyHistor
 import manyMark from '../../../../public/many.png?inline';
 import * as api from '../lib/client';
 import { Icon } from './Icon';
+import BrowserActionCard from './many/BrowserActionCard';
 import DeleteConversationDialog from './many/DeleteConversationDialog';
 import ManyAssistantControls from './many/ManyAssistantControls';
 import {
@@ -103,6 +104,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   }, [t, token]);
 
   const {
+    browserActivity,
     approvalEditArgs,
     approvalEditOpen,
     cancelOnUnmount,
@@ -837,31 +839,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         </div>
       ) : null}
 
-      {review ? (
-        <div className="agent-review" role="alertdialog" aria-label={t('reviewAction')}>
-          <strong>{t(`tool_${review.name}`)}</strong>
-          <p>{review.detail}</p>
-          <div className="dome-row">
-            <Button
-              onClick={() => {
-                const approval = review.origin
-                  ? browser.permissions.request({
-                      origins: [`${review.origin}/*`],
-                    })
-                  : Promise.resolve(true);
-                approval
-                  .then((approved) => review.resolve(approved))
-                  .catch(() => review.resolve(false));
-              }}
-            >
-              {t(review.origin ? 'allowPage' : 'confirmAction')}
-            </Button>
-            <Button variant="outline" onClick={() => review.resolve(false)}>
-              {t('rejectAction')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <BrowserActionCard review={review} activity={browserActivity} onStop={stop} />
 
       {error ? (
         <p className="status error mx-3" role="alert">

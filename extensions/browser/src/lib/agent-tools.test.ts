@@ -146,8 +146,7 @@ it('adjunta una captura de la pestaña visible cuando se pide screenshot', async
   expect(result).toEqual({
     success: true,
     data: {
-      url: pageSnapshot.url,
-      title: pageSnapshot.title,
+      ...pageSnapshot,
       screenshot: 'data:image/jpeg;base64,/9j/4AAQ',
     },
   });
@@ -155,4 +154,43 @@ it('adjunta una captura de la pestaña visible cuando se pide screenshot', async
     type: 'DOME_CAPTURE_TAB',
     tabId: 12,
   });
+});
+
+it('does not report success when the post-navigation page is inaccessible', async () => {
+  vi.stubGlobal('browser', {
+    runtime: { sendMessage: vi.fn().mockResolvedValueOnce({ success: true }).mockResolvedValue({ ...pageSnapshot, error: 'unsupportedPage' }) },
+    permissions: { contains: vi.fn().mockResolvedValue(true) },
+  });
+  const run = createToolRunner({ token: 'token', projectId: 'project', tabId: 12, review: vi.fn(), signal: new AbortController().signal });
+  const result = await run({ type: 'browser_tool', callId: 'nav', streamId: 'stream', name: 'browser_navigate', args: { url: 'https://example.test/next' } });
+  expect(result.success).toBe(false);
+});
+
+it('does not dispatch a reviewed action after cancellation', async () => {
+  const snapshot = { ...pageSnapshot, elements: [{ id: 'e1', label: 'Severity', role: 'select' }] };
+  const sendMessage = vi.fn().mockResolvedValue(snapshot);
+  vi.stubGlobal('browser', { runtime: { sendMessage } });
+  const controller = new AbortController();
+  const review = vi.fn(async () => { controller.abort(); return true; });
+  const run = createToolRunner({ token: 'token', projectId: 'project', tabId: 12, review, signal: controller.signal });
+  await run({ type: 'browser_tool', callId: 'read', streamId: 'stream', name: 'browser_read_page', args: {} });
+  const result = await run({ type: 'browser_tool', callId: 'select', streamId: 'stream', name: 'browser_select', args: { snapshotId: snapshot.snapshotId, elementId: 'e1', value: 'high' } });
+  expect(result.success).toBe(false);
+  expect(sendMessage).toHaveBeenCalledTimes(1);
+});
+
+it('waits for updated text and stops on an explicit timeout', async () => {
+  vi.useFakeTimers();
+  try {
+    const sendMessage = vi.fn().mockResolvedValueOnce(pageSnapshot).mockResolvedValue({ ...pageSnapshot, readableText: 'Loaded results' });
+    vi.stubGlobal('browser', { runtime: { sendMessage } });
+    const run = createToolRunner({ token: 'token', projectId: 'project', tabId: 12, review: vi.fn(), signal: new AbortController().signal });
+    const request: ToolRequest = { type: 'browser_tool', callId: 'wait', streamId: 'stream', name: 'browser_wait', args: { text: 'Loaded results', timeoutMs: 1000 } };
+    const waiting = run(request);
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await waiting).success).toBe(true);
+    const timeout = run({ ...request, args: { text: 'Missing text', timeoutMs: 250 } });
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await timeout).success).toBe(false);
+  } finally { vi.useRealTimers(); }
 });
