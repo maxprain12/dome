@@ -15,6 +15,7 @@
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const { getSupabaseCredentials } = require('./supabase-credentials.cjs');
 const { persistSession, getRemoteProfile } = require('./dome-oauth.cjs');
+const { resolveDomeUserId } = require('./dome-session-identity.cjs');
 
 class SupabaseAuthError extends Error {
   constructor(code, message) {
@@ -106,19 +107,6 @@ async function exchangeForDomeSession(supabaseAccessToken) {
 }
 
 /**
- * dome-provider's mintAccessToken (lib/oauth-store.ts) produces
- * base64url(JSON).base64url(HMAC) — not a verifiable JWT without
- * TOKEN_HMAC_SECRET, but we trust it: it just arrived over TLS directly from
- * dome-provider in response to our own request.
- */
-function extractUserIdFromDomeAccessToken(domeAccessToken) {
-  const [encoded] = String(domeAccessToken).split('.');
-  const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-  if (!payload?.sub) throw new SupabaseAuthError('exchange_failed', 'Token de Dome sin identificador de usuario');
-  return payload.sub;
-}
-
-/**
  * @param {object} database
  * @param {{ email: string, password: string, isRegister: boolean, name?: string, windowManager?: object }} params
  */
@@ -132,11 +120,17 @@ async function loginOrRegister(database, { email, password, isRegister, name, wi
   }
 
   const domeSession = await exchangeForDomeSession(supabaseResult.access_token);
-  const userId = extractUserIdFromDomeAccessToken(domeSession.access_token);
+  const userId = resolveDomeUserId(domeSession);
   const now = Date.now();
   const expiresAt = now + Number(domeSession.expires_in || 3600) * 1000;
 
-  persistSession(database.getQueries(), userId, domeSession.access_token, domeSession.refresh_token, expiresAt);
+  persistSession(
+    database.getQueries(),
+    userId,
+    domeSession.access_token,
+    domeSession.refresh_token || null,
+    expiresAt,
+  );
 
   const profile = await getRemoteProfile(database);
   const { runPostLoginBootstrap } = require('../storage/post-login-bootstrap.cjs');
