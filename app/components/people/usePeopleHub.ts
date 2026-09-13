@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { showToast } from '@/lib/store/useToastStore';
-import type { PeopleFilter, PersonDetail, PersonSummary } from './peopleTypes';
+import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
+import type { CreatePersonInput, PeopleFilter, PersonDetail, PersonSummary } from './peopleTypes';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -88,8 +89,16 @@ export function usePeopleHub({
       if (request !== selectionRequest.current) return;
       if (!res.success || !res.data?.person) throw new Error(res.error || errorLabel);
       setSelectedPerson(res.data.person);
+      const pending = useOpenIntentStore.getState().intent;
+      if (pending?.kind === 'person' && pending.personId === id) {
+        useOpenIntentStore.getState().consume('person');
+      }
     } catch (err) {
-      if (request === selectionRequest.current) showToast('error', err instanceof Error ? err.message : errorLabel);
+      if (request !== selectionRequest.current) return;
+      showToast('error', err instanceof Error ? err.message : errorLabel);
+      selectedIdRef.current = null;
+      setSelectedId(null);
+      setSelectedPerson(null);
     } finally {
       if (request === selectionRequest.current) setDetailLoading(false);
     }
@@ -101,6 +110,8 @@ export function usePeopleHub({
     setSelectedId(null);
     setSelectedPerson(null);
     setDetailLoading(false);
+    const pending = useOpenIntentStore.getState().intent;
+    if (pending?.kind === 'person') useOpenIntentStore.getState().consume('person');
   }, []);
 
   const saveProfile = useCallback(
@@ -161,23 +172,29 @@ export function usePeopleHub({
   );
 
   const createPerson = useCallback(
-    async (displayName: string): Promise<PersonSummary | null> => {
-      const trimmed = displayName.trim();
+    async (input: CreatePersonInput): Promise<PersonSummary | null> => {
+      const trimmed = input.displayName.trim();
       if (!trimmed) return null;
-      const request = selectionRequest.current;
+      const profile = input.company?.trim() ? { company: input.company.trim() } : undefined;
       try {
-        const res = await window.electron.people.upsert({ projectId, displayName: trimmed });
+        const res = await window.electron.people.upsert({
+          projectId,
+          displayName: trimmed,
+          primaryEmail: input.primaryEmail?.trim() || undefined,
+          leadStatus: input.leadStatus || undefined,
+          notes: input.notes?.trim() || undefined,
+          profile,
+          discoveredVia: 'manual',
+        });
         if (!res.success || !res.data?.person) throw new Error(res.error || saveErrorLabel);
         await loadList();
-        const person = res.data.person as PersonSummary;
-        if (request === selectionRequest.current) await selectPerson(person.id);
-        return person;
+        return res.data.person as PersonSummary;
       } catch (err) {
         showToast('error', err instanceof Error ? err.message : saveErrorLabel);
         return null;
       }
     },
-    [projectId, saveErrorLabel, loadList, selectPerson],
+    [projectId, saveErrorLabel, loadList],
   );
 
   const [deleting, setDeleting] = useState(false);

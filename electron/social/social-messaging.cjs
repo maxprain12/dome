@@ -72,6 +72,7 @@ function accountSupports(account, capability, flags) {
  * @returns {object}
  */
 function normalizeComment(partial = {}) {
+  const parentId = partial.parentId != null && String(partial.parentId) ? String(partial.parentId) : null;
   return {
     id: String(partial.id || ''),
     text: String(partial.text || ''),
@@ -85,7 +86,47 @@ function normalizeComment(partial = {}) {
           ? Date.parse(partial.createdAt) || null
           : null,
     permalink: partial.permalink != null ? String(partial.permalink) : null,
+    parentId,
+    replies: Array.isArray(partial.replies) ? partial.replies : [],
   };
+}
+
+function mergeCommentRecord(prev, next) {
+  return {
+    ...prev,
+    ...next,
+    text: prev.text || next.text,
+    authorName: prev.authorName || next.authorName,
+    authorExternalId: prev.authorExternalId || next.authorExternalId,
+    createdAt: prev.createdAt ?? next.createdAt,
+    permalink: prev.permalink || next.permalink,
+    parentId: prev.parentId || next.parentId,
+    replies: [],
+  };
+}
+
+function sortCommentThread(list) {
+  list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  for (const node of list) sortCommentThread(node.replies || []);
+  return list;
+}
+
+/** Turn a flat Graph/X/LinkedIn list (parentId) into a nested thread. */
+function nestComments(comments) {
+  const byId = new Map();
+  for (const row of Array.isArray(comments) ? comments : []) {
+    if (!row?.id) continue;
+    const next = { ...normalizeComment(row), replies: [] };
+    const prev = byId.get(next.id);
+    byId.set(next.id, prev ? mergeCommentRecord(prev, next) : next);
+  }
+  const roots = [];
+  for (const node of byId.values()) {
+    const parent = node.parentId && node.parentId !== node.id ? byId.get(node.parentId) : null;
+    if (parent) parent.replies.push(node);
+    else roots.push(node);
+  }
+  return sortCommentThread(roots);
 }
 
 module.exports = {
@@ -93,4 +134,5 @@ module.exports = {
   parseScopes,
   accountSupports,
   normalizeComment,
+  nestComments,
 };

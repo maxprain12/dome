@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type VideoHTMLAttributes } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon, ArrowRight01Icon, BubbleChatIcon, FavouriteIcon, Share01Icon, ViewIcon, Bookmark01Icon, ExternalLinkIcon, File02Icon } from '@hugeicons/core-free-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { SocialAccount, SocialMediaItem, SocialPost } from '../socialTypes';
+import type { SocialAccount, SocialMediaItem, SocialPost, SocialPostSource } from '../socialTypes';
 import { formatSocialBody, ProviderMark, PROVIDER_LABELS, postStatusBadgeVariant } from '../crm/socialCrmChrome';
 import { formatSocialWhen } from '@/lib/social/socialQueues';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,24 @@ export function socialWebUrl(value?: string | null): string | undefined {
   } catch { return undefined; }
 }
 
+function instagramAudioTypeLabel(
+  audioType: SocialPostSource['audioType'],
+  t: (key: string) => string,
+): string | null {
+  switch (audioType) {
+    case 'MUSIC':
+      return t('social.native.audio_music');
+    case 'ORIGINAL_SOUND':
+      return t('social.native.audio_original');
+    case undefined:
+      return null;
+    default: {
+      const exhaustive: never = audioType;
+      return exhaustive;
+    }
+  }
+}
+
 function PublicationText({ text }: { text: string }) {
   return <>{formatSocialBody(text).split(/(https?:\/\/[^\s]+|[#@][\p{L}\p{N}_]+)/gu).map((part, index) => {
     const href = socialWebUrl(part);
@@ -27,15 +45,24 @@ function PublicationText({ text }: { text: string }) {
   })}</>;
 }
 
+function MediaUnavailable() {
+  const { t } = useTranslation();
+  return <div className="flex min-h-36 items-center justify-center bg-muted/40 p-6 text-center text-xs text-muted-foreground">{t('social.native.media_unavailable')}</div>;
+}
+
 function MediaFrame({ item, compact, fit }: { item: SocialMediaItem; compact: boolean; fit: boolean }) {
   const { t } = useTranslation();
-  const [failed, setFailed] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [stillFailed, setStillFailed] = useState(false);
   const url = socialWebUrl(item.url);
   const poster = socialWebUrl(item.thumbnailUrl);
   const cachedUrl = useCachedMediaSource(url);
   const cachedPoster = useCachedMediaSource(poster);
   const label = item.alt || item.name || t('social.native.media');
+  const playable = cachedUrl.source || url;
+  const posterSrc = cachedPoster.source || poster;
   const mediaClass = cn('mx-auto w-full object-contain', fit ? 'h-full min-h-0' : compact ? 'max-h-80' : 'max-h-[34rem]');
+  const isMotion = item.type === 'video' || item.type === 'reel';
   if (item.type === 'document') return (
     <div className="flex min-h-36 flex-col items-center justify-center gap-3 bg-muted/40 p-5">
       <HugeiconsIcon icon={File02Icon} className="size-8 text-primary" />
@@ -43,13 +70,35 @@ function MediaFrame({ item, compact, fit }: { item: SocialMediaItem; compact: bo
       {url ? <a className="text-sm text-primary underline" href={url} target="_blank" rel="noreferrer">{t('social.native.open_document')}</a> : <p className="text-xs text-muted-foreground">{t('social.native.media_unavailable')}</p>}
     </div>
   );
-  if (failed || (!cachedUrl.source && !cachedPoster.source)) return <div className="flex min-h-36 items-center justify-center bg-muted/40 p-6 text-center text-xs text-muted-foreground">{t('social.native.media_unavailable')}</div>;
-  if (item.type === 'video' || item.type === 'reel') return url ? (
-    <video src={cachedUrl.source || url} poster={cachedPoster.source || poster} controls playsInline preload="none" aria-label={label} className={mediaClass} onError={() => setFailed(true)}>
-      <track kind="captions" srcLang="en" label={label} src="data:text/vtt,WEBVTT" />
-    </video>
-  ) : <img src={cachedPoster.source || poster} alt={label} loading="lazy" className={mediaClass} onError={() => setFailed(true)} />;
-  return <img src={cachedUrl.source || cachedPoster.source || url || poster} alt={label} loading="lazy" referrerPolicy="no-referrer" className={mediaClass} onError={() => setFailed(true)} />;
+  if (isMotion && playable && !videoFailed) {
+    return (
+      <video
+        src={playable}
+        poster={posterSrc}
+        controls
+        playsInline
+        preload="metadata"
+        {...({ referrerPolicy: 'no-referrer' } as VideoHTMLAttributes<HTMLVideoElement>)}
+        aria-label={label}
+        className={mediaClass}
+        onError={() => setVideoFailed(true)}
+      >
+        <track kind="captions" srcLang="en" label={label} src="data:text/vtt,WEBVTT" />
+      </video>
+    );
+  }
+  const stillSrc = isMotion ? posterSrc : (playable || posterSrc);
+  if (!stillSrc || stillFailed) return <MediaUnavailable />;
+  return (
+    <img
+      src={stillSrc}
+      alt={label}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className={mediaClass}
+      onError={() => setStillFailed(true)}
+    />
+  );
 }
 
 export function SocialPostMedia({ media, compact = false, fit = false }: { media: SocialMediaItem[]; compact?: boolean; fit?: boolean }) {
@@ -193,6 +242,49 @@ export function SocialPostPreview({ post, account, compact = false, detail = fal
     );
   };
 
+  const renderNativeMeta = () => {
+    if (!source?.location && !source?.userTags?.length && !source?.collaborators?.length && !source?.audioName && !source?.audioType) {
+      return null;
+    }
+    const audioLabel = source.audioName || instagramAudioTypeLabel(source.audioType, t);
+    return (
+      <dl className="mx-5 mb-4 flex flex-col gap-2 text-sm">
+        {source.location?.name ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">{t('social.native.location')}</dt>
+            <dd>{source.location.name}</dd>
+          </div>
+        ) : null}
+        {source.userTags?.length ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">{t('social.native.tagged_people')}</dt>
+            <dd className="flex flex-wrap gap-1.5 pt-1">
+              {source.userTags.map((tag) => (
+                <Badge key={tag.username} variant="secondary">@{tag.username}</Badge>
+              ))}
+            </dd>
+          </div>
+        ) : null}
+        {source.collaborators?.length ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">{t('social.native.collaborators')}</dt>
+            <dd className="flex flex-wrap gap-1.5 pt-1">
+              {source.collaborators.map((name) => (
+                <Badge key={name} variant="outline">@{name}</Badge>
+              ))}
+            </dd>
+          </div>
+        ) : null}
+        {audioLabel ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">{t('social.native.audio')}</dt>
+            <dd>{audioLabel}</dd>
+          </div>
+        ) : null}
+      </dl>
+    );
+  };
+
   const renderMetrics = () => (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t px-5 py-3">
       {metrics.map(({ key, icon }) =>
@@ -278,6 +370,7 @@ export function SocialPostPreview({ post, account, compact = false, detail = fal
       {renderQuote()}
       {renderPoll()}
       {renderLinkPreview()}
+      {renderNativeMeta()}
       {!detail ? renderMetrics() : null}
       {!detail ? renderFooter() : null}
     </article>

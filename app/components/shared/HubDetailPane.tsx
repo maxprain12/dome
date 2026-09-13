@@ -26,9 +26,9 @@ export function HubDetailPane({
 }) {
   const hasHeader = Boolean(title || actions || icon || toolbar);
   return (
-    <div className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
+    <div className={cn('flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden', className)}>
       {hasHeader ? (
-        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-4">
+        <header className="flex shrink-0 items-center gap-3 border-b px-5 py-4">
           {icon}
           {title ? (
             <div className="flex min-w-0 flex-1 flex-col gap-1">

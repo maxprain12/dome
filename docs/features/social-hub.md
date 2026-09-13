@@ -37,6 +37,10 @@ IPC: `social:campaigns:list|create|update|archive`.
 
 `social:workspace` → accounts, posts, campaigns, growth (con `followersUnavailable`), reply drafts, `metricsStale`, counts/totals (impresiones `null` si el provider no las da).
 
+## Comentarios del inspector
+
+Los comentarios públicos se anidan como en la red (`parentId` → hilo). En cada comentario se puede responder en público, preguntar a Many sobre ese perfil y añadir o abrir el contacto si ya está en People.
+
 ## Tools de agente
 
 `social_accounts_list`, `social_posts_list`, `social_post_draft`, `social_post_publish` (HITL), `social_metrics_summary`, `social_growth`, `social_campaigns_list`, `social_campaign_create`.  
@@ -59,7 +63,7 @@ Cuentas conserva las identidades conectadas y ofrece una entrada de conexión po
 red, aunque ya existan cuentas de esa red. Cada autorización de Instagram tiene
 su identidad y token: autorizar otra identidad añade una cuenta; reconectar la
 misma actualiza sus credenciales conservando el id y las publicaciones asociadas.
-La API usada es [Instagram Login de Meta](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), para cuentas profesionales.
+La API usada es [Instagram Login de Meta](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), para cuentas profesionales. Go-live (review, verificación, callback HTTPS): [instagram-meta-go-live.md](instagram-meta-go-live.md).
 
 El compositor hereda la cuenta seleccionada en el workspace. Sin contexto solo
 preselecciona un destino cuando existe una única cuenta activa de esa red.

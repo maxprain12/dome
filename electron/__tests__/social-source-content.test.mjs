@@ -28,6 +28,31 @@ describe('social source content', () => {
     assert.equal(result.media[1].thumbnailUrl, 'https://cdn.example.test/b.jpg');
   });
 
+  it('keeps Instagram location, people tags and original audio on import', () => {
+    const result = instagramContent(
+      {
+        id: 'ig-2',
+        media_type: 'VIDEO',
+        media_product_type: 'REELS',
+        media_url: 'https://cdn.example.test/reel.mp4',
+        thumbnail_url: 'https://cdn.example.test/reel.jpg',
+        username: 'dome',
+        location: { id: '55', name: 'Bilbao' },
+        user_tags: [{ username: 'ana' }],
+        collaborators: [{ username: 'studio' }],
+        media_audio_type: 'MUSIC',
+      },
+      { displayName: 'Dome', handle: 'dome' },
+    );
+    assert.equal(result.source.format, 'reel');
+    assert.equal(result.media[0].type, 'reel');
+    assert.equal(result.media[0].thumbnailUrl, 'https://cdn.example.test/reel.jpg');
+    assert.equal(result.source.location.name, 'Bilbao');
+    assert.equal(result.source.userTags[0].username, 'ana');
+    assert.deepEqual(result.source.collaborators, ['studio']);
+    assert.equal(result.source.audioType, 'MUSIC');
+  });
+
   it('joins X media, poll, link and quote expansions into one display payload', () => {
     const result = xContent(
       {

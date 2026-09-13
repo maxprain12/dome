@@ -186,7 +186,7 @@ describe('SocialWorkspaceShell', () => {
 
     await user.click(await screen.findByRole('tab', { name: 'Cuentas' }));
 
-    expect(await screen.findByRole('heading', { name: 'Cuentas' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Cuentas conectadas' })).toBeVisible();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -247,6 +247,17 @@ describe('SocialWorkspaceShell', () => {
                 authorExternalId: 'x',
                 createdAt: Date.now(),
                 permalink: null,
+                replies: [
+                  {
+                    id: 'c1-r1',
+                    text: 'Gracias Ana',
+                    authorName: 'dome_ia',
+                    authorExternalId: null,
+                    createdAt: Date.now(),
+                    permalink: null,
+                    replies: [],
+                  },
+                ],
               },
             ],
             nextCursor: undefined,
@@ -276,6 +287,8 @@ describe('SocialWorkspaceShell', () => {
     await user.click(screen.getByRole('tab', { name: /Comentarios/ }));
     expect(await screen.findByText('Gran post')).toBeVisible();
     expect(screen.getByText('Ana')).toBeVisible();
+    expect(screen.getByText('Gracias Ana')).toBeVisible();
+    expect(screen.getAllByRole('button', { name: 'Responder' }).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('tab', { name: 'Notas' }));
     await user.type(screen.getByLabelText('Notas internas'), 'Recordar follow-up');
@@ -294,6 +307,64 @@ describe('SocialWorkspaceShell', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     workspaceData.posts = [];
+  });
+
+  it('deletes a published post from the content library', async () => {
+    const user = userEvent.setup();
+    const publishedPost = {
+      id: 'sp-del',
+      accountId: 'acc-1',
+      provider: 'instagram' as const,
+      status: 'published' as const,
+      body: 'Carrusel del estudio',
+      media: [
+        { type: 'image' as const, url: 'https://example.com/a.jpg', resourceId: 'res-a' },
+        { type: 'image' as const, url: 'https://example.com/b.jpg', resourceId: 'res-b' },
+      ],
+      linkUrl: null,
+      topics: [],
+      campaign: null,
+      scheduledAt: null,
+      publishedAt: Date.now(),
+      externalPostId: 'ig-carousel-1',
+      externalUrl: 'https://www.instagram.com/p/abc/',
+      error: null,
+      notes: null,
+      createdBy: 'user',
+      groupId: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    workspaceData.posts = [publishedPost];
+
+    vi.mocked(window.electron.invoke).mockImplementation(async (channel: string, payload?: unknown) => {
+      if (channel === 'social:workspace') return { success: true, data: workspaceData };
+      if (channel === 'social:event-cards:list') return { success: true, data: { cards: [] } };
+      if (channel === 'social:reports:list') {
+        return { success: true, data: { reports: [], config: { intervalHours: 0, periodDays: 30, language: 'es' } } };
+      }
+      if (channel === 'social:posts:delete') {
+        expect((payload as { postId: string }).postId).toBe('sp-del');
+        workspaceData.posts = [];
+        return { success: true, data: { deleted: true, remoteDeleted: true } };
+      }
+      return { success: true, data: [] };
+    });
+
+    render(<SocialWorkspaceShell />);
+    await user.click(await screen.findByRole('tab', { name: 'Contenido' }));
+    await user.click(await screen.findByRole('button', { name: /Carrusel del estudio/i }));
+    const detail = screen.getByRole('dialog', { name: 'Carrusel del estudio' });
+    await user.click(within(detail).getByRole('button', { name: 'Más acciones' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Eliminar' }));
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByRole('heading', { name: 'Eliminar publicación' })).toBeVisible();
+    expect(within(confirm).getByText(/Instagram/)).toBeVisible();
+    await user.click(within(confirm).getByRole('button', { name: 'Eliminar' }));
+    await waitFor(() => {
+      expect(window.electron.invoke).toHaveBeenCalledWith('social:posts:delete', { postId: 'sp-del' });
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Carrusel del estudio' })).not.toBeInTheDocument());
   });
 });
 

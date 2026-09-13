@@ -19,6 +19,7 @@ function parseSource(raw) {
 const crypto = require('node:crypto');
 const { safeStorage } = require('electron');
 const syncTombstone = require('../storage/sync-tombstone.cjs');
+const { sanitizePostSource } = require('./instagram-native.cjs');
 
 const PROVIDERS = ['linkedin', 'instagram', 'x'];
 
@@ -241,10 +242,111 @@ function createSocialStore(database) {
     return rows.map(serializeAccount);
   }
 
+  function tombstoneRow(table, id) {
+    try {
+      const db = database.getDB?.();
+      if (db) syncTombstone.recordTombstone(db, table, id);
+    } catch (err) {
+      console.warn('[Social] tombstone failed:', table, err.message);
+    }
+  }
+
+  function listPostIdsForAccount(accountId) {
+    try {
+      return q().listSocialPostIdsByAccount.all(accountId).map((row) => row.id);
+    } catch {
+      return [];
+    }
+  }
+
+  function deletePostsByIds(ids) {
+    for (const id of ids) {
+      tombstoneRow('social_posts', id);
+      q().deleteSocialPost.run(id);
+    }
+  }
+
+  function tombstoneMetricsForPosts(postIds) {
+    if (typeof q().listSocialMetricsForPost?.all !== 'function') return;
+    for (const postId of postIds) {
+      try {
+        for (const metric of q().listSocialMetricsForPost.all(postId)) {
+          tombstoneRow('social_metrics', metric.id);
+        }
+      } catch {
+        /* metrics table optional in partial test schemas */
+      }
+    }
+  }
+
+  function tombstoneAccountMetrics(accountId) {
+    if (typeof q().listSocialAccountMetrics?.all !== 'function') return;
+    try {
+      for (const metric of q().listSocialAccountMetrics.all(accountId, 0)) {
+        tombstoneRow('social_account_metrics', metric.id);
+      }
+    } catch {
+      /* account metrics optional in partial test schemas */
+    }
+  }
+
+  function stripAccountFromReplyDrafts(accountId, postIds) {
+    if (typeof q().getSetting?.get !== 'function' || typeof q().setSetting?.run !== 'function') return;
+    const deleted = new Set(postIds);
+    saveReplyDrafts(listReplyDrafts().filter((draft) => {
+      if (draft.accountId === accountId) return false;
+      if (draft.postId && deleted.has(draft.postId)) return false;
+      return true;
+    }));
+  }
+
+  function stripAccountFromLiveReplyRules(accountId, postIds) {
+    if (typeof q().getSetting?.get !== 'function' || typeof q().setSetting?.run !== 'function') return;
+    try {
+      const raw = q().getSetting.get(LIVE_REPLY_RULES_KEY)?.value;
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const deleted = new Set(postIds);
+      setLiveReplyRules(parsed.map((rule) => {
+        const accountIds = Array.isArray(rule.accountIds)
+          ? rule.accountIds.filter((id) => id !== accountId)
+          : rule.accountIds;
+        const nextPostIds = Array.isArray(rule.postIds)
+          ? rule.postIds.filter((id) => !deleted.has(id))
+          : rule.postIds;
+        return { ...rule, accountIds, postIds: nextPostIds };
+      }));
+    } catch {
+      /* rules are settings JSON — ignore malformed */
+    }
+  }
+
+  /** Posts whose account is gone (SET NULL leftovers) or imported without a live account. */
+  function purgeUnlinkedPosts() {
+    if (typeof q().listUnlinkedSocialPostIds?.all !== 'function') return [];
+    let ids = [];
+    try {
+      ids = q().listUnlinkedSocialPostIds.all().map((row) => row.id);
+    } catch {
+      return [];
+    }
+    tombstoneMetricsForPosts(ids);
+    deletePostsByIds(ids);
+    return ids;
+  }
+
   function deleteAccount(accountId) {
-    const db = database.getDB?.();
-    if (db) syncTombstone.recordTombstone(db, 'social_accounts', accountId);
+    const postIds = listPostIdsForAccount(accountId);
+    tombstoneMetricsForPosts(postIds);
+    tombstoneAccountMetrics(accountId);
+    deletePostsByIds(postIds);
+    stripAccountFromReplyDrafts(accountId, postIds);
+    stripAccountFromLiveReplyRules(accountId, postIds);
+    tombstoneRow('social_accounts', accountId);
     q().deleteSocialAccount.run(accountId);
+    const extra = purgeUnlinkedPosts();
+    return { deletedPostIds: [...postIds, ...extra] };
   }
 
   /** Renderer-safe account shape (credentials never leave the main process). */
@@ -400,6 +502,7 @@ function createSocialStore(database) {
   function createPost({
     provider, accountId = null, body = '', media = [], linkUrl = null, topics = [],
     campaign = null, campaignId = null, eventCardId = null, eventCardPublicUrl = null, scheduledAt = null, status, createdBy = 'user', groupId = null,
+    source = undefined,
   }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
     const now = Date.now();
@@ -412,6 +515,7 @@ function createSocialStore(database) {
       ref.campaign, ref.campaignId, eventCardId, eventCardPublicUrl,
       scheduledAt, null, null, null, null, createdBy, groupId, now, now
     );
+    if (source !== undefined) writePostSource(id, source);
     return serializePost(q().getSocialPostById.get(id));
   }
 
@@ -556,6 +660,11 @@ function createSocialStore(database) {
     return row.status;
   }
 
+  function writePostSource(postId, source) {
+    const cleaned = source == null ? null : sanitizePostSource(source);
+    q().updateSocialPostSource.run(cleaned ? JSON.stringify(cleaned) : null, Date.now(), postId);
+  }
+
   function updatePost(postId, patch = {}) {
     const row = q().getSocialPostById.get(postId);
     if (!row) throw new Error(`Social post not found: ${postId}`);
@@ -567,6 +676,12 @@ function createSocialStore(database) {
       next.accountId, next.body, next.media, next.linkUrl, next.topics, next.campaign, next.campaignId, next.eventCardId, next.eventCardPublicUrl,
       next.scheduledAt, status, Date.now(), postId
     );
+    if (patch.source !== undefined) {
+      const merged = patch.source == null
+        ? null
+        : { ...parseSource(row.source_json), ...sanitizePostSource(patch.source) };
+      writePostSource(postId, merged);
+    }
     return getPost(postId);
   }
 
@@ -938,6 +1053,8 @@ function createSocialStore(database) {
     updateAccountProfile,
     setAccountStatus,
     listAccounts,
+    listPostIdsForAccount,
+    purgeUnlinkedPosts,
     deleteAccount,
     serializeAccount,
     listCampaigns,

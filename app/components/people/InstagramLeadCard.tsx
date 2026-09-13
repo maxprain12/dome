@@ -4,6 +4,8 @@ import { LinkSquare01Icon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
 import { formatFollowerCount, type InstagramLeadInfo } from './instagramLead';
 import { personInitial } from './peopleLabels';
 import type { PersonDetail } from './peopleTypes';
@@ -25,74 +27,66 @@ export default function InstagramLeadCard({
 }: InstagramLeadCardProps) {
   const { t } = useTranslation();
   const handleLabel = info.handle ? `@${info.handle.replace(/^@/, '')}` : null;
+  const title = info.name || handleLabel || person.displayName;
+  const stats = [
+    info.followersCount != null
+      ? t('people.ig_followers', { count: formatFollowerCount(info.followersCount) })
+      : null,
+    info.mediaCount != null ? t('people.ig_media_count', { count: info.mediaCount }) : null,
+  ].filter((item): item is string => Boolean(item));
 
   return (
-    <section className="flex flex-col gap-2.5 rounded-lg border bg-muted/30 p-3">
-      <div className="flex items-start gap-3">
-        <Avatar size="lg">
-          {info.avatarUrl ? (
-            <AvatarImage src={info.avatarUrl} alt={info.name || handleLabel || person.displayName} />
-          ) : null}
-          <AvatarFallback>{personInitial(person)}</AvatarFallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h3 className="truncate text-sm font-semibold">
-              {info.name || handleLabel || person.displayName}
-            </h3>
-            {handleLabel ? (
-              <span className="truncate text-xs text-muted-foreground">{handleLabel}</span>
-            ) : null}
-            {dmSent ? <Badge variant="secondary">{t('people.dm_sent_badge')}</Badge> : null}
-          </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[0.6875rem] text-muted-foreground">
-            {info.followersCount != null ? (
-              <span>
-                {t('people.ig_followers', { count: formatFollowerCount(info.followersCount) })}
-              </span>
-            ) : null}
-            {info.mediaCount != null ? (
-              <span>{t('people.ig_media_count', { count: info.mediaCount })}</span>
+    <FieldSet>
+      <FieldLegend>{t('people.section_instagram')}</FieldLegend>
+      <FieldDescription>{t('people.section_instagram_hint')}</FieldDescription>
+      <FieldGroup>
+        <div className="flex items-start gap-3">
+          <Avatar size="lg">
+            {info.avatarUrl ? <AvatarImage src={info.avatarUrl} alt={title} /> : null}
+            <AvatarFallback>{personInitial(person)}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="truncate text-sm font-semibold">{title}</p>
+              {dmSent ? <Badge variant="secondary">{t('people.dm_sent_badge')}</Badge> : null}
+            </div>
+            {stats.length > 0 ? (
+              <p className="text-xs text-muted-foreground">{stats.join(' · ')}</p>
             ) : null}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={enriching}
-            onClick={onEnrich}
-          >
-            <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+        {handleLabel ? (
+          <Field>
+            <FieldLabel>{t('people.ig_handle')}</FieldLabel>
+            <p className="text-sm">{handleLabel}</p>
+          </Field>
+        ) : null}
+        {info.biography ? (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{info.biography}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" disabled={enriching} onClick={onEnrich}>
+            {enriching ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+            )}
             {enriching ? t('people.enriching') : t('people.enrich_profile')}
           </Button>
           {info.profileUrl ? (
-            <a
-              href={info.profileUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-1 text-[0.6875rem] text-primary underline-offset-2 hover:underline"
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={<a href={info.profileUrl} target="_blank" rel="noreferrer" aria-label={t('people.open_instagram_profile')} />}
             >
-              <HugeiconsIcon icon={LinkSquare01Icon} size={12} />
+              <HugeiconsIcon icon={LinkSquare01Icon} data-icon="inline-start" />
               {t('people.open_instagram_profile')}
-            </a>
+            </Button>
           ) : null}
         </div>
-      </div>
-      {info.biography ? (
-        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{info.biography}</p>
-      ) : null}
-      {info.website ? (
-        <a
-          href={info.website.startsWith('http') ? info.website : `https://${info.website}`}
-          target="_blank"
-          rel="noreferrer"
-          className="truncate text-xs text-primary underline-offset-2 hover:underline"
-        >
-          {info.website}
-        </a>
-      ) : null}
-    </section>
+      </FieldGroup>
+    </FieldSet>
   );
 }

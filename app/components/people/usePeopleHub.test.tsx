@@ -60,4 +60,14 @@ describe('contact request ownership', () => {
     expect(toast).toHaveBeenCalledWith('error', 'Database unavailable');
     expect(result.current.people).toEqual([]);
   });
+
+  it('clears a failed person detail instead of leaving the loading dialog open', async () => {
+    vi.mocked(window.electron.people.get).mockResolvedValueOnce({ success: false, error: 'Not found' });
+    const { result } = renderHook(() => usePeopleHub(options));
+    await act(() => result.current.selectPerson('missing'));
+    expect(result.current.selectedId).toBeNull();
+    expect(result.current.selectedPerson).toBeNull();
+    expect(result.current.detailLoading).toBe(false);
+    expect(toast).toHaveBeenCalledWith('error', 'Not found');
+  });
 });

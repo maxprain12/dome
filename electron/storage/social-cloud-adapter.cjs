@@ -6,12 +6,16 @@
  */
 /* eslint-disable no-console */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
 const planGate = require('./plan-gate.cjs');
 const domainSync = require('./domain-sync.cjs');
+const {
+  parseMediaUploadResponse,
+  mapSocialMediaUploadError,
+} = require('../social/instagram-publish.cjs');
 
 /**
  * @param {object} database
@@ -48,8 +52,27 @@ async function revokeAccountCredentials(database, accountId) {
 
 /**
  * @param {object} database
+ * @param {string} storagePath
+ * @returns {Promise<{ storagePath: string, publicUrl: string }>}
+ */
+async function signMediaUrl(database, storagePath) {
+  const base = getDomeProviderBaseUrl().replace(/\/$/, '');
+  const url = `${base}/api/v1/social/media?path=${encodeURIComponent(storagePath)}`;
+  const res = await domeOauth.fetchWithDomeAuth(database, url, { method: 'GET' });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(mapSocialMediaUploadError(res.status, text));
+  }
+  const parsed = parseMediaUploadResponse(await res.json());
+  if (!parsed.publicUrl) throw new Error('media_upload_missing_public_url');
+  return parsed;
+}
+
+/**
+ * @param {object} database
  * @param {string} filePath
  * @param {string} [mimeType]
+ * @returns {Promise<{ storagePath: string, publicUrl: string | null }>}
  */
 async function uploadMediaFile(database, filePath, mimeType) {
   const abs = path.resolve(filePath);
@@ -58,22 +81,38 @@ async function uploadMediaFile(database, filePath, mimeType) {
   const contentType = mimeType || 'application/octet-stream';
   const base = getDomeProviderBaseUrl().replace(/\/$/, '');
   const url = `${base}/api/v1/social/media`;
-  const res = await domeOauth.fetchWithDomeAuth(database, url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': contentType,
-      'Content-Length': String(buf.length),
-      'X-File-Name': path.basename(abs),
-    },
-    body: buf,
-  });
+  let res;
+  try {
+    res = await domeOauth.fetchWithDomeAuth(database, url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': String(buf.length),
+        'X-File-Name': path.basename(abs),
+      },
+      body: buf,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      msg.includes('not connected')
+        ? 'Sign in to Dome (Settings → AI → Dome) to publish local Instagram photos.'
+        : msg,
+    );
+  }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`media_upload_failed:${res.status} ${text}`);
+    throw new Error(mapSocialMediaUploadError(res.status, text));
   }
-  const data = await res.json();
-  if (!data?.storagePath) throw new Error('media_upload_missing_storage_path');
-  return data.storagePath;
+  const parsed = parseMediaUploadResponse(await res.json());
+  if (parsed.publicUrl) return parsed;
+  try {
+    return await signMediaUrl(database, parsed.storagePath);
+  } catch {
+    throw new Error(
+      'Dome Provider did not return a public URL for the uploaded media. Update the provider and retry.',
+    );
+  }
 }
 
 /**
@@ -174,13 +213,27 @@ async function syncPostMediaStorage(deps, store, postId) {
     media = [];
   }
 
+  const { resolveMediaItem } = require('../social/social-media.cjs');
+  const fileStorage = require('./file-storage.cjs');
   const storagePaths = [];
   for (const item of media) {
-    if (item.path) {
-      const storagePath = await uploadMediaFile(deps.database, item.path);
-      storagePaths.push(storagePath);
-    } else if (item.url?.startsWith('social-media/')) {
+    if (item.url?.startsWith('social-media/')) {
       storagePaths.push(item.url);
+      continue;
+    }
+    let filePath = typeof item.path === 'string' ? item.path : null;
+    if (!filePath && item.resourceId) {
+      try {
+        const resolved = resolveMediaItem(deps.database, fileStorage, item);
+        if (resolved.kind === 'file') filePath = resolved.path;
+      } catch (err) {
+        console.warn('[Social] skip media storage for unresolved item:', err?.message || err);
+        continue;
+      }
+    }
+    if (filePath) {
+      const uploaded = await uploadMediaFile(deps.database, filePath);
+      storagePaths.push(uploaded.storagePath);
     }
   }
 
@@ -195,4 +248,5 @@ module.exports = {
   uploadAccountCredentials,
   revokeAccountCredentials,
   uploadMediaFile,
+  signMediaUrl,
 };

@@ -1349,26 +1349,64 @@ function buildQueries(db) {
           media = COALESCE(?, media), link_url = COALESCE(?, link_url), source_json = COALESCE(?, source_json)
       WHERE id = ?
     `),
+    updateSocialPostSource: db.prepare(`
+      UPDATE social_posts SET source_json = ?, updated_at = ? WHERE id = ?
+    `),
     updateSocialPostNotes: db.prepare(`
       UPDATE social_posts SET notes = ?, updated_at = ? WHERE id = ?
     `),
     listSocialPosts: db.prepare(`
-      SELECT * FROM social_posts ORDER BY COALESCE(scheduled_at, published_at, created_at) DESC LIMIT ?
+      SELECT p.* FROM social_posts p
+      WHERE p.account_id IN (SELECT id FROM social_accounts)
+         OR (p.account_id IS NULL AND IFNULL(p.created_by, 'user') != 'import' AND p.status = 'draft')
+      ORDER BY COALESCE(p.scheduled_at, p.published_at, p.created_at) DESC LIMIT ?
     `),
     listSocialPostsByStatus: db.prepare(`
-      SELECT * FROM social_posts WHERE status = ? ORDER BY COALESCE(scheduled_at, published_at, created_at) DESC LIMIT ?
+      SELECT p.* FROM social_posts p
+      WHERE p.status = ?
+        AND (
+          p.account_id IN (SELECT id FROM social_accounts)
+          OR (p.account_id IS NULL AND IFNULL(p.created_by, 'user') != 'import' AND p.status = 'draft')
+        )
+      ORDER BY COALESCE(p.scheduled_at, p.published_at, p.created_at) DESC LIMIT ?
     `),
-    listSocialPostsByGroup: db.prepare('SELECT * FROM social_posts WHERE group_id = ? ORDER BY created_at ASC'),
+    listSocialPostsByGroup: db.prepare(`
+      SELECT p.* FROM social_posts p
+      WHERE p.group_id = ?
+        AND (
+          p.account_id IN (SELECT id FROM social_accounts)
+          OR (p.account_id IS NULL AND IFNULL(p.created_by, 'user') != 'import' AND p.status = 'draft')
+        )
+      ORDER BY p.created_at ASC
+    `),
+    listSocialPostIdsByAccount: db.prepare('SELECT id FROM social_posts WHERE account_id = ?'),
+    listUnlinkedSocialPostIds: db.prepare(`
+      SELECT id FROM social_posts
+      WHERE (account_id IS NOT NULL AND account_id NOT IN (SELECT id FROM social_accounts))
+         OR (
+           account_id IS NULL
+           AND (created_by = 'import' OR status IN ('published', 'publishing', 'scheduled', 'failed'))
+         )
+    `),
     listDueSocialPosts: db.prepare(`
-      SELECT * FROM social_posts WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ?
-      ORDER BY scheduled_at ASC
+      SELECT p.* FROM social_posts p
+      INNER JOIN social_accounts a ON a.id = p.account_id
+      WHERE p.status = 'scheduled' AND p.scheduled_at IS NOT NULL AND p.scheduled_at <= ?
+      ORDER BY p.scheduled_at ASC
     `),
     listRecentPublishedSocialPosts: db.prepare(`
-      SELECT * FROM social_posts WHERE status = 'published' AND published_at >= ?
-      ORDER BY published_at DESC LIMIT ?
+      SELECT p.* FROM social_posts p
+      INNER JOIN social_accounts a ON a.id = p.account_id
+      WHERE p.status = 'published' AND p.published_at >= ?
+      ORDER BY p.published_at DESC LIMIT ?
     `),
     deleteSocialPost: db.prepare('DELETE FROM social_posts WHERE id = ?'),
-    countSocialPostsByStatus: db.prepare('SELECT status, COUNT(*) AS c FROM social_posts GROUP BY status'),
+    countSocialPostsByStatus: db.prepare(`
+      SELECT p.status, COUNT(*) AS c FROM social_posts p
+      WHERE p.account_id IN (SELECT id FROM social_accounts)
+         OR (p.account_id IS NULL AND IFNULL(p.created_by, 'user') != 'import' AND p.status = 'draft')
+      GROUP BY p.status
+    `),
 
     insertSocialMetric: db.prepare(`
       INSERT INTO social_metrics (
@@ -1386,6 +1424,8 @@ function buildQueries(db) {
       JOIN (
         SELECT post_id, MAX(captured_at) AS max_at FROM social_metrics GROUP BY post_id
       ) latest ON latest.post_id = m.post_id AND latest.max_at = m.captured_at
+      JOIN social_posts p ON p.id = m.post_id
+      JOIN social_accounts a ON a.id = p.account_id
     `),
 
     insertSocialAccountMetric: db.prepare(`
@@ -1405,6 +1445,7 @@ function buildQueries(db) {
       JOIN (
         SELECT account_id, MAX(captured_at) AS max_at FROM social_account_metrics GROUP BY account_id
       ) latest ON latest.account_id = m.account_id AND latest.max_at = m.captured_at
+      JOIN social_accounts a ON a.id = m.account_id
     `),
 
     createSocialReport: db.prepare(`

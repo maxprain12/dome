@@ -117,6 +117,10 @@ export function SocialWorkspaceShell() {
               setSelection({ kind: 'post', post });
               workspace.load().catch(() => {});
             }}
+            onPostDeleted={() => {
+              setSelection({ kind: 'none' });
+              workspace.load().catch(() => {});
+            }}
             onCreateCampaign={() => setCampaignDialogOpen(true)}
             onComposeCampaign={(campaign) =>
               setEditor({
@@ -168,6 +172,7 @@ function SectionBody({
   onPublish,
   onEditPost,
   onPostUpdated,
+  onPostDeleted,
   onCreateCampaign,
   onComposeCampaign,
   onEditEvent,
@@ -194,6 +199,7 @@ function SectionBody({
   onPublish: (post: SocialPost) => void;
   onEditPost: (post: SocialPost) => void;
   onPostUpdated: (post: SocialPost) => void;
+  onPostDeleted: () => void;
   onCreateCampaign: () => void;
   onComposeCampaign: (campaign: SocialCampaign) => void;
   onEditEvent: (card: SocialEventCard | null) => void;
@@ -232,6 +238,7 @@ function SectionBody({
           onPublish={onPublish}
           onEditPost={onEditPost}
           onPostUpdated={onPostUpdated}
+          onPostDeleted={onPostDeleted}
           query={query}
           onQueryChange={onQueryChange}
         />

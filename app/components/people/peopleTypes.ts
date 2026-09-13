@@ -56,3 +56,11 @@ export interface PersonDetail {
 export const LEAD_STATUSES: LeadStatus[] = [...BUILTIN_PERSON_STATUSES];
 
 export type PeopleFilter = 'all' | string;
+
+export interface CreatePersonInput {
+  displayName: string;
+  primaryEmail?: string;
+  leadStatus?: string;
+  notes?: string;
+  company?: string;
+}

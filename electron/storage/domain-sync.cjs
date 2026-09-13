@@ -10,6 +10,7 @@ const domeOauth = require('../auth/dome-oauth.cjs');
 const { getOrCreateDeviceId } = require('./device-id.cjs');
 const syncTombstone = require('./sync-tombstone.cjs');
 const planGate = require('./plan-gate.cjs');
+const { domainErrorTracker } = require('./domain-sync-errors.cjs');
 
 const settingsSyncBridge = require('./settings-sync-bridge.cjs');
 
@@ -1089,10 +1090,14 @@ async function syncAllEnabledDomains(deps) {
  * @param {import('better-sqlite3').Database} db
  */
 function getAllDomainStatus(db) {
-  /** @type {Record<string, ReturnType<typeof getDomainState>>} */
+  /** @type {Record<string, ReturnType<typeof getDomainState> & { lastError: string | null }>} */
   const out = {};
+  const lastErrors = domainErrorTracker.getAllLastErrors();
   for (const domain of VALID_DOMAINS) {
-    out[domain] = getDomainState(db, domain);
+    out[domain] = {
+      ...getDomainState(db, domain),
+      lastError: lastErrors[domain] || null,
+    };
   }
   return out;
 }

@@ -15,12 +15,12 @@ import { SocialPostPreview } from './SocialPostPreview';
 import { SocialPostDetailPanel } from './SocialPostDetailPanel';
 import { cn } from '@/lib/utils';
 
-export function SocialContentHub({ title, posts, accounts = [], filter, onFilter, filterItems, selectedPost, onSelectPost, onClosePost, onCompose, onPublish, onEditPost, onPostUpdated, query, onQueryChange }: {
+export function SocialContentHub({ title, posts, accounts = [], filter, onFilter, filterItems, selectedPost, onSelectPost, onClosePost, onCompose, onPublish, onEditPost, onPostUpdated, onPostDeleted, query, onQueryChange }: {
   title: string; posts: SocialPost[]; accounts?: SocialAccount[];
   filter: string; onFilter: (filter: string) => void; filterItems: Array<{ value: string; label: string }>;
   selectedPost: SocialPost | null; onSelectPost: (post: SocialPost) => void; onClosePost: () => void;
   onCompose: () => void; onPublish: (post: SocialPost) => void; onEditPost: (post: SocialPost) => void;
-  onPostUpdated: (post: SocialPost) => void; query: string; onQueryChange: (query: string) => void;
+  onPostUpdated: (post: SocialPost) => void; onPostDeleted: () => void; query: string; onQueryChange: (query: string) => void;
 }) {
   const { t } = useTranslation();
   const [provider, setProvider] = useState('all');
@@ -49,7 +49,7 @@ export function SocialContentHub({ title, posts, accounts = [], filter, onFilter
         </div>}
       </div>
       <DetailModal open={Boolean(selectedPost)} onClose={onClosePost} title={selectedPost ? socialPostLabel(selectedPost) : t('social.native.inspect')} size={selectedPost?.media?.length ? 'wide' : 'compact'} bare dismissOnOutsidePress>
-          {selectedPost ? <SocialPostDetailPanel key={selectedPost.id} post={selectedPost} account={accounts.find((account) => account.id === selectedPost.accountId)} onEdit={() => onEditPost(selectedPost)} onPublish={() => onPublish(selectedPost)} onPostUpdated={onPostUpdated} /> : null}
+          {selectedPost ? <SocialPostDetailPanel key={selectedPost.id} post={selectedPost} account={accounts.find((account) => account.id === selectedPost.accountId)} onEdit={() => onEditPost(selectedPost)} onPublish={() => onPublish(selectedPost)} onPostUpdated={onPostUpdated} onDeleted={onPostDeleted} /> : null}
       </DetailModal>
     </div>
   </div>;

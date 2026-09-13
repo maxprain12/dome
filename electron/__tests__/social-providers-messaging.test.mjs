@@ -45,6 +45,86 @@ describe('instagram listComments / sendDm', () => {
     assert.equal(page.nextCursor, 'cursor-2');
   });
 
+  it('flattens Instagram replies with parentId for nesting', async () => {
+    globalThis.fetch = async (url) => {
+      assert.match(String(url), /replies/);
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            data: [
+              {
+                id: 'c1',
+                text: 'root',
+                username: 'ada',
+                timestamp: '2026-09-01T10:00:00+0000',
+                from: { id: 'igsid-ada' },
+                replies: {
+                  data: [
+                    {
+                      id: 'c1r',
+                      text: 'nested',
+                      username: 'dome_ia',
+                      timestamp: '2026-09-01T11:00:00+0000',
+                      from: { id: 'igsid-dome' },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+      };
+    };
+
+    const page = await listComments(mockStore(), { accountId: 'acc-ig', externalPostId: '999' });
+    assert.equal(page.comments.length, 2);
+    assert.equal(page.comments[0].id, 'c1');
+    assert.equal(page.comments[1].id, 'c1r');
+    assert.equal(page.comments[1].parentId, 'c1');
+    assert.equal(page.comments[1].authorName, 'dome_ia');
+  });
+
+  it('dedupes a reply that Graph returns both nested and as a top-level comment', async () => {
+    globalThis.fetch = async () => ({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          data: [
+            {
+              id: 'c1',
+              text: 'Info',
+              username: 'mery_sugy',
+              timestamp: '2026-09-01T10:00:00+0000',
+              from: { id: 'igsid-mery' },
+              replies: {
+                data: [
+                  {
+                    id: 'c1r',
+                    text: 'Revisa tu DM',
+                    timestamp: '2026-09-01T11:00:00+0000',
+                    from: { id: '178414000' },
+                  },
+                ],
+              },
+            },
+            {
+              id: 'c1r',
+              text: 'Revisa tu DM',
+              username: 'dome_ia',
+              timestamp: '2026-09-01T11:00:00+0000',
+              from: { id: '178414000' },
+            },
+          ],
+        }),
+    });
+
+    const page = await listComments(mockStore(), { accountId: 'acc-ig', externalPostId: '999' });
+    assert.equal(page.comments.length, 2);
+    const reply = page.comments.find((row) => row.id === 'c1r');
+    assert.equal(reply.parentId, 'c1');
+    assert.equal(reply.authorName, 'dome_ia');
+  });
+
   it('refuses to mark a DM sent without a provider message id', async () => {
     globalThis.fetch = async () => ({
       ok: true,

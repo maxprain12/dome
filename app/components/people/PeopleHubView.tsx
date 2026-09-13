@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Delete02Icon, PlusSignIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons';
+import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { HubMasterDetail } from '@/components/shared/HubMasterDetail';
-import { HubPaneState } from '@/components/shared/HubPaneState';
-import { DetailModal } from '@/components/shared/DetailModal';
 import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
@@ -21,6 +19,8 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { onDomeEvent } from '@/lib/events/domeEvents';
 import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
 import PeopleList from './PeopleList';
+import { PersonCreateSheet } from './PersonCreateSheet';
+import { PersonDetailSheet } from './PersonDetailSheet';
 import PersonDetailPanel from './PersonDetailPanel';
 import { BUILTIN_PERSON_STATUSES, isBuiltinPersonStatus, personStatusLabel } from './personStatuses';
 import { useCustomPersonStatuses } from './useCustomPersonStatuses';
@@ -68,26 +68,11 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
 
   const { customs, add: addStatus, remove: removeStatus } = useCustomPersonStatuses();
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [createBusy, setCreateBusy] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [managingStatuses, setManagingStatuses] = useState(false);
   const [statusDraft, setStatusDraft] = useState('');
   const [statusBusy, setStatusBusy] = useState(false);
-
-  const handleCreate = async () => {
-    setCreateBusy(true);
-    try {
-      const person = await createPerson(newName);
-      if (person) {
-        setCreating(false);
-        setNewName('');
-      }
-    } finally {
-      setCreateBusy(false);
-    }
-  };
 
   const handleToggleChecked = (id: string, checked: boolean) => {
     setCheckedIds((prev) => {
@@ -98,12 +83,15 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
     });
   };
 
-  const handleToggleAllChecked = (checked: boolean) => {
-    if (!checked) {
-      setCheckedIds(new Set());
-      return;
-    }
-    setCheckedIds(new Set(people.map((p) => p.id)));
+  const handleToggleAllChecked = (ids: string[], checked: boolean) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
   };
 
   const confirmDelete = async () => {
@@ -135,18 +123,17 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
     }
   };
 
-  // Consume a pending "focus person" intent (e.g. from the command palette) once the
-  // hub mounts, and keep listening while it stays open.
+  // Keep a pending "focus person" intent until this hub actually loads them.
+  // Consuming on mount races with Strict Mode remounts and nested dialogs.
   useEffect(() => {
     const applyFocus = (personId: string) => {
-      void selectPersonRef.current(personId);
+      selectPersonRef.current(personId).catch(() => {});
     };
-    const pending = useOpenIntentStore.getState().consume('person');
+    const pending = useOpenIntentStore.getState().peek('person');
     if (pending) applyFocus(pending.personId);
 
     return onDomeEvent('dome:focus-person', (detail) => {
       if (!detail?.personId) return;
-      useOpenIntentStore.getState().consume('person');
       applyFocus(detail.personId);
     });
   }, [selectPersonRef]);
@@ -155,7 +142,14 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
     <HubSectionShell
       title={t('people.hub_title')}
       actions={
-        <Button type="button" size="sm" onClick={() => setCreating(true)}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            clearSelection();
+            setCreating(true);
+          }}
+        >
           <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
           {t('people.new_person')}
         </Button>
@@ -170,20 +164,30 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
           filter={filter}
           onFilterChange={setFilter}
           selectedId={selectedId}
-          onSelect={(id) => selectPerson(id)}
+          onSelect={(id) => {
+            setCreating(false);
+            selectPerson(id).catch(() => {});
+          }}
           checkedIds={checkedIds}
           onToggleChecked={handleToggleChecked}
           onToggleAllChecked={handleToggleAllChecked}
-          onDeleteChecked={() => setPendingDeleteIds(Array.from(checkedIds))}
+          onDeletePeople={(ids) => setPendingDeleteIds(ids)}
           onManageStatuses={() => setManagingStatuses(true)}
+          onCreate={() => {
+            clearSelection();
+            setCreating(true);
+          }}
           customs={customs}
           deleting={deleting}
         />
 
-        <DetailModal open={Boolean(selectedId)} onClose={clearSelection} title={selectedPerson?.displayName || t('people.loading')} size="wide" bare={Boolean(selectedPerson)}>
-          {selectedId && detailLoading ? (
-            <HubPaneState variant="loading" loadingLabel={t('people.loading')} />
-          ) : selectedPerson ? (
+        <PersonDetailSheet
+          open={Boolean(selectedId)}
+          onClose={clearSelection}
+          title={selectedPerson?.displayName || t('people.hub_title')}
+          loading={detailLoading && !selectedPerson}
+        >
+          {selectedPerson ? (
             <PersonDetailPanel
               key={selectedPerson.id}
               person={selectedPerson}
@@ -194,52 +198,32 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
               onSave={saveProfile}
               onAddNote={addNote}
               onDelete={() => setPendingDeleteIds([selectedPerson.id])}
-              onEnrich={() => { enrichPerson(selectedPerson.id);
+              onEnrich={() => {
+                enrichPerson(selectedPerson.id).catch(() => {});
               }}
               onOpenPipelines={openPipelinesTab}
               onOpenCalendar={openCalendarTab}
               customs={customs}
               onManageStatuses={() => setManagingStatuses(true)}
             />
-          ) : (
-            <HubPaneState
-              variant="empty"
-              icon={<HugeiconsIcon icon={UserMultiple02Icon} className="size-8" />}
-              title={t('people.detail_empty_title')}
-              description={t('people.detail_empty_description')}
-            />
-          )}
-        </DetailModal>
+          ) : null}
+        </PersonDetailSheet>
       </HubMasterDetail>
 
-      <AppModal open={creating} onOpenChange={setCreating}>
-        <AppModalContent size="sm">
-          <AppModalHeader title={t('people.new_person_title')} />
-          <AppModalBody>
-            <Input
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the field the user just opened
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleCreate().catch(() => {});
-                }
-              }}
-              placeholder={t('people.new_person_placeholder')}
-              aria-label={t('people.new_person_placeholder')}
-            />
-          </AppModalBody>
-          <AppModalFooter>
-            <Button variant="outline" onClick={() => setCreating(false)}>
-              {t('people.cancel')}
-            </Button>
-            <Button onClick={() => handleCreate()} disabled={!newName.trim() || createBusy}>
-              {t('people.create')}
-            </Button>
-          </AppModalFooter>
-        </AppModalContent>
-      </AppModal>
+      <PersonCreateSheet
+        open={creating}
+        onOpenChange={setCreating}
+        onCreate={async (input) => {
+          const person = await createPerson(input);
+          if (person) {
+            globalThis.setTimeout(() => {
+              selectPerson(person.id).catch(() => {});
+            }, 0);
+          }
+          return person;
+        }}
+        customs={customs}
+      />
 
       <AppModal open={managingStatuses} onOpenChange={setManagingStatuses}>
         <AppModalContent size="sm">
@@ -323,7 +307,8 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
         cancelLabel={t('people.cancel')}
         variant="danger"
         busy={deleting}
-        onConfirm={() => { confirmDelete();
+        onConfirm={() => {
+          confirmDelete().catch(() => {});
         }}
         onCancel={() => {
           if (!deleting) setPendingDeleteIds(null);

@@ -65,8 +65,14 @@ import {
   type SocialLibraryItem,
   type SocialMediaItem,
   type SocialPost,
+  type SocialPostSource,
   type SocialProvider,
 } from '@/components/social/socialTypes';
+import {
+  InstagramNativeFields,
+  instagramSourceFromNative,
+  type InstagramNativeValue,
+} from '@/components/social/composer/InstagramNativeFields';
 
 const PROVIDERS: SocialProvider[] = ['linkedin', 'instagram', 'x'];
 const PROVIDER_LABELS: Record<SocialProvider, string> = {
@@ -115,11 +121,16 @@ async function persistComposerPost(
   providers: SocialProvider[],
   accountIds: Partial<Record<SocialProvider, string>>,
   shared: Record<string, unknown>,
+  instagramSource: SocialPostSource | null,
 ): Promise<void> {
   if (post) {
     const response = await window.electron.invoke('social:posts:update', {
       postId: post.id,
-      patch: { ...shared, accountId: accountIds[post.provider] },
+      patch: {
+        ...shared,
+        accountId: accountIds[post.provider],
+        ...(post.provider === 'instagram' ? { source: instagramSource } : {}),
+      },
     });
     if (!response?.success) throw new Error(response?.error || 'Error');
     return;
@@ -131,9 +142,19 @@ async function persistComposerPost(
       provider,
       accountId: accountIds[provider] ?? null,
       groupId,
+      ...(provider === 'instagram' ? { source: instagramSource } : {}),
     });
     if (!response?.success) throw new Error(response?.error || 'Error');
   }
+}
+
+function nativeFromPost(post: SocialPost | null): InstagramNativeValue {
+  return {
+    location: post?.source?.location ?? null,
+    userTags: post?.source?.userTags ?? [],
+    collaborators: post?.source?.collaborators ?? [],
+    audioName: post?.source?.audioName ?? '',
+  };
 }
 
 export function SocialComposerWorkspace({
@@ -185,14 +206,15 @@ export function SocialComposerWorkspace({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [library, setLibrary] = useState<SocialLibraryItem[] | null>(null);
   const [composerTab, setComposerTab] = useState<'content' | 'media' | 'details'>('content');
+  const [instagramNative, setInstagramNative] = useState<InstagramNativeValue>(() => nativeFromPost(post));
 
   const initialSnapshot = useMemo(
-    () => JSON.stringify({ providers, body, media, linkUrl, topics, campaignId, eventCardId, scheduledAt, accountIds }),
+    () => JSON.stringify({ providers, body, media, linkUrl, topics, campaignId, eventCardId, scheduledAt, accountIds, instagramNative }),
     // Initial value is intentionally captured only once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-  const dirty = initialSnapshot !== JSON.stringify({ providers, body, media, linkUrl, topics, campaignId, eventCardId, scheduledAt, accountIds });
+  const dirty = initialSnapshot !== JSON.stringify({ providers, body, media, linkUrl, topics, campaignId, eventCardId, scheduledAt, accountIds, instagramNative });
   const limit = Math.min(...providers.map((provider) => PROVIDER_CHAR_LIMITS[provider]));
   const selectedEventCard = eventCards.find((card) => card.id === eventCardId);
 
@@ -295,7 +317,7 @@ export function SocialComposerWorkspace({
       scheduledAt: scheduledAt ? new Date(scheduledAt).getTime() : null,
     };
     try {
-      await persistComposerPost(post, providers, accountIds, shared);
+      await persistComposerPost(post, providers, accountIds, shared, instagramSourceFromNative(instagramNative));
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -528,6 +550,14 @@ export function SocialComposerWorkspace({
                         <Input id="social-studio-schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
                       </Field>
                     </div>
+                    {providers.includes('instagram') ? (
+                      <InstagramNativeFields
+                        accountId={accountIds.instagram}
+                        media={media}
+                        value={instagramNative}
+                        onChange={setInstagramNative}
+                      />
+                    ) : null}
                   </FieldGroup>
                 </TabsContent>
               </CardContent>

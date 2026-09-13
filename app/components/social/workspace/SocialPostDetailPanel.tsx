@@ -5,6 +5,7 @@ import {
   BubbleChatIcon,
   Cancel01Icon,
   Copy01Icon,
+  Delete02Icon,
   Edit02Icon,
   ExternalLinkIcon,
   MoreHorizontalIcon,
@@ -12,7 +13,6 @@ import {
   SentIcon,
 } from '@hugeicons/core-free-icons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DialogClose } from '@/components/ui/dialog';
@@ -20,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -34,13 +35,16 @@ import {
   ProviderMark,
   postStatusBadgeVariant,
 } from '@/components/social/crm/socialCrmChrome';
-import { formatSocialWhen, socialPostLabel } from '@/lib/social/socialQueues';
+import { socialPostLabel } from '@/lib/social/socialQueues';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useDetailModalClose } from '@/components/shared/DetailModal';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 import { SocialPostAuthor, SocialPostMedia, SocialPostPreview, socialWebUrl } from './SocialPostPreview';
+import { patchCommentTree, SocialCommentThread } from './SocialCommentThread';
 
 type PostTab = 'summary' | 'comments' | 'notes';
 
@@ -82,11 +86,7 @@ function commentsUnsupportedDescription(
   return opts.commentsError || opts.t('social.studio.inspector.comments_unsupported');
 }
 
-function commentAuthorLabel(comment: SocialComment, anonymousLabel: string): string {
-  return comment.authorName || comment.authorExternalId || anonymousLabel;
-}
-
-function usePostComments(post: SocialPost, tab: PostTab, errorFallback: string) {
+function usePostComments(post: SocialPost, tab: PostTab, errorFallback: string, projectId: string) {
   const [comments, setComments] = useState<SocialComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
@@ -107,7 +107,10 @@ function usePostComments(post: SocialPost, tab: PostTab, errorFallback: string) 
     setCommentsError(null);
     setCommentsReason(null);
     (async () => {
-      const response = await window.electron.invoke('social:comments:list', { postId: post.id });
+      const response = await window.electron.invoke('social:comments:list', {
+        postId: post.id,
+        projectId,
+      });
       if (cancelled) return;
       setCommentsLoading(false);
       if (!response?.success) {
@@ -131,9 +134,13 @@ function usePostComments(post: SocialPost, tab: PostTab, errorFallback: string) 
     return () => {
       cancelled = true;
     };
-  }, [errorFallback, post.externalPostId, post.id, post.status, tab]);
+  }, [errorFallback, post.externalPostId, post.id, post.status, projectId, tab]);
 
-  return { comments, commentsLoading, commentsError, commentsUnsupported, commentsReason };
+  const onCommentPatched = (commentId: string, patch: Partial<SocialComment>) => {
+    setComments((current) => patchCommentTree(current, commentId, patch));
+  };
+
+  return { comments, commentsLoading, commentsError, commentsUnsupported, commentsReason, onCommentPatched };
 }
 
 async function savePostNotes(opts: {
@@ -184,15 +191,18 @@ export function SocialPostDetailPanel({
   onEdit,
   onPublish,
   onPostUpdated,
+  onDeleted,
 }: {
   post: SocialPost;
   account?: SocialAccount;
   onEdit: () => void;
   onPublish: () => void;
   onPostUpdated: (post: SocialPost) => void;
+  onDeleted: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const closeDetail = useDetailModalClose();
+  const projectId = useAppStore((state) => state.currentProject?.id ?? 'default');
   const [tab, setTab] = useState<PostTab>('summary');
   const commentsErrorFallback = t('social.studio.inspector.comments_error');
   const {
@@ -201,9 +211,12 @@ export function SocialPostDetailPanel({
     commentsError,
     commentsUnsupported,
     commentsReason,
-  } = usePostComments(post, tab, commentsErrorFallback);
+    onCommentPatched,
+  } = usePostComments(post, tab, commentsErrorFallback, projectId);
   const [notesDraft, setNotesDraft] = useState(post.notes ?? '');
   const [notesSaving, setNotesSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const canPublish = post.status === 'draft' || post.status === 'failed';
   const canEdit = canPublish || post.status === 'scheduled';
   const hasMedia = Boolean(post.media?.length);
@@ -249,6 +262,35 @@ export function SocialPostDetailPanel({
       .catch(() => undefined);
   };
 
+  const handleDelete = () => {
+    setDeleting(true);
+    window.electron
+      .invoke('social:posts:delete', { postId: post.id })
+      .then((response) => {
+        if (!response?.success) {
+          toast.error(response?.error || t('social.hub.delete_error'));
+          return;
+        }
+        const data = response.data as { deleted?: boolean; remoteDeleted?: boolean; remoteError?: string | null };
+        const providerLabel = PROVIDER_LABELS[post.provider];
+        if (data?.remoteError) {
+          toast.warning(t('social.hub.delete_remote_failed', { provider: providerLabel, error: data.remoteError }));
+        } else if (data?.remoteDeleted) {
+          toast.success(t('social.hub.delete_success_remote', { provider: providerLabel }));
+        } else {
+          toast.success(t('social.hub.delete_success'));
+        }
+        setDeleteOpen(false);
+        onDeleted();
+      })
+      .catch((reason: unknown) => {
+        toast.error(reason instanceof Error ? reason.message : t('social.hub.delete_error'));
+      })
+      .finally(() => {
+        setDeleting(false);
+      });
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b px-5 py-3">
@@ -275,6 +317,11 @@ export function SocialPostDetailPanel({
             <DropdownMenuItem onClick={handleRefreshMetrics}>
               <HugeiconsIcon icon={RefreshIcon} />
               {t('social.studio.crm.refresh_metrics')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <HugeiconsIcon icon={Delete02Icon} />
+              {t('social.hub.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -344,6 +391,8 @@ export function SocialPostDetailPanel({
             commentsUnsupported={commentsUnsupported}
             commentsReason={commentsReason}
             language={i18n.language}
+            projectId={projectId}
+            onCommentPatched={onCommentPatched}
           />
         </TabsContent>
         <TabsContent value="notes" className="min-h-0 flex-1 overflow-hidden">
@@ -383,6 +432,25 @@ export function SocialPostDetailPanel({
           </footer>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={deleteOpen}
+        title={t('social.hub.delete_confirm_title')}
+        message={
+          post.externalPostId
+            ? t('social.hub.delete_confirm_published', {
+                name: socialPostLabel(post),
+                provider: PROVIDER_LABELS[post.provider],
+              })
+            : t('social.hub.delete_confirm', { name: socialPostLabel(post) })
+        }
+        confirmLabel={t('social.hub.delete')}
+        variant="danger"
+        busy={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          if (!deleting) setDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -395,6 +463,8 @@ function CommentsPane({
   commentsUnsupported,
   commentsReason,
   language,
+  projectId,
+  onCommentPatched,
 }: {
   post: SocialPost;
   comments: SocialComment[];
@@ -403,6 +473,8 @@ function CommentsPane({
   commentsUnsupported: boolean;
   commentsReason: string | null;
   language: string;
+  projectId: string;
+  onCommentPatched: (commentId: string, patch: Partial<SocialComment>) => void;
 }) {
   const { t } = useTranslation();
   const unpublished = post.status !== 'published' || !post.externalPostId;
@@ -453,25 +525,18 @@ function CommentsPane({
       />
     );
   }
-  const anonymous = t('social.studio.inspector.comments_anonymous');
   return (
     <ScrollArea className="h-full">
       <ul className="flex flex-col px-5 py-2">
         {comments.map((comment) => (
-          <li key={comment.id} className="flex gap-3 border-b border-border/60 py-4 last:border-b-0">
-            <Avatar><AvatarFallback>{commentAuthorLabel(comment, anonymous).slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
-            <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="truncate text-sm font-semibold">{commentAuthorLabel(comment, anonymous)}</p>
-              {comment.createdAt ? (
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {formatSocialWhen(comment.createdAt, language)}
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{comment.text || '—'}</p>
-            </div>
-          </li>
+          <SocialCommentThread
+            key={comment.id}
+            post={post}
+            comment={comment}
+            projectId={projectId}
+            language={language}
+            onCommentPatched={onCommentPatched}
+          />
         ))}
       </ul>
     </ScrollArea>

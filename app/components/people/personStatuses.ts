@@ -93,20 +93,25 @@ export function personStatusLabel(
   return t(`people.lead_status_${slug}`, { defaultValue: humanizePersonStatus(slug) });
 }
 
-const BADGE_VARIANT: Record<BuiltinPersonStatus, 'secondary' | 'lime' | 'outline'> = {
-  lead: 'secondary',
-  prospect: 'secondary',
+const BADGE_VARIANT: Record<
+  BuiltinPersonStatus,
+  'secondary' | 'lime' | 'mint' | 'lavender' | 'outline'
+> = {
+  lead: 'mint',
+  prospect: 'lavender',
   qualified: 'secondary',
   customer: 'lime',
-  partner: 'secondary',
+  partner: 'lime',
   vendor: 'outline',
-  investor: 'secondary',
+  investor: 'lavender',
   colleague: 'secondary',
   personal: 'outline',
   archived: 'outline',
 };
 
-export function leadStatusBadgeVariant(status?: string | null): 'secondary' | 'lime' | 'outline' {
+export function leadStatusBadgeVariant(
+  status?: string | null,
+): 'secondary' | 'lime' | 'mint' | 'lavender' | 'outline' {
   const slug = normalizePersonStatus(status) || 'lead';
   if (isBuiltinPersonStatus(slug)) return BADGE_VARIANT[slug];
   return 'secondary';

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,17 +43,20 @@ function rowsToProfile(rows: ProfileFieldRow[]): Record<string, unknown> {
 interface PersonProfileEditorProps {
   profile: Record<string, unknown> | undefined;
   onChange: (profile: Record<string, unknown>) => void;
+  /** Bump when the contact is replaced or refreshed from the server — not on local core-field edits. */
+  resetKey?: string | number;
 }
 
 /** Simple key/value editor for the person's freeform `profile` JSON blob. */
-export default function PersonProfileEditor({ profile, onChange }: PersonProfileEditorProps) {
+export default function PersonProfileEditor({ profile, onChange, resetKey }: PersonProfileEditorProps) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<ProfileFieldRow[]>(() => profileToRows(profile));
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
 
-  // Re-sync when a different person is loaded (identity change, not every keystroke).
   useEffect(() => {
-    setRows(profileToRows(profile));
-  }, [profile]);
+    setRows(profileToRows(profileRef.current));
+  }, [resetKey]);
 
   const commit = (next: ProfileFieldRow[]) => {
     setRows(next);

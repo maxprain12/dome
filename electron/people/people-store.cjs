@@ -527,6 +527,29 @@ function ingestPeople({
 }
 
 /**
+ * Resolve an existing contact by (project, source, external id). No create.
+ * `source` accepts aliases (`instagram` → `social_instagram`).
+ */
+function findPersonByIdentity(projectId, source, externalId) {
+  source = normalizeSource(source);
+  if (!SOURCES.has(source)) return null;
+  const pid = normalizeProjectId(projectId);
+  const ext = normalizeExternalId(source, externalId);
+  if (!ext) return null;
+  try {
+    const existing = db()
+      .prepare(
+        `SELECT * FROM person_identities
+         WHERE project_id = ? AND source = ? AND external_id = ?`,
+      )
+      .get(pid, source, ext);
+    return existing ? getPerson(existing.person_id) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Link an identity to a person. If (project, source, external_id) exists on
  * another person, returns that existing person (no silent merge).
  */
@@ -1001,6 +1024,7 @@ module.exports = {
   loadInteractions,
   linkIdentity,
   upsertIdentityPerson,
+  findPersonByIdentity,
   searchPeople,
   syncGithubIdentitiesFromStore,
   deletePerson,

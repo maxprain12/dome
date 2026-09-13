@@ -24,7 +24,7 @@ export interface SocialMediaItem {
   width?: number;
   height?: number;
   durationMs?: number;
-  /** Public https URL (only path Instagram photos accept). */
+  /** Public https URL (Instagram Graph, or a preview). Vault/local identity stays in resourceId/path. */
   url?: string;
   /** Local file picked from the user's machine. */
   path?: string;
@@ -76,6 +76,11 @@ export interface SocialPostSource {
   link?: { title?: string; description?: string; imageUrl?: string };
   quote?: { body: string; authorName?: string; authorHandle?: string; url?: string };
   poll?: { question?: string; options: Array<{ position: number; label: string; votes?: number }>; endsAt?: string; status?: string };
+  location?: { id: string; name: string };
+  userTags?: Array<{ username: string; x?: number; y?: number }>;
+  collaborators?: string[];
+  audioName?: string;
+  audioType?: 'MUSIC' | 'ORIGINAL_SOUND';
 }
 
 export interface SocialReplyRule {
@@ -126,6 +131,11 @@ export interface SocialComment {
   authorExternalId: string | null;
   createdAt: number | null;
   permalink: string | null;
+  parentId?: string | null;
+  replies?: SocialComment[];
+  personId?: string | null;
+  personDisplayName?: string | null;
+  isOwnAccount?: boolean;
 }
 
 export type EventCardLayout = 'classic' | 'hero' | 'split_qr' | 'compact';

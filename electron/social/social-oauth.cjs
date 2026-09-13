@@ -3,30 +3,26 @@
 /* eslint-disable no-console */
 
 /**
- * Social OAuth — loopback flow for LinkedIn / Instagram / X.
+ * Social OAuth — loopback for LinkedIn / X; Instagram bounces through a
+ * public HTTPS page on dome.dowi.es (Meta rejects http://localhost in Live).
  *
- * All three platforms reject custom schemes like dome:// but accept
- * http://localhost redirects (LinkedIn and X always; Meta while the app is in
- * development mode), so we spin a short-lived HTTP server on 127.0.0.1 and
- * open the system browser. Redirect URI to register in each developer app:
- *   http://localhost:<port>/callback/<provider>   (default port 8737)
+ * Local listener is always HTTP on 127.0.0.1:<port>/callback/<provider>.
+ * Instagram authorize + token exchange use INSTAGRAM_PUBLIC_REDIRECT_URI.
+ * The landing page forwards ?code&state to the loopback server.
  *
- * Providers that make OAuth painful (Instagram) can instead be connected by
- * pasting an access token in Settings → handled by the provider modules.
+ * Paste-token remains available in Settings for Instagram.
  */
 
-const http = require('http');
-const crypto = require('crypto');
+const http = require('node:http');
+const crypto = require('node:crypto');
 const { shell } = require('electron');
 
 const FLOW_TIMEOUT_MS = 5 * 60 * 1000;
+const BOUNCE_PROBE_MS = 8000;
+const DEFAULT_OAUTH_PORT = 8737;
 
-// LinkedIn Community Management API scopes are opt-in (Settings → Social →
-// LinkedIn → company pages). Without that product, LinkedIn rejects the
-// authorization if these scopes are requested.
-// Includes member analytics (followers / post stats / connection count) plus
-// organization page management. Listing historical personal posts still needs
-// r_member_social, which LinkedIn keeps closed — we do not request it.
+const INSTAGRAM_PUBLIC_REDIRECT_URI = 'https://dome.dowi.es/oauth/instagram/callback';
+
 const LINKEDIN_BASE_SCOPES = 'openid profile w_member_social';
 const LINKEDIN_CMA_SCOPES =
   'r_basicprofile r_1st_connections_size r_member_profileAnalytics r_member_postAnalytics ' +
@@ -82,6 +78,56 @@ const AUTH_ENDPOINTS = {
   },
 };
 
+function loopbackRedirectUri(provider, port) {
+  return `http://localhost:${port}/callback/${provider}`;
+}
+
+function registeredRedirectUri(provider, port) {
+  if (provider === 'instagram') return INSTAGRAM_PUBLIC_REDIRECT_URI;
+  return loopbackRedirectUri(provider, port);
+}
+
+function encodeSocialOAuthState(nonce, port) {
+  return Buffer.from(JSON.stringify({ n: nonce, p: port }), 'utf8').toString('base64url');
+}
+
+function decodeSocialOAuthState(state) {
+  if (typeof state !== 'string' || !state) return { nonce: '', port: DEFAULT_OAUTH_PORT };
+  try {
+    const parsed = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+    if (parsed && typeof parsed.n === 'string' && parsed.n.length > 0) {
+      const port = Number(parsed.p);
+      const safePort = Number.isInteger(port) && port >= 1025 && port <= 65535
+        ? port
+        : DEFAULT_OAUTH_PORT;
+      return { nonce: parsed.n, port: safePort };
+    }
+  } catch {
+    /* legacy: state was a raw nonce */
+  }
+  return { nonce: state, port: DEFAULT_OAUTH_PORT };
+}
+
+async function assertPublicRedirectReachable(url, fetchImpl = fetch) {
+  let res;
+  try {
+    res = await fetchImpl(url, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(BOUNCE_PROBE_MS),
+    });
+  } catch (err) {
+    throw new Error(
+      `Instagram callback page is not reachable at ${url}. Deploy landing-page-dome oauth routes, then retry. (${err.message || err})`,
+    );
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Instagram callback page returned ${res.status} at ${url}. Wait for dome.dowi.es to finish deploying /oauth/instagram/callback, then retry.`,
+    );
+  }
+}
+
 function generatePKCE() {
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
@@ -100,7 +146,7 @@ function createSocialOAuth(store) {
   let _pending = null; // { provider, state, codeVerifier, resolve, reject, server, timer }
 
   function redirectUri(provider, port) {
-    return `http://localhost:${port}/callback/${provider}`;
+    return registeredRedirectUri(provider, port);
   }
 
   function cleanup() {
@@ -117,7 +163,7 @@ function createSocialOAuth(store) {
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: clientId,
-      redirect_uri: redirectUri(provider, port),
+      redirect_uri: registeredRedirectUri(provider, port),
       state,
       scope: typeof ep.scopes === 'function' ? ep.scopes(store) : ep.scopes,
     });
@@ -135,13 +181,12 @@ function createSocialOAuth(store) {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: redirectUri(provider, port),
+      redirect_uri: registeredRedirectUri(provider, port),
       client_id: clientId,
     });
     const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
     if (ep.pkce && codeVerifier) body.set('code_verifier', codeVerifier);
     if (provider === 'x' && clientSecret) {
-      // Confidential X clients authenticate with Basic auth instead of body params.
       headers.Authorization = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     } else if (clientSecret) {
       body.set('client_secret', clientSecret);
@@ -152,11 +197,6 @@ function createSocialOAuth(store) {
     return JSON.parse(text);
   }
 
-  /**
-   * Start OAuth for a provider. Resolves with the created account (renderer-safe).
-   * `finalizeAccount(provider, tokenData)` comes from the provider registry and
-   * turns raw token data into a stored social_accounts row.
-   */
   function startConnect(provider, finalizeAccount) {
     return new Promise((resolve, reject) => {
       const ep = AUTH_ENDPOINTS[provider];
@@ -179,18 +219,16 @@ function createSocialOAuth(store) {
       }
 
       const port = store.getOAuthPort();
-      const state = crypto.randomBytes(16).toString('base64url');
+      const nonce = crypto.randomBytes(16).toString('base64url');
+      const state = provider === 'instagram'
+        ? encodeSocialOAuthState(nonce, port)
+        : nonce;
       const { codeVerifier, codeChallenge } = ep.pkce ? generatePKCE() : {};
-      // Browsers sometimes hit the callback URL twice (prefetch / duplicate GET).
-      // Exchanging the same authorization code twice makes the provider revoke
-      // the token issued to the first exchange (OAuth code-reuse protection,
-      // seen as LinkedIn REVOKED_ACCESS_TOKEN) — so only the FIRST valid
-      // request may run the exchange.
       let consumed = false;
 
       const server = http.createServer(async (req, res) => {
         try {
-          const url = new URL(req.url, `http://localhost:${port}`);
+          const url = new URL(req.url, `http://127.0.0.1:${port}`);
           if (!url.pathname.startsWith('/callback/')) {
             res.writeHead(404).end();
             return;
@@ -212,7 +250,6 @@ function createSocialOAuth(store) {
             return;
           }
           if (consumed) {
-            // Duplicate delivery of the same code: acknowledge without exchanging.
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(htmlPage('Connecting…', 'Already processing — you can close this tab and return to Dome.'));
             return;
@@ -249,11 +286,23 @@ function createSocialOAuth(store) {
         finish(new Error(msg));
       });
 
-      server.listen(port, '127.0.0.1', () => {
-        const timer = setTimeout(() => finish(new Error('OAuth flow timed out (5 min).')), FLOW_TIMEOUT_MS);
-        _pending = { provider, state, codeVerifier, resolve, reject, server, timer };
-        const authUrl = buildAuthUrl(provider, clientId, port, state, codeChallenge);
-        void shell.openExternal(authUrl);
+      const listenAndOpen = () => {
+        server.listen(port, '127.0.0.1', () => {
+          const timer = setTimeout(() => finish(new Error('OAuth flow timed out (5 min).')), FLOW_TIMEOUT_MS);
+          _pending = { provider, state, codeVerifier, resolve, reject, server, timer };
+          const authUrl = buildAuthUrl(provider, clientId, port, state, codeChallenge);
+          shell.openExternal(authUrl).catch((err) => finish(err));
+        });
+      };
+
+      if (provider !== 'instagram') {
+        listenAndOpen();
+        return;
+      }
+
+      assertPublicRedirectReachable(INSTAGRAM_PUBLIC_REDIRECT_URI).then(listenAndOpen).catch((err) => {
+        try { server.close(); } catch { /* not listening */ }
+        reject(err);
       });
     });
   }
@@ -269,4 +318,14 @@ function createSocialOAuth(store) {
   return { startConnect, cancelPending, redirectUri };
 }
 
-module.exports = { createSocialOAuth, AUTH_ENDPOINTS, instagramScopes, xScopes };
+module.exports = {
+  createSocialOAuth,
+  AUTH_ENDPOINTS,
+  instagramScopes,
+  xScopes,
+  INSTAGRAM_PUBLIC_REDIRECT_URI,
+  registeredRedirectUri,
+  encodeSocialOAuthState,
+  decodeSocialOAuthState,
+  assertPublicRedirectReachable,
+};

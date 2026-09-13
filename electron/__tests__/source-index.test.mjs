@@ -119,11 +119,12 @@ describe('source-index', () => {
       );
       CREATE TABLE IF NOT EXISTS social_posts (
         id TEXT PRIMARY KEY,
-        account_id TEXT NOT NULL,
+        account_id TEXT,
         provider TEXT NOT NULL,
         body TEXT,
         topics TEXT,
         link_url TEXT,
+        campaign TEXT,
         status TEXT NOT NULL DEFAULT 'draft',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
@@ -146,6 +147,13 @@ describe('source-index', () => {
     const hits = sourceIndex.searchSocialDirect(['launch'], 'any-project');
     assert.ok(hits.some((h) => h.kind === 'social_post' && h.id === 'post-1'));
     assert.equal(hits[0]?.projectId, 'default');
+
+    memDb.prepare(
+      `INSERT INTO social_posts (id, account_id, provider, body, topics, status, created_at, updated_at)
+       VALUES ('post-orphan', NULL, 'instagram', 'Disconnected leftover launch', 'ghost', 'published', ?, ?)`,
+    ).run(now, now);
+    const afterOrphan = sourceIndex.searchSocialDirect(['launch'], 'any-project');
+    assert.equal(afterOrphan.some((h) => h.id === 'post-orphan'), false);
 
     const n = sourceIndex.indexSocialPosts();
     assert.ok(n >= 1);
