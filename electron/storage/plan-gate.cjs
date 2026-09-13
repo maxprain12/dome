@@ -60,18 +60,27 @@ async function fetchEntitlements(database) {
     };
   }
   const url = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/me/quota`;
-  const res = await domeOauth.fetchWithDomeAuth(database, url, { method: 'GET' });
-  if (!res.ok) {
-    const text = await res.text();
+  try {
+    const res = await domeOauth.fetchWithDomeAuth(database, url, { method: 'GET' });
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        ok: false,
+        error: `quota_${res.status}`,
+        detail: text,
+        entitlements: buildEntitlements({ planId: 'unsubscribed', subscriptionStatus: 'unknown' }),
+      };
+    }
+    const quota = await res.json();
+    return { ok: true, entitlements: buildEntitlements(quota) };
+  } catch (err) {
     return {
       ok: false,
-      error: `quota_${res.status}`,
-      detail: text,
+      error: 'quota_unreachable',
+      detail: String(err?.message || err),
       entitlements: buildEntitlements({ planId: 'unsubscribed', subscriptionStatus: 'unknown' }),
     };
   }
-  const quota = await res.json();
-  return { ok: true, entitlements: buildEntitlements(quota) };
 }
 
 /**

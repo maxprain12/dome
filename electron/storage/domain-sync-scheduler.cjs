@@ -47,11 +47,13 @@ function init(nextDeps) {
 function start() {
   if (timer) return;
   timer = setInterval(() => {
-    void tick();
+    queueTick();
   }, INTERVAL_MS);
   if (timer.unref) timer.unref();
   sseStopped = false;
-  void runSseLoop();
+  void runSseLoop().catch((err) => {
+    console.warn('[domain-sync] SSE loop stopped:', err?.message || err);
+  });
   console.log('[domain-sync] scheduler started (60s + SSE)');
 }
 
@@ -74,12 +76,12 @@ function stop() {
 function notifyDomainChanged(domain) {
   if (domain === 'actions') {
     actionsPending = true;
-    void tick();
+    queueTick();
     return;
   }
   if (!domainSync.VALID_DOMAINS.includes(domain)) return;
   pendingDomains.add(domain);
-  void tick();
+  queueTick();
 }
 
 /**
@@ -152,6 +154,12 @@ function sleep(ms) {
   return new Promise((resolve) => {
     const t = setTimeout(resolve, ms);
     if (t.unref) t.unref();
+  });
+}
+
+function queueTick() {
+  void tick().catch((err) => {
+    console.warn('[domain-sync] tick rejected', err?.message || err);
   });
 }
 
@@ -237,6 +245,9 @@ async function tick() {
         }
       }
     }
+  } catch (err) {
+    const message = formatDomainSyncError(err, getDomeProviderBaseUrl());
+    console.warn('[domain-sync] tick failed', message);
   } finally {
     running = false;
   }

@@ -116,9 +116,13 @@ function startSchedulerAfterGrace() {
     clearInterval(_intervalId);
   }
   _intervalId = setInterval(() => {
-    void tick();
+    void tick().catch((error) => {
+      console.error('[Automation] tick failed:', error?.message || error);
+    });
   }, TICK_INTERVAL_MS);
-  void tick();
+  void tick().catch((error) => {
+    console.error('[Automation] tick failed:', error?.message || error);
+  });
 }
 
 function init() {

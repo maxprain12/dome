@@ -10,6 +10,8 @@ const require = createRequire(import.meta.url);
 const {
   normalizeInstagramTokenResponse,
   isUnsupportedHttpMethodError,
+  isFetchNetworkError,
+  wrapInstagramGraphError,
   buildInstagramProfile,
 } = require('../social/providers/instagram.cjs');
 
@@ -64,6 +66,16 @@ describe('buildInstagramProfile', () => {
     assert.equal(profile.displayName, 'Instagram');
     assert.equal(profile.handle, null);
   });
+
+  it('unwraps the { data: [{ user_id, username }] } Graph /me payload', () => {
+    const profile = buildInstagramProfile(
+      { data: [{ user_id: '178414000', username: 'ad.vo2', name: 'Ad Vo' }] },
+      null,
+    );
+    assert.equal(profile.externalId, '178414000');
+    assert.equal(profile.handle, '@ad.vo2');
+    assert.equal(profile.displayName, 'Ad Vo');
+  });
 });
 
 describe('isUnsupportedHttpMethodError', () => {
@@ -73,5 +85,26 @@ describe('isUnsupportedHttpMethodError', () => {
       true,
     );
     assert.equal(isUnsupportedHttpMethodError(new Error('rate limited')), false);
+  });
+});
+
+describe('isFetchNetworkError', () => {
+  it('matches undici timeouts and aborts', () => {
+    const timedOut = new Error('fetch failed');
+    timedOut.cause = { code: 'ETIMEDOUT' };
+    assert.equal(isFetchNetworkError(timedOut), true);
+    assert.equal(isFetchNetworkError(Object.assign(new Error('aborted'), { name: 'AbortError' })), true);
+    assert.equal(isFetchNetworkError(new Error('Instagram API 400: boom')), false);
+  });
+});
+
+describe('wrapInstagramGraphError', () => {
+  it('adds an actionable hint and stays idempotent', () => {
+    const wrapped = wrapInstagramGraphError(
+      new Error('Instagram API 400: Unsupported request - method type: get'),
+    );
+    assert.match(wrapped.message, /Instagram Testers/);
+    assert.match(wrapped.message, /method type: get/);
+    assert.equal(wrapInstagramGraphError(wrapped), wrapped);
   });
 });

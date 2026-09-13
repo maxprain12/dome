@@ -578,7 +578,11 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
 
   service.startScheduler();
   // Backfill calendar events for already-scheduled posts (boot catch-up).
-  setTimeout(() => void socialCalendarBridge.syncAllFromStore(service.store), 20 * 1000);
+  setTimeout(() => {
+    void socialCalendarBridge.syncAllFromStore(service.store).catch((err) => {
+      console.warn('[Social] calendar backfill:', err?.message || err);
+    });
+  }, 20 * 1000);
 }
 
 module.exports = { register };

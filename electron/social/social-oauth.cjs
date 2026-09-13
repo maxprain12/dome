@@ -22,6 +22,10 @@ const BOUNCE_PROBE_MS = 8000;
 const DEFAULT_OAUTH_PORT = 8737;
 
 const INSTAGRAM_PUBLIC_REDIRECT_URI = 'https://dome.dowi.es/oauth/instagram/callback';
+/** Parent Facebook app — not valid as Instagram Login client_id. */
+const DOME_FACEBOOK_APP_ID = '1310519154571859';
+/** Instagram product App ID (Dome-IG) used by Business Login for Instagram. */
+const DOME_INSTAGRAM_APP_ID = '1402064921780132';
 
 const LINKEDIN_BASE_SCOPES = 'openid profile w_member_social';
 const LINKEDIN_CMA_SCOPES =
@@ -85,6 +89,118 @@ function loopbackRedirectUri(provider, port) {
 function registeredRedirectUri(provider, port) {
   if (provider === 'instagram') return INSTAGRAM_PUBLIC_REDIRECT_URI;
   return loopbackRedirectUri(provider, port);
+}
+
+function sanitizeOauthCode(code) {
+  if (typeof code !== 'string' || !code) return code;
+  return code.trim().replace(/(?:%23|#)_+$/i, '').replace(/(?:%23|#)$/i, '');
+}
+
+function instagramCodeExchangeFields({ clientId, clientSecret, redirectUri, code }) {
+  return {
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+    code,
+  };
+}
+
+function looksLikeInstagramTokenPayload(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+  if (typeof payload.access_token === 'string' && payload.access_token.trim()) return true;
+  const row = Array.isArray(payload.data) ? payload.data[0] : null;
+  return Boolean(row && typeof row === 'object' && typeof row.access_token === 'string' && row.access_token.trim());
+}
+
+async function postOAuthFields(url, fields, multipart) {
+    if (multipart) {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) {
+      if (v !== undefined && v !== null) form.append(k, String(v));
+    }
+    return fetch(url, { method: 'POST', body: form, signal: AbortSignal.timeout(BOUNCE_PROBE_MS * 3) });
+  }
+  const body = new URLSearchParams();
+  for (const [k, v] of Object.entries(fields)) {
+    if (v !== undefined && v !== null) body.set(k, String(v));
+  }
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+    signal: AbortSignal.timeout(BOUNCE_PROBE_MS * 3),
+  });
+}
+
+const INSTAGRAM_CODE_EXCHANGE_URLS = [
+  'https://api.instagram.com/oauth/access_token',
+  'https://graph.instagram.com/oauth/access_token',
+];
+
+async function exchangeInstagramAuthorizationCode({ clientId, clientSecret, redirectUri, code }) {
+  const fields = instagramCodeExchangeFields({ clientId, clientSecret, redirectUri, code });
+  let lastErr;
+  for (const url of INSTAGRAM_CODE_EXCHANGE_URLS) {
+    for (const multipart of [true, false]) {
+      try {
+        const res = await postOAuthFields(url, fields, multipart);
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
+        if (res.ok && looksLikeInstagramTokenPayload(data)) {
+          console.warn('[SocialOAuth] Instagram code exchange ok', {
+            host: new URL(url).host,
+            encoding: multipart ? 'multipart' : 'urlencoded',
+          });
+          return data;
+        }
+        lastErr = new Error(`instagram token exchange failed: ${res.status} ${text.slice(0, 500)}`);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+  }
+  throw lastErr || new Error('instagram token exchange failed');
+}
+
+function applyInstagramBusinessLoginParams(params) {
+  // Business Login for Instagram (Mar 2026): hide Facebook Login on the
+  // re-auth screen. The default enable_fb_login=true issues a Facebook-style
+  // token that graph.instagram.com rejects as "Unsupported request - method type".
+  params.set('force_reauth', 'true');
+  params.set('enable_fb_login', '0');
+  return params;
+}
+
+function assertInstagramOAuthClientId(clientId) {
+  const id = String(clientId || '').trim();
+  if (id === DOME_FACEBOOK_APP_ID) {
+    throw new Error(
+      `Instagram OAuth needs the Instagram App ID (${DOME_INSTAGRAM_APP_ID}), not the Facebook App ID of Dome IA. Copy it from App Dashboard → Instagram → API setup with Instagram login → Business login settings.`,
+    );
+  }
+}
+
+function buildAuthUrl(provider, clientId, port, state, codeChallenge, scope) {
+  const ep = AUTH_ENDPOINTS[provider];
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: registeredRedirectUri(provider, port),
+    state,
+    scope,
+  });
+  if (ep.pkce && codeChallenge) {
+    params.set('code_challenge', codeChallenge);
+    params.set('code_challenge_method', 'S256');
+  }
+  if (provider === 'instagram') applyInstagramBusinessLoginParams(params);
+  return `${ep.authUrl}?${params.toString()}`;
 }
 
 function encodeSocialOAuthState(nonce, port) {
@@ -158,26 +274,17 @@ function createSocialOAuth(store) {
     _pending = null;
   }
 
-  function buildAuthUrl(provider, clientId, port, state, codeChallenge) {
-    const ep = AUTH_ENDPOINTS[provider];
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: clientId,
-      redirect_uri: registeredRedirectUri(provider, port),
-      state,
-      scope: typeof ep.scopes === 'function' ? ep.scopes(store) : ep.scopes,
-    });
-    if (ep.pkce && codeChallenge) {
-      params.set('code_challenge', codeChallenge);
-      params.set('code_challenge_method', 'S256');
-    }
-    if (provider === 'instagram') params.set('force_reauth', 'true');
-    return `${ep.authUrl}?${params.toString()}`;
-  }
-
   async function exchangeCode(provider, code, port, codeVerifier) {
     const ep = AUTH_ENDPOINTS[provider];
     const { clientId, clientSecret } = store.getProviderConfig(provider);
+    if (provider === 'instagram') {
+      return exchangeInstagramAuthorizationCode({
+        clientId,
+        clientSecret,
+        redirectUri: registeredRedirectUri(provider, port),
+        code,
+      });
+    }
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
@@ -213,6 +320,14 @@ function createSocialOAuth(store) {
         reject(new Error(`social:${provider}: client secret not configured. Add it in Settings → Social.`));
         return;
       }
+      if (provider === 'instagram') {
+        try {
+          assertInstagramOAuthClientId(clientId);
+        } catch (err) {
+          reject(err);
+          return;
+        }
+      }
       if (_pending) {
         reject(new Error('Another social connection is already in progress.'));
         return;
@@ -235,7 +350,7 @@ function createSocialOAuth(store) {
           }
           const cbProvider = url.pathname.split('/')[2];
           const error = url.searchParams.get('error');
-          const code = url.searchParams.get('code');
+          const code = sanitizeOauthCode(url.searchParams.get('code'));
           const gotState = url.searchParams.get('state');
 
           if (error) {
@@ -290,7 +405,8 @@ function createSocialOAuth(store) {
         server.listen(port, '127.0.0.1', () => {
           const timer = setTimeout(() => finish(new Error('OAuth flow timed out (5 min).')), FLOW_TIMEOUT_MS);
           _pending = { provider, state, codeVerifier, resolve, reject, server, timer };
-          const authUrl = buildAuthUrl(provider, clientId, port, state, codeChallenge);
+          const scope = typeof ep.scopes === 'function' ? ep.scopes(store) : ep.scopes;
+          const authUrl = buildAuthUrl(provider, clientId, port, state, codeChallenge, scope);
           shell.openExternal(authUrl).catch((err) => finish(err));
         });
       };
@@ -324,8 +440,17 @@ module.exports = {
   instagramScopes,
   xScopes,
   INSTAGRAM_PUBLIC_REDIRECT_URI,
+  DOME_FACEBOOK_APP_ID,
+  DOME_INSTAGRAM_APP_ID,
   registeredRedirectUri,
   encodeSocialOAuthState,
   decodeSocialOAuthState,
   assertPublicRedirectReachable,
+  sanitizeOauthCode,
+  applyInstagramBusinessLoginParams,
+  assertInstagramOAuthClientId,
+  buildAuthUrl,
+  instagramCodeExchangeFields,
+  looksLikeInstagramTokenPayload,
+  INSTAGRAM_CODE_EXCHANGE_URLS,
 };
