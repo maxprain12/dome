@@ -17,11 +17,11 @@ The latest local browser conversation retries stale element IDs across turns, re
 
 ## Validation
 - Desktop: typecheck, lint (existing warnings), build, IPC inventory (614 channels), Zod policy, tool coverage (144 tools), prompt parity, UI contracts, Sonar patterns and dependency boundaries.
-- Renderer: 327 interaction tests; focused persistence bridge / save queue regressions also pass after final edits.
+- Renderer: 327 interaction tests; six focused persistence bridge / save queue regressions also pass after final edits, including the legacy manual Save bridge.
 - Main: 162 security/lifecycle tests, plus dispatcher and browser-tool tests.
 - Extension: 37 unit tests, typecheck, Chrome/Edge/Firefox/Safari builds and 15 Chromium E2E tests (persistent consent, revocation, visible cursor, dashboard reads and responsive themes).
 - Visual review: real workspace component in Chromium; source save, invalid JSON feedback and retained iframe verified.
 - Additional tool-family audit: artifacts passes; unrelated GitHub family already has 9 definitions vs 13 catalog names.
 
 ## Compatibility
-Documents use `state.format=document` with Markdown and compiled HTML, retaining the existing SQLite type constraint. HTML artifacts and spreadsheet links remain supported. Retired feeder tables are not created on fresh installs; existing rows are not deleted and have no runnable routes. The content reader protocol is version 5 so existing tabs receive the cursor implementation.
+Documents use `state.format=document` with Markdown and compiled HTML, retaining the existing SQLite type constraint. HTML artifacts retain manual Save via __dome_collectState; linked spreadsheets refresh on open. Retired feeder tables are not created on fresh installs; existing rows are not deleted and have no runnable routes. The content reader protocol is version 5 so existing tabs receive the cursor implementation.

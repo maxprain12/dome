@@ -12,7 +12,7 @@ import type { ArtifactRecord } from '@/types';
 import { useDomeThemeSnapshot, buildDomeThemeStyleContent } from '@/lib/chat/useDomeThemeSnapshot';
 import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import { handleArtifactNavigateMessage, isTrustedArtifactMessageOrigin, openArtifactExternalUrl } from '@/lib/chat/artifactIframeNavigate';
-import { mergedDomeDataPayload, artifactFrameTargetOrigin, canonicalDataJson, resolveArtifactHtmlCss, buildSrcdocFromParts } from '@/lib/chat/artifactDocument';
+import { mergedDomeDataPayload, artifactFrameTargetOrigin, canonicalDataJson, resolveArtifactHtmlCss, buildSrcdocFromParts, requestArtifactState } from '@/lib/chat/artifactDocument';
 import { createArtifactSaveQueue } from '@/lib/chat/artifactSaveQueue';
 
 type EditorTab = 'preview' | 'source' | 'data';
@@ -31,6 +31,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
   const iframe = useRef<HTMLIFrameElement>(null);
   const current = useRef(artifact);
   current.current = artifact;
+  const stateRequest = useRef<AbortController | null>(null);
   const queue = useRef<ReturnType<typeof createArtifactSaveQueue> | null>(null);
   const themeCss = buildDomeThemeStyleContent(theme.vars);
   const initialTheme = useRef(themeCss);
@@ -88,6 +89,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
     window.addEventListener('message', onMessage);
     return () => {
       mounted = false;
+      stateRequest.current?.abort();
       off?.();
       window.removeEventListener('message', onMessage);
       void saves.flush();
@@ -98,6 +100,15 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
   useEffect(() => {
     iframe.current?.contentWindow?.postMessage({ type: 'dome:theme:update', css: themeCss }, frameOrigin);
   }, [themeCss, frameOrigin]);
+
+  useEffect(() => {
+    if (!artifact?.linkedResourceId) return;
+    let active = true;
+    window.electron.artifacts.refreshLinked(resourceId).then((result) => {
+      if (active && !result.success) setSaveError(result.error || t('artifacts.refresh_linked_error'));
+    }).catch((error: unknown) => { if (active) setSaveError(String(error)); });
+    return () => { active = false; };
+  }, [resourceId, artifact?.linkedResourceId, t]);
 
   const operate = useCallback(async (action: () => Promise<{ success: boolean; error?: string }>) => {
     setSaving(true);
@@ -110,6 +121,17 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
     } catch (err) { setSaveError(err instanceof Error ? err.message : String(err)); }
     finally { setSaving(false); }
   }, []);
+
+  const savePreview = () => operate(async () => {
+    const target = iframe.current?.contentWindow;
+    if (!target) return { success: false, error: t('artifacts.save_state_no_iframe') };
+    stateRequest.current?.abort();
+    const controller = new AbortController();
+    stateRequest.current = controller;
+    const data = await requestArtifactState(target, controller.signal);
+    queue.current?.enqueue(data);
+    return { success: await queue.current?.flush() ?? false };
+  });
 
   const saveDraft = () => operate(async () => {
     if (!draft || !artifact) return { success: false };
@@ -141,6 +163,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
       <SubpageHeader.Title><span className="flex items-center gap-2"><HugeiconsIcon icon={Layers01Icon} className="size-4 text-primary" />{artifact.title}</span></SubpageHeader.Title>
       <SubpageHeader.Trailing>
         <IndexStatusBadge resourceId={resourceId} resourceType="artifact" />
+        {tab === 'preview' && !isDocument && <Button size="sm" variant="outline" disabled={saving || !!draft} onClick={() => void savePreview()} title={t('artifacts.save_state_title')}>{t('artifacts.save_state')}</Button>}
         {artifact.linkedResourceId && <Button size="sm" variant="outline" disabled={saving} onClick={() => void operate(() => window.electron.artifacts.refreshLinked(resourceId))}>{t('artifacts.refresh_linked')}</Button>}
         <Button size="sm" variant="ghost" disabled={saving || !!draft} onClick={() => void operate(() => window.electron.artifacts.export(resourceId))}>{t('artifacts.export_artifact')}</Button>
         <Button size="sm" variant="outline" disabled={saving || !!draft} onClick={() => void operate(() => window.electron.artifacts.exportHtml(resourceId))}>{t('artifacts.export_html')}</Button>

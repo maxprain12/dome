@@ -1,7 +1,7 @@
 import type { ArtifactRecord } from '@/types';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from './artifactStorageShim';
 import { normalizeArtifactBodyHtml } from './artifactFrameUrl';
-import { buildArtifactNavigateBootScript } from './artifactIframeNavigate';
+import { buildArtifactNavigateBootScript, isTrustedArtifactMessageOrigin } from './artifactIframeNavigate';
 
 export function mergedDomeDataPayload(artifact: ArtifactRecord | null): Record<string, unknown> {
   if (!artifact?.state || typeof artifact.state !== 'object') return {};
@@ -195,4 +195,30 @@ ${buildArtifactNavigateBootScript()}
 </script>
 </body>
 </html>`;
+}
+
+/** Read legacy app state on explicit Save without trusting messages from other frames. */
+export function requestArtifactState(frame: Window, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const requestId = crypto.randomUUID();
+    const finish = (error?: Error, data?: Record<string, unknown>) => {
+      clearTimeout(timer);
+      window.removeEventListener('message', receive);
+      signal?.removeEventListener('abort', abort);
+      if (error) reject(error); else resolve(data ?? {});
+    };
+    const abort = () => finish(new Error('Cancelled'));
+    const receive = (event: MessageEvent) => {
+      if (event.source !== frame || !isTrustedArtifactMessageOrigin(event.origin) || event.data?.type !== 'dome:state:snapshot' || event.data.requestId !== requestId) return;
+      const data = event.data.payload;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) finish(new Error('Artifact state must be a JSON object'));
+      else finish(undefined, data);
+    };
+    const timer = setTimeout(() => finish(new Error('Artifact did not respond to Save')), 8000);
+    window.addEventListener('message', receive);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) { abort(); return; }
+    try { frame.postMessage({ type: 'dome:request-state', requestId }, '*'); }
+    catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
+  });
 }

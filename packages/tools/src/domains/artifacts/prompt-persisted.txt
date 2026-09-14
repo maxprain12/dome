@@ -12,7 +12,7 @@
 
 ## Interactive contract
 
-html is a BODY FRAGMENT, not a full document. Use inline styles, markup and scripts. Dome installs the theme, storage shim and data bridge BEFORE author scripts. Render from window.DOME_DATA. After every meaningful change call window.__dome_updateState(fullNextDataObject). Define window.dome_onDataRefresh(next) to redraw on external updates. Simple input/select/textarea controls can bind via data-dome-key, id or name. Dome coalesces frequent form edits and serializes writes. The workspace shows save failures.
+html is a BODY FRAGMENT, not a full document. Use inline styles, markup and scripts. Dome installs the theme, storage shim and data bridge BEFORE author scripts. Render from window.DOME_DATA. After every meaningful change call window.__dome_updateState(fullNextDataObject). Define window.dome_onDataRefresh(next) to redraw on external updates. Legacy apps may expose window.__dome_collectState() for the Preview Save action. Simple input/select/textarea controls can bind via data-dome-key, id or name. Dome coalesces frequent form edits and serializes writes. The workspace shows save failures.
 
 Do not use localStorage, sessionStorage, IndexedDB, cookies, Node, IPC or external script runners for persistence. The frame is sandboxed. Use textContent for untrusted data. Data is injected as escaped JSON. Use Dome theme variables for surfaces, text, borders and accent; support empty states and keyboard controls.
 
