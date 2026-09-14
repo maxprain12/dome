@@ -1,35 +1,13 @@
 /* eslint-disable no-console */
-const crypto = require('crypto');
 const { serializeArtifactRecord, parseJsonState } = require('../../artifacts/artifact-serialize.cjs');
-const { afterArtifactMutation } = require('../../artifacts/artifact-index-sync.cjs');
 const { syncLinkedArtifactsForResource } = require('../../artifacts/artifact-link-sync.cjs');
 const vaultStore = require('../../storage/vault-store.cjs');
-const { syncArtifactFeedersSidecar } = require('../../artifacts/feeder-vault-sidecar.cjs');
-const { normalizeArtifactHtml, normalizeArtifactState } = require('../../artifacts/artifact-html-normalize.cjs');
+const { createArtifactService, inlineJson, escapeHtml } = require('../../artifacts/artifact-service.cjs');
+const { EXPORT_THEME } = require('../../artifacts/artifact-vault-mirror.cjs');
 const frameRegistry = require('../../artifacts/artifact-frame-registry.cjs');
-
-function generateId() {
-  return crypto.randomUUID();
-}
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function syncRuntimeDataFromState(queries, artifactRow, stateObj, now) {
-  if (!artifactRow || !isPlainObject(stateObj?.data)) return;
-  const dataStr = JSON.stringify(stateObj.data);
-  const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
-  queries.upsertArtifactRuntimeData.run(
-    existing?.id || crypto.randomUUID(),
-    artifactRow.id,
-    'default',
-    dataStr,
-    existing?.schema_version ?? 1,
-    existing?.last_run_id ?? null,
-    existing?.last_automation_id ?? null,
-    now,
-  );
 }
 
 function mirrorArtifactToVault(resourceId, deps) {
@@ -45,69 +23,14 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   const fs = require('fs');
   const { dialog } = require('electron');
 
-  ipcMain.handle('artifact:create', (event, { title, artifactType, template, state, linkedResourceId, projectId, folderId }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const queries = database.getQueries();
-      const db = database.getDB();
-      const now = Date.now();
-      const resourceId = generateId();
-      const artifactId = generateId();
-      // Full-document HTML nests invalid markup inside the frame wrapper — store body fragments only.
-      const stateStr = JSON.stringify(normalizeArtifactState(state ?? {}));
-      const normalizedTemplate =
-        typeof template === 'string' ? normalizeArtifactHtml(template).body : (template ?? null);
-
-      const tx = db.transaction(() => {
-        queries.createResource.run(
-          resourceId,
-          projectId || 'default',
-          'artifact',
-          title || 'Untitled Artifact',
-          null,
-          null,
-          folderId ?? null,
-          null,
-          now,
-          now,
-        );
-        queries.createArtifact.run(
-          artifactId,
-          resourceId,
-          artifactType || 'custom',
-          normalizedTemplate,
-          stateStr,
-          linkedResourceId ?? null,
-          now,
-          now,
-        );
-        const art = queries.getArtifactByResourceId.get(resourceId);
-        if (art) {
-          syncRuntimeDataFromState(queries, art, parseJsonState(stateStr), now);
-        }
-      });
-      tx();
-
-      mirrorArtifactToVault(resourceId, vaultDeps);
-
-      const queries2 = database.getQueries();
-      const resource = queries2.getResourceById.get(resourceId);
-      const artifact = queries2.getArtifactByResourceId.get(resourceId);
-      const serialized = serializeArtifactRecord(artifact, resource, queries2);
-
-      windowManager.broadcast('resource:created', resource);
-      windowManager.broadcast('artifact:created', serialized);
-
-      afterArtifactMutation(database, resourceId);
-
-      return { success: true, data: serialized };
-    } catch (error) {
-      console.error('[Artifact] Error creating:', error);
-      return { success: false, error: error.message };
-    }
-  });
+  const service = createArtifactService({ database, fileStorage, windowManager });
+  const mutation = (event, operation, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try { return operation(args); } catch (error) { return { success: false, error: error.message }; }
+  };
+  ipcMain.handle('artifact:create', (event, args) => mutation(event, service.create, args));
+  ipcMain.handle('artifact:update', (event, args) => mutation(event, service.update, args));
+  ipcMain.handle('artifact:delete', (event, resourceId) => mutation(event, service.remove, resourceId));
 
   ipcMain.handle('artifact:get', (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -122,111 +45,6 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       return { success: true, data: serializeArtifactRecord(artifact, resource, queries) };
     } catch (error) {
       console.error('[Artifact] Error getting:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('artifact:buildDesign', (event, payload) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const { buildArtifactDesignLayout } = require('../../artifacts/artifact-design-layout.cjs');
-      let spec = payload?.spec ?? payload?.design_spec;
-      if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
-        const p = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
-        if (p && (p.title != null || p.tabs != null)) {
-          spec = p;
-        }
-      }
-      const built = buildArtifactDesignLayout(spec);
-      if (!built.ok) {
-        return { success: false, error: built.error };
-      }
-      return {
-        success: true,
-        html: built.html,
-        data: built.data,
-        hints:
-          'Pass html and data to artifact:create with artifactType custom. Load artifact_design doc first if needed.',
-      };
-    } catch (error) {
-      console.error('[Artifact] buildDesign error:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('artifact:update', (event, { resourceId, state, data, artifactType, linkedResourceId }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const queries = database.getQueries();
-      const db = database.getDB();
-      const now = Date.now();
-      const existing = queries.getArtifactByResourceId.get(resourceId);
-      if (!existing) return { success: false, error: 'Artifact not found' };
-
-      const stateTouched = state !== undefined || data !== undefined;
-      const tx = db.transaction(() => {
-        // Re-read inside the transaction: a `data`-only save must merge into
-        // the *current* state (html/css may have changed since the renderer
-        // loaded its copy), never overwrite it with a stale snapshot.
-        const current = queries.getArtifactByResourceId.get(resourceId) || existing;
-        let nextStateStr = current.state;
-        if (state !== undefined) {
-          nextStateStr = JSON.stringify(normalizeArtifactState(state));
-        } else if (data !== undefined) {
-          const cur = parseJsonState(current.state);
-          nextStateStr = JSON.stringify({ ...(isPlainObject(cur) ? cur : {}), data });
-        }
-        if (artifactType !== undefined || linkedResourceId !== undefined) {
-          queries.updateArtifact.run(
-            artifactType ?? current.artifact_type,
-            current.template,
-            nextStateStr,
-            linkedResourceId !== undefined ? (linkedResourceId ?? null) : (current.linked_resource_id ?? null),
-            now,
-            resourceId,
-          );
-        } else if (stateTouched) {
-          queries.updateArtifactState.run(nextStateStr, now, resourceId);
-        }
-        const updated = queries.getArtifactByResourceId.get(resourceId);
-        if (updated && stateTouched) {
-          syncRuntimeDataFromState(queries, updated, parseJsonState(nextStateStr), now);
-        }
-      });
-      tx();
-
-      mirrorArtifactToVault(resourceId, vaultDeps);
-      void syncArtifactFeedersSidecar(database, fileStorage, resourceId);
-
-      const updated = queries.getArtifactByResourceId.get(resourceId);
-      const resource = queries.getResourceById.get(resourceId);
-      const serialized = serializeArtifactRecord(updated, resource, queries);
-      windowManager.broadcast('artifact:updated', serialized);
-
-      afterArtifactMutation(database, resourceId);
-
-      return { success: true, data: serialized };
-    } catch (error) {
-      console.error('[Artifact] Error updating:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('artifact:delete', (event, resourceId) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const queries = database.getQueries();
-      queries.deleteArtifact.run(resourceId);
-      windowManager.broadcast('artifact:deleted', { resourceId });
-      return { success: true };
-    } catch (error) {
-      console.error('[Artifact] Error deleting:', error);
       return { success: false, error: error.message };
     }
   });
@@ -302,7 +120,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const css = typeof stateObj.css === 'string' ? stateObj.css : '';
       const data = stateObj.data !== undefined ? stateObj.data : {};
 
-      const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title><style>${css || ''}</style></head><body>${html || ''}<script>window.DOME_DATA = ${JSON.stringify(data || {})};</script></body></html>`;
+      const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>${EXPORT_THEME}\n${css || ''}</style></head><body><script>window.DOME_DATA = ${inlineJson(data)};window.__dome_updateState = function(next){window.DOME_DATA=next};</script>${html || ''}</body></html>`;
 
       const result = await dialog.showSaveDialog({
         defaultPath: `${title}.html`,
@@ -323,9 +141,6 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const queries = database.getQueries();
-      const db = database.getDB();
-
       const result = await dialog.showOpenDialog({
         filters: [{ name: 'Dome Artifact', extensions: ['json'] }],
         properties: ['openFile'],
@@ -339,56 +154,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       }
 
       const { title, artifact_type, template, state } = bundle.artifact;
-      const now = Date.now();
-      const resourceId = generateId();
-      const artifactId = generateId();
-      const importedStateStr = JSON.stringify(normalizeArtifactState(state ?? {}));
-      const importedTemplate =
-        typeof template === 'string' ? normalizeArtifactHtml(template).body : (template ?? null);
-
-      const tx = db.transaction(() => {
-        queries.createResource.run(
-          resourceId,
-          'default',
-          'artifact',
-          title || 'Imported Artifact',
-          null,
-          null,
-          null,
-          null,
-          now,
-          now,
-        );
-        queries.createArtifact.run(
-          artifactId,
-          resourceId,
-          artifact_type,
-          importedTemplate,
-          importedStateStr,
-          null,
-          now,
-          now,
-        );
-        const art = queries.getArtifactByResourceId.get(resourceId);
-        if (art) {
-          syncRuntimeDataFromState(queries, art, parseJsonState(importedStateStr), now);
-        }
-      });
-      tx();
-
-      mirrorArtifactToVault(resourceId, vaultDeps);
-
-      const queries2 = database.getQueries();
-      const resource = queries2.getResourceById.get(resourceId);
-      const artifact = queries2.getArtifactByResourceId.get(resourceId);
-      const serialized = serializeArtifactRecord(artifact, resource, queries2);
-
-      windowManager.broadcast('resource:created', resource);
-      windowManager.broadcast('artifact:created', serialized);
-
-      afterArtifactMutation(database, resourceId);
-
-      return { success: true, data: serialized };
+      return service.create({ title, artifactType: artifact_type, template, state });
     } catch (error) {
       console.error('[Artifact] Error importing:', error);
       return { success: false, error: error.message };

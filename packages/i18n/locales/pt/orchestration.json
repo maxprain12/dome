@@ -46,7 +46,7 @@
     "toggle_enabled": "Ativar ou desativar",
     "run_now": "Executar",
     "empty_title": "Automatize seu trabalho",
-    "empty_desc": "Crie regras que executam agentes, workflows ou feeders com horário, manualmente ou por contexto.",
+    "empty_desc": "Crie regras que executam agentes, workflows com horário, manualmente ou por contexto.",
     "no_results": "Nenhuma automação corresponde ao filtro.",
     "delete_title": "Excluir automação",
     "delete_confirm": "Excluir a automação \"{{name}}\"?"
@@ -86,7 +86,6 @@
     "summary_weekly": "Toda semana ({{weekday}}) às {{hour}}:00",
     "summary_interval": "A cada {{minutes}} minutos",
     "summary_contextual": "Quando o contexto corresponder: {{tags}}",
-    "summary_feeder_output": "O feeder atualiza seu artefato diretamente",
     "summary_bindings_one": "Sincroniza {{count}} artefato ao concluir",
     "summary_bindings_other": "Sincroniza {{count}} artefatos ao concluir"
   },

@@ -73,35 +73,6 @@ export const automationArtifactBindings = sqliteTable('automation_artifact_bindi
   updatedAt: integer('updated_at').notNull(),
 });
 
-export const feeders = sqliteTable('feeders', {
-  id: text('id').primaryKey(),
-  projectId: text('project_id').notNull().default('default'),
-  name: text('name').notNull(),
-  type: text('type').notNull(),
-  configJson: text('config_json'),
-  enabled: integer('enabled').notNull().default(1),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-export const feederSecrets = sqliteTable('feeder_secrets', {
-  id: text('id').primaryKey(),
-  feederId: text('feeder_id').notNull(),
-  key: text('key').notNull(),
-  secret: text('secret').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-export const feederRuns = sqliteTable('feeder_runs', {
-  id: text('id').primaryKey(),
-  feederId: text('feeder_id').notNull(),
-  status: text('status').notNull(),
-  output: text('output'),
-  metadata: text('metadata'),
-  startedAt: integer('started_at').notNull(),
-  finishedAt: integer('finished_at'),
-});
-
 export const emailAccounts = sqliteTable('email_accounts', {
   id: text('id').primaryKey(),
   email: text('email').notNull(),

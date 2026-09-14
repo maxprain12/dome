@@ -53,5 +53,13 @@
   "timeline": "Timeline",
   "html": "HTML",
   "calendar_event": "Calendar",
-  "flashcard_deck": "Flashcards"
+  "flashcard_deck": "Flashcards",
+  "preview": "Preview",
+  "source": "Source",
+  "data": "Data",
+  "unsaved": "Unsaved changes",
+  "saved": "Saved",
+  "discard": "Discard",
+  "markdown": "Markdown content",
+  "data_help": "Edit artifact data as a JSON object. Saving replaces the current data."
 }

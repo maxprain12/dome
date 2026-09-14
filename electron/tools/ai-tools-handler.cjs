@@ -4578,25 +4578,8 @@ async function runShellCommand(command, workDir, args = {}, toolContext = null) 
 // Artifact tools (the agent runtime / main process — mirrors IPC artifact:* handlers)
 // =============================================================================
 
-function _isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function _syncArtifactRuntimeFromState(queries, artifactRow, stateObj, now) {
-  if (!artifactRow || !_isPlainObject(stateObj?.data)) return;
-  const cryptoMod = require('node:crypto');
-  const dataStr = JSON.stringify(stateObj.data);
-  const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
-  queries.upsertArtifactRuntimeData.run(
-    existing?.id || cryptoMod.randomUUID(),
-    artifactRow.id,
-    'default',
-    dataStr,
-    existing?.schema_version ?? 1,
-    existing?.last_run_id ?? null,
-    existing?.last_automation_id ?? null,
-    now,
-  );
+function artifactService() {
+  return require('../artifacts/artifact-service.cjs').createArtifactService({ database, fileStorage, windowManager: windowManagerRef });
 }
 
 async function artifactList(args) {
@@ -4637,221 +4620,26 @@ async function artifactGet(args) {
 
 async function artifactCreate(args) {
   try {
-    const cryptoMod = require('node:crypto');
-    const rawTitle = typeof args?.title === 'string' ? args.title.trim() : '';
-    const rawType = args?.artifact_type ?? args?.artifactType ?? 'custom';
-    const allowed = new Set(['task-tracker', 'chart', 'custom']);
-    const artifactType = allowed.has(rawType) ? rawType : 'custom';
-    const html = typeof args?.html === 'string' ? args.html : '';
-    if (!html.trim()) return { success: false, error: 'html is required' };
-    const htmlTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? '';
-    const title = rawTitle || htmlTitle || artifactType || 'Untitled Artifact';
-    const warnings = [];
-    const HTML_SOFT_LIMIT = 200_000;
-    if (html.length > HTML_SOFT_LIMIT) {
-      warnings.push(
-        `HTML is ${Math.round(html.length / 1024)} KB (soft limit ~${HTML_SOFT_LIMIT / 1024} KB). ` +
-        `Consider using artifact_link_resource + window.DOME_DATA for dynamic data instead of inlining rows as static strings. ` +
-        `Large HTML payloads inflate model context and slow re-renders.`
-      );
-    }
-    const data = _isPlainObject(args?.data) ? args.data : {};
-
-    let projectId = args?.project_id ?? args?.projectId;
-    if (!projectId) {
-      const cur = await getCurrentProject();
-      projectId = cur?.id || 'default';
-    }
-
-    const queries = database.getQueries();
-    const db = database.getDB();
-    const now = Date.now();
-    const resourceId = cryptoMod.randomUUID();
-    const artifactId = cryptoMod.randomUUID();
-    // Full-document HTML nests invalid markup inside the frame wrapper (issue #465) —
-    // normalize to a body fragment and hoist <head> styles into state.css.
-    const state = normalizeArtifactState({ html, data });
-    const stateStr = JSON.stringify(state);
-
-    const tx = db.transaction(() => {
-      queries.createResource.run(resourceId, projectId, 'artifact', title, null, null, null, null, now, now);
-      queries.createArtifact.run(artifactId, resourceId, artifactType, null, stateStr, null, now, now);
-      const art = queries.getArtifactByResourceId.get(resourceId);
-      if (art) {
-        _syncArtifactRuntimeFromState(queries, art, parseJsonState(stateStr), now);
-      }
-    });
-    tx();
-
-    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
-
-    const resource = queries.getResourceById.get(resourceId);
-    const artifact = queries.getArtifactByResourceId.get(resourceId);
-    const serialized = serializeArtifactRecord(artifact, resource, queries);
-
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('resource:created', resource);
-      windowManagerRef.broadcast('artifact:created', serialized);
-    }
-
-    afterArtifactMutation(database, resourceId);
-
-    return { success: true, data: serialized, ...(warnings.length ? { warnings } : {}) };
-  } catch (error) {
-    console.error('[AI Tools] artifactCreate error:', error);
-    return { success: false, error: error.message };
-  }
+    const projectId = args?.project_id || args?.projectId || (await getCurrentProject())?.id || 'default';
+    return artifactService().create({ title: args?.title, artifactType: args?.artifact_type || 'custom', content: args?.content, state: { html: args?.html, data: args?.data }, projectId });
+  } catch (error) { return { success: false, error: error.message }; }
 }
 
 async function artifactUpdateState(args) {
   try {
-    const resourceId = args?.resource_id ?? args?.resourceId;
-    if (!resourceId) return { success: false, error: 'resource_id is required' };
-
-    let nextData = args?.data;
-    if (typeof nextData === 'string') {
-      try {
-        nextData = JSON.parse(nextData);
-      } catch {
-        return { success: false, error: 'data must be a JSON object (string parse failed)' };
-      }
-    }
-
-    const queries = database.getQueries();
-    const db = database.getDB();
-    const existing = queries.getArtifactByResourceId.get(resourceId);
-    if (!existing) return { success: false, error: 'Artifact not found' };
-
-    const prevState = parseJsonState(existing.state);
-    const mergedState = { ...prevState };
-    if (args.html !== undefined) {
-      const norm = normalizeArtifactHtml(String(args.html));
-      mergedState.html = norm.body;
-      if (norm.changed && norm.css) {
-        const prevCss = typeof mergedState.css === 'string' ? mergedState.css : '';
-        mergedState.css = prevCss ? `${prevCss}\n\n${norm.css}` : norm.css;
-      }
-    }
-    if (nextData !== undefined) mergedState.data = nextData;
-
-    const now = Date.now();
-    const stateStr = JSON.stringify(mergedState);
-    const tx = db.transaction(() => {
-      queries.updateArtifactState.run(stateStr, now, resourceId);
-      const updated = queries.getArtifactByResourceId.get(resourceId);
-      if (updated) {
-        _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
-      }
-    });
-    tx();
-
-    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
-
-    const updated = queries.getArtifactByResourceId.get(resourceId);
-    const resource = queries.getResourceById.get(resourceId);
-    const serialized = serializeArtifactRecord(updated, resource, queries);
-
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('artifact:updated', serialized);
-    }
-
-    afterArtifactMutation(database, resourceId);
-
-    return { success: true, data: serialized };
-  } catch (error) {
-    console.error('[AI Tools] artifactUpdateState error:', error);
-    return { success: false, error: error.message };
-  }
+    return artifactService().update({ resourceId: args?.resource_id || args?.resourceId, html: args?.html, content: args?.content, data: args?.data, expectedVersion: args?.expected_version });
+  } catch (error) { return { success: false, error: error.message }; }
 }
 
 async function artifactMergeData(args) {
   try {
-    const resourceId = args?.resource_id ?? args?.resourceId;
-    if (!resourceId) return { success: false, error: 'resource_id is required' };
-    const dataPatch = args?.data_patch ?? args?.dataPatch;
-    if (!dataPatch || typeof dataPatch !== 'object' || Array.isArray(dataPatch)) {
-      return { success: false, error: 'data_patch must be a plain JSON object' };
-    }
-
-    const queries = database.getQueries();
-    const db = database.getDB();
-    const existing = queries.getArtifactByResourceId.get(resourceId);
-    if (!existing) return { success: false, error: 'Artifact not found' };
-
-    const prevState = parseJsonState(existing.state);
-    const prevData =
-      prevState.data !== undefined &&
-      prevState.data !== null &&
-      typeof prevState.data === 'object' &&
-      !Array.isArray(prevState.data)
-        ? /** @type {Record<string, unknown>} */ ({ ...prevState.data })
-        : {};
-    const mergedState = {
-      ...prevState,
-      data: { ...prevData, ...dataPatch },
-    };
-
-    const now = Date.now();
-    const stateStr = JSON.stringify(mergedState);
-    const tx = db.transaction(() => {
-      queries.updateArtifactState.run(stateStr, now, resourceId);
-      const updated = queries.getArtifactByResourceId.get(resourceId);
-      if (updated) {
-        _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
-      }
-    });
-    tx();
-
-    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
-
-    const updated = queries.getArtifactByResourceId.get(resourceId);
-    const resource = queries.getResourceById.get(resourceId);
-    const serialized = serializeArtifactRecord(updated, resource, queries);
-
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('artifact:updated', serialized);
-    }
-
-    afterArtifactMutation(database, resourceId);
-
-    return { success: true, data: serialized };
-  } catch (error) {
-    console.error('[AI Tools] artifactMergeData error:', error);
-    return { success: false, error: error.message };
-  }
+    return artifactService().update({ resourceId: args?.resource_id || args?.resourceId, dataPatch: args?.data_patch || args?.dataPatch, expectedVersion: args?.expected_version });
+  } catch (error) { return { success: false, error: error.message }; }
 }
 
 async function artifactDelete(args) {
-  try {
-    const resourceId = args?.resource_id ?? args?.resourceId;
-    if (!resourceId) return { success: false, error: 'resource_id is required' };
-
-    const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
-    if (!resource) return { success: false, error: 'Resource not found' };
-    if (resource.type !== 'artifact') {
-      return { success: false, error: 'Resource is not an artifact' };
-    }
-
-
-
-    vaultStore.removeMirrorForResource(resourceId, { database, fileStorage });
-
-    queries.deleteResource.run(resourceId);
-
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('artifact:deleted', { resourceId });
-      windowManagerRef.broadcast('resource:deleted', { id: resourceId });
-    }
-
-    return {
-      success: true,
-      deleted: { id: resourceId, title: resource.title, type: resource.type },
-    };
-  } catch (error) {
-    console.error('[AI Tools] artifactDelete error:', error);
-    return { success: false, error: error.message };
-  }
+  try { return artifactService().remove(args?.resource_id || args?.resourceId); }
+  catch (error) { return { success: false, error: error.message }; }
 }
 
 async function artifactLinkResource(args) {
@@ -4905,163 +4693,6 @@ async function artifactLinkResource(args) {
   }
 }
 
-async function artifactDesign(args) {
-  try {
-    const { buildArtifactDesignLayout } = require('../artifacts/artifact-design-layout.cjs');
-    let spec = args?.spec ?? args?.design_spec;
-    // Models sometimes serialize spec as a JSON string instead of an object — parse it
-    if (typeof spec === 'string') {
-      try { spec = JSON.parse(spec); } catch (_) { spec = null; }
-    }
-    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
-      const a = args && typeof args === 'object' && !Array.isArray(args) ? args : null;
-      if (a && (a.title != null || a.tabs != null)) {
-        spec = a;
-      }
-    }
-    const built = buildArtifactDesignLayout(spec);
-    if (!built.ok) {
-      return { success: false, error: built.error };
-    }
-    return {
-      success: true,
-      html: built.html,
-      data: built.data,
-      hints:
-        'Pass html and data to artifact_create with artifact_type "custom". Call dome_load_doc("artifact_design") first if you have not read the layout spec.',
-    };
-  } catch (error) {
-    console.error('[AI Tools] artifactDesign error:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// =============================================================================
-// Artifact feeders (sandbox scripts → runtime data)
-// =============================================================================
-
-const {
-  runFeeder: runFeederScript,
-  createFeederRecord,
-  updateFeederScript: updateFeederScriptRecord,
-} = require('../services/feeder-runner.cjs');
-const { serializeFeederRow, serializeFeederRunRow } = require('../services/feeder-serialize.cjs');
-
-async function feederCreate(args) {
-  try {
-    const envRefsRaw = Array.isArray(args?.env_secret_refs) ? args.env_secret_refs : args?.envSecretRefs || [];
-    const envSecretRefs = envRefsRaw.map((ref) => ({
-      envName: String(ref?.env_name || ref?.envName || ''),
-      secretName: String(ref?.secret_name || ref?.secretName || ref?.name || ''),
-    }));
-    const feeder = createFeederRecord(database, {
-      artifactResourceId: args?.artifact_resource_id ?? args?.artifactResourceId,
-      name: args?.name,
-      interpreter: args?.interpreter,
-      script: args?.script,
-      description: args?.description,
-      slot: args?.slot,
-      envSecretRefs,
-      envStatic: args?.env_static ?? args?.envStatic ?? {},
-      outputMode: args?.output_mode ?? args?.outputMode,
-      updatePolicy: args?.update_policy ?? args?.updatePolicy,
-      timeoutMs: args?.timeout_ms ?? args?.timeoutMs,
-    });
-    if (windowManagerRef?.broadcast) {
-      windowManagerRef.broadcast('feeder:created', feeder);
-    }
-    return { success: true, data: feeder };
-  } catch (error) {
-    console.error('[AI Tools] feederCreate error:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-async function feederList(args) {
-  try {
-    const artifactResourceId = args?.artifact_resource_id ?? args?.artifactResourceId;
-    if (!artifactResourceId) return { success: false, error: 'artifact_resource_id is required' };
-    const rows = database.getQueries().listFeedersByArtifact.all(artifactResourceId);
-    return { success: true, data: rows.map(serializeFeederRow) };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function feederRun(args) {
-  try {
-    const feederId = args?.feeder_id ?? args?.feederId;
-    if (!feederId) return { success: false, error: 'feeder_id is required' };
-    const result = await runFeederScript(database, windowManagerRef, feederId, { triggeredBy: 'agent' });
-    return { success: true, data: result };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function feederUpdateScript(args) {
-  try {
-    const feederId = args?.feeder_id ?? args?.feederId;
-    const script = args?.script;
-    if (!feederId) return { success: false, error: 'feeder_id is required' };
-    if (!script) return { success: false, error: 'script is required' };
-    const feeder = updateFeederScriptRecord(database, feederId, String(script));
-    if (windowManagerRef?.broadcast) {
-      windowManagerRef.broadcast('feeder:updated', feeder);
-    }
-    return { success: true, data: feeder };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function feederDelete(args) {
-  try {
-    const feederId = args?.feeder_id ?? args?.feederId;
-    if (!feederId) return { success: false, error: 'feeder_id is required' };
-    database.getQueries().deleteFeeder.run(feederId);
-    if (windowManagerRef?.broadcast) {
-      windowManagerRef.broadcast('feeder:deleted', { feederId });
-    }
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function feederHistory(args) {
-  try {
-    const feederId = args?.feeder_id ?? args?.feederId;
-    if (!feederId) return { success: false, error: 'feeder_id is required' };
-    const limit = Math.min(Number(args?.limit) || 20, 100);
-    const rows = database.getQueries().listFeederRuns.all(feederId, limit);
-    return { success: true, data: rows.map(serializeFeederRunRow) };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function feederSecretRequest(args) {
-  try {
-    const name = String(args?.name || '').trim();
-    if (!name) return { success: false, error: 'name is required' };
-    const feederId = args?.feeder_id ?? args?.feederId ?? null;
-    if (windowManagerRef?.broadcast) {
-      windowManagerRef.broadcast('feeder:secret-request', { name, feederId });
-    }
-    return {
-      success: true,
-      message: `Secret request sent to UI for "${name}". Ask the user to enter the value in the Feeders panel.`,
-    };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-// =============================================================================
-// Exports
-// =============================================================================
-
 module.exports = {
   // Window manager (for broadcast when tools modify resources in main)
   setWindowManager,
@@ -5099,16 +4730,7 @@ module.exports = {
   artifactUpdateState,
   artifactDelete,
   artifactLinkResource,
-  artifactDesign,
 
-  // Artifact feeders
-  feederCreate,
-  feederList,
-  feederRun,
-  feederUpdateScript,
-  feederDelete,
-  feederHistory,
-  feederSecretRequest,
 
   // Project tools
   projectList,

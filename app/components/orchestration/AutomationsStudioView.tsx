@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
   CalendarClockIcon as CalendarClockIcon,
   BotIcon as BotIcon,
-  CableIcon as CableIcon,
   Download04Icon as DownloadIcon,
   FilterIcon as FilterIcon,
   HandIcon as HandIcon,
@@ -25,14 +24,12 @@ import {
   listAutomations,
   onRunUpdated,
   runAutomationNow,
-  runAutomationNowRaw,
   saveAutomation,
   type AutomationDefinition,
   type PersistentRun,
 } from '@/lib/automations/api';
 import { getManyAgents } from '@/lib/agents/api';
 import { getWorkflows } from '@/lib/agent-canvas/api';
-import { listAllFeeders, type FeederRecord } from '@/lib/feeders/api';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -66,14 +63,11 @@ import RunStatusBadge from '@/components/automations/RunStatusBadge';
 const Bot = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
   <HugeiconsIcon icon={BotIcon} {...props} />
 );
-const Cable = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
-  <HugeiconsIcon icon={CableIcon} {...props} />
-);
 const Workflow = (props: Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon'>) => (
   <HugeiconsIcon icon={WorkflowIcon} {...props} />
 );
 interface StoredFilter {
-  targetType: 'all' | 'agent' | 'workflow' | 'feeder';
+  targetType: 'all' | 'agent' | 'workflow';
   targetId?: string;
   targetLabel?: string;
 }
@@ -93,9 +87,9 @@ function ActiveFilterBanner({ label, onClear }: { label: ReactNode; onClear: () 
     </div>
   );
 }
-type HubEntityKind = 'agent' | 'workflow' | 'feeder';
+type HubEntityKind = 'agent' | 'workflow';
 function EntityIcon({ kind, size = 'sm' }: { kind: HubEntityKind; size?: 'sm' | 'md' }) {
-  const Icon = kind === 'agent' ? Bot : kind === 'feeder' ? Cable : Workflow;
+  const Icon = kind === 'agent' ? Bot : Workflow;
   return (
     <div className={cn('flex shrink-0 items-center justify-center bg-primary/10', size === 'sm' ? 'size-7 rounded-md' : 'size-8 rounded-lg')}>
       <Icon className={cn(size === 'sm' ? 'size-3.5' : 'size-4', kind === 'agent' ? 'text-primary' : 'text-muted-foreground')} aria-hidden />
@@ -129,8 +123,7 @@ function buildAutomationSchedule(draft: DraftState) {
   return null;
 }
 
-function buildAutomationInputTemplate(draft: DraftState, isFeederTarget: boolean) {
-  if (isFeederTarget) return {};
+function buildAutomationInputTemplate(draft: DraftState) {
   return {
     prompt: draft.prompt.trim(),
     ...(draft.boundArtifactResourceId.trim()
@@ -142,8 +135,7 @@ function buildAutomationInputTemplate(draft: DraftState, isFeederTarget: boolean
   };
 }
 
-function buildAutomationArtifactBindings(draft: DraftState, isFeederTarget: boolean) {
-  if (isFeederTarget) return [];
+function buildAutomationArtifactBindings(draft: DraftState) {
   return draft.artifactBindings
     .filter((b) => b.artifactResourceId.trim())
     .map((b) => ({
@@ -165,14 +157,14 @@ export default function AutomationsStudioView() {
   const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
-  const [feeders, setFeeders] = useState<FeederRecord[]>([]);
   const [hubArtifacts, setHubArtifacts] = useState<Array<{ resourceId: string; title: string }>>([]);
   const [filter, setFilter] = useState<StoredFilter>(() => {
     try {
       const raw = sessionStorage.getItem(PENDING_AUTOMATIONS_FILTER_KEY);
       if (raw) {
         sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
-        return JSON.parse(raw) as StoredFilter;
+        const parsed = JSON.parse(raw) as StoredFilter;
+        if (['all', 'agent', 'workflow'].includes(parsed.targetType)) return parsed;
       }
     } catch {
       /* ignore */
@@ -190,16 +182,14 @@ export default function AutomationsStudioView() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const fetchListData = useCallback(async () => {
-    const [all, agentList, workflowList, feederRes] = await Promise.all([
+    const [all, agentList, workflowList] = await Promise.all([
       listAutomations({ projectId }),
       getManyAgents(projectId).catch(() => []),
       getWorkflows(projectId).catch(() => []),
-      listAllFeeders().catch(() => ({ success: false as const, data: [] as FeederRecord[] })),
     ]);
-    setAutomations(all.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
+    setAutomations(all.filter((item) => ['many', 'agent', 'workflow'].includes(item.targetType)).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
     setAgents(agentList);
     setWorkflows(workflowList);
-    setFeeders(feederRes?.success && Array.isArray(feederRes.data) ? feederRes.data : []);
   }, [projectId]);
 
   const { initialLoading: loading, reload } = useHubListLoader(fetchListData, [projectId], {
@@ -259,10 +249,9 @@ export default function AutomationsStudioView() {
     (a: AutomationDefinition): string => {
       if (a.targetType === 'agent') return agents.find((x) => x.id === a.targetId)?.name ?? a.targetId;
       if (a.targetType === 'workflow') return workflows.find((x) => x.id === a.targetId)?.name ?? a.targetId;
-      if (a.targetType === 'feeder') return feeders.find((x) => x.id === a.targetId)?.name ?? a.targetId;
       return a.targetId;
     },
-    [agents, workflows, feeders],
+    [agents, workflows],
   );
 
   const triggerSummary = useCallback(
@@ -362,7 +351,6 @@ export default function AutomationsStudioView() {
     if (!draft.title.trim() || !draft.targetId) return;
     setSaving(true);
     try {
-      const isFeederTarget = draft.targetType === 'feeder';
       await saveAutomation({
         id: draft.id,
         projectId,
@@ -373,9 +361,9 @@ export default function AutomationsStudioView() {
         triggerType: draft.triggerType,
         enabled: draft.enabled,
         schedule: buildAutomationSchedule(draft),
-        inputTemplate: buildAutomationInputTemplate(draft, isFeederTarget),
-        artifactBindings: buildAutomationArtifactBindings(draft, isFeederTarget),
-        outputMode: isFeederTarget ? 'chat_only' : draft.outputMode,
+        inputTemplate: buildAutomationInputTemplate(draft),
+        artifactBindings: buildAutomationArtifactBindings(draft),
+        outputMode: draft.outputMode,
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
       setFormMode('hidden');
@@ -404,15 +392,6 @@ export default function AutomationsStudioView() {
   const handleRun = async (a: AutomationDefinition) => {
     setRunningId(a.id);
     try {
-      if (a.targetType === 'feeder') {
-        await runAutomationNowRaw(a.id);
-        setAutomations((prev) =>
-          prev.map((x) =>
-            x.id === a.id ? { ...x, lastRunAt: Date.now(), lastRunStatus: 'completed' } : x,
-          ),
-        );
-        showToast('success', t('toast.automation_started'));
-      } else {
         const run = await runAutomationNow(a.id);
         setAutomations((prev) =>
           prev.map((x) =>
@@ -428,7 +407,6 @@ export default function AutomationsStudioView() {
           /* ignore */
         }
         openRunsTab();
-      }
     } catch {
       showToast('error', t('toast.automation_run_error'));
     } finally {
@@ -496,7 +474,6 @@ export default function AutomationsStudioView() {
           draft={draft}
           agents={agents}
           workflows={workflows}
-          feeders={feeders}
           hubArtifacts={hubArtifacts}
           isNew={formMode === 'new'}
           saving={saving}
@@ -574,7 +551,7 @@ export default function AutomationsStudioView() {
                 if (next) setFilter({ targetType: next as StoredFilter['targetType'] });
               }}
             >
-              {(['all', 'agent', 'workflow', 'feeder'] as const).map((value) => (
+              {(['all', 'agent', 'workflow'] as const).map((value) => (
                 <ToggleGroupItem key={value} value={value} size="sm">
                   {t(`automation.filter_target_${value}`)}
                 </ToggleGroupItem>
@@ -664,9 +641,7 @@ export default function AutomationsStudioView() {
                     kind={
                       a.targetType === 'agent'
                         ? 'agent'
-                        : a.targetType === 'feeder'
-                          ? 'feeder'
-                          : 'workflow'
+                        : 'workflow'
                     }
                     size="md"
                   />

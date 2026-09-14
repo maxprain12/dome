@@ -1,5 +1,7 @@
+import { actionOrigin, isBrowserActionApproved, readBrowserApprovals, setBrowserApproval } from '../../lib/browser-approvals';
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type Dispatch,
@@ -41,6 +43,7 @@ interface UseManyTransportOptions {
   token: string;
   projectId: string;
   tabId?: number;
+  pageUrl?: string;
   setMessages: Dispatch<SetStateAction<ManyConversationSurfaceMessage[]>>;
   setError: Dispatch<SetStateAction<string>>;
   setUsage: Dispatch<SetStateAction<api.TokenUsage | null>>;
@@ -54,6 +57,7 @@ export function useManyTransport({
   token,
   projectId,
   tabId,
+  pageUrl,
   setMessages,
   setError,
   setUsage,
@@ -62,6 +66,17 @@ export function useManyTransport({
   refreshSessions,
   errorLabel,
 }: UseManyTransportOptions) {
+  const [approvedOrigins, setApprovedOrigins] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    setApprovedOrigins([]);
+    readBrowserApprovals(token).then((origins) => { if (active) setApprovedOrigins(origins); }).catch(() => { if (active) setApprovedOrigins([]); });
+    return () => { active = false; };
+  }, [token]);
+  const trustedOrigin = actionOrigin(pageUrl);
+  const revokeBrowserApproval = async () => {
+    if (trustedOrigin) setApprovedOrigins(await setBrowserApproval(token, trustedOrigin, false));
+  };
   const [browserActivity, setBrowserActivity] = useState<string | null>(null);
   const [phase, setPhase] = useState<RunPhase>('idle');
   const [pendingApproval, setPendingApproval] =
@@ -69,7 +84,7 @@ export function useManyTransport({
   const [approvalEditOpen, setApprovalEditOpen] = useState(false);
   const [approvalEditArgs, setApprovalEditArgs] = useState('');
   const [review, setReview] = useState<
-    (ToolReview & { resolve: (approved: boolean) => void }) | null
+    (ToolReview & { resolve: (approved: boolean) => void; always: () => Promise<void> }) | null
   >(null);
   const generationRef = useRef(0);
   const activeExecutionRef = useRef<RunExecution | null>(null);
@@ -257,8 +272,9 @@ export function useManyTransport({
         projectId,
         tabId,
         signal: abortController.current.signal,
-        review: (value) =>
-          new Promise((resolve) => {
+        review: async (value) => {
+          if (!value.origin && await isBrowserActionApproved(token, value.name, value.pageUrl)) return true;
+          return new Promise((resolve) => {
             if (!isCurrentExecution(execution)) {
               resolve(false);
               return;
@@ -266,6 +282,10 @@ export function useManyTransport({
             reviewRef.current = resolve;
             setReview({
               ...value,
+              always: async () => {
+                const origin = actionOrigin(value.pageUrl);
+                if (origin && isCurrentExecution(execution)) setApprovedOrigins(await setBrowserApproval(token, origin, true));
+              },
               resolve: (approved) => {
                 if (reviewRef.current !== resolve || !isCurrentExecution(execution)) return;
                 reviewRef.current = null;
@@ -273,7 +293,8 @@ export function useManyTransport({
                 resolve(approved);
               },
             });
-          }),
+          });
+        },
       });
       // Serialize browser operations: concurrent reads invalidate element references.
       let queue = Promise.resolve();
@@ -492,6 +513,8 @@ export function useManyTransport({
   }, [token]);
 
   return {
+    trustedOrigin: trustedOrigin && approvedOrigins.includes(trustedOrigin) ? trustedOrigin : null,
+    revokeBrowserApproval,
     browserActivity,
     approvalEditArgs,
     approvalEditOpen,

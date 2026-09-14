@@ -81,7 +81,7 @@ async function readPage(tabId?: number, agent = false) {
     if (!(await ping(tab.id))) await injectPanel(tab.id);
     return {
       ...(await browser.tabs.sendMessage(tab.id, {
-        type: agent ? 'DOME_AGENT_READ_V4' : 'DOME_SNAPSHOT_V4',
+        type: agent ? 'DOME_AGENT_READ_V5' : 'DOME_SNAPSHOT_V5',
       })),
       tabId: tab.id,
     };
@@ -259,6 +259,8 @@ export default defineBackground(() => {
           });
         return navigateTab(message.tabId, url);
       }
+      if (message.type === 'DOME_CANCEL_PAGE_ACTION' && typeof message.tabId === 'number')
+        return browser.tabs.sendMessage(message.tabId, { type: 'DOME_CANCEL_ACT_V5' }).catch(() => undefined);
       if (message.type === 'DOME_CAPTURE_TAB')
         return captureTab(message.tabId);
       if (message.type === 'DOME_GO_BACK' && typeof message.tabId === 'number')
@@ -269,7 +271,7 @@ export default defineBackground(() => {
       ) {
         return browser.tabs
           .sendMessage(message.tabId, {
-            type: 'DOME_ACT_V4',
+            type: 'DOME_ACT_V5',
             url: message.url,
             action: message.action,
           })

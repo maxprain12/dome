@@ -716,7 +716,7 @@ async function invokeDomeLoadDoc(ctx) {
   if (!docId) {
     result = {
       error:
-        'id is required. Valid values: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links, feeders',
+        'id is required. Valid values: entity_rules, artifacts, artifact_persisted, resource_links',
     };
   } else {
     const body = getSectionBody(docId);
@@ -835,12 +835,6 @@ async function invokeArtifactLinkResource(ctx) {
   else result = await fn({ resource_id: artLinkRid, linked_resource_id: args.linked_resource_id ?? null });
   return result;
 }
-async function invokeArtifactDesign(ctx) {
-  const { fn, args } = ctx;
-  let result;
-  result = await fn(args);
-  return result;
-}
 async function invokeShellExec(ctx) {
   const { fn, args, toolContext } = ctx;
   let result;
@@ -927,7 +921,6 @@ const HANDLER_INVOKERS = {
   artifactUpdateState: invokeArtifactUpdateState,
   artifactDelete: invokeArtifactDelete,
   artifactLinkResource: invokeArtifactLinkResource,
-  artifactDesign: invokeArtifactDesign,
   shellExec: invokeShellExec,
   gitStatus: invokeShellExec,
   gitDiff: invokeShellExec,

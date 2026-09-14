@@ -101,8 +101,6 @@ const probes = [
   ['interactions', 'metadata'],
   ['github_issues', 'body'],
   ['github_issues', 'metadata'],
-  ['feeder_runs', 'output'],
-  ['feeder_runs', 'metadata'],
   ['studio_outputs', 'content'],
   ['artifacts', 'state'],
   ['settings', 'value'],

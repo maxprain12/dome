@@ -147,7 +147,7 @@ export type ResourceType =
   | 'document'
   | 'artifact';
 
-export type ArtifactType = 'task-tracker' | 'chart' | 'custom';
+export type ArtifactType = 'document' | 'task-tracker' | 'chart' | 'custom';
 
 export interface ArtifactRecord {
   id: string;

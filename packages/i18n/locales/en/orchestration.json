@@ -46,7 +46,7 @@
     "toggle_enabled": "Enable or disable",
     "run_now": "Run",
     "empty_title": "Automate your work",
-    "empty_desc": "Create rules that run agents, workflows or feeders on a schedule, manually or by context.",
+    "empty_desc": "Create rules that run agents, workflows on a schedule, manually or by context.",
     "no_results": "No automation matches the filter.",
     "delete_title": "Delete automation",
     "delete_confirm": "Delete automation \"{{name}}\"?"
@@ -86,7 +86,6 @@
     "summary_weekly": "Every week ({{weekday}}) at {{hour}}:00",
     "summary_interval": "Every {{minutes}} minutes",
     "summary_contextual": "When context matches: {{tags}}",
-    "summary_feeder_output": "The feeder updates its artifact directly",
     "summary_bindings_one": "Syncs {{count}} artifact on completion",
     "summary_bindings_other": "Syncs {{count}} artifacts on completion"
   },

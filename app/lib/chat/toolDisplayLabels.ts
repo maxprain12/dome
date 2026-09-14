@@ -114,8 +114,6 @@ const DOME_LOAD_DOC_PATH_IDS = new Set([
   'entity_rules',
   'artifacts',
   'artifact_persisted',
-  'artifact_design',
-  'feeders',
   'resource_links',
   'ppt_tool',
   'docx_tool',

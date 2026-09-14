@@ -42,8 +42,6 @@ export type { CalendarToolName } from './families/calendar.js';
 export { ARTIFACTS_TOOL_NAMES, artifactsToolDefinitions } from './families/artifacts.js';
 export type { ArtifactsToolName } from './families/artifacts.js';
 
-export { FEEDERS_TOOL_NAMES, feedersToolDefinitions } from './families/feeders.js';
-export type { FeedersToolName } from './families/feeders.js';
 
 export { FLASHCARDS_TOOL_NAMES, flashcardsToolDefinitions } from './families/flashcards.js';
 export type { FlashcardsToolName } from './families/flashcards.js';

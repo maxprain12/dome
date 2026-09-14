@@ -608,7 +608,6 @@ const ALLOWED_CHANNELS = {
     // Artifacts
     'artifact:create',
     'artifact:get',
-    'artifact:buildDesign',
     'artifact:update',
     'artifact:delete',
     'artifact:list',
@@ -681,21 +680,6 @@ const ALLOWED_CHANNELS = {
     'social:dm-rules:create',
     'social:dm-rules:update',
     'social:dm-rules:delete',
-    // Artifact feeders (sandbox scripts → runtime data)
-    'feeders:create',
-    'feeders:get',
-    'feeders:list',
-    'feeders:listAll',
-    'feeders:update-script',
-    'feeders:approve',
-    'feeders:delete',
-    'feeders:run',
-    'feeders:history',
-    'feeders:request-secret',
-    'feeder-secrets:list',
-    'feeder-secrets:set',
-    'feeder-secrets:delete',
-    'feeder-secrets:vault-status',
     // Claude Pro/Max + ChatGPT Codex subscription OAuth (experimental)
     'claude:auth:login',
     'claude:auth:status',
@@ -864,14 +848,6 @@ const ALLOWED_CHANNELS = {
     'social:metrics-updated',
     'social:report-updated',
     'social:drafts-updated',
-    // Feeder events
-    'feeder:created',
-    'feeder:updated',
-    'feeder:deleted',
-    'feeder:run-completed',
-    'feeder:secret-request',
-    'feeder:secret-updated',
-    'feeder:secret-deleted',
     // PPT slide capture (hidden window — main ↔ renderer)
     'ppt-capture:init',
     'ppt-capture:render-slide',
@@ -2258,7 +2234,6 @@ const electronHandler = {
   artifacts: {
     create: (opts) => ipcRenderer.invoke('artifact:create', opts),
     get: (resourceId) => ipcRenderer.invoke('artifact:get', resourceId),
-    buildDesign: (spec) => ipcRenderer.invoke('artifact:buildDesign', { spec }),
     update: (opts) => ipcRenderer.invoke('artifact:update', opts),
     delete: (resourceId) => ipcRenderer.invoke('artifact:delete', resourceId),
     list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),
@@ -2280,24 +2255,6 @@ const electronHandler = {
   // ============================================
   // ARTIFACT FEEDERS
   // ============================================
-  feeders: {
-    create: (input) => ipcRenderer.invoke('feeders:create', input),
-    get: (feederId) => ipcRenderer.invoke('feeders:get', feederId),
-    list: (artifactResourceId) => ipcRenderer.invoke('feeders:list', artifactResourceId),
-    listAll: () => ipcRenderer.invoke('feeders:listAll'),
-    updateScript: (feederId, script) => ipcRenderer.invoke('feeders:update-script', { feederId, script }),
-    approve: (feederId) => ipcRenderer.invoke('feeders:approve', feederId),
-    delete: (feederId) => ipcRenderer.invoke('feeders:delete', feederId),
-    run: (feederId, triggeredBy) => ipcRenderer.invoke('feeders:run', { feederId, triggeredBy }),
-    history: (feederId, limit) => ipcRenderer.invoke('feeders:history', { feederId, limit }),
-    requestSecret: (name, feederId) => ipcRenderer.invoke('feeders:request-secret', { name, feederId }),
-    secrets: {
-      list: () => ipcRenderer.invoke('feeder-secrets:list'),
-      set: (name, value) => ipcRenderer.invoke('feeder-secrets:set', { name, value }),
-      delete: (secretId) => ipcRenderer.invoke('feeder-secrets:delete', secretId),
-      vaultStatus: () => ipcRenderer.invoke('feeder-secrets:vault-status'),
-    },
-  },
 };
 
 // Expose to renderer

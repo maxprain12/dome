@@ -76,15 +76,6 @@ function isAutomationBusy(automation) {
   if (runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))) {
     return true;
   }
-  // Feeders write to feeder_runs (not automation_runs); check that table when target is a feeder.
-  if (typeof automation === 'object' && automation?.targetType === 'feeder') {
-    try {
-      const row = database.getQueries().countRunningFeederRunsByAutomation.get(automationId);
-      if (row && Number(row.c) > 0) return true;
-    } catch (error) {
-      console.error('[Automation] Feeder busy check failed:', error?.message || error);
-    }
-  }
   return false;
 }
 
@@ -92,7 +83,7 @@ async function tick() {
   const timestamp = Date.now();
   const automations = runEngine.listAutomations();
   for (const automation of automations) {
-    if (!isDue(automation, timestamp)) {
+    if (!['many', 'agent', 'workflow'].includes(automation.targetType) || !isDue(automation, timestamp)) {
       continue;
     }
     if (isAutomationBusy(automation)) {

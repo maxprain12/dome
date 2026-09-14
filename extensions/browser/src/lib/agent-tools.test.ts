@@ -194,3 +194,15 @@ it('waits for updated text and stops on an explicit timeout', async () => {
     expect((await timeout).success).toBe(false);
   } finally { vi.useRealTimers(); }
 });
+
+it('returns a fresh snapshot when continuing with a previous-turn reference', async () => {
+  const sendMessage = vi.fn().mockResolvedValue(pageSnapshot);
+  vi.stubGlobal('browser', { runtime: { sendMessage } });
+  const review = vi.fn();
+  const run = createToolRunner({ token: 'token', projectId: 'project', tabId: 12, review, signal: new AbortController().signal });
+  const result = await run({ type: 'browser_tool', callId: 'continued', streamId: 'new-turn', name: 'browser_click', args: { element_id: 'old', snapshot_id: 'old-snapshot' } });
+  expect(result.success).toBe(false);
+  expect(result.data).toEqual(pageSnapshot);
+  expect(review).not.toHaveBeenCalled();
+  expect(sendMessage).toHaveBeenCalledTimes(1);
+});

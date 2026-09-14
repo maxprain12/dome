@@ -1,0 +1,188 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_create",
+      "description": "Create a saved artifact. For reports and findings use artifact_type=document and content as a Markdown string. For interactive apps use custom/chart/task-tracker and html (body fragment). Optional data must be a JSON object. Interactive apps render from window.DOME_DATA and call window.__dome_updateState(nextData) after edits; use Dome CSS variables (--bg, --primary-text, --accent, --border). Returns resourceId and version. Do not emit inline artifact blocks.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Display title. Optional — if omitted, derived from HTML <title> tag, then artifact_type, then \"Untitled Artifact\"."
+          },
+          "artifact_type": {
+            "type": "string",
+            "enum": [
+              "document",
+              "task-tracker",
+              "chart",
+              "custom"
+            ],
+            "description": "Semantic type"
+          },
+          "content": {
+            "type": "string",
+            "description": "Markdown text for document artifacts. Pass the report directly, not a design specification."
+          },
+          "html": {
+            "type": "string",
+            "description": "Body HTML fragment with inline CSS/JS for interactive artifacts"
+          },
+          "data": {
+            "type": "object",
+            "description": "Initial structured data for DOME_DATA"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (default: current)"
+          }
+        },
+        "required": [
+          "artifact_type"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_get",
+      "description": "Get full artifact state (html, data, metadata) by resource ID.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "description": "Artifact resource ID"
+          }
+        },
+        "required": [
+          "resource_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_merge_data",
+      "description": "Shallow-merge keys into persisted artifact state.data without resending HTML. Use after excel_get / resource_get to push rows, counters, or blobs. Top-level keys replace or add; nested subtrees replace by key. Prefer over pasting huge datasets into HTML.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "description": "Artifact resource ID"
+          },
+          "data_patch": {
+            "type": "object",
+            "description": "Partial state.data (merged shallowly)"
+          }
+        },
+        "required": [
+          "resource_id",
+          "data_patch"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_update_state",
+      "description": "Update only supplied fields; omitted fields are preserved. content replaces document Markdown; html replaces interactive UI; data REPLACES the complete data object. To merge keys use artifact_merge_data. Pass expected_version from artifact_get to reject conflicting changes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "description": "Artifact resource ID"
+          },
+          "content": {
+            "type": "string",
+            "description": "Replacement Markdown for a document"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Version read before editing; conflicts require a fresh read"
+          },
+          "html": {
+            "type": "string",
+            "description": "New body HTML if replacing UI"
+          },
+          "data": {
+            "type": "object",
+            "description": "Replacement data object; omitted keys are removed"
+          }
+        },
+        "required": [
+          "resource_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_list",
+      "description": "List persisted artifacts in a project (titles, ids, types).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project ID (default: current)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_delete",
+      "description": "Delete a persisted artifact resource and remove it from the library.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "description": "Artifact resource ID"
+          }
+        },
+        "required": [
+          "resource_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "artifact_link_resource",
+      "description": "Link (or unlink) a persisted artifact to an Excel/spreadsheet resource. Once linked: Dome auto-refreshes the artifact whenever the spreadsheet is edited and exposes all sheet data as window.DOME_DATA.linkedData.sheets[sheetName]. A \"Refresh data\" button appears in the artifact toolbar. Use this when the user asks to link a dashboard to an Excel, or when an artifact was created without linkedResourceId. Pass linked_resource_id=null to remove the link.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "artifact_resource_id": {
+            "type": "string",
+            "description": "Resource ID of the artifact to link"
+          },
+          "linked_resource_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Resource ID of the Excel/spreadsheet to link to, or null to unlink"
+          }
+        },
+        "required": [
+          "artifact_resource_id",
+          "linked_resource_id"
+        ]
+      }
+    }
+  }
+]

@@ -2624,7 +2624,8 @@ declare global {
       artifacts: {
         create: (opts: {
           title: string;
-          artifactType: 'task-tracker' | 'chart' | 'custom';
+          artifactType: 'document' | 'task-tracker' | 'chart' | 'custom';
+          content?: string;
           template?: string | null;
           state?: Record<string, unknown>;
           linkedResourceId?: string | null;
@@ -2637,7 +2638,11 @@ declare global {
           state?: Record<string, unknown>;
           /** Data-only save: merged into current state.data server-side (never clobbers html/css). */
           data?: unknown;
-          artifactType?: 'task-tracker' | 'chart' | 'custom';
+          dataPatch?: Record<string, unknown>;
+          html?: string;
+          content?: string;
+          expectedVersion?: number;
+          artifactType?: 'document' | 'task-tracker' | 'chart' | 'custom';
           linkedResourceId?: string | null;
         }) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
         delete: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
@@ -2647,13 +2652,6 @@ declare global {
         import: () => Promise<{ success: boolean; cancelled?: boolean; data?: ArtifactRecord; error?: string }>;
         refreshLinked: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
         setLinkedResource: (resourceId: string, linkedResourceId: string | null) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
-        buildDesign: (spec: Record<string, unknown>) => Promise<{
-          success: boolean;
-          html?: string;
-          data?: Record<string, unknown>;
-          hints?: string;
-          error?: string;
-        }>;
       };
 
       minimax: {
@@ -2663,90 +2661,15 @@ declare global {
         }) => Promise<{ success: boolean; fileId?: string; error?: string }>;
       };
 
-      feeders: {
-        create: (input: {
-          artifactResourceId: string;
-          name: string;
-          interpreter: 'python3' | 'node' | 'bash' | 'sh' | 'curl';
-          script: string;
-          description?: string;
-          slot?: string;
-          envSecretRefs?: Array<{ envName: string; secretName: string }>;
-          envStatic?: Record<string, string>;
-          outputMode?: 'stdout_json' | 'output_file';
-          updatePolicy?: 'replace' | 'merge_shallow' | 'merge_deep' | 'append_array';
-          timeoutMs?: number;
-        }) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
-        get: (feederId: string) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
-        list: (artifactResourceId: string) => Promise<{ success: boolean; data?: FeederRecord[]; error?: string }>;
-        listAll: () => Promise<{ success: boolean; data?: FeederRecord[]; error?: string }>;
-        updateScript: (feederId: string, script: string) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
-        approve: (feederId: string) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
-        delete: (feederId: string) => Promise<{ success: boolean; error?: string }>;
-        run: (feederId: string, triggeredBy?: 'agent' | 'user' | 'automation') => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        history: (feederId: string, limit?: number) => Promise<{ success: boolean; data?: FeederRunRecord[]; error?: string }>;
-        requestSecret: (name: string, feederId?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
-        secrets: {
-          list: () => Promise<{ success: boolean; data?: FeederSecretMeta[]; error?: string }>;
-          set: (name: string, value: string) => Promise<{ success: boolean; data?: { id: string; name: string }; error?: string }>;
-          delete: (secretId: string) => Promise<{ success: boolean; error?: string }>;
-          vaultStatus: () => Promise<{ success: boolean; data?: { available: boolean }; error?: string }>;
-        };
-      };
+
     };
   }
-}
-
-interface FeederRecord {
-  id: string;
-  artifactResourceId: string;
-  slot: string;
-  name: string;
-  description: string;
-  interpreter: 'python3' | 'node' | 'bash' | 'sh' | 'curl';
-  script: string;
-  scriptHash: string;
-  envSecretRefs: Array<{ envName: string; secretName: string }>;
-  envStatic: Record<string, string>;
-  outputMode: 'stdout_json' | 'output_file';
-  updatePolicy: 'replace' | 'merge_shallow' | 'merge_deep' | 'append_array';
-  timeoutMs: number;
-  enabled: boolean;
-  approved: boolean;
-  approvedScriptHash: string | null;
-  lastRunAt: number | null;
-  lastStatus: string | null;
-  lastError: string | null;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface FeederRunRecord {
-  id: string;
-  feederId: string;
-  startedAt: number;
-  finishedAt: number | null;
-  status: 'running' | 'completed' | 'failed';
-  exitCode: number | null;
-  stdoutExcerpt: string;
-  stderrExcerpt: string;
-  dataBytes: number;
-  triggeredBy: 'agent' | 'user' | 'automation';
-  automationId: string | null;
-}
-
-interface FeederSecretMeta {
-  id: string;
-  name: string;
-  lastUsedAt: number | null;
-  createdAt: number;
-  updatedAt: number;
 }
 
 interface ArtifactRecord {
   id: string;
   resourceId: string;
-  artifactType: 'task-tracker' | 'chart' | 'custom';
+  artifactType: 'document' | 'task-tracker' | 'chart' | 'custom';
   template: string | null;
   state: Record<string, unknown>;
   linkedResourceId: string | null;

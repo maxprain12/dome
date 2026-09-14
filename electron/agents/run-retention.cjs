@@ -80,7 +80,7 @@ async function deleteWorkflowRunSessions(deps, workflowRunIds) {
 
 async function purgeExpiredRuns({ now = Date.now(), deps = defaultDeps() } = {}) {
   const retentionDays = resolveRetentionDays(deps);
-  const result = { retentionDays, purgedRuns: 0, purgedFeederRuns: 0, purgedSessions: 0 };
+  const result = { retentionDays, purgedRuns: 0, purgedSessions: 0 };
   if (!(retentionDays > 0)) return result;
   const cutoff = now - retentionDays * DAY_MS;
   const db = deps.getDB();
@@ -109,13 +109,8 @@ async function purgeExpiredRuns({ now = Date.now(), deps = defaultDeps() } = {})
     result.purgedRuns = purgeable.length;
   }
 
-  const feederResult = db.prepare(`
-    DELETE FROM feeder_runs
-    WHERE status IN ('completed', 'failed') AND started_at < ?
-  `).run(cutoff);
-  result.purgedFeederRuns = feederResult?.changes ?? 0;
 
-  if (result.purgedRuns > 0 || result.purgedFeederRuns > 0 || result.purgedSessions > 0) {
+  if (result.purgedRuns > 0 || result.purgedSessions > 0) {
     logger.info('run-retention', 'Purged expired run history', result);
     // Return the pages freed by the deletes to the OS (no-op unless the DB is in
     // INCREMENTAL auto-vacuum mode) so run history can't silently bloat the file.

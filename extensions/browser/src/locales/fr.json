@@ -222,5 +222,9 @@
   "browserStop": "Arrêter Many",
   "tool_browser_select": "Sélectionner une option",
   "tool_browser_wait": "Attendre le contenu",
-  "tool_browser_screenshot": "Voir la capture de la page"
+  "tool_browser_screenshot": "Voir la capture de la page",
+  "browserAlwaysAccept": "Toujours accepter sur ce site",
+  "browserAlwaysActive": "Actions autorisées automatiquement sur {{origin}}",
+  "browserAskAgain": "Redemander la permission",
+  "browserPermissionSaveFailed": "Impossible d’enregistrer cette autorisation. Réessayez."
 }

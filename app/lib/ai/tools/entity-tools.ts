@@ -152,30 +152,28 @@ const AutomationCreateSchema = Type.Object({
   })),
   target_type: Type.String({
     description:
-      'Target type: "agent" | "workflow" | "feeder". Use "feeder" to schedule a sandboxed ' +
-      'script that refreshes an artifact (no LLM, no prompt, no artifact bindings).',
+      'Target type: agent or workflow.',
   }),
   target_id: Type.String({
     description:
-      'ID of the target. For "agent"/"workflow", the entity ID. For "feeder", the feeder UUID ' +
-      '(must be `approved=true` and `enabled=true` — list via feeder_list).',
+      'ID of the agent or workflow.',
   }),
   trigger_type: Type.Optional(Type.String({
     description: 'Trigger: "manual" | "schedule" | "contextual". Default: manual.',
   })),
   prompt: Type.Optional(Type.String({
-    description: 'Base prompt / instructions to pass to the agent or workflow when triggered. Ignored for feeders.',
+    description: 'Base prompt / instructions to pass to the agent or workflow when triggered.',
   })),
   schedule: ScheduleSchema,
   output_mode: Type.Optional(Type.String({
-    description: 'Output mode: "chat_only" | "studio_output" | "mixed". Default: chat_only. Ignored for feeders.',
+    description: 'Output mode: "chat_only" | "studio_output" | "mixed". Default: chat_only.',
   })),
   enabled: Type.Optional(Type.Boolean({
     description: 'Whether the automation is active immediately. Default: true.',
   })),
 });
 
-type AutomationTargetType = 'agent' | 'workflow' | 'feeder';
+type AutomationTargetType = 'agent' | 'workflow';
 type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
 type AutomationOutputMode = 'chat_only' | 'studio_output' | 'mixed';
 type AutomationCadence = 'daily' | 'weekly' | 'cron-lite';
@@ -187,7 +185,8 @@ type AutomationSchedule = {
 } | null;
 
 function normalizeTargetType(raw: string): AutomationTargetType {
-  return raw === 'workflow' || raw === 'feeder' ? raw : 'agent';
+  if (raw !== 'agent' && raw !== 'workflow') throw new Error('target_type must be agent or workflow');
+  return raw;
 }
 
 function readAutomationParams(params: Record<string, unknown>): {
@@ -196,7 +195,6 @@ function readAutomationParams(params: Record<string, unknown>): {
   targetType: AutomationTargetType;
   targetId: string;
   triggerType: AutomationTriggerType;
-  isFeederTarget: boolean;
   prompt: string;
   outputMode: AutomationOutputMode;
   enabled: boolean;
@@ -206,11 +204,10 @@ function readAutomationParams(params: Record<string, unknown>): {
   const targetType = normalizeTargetType(readStringParam(params, 'target_type') ?? 'agent');
   const targetId = readStringParam(params, 'target_id', { required: true });
   const triggerType = (readStringParam(params, 'trigger_type') ?? 'manual') as AutomationTriggerType;
-  const isFeederTarget = targetType === 'feeder';
   const prompt = readStringParam(params, 'prompt') ?? '';
   const outputMode = (readStringParam(params, 'output_mode') ?? 'chat_only') as AutomationOutputMode;
   const enabled = typeof params.enabled === 'boolean' ? params.enabled : true;
-  return { title, description, targetType, targetId, triggerType, isFeederTarget, prompt, outputMode, enabled };
+  return { title, description, targetType, targetId, triggerType, prompt, outputMode, enabled };
 }
 
 function normalizeCadence(raw: string, hasIntervalMinutes: boolean): AutomationCadence {
@@ -225,7 +222,6 @@ function buildAutomationSchedule(input: unknown): AutomationSchedule {
   if (!input || typeof input !== 'object') return null;
   const s = input as Record<string, unknown>;
   const cadence = normalizeCadence(String(s.cadence ?? 'daily'), typeof s.interval_minutes === 'number');
-  // Feeders / cron-lite are minute-based; hour gate would suppress ticks if >0.
   const hour = cadence === 'cron-lite'
     ? 0
     : typeof s.hour === 'number' ? Math.max(0, Math.min(23, s.hour)) : 0;
@@ -249,8 +245,8 @@ export function createAutomationCreateTool(): AnyAgentTool {
     label: 'Create Automation',
     name: 'automation_create',
     description:
-      'Create a new automation that runs an agent, workflow, or feeder on a trigger (manual, schedule, or contextual). ' +
-      'For minute-based feeder refresh, set trigger_type="schedule" with schedule.cadence="cron-lite" and schedule.interval_minutes. ' +
+      'Create a new automation that runs an agent or workflow on a trigger (manual, schedule, or contextual). ' +
+      'For minute-based refresh, set trigger_type="schedule" with schedule.cadence="cron-lite" and schedule.interval_minutes. ' +
       'Use when the user asks to automate, schedule, or set up a recurring task.',
     parameters: AutomationCreateSchema,
     execute: async (_toolCallId, args) => {
@@ -262,7 +258,6 @@ export function createAutomationCreateTool(): AnyAgentTool {
           targetType,
           targetId,
           triggerType,
-          isFeederTarget,
           prompt,
           outputMode,
           enabled,
@@ -277,9 +272,8 @@ export function createAutomationCreateTool(): AnyAgentTool {
           triggerType,
           enabled,
           schedule,
-          // Feeders ignore prompt/outputMode/bindings — their script owns the data merge.
-          inputTemplate: isFeederTarget ? {} : { prompt },
-          outputMode: isFeederTarget ? 'chat_only' : outputMode,
+          inputTemplate: { prompt },
+          outputMode: outputMode,
         });
 
         return textResult(
@@ -291,7 +285,7 @@ export function createAutomationCreateTool(): AnyAgentTool {
             config: {
               target: targetType,
               trigger: triggerType,
-              output: isFeederTarget ? 'feeder-merge' : outputMode,
+              output: outputMode,
               schedule: describeAutomationSchedule(schedule),
               status: enabled ? 'Active' : 'Paused',
             },

@@ -1,76 +1,11 @@
-# Artifacts — operational guide
+# Artifacts
 
-Load this doc (`dome_load_doc({ id: "artifacts" })`) before creating or editing any artifact.
+Create saved reports, dashboards and interactive apps with artifact_create. The result lives in the library and is mirrored to the project vault. Do not emit inline artifact code blocks.
 
-Artifacts are **persisted interactive mini-apps** rendered in a sandboxed iframe: dashboards, trackers, forms, boards, visual reports. Every artifact is created with `artifact_create` and stored as a library resource + a portable HTML file in the project vault. Dome no longer supports inline ```artifact:TYPE chat blocks — never emit them.
+For reports, findings and dossiers, call artifact_create directly with artifact_type="document", title and content (a Markdown string). Dome supplies typography, tables and theme. Preserve verified evidence, sources and uncertainty. Do not manufacture observations. No separate design tool or design specification is needed.
 
----
+For interactive apps use artifact_type="custom", "chart" or "task-tracker", html (a body fragment containing inline CSS and JavaScript), and data (a JSON object). For details you can use dome_load_doc({id:"artifact_persisted"}).
 
-## When to build an artifact (decision matrix)
+Interactive apps read window.DOME_DATA and call window.__dome_updateState(nextData) after changes. Use theme variables --bg, --bg-secondary, --primary-text, --secondary-text, --accent and --border. Dome handles persistence; do not use browser storage or external script runners.
 
-| The user asks for… | Do this |
-|---|---|
-| Multi-section report, dossier, research digest, model card | `dome_load_doc('artifact_design')` → `artifact_design` tool → `artifact_create` |
-| Tracker, form, board, mini-app the user will edit over time | `artifact_create` with custom HTML (load `artifact_persisted` doc first) |
-| One-time dashboard / KPI panel | Still `artifact_create` — the vault HTML is the durable source of truth |
-| Dashboard fed by an Excel | `artifact_create` + link the sheet afterwards (see `artifact_persisted` doc) |
-| Plain note, summary, document | `resource_create` type=note — NOT an artifact |
-| Presentation (.pptx) | `ppt_create` |
-| Flashcards / quiz / mindmap | `flashcard_create` / `generate_quiz` / `generate_mindmap` |
-
-**Key question:** "Is this an interactive surface (buttons, inputs, tabs, live data)?" → artifact. "Is it prose to read?" → note.
-
----
-
-## THE #1 RULE — `html` is a BODY FRAGMENT
-
-Dome wraps your `html` in its own document that injects the theme, `window.DOME_DATA` and the persistence bridge. Therefore:
-
-- **NEVER** include `<!DOCTYPE>`, `<html>`, `<head>`, `<body>`, `<meta>` or `<title>` wrappers. Start directly with your top-level `<section>`/`<div>`.
-- Put CSS in a `<style>` tag at the top of the fragment.
-- Put JS in `<script>` tags inside the fragment, AFTER the markup it references.
-- Full documents are auto-normalized (body extracted, head styles hoisted), but relying on that loses structure — emit fragments.
-
-**Wrong:** `<!DOCTYPE html><html><head><style>…</style></head><body><div id="app">…</div></body></html>`
-**Right:** `<style>…</style><div id="app">…</div><script>…</script>`
-
----
-
-## Sandbox reality check
-
-Your code runs in a sandboxed iframe with an opaque origin. What you have:
-
-- `window.DOME_DATA` — your persisted data, injected before your scripts run.
-- `window.__dome_updateState(next)` — persists data to SQLite. The ONLY way to save.
-- Inline `<script>`/`<style>` — always work (the frame ships its own CSP).
-- Vanilla DOM APIs, SVG, `<canvas>`, CSS animations.
-
-What you do NOT have:
-
-- `localStorage`/`sessionStorage`/IndexedDB for real persistence (an in-memory shim prevents crashes, but data written there DIES on close — use `__dome_updateState`).
-- `window.electron`, IPC, Node, or access to Dome's UI.
-- Local file access. Network `fetch()` only reaches https origins — and the app is often offline, so **prefer fully self-contained vanilla JS**. An https CDN `<script>` (Chart.js etc.) is allowed only if the feature is impossible without it AND the artifact still shows meaningful content when the CDN fails (guard with `typeof Chart !== 'undefined'`).
-
----
-
-## Design contract (MANDATORY)
-
-Style ONLY with the injected CSS variables — hardcoded colors are rejected:
-
-- Surfaces: `var(--background)`, `var(--card)`, `var(--muted)`, `var(--accent)` (hover)
-- Text: `var(--foreground)`, `var(--muted-foreground)`
-- Interactive: `var(--primary)` + `var(--primary-foreground)`; borders/focus: `var(--border)`, `var(--ring)`
-- Semantic: `var(--success)`, `var(--warning)`, `var(--info)` (+ `-bg` variants), `var(--destructive)`
-- Radii/spacing/fonts: `var(--radius-sm|md|lg|xl)`, `var(--space-1..12)`, `var(--font-sans)`, `var(--font-mono)`
-
-Rules: no gradients, no `prefers-color-scheme` forks (the theme arrives through the variables and live-updates), no emoji as icons — inline SVG in Lucide style only (`viewBox="0 0 24 24"`, `stroke="currentColor"`, `fill="none"`). Layout must be usable at 800px width. Every list/table needs a designed empty state ("No entries yet — add the first one"), never a blank area.
-
----
-
-## Workflow summary
-
-1. `dome_load_doc('artifact_persisted')` — full state/persistence contract (once per session).
-2. Structured read-heavy layout? Also `dome_load_doc('artifact_design')` → `artifact_design` tool.
-3. `artifact_create` with `{ artifact_type, html, data?, title? }` — data-driven HTML that renders from `window.DOME_DATA`.
-4. Later data pushes: `artifact_merge_data`. UI redesigns: `artifact_update_state`.
-5. Tell the user it is saved in their library; emit the `artifact:created_entity` card per `entity_rules`.
+Use artifact_get before editing. artifact_update_state updates supplied fields only: content replaces document Markdown, html replaces interactive UI, data replaces the entire data object. Pass expected_version to detect conflicting edits. artifact_merge_data merges top-level data_patch keys without replacing the UI. Never repeat identical invalid calls; inspect the error, correct the arguments and retry once. Report creation only after a successful result.

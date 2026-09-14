@@ -23,6 +23,8 @@ function parseJsonState(raw) {
  */
 function mergeRuntimeIntoState(queries, artifactRow, baseState) {
   const merged = /** @type {Record<string, unknown>} */ ({ ...baseState });
+  // The persisted state is authoritative. Runtime slots are a legacy fallback only.
+  if (merged.data && typeof merged.data === 'object' && !Array.isArray(merged.data)) return merged;
   if (!queries?.getArtifactRuntimeDataByArtifactSlot?.get || !artifactRow?.id) return merged;
   const rt = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
   if (!rt?.data_json) return merged;
@@ -63,7 +65,7 @@ function serializeArtifactRecord(artifactRow, resourceRow, queries) {
   return {
     id: artifactRow.id,
     resourceId: artifactRow.resource_id,
-    artifactType: artifactRow.artifact_type,
+    artifactType: state.format === 'document' ? 'document' : artifactRow.artifact_type,
     template: artifactRow.template ?? null,
     state,
     linkedResourceId: artifactRow.linked_resource_id ?? null,

@@ -101,31 +101,6 @@ Una automatización ejecuta su acción según `targetType`:
 | `agent` | LangGraph agent | Sí | Recibe `inputTemplate.prompt`. Persiste en `automation_runs`. |
 | `many` | LangGraph (owner `many`) | Sí | Variante de `agent`. |
 | `workflow` | Canvas workflow | Sí (nodos agente) | Persiste en `automation_runs`. |
-| `feeder` | Script sandbox (`feeder-runner`) | **No** | Refresca el JSON de un artefacto. Persiste en `feeder_runs`. |
-
-### Target `feeder` — refresco periódico de artefacto
-
-Permite programar la ejecución de un **feeder** (script Python/Node/Bash/curl aprobado que merge JSON en un artefacto). Ideal para dashboards de monitorización (iDRAC, Redfish, APIs LAN) que necesitan refresco automático cada N minutos.
-
-Payload mínimo (`automations:upsert`):
-
-```json
-{
-  "title": "iDRAC refresh",
-  "targetType": "feeder",
-  "targetId": "<feeders.id UUID>",
-  "triggerType": "schedule",
-  "enabled": true,
-  "schedule": { "cadence": "cron-lite", "intervalMinutes": 5 }
-}
-```
-
-Notas:
-- El feeder debe estar `approved=true` y `enabled=true` para que `run-engine.runFeeder` lo acepte.
-- `inputTemplate.prompt`, `artifactBindings` y `outputMode` se ignoran (el script controla el merge directamente).
-- Los runs aparecen en `feeder_runs` (no en `automation_runs`) y se ven en la pestaña Feeders del artefacto vinculado.
-
----
 
 ## Output modes
 
@@ -160,19 +135,7 @@ function isDue(automation, timestamp) {
 }
 ```
 
-Si la automatización está actualmente en ejecución, se **salta** para evitar ejecuciones concurrentes. Para `targetType: 'feeder'` el chequeo también consulta `feeder_runs` (que es la tabla que usa el feeder-runner), de modo que un feeder ya corriendo no se vuelve a disparar:
-
-```javascript
-function isAutomationBusy(automation) {
-  const runs = runEngine.listRuns({ automationId: automation.id, limit: 5 });
-  if (runs.some(r => ['queued','running','waiting_approval'].includes(r.status))) return true;
-  if (automation.targetType === 'feeder') {
-    const row = db.getQueries().countRunningFeederRunsByAutomation.get(automation.id);
-    if (row && row.c > 0) return true;
-  }
-  return false;
-}
-```
+Si la automatización está actualmente en ejecución, se salta para evitar ejecuciones concurrentes. Se admiten agentes, Many y workflows; los destinos retirados no se ejecutan.
 
 ---
 

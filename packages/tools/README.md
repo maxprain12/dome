@@ -9,7 +9,7 @@ Depends only on `@dome/ai` (for tools that themselves call the LLM, e.g. deep-re
 Does **not** depend on `@dome/agent-core` — the runtime imports the registry, not vice-versa.
 
 This package is **Node-only** (main process). The renderer may import schema/definition
-types only (no execution modules).
+types only (no execution modules). The pure JSON artifact schema (`src/families/artifacts.schema.json`) is shared with the renderer; it contains no runtime imports.
 
 Spec: see [`../../longrunning-task/packages/dome-tools.md`](../../longrunning-task/packages/dome-tools.md)
 and the migration tracker in [`../../longrunning-task/`](../../longrunning-task/).

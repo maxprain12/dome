@@ -282,7 +282,6 @@
   "tool_dome_load_doc": "Cargando documentación...",
   "tool_skill_read": "Leyendo skill...",
   "tool_artifact_create": "Creando artefacto...",
-  "tool_artifact_design": "Diseñando artefacto...",
   "tool_artifact_get": "Leyendo artefacto...",
   "tool_artifact_update_state": "Actualizando artefacto...",
   "tool_artifact_merge_data": "Fusionando datos del artefacto...",

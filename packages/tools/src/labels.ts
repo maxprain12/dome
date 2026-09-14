@@ -54,7 +54,6 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   email_read: 'Read Email',
   // Artifacts
   artifact_create: 'Artifact Create',
-  artifact_design: 'Artifact Design',
   artifact_get: 'Artifact Get',
   artifact_update_state: 'Artifact Update',
   artifact_merge_data: 'Artifact Merge',
