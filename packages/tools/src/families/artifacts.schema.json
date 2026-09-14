@@ -3,13 +3,13 @@
     "type": "function",
     "function": {
       "name": "artifact_create",
-      "description": "Create a saved artifact. For reports and findings use artifact_type=document and content as a Markdown string. For interactive apps use custom/chart/task-tracker and html (body fragment). Optional data must be a JSON object. Interactive apps render from window.DOME_DATA and call window.__dome_updateState(nextData) after edits; use Dome CSS variables (--bg, --primary-text, --accent, --border). Returns resourceId and version. Do not emit inline artifact blocks.",
+      "description": "Create a reusable creative miniapp in the user’s library. Default to working interactive HTML: to-do trackers, calculators, interactive infographics, dashboards, process synoptics with KPIs, simulators or other bespoke apps. Choose a layout for the task; implement real controls, keyboard access, responsive views and useful empty states. Use custom for any app, task-tracker for tasks, chart for charts; document is only for explicitly requested static Markdown documents. Render from window.DOME_DATA, persist edits with window.__dome_updateState(nextData), and redraw through window.dome_onDataRefresh(next). Use Dome CSS variables. Return a resource link after success. No separate design tool and no inline artifact blocks.",
       "parameters": {
         "type": "object",
         "properties": {
           "title": {
             "type": "string",
-            "description": "Display title. Optional — if omitted, derived from HTML <title> tag, then artifact_type, then \"Untitled Artifact\"."
+            "description": "Name of the miniapp in the library. If omitted, derived from its first heading."
           },
           "artifact_type": {
             "type": "string",
@@ -19,15 +19,15 @@
               "chart",
               "custom"
             ],
-            "description": "Semantic type"
+            "description": "custom accepts any creative miniapp, including calculators, dashboards, infographics and process diagrams. document only for explicit static-document requests."
           },
           "content": {
             "type": "string",
-            "description": "Markdown text for document artifacts. Pass the report directly, not a design specification."
+            "description": "Markdown only when the user explicitly requests a static document; omit for miniapps."
           },
           "html": {
             "type": "string",
-            "description": "Body HTML fragment with inline CSS/JS for interactive artifacts"
+            "description": "Complete functional body HTML with inline JavaScript. Include the actual interactions, calculations and visualizations; no placeholder buttons or prose-only substitutes."
           },
           "data": {
             "type": "object",
@@ -36,6 +36,10 @@
           "project_id": {
             "type": "string",
             "description": "Project ID (default: current)"
+          },
+          "css": {
+            "type": "string",
+            "description": "Optional stylesheet, using Dome theme variables and responsive layouts."
           }
         },
         "required": [
@@ -91,7 +95,7 @@
     "type": "function",
     "function": {
       "name": "artifact_update_state",
-      "description": "Update only supplied fields; omitted fields are preserved. content replaces document Markdown; html replaces interactive UI; data REPLACES the complete data object. To merge keys use artifact_merge_data. Pass expected_version from artifact_get to reject conflicting changes.",
+      "description": "Customize an existing miniapp in place, preserving its resource link and all omitted fields. Read artifact_get first. html replaces the interactive interface; css replaces its stylesheet; data replaces the whole data object. artifact_type=custom with html explicitly converts a static document to a miniapp while retaining data. content is only for static documents. Pass expected_version to detect conflicts.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -115,6 +119,20 @@
           "data": {
             "type": "object",
             "description": "Replacement data object; omitted keys are removed"
+          },
+          "artifact_type": {
+            "type": "string",
+            "enum": [
+              "custom",
+              "task-tracker",
+              "chart",
+              "document"
+            ],
+            "description": "Optional explicit format change. To convert a document into a miniapp, pass custom and complete html."
+          },
+          "css": {
+            "type": "string",
+            "description": "Replacement stylesheet; omit to preserve existing CSS."
           }
         },
         "required": [

@@ -20,12 +20,12 @@ function artifactTool(name: string): AnyAgentTool {
         case 'artifact_create':
           return jsonResult(await window.electron.invoke('artifact:create', {
             title: p.title, artifactType: p.artifact_type, content: p.content,
-            state: { html: p.html, data: p.data }, projectId: p.project_id,
+            state: { html: p.html, css: p.css, data: p.data }, projectId: p.project_id,
           }));
         case 'artifact_update_state':
         case 'artifact_merge_data':
           return jsonResult(await window.electron.invoke('artifact:update', {
-            resourceId: p.resource_id, html: p.html, content: p.content,
+            resourceId: p.resource_id, html: p.html, css: p.css, content: p.content, artifactType: p.artifact_type,
             data: p.data, dataPatch: p.data_patch, expectedVersion: p.expected_version,
           }));
         case 'artifact_get':

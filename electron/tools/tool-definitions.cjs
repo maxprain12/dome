@@ -1436,7 +1436,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_create',
-        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — use artifact_create with html/data for interactive apps or artifact_type=document with Markdown content for reports. Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask. For folders: omit metadata.color to get an auto-assigned color.',
+        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — use artifact_create with html/css/data for reusable interactive miniapps; use artifact_type=document only for explicitly requested static documents. Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask. For folders: omit metadata.color to get an auto-assigned color.',
         parameters: {
           type: 'object',
           properties: {

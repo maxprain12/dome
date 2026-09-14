@@ -64,6 +64,31 @@ test('merges data against current state without reviving replaced keys', () => {
   assert.deepEqual(serialized.state.data, {});
 });
 
+test('converts a document to a miniapp in place while retaining its data', () => {
+  const { service } = fixture();
+  const first = service.create({ artifactType: 'document', content: '# Metrics', state: { data: { total: 42 } } }).data;
+  const next = service.update({ resourceId: first.resourceId, artifactType: 'custom', html: '<main><output id="total"></output></main>', css: 'output{font-size:2rem}', expectedVersion: 1 }).data;
+  assert.equal(next.resourceId, first.resourceId);
+  assert.equal(next.artifactType, 'custom');
+  assert.equal(next.state.data.total, 42);
+  assert.equal(next.state.format, undefined);
+  assert.equal(next.state.markdown, undefined);
+  assert.equal(next.state.css, 'output{font-size:2rem}');
+  assert.match(next.state.html, /id="total"/);
+  assert.equal(service.get(first.resourceId).version, 2);
+});
+
+test('updates and clears miniapp styles without replacing content or user data', () => {
+  const { service } = fixture();
+  const first = service.create({ state: { html: '<main>Tracker</main>', data: { tasks: [{ title: 'Saved task' }] } } }).data;
+  const styled = service.update({ resourceId: first.resourceId, css: 'main{padding:2rem}' }).data;
+  assert.equal(styled.state.html, first.state.html);
+  assert.equal(styled.state.data.tasks[0].title, 'Saved task');
+  const cleared = service.update({ resourceId: first.resourceId, css: '' }).data;
+  assert.equal(cleared.state.css, '');
+  assert.equal(cleared.state.data.tasks[0].title, 'Saved task');
+});
+
 test('rejects missing content, string data and nonexistent artifacts', () => {
   const { service } = fixture();
   assert.throws(() => service.create({ artifactType: 'document' }), /content is required/);

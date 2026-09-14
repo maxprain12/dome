@@ -4621,13 +4621,13 @@ async function artifactGet(args) {
 async function artifactCreate(args) {
   try {
     const projectId = args?.project_id || args?.projectId || (await getCurrentProject())?.id || 'default';
-    return artifactService().create({ title: args?.title, artifactType: args?.artifact_type || 'custom', content: args?.content, state: { html: args?.html, data: args?.data }, projectId });
+    return artifactService().create({ title: args?.title, artifactType: args?.artifact_type || 'custom', content: args?.content, state: { html: args?.html, css: args?.css, data: args?.data }, projectId });
   } catch (error) { return { success: false, error: error.message }; }
 }
 
 async function artifactUpdateState(args) {
   try {
-    return artifactService().update({ resourceId: args?.resource_id || args?.resourceId, html: args?.html, content: args?.content, data: args?.data, expectedVersion: args?.expected_version });
+    return artifactService().update({ resourceId: args?.resource_id || args?.resourceId, html: args?.html, css: args?.css, artifactType: args?.artifact_type, content: args?.content, data: args?.data, expectedVersion: args?.expected_version });
   } catch (error) { return { success: false, error: error.message }; }
 }
 

@@ -42,4 +42,4 @@ Confirmation required:
 Anti-patterns:
 - Never call generate_quiz when the user asked for a dashboard
 - Never loop ppt_create on syntax errors — validate script before calling (≤3 attempts)
-- Reports use artifact_create with document content in Markdown. Load artifact_persisted when you need advanced interactive persistence details.
+- Artifacts are functional miniapps by default. Do not replace requested interactivity with Markdown, a mockup, or inert controls. Load artifact_persisted for runtime details.

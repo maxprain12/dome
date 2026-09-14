@@ -2640,6 +2640,7 @@ declare global {
           data?: unknown;
           dataPatch?: Record<string, unknown>;
           html?: string;
+          css?: string;
           content?: string;
           expectedVersion?: number;
           artifactType?: 'document' | 'task-tracker' | 'chart' | 'custom';

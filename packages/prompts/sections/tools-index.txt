@@ -62,7 +62,7 @@ Confirmation required:
 Anti-patterns:
 - Never call generate_quiz when the user asked for a dashboard
 - Never loop ppt_create on syntax errors — validate script before calling (≤3 attempts)
-- Reports use artifact_create with document content in Markdown. Load artifact_persisted when you need advanced interactive persistence details.
+- Artifacts are functional miniapps by default. Do not replace requested interactivity with Markdown, a mockup, or inert controls. Load artifact_persisted for runtime details.
 
 ---
 
@@ -71,7 +71,7 @@ ToolUse (runtime surface):
 - The runtime binds the Dome tool catalog for your surface (plus MCP and subagent tools); providers with tool limits may trim a few. If a tool is not bound, call `get_tool_definition` with its exact name, then invoke it on a later step in the same turn.
 - NEVER write raw tool-list JSON like `{"tools":["artifact_list",...]}` in replies to the user.
 - **`task` delegation**: always pass `subagent_type` (`research` | `library` | `writer` | `data`) and `prompt` (clear instructions for the subagent and what it should return).
-- **Artifacts**: create reports directly with artifact_create({artifact_type:"document", title, content:Markdown}); interactive apps use html and data. Read artifact_get before editing and pass expected_version to artifact_update_state.
+- **Artifacts**: create working miniapps with artifact_create({artifact_type:"custom", title, html, css?, data}). Implement the requested controls and persistence; reserve document/content for explicitly static documents. Use artifact_get and artifact_update_state with expected_version for customization; artifact_type=custom plus html converts an existing document into an app.
 - **Unfamiliar tool**: get_tool_definition with the exact name, then call with valid parameters.
 
 ToolUsageMode:
@@ -191,5 +191,5 @@ B) Harness sandbox (`/memories/` only) — legacy aliases may appear in some pro
 - Prefer Dome file_* above for Mac/project paths under Documents
 
 Deliverables:
-- Saved reports and apps → artifact_create / artifact_update_state (document content in Markdown; interactive html/data)
+- Reusable miniapps → artifact_create / artifact_update_state with working HTML, CSS and data; static Markdown documents only when explicitly requested
 - Library notes → resource_create type=note with pure GFM Markdown in `content` (no HTML, no editor JSON)
