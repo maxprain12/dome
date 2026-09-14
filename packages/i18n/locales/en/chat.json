@@ -282,7 +282,6 @@
   "tool_dome_load_doc": "Loading reference doc...",
   "tool_skill_read": "Reading skill file...",
   "tool_artifact_create": "Creating artifact...",
-  "tool_artifact_design": "Designing artifact...",
   "tool_artifact_get": "Reading artifact...",
   "tool_artifact_update_state": "Updating artifact...",
   "tool_artifact_merge_data": "Merging artifact data...",

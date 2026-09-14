@@ -39,3 +39,17 @@ describe('artifact-vault-mirror', () => {
     assert.equal(parseArtifactHtmlDocument('<html><body>plain</body></html>'), null);
   });
 });
+
+it('preserves document Markdown across vault roundtrips and initializes data first', async () => {
+  const { documentState } = await import('../artifacts/artifact-document.cjs');
+  const state = { ...documentState('# Report\n\nEvidence.'), data: { sample: '</script>' } };
+  const html = buildArtifactHtmlDocument({ resource: { id: 'report' }, artifact: { artifact_type: 'custom' }, state });
+  const parsed = parseArtifactHtmlDocument(html);
+  assert.equal(parsed.format, 'document');
+  assert.equal(parsed.markdown, state.markdown);
+  assert.ok(html.indexOf('window.DOME_DATA =') < html.indexOf('<article'));
+  assert.equal(parsed.data.sample, '</script>');
+  const edited = parseArtifactHtmlDocument(html.replace('Evidence.</p>', 'Edited outside Dome.</p>'));
+  assert.equal(edited.format, undefined);
+  assert.ok(edited.html.includes('Edited outside Dome'));
+});

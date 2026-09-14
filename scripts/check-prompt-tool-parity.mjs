@@ -77,10 +77,8 @@ const SKIP_BACKTICK = new Set([
   'artifact_type',
   'artifact_runtime_data', // SQLite table, not a tool
   'artifact_persisted',
-  'artifact_design',
   'entity_rules',
   'resource_links',
-  'feeders',
   'ppt_tool',
   'docx_tool',
   'calendar_tool',
@@ -172,24 +170,13 @@ function buildDocSpecs(families) {
     {
       docId: 'artifacts',
       relPath: 'packages/tools/src/domains/artifacts/prompt.txt',
-      requiredTools: ['artifact_create', 'artifact_design', 'dome_load_doc'],
+      requiredTools: ['artifact_create', 'dome_load_doc'],
       optionalTools: ['artifact_merge_data', 'artifact_update_state'],
     },
     {
       docId: 'artifact_persisted',
       relPath: 'packages/tools/src/domains/artifacts/prompt-persisted.txt',
       requiredTools: toolsInFamily(families, 'artifacts'),
-    },
-    {
-      docId: 'artifact_design',
-      relPath: 'packages/tools/src/domains/artifacts/prompt-design.txt',
-      requiredTools: ['artifact_design', 'artifact_create', 'dome_load_doc'],
-    },
-    {
-      docId: 'feeders',
-      relPath: 'packages/tools/src/domains/feeders/prompt.txt',
-      requiredTools: toolsInFamily(families, 'feeders'),
-      optionalTools: ['artifact_create', 'automation_create'],
     },
     {
       docId: 'ppt_tool',
@@ -251,7 +238,6 @@ function buildDocSpecs(families) {
         'excel_get',
         'artifact_create',
         'artifact_link_resource',
-        'artifact_design',
         'dome_load_doc',
       ],
       optionalTools: ['artifact_merge_data', 'artifact_update_state'],
@@ -318,11 +304,6 @@ const REQUIRED_PARAM_MENTIONS = [
     tool: 'artifact_merge_data',
     params: ['data_patch'],
   },
-  {
-    relPaths: ['packages/tools/src/domains/feeders/prompt.txt'],
-    tool: 'feeder_create',
-    params: ['artifact_resource_id'],
-  },
 ];
 
 function verifyManifestSync() {
@@ -332,7 +313,7 @@ function verifyManifestSync() {
   );
   const idsFromTs = [...manifestTs.matchAll(/'([a-z_]+)'/g)]
     .map((x) => x[1])
-    .filter((id) => id.includes('_') || id === 'artifacts' || id === 'feeders' || id === 'entity_rules' || id === 'resource_links' || id.startsWith('artifact'));
+    .filter((id) => id.includes('_') || id === 'artifacts' || id === 'entity_rules' || id === 'resource_links' || id.startsWith('artifact'));
 
   // Parse DOME_LOAD_DOC_IDS array explicitly
   const arrMatch = manifestTs.match(/DOME_LOAD_DOC_IDS\s*=\s*\[([\s\S]*?)\]\s*as const/);

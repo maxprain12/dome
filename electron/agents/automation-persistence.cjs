@@ -93,6 +93,7 @@ function normalizeAutomationRow(row) {
 }
 
 function normalizeAutomationInput(input, existingRow = null) {
+  if (input?.targetType != null && !['many', 'agent', 'workflow'].includes(input.targetType)) throw new Error('Unsupported automation target');
   const timestamp = now();
   const projectId =
     input?.projectId ??
@@ -104,7 +105,7 @@ function normalizeAutomationInput(input, existingRow = null) {
     projectId: String(projectId || 'default'),
     title: String(input.title || 'Automatización').trim(),
     description: input.description ? String(input.description) : '',
-    targetType: ['many', 'agent', 'workflow', 'feeder'].includes(input.targetType) ? input.targetType : 'agent',
+    targetType: ['many', 'agent', 'workflow'].includes(input.targetType) ? input.targetType : 'agent',
     targetId: String(input.targetId || '').trim(),
     triggerType: ['manual', 'schedule', 'contextual'].includes(input.triggerType) ? input.triggerType : 'manual',
     schedule: input.schedule ?? null,

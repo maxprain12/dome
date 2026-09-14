@@ -10,8 +10,6 @@ const DOME_LOAD_DOC_IDS = [
   'entity_rules',
   'artifacts',
   'artifact_persisted',
-  'artifact_design',
-  'feeders',
   'resource_links',
   'ppt_tool',
   'docx_tool',
@@ -23,7 +21,7 @@ const DOME_LOAD_DOC_IDS = [
 
 const DOME_LOAD_DOC_DESCRIPTION =
   'Load a reference doc section on demand. Call BEFORE using tools that require it. ' +
-  'Valid ids: entity_rules, artifacts, artifact_persisted, artifact_design, feeders, resource_links, ' +
+  'Valid ids: entity_rules, artifacts, artifact_persisted, resource_links, ' +
   'ppt_tool, docx_tool, calendar_tool, flashcard_tool, excel_notebook_tool, excel_artifact_tool.';
 
 export function createDomeLoadDocTool(): AnyAgentTool {
@@ -65,7 +63,7 @@ export function createSkillReadTool(): AnyAgentTool {
     name: 'skill_read',
     description:
       'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). ' +
-      'For artifact_persisted, artifact_design, or artifacts docs use dome_load_doc(id) instead.',
+      'For artifact_persisted, or artifacts docs use dome_load_doc(id) instead.',
     parameters: Type.Object({
       skill_id: Type.String({ description: 'Skill folder name, e.g. "pptx".' }),
       path: Type.String({ description: 'Relative path within the skill folder, e.g. "editing.md".' }),

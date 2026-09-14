@@ -283,7 +283,6 @@
   "tool_dome_load_doc": "Chargement de la documentation...",
   "tool_skill_read": "Lecture du skill...",
   "tool_artifact_create": "Création de l'artefact...",
-  "tool_artifact_design": "Conception de l'artefact...",
   "tool_artifact_get": "Lecture de l'artefact...",
   "tool_artifact_update_state": "Mise à jour de l'artefact...",
   "tool_artifact_merge_data": "Fusion des données de l'artefact...",

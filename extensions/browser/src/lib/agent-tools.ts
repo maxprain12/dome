@@ -85,12 +85,11 @@ export function createToolRunner({
   const pageAction = async (action: unknown) => {
     if (signal.aborted) throw new Error('Cancelled');
     if (!snapshot) throw new Error('Read browser_read_page first.');
-    return browser.runtime.sendMessage({
-      type: 'DOME_PAGE_ACTION',
-      tabId,
-      url: snapshot.url,
-      action,
-    });
+    const cancel = () => { browser.runtime.sendMessage({ type: 'DOME_CANCEL_PAGE_ACTION', tabId }).catch(() => undefined); };
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      return await browser.runtime.sendMessage({ type: 'DOME_PAGE_ACTION', tabId, url: snapshot.url, action });
+    } finally { signal.removeEventListener('abort', cancel); }
   };
   const getProjectNote = async (id: unknown) => {
     if (typeof id !== 'string' || !/^[a-zA-Z0-9:_-]{1,120}$/.test(id))
@@ -183,7 +182,7 @@ export function createToolRunner({
           (item) => item.id === args.elementId,
         );
         if (!element || snapshot?.snapshotId !== args.snapshotId)
-          throw new Error('Read a fresh page snapshot first.');
+          return { success: false, error: 'This reference is from an earlier read or turn. Choose the target from this fresh snapshot and retry.', data: await read(false) };
         if (
           !(await review({
             name,

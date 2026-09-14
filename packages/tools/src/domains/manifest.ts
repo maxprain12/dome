@@ -7,8 +7,6 @@ export const DOME_LOAD_DOC_IDS = [
   'entity_rules',
   'artifacts',
   'artifact_persisted',
-  'artifact_design',
-  'feeders',
   'resource_links',
   'ppt_tool',
   'docx_tool',
@@ -26,10 +24,8 @@ export type DomeLoadDocId = (typeof DOME_LOAD_DOC_IDS)[number];
 export const DOME_LOAD_DOC_DESCRIPTION =
   'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: ' +
   'entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), ' +
-  'artifacts (before emitting any artifact block), ' +
-  'artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), ' +
-  'artifact_design (before artifact_create or artifact_design tool), ' +
-  'feeders (before feeder_create/feeder_run), ' +
+  'artifacts (saved documents and interactive apps), ' +
+  'artifact_persisted (advanced persistence and editing), ' +
   'resource_links (if unsure about dome:// link format), ' +
   'ppt_tool (before ppt_create), ' +
   'docx_tool (before docx_create/docx_update), ' +
@@ -47,8 +43,6 @@ export const DOME_LOAD_DOC_PATHS: Record<DomeLoadDocId, string> = {
   resource_links: 'sections/resource-links.txt',
   artifacts: 'artifacts/prompt.txt',
   artifact_persisted: 'artifacts/prompt-persisted.txt',
-  artifact_design: 'artifacts/prompt-design.txt',
-  feeders: 'feeders/prompt.txt',
   ppt_tool: 'office/prompt-ppt.txt',
   docx_tool: 'office/prompt-docx.txt',
   calendar_tool: 'calendar/prompt.txt',

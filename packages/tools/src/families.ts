@@ -23,7 +23,6 @@ export type ToolFamily =
   | 'github'
   | 'social'
   | 'artifacts'
-  | 'feeders'
   | 'flashcards'
   | 'notebook'
   | 'office'
@@ -89,11 +88,7 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   // artifacts
   artifact_create: 'artifacts', artifact_get: 'artifacts', artifact_merge_data: 'artifacts',
   artifact_update_state: 'artifacts', artifact_list: 'artifacts', artifact_delete: 'artifacts',
-  artifact_link_resource: 'artifacts', artifact_design: 'artifacts',
-  // feeders
-  feeder_create: 'feeders', feeder_list: 'feeders', feeder_run: 'feeders',
-  feeder_update_script: 'feeders', feeder_delete: 'feeders', feeder_history: 'feeders',
-  feeder_secret_request: 'feeders',
+  artifact_link_resource: 'artifacts',
   // flashcards
   flashcard_create: 'flashcards',
   // notebook

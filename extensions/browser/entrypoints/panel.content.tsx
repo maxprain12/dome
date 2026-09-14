@@ -1,3 +1,4 @@
+import { hideActionPointer } from '../src/lib/action-pointer';
 import { createPageAgent, type ElementAction } from '../src/lib/page-agent';
 import { extractContact } from '../src/lib/extractors';
 import { pageRoots, rendered } from '../src/lib/page-dom';
@@ -56,9 +57,9 @@ export default defineContentScript({
             ok: true,
             protocolVersion: CONTENT_PROTOCOL_VERSION,
           });
-        if (message.type === 'DOME_AGENT_READ_V4')
+        if (message.type === 'DOME_AGENT_READ_V5')
           return Promise.resolve(agent.read());
-        if (message.type === 'DOME_SNAPSHOT_V4')
+        if (message.type === 'DOME_SNAPSHOT_V5')
           return Promise.resolve({
             ...getPageSnapshot(),
             contact: extractContact(document, location.href),
@@ -67,15 +68,17 @@ export default defineContentScript({
               text: (el.textContent || '').trim().slice(0, 160),
             })),
           });
-        if (message.type !== 'DOME_ACT_V4' || message.url !== location.href)
+        if (message.type === 'DOME_CANCEL_ACT_V5') { hideActionPointer(); return Promise.resolve({ ok: true }); }
+        if (message.type !== 'DOME_ACT_V5' || message.url !== location.href)
           return;
         const action = message.action;
         if (action && ('elementId' in action)) {
-          const result = agent.act(action);
-          if (action.kind !== 'fill') {
-            return settle(400).then(() => result);
-          }
-          return Promise.resolve(result);
+          return agent.point(action).then(async (ready) => {
+            if (!ready) return { success: false, error: 'Action cancelled or target changed. Read the page again.' };
+            const result = agent.act(action);
+            await settle(400);
+            return result;
+          });
         }
         if (action?.kind === 'scroll') {
           if (action.headingText?.trim()) {

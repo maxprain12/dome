@@ -14,5 +14,5 @@ B) Harness sandbox (`/memories/` only) — legacy aliases may appear in some pro
 - Prefer Dome file_* above for Mac/project paths under Documents
 
 Deliverables:
-- HTML mini-apps → artifact_create / artifact_update_state (load artifact_persisted + artifact_design first)
+- Saved reports and apps → artifact_create / artifact_update_state (document content in Markdown; interactive html/data)
 - Library notes → resource_create type=note with pure GFM Markdown in `content` (no HTML, no editor JSON)

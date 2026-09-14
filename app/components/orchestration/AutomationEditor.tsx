@@ -15,7 +15,6 @@ import {
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import type { AutomationOutputMode } from '@/lib/automations/api';
-import type { FeederRecord } from '@/lib/feeders/api';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
@@ -48,7 +47,6 @@ interface AutomationEditorProps {
   draft: DraftState;
   agents: ManyAgent[];
   workflows: CanvasWorkflow[];
-  feeders: FeederRecord[];
   hubArtifacts: Array<{ resourceId: string; title: string }>;
   isNew: boolean;
   saving: boolean;
@@ -96,34 +94,23 @@ function SectionCard({
 
 type TargetOption = { value: string; label: string };
 
-/** Selectable destinations for the current target type (agents, workflows or feeders). */
+/** Selectable destinations for the current target type (agents or workflows). */
 function buildTargetOptions(params: {
   draft: DraftState;
   agents: ManyAgent[];
   workflows: CanvasWorkflow[];
-  feeders: FeederRecord[];
-  hubArtifacts: Array<{ resourceId: string; title: string }>;
   t: TFunction;
 }): TargetOption[] {
-  const { draft, agents, workflows, feeders, hubArtifacts, t } = params;
+  const { draft, agents, workflows } = params;
   if (draft.targetType === 'agent') return agents.map((a) => ({ value: a.id, label: a.name }));
   if (draft.targetType === 'workflow') return workflows.map((w) => ({ value: w.id, label: w.name }));
-  return feeders.map((f) => {
-    const artifactLabel =
-      hubArtifacts.find((a) => a.resourceId === f.artifactResourceId)?.title ?? f.artifactResourceId;
-    const tag = !f.approved
-      ? ` · ${t('automation.feeder_not_approved')}`
-      : !f.enabled
-        ? ` · ${t('automation.feeder_disabled')}`
-        : '';
-    return { value: f.id, label: `${f.name} — ${artifactLabel}${tag}` };
-  });
+  return [];
 }
 
 function targetTypeLabelFor(targetType: DraftState['targetType'], t: TFunction): string {
   if (targetType === 'agent') return t('automation.agent');
   if (targetType === 'workflow') return t('automation.workflow');
-  return t('automation.feeder');
+  return t('automation.agent');
 }
 
 /** Live summary sentence describing when the automation runs. */
@@ -148,8 +135,7 @@ function buildTriggerSentence(draft: DraftState, t: TFunction): string {
 }
 
 /** Live summary sentence describing where the output lands. */
-function buildOutputSentence(draft: DraftState, isFeederTarget: boolean, t: TFunction): string {
-  if (isFeederTarget) return t('orchestration.automation_editor.summary_feeder_output');
+function buildOutputSentence(draft: DraftState, t: TFunction): string {
   if (draft.outputMode === 'studio_output') return t('automation.studio');
   if (draft.outputMode === 'mixed') return t('automation.mixed');
   return t('automation.output_chat_only');
@@ -159,34 +145,29 @@ function buildOutputSentence(draft: DraftState, isFeederTarget: boolean, t: TFun
 function renderTargetSection(params: {
   draft: DraftState;
   isNew: boolean;
-  isFeederTarget: boolean;
   targetOptions: TargetOption[];
   targetTypeLabel: string;
   targetName: string | null;
   onDraftChange: (partial: Partial<DraftState>) => void;
   t: TFunction;
 }): ReactNode {
-  const { draft, isNew, isFeederTarget, targetOptions, targetTypeLabel, targetName, onDraftChange, t } =
+  const { draft, isNew, targetOptions, targetTypeLabel, targetName, onDraftChange, t } =
     params;
   return (
     <SectionCard
       icon={Bot}
       title={t('automation.destination')}
-      hint={isFeederTarget ? t('automation.feeder_target_hint') : undefined}
     >
       <div className="flex flex-col gap-3">
         {isNew ? (
           <Tabs value={draft.targetType} onValueChange={(v) => onDraftChange({ targetType: v as DraftState['targetType'], targetId: '' })} className="min-w-0"><TabsList aria-label={t('automation.destination')} className="h-auto w-full max-w-full flex-wrap">{([
               { value: 'agent', label: t('automation.agent'), icon: <HugeiconsIcon icon={BotIcon} className="size-3.5" aria-hidden /> },
               { value: 'workflow', label: t('automation.workflow'), icon: <HugeiconsIcon icon={WorkflowIcon} className="size-3.5" aria-hidden /> },
-              { value: 'feeder', label: t('automation.feeder'), icon: <HugeiconsIcon icon={CableIcon} className="size-3.5" aria-hidden /> },
             ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
         ) : null}
         {isNew ? (
           <Select value={draft.targetId || null} onValueChange={(next) => { if (next != null) ((v) => onDraftChange({ targetId: v }))(next); }} items={targetOptions}><SelectTrigger className="w-full" aria-label={t('automation.destination')}><SelectValue placeholder={
-              isFeederTarget
-                ? t('automation.select_feeder')
-                : t('automation.select_agent_or_workflow', { type: targetTypeLabel })
+              t('automation.select_agent_or_workflow', { type: targetTypeLabel })
             } /></SelectTrigger><SelectContent>{(targetOptions).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectContent></Select>
         ) : (
           <p className="text-sm text-foreground">
@@ -259,17 +240,16 @@ function renderTriggerSection(params: {
 /** Right-hand column: plain-language read back of the automation rule. */
 function renderSummaryAside(params: {
   draft: DraftState;
-  isFeederTarget: boolean;
   targetTypeLabel: string;
   targetName: string | null;
   activeBindingsCount: number;
   onDraftChange: (partial: Partial<DraftState>) => void;
   t: TFunction;
 }): ReactNode {
-  const { draft, isFeederTarget, targetTypeLabel, targetName, activeBindingsCount, onDraftChange, t } =
+  const { draft, targetTypeLabel, targetName, activeBindingsCount, onDraftChange, t } =
     params;
   const triggerSentence = buildTriggerSentence(draft, t);
-  const outputSentence = buildOutputSentence(draft, isFeederTarget, t);
+  const outputSentence = buildOutputSentence(draft, t);
   return (
     <aside className="flex min-w-0 flex-col gap-4 md:sticky md:top-0 md:self-start">
       <div
@@ -337,7 +317,6 @@ export default function AutomationEditor({
   draft,
   agents,
   workflows,
-  feeders,
   hubArtifacts,
   isNew,
   saving,
@@ -346,11 +325,10 @@ export default function AutomationEditor({
   onCancel,
 }: AutomationEditorProps) {
   const { t } = useTranslation();
-  const isFeederTarget = draft.targetType === 'feeder';
-  const showPromptAndOutput = !isFeederTarget;
+  const showPromptAndOutput = true;
   const canSave = Boolean(draft.title.trim() && draft.targetId) && !saving;
 
-  const targetOptions = buildTargetOptions({ draft, agents, workflows, feeders, hubArtifacts, t });
+  const targetOptions = buildTargetOptions({ draft, agents, workflows, t });
 
   const targetName = targetOptions.find((o) => o.value === draft.targetId)?.label ?? null;
 
@@ -422,7 +400,6 @@ export default function AutomationEditor({
             {renderTargetSection({
               draft,
               isNew,
-              isFeederTarget,
               targetOptions,
               targetTypeLabel,
               targetName,
@@ -533,7 +510,6 @@ export default function AutomationEditor({
           {/* Summary column */}
           {renderSummaryAside({
             draft,
-            isFeederTarget,
             targetTypeLabel,
             targetName,
             activeBindingsCount: activeBindings.length,

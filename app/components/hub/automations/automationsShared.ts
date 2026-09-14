@@ -19,7 +19,7 @@ export type DraftState = {
   id?: string;
   title: string;
   description: string;
-  targetType: 'agent' | 'workflow' | 'feeder';
+  targetType: 'agent' | 'workflow';
   targetId: string;
   triggerType: 'manual' | 'schedule' | 'contextual';
   enabled: boolean;

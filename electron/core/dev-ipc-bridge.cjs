@@ -23,7 +23,6 @@ const DEFAULT_PORT = Number(process.env.DOME_IPC_BRIDGE_PORT || 8799);
 const CHANNEL_ALIASES = new Map([
   ['artifacts:create', 'artifact:create'],
   ['artifacts:get', 'artifact:get'],
-  ['artifacts:buildDesign', 'artifact:buildDesign'],
   ['artifacts:update', 'artifact:update'],
   ['artifacts:delete', 'artifact:delete'],
   ['artifacts:list', 'artifact:list'],

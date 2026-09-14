@@ -797,6 +797,7 @@ function readArtifactHtmlMirror({ id, reconcile = false }, { database, fileStora
       if (artifact) {
         const now = Date.now();
         const nextState = {
+          ...(parsed.format === 'document' ? { format: 'document', markdown: parsed.markdown } : {}),
           html: parsed.html,
           css: parsed.css,
           data: parsed.data,
@@ -836,7 +837,7 @@ function readArtifactHtmlMirror({ id, reconcile = false }, { database, fileStora
   }
 }
 
-/** Remove the `.dome` sidecar directory for an artifact (feeders, runtime snapshots). */
+/** Remove the `.dome` sidecar directory for an artifact (legacy runtime snapshots). */
 function removeArtifactSidecarAbs(absSidecar, rootDir, deps = null) {
   if (!absSidecar) return;
   try {
@@ -895,7 +896,7 @@ function relocateResource(id, { database, fileStorage }) {
         fs.renameSync(oldAbs, newAbs);
         pruneEmptyDirs(path.dirname(oldAbs), root, { database, fileStorage });
       }
-      // Keep the artifact `.dome` sidecar (feeder snapshots) next to its mirror.
+      // Keep the artifact `.dome` sidecar (legacy snapshots) next to its mirror.
       if (resource.type === 'artifact') {
         const oldSidecar = path.join(root, artifactSidecarRelPath(prevRel));
         const newSidecar = path.join(root, artifactSidecarRelPath(desiredRel));

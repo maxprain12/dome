@@ -222,5 +222,9 @@
   "browserStop": "Parar Many",
   "tool_browser_select": "Selecionar opção",
   "tool_browser_wait": "Aguardar conteúdo",
-  "tool_browser_screenshot": "Ver captura da página"
+  "tool_browser_screenshot": "Ver captura da página",
+  "browserAlwaysAccept": "Aceitar sempre neste site",
+  "browserAlwaysActive": "Ações permitidas automaticamente em {{origin}}",
+  "browserAskAgain": "Voltar a pedir permissão",
+  "browserPermissionSaveFailed": "Não foi possível guardar a permissão. Tente novamente."
 }

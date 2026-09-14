@@ -77,7 +77,6 @@ probes = [
     ("resources", "metadata"),
     ("interactions", "content"),
     ("github_issues", "body"),
-    ("feeder_runs", "output"),
     ("studio_outputs", "content"),
     ("artifacts", "state"),
     ("settings", "value"),

@@ -212,6 +212,11 @@ function main() {
   }
   const arrayBody = src.slice(arrOpen, arrClose + 1);
   const names = extractDefinitionToolNames(arrayBody);
+  // Artifact definitions are shared pure JSON, consumed by the package and renderer.
+  if (src.includes('...pkg.artifactsToolDefinitions()')) {
+    const schemas = JSON.parse(fs.readFileSync(path.join(__dirname, '../packages/tools/src/families/artifacts.schema.json'), 'utf8'));
+    names.push(...schemas.map((entry) => entry.function.name));
+  }
 
   const missing = [];
   for (const name of names) {

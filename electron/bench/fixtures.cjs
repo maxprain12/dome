@@ -35,7 +35,6 @@ const FIXTURE_IDS = {
   notebook: 'bench-notebook',
   image: 'bench-image-1',
   artifact: 'bench-artifact-1',
-  feeder: 'bench-feeder-1',
   thermoChunkId: 'bench-note-thermo#0',
 };
 
@@ -168,9 +167,6 @@ function upsertResource(queries, row) {
   return row.id;
 }
 
-function feederScriptHash(script) {
-  return crypto.createHash('sha256').update(String(script || ''), 'utf8').digest('hex');
-}
 
 function upsertArtifact(queries, { artifactRowId, resourceId, artifactType, stateStr, now }) {
   const existing = queries.getArtifactByResourceId.get(resourceId);
@@ -182,44 +178,6 @@ function upsertArtifact(queries, { artifactRowId, resourceId, artifactType, stat
   return artifactRowId;
 }
 
-function upsertFeeder(queries, row) {
-  const existing = queries.getFeederById.get(row.id);
-  if (existing) {
-    queries.updateFeederScript.run(
-      row.script,
-      row.script_hash,
-      row.approved,
-      row.approved_script_hash,
-      row.updated_at,
-      row.id,
-    );
-    return row.id;
-  }
-  queries.createFeeder.run(
-    row.id,
-    row.artifact_resource_id,
-    row.slot,
-    row.name,
-    row.description,
-    row.interpreter,
-    row.script,
-    row.script_hash,
-    row.env_secret_refs,
-    row.env_static,
-    row.output_mode,
-    row.update_policy,
-    row.timeout_ms,
-    row.enabled,
-    row.approved,
-    row.approved_script_hash,
-    row.last_run_at,
-    row.last_status,
-    row.last_error,
-    row.created_at,
-    row.updated_at,
-  );
-  return row.id;
-}
 
 function upsertResourceChunk(queries, row) {
   queries.deleteChunksByResource.run(row.resource_id);
@@ -393,31 +351,6 @@ async function seedFixtures({ force = false } = {}) {
     now,
   });
 
-  const feederScript = 'import json\nprint(json.dumps({"ok": True}))\n';
-  const feederHash = feederScriptHash(feederScript);
-  upsertFeeder(queries, {
-    id: FIXTURE_IDS.feeder,
-    artifact_resource_id: FIXTURE_IDS.artifact,
-    slot: 'default',
-    name: 'Bench Feeder',
-    description: 'Benchmark feeder fixture',
-    interpreter: 'python3',
-    script: feederScript,
-    script_hash: feederHash,
-    env_secret_refs: '[]',
-    env_static: '{}',
-    output_mode: 'stdout_json',
-    update_policy: 'replace',
-    timeout_ms: 30000,
-    enabled: 1,
-    approved: 0,
-    approved_script_hash: null,
-    last_run_at: null,
-    last_status: null,
-    last_error: null,
-    created_at: now,
-    updated_at: now,
-  });
 
   const thermoChunkText =
     'La entropía mide el desorden de un sistema termodinámico. En procesos reversibles, el cambio de entropía está ligado al calor transferido.';

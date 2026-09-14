@@ -104,6 +104,8 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   }, [t, token]);
 
   const {
+    trustedOrigin,
+    revokeBrowserApproval,
     browserActivity,
     approvalEditArgs,
     approvalEditOpen,
@@ -122,6 +124,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     token,
     projectId,
     tabId,
+    pageUrl: page.url,
     setMessages,
     setError,
     setUsage,
@@ -839,7 +842,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         </div>
       ) : null}
 
-      <BrowserActionCard review={review} activity={browserActivity} onStop={stop} />
+      <BrowserActionCard review={review} activity={browserActivity} onStop={stop} trustedOrigin={trustedOrigin} onRevoke={revokeBrowserApproval} />
 
       {error ? (
         <p className="status error mx-3" role="alert">

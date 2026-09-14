@@ -222,5 +222,9 @@
   "browserStop": "Stop Many",
   "tool_browser_select": "Select option",
   "tool_browser_wait": "Wait for content",
-  "tool_browser_screenshot": "View page screenshot"
+  "tool_browser_screenshot": "View page screenshot",
+  "browserAlwaysAccept": "Always accept on this site",
+  "browserAlwaysActive": "Actions automatically allowed on {{origin}}",
+  "browserAskAgain": "Ask for permission again",
+  "browserPermissionSaveFailed": "Could not save this permission. Try again."
 }

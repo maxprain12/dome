@@ -1133,22 +1133,8 @@ async function startAutomationNow(automationId) {
   if (!automation) {
     throw new Error('Automatización no encontrada');
   }
+  if (!['many', 'agent', 'workflow'].includes(automation.targetType)) throw new Error('This automation target is no longer supported.');
   const title = automation.title || 'Automatización';
-  if (automation.targetType === 'feeder') {
-    const { runFeeder } = require('../services/feeder-runner.cjs');
-    try {
-      setAutomationRunStatus(automation.id, 'running');
-      const result = await runFeeder(_database, _windowManager, automation.targetId, {
-        triggeredBy: 'automation',
-        automationId: automation.id,
-      });
-      setAutomationRunStatus(automation.id, 'completed');
-      return result;
-    } catch (err) {
-      setAutomationRunStatus(automation.id, 'failed');
-      throw err;
-    }
-  }
   if (automation.targetType === 'workflow') {
     const run = startWorkflowRun({
       workflowId: automation.targetId,

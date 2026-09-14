@@ -3,7 +3,6 @@
 ## When to use
 Use `excel_get` + `artifact_create` (+ `artifact_link_resource`) when the user asks for a dashboard, panel, artefacto interactivo, or interactive artifact from an .xlsx or spreadsheet resource.
 
-**MANDATORY FIRST STEP**: Call `dome_load_doc('artifact_design')` and `dome_load_doc('artifact_persisted')` before creating anything. These provide the CSS variable tokens, iframe contract, and `artifact_link_resource` pattern you must follow.
 
 ---
 
@@ -11,14 +10,12 @@ Use `excel_get` + `artifact_create` (+ `artifact_link_resource`) when the user a
 
 Call **both** docs before creating anything:
 
-1. `dome_load_doc('artifact_design')` — Dome design system: CSS variable tokens, SVG-only icon rules, and the decision between `artifact_design` tool vs custom HTML.
 2. `dome_load_doc('artifact_persisted')` — iframe contract (`window.DOME_DATA`, `__dome_updateState`) and the `artifact_link_resource` pattern.
 
 Then decide the design path:
 
 | Artifact kind | Design path |
 |---|---|
-| **Structured summary** (KPI cards, text sections, tables-only, multi-tab report) | Call `artifact_design` tool with a `spec` → use the returned `html` + `data` in `artifact_create`. |
 | **Interactive dashboard** (filterable table, chart with controls, editable form) | Write custom HTML that reads `window.DOME_DATA.rows` + calls `__dome_updateState`, using only Dome CSS variables and inline SVG icons. |
 
 When in doubt, prefer the **interactive** path for Excel data — users typically want to filter and explore rows.

@@ -1112,62 +1112,6 @@ function buildQueries(db) {
     `),
     getAutomationArtifactBindingById: db.prepare('SELECT * FROM automation_artifact_bindings WHERE id = ?'),
 
-    // Artifact feeders (sandbox scripts → runtime data)
-    createFeeder: db.prepare(`
-      INSERT INTO feeders (
-        id, artifact_resource_id, slot, name, description, interpreter, script, script_hash,
-        env_secret_refs, env_static, output_mode, update_policy, timeout_ms, enabled, approved,
-        approved_script_hash, last_run_at, last_status, last_error, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `),
-    getFeederById: db.prepare('SELECT * FROM feeders WHERE id = ?'),
-    listFeedersByArtifact: db.prepare(`
-      SELECT * FROM feeders WHERE artifact_resource_id = ? ORDER BY updated_at DESC
-    `),
-    listAllFeeders: db.prepare(`
-      SELECT * FROM feeders ORDER BY updated_at DESC
-    `),
-    countRunningFeederRunsByAutomation: db.prepare(`
-      SELECT COUNT(*) AS c FROM feeder_runs WHERE automation_id = ? AND status = 'running'
-    `),
-    updateFeederScript: db.prepare(`
-      UPDATE feeders
-      SET script = ?, script_hash = ?, approved = ?, approved_script_hash = ?, updated_at = ?
-      WHERE id = ?
-    `),
-    approveFeeder: db.prepare(`
-      UPDATE feeders SET approved = ?, approved_script_hash = ?, updated_at = ? WHERE id = ?
-    `),
-    updateFeederLastRun: db.prepare(`
-      UPDATE feeders SET last_run_at = ?, last_status = ?, last_error = ?, updated_at = ? WHERE id = ?
-    `),
-    deleteFeeder: db.prepare('DELETE FROM feeders WHERE id = ?'),
-    createFeederSecret: db.prepare(`
-      INSERT INTO feeder_secrets (id, name, encrypted_value, last_used_at, created_at, updated_at)
-      VALUES (?, ?, ?, NULL, ?, ?)
-    `),
-    updateFeederSecret: db.prepare(`
-      UPDATE feeder_secrets SET encrypted_value = ?, updated_at = ? WHERE id = ?
-    `),
-    getFeederSecretByName: db.prepare('SELECT * FROM feeder_secrets WHERE name = ?'),
-    listFeederSecrets: db.prepare('SELECT id, name, last_used_at, created_at, updated_at FROM feeder_secrets ORDER BY name ASC'),
-    touchFeederSecretUsed: db.prepare('UPDATE feeder_secrets SET last_used_at = ? WHERE id = ?'),
-    deleteFeederSecret: db.prepare('DELETE FROM feeder_secrets WHERE id = ?'),
-    createFeederRun: db.prepare(`
-      INSERT INTO feeder_runs (
-        id, feeder_id, started_at, finished_at, status, exit_code, stdout_excerpt, stderr_excerpt,
-        data_bytes, triggered_by, automation_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `),
-    updateFeederRun: db.prepare(`
-      UPDATE feeder_runs
-      SET finished_at = ?, status = ?, exit_code = ?, stdout_excerpt = ?, stderr_excerpt = ?, data_bytes = ?
-      WHERE id = ?
-    `),
-    listFeederRuns: db.prepare(`
-      SELECT * FROM feeder_runs WHERE feeder_id = ? ORDER BY started_at DESC LIMIT ?
-    `),
-
     // Pipelines (Kanban) — migration 52
     createPipeline: db.prepare(`
       INSERT INTO pipelines (id, project_id, name, description, icon_index, color, folder_id, archived, created_at, updated_at)

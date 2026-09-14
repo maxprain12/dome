@@ -998,9 +998,11 @@ test('revisa una browser-tool antes de modificar la página', async () => {
   await review
     .getByRole('button', { name: 'Ejecutar acción', exact: true })
     .click();
+  await expect(sourcePage.locator('[data-dome-agent-ui=pointer]')).toBeAttached();
   await expect(
     sourcePage.getByRole('textbox', { name: 'Search fixture' }),
   ).toHaveValue('Ada Lovelace');
+  await expect(sourcePage.locator('[data-dome-agent-ui=pointer]')).not.toBeAttached();
   await expect(page.getByText('Action completed.', { exact: true })).toBeVisible();
 });
 
@@ -1235,4 +1237,24 @@ test('permite rechazar una acción con teclado y muestra permisos con estilo Dom
   await expect(card).toHaveCount(0);
   await expect(sourcePage.getByRole('textbox', { name: 'Search fixture' })).toHaveValue('');
   await expect(page.getByText('Action declined.', { exact: true })).toBeVisible();
+});
+
+test('recuerda aceptar siempre en el sitio y permite revocarlo', async () => {
+  await setStreamMode('browser-fill');
+  const submit = async () => {
+    await page.getByRole('textbox', { name: /Pregunta a Many/ }).fill('Fill the search field');
+    await page.getByRole('button', { name: 'Preguntar a Many', exact: true }).click();
+  };
+  await submit();
+  await page.getByRole('button', { name: 'Aceptar siempre en este sitio', exact: true }).click();
+  await expect(sourcePage.getByRole('textbox', { name: 'Search fixture' })).toHaveValue('Ada Lovelace');
+  await expect(page.getByRole('button', { name: 'Volver a pedir permiso', exact: true })).toBeVisible();
+  await sourcePage.getByRole('textbox', { name: 'Search fixture' }).fill('');
+  await submit();
+  await expect(sourcePage.getByRole('textbox', { name: 'Search fixture' })).toHaveValue('Ada Lovelace');
+  await expect(page.getByRole('region', { name: 'Rellenar campo' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Volver a pedir permiso', exact: true }).click();
+  await submit();
+  await expect(page.getByRole('region', { name: 'Rellenar campo' })).toBeVisible();
+  await page.getByRole('button', { name: 'Rechazar', exact: true }).click();
 });

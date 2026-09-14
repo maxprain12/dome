@@ -108,7 +108,6 @@ export function installBrowserIpcShim(): void {
     artifacts: {
       create: (opts) => invoke('artifact:create', opts),
       get: (resourceId) => invoke('artifact:get', resourceId),
-      buildDesign: (spec) => invoke('artifact:buildDesign', { spec }),
       update: (opts) => invoke('artifact:update', opts),
       delete: (resourceId) => invoke('artifact:delete', resourceId),
       list: (projectId) => invoke('artifact:list', projectId),

@@ -1,3 +1,4 @@
+import { showActionPointer } from './action-pointer';
 import { extractContact } from './extractors';
 import { getPageSnapshot } from './page-content';
 import { inViewport, pageRoots, rendered } from './page-dom';
@@ -113,5 +114,10 @@ export function createPageAgent(doc: Document = document) {
     elements.clear();
     return { success: true, label: label(node), ...(action.kind === 'fill' ? { submitted: false } : {}) };
   }
-  return { read, act };
+  const point = async (action: ElementAction) => {
+    const item = elements.get(action.elementId);
+    if (!item || action.snapshotId !== snapshotId || snapshotUrl !== doc.location.href || !visible(item.node)) return false;
+    return showActionPointer(item.node, item.frames);
+  };
+  return { read, act, point };
 }

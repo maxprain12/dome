@@ -18,8 +18,6 @@ const DOC_MANIFEST = {
   resource_links: { kind: 'section', file: 'resource-links.txt' },
   artifacts: { kind: 'domain', file: 'artifacts/prompt.txt' },
   artifact_persisted: { kind: 'domain', file: 'artifacts/prompt-persisted.txt' },
-  artifact_design: { kind: 'domain', file: 'artifacts/prompt-design.txt' },
-  feeders: { kind: 'domain', file: 'feeders/prompt.txt' },
   ppt_tool: { kind: 'domain', file: 'office/prompt-ppt.txt' },
   docx_tool: { kind: 'domain', file: 'office/prompt-docx.txt' },
   calendar_tool: { kind: 'domain', file: 'calendar/prompt.txt' },

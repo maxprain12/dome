@@ -53,5 +53,13 @@
   "timeline": "Chronologie",
   "html": "HTML",
   "calendar_event": "Agenda",
-  "flashcard_deck": "Cartões"
+  "flashcard_deck": "Cartões",
+  "preview": "Aperçu",
+  "source": "Code",
+  "data": "Données",
+  "unsaved": "Modifications non enregistrées",
+  "saved": "Enregistré",
+  "discard": "Annuler",
+  "markdown": "Contenu Markdown",
+  "data_help": "Modifiez les données sous forme d’objet JSON. L’enregistrement remplace les données actuelles."
 }

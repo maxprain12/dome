@@ -10,7 +10,7 @@ function getDomeToolsPkg() {
 
 function getPackageFamilyDefinitions() {
   const pkg = getDomeToolsPkg();
-  return [...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions()];
+  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions()];
 }
 
 function getPackageFamilyToolNames() {
@@ -180,15 +180,7 @@ const TOOL_HANDLER_MAP = {
   artifact_list: 'artifactList',
   artifact_delete: 'artifactDelete',
   artifact_link_resource: 'artifactLinkResource',
-  artifact_design: 'artifactDesign',
 
-  feeder_create: 'feederCreate',
-  feeder_list: 'feederList',
-  feeder_run: 'feederRun',
-  feeder_update_script: 'feederUpdateScript',
-  feeder_delete: 'feederDelete',
-  feeder_history: 'feederHistory',
-  feeder_secret_request: 'feederSecretRequest',
 
   // UI interaction tools (dispatch to renderer via IPC broadcast)
   ui_point_to: 'uiPointTo',
@@ -273,14 +265,6 @@ function getToolDefsBySubagent() {
       'artifact_update_state',
       'artifact_delete',
       'artifact_link_resource',
-      'artifact_design',
-      'feeder_create',
-      'feeder_list',
-      'feeder_run',
-      'feeder_update_script',
-      'feeder_delete',
-      'feeder_history',
-      'feeder_secret_request',
       'flashcard_create',
       'notebook_get',
       'notebook_add_cell',
@@ -307,9 +291,6 @@ function getToolDefsBySubagent() {
       'resource_list',
       'resource_get',
       'artifact_merge_data',
-      'feeder_create',
-      'feeder_run',
-      'feeder_list',
       'resource_get_section',
       'get_document_structure',
       'get_current_project',
@@ -1455,7 +1436,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_create',
-        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — those are RICH ARTIFACTS rendered inline in the chat (emit an `artifact:TYPE` fenced block instead). Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask. For folders: omit metadata.color to get an auto-assigned color.',
+        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — use artifact_create with html/data for interactive apps or artifact_type=document with Markdown content for reports. Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask. For folders: omit metadata.color to get an auto-assigned color.',
         parameters: {
           type: 'object',
           properties: {
@@ -1514,263 +1495,7 @@ function getAllToolDefinitions() {
         },
       },
     },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_create',
-        description:
-          'Create a persisted interactive artifact (mini-app) saved to the library + vault. Load dome_load_doc(artifacts) before first use. ' +
-          'The html runs in a sandboxed iframe where Dome injects window.DOME_DATA (your data) and window.__dome_updateState(next) (the ONLY way to persist — never localStorage/sessionStorage/IndexedDB). ' +
-          'Render the UI FROM DOME_DATA so later data patches (artifact_merge_data, linked Excel) update it without rewriting html. ' +
-          'Style only with injected CSS variables (--bg, --bg-secondary, --primary-text, --accent, --border, semantic tokens).',
-        parameters: {
-          type: 'object',
-          properties: {
-            title: { type: 'string', description: 'Display title. Optional — derived from the html when omitted.' },
-            artifact_type: {
-              type: 'string',
-              enum: ['task-tracker', 'chart', 'custom'],
-              description: 'Semantic type (custom for anything else)',
-            },
-            html: {
-              type: 'string',
-              description:
-                'BODY FRAGMENT only — start with <style>/<div>, NEVER <!DOCTYPE>/<html>/<head>/<body> wrappers (Dome wraps it). Self-contained inline CSS+JS; JS reads window.DOME_DATA and calls __dome_updateState after every mutation.',
-            },
-            data: { type: 'object', description: 'Initial DOME_DATA — put ALL user-mutable content here, not hardcoded in html' },
-            project_id: { type: 'string', description: 'Project ID (default: current)' },
-          },
-          required: ['artifact_type', 'html'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_get',
-        description: 'Get full artifact state (html, data, metadata) by resource ID.',
-        parameters: {
-          type: 'object',
-          properties: { resource_id: { type: 'string', description: 'Artifact resource ID' } },
-          required: ['resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_merge_data',
-        description:
-          'PREFERRED way to push data into an existing artifact: shallow-merges keys into state.data without touching html (merge happens server-side against the CURRENT state, so concurrent user edits are never lost). ' +
-          'Use after excel_get / resource_get / web research to feed rows, KPIs or counters. Top-level keys replace or add; nested subtrees replace whole by key. Never paste large datasets into html instead.',
-        parameters: {
-          type: 'object',
-          properties: {
-            resource_id: { type: 'string', description: 'Artifact resource ID' },
-            data_patch: { type: 'object', description: 'Partial state.data (merged shallowly)' },
-          },
-          required: ['resource_id', 'data_patch'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_update_state',
-        description:
-          'Redesign an artifact: replace html and/or reset data wholesale. Call artifact_get first to know the current state. ' +
-          'For incremental data changes use artifact_merge_data instead — replacing data here overwrites user edits. Omit fields you do not change.',
-        parameters: {
-          type: 'object',
-          properties: {
-            resource_id: { type: 'string', description: 'Artifact resource ID' },
-            html: {
-              type: 'string',
-              description: 'New UI as a BODY FRAGMENT (no <!DOCTYPE>/<html>/<head>/<body>); must still render from window.DOME_DATA and call __dome_updateState on mutations',
-            },
-            data: {
-              description: 'Full replacement for state.data (object or JSON string). Omit to keep current data.',
-            },
-          },
-          required: ['resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_list',
-        description: 'List persisted artifacts in a project (titles, ids, types).',
-        parameters: {
-          type: 'object',
-          properties: { project_id: { type: 'string', description: 'Project ID (default: current)' } },
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_delete',
-        description: 'Delete a persisted artifact resource and remove it from the library.',
-        parameters: {
-          type: 'object',
-          properties: { resource_id: { type: 'string', description: 'Artifact resource ID' } },
-          required: ['resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_link_resource',
-        description:
-          'Link (or unlink) a persisted artifact to an Excel/spreadsheet resource. ' +
-          'Once linked: Dome auto-refreshes the artifact whenever the spreadsheet is edited and exposes all sheet data as window.DOME_DATA.linkedData.sheets[sheetName]. ' +
-          'A "Refresh data" button appears in the artifact toolbar. ' +
-          'Use this when the user asks to link a dashboard to an Excel, or when an artifact was created without linkedResourceId. ' +
-          'Pass linked_resource_id=null to remove the link.',
-        parameters: {
-          type: 'object',
-          properties: {
-            artifact_resource_id: { type: 'string', description: 'Resource ID of the artifact to link' },
-            linked_resource_id: {
-              type: ['string', 'null'],
-              description: 'Resource ID of the Excel/spreadsheet to link to, or null to unlink',
-            },
-          },
-          required: ['artifact_resource_id', 'linked_resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'artifact_design',
-        description:
-          'Build Dome-themed HTML + initial state.data for a persisted library artifact (tabbed dossier: header, tabs, section cards, badges, lists, code blocks). ' +
-          'Uses only injected CSS variables; escapes content. Does NOT persist — pass returned html and data to artifact_create (artifact_type: custom). ' +
-          'Call dome_load_doc with id artifact_design before first use to read the full JSON spec.',
-        parameters: {
-          type: 'object',
-          properties: {
-            spec: {
-              type: 'object',
-              description:
-                'Layout spec: title (required), optional subtitle, title_emoji (single optional emoji), active_tab (optional), tabs[] { id, label }, panels { [tabId]: { sections[] with kicker, optional badge, badge_tone: neutral|info|success|warning|error, blocks[]: type paragraph|numbered|bullets|code } } }',
-            },
-          },
-          required: ['spec'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_create',
-        description:
-          'Create a sandbox script that feeds JSON data into a persisted artifact. Call dome_load_doc("feeders") first. ' +
-          'Feeder requires user approval before feeder_run. Use feeder_secret_request for credentials.',
-        parameters: {
-          type: 'object',
-          properties: {
-            artifact_resource_id: { type: 'string' },
-            name: { type: 'string' },
-            interpreter: { type: 'string', enum: ['python3', 'node', 'bash', 'sh', 'curl'] },
-            script: { type: 'string', description: 'Script source or JSON array of curl args' },
-            description: { type: 'string' },
-            slot: { type: 'string' },
-            env_secret_refs: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  env_name: { type: 'string' },
-                  secret_name: { type: 'string' },
-                },
-                required: ['env_name', 'secret_name'],
-              },
-            },
-            env_static: { type: 'object', additionalProperties: { type: 'string' } },
-            output_mode: { type: 'string', enum: ['stdout_json', 'output_file'] },
-            update_policy: { type: 'string', enum: ['replace', 'merge_shallow', 'merge_deep', 'append_array'] },
-            timeout_ms: { type: 'number' },
-          },
-          required: ['artifact_resource_id', 'name', 'interpreter', 'script'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_list',
-        description: 'List feeders for a persisted artifact.',
-        parameters: {
-          type: 'object',
-          properties: { artifact_resource_id: { type: 'string' } },
-          required: ['artifact_resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_run',
-        description: 'Run an approved feeder and merge JSON output into the artifact.',
-        parameters: {
-          type: 'object',
-          properties: { feeder_id: { type: 'string' } },
-          required: ['feeder_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_update_script',
-        description: 'Update feeder script (resets approval).',
-        parameters: {
-          type: 'object',
-          properties: { feeder_id: { type: 'string' }, script: { type: 'string' } },
-          required: ['feeder_id', 'script'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_delete',
-        description: 'Delete a feeder.',
-        parameters: {
-          type: 'object',
-          properties: { feeder_id: { type: 'string' } },
-          required: ['feeder_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_history',
-        description: 'Recent feeder run history.',
-        parameters: {
-          type: 'object',
-          properties: { feeder_id: { type: 'string' }, limit: { type: 'number' } },
-          required: ['feeder_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'feeder_secret_request',
-        description: 'Prompt user to store a named secret in the encrypted vault.',
-        parameters: {
-          type: 'object',
-          properties: { name: { type: 'string' }, feeder_id: { type: 'string' } },
-          required: ['name'],
-        },
-      },
-    },
+
     {
       type: 'function',
       function: {
@@ -2564,8 +2289,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'skill_read',
         description:
-          'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). Use for auxiliary skill docs referenced in SKILL.md. ' +
-          'Do NOT use for artifact_persisted, artifact_design, or artifacts — call dome_load_doc(id) instead.',
+          'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). Use for auxiliary skill docs referenced in SKILL.md.',
         parameters: {
           type: 'object',
           properties: {

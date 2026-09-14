@@ -53,5 +53,13 @@
   "timeline": "Cronologia",
   "html": "HTML",
   "calendar_event": "Calendário",
-  "flashcard_deck": "Flashcards"
+  "flashcard_deck": "Flashcards",
+  "preview": "Pré-visualização",
+  "source": "Código",
+  "data": "Dados",
+  "unsaved": "Alterações por guardar",
+  "saved": "Guardado",
+  "discard": "Descartar",
+  "markdown": "Conteúdo Markdown",
+  "data_help": "Edite os dados como um objeto JSON. Guardar substitui os dados atuais."
 }

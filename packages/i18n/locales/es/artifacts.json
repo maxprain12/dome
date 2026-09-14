@@ -53,5 +53,13 @@
   "timeline": "Cronología",
   "html": "HTML",
   "calendar_event": "Calendario",
-  "flashcard_deck": "Tarjetas"
+  "flashcard_deck": "Tarjetas",
+  "preview": "Vista previa",
+  "source": "Código",
+  "data": "Datos",
+  "unsaved": "Cambios sin guardar",
+  "saved": "Guardado",
+  "discard": "Descartar",
+  "markdown": "Contenido en Markdown",
+  "data_help": "Edita los datos del artefacto como un objeto JSON. Guardar sustituye los datos actuales."
 }

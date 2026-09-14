@@ -2,7 +2,7 @@
 
 /**
  * Shared helpers for merging JSON payloads into artifact runtime data.
- * Used by automation artifact sinks and artifact feeders.
+ * Used by automation artifact sinks.
  */
 
 function extractJsonFromOutput(outputText, mode) {
@@ -66,29 +66,6 @@ function applyUpdatePolicy(current, incoming, policy) {
 }
 
 /**
- * Parse JSON from feeder stdout or output file content.
- * @param {string} text
- * @param {'stdout_json'|'output_file'} outputMode
- */
-function parseFeederJsonOutput(text, outputMode) {
-  const trimmed = String(text || '').trim();
-  if (!trimmed) return null;
-  if (outputMode === 'output_file') {
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      return null;
-    }
-  }
-  // stdout_json: try full parse first, then fenced block
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return extractJsonFromOutput(trimmed, 'json_fence');
-  }
-}
-
-/**
  * Build excerpt with head+tail, max ~8KB.
  * @param {string} text
  * @param {number} [maxLen]
@@ -118,7 +95,6 @@ function redactSecrets(text, secretValues) {
 module.exports = {
   extractJsonFromOutput,
   applyUpdatePolicy,
-  parseFeederJsonOutput,
   buildExcerpt,
   redactSecrets,
 };

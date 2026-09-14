@@ -7,6 +7,7 @@
 
 const DOME_ARTIFACT_META = 'dome-artifact';
 const STATE_SCRIPT_ID = 'dome-artifact-state';
+const EXPORT_THEME = ':root{color-scheme:light dark;--background:Canvas;--bg:Canvas;--bg-secondary:ButtonFace;--foreground:CanvasText;--primary-text:CanvasText;--muted-foreground:GrayText;--secondary-text:GrayText;--primary:Highlight;--accent:Highlight;--primary-foreground:HighlightText;--border:GrayText;--muted:ButtonFace}body{margin:0;background:var(--bg);color:var(--primary-text);font-family:system-ui}';
 
 function escapeHtml(text) {
   return String(text ?? '')
@@ -65,6 +66,7 @@ function buildArtifactHtmlDocument(payload) {
     artifactVersion: Number(artifact?.version ?? 1),
     updatedAt: resource?.updated_at ?? null,
     data,
+    ...(state.format === 'document' ? { format: 'document', markdown: state.markdown } : {}),
     ...(linkedData ? { linkedData } : {}),
   };
 
@@ -79,14 +81,15 @@ function buildArtifactHtmlDocument(payload) {
 <meta name="dome-resource-id" content="${escapeHtml(resource?.id || '')}">
 <meta name="dome-artifact-type" content="${escapeHtml(artifact?.artifact_type || 'custom')}">
 <title>${title}</title>
+<style id="dome-export-theme">${EXPORT_THEME}</style>
 <style>${css}</style>
 </head>
 <body>
+<script>window.DOME_DATA = ${escapeJsonForScript(domeData)};window.__dome_updateState = function(next){window.DOME_DATA=next};</script>
 ${htmlBody}
 <script type="application/json" id="${STATE_SCRIPT_ID}">
 ${escapeJsonForScript(statePayload)}
 </script>
-<script>window.DOME_DATA = ${escapeJsonForScript(domeData)};</script>
 </body>
 </html>
 `;
@@ -135,7 +138,8 @@ function parseArtifactHtmlDocument(raw) {
       : null;
 
   let css = '';
-  const styleMatch = text.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+  const withoutTheme = text.replace(/<style id="dome-export-theme">[\s\S]*?<\/style>/i, '');
+  const styleMatch = withoutTheme.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
   if (styleMatch) css = styleMatch[1];
 
   let html = text;
@@ -171,6 +175,8 @@ function parseArtifactHtmlDocument(raw) {
     css,
     data,
     linkedData,
+    ...(meta.format === 'document' && typeof meta.markdown === 'string' && require('./artifact-document.cjs').documentState(meta.markdown).html.trim() === html.trim()
+      ? { format: 'document', markdown: meta.markdown } : {}),
   };
 }
 
@@ -182,6 +188,7 @@ function artifactSidecarRelPath(htmlVaultPath) {
 }
 
 module.exports = {
+  EXPORT_THEME,
   DOME_ARTIFACT_META,
   STATE_SCRIPT_ID,
   isDomeArtifactHtml,

@@ -7,7 +7,7 @@ import {
 } from '@/lib/hub/hubEvents';
 import type { ThinkingLevel } from '@/lib/ai/types';
 
-export type AutomationTargetType = 'many' | 'agent' | 'workflow' | 'feeder';
+export type AutomationTargetType = 'many' | 'agent' | 'workflow';
 export type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
 export type AutomationOutputMode = 'chat_only' | 'studio_output' | 'mixed';
 export type PersistentRunStatus =
@@ -201,11 +201,7 @@ export async function runAutomationNow(automationId: string): Promise<Persistent
   return invoke<PersistentRun>('automations:runNow', automationId);
 }
 
-/**
- * Run an automation without assuming the return shape — feeder automations resolve to
- * a feeder run result (not a PersistentRun), so callers that may target a feeder must
- * not access PersistentRun fields blindly.
- */
+/** Run an automation and return its result. */
 export async function runAutomationNowRaw(automationId: string): Promise<unknown> {
   return invoke<unknown>('automations:runNow', automationId);
 }

@@ -40,7 +40,6 @@ class HitlInterruptError extends Error {
 const HITL_TOOL_NAMES = new Set([
   'resource_delete',
   'artifact_delete',
-  'feeder_run',
   'ppt_create',
   'notebook_run_cell',
   'shell_exec',

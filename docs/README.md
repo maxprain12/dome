@@ -59,7 +59,6 @@ pnpm run check:ipc-inventory # tras añadir canales IPC
 | **Agent Canvas** | [agent-canvas.md](features/agent-canvas.md) | Workflows D3 |
 | **Agent Teams** | [agent-teams.md](features/agent-teams.md) | Equipos multi-agente |
 | **Studio** | [studio.md](features/studio.md) | Mindmaps, quizzes, flashcards |
-| **Feeders** | [feeders.md](features/feeders.md) | Scripts sandbox, vault de secretos, artefactos |
 
 ### Productividad
 
@@ -67,7 +66,7 @@ pnpm run check:ipc-inventory # tras añadir canales IPC
 | ------- | ------- | ---------- |
 | **Calendar** | [calendar.md](features/calendar.md) | Calendario, Google sync |
 | **Flashcards** | [flashcards.md](features/flashcards.md) | FSRS, sesiones, volteo 3D |
-| **Automatizaciones** | [automations.md](features/automations.md) | Run Engine, feeders |
+| **Automatizaciones** | [automations.md](features/automations.md) | Run Engine, programación |
 | **Runs** | [runs.md](features/runs.md) | Estados, logs |
 
 ### Extensiones e integración

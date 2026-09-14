@@ -12,7 +12,7 @@ const NOW = Date.UTC(2026, 5, 10);
  * Minimal fake of the better-sqlite3 surface used by run-retention:
  * prepare().all/.run + transaction(). Tracks deletions per table.
  */
-function makeFakeDb({ expiredRuns = [], feederRunChanges = 0 } = {}) {
+function makeFakeDb({ expiredRuns = [] } = {}) {
   const deletedRunIds = [];
   return {
     deletedRunIds,
@@ -22,9 +22,6 @@ function makeFakeDb({ expiredRuns = [], feederRunChanges = 0 } = {}) {
       }
       if (sql.includes('DELETE FROM automation_runs')) {
         return { run: (id) => { deletedRunIds.push(id); return { changes: 1 }; } };
-      }
-      if (sql.includes('DELETE FROM feeder_runs')) {
-        return { run: () => ({ changes: feederRunChanges }) };
       }
       throw new Error(`Unexpected SQL in fake db: ${sql}`);
     },
@@ -71,18 +68,16 @@ describe('run-retention', () => {
     assert.equal(result.retentionDays, DEFAULT_RETENTION_DAYS);
   });
 
-  it('purges expired terminal runs and feeder runs', async () => {
+  it('purges expired terminal runs', async () => {
     const db = makeFakeDb({
       expiredRuns: [
         { id: 'run-a', owner_type: 'agent' },
         { id: 'run-b', owner_type: 'many' },
       ],
-      feederRunChanges: 3,
     });
     const deps = makeDeps({ db, repo: makeFakeRepo([]), retentionDays: 90 });
     const result = await purgeExpiredRuns({ now: NOW, deps });
     assert.equal(result.purgedRuns, 2);
-    assert.equal(result.purgedFeederRuns, 3);
     assert.deepEqual(db.deletedRunIds.sort(), ['run-a', 'run-b']);
   });
 
