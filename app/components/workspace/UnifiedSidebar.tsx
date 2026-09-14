@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+const CreateMiniappDialog = lazy(() => import('@/components/artifacts/CreateMiniappDialog'));
+import { openMiniappDraft } from '@/lib/chat/miniappHandoff';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
@@ -329,24 +331,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
     }
   }, [getDefaultProjectId, fetchResources]);
 
-  const handleCreateArtifact = useCallback(async () => {
-    if (!window.electron?.artifacts) return;
-    const result = await window.electron.artifacts.create({
-      title: t('artifacts.new_artifact'),
-      artifactType: 'custom',
-      state: {
-        html: '<div style="padding:1.5rem;color:var(--muted-foreground)">' +
-          '<p>Ask Many to generate content for this artifact.</p>' +
-          '</div>',
-        data: {},
-      },
-      projectId: getDefaultProjectId(),
-    });
-    if (result?.success && result.data) {
-      await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(result.data.resourceId, 'artifact', result.data.title, getDefaultProjectId());
-    }
-  }, [getDefaultProjectId, fetchResources, t]);
+  const [createMiniappOpen, setCreateMiniappOpen] = useState(false);
 
   const handleAddUrl = useCallback(async (url: string) => {
     if (!window.electron?.db?.resources) return;
@@ -767,6 +752,17 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         </ScrollArea>
 
         {/* Add resource dropdown */}
+        {createMiniappOpen && (
+          <Suspense fallback={null}>
+            <CreateMiniappDialog
+              onClose={() => setCreateMiniappOpen(false)}
+              onContinue={(idea) => {
+                setCreateMiniappOpen(false);
+                openMiniappDraft(t('artifacts.miniapp_create_prompt', { idea }));
+              }}
+            />
+          </Suspense>
+        )}
         {addMenu && (
           <AddResourceMenu
             x={addMenu.x}
@@ -774,7 +770,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
             onClose={() => setAddMenu(null)}
             onCreateNote={handleCreateNote}
             onCreateNotebook={handleCreateNotebook}
-            onCreateArtifact={() => { setAddMenu(null); handleCreateArtifact(); }}
+            onCreateArtifact={() => { setAddMenu(null); setCreateMiniappOpen(true); }}
             onAddUrl={() => setShowUrlInput(true)}
             onImportFile={handleImportFile}
             onImportFromCloud={() => { setAddMenu(null); setShowCloudPicker(true); }}

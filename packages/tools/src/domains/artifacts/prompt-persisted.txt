@@ -1,10 +1,10 @@
-# Persisted artifacts
+# Persisted miniapps
 
 ## Create and edit
 
-- artifact_create: reports use {artifact_type:"document", title, content:"# Report\n..."}. content is Markdown, not a nested specification. Interactive apps use {artifact_type:"custom", title, html, data:{}}; chart and task-tracker types also accept HTML.
+- artifact_create: miniapps use {artifact_type:"custom", title, html, css?, data:{}}. Implement working interactions and persistence. chart and task-tracker also accept HTML. Only an explicit static-document request uses {artifact_type:"document", title, content:Markdown}.
 - artifact_get: {resource_id} returns state, resourceId, version and metadata. Read before editing.
-- artifact_update_state: {resource_id, content?, html?, data?, expected_version?}. Only supplied fields change. content replaces document Markdown. html replaces interactive HTML. data REPLACES the complete object, including removing absent keys. expected_version rejects changes made since the read; read again and reconcile.
+- artifact_update_state: {resource_id, artifact_type?, content?, html?, css?, data?, expected_version?}. Only supplied fields change. content replaces document Markdown. html replaces interactive HTML, css replaces its stylesheet. artifact_type=custom plus html explicitly converts a document into a miniapp without changing its resource ID. data REPLACES the complete object, including removing absent keys. expected_version rejects changes made since the read; read again and reconcile.
 - artifact_merge_data: {resource_id, data_patch:{...}} shallow-merges keys atomically into current data. Nested objects are replaced per key. It preserves HTML and CSS.
 - artifact_list: optional project_id; returns existing artifacts.
 - artifact_delete: {resource_id}; removes the artifact when requested by the user.

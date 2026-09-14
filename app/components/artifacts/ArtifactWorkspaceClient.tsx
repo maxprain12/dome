@@ -13,6 +13,7 @@ import { useDomeThemeSnapshot, buildDomeThemeStyleContent } from '@/lib/chat/use
 import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import { handleArtifactNavigateMessage, isTrustedArtifactMessageOrigin, openArtifactExternalUrl } from '@/lib/chat/artifactIframeNavigate';
 import { mergedDomeDataPayload, artifactFrameTargetOrigin, canonicalDataJson, resolveArtifactHtmlCss, buildSrcdocFromParts, requestArtifactState } from '@/lib/chat/artifactDocument';
+import { openMiniappDraft } from '@/lib/chat/miniappHandoff';
 import { createArtifactSaveQueue } from '@/lib/chat/artifactSaveQueue';
 
 type EditorTab = 'preview' | 'source' | 'data';
@@ -159,10 +160,11 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
   if (!artifact || error) return <ListState variant="error" errorMessage={error ?? t('common.error')} />;
 
   return <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-    <SubpageHeader>
+    <SubpageHeader className="flex-wrap [&>div:first-child]:basis-48 [&>div:last-child]:max-w-full [&>div:last-child]:flex-wrap">
       <SubpageHeader.Title><span className="flex items-center gap-2"><HugeiconsIcon icon={Layers01Icon} className="size-4 text-primary" />{artifact.title}</span></SubpageHeader.Title>
       <SubpageHeader.Trailing>
         <IndexStatusBadge resourceId={resourceId} resourceType="artifact" />
+        <Button size="sm" variant="outline" disabled={saving || !!draft} onClick={() => openMiniappDraft(t('artifacts.miniapp_customize_prompt', { title: artifact.title }), { id: resourceId, title: artifact.title })}>{t('artifacts.miniapp_customize')}</Button>
         {tab === 'preview' && !isDocument && <Button size="sm" variant="outline" disabled={saving || !!draft} onClick={() => void savePreview()} title={t('artifacts.save_state_title')}>{t('artifacts.save_state')}</Button>}
         {artifact.linkedResourceId && <Button size="sm" variant="outline" disabled={saving} onClick={() => void operate(() => window.electron.artifacts.refreshLinked(resourceId))}>{t('artifacts.refresh_linked')}</Button>}
         <Button size="sm" variant="ghost" disabled={saving || !!draft} onClick={() => void operate(() => window.electron.artifacts.export(resourceId))}>{t('artifacts.export_artifact')}</Button>
@@ -172,7 +174,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: { resourceId: st
     <Tabs value={tab} onValueChange={(value) => setTab(value as EditorTab)} className="flex min-h-0 flex-1 flex-col gap-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
         <TabsList variant="line">
-          <TabsTrigger value="preview">{t('artifacts.preview')}</TabsTrigger>
+          <TabsTrigger value="preview">{t(isDocument ? 'artifacts.preview' : 'artifacts.miniapp_view')}</TabsTrigger>
           <TabsTrigger value="source" disabled={!!draft && draft.tab !== 'source'}>{t(isDocument ? 'artifacts.content' : 'artifacts.source')}</TabsTrigger>
           <TabsTrigger value="data" disabled={!!draft && draft.tab !== 'data'}>{t('artifacts.data')}</TabsTrigger>
         </TabsList>

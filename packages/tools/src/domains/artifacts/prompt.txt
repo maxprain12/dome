@@ -1,11 +1,24 @@
-# Artifacts
+# Artifacts: personal miniapps
 
-Create saved reports, dashboards and interactive apps with artifact_create. The result lives in the library and is mirrored to the project vault. Do not emit inline artifact code blocks.
+An artifact is a creative, reusable miniapp owned by the user. Build the experience with artifact_create and make it accessible from the library through its resource link. Requests for artifacts default to working interactive HTML. Use document with Markdown content only when the user explicitly asks for a static document. Do not substitute a written report, a picture, or inert mockup for an app.
 
-For reports, findings and dossiers, call artifact_create directly with artifact_type="document", title and content (a Markdown string). Dome supplies typography, tables and theme. Preserve verified evidence, sources and uncertainty. Do not manufacture observations. No separate design tool or design specification is needed.
+## Choose interactions for the actual task
 
-For interactive apps use artifact_type="custom", "chart" or "task-tracker", html (a body fragment containing inline CSS and JavaScript), and data (a JSON object). For details you can use dome_load_doc({id:"artifact_persisted"}).
+These are examples, not a closed catalog or a mandatory template:
 
-Interactive apps read window.DOME_DATA and call window.__dome_updateState(nextData) after changes. Use theme variables --bg, --bg-secondary, --primary-text, --secondary-text, --accent and --border. Dome handles persistence; do not use browser storage or external script runners.
+- To-do tracker: add, edit, complete, delete and filter tasks; keep counts consistent and preserve tasks across openings.
+- Calculator/simulator: labeled inputs, units, validation, immediate recalculation, clear formulas/assumptions and reset. Persist user assumptions; handle invalid values and division by zero.
+- Interactive infographic: visual relationships, selectable topics, expandable evidence, comparisons or a timeline. Pair visuals with readable labels and keyboard-accessible details.
+- Dashboard: KPIs derived from data, filters that update every relevant view, charts plus accessible table/detail views, meaningful empty states and source/freshness information.
+- Process synoptic: SVG equipment/nodes/connections tied to actual data, state legends, selectable assets, KPI detail and zoom/reset if needed. Never make up live telemetry or imply that drawn equipment controls real machinery.
+- Other miniapps: invent the appropriate workflow, composition and visual language. Start from what the user wants to do, not a fixed grid of cards.
 
-Use artifact_get before editing. artifact_update_state updates supplied fields only: content replaces document Markdown, html replaces interactive UI, data replaces the entire data object. Pass expected_version to detect conflicting edits. artifact_merge_data merges top-level data_patch keys without replacing the UI. Never repeat identical invalid calls; inspect the error, correct the arguments and retry once. Report creation only after a successful result.
+## Build and deliver
+
+Call artifact_create with artifact_type=custom (or task-tracker/chart), title, html, optional css and data as a JSON object. html is a functional body fragment with inline JavaScript. It may use DOM, SVG and canvas inside the sandbox. Use Dome theme variables, responsive layouts, good contrast, labeled controls, visible focus, semantic headings, keyboard interactions and reduced-motion support. Every primary control must work; do not leave TODOs or decorative buttons.
+
+Render from window.DOME_DATA. Persist meaningful changes through window.__dome_updateState(nextData), and implement window.dome_onDataRefresh(next) so external data updates redraw the app. Do not use localStorage or external script runners for persistence. For the detailed contract use dome_load_doc({id:"artifact_persisted"}).
+
+Read artifact_get before modifying an app; use artifact_update_state with expected_version and only the fields being changed. artifact_merge_data atomically merges top-level data_patch keys. Preserve the resource ID during customization. To turn a previous document into a miniapp use artifact_update_state with artifact_type=custom and the complete html; existing data remains when omitted.
+
+Ground data in the user's sources. Clearly label demo/estimated values and missing measurements. After success provide the dome://resource link and briefly explain what the user can do. Never claim testing or live data without evidence. Correct validation errors rather than silently downgrading the app to a document.

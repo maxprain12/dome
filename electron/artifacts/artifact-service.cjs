@@ -12,7 +12,7 @@ const record = z.record(z.string(), z.unknown());
 const artifactType = z.enum(['document', 'task-tracker', 'chart', 'custom']);
 const stateSchema = z.object({ html: z.string().max(2_000_000).optional(), css: z.string().max(200_000).optional(), markdown: z.string().max(500_000).optional(), data: record.optional() }).passthrough();
 const createSchema = z.object({ title: z.string().max(300).optional(), artifactType: artifactType.default('custom'), state: stateSchema.default({}), template: z.string().nullable().optional(), content: z.string().max(500_000).optional(), projectId: id.optional(), folderId: id.nullable().optional(), linkedResourceId: id.nullable().optional() });
-const updateSchema = z.object({ resourceId: id, state: stateSchema.optional(), data: record.optional(), dataPatch: record.optional(), html: z.string().max(2_000_000).optional(), content: z.string().max(500_000).optional(), expectedVersion: z.number().int().nonnegative().optional(), artifactType: artifactType.optional(), linkedResourceId: id.nullable().optional() });
+const updateSchema = z.object({ resourceId: id, state: stateSchema.optional(), data: record.optional(), dataPatch: record.optional(), html: z.string().max(2_000_000).optional(), css: z.string().max(200_000).optional(), content: z.string().max(500_000).optional(), expectedVersion: z.number().int().nonnegative().optional(), artifactType: artifactType.optional(), linkedResourceId: id.nullable().optional() });
 
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 function inlineJson(value) { return JSON.stringify(value ?? {}).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029'); }
@@ -26,7 +26,7 @@ function resolvedState(type, state, content) {
     if (typeof markdown !== 'string' || !markdown.trim()) throw new Error('Document content is required. Pass content as a Markdown string.');
     return { ...next, ...documentState(markdown), data: next.data || {} };
   }
-  if (typeof next.html !== 'string' || !next.html.trim()) throw new Error('Interactive artifacts require html. For reports use artifact_type=document and content=Markdown.');
+  if (typeof next.html !== 'string' || !next.html.trim()) throw new Error('Miniapps require complete working html. Include the requested controls and interactions.');
   if (content !== undefined) throw new Error('content is for document artifacts. Use html for interactive artifacts.');
   if (next.format === 'document') { delete next.format; delete next.markdown; }
   return { ...next, data: next.data || {} };
@@ -75,6 +75,7 @@ function createArtifactService({ database, fileStorage, windowManager }) {
       const previous = parseJsonState(current.state);
       const next = { ...previous, ...args.state };
       if (args.html !== undefined) next.html = args.html;
+      if (args.css !== undefined) next.css = args.css;
       if (args.data !== undefined) next.data = args.data;
       if (args.dataPatch !== undefined) next.data = { ...(next.data || {}), ...args.dataPatch };
       const type = args.artifactType || (previous.format === 'document' ? 'document' : current.artifact_type);
