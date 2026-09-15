@@ -13,10 +13,10 @@
   "exit_fullscreen": "Revenir au panneau latéral",
   "open_popout": "Ouvrir dans une fenêtre séparée",
   "history": "Chats",
-  "history_today": "AUJOURD'HUI",
-  "history_yesterday": "HIER",
-  "history_this_week": "CETTE SEMAINE",
-  "history_before": "AVANT",
+  "history_today": "Aujourd’hui",
+  "history_yesterday": "Hier",
+  "history_this_week": "Cette semaine",
+  "history_before": "Plus tôt",
   "search_chats": "Rechercher des chats…",
   "search_no_results": "Aucun résultat",
   "history_empty": "Aucun chat pour le moment",
@@ -98,5 +98,6 @@
   "context_title": "Contexte",
   "context_empty": "Aucun contexte actif",
   "context_pin_hint": "Épinglez des ressources avec @ dans le composeur pour toujours les inclure.",
-  "hitl_approve_session": "Approuver pour ce chat"
+  "hitl_approve_session": "Approuver pour ce chat",
+  "conversation_actions": "Actions de la conversation"
 }

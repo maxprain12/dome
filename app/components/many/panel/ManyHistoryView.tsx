@@ -6,12 +6,15 @@ import {
   Delete02Icon,
   PinIcon,
   PlusSignIcon,
+  MoreHorizontalIcon,
 } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { HubSearch } from '@/components/hub/HubSearch';
-import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
+import { SidebarGroupLabel } from '@/components/ui/sidebar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import ManyIcon from '@/components/many/ManyIcon';
 import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
 import { filterOutDeletedSessions, deriveManySessionTitle } from '@/lib/store/manySessionStorage';
@@ -147,7 +150,11 @@ export default function ManyHistoryView({
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-sidebar-border px-3 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-xs font-medium">{t('many.history')}</h2>
+          <Button type="button" variant="ghost" size="icon-xs" onClick={onNewChat} aria-label={t('many.newChat')} title={t('many.newChat')}><HugeiconsIcon icon={PlusSignIcon} /></Button>
+        </div>
         <HubSearch
           className="flex-1"
           value={query}
@@ -156,19 +163,10 @@ export default function ManyHistoryView({
           aria-label={t('many.search_chats')}
           clearLabel={t('common.cancel')}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={onNewChat}
-          aria-label={t('many.newChat')}
-          title={t('many.newChat')}
-        >
-          <HugeiconsIcon icon={PlusSignIcon} />
-        </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+      <ScrollArea className="min-h-0 flex-1">
+      <div className="px-2 pb-3">
         {sections.length === 0 ? (
           <Empty className="py-10">
             <EmptyHeader>
@@ -184,7 +182,7 @@ export default function ManyHistoryView({
         ) : (
           sections.map((section) => (
             <section key={section.id} className="mb-2">
-              <HubSectionLabel className="px-2 pb-1 pt-2">{section.label}</HubSectionLabel>
+              <SidebarGroupLabel className="mt-2 h-7 px-2">{section.label}</SidebarGroupLabel>
               <ul className="flex flex-col gap-0.5">
                 {section.sessions.map((session) => {
                   const isActive = session.id === currentSessionId;
@@ -195,19 +193,20 @@ export default function ManyHistoryView({
                       <button
                         type="button"
                         onClick={() => onSelectSession(session.id)}
+                        aria-current={isActive ? 'page' : undefined}
                         className={cn(
-                          'flex w-full flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60 motion-reduce:transition-none',
-                          isActive && 'bg-muted',
+                          'flex min-h-10 w-full flex-col justify-center gap-1 rounded-md px-2 py-2 pr-8 text-left outline-none transition-colors hover:bg-background/60 focus-visible:ring-1 focus-visible:ring-sidebar-ring motion-reduce:transition-none',
+                          isActive && 'bg-background shadow-xs',
                         )}
                       >
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex w-full min-w-0 items-center gap-1.5">
                           {runPhase ? (
                             <Spinner
                               className="size-3 shrink-0 text-primary"
                               aria-label={t('chat.history_llm_active')}
                             />
                           ) : null}
-                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                          <span className="min-w-0 flex-1 truncate text-[13px]">
                             {deriveManySessionTitle({
                               storedTitle: session.title,
                               messages: session.messages,
@@ -218,39 +217,20 @@ export default function ManyHistoryView({
                           </span>
                         </span>
                         {preview ? (
-                          <span className="truncate text-xs text-muted-foreground">{preview}</span>
+                          <span className="block w-full truncate text-[11px] leading-4 text-muted-foreground">{preview}</span>
                         ) : null}
                       </button>
-                      <span className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md bg-background/90 opacity-0 shadow-sm transition-opacity group-hover/session:opacity-100 group-focus-within/session:opacity-100 motion-reduce:transition-none">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => toggleSessionPin(session.id)}
-                          aria-label={
-                            session.pinned ? t('chat.unpin_conversation') : t('chat.pin_conversation')
-                          }
-                          title={
-                            session.pinned ? t('chat.unpin_conversation') : t('chat.pin_conversation')
-                          }
-                        >
-                          <HugeiconsIcon
-                            icon={PinIcon}
-                            className={cn(session.pinned && 'text-primary')}
-                          />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-destructive"
-                          onClick={() => void deleteSession(session.id)}
-                          aria-label={t('chat.delete_conversation')}
-                          title={t('chat.delete_conversation')}
-                        >
-                          <HugeiconsIcon icon={Delete02Icon} />
-                        </Button>
-                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-xs" className="absolute right-1 top-2 opacity-50 hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100" aria-label={t('many.conversation_actions')} title={t('many.conversation_actions')} />}>
+                          <HugeiconsIcon icon={MoreHorizontalIcon} />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent side="bottom" align="end">
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem onClick={() => toggleSessionPin(session.id)}><HugeiconsIcon icon={PinIcon} />{session.pinned ? t('chat.unpin_conversation') : t('chat.pin_conversation')}</DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onClick={() => void deleteSession(session.id)}><HugeiconsIcon icon={Delete02Icon} />{t('chat.delete_conversation')}</DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </li>
                   );
                 })}
@@ -259,6 +239,7 @@ export default function ManyHistoryView({
           ))
         )}
       </div>
+      </ScrollArea>
     </div>
   );
 }

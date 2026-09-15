@@ -15,6 +15,6 @@ Follow the supplied reference with quiet group labels, icon rows, nested disclos
 
 Both shell sidebars use shared shadcn navigation composition, neutral sidebar tokens and nested disclosure groups. Settings retain their registry IDs, hidden-section filtering and deep links; exact-name searches win on Enter. The shell opts out of shadcn's default Cmd/Ctrl+B handler to preserve editor formatting. Menu buttons forward refs for React 18 disclosure focus.
 
-- 336 renderer tests passed, plus the new editor-shortcut regression (337 total scenarios).
+- 341 renderer tests passed, including settings disclosure, Many history actions and tour disclosure coverage.
 - Chromium review of the actual sidebar components in light/dark and a narrow shell: no page errors, Agentes/Contactos navigation activates the correct destination, and collapsed width is zero.
 - Typecheck, lint (existing warnings only), production build, IPC inventory, Sonar full/diff, dependency boundaries, UI contracts and design-system checks passed.

@@ -13,10 +13,10 @@
   "exit_fullscreen": "Return to sidebar panel",
   "open_popout": "Open in separate window",
   "history": "Chats",
-  "history_today": "TODAY",
-  "history_yesterday": "YESTERDAY",
-  "history_this_week": "THIS WEEK",
-  "history_before": "BEFORE",
+  "history_today": "Today",
+  "history_yesterday": "Yesterday",
+  "history_this_week": "This week",
+  "history_before": "Earlier",
   "search_chats": "Search chats…",
   "search_no_results": "No chats found",
   "history_empty": "No chats yet",
@@ -98,5 +98,6 @@
   "context_title": "Context",
   "context_empty": "No active context",
   "context_pin_hint": "Pin resources with @ in the composer to always include them.",
-  "hitl_approve_session": "Approve for this chat"
+  "hitl_approve_session": "Approve for this chat",
+  "conversation_actions": "Conversation actions"
 }

@@ -895,7 +895,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         className="flex-1 overflow-y-auto px-2 pb-2 rounded"
         onDragOver={handleRootDragOver}
         onDragLeave={() => setRootDragOver(false)}
-        onDrop={(e) => void handleRootDrop(e)}
+        onDrop={handleRootDrop}
         style={{
           outline: rootDragOver ? '1.5px dashed var(--primary)' : 'none',
           outlineOffset: -2,
@@ -994,7 +994,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         <BulkDeleteConfirmModal
           count={selectedIds.size}
           busy={bulkDeleting}
-          onConfirm={() => void handleBulkDelete()}
+          onConfirm={handleBulkDelete}
           onClose={() => setBulkDeleteConfirm(false)}
         />
       )}

@@ -35,18 +35,20 @@ export function ShellNavItem({ icon, label, active, count, dataTour, onClick, ne
 }
 
 /** A selected child is revealed on navigation; users can still close its group. */
-export function ShellNavSection({ label, icon, activeId, forceOpen = false, children }: {
+export function ShellNavSection({ label, icon, activeId, forceOpen = false, defaultOpen = false, tourGroup, children }: {
   label: string;
   icon: IconSvgElement;
   activeId?: string;
   forceOpen?: boolean;
+  defaultOpen?: boolean;
+  tourGroup?: string;
   children: ReactNode;
 }) {
-  const [disclosure, setDisclosure] = useState({ activeId, open: Boolean(activeId) });
-  const open = forceOpen || (disclosure.activeId === activeId ? disclosure.open : Boolean(activeId));
+  const [disclosure, setDisclosure] = useState<{ activeId?: string; open: boolean } | null>(null);
+  const open = forceOpen || (disclosure && disclosure.activeId === activeId ? disclosure.open : Boolean(activeId) || defaultOpen);
   return <SidebarMenu><SidebarMenuItem>
     <Collapsible open={open} onOpenChange={(next) => setDisclosure({ activeId, open: next })}>
-      <CollapsibleTrigger render={<SidebarMenuButton isActive={Boolean(activeId) && !open} title={label} />}>
+      <CollapsibleTrigger data-tour-group={tourGroup} render={<SidebarMenuButton isActive={Boolean(activeId) && !open} title={label} />}>
         <HugeiconsIcon icon={icon} aria-hidden />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <HugeiconsIcon icon={ChevronDownIcon} aria-hidden className={cn('ml-auto transition-transform motion-reduce:transition-none', !open && '-rotate-90')} />

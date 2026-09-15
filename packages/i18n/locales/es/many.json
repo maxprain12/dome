@@ -13,10 +13,10 @@
   "exit_fullscreen": "Volver al panel lateral",
   "open_popout": "Abrir en ventana aparte",
   "history": "Chats",
-  "history_today": "HOY",
-  "history_yesterday": "AYER",
-  "history_this_week": "ESTA SEMANA",
-  "history_before": "ANTES",
+  "history_today": "Hoy",
+  "history_yesterday": "Ayer",
+  "history_this_week": "Esta semana",
+  "history_before": "Anteriores",
   "search_chats": "Buscar en chats…",
   "search_no_results": "Sin resultados",
   "history_empty": "Sin chats aún",
@@ -98,5 +98,6 @@
   "context_title": "Contexto",
   "context_empty": "Sin contexto activo",
   "context_pin_hint": "Fija recursos con @ en el redactor para incluirlos siempre.",
-  "hitl_approve_session": "Aprobar en este chat"
+  "hitl_approve_session": "Aprobar en este chat",
+  "conversation_actions": "Acciones de la conversación"
 }

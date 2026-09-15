@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft02Icon } from '@hugeicons/core-free-icons';
@@ -15,6 +15,8 @@ import { SETTINGS_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
 import { ShellSidebar, ShellNavItem, ShellNavSection } from '@/components/shared/ShellSidebar';
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 
+import { defaultSettingsGroups } from './settingsDisclosure';
+
 interface SettingsNavProps {
   collapsed: boolean;
 }
@@ -27,6 +29,15 @@ interface SettingsNavProps {
 export default function SettingsNav({ collapsed }: SettingsNavProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const navRef = useRef<HTMLDivElement>(null);
+  const [navHeight, setNavHeight] = useState(0);
+  useEffect(() => {
+    const element = navRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setNavHeight(Math.round(entry.contentRect.height)));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const activeSection = useSettingsUiStore((s) => s.activeSection);
   const hiddenSections = useSettingsUiStore((s) => s.hiddenSections);
   const setActiveSection = useSettingsUiStore((s) => s.setActiveSection);
@@ -58,6 +69,7 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
   }, [groups, query, t]);
 
   const normalizedActive = resolveSettingsSection(activeSection);
+  const defaultExpanded = defaultSettingsGroups(groups, normalizedActive, navHeight);
   const firstMatch = visibleGroups.flatMap((group) => group.entries).find(
     (entry) => t(entry.titleKey).toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
   ) ?? visibleGroups[0]?.entries[0];
@@ -96,7 +108,8 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
         </div>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <div ref={navRef} className="min-h-0 flex-1">
+      <ScrollArea className="h-full">
         <nav className="pb-5" aria-label={t('settings.nav.sidebar')}>
           {visibleGroups.length === 0 ? (
             <p className="px-2.5 py-2 text-xs text-sidebar-foreground/60">
@@ -110,7 +123,7 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
                   const entry = group.entries[0];
                   return <SidebarMenu key={group.labelKey}><ShellNavItem icon={entry.icon} label={t(entry.titleKey)} active={normalizedActive === entry.id} onClick={() => selectSection(entry.id)} /></SidebarMenu>;
                 }
-                return <ShellNavSection key={group.labelKey} label={t(group.labelKey)} icon={group.entries[0].icon} activeId={group.entries.find((entry) => normalizedActive === entry.id)?.id} forceOpen={Boolean(query.trim())}>
+                return <ShellNavSection key={group.labelKey} label={t(group.labelKey)} icon={group.entries[0].icon} activeId={group.entries.find((entry) => normalizedActive === entry.id)?.id} forceOpen={Boolean(query.trim())} defaultOpen={defaultExpanded.has(group.labelKey)}>
                   {group.entries.map((entry) => <ShellNavItem key={entry.id} nested icon={entry.icon} label={t(entry.titleKey)} active={normalizedActive === entry.id} onClick={() => selectSection(entry.id)} />)}
                 </ShellNavSection>;
               })}
@@ -118,6 +131,7 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
           )}
         </nav>
       </ScrollArea>
+      </div>
     </ShellSidebar>
   );
 }

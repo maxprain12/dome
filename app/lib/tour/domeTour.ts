@@ -114,5 +114,12 @@ export function startDomeTour(): void {
   };
 
   const driverObj = driver(config);
-  driverObj.drive();
+  // Nested destinations must be mounted before driver resolves their selectors.
+  const manyGroup = document.querySelector<HTMLButtonElement>('[data-tour-group="many"][aria-expanded="false"]');
+  if (manyGroup) {
+    manyGroup.click();
+    window.requestAnimationFrame(() => driverObj.drive());
+  } else {
+    driverObj.drive();
+  }
 }

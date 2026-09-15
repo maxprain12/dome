@@ -13,5 +13,6 @@
   "group_workspace": "Espacio de trabajo",
   "group_connections": "Conexiones",
   "group_many": "Many",
-  "group_files": "Archivos"
+  "group_files": "Archivos",
+  "file_actions": "Acciones de archivos"
 }

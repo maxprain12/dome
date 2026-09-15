@@ -17,6 +17,7 @@ import {
   Login01Icon,
   Mail01Icon,
   MoonIcon,
+  MoreHorizontalIcon,
   PlusSignIcon,
   RefreshIcon,
   Settings01Icon,
@@ -31,7 +32,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { ShellSidebar, ShellNavItem as SidebarNavButton, ShellNavSection } from '@/components/shared/ShellSidebar';
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarFooter } from '@/components/ui/sidebar';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarFooter, SidebarSeparator } from '@/components/ui/sidebar';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -628,7 +630,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
               ].map((group) => {
                 const items = visiblePrimaryUnifiedNavItems.filter((item) => group.keys.includes(item.key));
                 if (!items.length) return null;
-                return <ShellNavSection key={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
+                return <ShellNavSection key={group.id} tourGroup={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
                   {items.map((item) => <SidebarNavButton key={item.key} nested icon={item.icon} label={item.label} active={getUnifiedNavActive(item)} count={item.kind === 'tab' ? item.count : undefined} dataTour={item.key} onClick={() => handleUnifiedNavClick(item)} />)}
                 </ShellNavSection>;
               })}
@@ -636,8 +638,34 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
           </nav>
 
           {/* Workspace tree */}
-          <SidebarGroup className="mt-3">
-            <SidebarGroupLabel>{t('sidebar.group_files')}</SidebarGroupLabel>
+          <SidebarSeparator />
+          <SidebarGroup className="mt-1">
+            <div className="flex items-center gap-1">
+              <SidebarGroupLabel className="flex-1">{t('sidebar.group_files')}</SidebarGroupLabel>
+              {/* New resource button */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('sidebar.new_resource', 'Nuevo recurso')}
+                onClick={(e) => {
+                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                  setAddMenu({ x: rect.left, y: rect.bottom + 4 });
+                }}
+              >
+                <HugeiconsIcon icon={PlusSignIcon} />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={t('sidebar.file_actions')} />}><HugeiconsIcon icon={MoreHorizontalIcon} /></DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem onClick={() => setNewFolderInWorkspace(true)}><HugeiconsIcon icon={FolderAddIcon} />{t('sidebar.new_folder')}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { window.electron?.resource?.openVaultRoot(hubProjectId); }}><HugeiconsIcon icon={FolderSymlinkIcon} />{t('workspace.open_vault_folder')}</DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <div className="flex flex-wrap items-center gap-1">
               <Button
                 type="button"
@@ -661,41 +689,6 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
 
               <ShellProjectPicker />
 
-              {/* New resource button */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('sidebar.new_resource', 'Nuevo recurso')}
-                onClick={(e) => {
-                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                  setAddMenu({ x: rect.left, y: rect.bottom + 4 });
-                }}
-              >
-                <HugeiconsIcon icon={PlusSignIcon} />
-              </Button>
-
-              {/* New folder button */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('sidebar.new_folder', 'Nueva carpeta')}
-                onClick={() => setNewFolderInWorkspace(true)}
-              >
-                <HugeiconsIcon icon={FolderAddIcon} />
-              </Button>
-
-              {/* Open workspace folder in Finder/Explorer */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('workspace.open_vault_folder')}
-                onClick={() => { window.electron?.resource?.openVaultRoot(hubProjectId); }}
-              >
-                <HugeiconsIcon icon={FolderSymlinkIcon} />
-              </Button>
             </div>
             {workspaceOpen && (
               <div className="pb-2">
@@ -770,6 +763,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
 
         {/* Footer: enlaces secundarios, luego Ajustes */}
         <SidebarFooter>
+          <SidebarSeparator />
           <nav aria-label={t('sidebar.more_tools')}>
             <SidebarMenu>
             {visibleSecondaryUnifiedNavItems.map((item) => (

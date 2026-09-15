@@ -160,7 +160,7 @@ function buildHeaderClassName(
   needsRightChromeInset: boolean,
 ): string {
   const base = '@container/header flex shrink-0 flex-wrap items-center gap-2.5 border-b';
-  if (!isPopout) return cn(base, 'px-3 py-2');
+  if (!isPopout) return cn(base, 'min-h-14 border-border/70 px-4 py-2.5');
   // Match shell TitleBar: fixed height + traffic-light / overlay insets.
   return cn(
     base,

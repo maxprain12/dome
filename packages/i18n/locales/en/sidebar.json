@@ -13,5 +13,6 @@
   "group_workspace": "Workspace",
   "group_connections": "Connections",
   "group_many": "Many",
-  "group_files": "Files"
+  "group_files": "Files",
+  "file_actions": "File actions"
 }

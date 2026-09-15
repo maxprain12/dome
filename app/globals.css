@@ -160,6 +160,14 @@
     --sidebar-ring: color-mix(in srgb, var(--sidebar-foreground) 45%, var(--sidebar));
   }
 
+  /* Keep menu targets comfortable on touch screens without inflating desktop rows. */
+  @media (pointer: coarse) {
+    .dome-left-sidebar [data-sidebar='menu-button'],
+    .dome-left-sidebar [data-sidebar='menu-sub-button'] {
+      min-height: 40px;
+    }
+  }
+
   @media (max-width: 980px) {
     .dome-app-body {
       position: relative;
