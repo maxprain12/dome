@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { PlusSignIcon, Search01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { PlusSignIcon, Search01Icon, SparklesIcon, Folder01Icon, File01Icon, Message01Icon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -15,28 +15,20 @@ import {
 import { db, type Project } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { formatDistanceToNow } from '@/lib/utils';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { DashboardWorkspace, type DashboardPanel } from '@/components/shared/dashboard/DashboardWorkspace';
+import { DashboardCollection, DashboardRow } from '@/components/shared/dashboard/DashboardCollection';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { DashboardAreaChart, type DashboardChartRange } from '@/components/shared/dashboard/DashboardAreaChart';
-import { DashboardDataTable } from '@/components/shared/dashboard/DashboardDataTable';
 import { DashboardSectionCards } from '@/components/shared/dashboard/DashboardSectionCards';
 import { buildActivityChartPoints } from '@/components/shared/dashboard/activityChart';
+import { DashboardAgenda } from './DashboardAgenda';
 import { HubToolbar } from '@/components/hub/HubToolbar';
 
-type HomeTableTab = 'activity' | 'pending' | 'projects';
-
-type HomeTableRow = {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  when: string;
-  tab: HomeTableTab;
-};
-
 export default function DashboardView() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { name } = useUserStore();
   const currentProject = useAppStore((state) => state.currentProject);
   const setCurrentProject = useAppStore((state) => state.setCurrentProject);
@@ -66,14 +58,15 @@ export default function DashboardView() {
     statsDeltas,
     activity,
     pendingToday,
+    upcomingEventsList,
     gamification,
     activityDayCounts,
     loading,
+    refresh,
   } = useDashboardData(currentProject?.id ?? 'default');
 
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [chartRange, setChartRange] = useState<DashboardChartRange>('30d');
-  const [tableTab, setTableTab] = useState<HomeTableTab>('activity');
   const firstName = name?.split(' ')[0] || '';
 
   useEffect(() => {
@@ -84,11 +77,13 @@ export default function DashboardView() {
           [...result.data].sort((a, b) => b.updated_at - a.updated_at).slice(0, 8),
         );
       }
+    }).catch(() => {
+      if (!cancelled) showToast('error', t('dashboardPanels.load_error'));
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const openCommandPalette = useCallback(() => {
     globalThis.dispatchEvent(new CustomEvent('dome:open-command-palette'));
@@ -114,6 +109,8 @@ export default function DashboardView() {
     });
     if (result.success && result.data) {
       openResourceTab(result.data.id, 'note', result.data.title, projectId);
+    } else {
+      showToast('error', t('dashboardPanels.action_error'));
     }
   }, [currentProject?.id, openResourceTab, t]);
 
@@ -164,57 +161,34 @@ export default function DashboardView() {
     [activityDayCounts, chartRange],
   );
 
-  const activityRows: HomeTableRow[] = useMemo(
-    () =>
-      activity.slice(0, 20).map((item) => ({
-        id: item.id,
-        title: item.title,
-        type:
-          item.kind === 'chat'
-            ? t('dashboard.activity_kind_chat')
-            : item.subtitle || item.resourceType || t('dashboard.activity'),
-        status: item.kind === 'chat' ? t('dashboard.activity_kind_chat') : item.resourceType || '',
-        when: formatDistanceToNow(item.timestamp),
-        tab: 'activity',
-      })),
-    [activity, t],
-  );
-
-  const pendingRows: HomeTableRow[] = useMemo(
-    () =>
-      pendingToday.map((item) => ({
-        id: item.id,
-        title: item.title,
-        type: item.subtitle || item.kind,
-        status: item.tag || item.timeLabel || '',
-        when: item.timeLabel || formatDistanceToNow(item.timestamp),
-        tab: 'pending',
-      })),
-    [pendingToday],
-  );
-
-  const projectRows: HomeTableRow[] = useMemo(
-    () =>
-      recentProjects.map((project) => ({
-        id: project.id,
-        title: project.name,
-        type: project.description || t('projects.vault_default_hint'),
-        status: project.id === currentProject?.id ? t('projects.active') : '',
-        when: formatDistanceToNow(project.updated_at),
-        tab: 'projects',
-      })),
-    [currentProject?.id, recentProjects, t],
-  );
-
-  const tableRows =
-    tableTab === 'activity' ? activityRows : tableTab === 'pending' ? pendingRows : projectRows;
-
-  const emptyTitle =
-    tableTab === 'activity'
-      ? t('dashboard.table_empty_activity')
-      : tableTab === 'pending'
-        ? t('dashboard.table_empty_pending')
-        : t('dashboard.table_empty_projects');
+  const panels: DashboardPanel[] = [
+    { id: 'summary', label: t('dashboardPanels.summary'), wide: true, content: <DashboardSectionCards items={[
+      { id: 'resources', label: t('dashboard.stat_resources'), value: loading ? '—' : stats.resourceCount, hint: t('dashboardPanels.resources_hint'), delta: statsDeltas.resources },
+      { id: 'chats', label: t('dashboard.stat_chats'), value: loading ? '—' : stats.recentChats, hint: t('dashboardPanels.chats_hint'), delta: statsDeltas.chats },
+      { id: 'runs', label: t('dashboard.stat_runs'), value: loading ? '—' : stats.activeRuns, hint: t('dashboardPanels.runs_hint') },
+      { id: 'pending', label: t('dashboardPanels.agenda'), value: loading ? '—' : gamification.pendingTodayCount, hint: t('dashboardPanels.agenda_hint') },
+    ]} /> },
+    { id: 'recent', label: t('dashboardPanels.recent'), content:
+      <DashboardCollection title={t('dashboardPanels.recent')} description={t('dashboardPanels.recent_hint')} loading={loading} empty={activity.length === 0} emptyTitle={t('dashboard.table_empty_activity')}>
+        {activity.slice(0, 4).map((item) => <DashboardRow key={item.id} title={item.title} detail={formatDistanceToNow(item.timestamp)} marker={<HugeiconsIcon icon={item.kind === 'chat' ? Message01Icon : File01Icon} className="size-5" />} onClick={() => openActivity(item)} />)}
+      </DashboardCollection> },
+    { id: 'agenda', label: t('dashboardPanels.agenda'), content: <DashboardAgenda events={upcomingEventsList} pending={pendingToday} loading={loading} onCalendar={openCalendarTab} onPending={openPending} /> },
+    { id: 'activity', label: t('dashboard.chart_title'), content:
+      <DashboardAreaChart title={t('dashboard.chart_title')} description={t('dashboardPanels.activity_hint')} data={chartData} range={chartRange} onRangeChange={setChartRange} valueLabel={t('dashboard.chart_activity_label')} emptyTitle={t('dashboard.table_empty_activity')} rangeLabels={{ '7d': t('dashboard.chart_range_7d'), '30d': t('dashboard.chart_range_30d'), '90d': t('dashboard.chart_range_90d') }} /> },
+    { id: 'many', label: t('dashboardPanels.many'), content:
+      <Card variant="mint">
+        <CardHeader><CardTitle>{t('dashboardPanels.many')}</CardTitle><CardDescription>{t('dashboardPanels.many_hint')}</CardDescription></CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex items-baseline gap-2"><span className="text-4xl font-semibold tabular-nums">{loading ? '—' : gamification.weeklyRunsCompleted}</span><span className="text-xs text-muted-foreground">{t('dashboardPanels.runs_completed')}</span></div>
+          <Button variant="outline" onClick={handleAskMany}><HugeiconsIcon icon={SparklesIcon} data-icon="inline-start" />{t('dashboard.ask_many')}</Button>
+          <div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => openAgentsTab()}>{t('dashboardPanels.agents')}</Button><Button variant="outline" onClick={() => openLearnTab()}>{t('dashboardPanels.learn')}</Button></div>
+        </CardContent>
+      </Card> },
+    { id: 'projects', label: t('dashboard.tab_projects'), wide: true, content:
+      <DashboardCollection title={t('dashboard.tab_projects')} description={t('dashboardPanels.projects_hint')} empty={recentProjects.length === 0} emptyTitle={t('dashboard.table_empty_projects')} action={<Button size="sm" variant="ghost" onClick={() => openProjectsTab()}>{t('dashboardPanels.view_all')}</Button>}>
+        <div className="grid gap-3 @min-[760px]/dashboard:grid-cols-2">{recentProjects.slice(0, 4).map((project) => <DashboardRow key={project.id} title={project.name} detail={project.description || formatDistanceToNow(project.updated_at)} marker={<HugeiconsIcon icon={Folder01Icon} className="size-5" />} trailing={project.id === currentProject?.id ? <Badge variant="secondary">{t('projects.active')}</Badge> : undefined} onClick={() => { setCurrentProject(project); openFolderTab(project.id, project.name, undefined, project.id); }} />)}</div>
+      </DashboardCollection> },
+  ];
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden" data-tab-loading={loading ? '' : undefined}>
@@ -230,7 +204,7 @@ export default function DashboardView() {
             size="sm"
             variant="outline"
             onClick={() => {
-              void handleUpload().catch(() => {});
+              void handleUpload().catch(() => showToast('error', t('dashboardPanels.action_error')));
             }}
           >
             {t('dashboard.action_upload')}
@@ -248,7 +222,7 @@ export default function DashboardView() {
             type="button"
             size="sm"
             onClick={() => {
-              void handleNewNote().catch(() => {});
+              void handleNewNote().catch(() => showToast('error', t('dashboardPanels.action_error')));
             }}
           >
             <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
@@ -257,100 +231,8 @@ export default function DashboardView() {
         </div>
       </HubToolbar>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 lg:px-8">
-          <DashboardSectionCards
-            items={[
-              {
-                id: 'resources',
-                label: t('dashboard.stat_resources'),
-                value: loading ? '—' : stats.resourceCount,
-                delta: statsDeltas.resources,
-                footer: firstName || undefined,
-                hint: t('dashboard.section_weekly'),
-              },
-              {
-                id: 'chats',
-                label: t('dashboard.stat_chats'),
-                value: loading ? '—' : stats.recentChats,
-                delta: statsDeltas.chats,
-                hint: t('dashboard.section_weekly'),
-              },
-              {
-                id: 'runs',
-                label: t('dashboard.stat_runs'),
-                value: loading ? '—' : stats.activeRuns,
-                delta: statsDeltas.activeRuns,
-                footer: t('dashboard.energy_card_label'),
-                hint: `${Math.round(gamification.momentumPercent)}%`,
-              },
-              {
-                id: 'pending',
-                label: t('dashboard.pending_today'),
-                value: loading ? '—' : gamification.pendingTodayCount,
-                delta: statsDeltas.dueCards,
-                hint: t('dashboard.today_sub'),
-              },
-            ]}
-          />
-
-          <DashboardAreaChart
-            title={t('dashboard.chart_title')}
-            description={t('dashboard.section_weekly')}
-            data={chartData}
-            range={chartRange}
-            onRangeChange={setChartRange}
-            valueLabel={t('dashboard.chart_activity_label')}
-            rangeLabels={{
-              '7d': t('dashboard.chart_range_7d'),
-              '30d': t('dashboard.chart_range_30d'),
-              '90d': t('dashboard.chart_range_90d'),
-            }}
-          />
-
-          <DashboardDataTable
-            tabs={[
-              { id: 'activity', label: t('dashboard.tab_activity'), count: activityRows.length },
-              { id: 'pending', label: t('dashboard.tab_pending'), count: pendingRows.length },
-              { id: 'projects', label: t('dashboard.tab_projects'), count: projectRows.length },
-            ]}
-            tab={tableTab}
-            onTabChange={(next) => {
-              if (next === 'activity' || next === 'pending' || next === 'projects') {
-                setTableTab(next);
-              }
-            }}
-            columns={[
-              { id: 'title', header: t('dashboard.col_title'), cell: (row) => <span className="block truncate">{row.title}</span> },
-              { id: 'type', header: t('dashboard.col_type'), cell: (row) => row.type, className: 'hidden md:table-cell' },
-              {
-                id: 'status',
-                header: t('dashboard.col_status'),
-                cell: (row) =>
-                  row.status ? <Badge variant="outline">{row.status}</Badge> : null,
-              },
-              { id: 'when', header: t('dashboard.col_when'), cell: (row) => row.when, className: 'hidden sm:table-cell' },
-            ]}
-            rows={tableRows}
-            loading={loading}
-            emptyTitle={emptyTitle}
-            onRowClick={(row) => {
-              if (row.tab === 'activity') {
-                const item = activity.find((entry) => entry.id === row.id);
-                if (item) openActivity(item);
-                return;
-              }
-              if (row.tab === 'pending') {
-                const item = pendingToday.find((entry) => entry.id === row.id);
-                if (item) openPending(item);
-                return;
-              }
-              const project = recentProjects.find((entry) => entry.id === row.id);
-              if (project) setCurrentProject(project);
-              else openProjectsTab();
-            }}
-          />
-        </div>
+      <div className="@container/dashboard min-h-0 flex-1 overflow-y-auto bg-muted/30">
+        <DashboardWorkspace scope="home" eyebrow={currentProject?.name || t('sidebar.group_workspace')} title={firstName ? t('dashboardPanels.greeting', { name: firstName }) : t('dashboardPanels.home_title')} description={new Date().toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })} panels={panels} actions={<Button variant="ghost" size="icon-sm" aria-label={t('dashboardPanels.refresh')} disabled={loading} onClick={refresh}><HugeiconsIcon icon={RefreshIcon} /></Button>} />
       </div>
     </main>
   );
