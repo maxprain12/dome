@@ -56,9 +56,9 @@ function pickRowBackground(
   folderColor: string,
   hovered: boolean,
 ): string {
-  if (isSelected) return 'color-mix(in srgb, var(--primary) 10%, transparent)';
+  if (isSelected) return 'var(--sidebar-accent)';
   if (isDragOver && isFolder) return `${folderColor}22`;
-  if (hovered) return 'var(--accent)';
+  if (hovered) return 'var(--sidebar-accent)';
   return 'transparent';
 }
 
@@ -68,7 +68,7 @@ function pickRowOutline(
   isFolder: boolean,
   folderColor: string,
 ): string {
-  if (isSelected) return '1px solid color-mix(in srgb, var(--primary) 40%, transparent)';
+  if (isSelected) return 'none';
   if (isDragOver && isFolder) return `1.5px dashed ${folderColor}`;
   return 'none';
 }

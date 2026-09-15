@@ -30,7 +30,8 @@ import {
 } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
+import { ShellSidebar, ShellNavItem as SidebarNavButton, ShellNavSection } from '@/components/shared/ShellSidebar';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarFooter } from '@/components/ui/sidebar';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -52,7 +53,6 @@ import AddResourceMenu from './sidebar/AddResourceMenu';
 import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
 
 interface UnifiedSidebarProps {
   collapsed: boolean;
@@ -65,45 +65,6 @@ async function selectFallbackProjectAfterDelete(): Promise<void> {
   const list = all.data as Project[];
   const dome = list.find((p) => p.id === 'default');
   useAppStore.getState().setCurrentProject(dome ?? list[0] ?? null);
-}
-
-/** Icon + label navigation row used throughout the sidebar (primary + secondary sections). */
-function SidebarNavButton({
-  icon,
-  label,
-  active,
-  count,
-  dataTour,
-  onClick,
-}: {
-  icon: IconSvgElement;
-  label: string;
-  active?: boolean;
-  count?: number;
-  dataTour?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-tour={dataTour}
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs font-medium',
-        selectionSurfaceClass(Boolean(active)),
-        !active && 'text-sidebar-foreground/80',
-      )}
-      data-active={active ? 'true' : undefined}
-    >
-      <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {count !== undefined ? (
-        <span className="shrink-0 rounded-full bg-sidebar-accent px-1.5 text-[10px] tabular-nums text-sidebar-accent-foreground/80">
-          {count}
-        </span>
-      ) : null}
-    </button>
-  );
 }
 
 export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
@@ -648,33 +609,36 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
   };
 
   return (
-    <aside
-      className={cn(
-        'dome-left-sidebar flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width,opacity] duration-200 ease-out',
-        collapsed ? 'w-0 opacity-0' : 'w-(--chrome-rail-width) opacity-100',
-      )}
-      aria-hidden={collapsed}
-    >
+    <ShellSidebar collapsed={collapsed} label={t('sidebar.navigation')}>
       <div className="flex min-h-0 flex-1 flex-col">
         <ScrollArea className="min-h-0 flex-1">
-          {/* Navegación principal */}
-          <nav className="flex flex-col gap-0.5 px-2 py-2" aria-label={t('sidebar.navigation', 'Navegación')}>
-            {visiblePrimaryUnifiedNavItems.map((item) => (
-              <SidebarNavButton
-                key={item.key}
-                icon={item.icon}
-                label={item.label}
-                active={getUnifiedNavActive(item)}
-                count={item.kind === 'tab' ? item.count : undefined}
-                dataTour={item.key}
-                onClick={() => handleUnifiedNavClick(item)}
-              />
-            ))}
+          <nav aria-label={t('sidebar.navigation')}>
+            <SidebarGroup>
+              <SidebarGroupLabel>{t('sidebar.group_workspace')}</SidebarGroupLabel>
+              <SidebarMenu>
+                {visiblePrimaryUnifiedNavItems.filter((item) => ['library', 'projects', 'calendar'].includes(item.key)).map((item) => (
+                  <SidebarNavButton key={item.key} icon={item.icon} label={item.label} active={getUnifiedNavActive(item)} dataTour={item.key} onClick={() => handleUnifiedNavClick(item)} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+            <SidebarGroup>
+              {[
+                { id: 'connections', label: t('sidebar.group_connections'), icon: Share08Icon, keys: ['people', 'email', 'social', 'github'] },
+                { id: 'many', label: t('sidebar.group_many'), icon: BotIcon, keys: ['agents', 'pipelines', 'workflows', 'automations', 'runs'] },
+              ].map((group) => {
+                const items = visiblePrimaryUnifiedNavItems.filter((item) => group.keys.includes(item.key));
+                if (!items.length) return null;
+                return <ShellNavSection key={group.id} label={group.label} icon={group.icon} activeId={items.find(getUnifiedNavActive)?.key}>
+                  {items.map((item) => <SidebarNavButton key={item.key} nested icon={item.icon} label={item.label} active={getUnifiedNavActive(item)} count={item.kind === 'tab' ? item.count : undefined} dataTour={item.key} onClick={() => handleUnifiedNavClick(item)} />)}
+                </ShellNavSection>;
+              })}
+            </SidebarGroup>
           </nav>
 
           {/* Workspace tree */}
-          <div className="border-t border-sidebar-border py-2">
-            <div className="flex items-center gap-1 px-2">
+          <SidebarGroup className="mt-3">
+            <SidebarGroupLabel>{t('sidebar.group_files')}</SidebarGroupLabel>
+            <div className="flex flex-wrap items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
@@ -690,7 +654,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleOpenProjectRootFolder}
-                className="min-w-0 flex-1 justify-start text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wide"
+                className="min-w-0 flex-1 justify-start"
               >
                 <span className="truncate">{activeProjectLabel}</span>
               </Button>
@@ -748,7 +712,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 )}
               </div>
             )}
-          </div>
+          </SidebarGroup>
         </ScrollArea>
 
         {/* Add resource dropdown */}
@@ -805,8 +769,9 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
         )}
 
         {/* Footer: enlaces secundarios, luego Ajustes */}
-        <div className="shrink-0 border-t border-sidebar-border p-2">
-          <nav className="flex flex-col gap-0.5" aria-label={t('sidebar.more_tools')}>
+        <SidebarFooter>
+          <nav aria-label={t('sidebar.more_tools')}>
+            <SidebarMenu>
             {visibleSecondaryUnifiedNavItems.map((item) => (
               <SidebarNavButton
                 key={item.key}
@@ -851,9 +816,10 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
               label={isDark ? t('settings.appearance.light') : t('settings.appearance.dark')}
               onClick={() => updateTheme(isDark ? 'light' : 'dark')}
             />
+            </SidebarMenu>
           </nav>
-        </div>
+        </SidebarFooter>
       </div>
-    </aside>
+    </ShellSidebar>
   );
 }

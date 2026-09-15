@@ -9,5 +9,9 @@
   "sign_in": "Iniciar sesión en Dome",
   "sign_in_connecting": "Conectando…",
   "sign_in_success": "Conectado a Dome",
-  "sign_in_error": "No se pudo iniciar sesión"
+  "sign_in_error": "No se pudo iniciar sesión",
+  "group_workspace": "Espacio de trabajo",
+  "group_connections": "Conexiones",
+  "group_many": "Many",
+  "group_files": "Archivos"
 }

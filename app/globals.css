@@ -153,9 +153,11 @@
     contain-intrinsic-size: auto 112px;
   }
 
-  /* Chrome grid: hairline between the left rail and the main pane. */
-  .dome-left-sidebar:not([aria-hidden='true']) {
-    border-right: 1px solid var(--sidebar-border);
+  /* Navigation has its own neutral palette; brand selections belong to content. */
+  .dome-left-sidebar {
+    --sidebar-accent: color-mix(in srgb, var(--sidebar-foreground) 7%, var(--sidebar));
+    --sidebar-border: color-mix(in srgb, var(--sidebar-foreground) 12%, var(--sidebar));
+    --sidebar-ring: color-mix(in srgb, var(--sidebar-foreground) 45%, var(--sidebar));
   }
 
   @media (max-width: 980px) {
@@ -168,7 +170,7 @@
     }
 
     /* 03/T06: ventanas estrechas — el sidebar cede ancho al contenido */
-    .dome-left-sidebar {
+    .dome-left-sidebar:not([hidden]) {
       width: min(260px, 28vw) !important;
       min-width: 200px !important;
     }

@@ -9,5 +9,9 @@
   "sign_in": "Entrar no Dome",
   "sign_in_connecting": "A conectar…",
   "sign_in_success": "Ligado ao Dome",
-  "sign_in_error": "Não foi possível entrar"
+  "sign_in_error": "Não foi possível entrar",
+  "group_workspace": "Espaço de trabalho",
+  "group_connections": "Ligações",
+  "group_many": "Many",
+  "group_files": "Ficheiros"
 }
