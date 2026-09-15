@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
   parseMediaUploadResponse,
+  resolveUploadedMedia,
   mapSocialMediaUploadError,
   assertInstagramReachableUrl,
   planInstagramPublish,
@@ -29,6 +30,54 @@ describe('parseMediaUploadResponse', () => {
 
   it('rejects a response without storagePath', () => {
     assert.throws(() => parseMediaUploadResponse({ publicUrl: 'https://cdn.example.test/a.jpg' }), /missing_storage_path/);
+  });
+
+  it('keeps storagePath when the provider omits a public URL', () => {
+    assert.deepEqual(
+      parseMediaUploadResponse({ storagePath: 'social-media/u1/a.jpg' }),
+      { storagePath: 'social-media/u1/a.jpg', publicUrl: null },
+    );
+  });
+
+  it('accepts snake_case fields from the wire', () => {
+    assert.deepEqual(
+      parseMediaUploadResponse({
+        storage_path: 'social-media/u1/a.jpg',
+        public_url: 'https://cdn.example.test/a.jpg',
+      }),
+      { storagePath: 'social-media/u1/a.jpg', publicUrl: 'https://cdn.example.test/a.jpg' },
+    );
+  });
+});
+
+describe('resolveUploadedMedia', () => {
+  it('returns the parsed payload when publicUrl is already https', async () => {
+    const parsed = { storagePath: 'social-media/u1/a.jpg', publicUrl: 'https://cdn.example.test/a.jpg' };
+    const result = await resolveUploadedMedia(parsed, async () => {
+      throw new Error('sign should not run');
+    });
+    assert.deepEqual(result, parsed);
+  });
+
+  it('uses GET-sign when POST omitted publicUrl', async () => {
+    const result = await resolveUploadedMedia(
+      { storagePath: 'social-media/u1/a.jpg', publicUrl: null },
+      async (storagePath) => {
+        assert.equal(storagePath, 'social-media/u1/a.jpg');
+        return { storagePath, publicUrl: 'https://cdn.example.test/signed.jpg' };
+      },
+    );
+    assert.equal(result.publicUrl, 'https://cdn.example.test/signed.jpg');
+  });
+
+  it('keeps storagePath when signing is unavailable', async () => {
+    const result = await resolveUploadedMedia(
+      { storagePath: 'social-media/u1/a.jpg', publicUrl: null },
+      async () => {
+        throw new Error('Could not upload media to Dome Provider (404): not_found');
+      },
+    );
+    assert.deepEqual(result, { storagePath: 'social-media/u1/a.jpg', publicUrl: null });
   });
 });
 
@@ -98,5 +147,15 @@ describe('toPublicPublishItems', () => {
     assert.deepEqual(storagePaths, [null, 'social-media/u1/local.jpg']);
     assert.equal(sources[1].resourceId, 'res-1');
     assert.equal(sources[1].path, '/tmp/local.jpg');
+  });
+
+  it('rejects a file upload without a public https URL', async () => {
+    await assert.rejects(
+      () => toPublicPublishItems(
+        [{ kind: 'file', path: '/tmp/local.jpg', mime: 'image/jpeg', mediaKind: 'image' }],
+        async () => ({ storagePath: 'social-media/u1/local.jpg', publicUrl: null }),
+      ),
+      /did not return a public URL/,
+    );
   });
 });

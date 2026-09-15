@@ -14,8 +14,11 @@ const planGate = require('./plan-gate.cjs');
 const domainSync = require('./domain-sync.cjs');
 const {
   parseMediaUploadResponse,
+  resolveUploadedMedia,
   mapSocialMediaUploadError,
 } = require('../social/instagram-publish.cjs');
+const { resolveMediaItem } = require('../social/social-media.cjs');
+const fileStorage = require('./file-storage.cjs');
 
 /**
  * @param {object} database
@@ -105,14 +108,14 @@ async function uploadMediaFile(database, filePath, mimeType) {
     throw new Error(mapSocialMediaUploadError(res.status, text));
   }
   const parsed = parseMediaUploadResponse(await res.json());
-  if (parsed.publicUrl) return parsed;
-  try {
-    return await signMediaUrl(database, parsed.storagePath);
-  } catch {
-    throw new Error(
-      'Dome Provider did not return a public URL for the uploaded media. Update the provider and retry.',
+  const resolved = await resolveUploadedMedia(parsed, (storagePath) => signMediaUrl(database, storagePath));
+  if (!resolved.publicUrl) {
+    console.warn(
+      '[Social] Dome Provider stored media without a public URL; cloud sync will use storagePath.',
+      resolved.storagePath,
     );
   }
+  return resolved;
 }
 
 /**
@@ -213,27 +216,19 @@ async function syncPostMediaStorage(deps, store, postId) {
     media = [];
   }
 
-  const { resolveMediaItem } = require('../social/social-media.cjs');
-  const fileStorage = require('./file-storage.cjs');
   const storagePaths = [];
   for (const item of media) {
     if (item.url?.startsWith('social-media/')) {
       storagePaths.push(item.url);
       continue;
     }
-    let filePath = typeof item.path === 'string' ? item.path : null;
-    if (!filePath && item.resourceId) {
-      try {
-        const resolved = resolveMediaItem(deps.database, fileStorage, item);
-        if (resolved.kind === 'file') filePath = resolved.path;
-      } catch (err) {
-        console.warn('[Social] skip media storage for unresolved item:', err?.message || err);
-        continue;
-      }
-    }
-    if (filePath) {
-      const uploaded = await uploadMediaFile(deps.database, filePath);
+    try {
+      const resolved = resolveMediaItem(deps.database, fileStorage, item);
+      if (resolved.kind !== 'file') continue;
+      const uploaded = await uploadMediaFile(deps.database, resolved.path, resolved.mime);
       storagePaths.push(uploaded.storagePath);
+    } catch (err) {
+      console.warn('[Social] skip media storage for unresolved item:', err?.message || err);
     }
   }
 

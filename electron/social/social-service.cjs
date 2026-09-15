@@ -23,6 +23,7 @@ const {
 } = require('./social-comment-match.cjs');
 const { accountSupports, nestComments } = require('./social-messaging.cjs');
 const peopleStore = require('../people/people-store.cjs');
+const { selectDuePostsForLocalTick } = require('./social-scheduler.cjs');
 
 const PROVIDER_MODULES = {
   linkedin: require('./providers/linkedin.cjs'),
@@ -485,10 +486,13 @@ function createSocialService(database, windowManager) {
     if (tickRunning) return;
     tickRunning = true;
     try {
-      const due = store.listDuePosts().filter((post) => {
-        if (!post.accountId) return true;
-        return !store.isAccountCloudPublishing(post.accountId);
+      const due = selectDuePostsForLocalTick(store.listDuePosts(), {
+        cloudWorkerProviders: ['instagram'],
+        isAccountCloudPublishing: (accountId) => store.isAccountCloudPublishing(accountId),
       });
+      if (due.length) {
+        console.log(`[Social] scheduler: ${due.length} due post(s)`);
+      }
       for (const post of due) {
         try {
           await publishPost(post.id);

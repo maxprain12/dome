@@ -8,6 +8,7 @@ const { getSocialService } = require('../../social/social-service.cjs');
 const socialCalendarBridge = require('../../social/social-calendar-bridge.cjs');
 const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
 const eventCardsClient = require('../../social/social-event-cards-client.cjs');
+const { previewSocialMedia } = require('../../social/social-media-preview.cjs');
 
 const ProviderSchema = z.enum(['linkedin', 'instagram', 'x']);
 const ProviderConfigSchema = z.object({
@@ -57,8 +58,9 @@ const MediaPreviewSchema = z
   .object({
     path: z.string().min(1).optional(),
     resourceId: z.string().min(1).optional(),
+    storagePath: z.string().min(1).optional(),
   })
-  .refine((m) => Boolean(m.path || m.resourceId), { message: 'path or resourceId required' });
+  .refine((m) => Boolean(m.path || m.resourceId || m.storagePath), { message: 'path, resourceId or storagePath required' });
 const InstagramLocationSchema = z.object({
   id: z.string().min(1).max(80),
   name: z.string().min(1).max(200),
@@ -394,27 +396,16 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       .slice(0, 200);
   }));
 
-  // Composer preview thumbnails (images only, size-capped data URL)
-  ipcMain.handle('social:media:preview', wrap(MediaPreviewSchema, ({ path: filePath, resourceId }) => {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const { IMAGE_EXTS } = require('../../social/social-media.cjs');
-    let resolved = filePath || null;
-    if (resourceId) {
-      const vaultStore = require('../../storage/vault-store.cjs');
-      const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
-      if (!resource) return { dataUrl: null };
-      resolved = vaultStore.getResourceFilePath(resource, queries, fileStorage);
-    }
-    if (!resolved || !fs.existsSync(resolved)) return { dataUrl: null };
-    const ext = path.extname(resolved).toLowerCase();
-    if (!IMAGE_EXTS.has(ext)) return { dataUrl: null }; // videos → icon placeholder
-    const stat = fs.statSync(resolved);
-    if (stat.size > 4 * 1024 * 1024) return { dataUrl: null };
-    const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' }[ext];
-    return { dataUrl: `data:${mime};base64,${fs.readFileSync(resolved).toString('base64')}` };
-  }));
+  ipcMain.handle('social:media:preview', wrap(MediaPreviewSchema, (input) =>
+    previewSocialMedia(
+      {
+        database,
+        fileStorage,
+        signMediaUrl: (storagePath) => socialCloudAdapter.signMediaUrl(database, storagePath),
+      },
+      input,
+    ),
+  ));
 
   // Campaigns (plan 025)
   ipcMain.handle('social:campaigns:list', wrap(null, () => service.store.listCampaigns()));
