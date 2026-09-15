@@ -42,44 +42,8 @@ export function CalendarHero({
 
   return (
     <HubSectionShell
-      title={t('calendarPage.title')}
-      description={t('calendarPage.subtitle')}
-      actions={
-        <>
-          <Button type="button" size="sm" onClick={onNewEvent}>
-            <HugeiconsIcon icon={Add01Icon} />
-            {t('calendarPage.new_event_short')}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button type="button" variant="outline" size="icon-sm" />}
-              aria-label={t('calendarPage.more_actions')}
-              title={t('calendarPage.more_actions')}
-            >
-              <HugeiconsIcon icon={MoreHorizontalIcon} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onOpenSettings}>
-                <HugeiconsIcon icon={Link01Icon} />
-                {t('calendarPage.google_settings_short')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onImport}>
-                <HugeiconsIcon icon={Upload04Icon} />
-                {t('calendarPage.import_ics_short')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onSync} disabled={syncing}>
-                <HugeiconsIcon
-                  icon={RefreshIcon}
-                  className={cn(syncing && 'animate-spin motion-reduce:animate-none')}
-                />
-                {t('calendarPage.sync')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      }
       toolbar={
-        <div className="flex flex-wrap items-center gap-2">
+        <>
           <span className="text-xs text-muted-foreground">{date}</span>
           <Badge variant="lavender" className="font-normal">
             {syncHint}
@@ -88,7 +52,39 @@ export function CalendarHero({
             {t('calendarPage.upcoming')}: {upcomingCount}
           </Badge>
           <SectionGuideHelp sectionKey="calendar" />
-        </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" onClick={onNewEvent}>
+              <HugeiconsIcon icon={Add01Icon} />
+              {t('calendarPage.new_event_short')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button type="button" variant="outline" size="icon-sm" />}
+                aria-label={t('calendarPage.more_actions')}
+                title={t('calendarPage.more_actions')}
+              >
+                <HugeiconsIcon icon={MoreHorizontalIcon} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onOpenSettings}>
+                  <HugeiconsIcon icon={Link01Icon} />
+                  {t('calendarPage.google_settings_short')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onImport}>
+                  <HugeiconsIcon icon={Upload04Icon} />
+                  {t('calendarPage.import_ics_short')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSync} disabled={syncing}>
+                  <HugeiconsIcon
+                    icon={RefreshIcon}
+                    className={cn(syncing && 'animate-spin motion-reduce:animate-none')}
+                  />
+                  {t('calendarPage.sync')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </>
       }
     >
       {children}

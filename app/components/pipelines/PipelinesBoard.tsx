@@ -25,7 +25,7 @@ import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { askStudioMany } from '@/components/studio-hub';
-import { HubHeader, HubPageHeader } from '@/components/hub';
+import { HubToolbar } from '@/components/hub';
 import ListState from '@/components/shared/ListState';
 
 import {
@@ -677,24 +677,18 @@ export default function PipelinesBoard() {
 
   return (
     <div className="@container/pipelines flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <HubPageHeader className="shrink-0 gap-y-3">
-        <HubHeader
-          title={t('pipelines.title')}
-          description={t('pipelines.dashboard_title')}
-          actions={
-            <>
-              <SectionGuideHelp sectionKey="pipelines" />
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => askStudioMany(t('orchestration.agent_prompt_pipelines'))}
-              >
-                {t('orchestration.agent_ask_many')}
-              </Button>
-            </>
-          }
-        />
+      <HubToolbar className="flex-col items-stretch gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <SectionGuideHelp sectionKey="pipelines" />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => askStudioMany(t('orchestration.agent_prompt_pipelines'))}
+          >
+            {t('orchestration.agent_ask_many')}
+          </Button>
+        </div>
         <PipelinesBoardToolbar
           showDashboard={showDashboard}
           onShowDashboard={() => {
@@ -725,7 +719,7 @@ export default function PipelinesBoard() {
           sourcesOpen={sourcesOpen}
           onToggleSources={() => setSourcesOpen((v) => !v)}
         />
-      </HubPageHeader>
+      </HubToolbar>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <PipelinesBoardBody

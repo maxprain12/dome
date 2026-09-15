@@ -87,6 +87,7 @@ export function SocialWorkspaceShell() {
         onSync={() => {
           workspace.syncFeed(selectedAccountId).catch(() => {});
         }}
+        onCompose={composePost}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -217,7 +218,6 @@ function SectionBody({
           posts={filterPostsByAccount(posts, accountId)}
           growth={growth}
           accountId={accountId}
-          onCompose={onCompose}
           onOpenPost={(post) => onNavigate('content', { kind: 'post', post })}
           onOpenContent={() => onNavigate('content')}
         />

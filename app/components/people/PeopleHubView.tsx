@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { Delete02Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { HubMasterDetail } from '@/components/shared/HubMasterDetail';
 import { HubSectionShell } from '@/components/shared/HubSectionShell';
@@ -139,22 +139,7 @@ function PeopleWorkspace({ projectId }: { projectId: string }) {
   }, [selectPersonRef]);
 
   return (
-    <HubSectionShell
-      title={t('people.hub_title')}
-      actions={
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => {
-            clearSelection();
-            setCreating(true);
-          }}
-        >
-          <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
-          {t('people.new_person')}
-        </Button>
-      }
-    >
+    <HubSectionShell>
       <HubMasterDetail>
         <PeopleList
           people={people}

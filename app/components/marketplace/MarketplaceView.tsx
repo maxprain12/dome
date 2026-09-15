@@ -38,7 +38,7 @@ import MarketplaceAgentDetail from './MarketplaceAgentDetail';
 import WorkflowDetail from './WorkflowDetail';
 import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { HubHeader, HubPageHeader } from '@/components/hub';
+import { HubToolbar } from '@/components/hub';
 import { HubSearch } from '@/components/hub/HubSearch';
 import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
 import { InstallCard } from '@/components/hub/InstallCard';
@@ -80,14 +80,6 @@ const TYPE_CONFIG = {
 
 const COMPLEMENT_TYPES: Exclude<FilterType, 'all' | 'skills'>[] = ['agents', 'workflows', 'mcp', 'plugins'];
 
-function computeCatalogCount(
-  mainTab: MainTab,
-  totalByType: Record<string, number>,
-): number {
-  if (mainTab === 'skills') return totalByType.skills ?? 0;
-  return COMPLEMENT_TYPES.reduce((n, type) => n + (totalByType[type] ?? 0), 0);
-}
-
 function buildComplementTypeOptions(
   t: (key: string) => string,
   totalByType: Record<string, number>,
@@ -120,8 +112,6 @@ function hasInstalledUpdate(
 
 function MarketplaceHeader({
   loading,
-  initialLoading,
-  catalogCount,
   mainTab,
   onMainTabChange,
   scopeFilter,
@@ -131,8 +121,6 @@ function MarketplaceHeader({
   onRefresh,
 }: {
   loading: boolean;
-  initialLoading: boolean;
-  catalogCount: number;
   mainTab: MainTab;
   onMainTabChange: (tab: MainTab) => void;
   scopeFilter: ScopeFilter;
@@ -143,41 +131,34 @@ function MarketplaceHeader({
 }) {
   const { t } = useTranslation();
 
-  const subtitle = initialLoading
-    ? t('marketplace.loading')
-    : `${t('marketplace.subtitle_count', { count: catalogCount })} · ${t('marketplace.first_party_note')}`;
-
   const refreshLabel = t('marketplace.refresh');
   const spinnerNode = <Spinner data-icon="inline-start" />;
   const refreshIconNode = <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />;
 
   return (
-    <HubPageHeader className="gap-y-3 px-5 py-4 sm:px-5">
-      <HubHeader
-        title={t('marketplace.title')}
-        description={subtitle}
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            {loading ? spinnerNode : refreshIconNode}
-            {refreshLabel}
-          </Button>
-        }
-      />
-      <Tabs
-        value={mainTab}
-        onValueChange={(v) => onMainTabChange(v as MainTab)}
-      >
-        <TabsList>
-          <TabsTrigger value="complements">{t('marketplace.tab_complements')}</TabsTrigger>
-          <TabsTrigger value="skills">{t('marketplace.tab_skills')}</TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <HubToolbar className="flex-col items-stretch gap-2 px-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs
+          value={mainTab}
+          onValueChange={(v) => onMainTabChange(v as MainTab)}
+        >
+          <TabsList>
+            <TabsTrigger value="complements">{t('marketplace.tab_complements')}</TabsTrigger>
+            <TabsTrigger value="skills">{t('marketplace.tab_skills')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          {loading ? spinnerNode : refreshIconNode}
+          {refreshLabel}
+        </Button>
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <HubSearch
           className="min-w-[14rem] max-w-md flex-1"
@@ -198,7 +179,7 @@ function MarketplaceHeader({
           <ToggleGroupItem value="personal">{t('marketplace.scope_personal')}</ToggleGroupItem>
         </ToggleGroup>
       </div>
-    </HubPageHeader>
+    </HubToolbar>
   );
 }
 
@@ -901,11 +882,6 @@ export default function MarketplaceView() {
     [t, totalByType],
   );
 
-  const catalogCount = useMemo(
-    () => computeCatalogCount(mainTab, totalByType),
-    [mainTab, totalByType],
-  );
-
   // ── Card action meta for InstallCard ──────────────────
   function getActionMeta(item: UnifiedItem): ActionMeta {
     if (item.type === 'agents') {
@@ -994,8 +970,6 @@ export default function MarketplaceView() {
       <div className="flex h-full min-h-0 flex-col">
         <MarketplaceHeader
           loading={loading}
-          initialLoading={initialLoading}
-          catalogCount={catalogCount}
           mainTab={mainTab}
           onMainTabChange={(tab) => {
             setMainTab(tab);

@@ -54,7 +54,7 @@ import { cn } from '@/lib/utils';
 import { askStudioMany } from '@/components/studio-hub';
 import { type DomainStat } from '@/components/shared/DomainStatChips';
 import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
-import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
+import { HubSearch, HubToolbar } from '@/components/hub';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -490,12 +490,8 @@ export default function AutomationsStudioView() {
       key="library"
       className="@container/automations flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
     >
-      <HubPageHeader className="flex flex-col gap-y-3">
-        <HubHeader
-          title={t('tabs.automations')}
-          description={t('automationHub.automations_subtitle')}
-          actions={
-            <>
+      <HubToolbar className="flex-col items-stretch gap-2">
+        <div className="flex flex-wrap items-center gap-2">
               <Input
                 ref={importInputRef}
                 type="file"
@@ -530,9 +526,7 @@ export default function AutomationsStudioView() {
               >
                 {t('orchestration.agent_ask_many')}
               </Button>
-            </>
-          }
-        />
+        </div>
         <HubMetricGrid chips={stats} />
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
@@ -567,7 +561,7 @@ export default function AutomationsStudioView() {
             />
           ) : null}
         </div>
-      </HubPageHeader>
+      </HubToolbar>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (

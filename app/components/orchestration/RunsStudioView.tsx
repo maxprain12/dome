@@ -32,8 +32,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { askStudioMany } from '@/components/studio-hub';
 import { type DomainStat } from '@/components/shared/DomainStatChips';
 import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
-import { HubHeader, HubPageHeader } from '@/components/hub';
-import { HubSearch } from '@/components/hub/HubSearch';
+import { HubSearch, HubToolbar } from '@/components/hub';
 import { HubSectionLabel } from '@/components/hub/HubSectionLabel';
 import ListState from '@/components/shared/ListState';
 import RunStatusBadge from '@/components/automations/RunStatusBadge';
@@ -494,26 +493,24 @@ export default function RunsStudioView() {
       key="library"
       className="@container/runs flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
     >
-      <HubPageHeader className="shrink-0 gap-y-3">
-        <HubHeader
-          title={t('tabs.runs')}
-          description={t('automationHub.runs_subtitle')}
-          actions={
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => askStudioMany(t('orchestration.agent_prompt_runs'))}
-            >
-              {t('orchestration.agent_ask_many')}
-            </Button>
-          }
-        />
-        <HubSearch
-          value={query}
-          onChange={setQuery}
-          placeholder={t('orchestration.runs_search')}
-        />
+      <HubToolbar className="flex-col items-stretch gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <HubSearch
+            className="min-w-48 max-w-xl flex-1"
+            value={query}
+            onChange={setQuery}
+            placeholder={t('orchestration.runs_search')}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="ml-auto"
+            onClick={() => askStudioMany(t('orchestration.agent_prompt_runs'))}
+          >
+            {t('orchestration.agent_ask_many')}
+          </Button>
+        </div>
         <HubMetricGrid chips={stats} />
         <ToggleGroup
           value={[statusFilter]}
@@ -525,7 +522,7 @@ export default function RunsStudioView() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-      </HubPageHeader>
+      </HubToolbar>
 
       <div className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6">
         {queueBody}

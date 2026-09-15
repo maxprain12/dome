@@ -6,6 +6,7 @@ import {
   ArrowRight01Icon,
   Delete02Icon,
   MoreHorizontalIcon,
+  PlusSignIcon,
   Tag01Icon,
   UserMultiple02Icon,
 } from '@hugeicons/core-free-icons';
@@ -242,6 +243,10 @@ export default function PeopleList({
             title={t('people.manage_statuses')}
           >
             <HugeiconsIcon icon={Tag01Icon} />
+          </Button>
+          <Button type="button" size="sm" onClick={onCreate}>
+            <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+            {t('people.new_person')}
           </Button>
         </div>
       </div>

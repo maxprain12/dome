@@ -327,7 +327,7 @@ function TreeChildren({
   // Constant per-level offset (containers nest, so indentation stays
   // linear even in deep trees); the guide line sits under the chevron.
   return (
-    <div style={{ borderLeft: '1px solid var(--border)', marginLeft: 13, minWidth: 0 }}>
+    <div className="ml-3 w-[calc(100%-0.75rem)] min-w-0 overflow-hidden border-l border-border">
       {node.children!.map((child) => (
         <TreeNode
           key={child.id}
@@ -832,16 +832,16 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
   const filteredTree = filterTree(tree);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-w-0 flex-col overflow-x-hidden">
       {/* Search + selection toggle */}
-      <div className="px-3 pt-2 pb-1.5 flex items-center gap-1.5">
-        <div className="flex-1 flex items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--accent)', border: '1px solid var(--border)' }}>
+      <div className="flex min-w-0 items-center gap-1.5 px-0 pt-2 pb-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--accent)', border: '1px solid var(--border)' }}>
           <HugeiconsIcon icon={Search01Icon} className="size-3 shrink-0 text-muted-foreground" strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('workspace.search_workspace')}
             aria-label={t('workspace.search_workspace')}
-            className="flex-1 bg-transparent outline-none border-none"
+            className="min-w-0 flex-1 bg-transparent outline-none border-none"
             style={{ fontSize: 12, color: 'var(--foreground)', caretColor: 'var(--primary)' }}
           />
         </div>
@@ -892,7 +892,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
 
       {/* Tree */}
       <div
-        className="flex-1 overflow-y-auto px-2 pb-2 rounded"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded px-1 pb-2"
         onDragOver={handleRootDragOver}
         onDragLeave={() => setRootDragOver(false)}
         onDrop={handleRootDrop}

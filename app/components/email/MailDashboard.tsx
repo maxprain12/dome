@@ -1,16 +1,24 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
+import { DashboardDataTable } from '@/components/shared/dashboard/DashboardDataTable';
+import { cn } from '@/lib/utils';
 import {
   buildMailQueues,
   computeMailStats,
   filterEnvelopesByQuery,
+  formatMailDate,
+  fromLabel,
   isFromNetwork,
   isRecentSent,
   isUnread,
   type MailEnvelope,
   type MailFilter,
 } from '@/lib/email/mailQueues';
-import { MailStats } from './MailStats';
-import { MailQueueSection } from './MailQueueSection';
+
+function envelopeId(env: MailEnvelope): string {
+  return env.dbId ?? env.id;
+}
 
 export function MailDashboard({
   inbox,
@@ -35,127 +43,106 @@ export function MailDashboard({
   onOpen: (env: MailEnvelope) => void;
   resultCount?: number | null;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const filtered = filterEnvelopesByQuery(inbox, query);
   const queues = buildMailQueues(filtered, networkEmails, selfEmails);
   const stats = computeMailStats(inbox, sent, networkEmails, selfEmails);
   const recentSent = filterEnvelopesByQuery(sent, query).filter((e) => isRecentSent(e));
-
-  let needsList = queues.needsReply;
-  if (filter === 'network') {
-    needsList = queues.needsReply.filter((e) => isFromNetwork(e, networkEmails));
-  }
-
-  // Match computeMailStats.attend (all unread in current folder listing).
   const attendList = filtered.filter((e) => isUnread(e.flags));
 
-  const networkOnly =
-    filter === 'network'
-      ? queues.fromNetwork
-      : queues.fromNetwork.filter((e) => !queues.needsReply.some((n) => n.id === e.id));
+  const rowsByFilter: Record<Exclude<MailFilter, 'all'>, MailEnvelope[]> = {
+    attend: attendList,
+    network: queues.fromNetwork,
+    needs_reply: queues.needsReply,
+    recent_sent: recentSent,
+  };
 
-  const sections: Array<{
-    key: string;
-    queueId: 'needs_reply' | 'from_network' | 'waiting' | 'rest';
-    title: string;
-    envelopes: MailEnvelope[];
-  }> = [];
+  const activeTab: Exclude<MailFilter, 'all'> =
+    filter === 'all' || filter === 'attend' || filter === 'network' || filter === 'needs_reply' || filter === 'recent_sent'
+      ? filter === 'all'
+        ? 'attend'
+        : filter
+      : 'attend';
 
-  if (filter === 'recent_sent') {
-    sections.push({
-      key: 'recent_sent',
-      queueId: 'rest',
-      title: t('email.agent_queue_recent_sent'),
-      envelopes: recentSent,
-    });
-  } else if (filter === 'attend') {
-    sections.push({
-      key: 'attend',
-      queueId: 'needs_reply',
-      title: t('email.agent_stat_attend'),
-      envelopes: attendList,
-    });
-  } else if (filter === 'network') {
-    sections.push({
-      key: 'from_network',
-      queueId: 'from_network',
-      title: t('email.agent_queue_network'),
-      envelopes: queues.fromNetwork,
-    });
-  } else {
-    if (filter === 'all' || filter === 'needs_reply') {
-      sections.push({
-        key: 'needs_reply',
-        queueId: 'needs_reply',
-        title: t('email.agent_queue_needs_reply'),
-        envelopes: needsList,
-      });
-    }
-    if (filter === 'all') {
-      sections.push({
-        key: 'from_network',
-        queueId: 'from_network',
-        title: t('email.agent_queue_network'),
-        envelopes: networkOnly,
-      });
-      sections.push({
-        key: 'waiting',
-        queueId: 'waiting',
-        title: t('email.agent_queue_waiting'),
-        envelopes: queues.waiting,
-      });
-      sections.push({
-        key: 'rest',
-        queueId: 'rest',
-        title: t('email.agent_queue_rest'),
-        envelopes: queues.rest,
-      });
-    }
-  }
+  const envelopes = rowsByFilter[activeTab];
+  const tableRows = useMemo(
+    () =>
+      envelopes.map((env) => ({
+        id: envelopeId(env),
+        envelope: env,
+      })),
+    [envelopes],
+  );
 
-  const empty = sections.every((s) => s.envelopes.length === 0);
   const matched =
-    typeof resultCount === 'number'
-      ? resultCount
-      : sections.reduce((n, s) => n + s.envelopes.length, 0);
+    typeof resultCount === 'number' ? resultCount : envelopes.length;
 
   return (
-    <div className="@container/mail-dash flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-col shrink-0 gap-y-3 p-3 pb-0 @[36rem]/mail-dash:gap-y-4 @[36rem]/mail-dash:p-4">
-        <MailStats
-          attend={stats.attend}
-          network={stats.network}
-          needsReply={stats.needsReply}
-          recentSent={stats.recentSent}
-          activeFilter={filter}
-          onFilter={onFilter}
-        />
-
-        {query.trim() ? (
-          <p className="px-1 text-xs text-muted-foreground">
-            {t('email.agent_search_results', { count: matched })}
-            <span className="ml-1 text-muted-foreground/80">{t('email.agent_search_hint')}</span>
-          </p>
-        ) : null}
-      </div>
-
-      <div className="isolate min-h-0 flex-1 basis-0 gap-y-3 overflow-y-auto overscroll-contain p-3 @[36rem]/mail-dash:gap-y-4 @[36rem]/mail-dash:p-4">
-        {empty ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('email.agent_all_clear')}</p>
-        ) : null}
-
-        {sections.map((section) => (
-          <MailQueueSection
-            key={section.key}
-            queueId={section.queueId}
-            title={section.title}
-            envelopes={section.envelopes}
-            networkEmails={networkEmails}
-            selectedId={selectedId}
-            onOpen={onOpen}
-          />
-        ))}
-      </div>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-4">
+      {query.trim() ? (
+        <p className="pb-2 text-xs text-muted-foreground">
+          {t('email.agent_search_results', { count: matched })}
+        </p>
+      ) : null}
+      <DashboardDataTable
+        tabs={[
+          { id: 'attend', label: t('email.agent_stat_attend'), count: stats.attend },
+          { id: 'network', label: t('email.agent_stat_network'), count: stats.network },
+          { id: 'needs_reply', label: t('email.agent_stat_needs_reply'), count: stats.needsReply },
+          { id: 'recent_sent', label: t('email.agent_stat_recent_sent'), count: stats.recentSent },
+        ]}
+        tab={activeTab}
+        onTabChange={(next) => {
+          if (next === 'attend' || next === 'network' || next === 'needs_reply' || next === 'recent_sent') {
+            onFilter(next);
+          }
+        }}
+        columns={[
+          {
+            id: 'from',
+            header: t('email.from'),
+            className: 'w-[12rem]',
+            cell: (row) => {
+              const sender = fromLabel(row.envelope.from) || t('email.unknown_sender');
+              return (
+                <span className={cn('block truncate', isUnread(row.envelope.flags) && 'font-medium')}>
+                  {sender}
+                </span>
+              );
+            },
+          },
+          {
+            id: 'subject',
+            header: t('email.subject'),
+            cell: (row) => (
+              <span className="block truncate">{row.envelope.subject || t('email.no_subject')}</span>
+            ),
+          },
+          {
+            id: 'status',
+            header: t('email.status'),
+            className: 'w-[11rem]',
+            cell: (row) => (
+              <div className="flex flex-nowrap gap-1">
+                {isUnread(row.envelope.flags) ? <Badge variant="secondary">{t('email.unread')}</Badge> : null}
+                {isFromNetwork(row.envelope, networkEmails) ? (
+                  <Badge variant="outline">{t('email.agent_stat_network')}</Badge>
+                ) : null}
+              </div>
+            ),
+          },
+          {
+            id: 'date',
+            header: t('email.date'),
+            className: 'w-[6rem]',
+            cell: (row) => formatMailDate(row.envelope.date, i18n.language),
+          },
+        ]}
+        rows={tableRows}
+        emptyTitle={t('email.agent_all_clear')}
+        selectedId={selectedId}
+        onRowClick={(row) => onOpen(row.envelope)}
+      />
     </div>
   );
 }
