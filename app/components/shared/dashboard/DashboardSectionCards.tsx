@@ -29,7 +29,8 @@ export function DashboardSectionCards({
   className?: string;
 }) {
   return (
-    <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4', className)}>
+    <div className={cn('@container/metrics', className)}>
+      <div className="grid grid-cols-1 gap-4 @min-[420px]/metrics:grid-cols-2 @min-[900px]/metrics:grid-cols-4">
       {items.map((item) => {
         const delta = item.delta ?? 0;
         const up = delta > 0;
@@ -60,6 +61,7 @@ export function DashboardSectionCards({
           </Card>
         );
       })}
+      </div>
     </div>
   );
 }

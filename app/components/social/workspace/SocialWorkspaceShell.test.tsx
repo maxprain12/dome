@@ -141,7 +141,7 @@ describe('SocialWorkspaceShell', () => {
     ];
 
     render(<SocialWorkspaceShell />);
-    expect(await screen.findByRole('columnheader', { name: 'Publicaciones recientes' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Publicaciones recientes' })).toBeVisible();
     await user.click(screen.getByText(/Foto del estudio/i));
     const detail = screen.getByRole('dialog', { name: 'Foto del estudio' });
     expect(detail).toBeVisible();

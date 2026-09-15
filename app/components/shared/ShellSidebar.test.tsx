@@ -34,3 +34,13 @@ it('leaves editor formatting shortcuts to the existing shell handlers', () => {
   window.dispatchEvent(shortcut);
   expect(shortcut.defaultPrevented).toBe(false);
 });
+
+it('keeps a forced-open group visible across navigation without a collapse control', () => {
+  const view = (activeId?: string) => <ShellSidebar collapsed={false} label="Navigation"><ShellNavSection label="Connections" icon={BotIcon} forceOpen activeId={activeId}><ShellNavItem nested icon={BotIcon} label="Contacts" onClick={() => {}} /></ShellNavSection></ShellSidebar>;
+  const { rerender } = render(view());
+  expect(screen.getByRole('button', { name: 'Contacts' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Connections' })).not.toBeInTheDocument();
+  rerender(view('people'));
+  rerender(view());
+  expect(screen.getByRole('button', { name: 'Contacts' })).toBeVisible();
+});

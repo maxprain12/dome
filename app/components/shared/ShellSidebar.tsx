@@ -46,6 +46,12 @@ export function ShellNavSection({ label, icon, activeId, forceOpen = false, defa
 }) {
   const [disclosure, setDisclosure] = useState<{ activeId?: string; open: boolean } | null>(null);
   const open = forceOpen || (disclosure && disclosure.activeId === activeId ? disclosure.open : Boolean(activeId) || defaultOpen);
+  if (forceOpen) return <SidebarMenu><SidebarMenuItem>
+    <div data-tour-group={tourGroup} className="flex h-8 items-center gap-2 px-2 text-sm font-medium">
+      <HugeiconsIcon icon={icon} className="size-4" aria-hidden /><span>{label}</span>
+    </div>
+    <SidebarMenuSub>{children}</SidebarMenuSub>
+  </SidebarMenuItem></SidebarMenu>;
   return <SidebarMenu><SidebarMenuItem>
     <Collapsible open={open} onOpenChange={(next) => setDisclosure({ activeId, open: next })}>
       <CollapsibleTrigger data-tour-group={tourGroup} render={<SidebarMenuButton isActive={Boolean(activeId) && !open} title={label} />}>

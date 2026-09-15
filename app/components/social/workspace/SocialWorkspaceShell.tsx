@@ -220,6 +220,7 @@ function SectionBody({
           accountId={accountId}
           onOpenPost={(post) => onNavigate('content', { kind: 'post', post })}
           onOpenContent={() => onNavigate('content')}
+          onCompose={onCompose}
         />
       );
     case 'content':

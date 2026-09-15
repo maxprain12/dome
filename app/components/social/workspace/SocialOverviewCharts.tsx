@@ -1,3 +1,4 @@
+import { Progress } from '@/components/ui/progress';
 import type { AudiencePoint, EngagementMixSlice } from '@/components/social/insights/insightsMetrics';
 
 function pathFor(values: Array<number | null>, width: number, height: number, pad: number): string {
@@ -78,11 +79,14 @@ export function MixBar({
   label: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/70 py-2 last:border-b-0">
+    <div className="flex flex-col gap-2 py-3">
+      <div className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-sm font-semibold tabular-nums">
         {Math.round(slice.pct * 100)}%
       </span>
+      </div>
+      <Progress value={slice.pct * 100} aria-label={label} />
     </div>
   );
 }
