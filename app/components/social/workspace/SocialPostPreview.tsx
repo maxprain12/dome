@@ -67,7 +67,7 @@ function MediaFrame({ item, compact, fit, storagePath }: { item: SocialMediaItem
   const cachedPoster = useCachedMediaSource(poster);
   const label = item.alt || item.name || t('social.native.media');
   const playable = cachedUrl.source || url || localUrl;
-  const posterSrc = cachedPoster.source || poster || (!url ? localUrl : null);
+  const posterSrc = cachedPoster.source || poster || (!url ? localUrl ?? undefined : undefined);
   const mediaClass = cn('mx-auto w-full object-contain', fit ? 'h-full min-h-0' : compact ? 'max-h-80' : 'max-h-[34rem]');
   const isMotion = item.type === 'video' || item.type === 'reel';
   if (item.type === 'document') return (
