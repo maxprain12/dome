@@ -9,8 +9,8 @@ export interface HubPageHeaderProps {
 }
 
 /**
- * Grey chrome for hub section titles (Correo, Agentes, Social, …).
- * Always `bg-muted` — do not use `bg-card` here.
+ * Compact Settings fallback when the settings sidebar is collapsed.
+ * Hub sections use `HubToolbar` instead — do not add page titles here.
  */
 export function HubPageHeader({ children, className, compact }: HubPageHeaderProps) {
   return (

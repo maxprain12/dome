@@ -1,26 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowDown01Icon, ArrowUp01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { SocialGrowthAccount, SocialPost } from '@/components/social/socialTypes';
-import { formatSocialBody, ProviderMark } from '@/components/social/crm/socialCrmChrome';
+import { formatSocialBody } from '@/components/social/crm/socialCrmChrome';
 import {
-  averagePerPost,
   buildAudienceSeries,
   compactSocialNumber,
   engagementMix,
   filterGrowthByAccount,
   formatTrendPct,
+  postTimestampMs,
   previousPeriodMetrics,
   postsInPeriod,
   recentPublishedPosts,
@@ -30,40 +21,14 @@ import {
   trendDirection,
   trendPct,
   type InsightsPeriodDays,
-  type TrendDirection,
 } from '@/components/social/insights/insightsMetrics';
-import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
-import { hubCanvasTitleClass, hubFieldLabelClass } from '@/components/shared/hubChrome';
+import { localDayKey } from '@/lib/hooks/dashboardGamification';
+import { buildActivityChartPoints } from '@/components/shared/dashboard/activityChart';
+import { DashboardAreaChart, type DashboardChartRange } from '@/components/shared/dashboard/DashboardAreaChart';
+import { DashboardDataTable } from '@/components/shared/dashboard/DashboardDataTable';
+import { DashboardSectionCards } from '@/components/shared/dashboard/DashboardSectionCards';
 import { formatSocialWhen, socialPostLabel } from '@/lib/social/socialQueues';
-import { cn } from '@/lib/utils';
-import { AudienceGrowthChart, MixBar } from './SocialOverviewCharts';
-
-const PERIODS: InsightsPeriodDays[] = [7, 30, 90];
-
-function TrendMark({
-  direction,
-  label,
-}: {
-  direction: TrendDirection;
-  label: string | null;
-}) {
-  if (!label) return null;
-  if (direction === 'flat') {
-    return <span className="text-[11px] text-muted-foreground">{label}</span>;
-  }
-  const up = direction === 'up';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-0.5 text-[11px] font-medium',
-        up ? 'text-success' : 'text-destructive',
-      )}
-    >
-      <HugeiconsIcon icon={up ? ArrowUp01Icon : ArrowDown01Icon} className="size-3" />
-      {label}
-    </span>
-  );
-}
+import { MixBar } from './SocialOverviewCharts';
 
 function metricTrend(current: number | null, previous: number | null, locale: string) {
   const pct = trendPct(current, previous);
@@ -73,18 +38,27 @@ function metricTrend(current: number | null, previous: number | null, locale: st
   };
 }
 
+function fillFollowerSeries(
+  series: Array<{ t: number; followers: number | null }>,
+): Array<{ date: string; value: number }> {
+  const firstKnown = series.find((point) => point.followers != null)?.followers ?? null;
+  let last = firstKnown;
+  return series.map((point) => {
+    if (point.followers != null) last = point.followers;
+    return { date: localDayKey(point.t), value: last ?? 0 };
+  });
+}
+
 export function SocialOverviewDashboard({
   posts,
   growth,
   accountId,
-  onCompose,
   onOpenPost,
   onOpenContent,
 }: {
   posts: SocialPost[];
   growth: SocialGrowthAccount[];
   accountId: string | null;
-  onCompose: () => void;
   onOpenPost: (post: SocialPost) => void;
   onOpenContent: () => void;
 }) {
@@ -109,120 +83,86 @@ export function SocialOverviewDashboard({
   );
   const periodPosts = postsInPeriod(posts.filter((post) => post.status === 'published'), period);
   const hasInteractions = periodPosts.some((post) => [post.metrics?.likes, post.metrics?.comments, post.metrics?.shares].some((value) => typeof value === 'number'));
-  const hasLikes = periodPosts.length > 0 && periodPosts.every((post) => typeof post.metrics?.likes === 'number');
   const mix = useMemo(() => engagementMix(current), [current]);
   const recent = useMemo(() => recentPublishedPosts(posts, 6), [posts]);
   const followers = sumFollowersSnapshot(scopedGrowth);
   const followersDelta = sumFollowersDelta(scopedGrowth);
   const followerTrendPct =
     followers == null || followersDelta == null ? null : trendPct(followers, followers - followersDelta);
-  const periodItems = PERIODS.map((days) => ({
-    value: String(days),
-    label: t('social.studio.insights.selected_period', { days }),
-  }));
-  const selectedPeriodLabel =
-    periodItems.find((item) => item.value === String(period))?.label ?? periodItems[0]?.label ?? '';
-
-  const kpis = [
-    {
-      id: 'posts',
-      name: t('social.studio.overview.kpi_posts'),
-      value: compactSocialNumber(current.postsInPeriod, locale),
-      ...metricTrend(current.postsInPeriod, previous.postsInPeriod, locale),
-    },
-    {
-      id: 'impressions',
-      name: t('social.studio.insights.kpi_impressions'),
-      value: compactSocialNumber(current.impressions, locale),
-    },
-    {
-      id: 'engagements',
-      name: t('social.studio.overview.kpi_engagements'),
-      value: compactSocialNumber(hasInteractions ? current.engagements : null, locale),
-    },
-    {
-      id: 'followers',
-      name: t('social.studio.insights.kpi_followers'),
-      value: compactSocialNumber(followers, locale),
-      direction: trendDirection(followerTrendPct),
-      trend: formatTrendPct(followerTrendPct, locale),
-    },
-    {
-      id: 'avg_likes',
-      name: t('social.studio.overview.kpi_avg_likes'),
-      value: compactSocialNumber(hasLikes ? averagePerPost(current.likes, current.postsInPeriod) : null, locale),
-    },
-  ];
+  const chartRange: DashboardChartRange = period === 7 ? '7d' : period === 90 ? '90d' : '30d';
+  const hasAudience = series.some((point) => point.followers != null);
+  const postChartData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const post of posts.filter((item) => item.status === 'published')) {
+      const ts = postTimestampMs(post);
+      if (!ts) continue;
+      const key = localDayKey(ts);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return buildActivityChartPoints(counts, chartRange);
+  }, [chartRange, posts]);
+  const chartData = hasAudience ? fillFollowerSeries(series) : postChartData;
+  const chartTitle = hasAudience
+    ? t('social.studio.overview.audience_title')
+    : t('social.studio.overview.kpi_posts');
+  const chartValueLabel = hasAudience
+    ? t('social.studio.insights.kpi_followers')
+    : t('social.studio.overview.kpi_posts');
+  const postsTrend = metricTrend(current.postsInPeriod, previous.postsInPeriod, locale);
+  const followersTrend = formatTrendPct(followerTrendPct, locale);
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-4 md:px-6 md:py-5">
-        <section className="flex flex-col gap-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className={hubCanvasTitleClass}>{t('social.studio.overview.performance_title')}</h2>
-            <div className="flex items-center gap-2">
-              <Select
-                value={String(period)}
-                onValueChange={(value) => {
-                  const days = Number(value);
-                  if (days === 7 || days === 30 || days === 90) setPeriod(days);
-                }}
-              >
-                <SelectTrigger
-                  size="sm"
-                  className="h-6 w-auto min-w-32"
-                  aria-label={t('social.studio.crm.filter_by')}
-                >
-                  <SelectValue>{selectedPeriodLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {periodItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button type="button" size="sm" onClick={onCompose}>
-                <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
-                {t('social.hub.new_post')}
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">{t('social.studio.overview.metrics_scope')}</p>
-          <HubMetricGrid
-            metrics={kpis.map((kpi) => ({
-              id: kpi.id,
-              name: kpi.name,
-              value: kpi.value,
-              trend: <TrendMark direction={'direction' in kpi ? kpi.direction : 'flat'} label={'trend' in kpi ? kpi.trend : null} />,
-            }))}
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:px-6 md:py-5">
+        <DashboardSectionCards
+          items={[
+            {
+              id: 'posts',
+              label: t('social.studio.overview.kpi_posts'),
+              value: compactSocialNumber(current.postsInPeriod, locale),
+              deltaLabel: postsTrend.trend ?? undefined,
+            },
+            {
+              id: 'impressions',
+              label: t('social.studio.insights.kpi_impressions'),
+              value: compactSocialNumber(current.impressions, locale),
+            },
+            {
+              id: 'engagements',
+              label: t('social.studio.overview.kpi_engagements'),
+              value: compactSocialNumber(hasInteractions ? current.engagements : null, locale),
+            },
+            {
+              id: 'followers',
+              label: t('social.studio.insights.kpi_followers'),
+              value: compactSocialNumber(followers, locale),
+              deltaLabel: followersTrend ?? undefined,
+            },
+          ]}
+        />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <DashboardAreaChart
+            title={chartTitle}
+            description={t('social.studio.overview.metrics_scope')}
+            data={chartData}
+            range={chartRange}
+            onRangeChange={(next) => {
+              setPeriod(next === '7d' ? 7 : next === '90d' ? 90 : 30);
+            }}
+            valueLabel={chartValueLabel}
+            rangeLabels={{
+              '7d': t('dashboard.chart_range_7d'),
+              '30d': t('dashboard.chart_range_30d'),
+              '90d': t('dashboard.chart_range_90d'),
+            }}
+            emptyTitle={t('social.studio.insights.audience_empty_title')}
           />
-        </section>
-
-        <div className="grid gap-8 border-t pt-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(14rem,1fr)]">
-          <section className="flex min-w-0 flex-col gap-4">
-            <h2 className={hubCanvasTitleClass}>{t('social.studio.overview.audience_title')}</h2>
-            <AudienceGrowthChart
-              points={series}
-              locale={locale}
-              label={t('social.studio.overview.audience_title')}
-              emptyLabel={t('social.studio.insights.audience_empty_title')}
-            />
-
-          </section>
-
-          <section className="flex flex-col gap-4 lg:border-l lg:border-border/70 lg:pl-8">
-            <h2 className={hubCanvasTitleClass}>{t('social.studio.overview.mix_title')}</h2>
-            <div className="flex flex-col gap-0.5">
-              <span className={hubFieldLabelClass}>{t('social.studio.overview.mix_total')}</span>
-              <span className="text-3xl font-semibold tabular-nums tracking-tight">
-                {compactSocialNumber(hasInteractions ? current.engagements : null, locale)}
-              </span>
-            </div>
-            <div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('social.studio.overview.mix_title')}</CardTitle>
+              <CardDescription>{t('social.studio.overview.mix_description')}</CardDescription>
+            </CardHeader>
+            <CardContent>
               {mix.map((slice) => (
                 <MixBar
                   key={slice.id}
@@ -230,43 +170,32 @@ export function SocialOverviewDashboard({
                   label={t(`social.studio.overview.mix_${slice.id}`)}
                 />
               ))}
-            </div>
-          </section>
+            </CardContent>
+          </Card>
         </div>
-
-        <section className="flex flex-col gap-4 border-t pt-8">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className={hubCanvasTitleClass}>{t('social.studio.overview.recent_title')}</h2>
-            <Button type="button" size="xs" variant="ghost" onClick={onOpenContent}>
+        <DashboardDataTable
+          toolbarEnd={
+            <Button type="button" size="sm" variant="ghost" onClick={onOpenContent}>
               {t('social.studio.overview.view_all')}
             </Button>
-          </div>
-          {recent.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('social.studio.overview.recent_empty')}</p>
-          ) : (
-            <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {recent.map((post) => (
-                <li key={post.id} className="min-w-0">
-                  <button
-                    type="button"
-                    className="flex w-full min-w-0 flex-col gap-1.5 border border-border bg-card p-3 text-left hover:bg-muted motion-reduce:transition-none"
-                    onClick={() => onOpenPost(post)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ProviderMark provider={post.provider} className="size-6 text-[0.55rem]" />
-                      <span className="truncate text-[11px] text-muted-foreground">
-                        {formatSocialWhen(post.publishedAt ?? post.createdAt, locale)}
-                      </span>
-                    </div>
-                    <p className="line-clamp-3 text-sm font-medium">
-                      {formatSocialBody(socialPostLabel(post))}
-                    </p>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          }
+          columns={[
+            {
+              id: 'title',
+              header: t('social.studio.overview.recent_title'),
+              cell: (row) => formatSocialBody(socialPostLabel(row.post)),
+            },
+            {
+              id: 'when',
+              header: t('dashboard.col_when'),
+              className: 'hidden sm:table-cell',
+              cell: (row) => formatSocialWhen(row.post.publishedAt ?? row.post.createdAt, locale),
+            },
+          ]}
+          rows={recent.map((post) => ({ id: post.id, post }))}
+          emptyTitle={t('social.studio.overview.recent_empty')}
+          onRowClick={(row) => onOpenPost(row.post)}
+        />
       </div>
     </ScrollArea>
   );

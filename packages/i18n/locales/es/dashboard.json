@@ -162,5 +162,20 @@
   "widget_search": "Búsqueda",
   "widget_continueActivity": "Actividad y continuar",
   "move_up": "Subir",
-  "move_down": "Bajar"
+  "move_down": "Bajar",
+  "tab_activity": "Actividad",
+  "tab_pending": "Pendiente",
+  "tab_projects": "Proyectos",
+  "col_title": "Título",
+  "col_type": "Tipo",
+  "col_status": "Estado",
+  "col_when": "Cuándo",
+  "chart_title": "Actividad",
+  "chart_range_7d": "7d",
+  "chart_range_30d": "30d",
+  "chart_range_90d": "90d",
+  "chart_activity_label": "Acciones",
+  "table_empty_activity": "Sin actividad reciente.",
+  "table_empty_pending": "Nada urgente para hoy.",
+  "table_empty_projects": "Aún no hay proyectos."
 }

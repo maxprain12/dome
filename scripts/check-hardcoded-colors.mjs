@@ -24,6 +24,9 @@ const ALLOWED_FILES = new Set([
   // CSS variables do not cross the iframe boundary, so literal colors are required.
   'app/components/email/EmailBody.tsx',
   'app/lib/email/emailBodyParts.ts',
+  // shadcn ChartContainer: Recharts default attribute selectors (`stroke='#ccc'`),
+  // not painted UI colors — the rules remap those strokes to theme tokens.
+  'app/components/ui/chart.tsx',
 ]);
 
 const SCAN_DIRS = ['app/components', 'app/pages', 'app/workspace', 'app/lib'];

@@ -33,7 +33,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { ShellSidebar, ShellNavItem as SidebarNavButton, ShellNavSection } from '@/components/shared/ShellSidebar';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarFooter, SidebarSeparator } from '@/components/ui/sidebar';
+import { SidebarContent, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarFooter, SidebarSeparator } from '@/components/ui/sidebar';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -612,9 +612,11 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
 
   return (
     <ShellSidebar collapsed={collapsed} label={t('sidebar.navigation')}>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <ScrollArea className="min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
+        <SidebarContent className="min-h-0 min-w-0 overflow-hidden p-0">
+        <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden [&_[data-slot=scroll-area-viewport]]:overflow-x-hidden">
           <nav aria-label={t('sidebar.navigation')}>
+            <SidebarHeader className="p-0">
             <SidebarGroup>
               <SidebarGroupLabel>{t('sidebar.group_workspace')}</SidebarGroupLabel>
               <SidebarMenu>
@@ -623,6 +625,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 ))}
               </SidebarMenu>
             </SidebarGroup>
+            </SidebarHeader>
             <SidebarGroup>
               {[
                 { id: 'connections', label: t('sidebar.group_connections'), icon: Share08Icon, keys: ['people', 'email', 'social', 'github'] },
@@ -641,7 +644,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
           <SidebarSeparator />
           <SidebarGroup className="mt-1">
             <div className="flex items-center gap-1">
-              <SidebarGroupLabel className="flex-1">{t('sidebar.group_files')}</SidebarGroupLabel>
+              <SidebarGroupLabel className="min-w-0 flex-1 shrink">{t('sidebar.group_files')}</SidebarGroupLabel>
               {/* New resource button */}
               <Button
                 type="button"
@@ -707,6 +710,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
             )}
           </SidebarGroup>
         </ScrollArea>
+        </SidebarContent>
 
         {/* Add resource dropdown */}
         {createMiniappOpen && (

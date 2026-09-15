@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -26,28 +26,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 type GitHubRepo = ReturnType<typeof useGitHubStore.getState>['repos'][number];
-
-function buildSyncDescription(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  syncError: string | null,
-  syncStatus: string,
-  isSyncing: boolean,
-  lastSync: number | null,
-): string {
-  if (syncError && syncStatus === 'error') return t('github.sync_error', { error: syncError });
-  if (isSyncing) return t('github.syncing');
-  if (lastSync) {
-    return t('github.dash_subtitle_synced', {
-      time: new Date(lastSync).toLocaleString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: 'numeric',
-        month: 'short',
-      }),
-    });
-  }
-  return t('github.dash_subtitle');
-}
 
 function GitHubSyncBadge({
   syncStatus,
@@ -116,8 +94,6 @@ export default function GitHubView() {
   const selectRepo = useGitHubStore((s) => s.selectRepo);
   const syncNow = useGitHubStore((s) => s.syncNow);
   const syncStatus = useGitHubStore((s) => s.syncStatus);
-  const lastSync = useGitHubStore((s) => s.lastSync);
-  const syncError = useGitHubStore((s) => s.error);
   const [manualSyncing, setManualSyncing] = useState(false);
   const [repoPickerOpen, setRepoPickerOpen] = useState(false);
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
@@ -132,11 +108,6 @@ export default function GitHubView() {
     setManualSyncing(true);
     syncNow(projectId).finally(() => setManualSyncing(false));
   }, [isSyncing, projectId, syncNow]);
-
-  const syncDescription = useMemo(
-    () => buildSyncDescription(t, syncError, syncStatus, isSyncing, lastSync),
-    [isSyncing, lastSync, syncError, syncStatus, t],
-  );
 
   useEffect(() => {
     init(projectId);
@@ -189,96 +160,68 @@ export default function GitHubView() {
   return (
     <HubSectionShell
       className="text-foreground"
-      title={t('github.tab_title')}
-      description={syncDescription}
-      actions={
+      toolbar={
         <>
-          <GitHubSyncBadge syncStatus={syncStatus} isSyncing={isSyncing} t={t} />
-          <SectionGuideHelp sectionKey="github" />
-          <Button type="button" variant="outline" size="sm" disabled={isSyncing} onClick={handleSyncClick}>
-            {isSyncing ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-            )}
-            {t('github.sync_now')}
-          </Button>
+          <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-w-0 max-w-[14rem] shrink-0 justify-between gap-1.5"
+                  aria-label={t('github.tab_title')}
+                />
+              }
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="truncate">
+                  {getSelectedRepoLabel(selectedRepo, selectedRepos, t)}
+                </span>
+              </span>
+              <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-64 gap-0 overflow-hidden p-0">
+              <Command>
+                <CommandInput placeholder={t('github.tab_title')} />
+                <CommandList>
+                  <CommandEmpty>{t('github.select_repos_in_settings')}</CommandEmpty>
+                  <CommandGroup>
+                    {selectedRepos.map((r) => (
+                      <CommandItem
+                        key={r.id}
+                        value={r.full_name}
+                        onSelect={() => {
+                          selectRepo(r.id);
+                          setRepoPickerOpen(false);
+                        }}
+                      >
+                        <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="truncate">{r.full_name}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <Button
             type="button"
-            variant={settingsOpen ? 'secondary' : 'outline'}
+            variant="outline"
             size="icon-sm"
-            aria-label={t('github.settings_title')}
-            aria-pressed={settingsOpen}
-            onClick={() => setSettingsOpen((v) => !v)}
+            className="shrink-0"
+            aria-label={t('github.open_repo_on_github')}
+            disabled={!selectedRepo?.html_url}
+            onClick={() => {
+              if (selectedRepo?.html_url) globalThis.window?.open(selectedRepo.html_url, '_blank', 'noreferrer');
+            }}
           >
-            <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
+            <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
           </Button>
-        </>
-      }
-      toolbar={
-        <div className="@container/github-toolbar flex min-w-0 flex-wrap items-center gap-2">
-          <div className="flex min-w-0 items-center gap-1">
-            <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
-              <PopoverTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-w-0 max-w-[14rem] justify-between gap-1.5 @[36rem]/github-toolbar:max-w-xs"
-                    aria-label={t('github.tab_title')}
-                  />
-                }
-              >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="truncate">
-                    {getSelectedRepoLabel(selectedRepo, selectedRepos, t)}
-                  </span>
-                </span>
-                <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-64 gap-0 overflow-hidden p-0">
-                <Command>
-                  <CommandInput placeholder={t('github.tab_title')} />
-                  <CommandList>
-                    <CommandEmpty>{t('github.select_repos_in_settings')}</CommandEmpty>
-                    <CommandGroup>
-                      {selectedRepos.map((r) => (
-                        <CommandItem
-                          key={r.id}
-                          value={r.full_name}
-                          onSelect={() => {
-                            selectRepo(r.id);
-                            setRepoPickerOpen(false);
-                          }}
-                        >
-                          <HugeiconsIcon icon={GithubIcon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                          <span className="truncate">{r.full_name}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              aria-label={t('github.open_repo_on_github')}
-              disabled={!selectedRepo?.html_url}
-              onClick={() => {
-                if (selectedRepo?.html_url) window.open(selectedRepo.html_url, '_blank', 'noreferrer');
-              }}
-            >
-              <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5" />
-            </Button>
-          </div>
-
           {!settingsOpen ? (
             <HubSearch
-              className="min-w-0 flex-1 basis-[12rem]"
+              className="min-w-[10rem] flex-1"
               value={query}
               onChange={setQuery}
               placeholder={t('github.dash_search')}
@@ -286,7 +229,31 @@ export default function GitHubView() {
               clearLabel={t('common.cancel')}
             />
           ) : null}
-        </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <GitHubSyncBadge syncStatus={syncStatus} isSyncing={isSyncing} t={t} />
+            <SectionGuideHelp sectionKey="github" />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={isSyncing}
+              onClick={handleSyncClick}
+              aria-label={t('github.sync_now')}
+            >
+              {isSyncing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} />}
+            </Button>
+            <Button
+              type="button"
+              variant={settingsOpen ? 'secondary' : 'outline'}
+              size="icon-sm"
+              aria-label={t('github.settings_title')}
+              aria-pressed={settingsOpen}
+              onClick={() => setSettingsOpen((v) => !v)}
+            >
+              <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
+            </Button>
+          </div>
+        </>
       }
     >
       <div className="relative flex min-h-0 flex-1 overflow-hidden">

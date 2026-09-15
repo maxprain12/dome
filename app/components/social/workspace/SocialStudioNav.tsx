@@ -8,6 +8,7 @@ import {
   DashboardSquare01Icon,
   File02Icon,
   Megaphone02Icon,
+  PlusSignIcon,
   RefreshIcon,
   UserMultiple02Icon,
 } from '@hugeicons/core-free-icons';
@@ -25,8 +26,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { SocialAccount } from '@/components/social/socialTypes';
-import { HubHeader, HubPageHeader } from '@/components/hub';
-import { socialNetworkTitle } from '@/components/social/crm/socialCrmChrome';
+import { HubToolbar } from '@/components/hub';
 import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialSection } from './socialWorkspaceTypes';
 
@@ -51,6 +51,7 @@ export function SocialStudioNav({
   error,
   lastSyncAt,
   onSync,
+  onCompose,
 }: {
   section: SocialSection;
   onNavigate: (section: SocialSection) => void;
@@ -61,28 +62,42 @@ export function SocialStudioNav({
   error: string | null;
   lastSyncAt: number | null;
   onSync: () => void;
+  onCompose: () => void;
 }) {
   const { t } = useTranslation();
   const selectedAccount = accounts.find((account) => account.id === accountId);
   const syncAt = selectedAccount ? selectedAccount.lastSyncAt : lastSyncAt;
   const activeAccounts = accounts.filter((account) => account.status === 'active').length;
-  const networkTitle = socialNetworkTitle(
-    accounts,
-    accountId,
-    t('social.studio.overview.all_networks'),
-  );
 
   return (
-    <HubPageHeader className="gap-2 px-4 py-3 sm:px-4">
-      <HubHeader
-        title={networkTitle}
-        actions={
-        <div className="flex items-center gap-2">
+    <>
+      <HubToolbar>
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <Tabs
+            value={section}
+            onValueChange={(value) => {
+              if (typeof value === 'string') onNavigate(value as SocialSection);
+            }}
+          >
+            <TabsList variant="line" aria-label={t('social.studio.header.sections')} className="h-8 min-w-max">
+              {NAV_ITEMS.map((item) => (
+                <TabsTrigger key={item.id} value={item.id} className="px-2.5">
+                  <HugeiconsIcon icon={item.icon} data-icon="inline-start" />
+                  {t(item.labelKey)}
+                  {item.id === 'accounts' && activeAccounts > 0 ? (
+                    <Badge variant="outline">{activeAccounts}</Badge>
+                  ) : null}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Select
             value={accountId}
             onValueChange={(value) => onAccountId(value ?? 'all')}
           >
-            <SelectTrigger size="sm" className="h-6 max-w-48" aria-label={t('social.agent_filter_all')}>
+            <SelectTrigger size="sm" className="h-8 max-w-44" aria-label={t('social.agent_filter_all')}>
               <SelectValue>
                 {accountId === 'all'
                   ? t('social.agent_filter_all')
@@ -113,29 +128,19 @@ export function SocialStudioNav({
           >
             {refreshing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} />}
           </Button>
-
+          {section !== 'accounts' ? (
+            <Button type="button" size="sm" onClick={onCompose}>
+              <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+              {t('social.hub.new_post')}
+            </Button>
+          ) : null}
         </div>
-        }
-      />
-      {error ? <Alert variant="destructive"><AlertDescription className="whitespace-pre-line">{error}</AlertDescription></Alert> : null}
-      <div className="overflow-x-auto">
-        <Tabs
-          value={section}
-          onValueChange={(value) => onNavigate(value as SocialSection)}
-        >
-          <TabsList variant="line" aria-label={t('social.studio.header.sections')} className="h-10 min-w-max gap-2">
-            {NAV_ITEMS.map((item) => (
-              <TabsTrigger key={item.id} value={item.id} className="px-2.5">
-                <HugeiconsIcon icon={item.icon} data-icon="inline-start" />
-                {t(item.labelKey)}
-                {item.id === 'accounts' && activeAccounts > 0 ? (
-                  <Badge variant="outline">{activeAccounts}</Badge>
-                ) : null}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-    </HubPageHeader>
+      </HubToolbar>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
+        </Alert>
+      ) : null}
+    </>
   );
 }

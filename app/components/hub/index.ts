@@ -3,12 +3,13 @@
  * Social, Marketplace, and future hubs.
  *
  * Studio surfaces (Pipelines / Agents / Workflows / Automations / Runs) each
- * own their page chrome; they may reuse HubHeader / HubSearch / HubSectionLabel
+ * own their page chrome; they may reuse HubToolbar / HubSearch / HubSectionLabel
  * and `askStudioMany` from `app/components/studio-hub/`.
  *
  * When to use what:
  * - HubShell: optional left rail + scrollable main (settings-style frames).
- * - HubHeader / HubSearch: page title row and search field (header or rail).
+ * - HubToolbar: operational row (tabs, search, filters, CTA) — no page title.
+ * - HubHeader / HubSearch: Settings collapsed fallback and search field.
  * - HubSurface: page-level inspector header (icon tile + title + description).
  * - HubGroup + HubRow: bordered card lists of settings/items (prefer over ad-hoc Cards).
  * - HubSectionLabel: uppercase muted section label outside a group.
@@ -26,6 +27,7 @@ export { HubHeader } from './HubHeader';
 export type { HubHeaderProps } from './HubHeader';
 export { HubPageHeader } from './HubPageHeader';
 export type { HubPageHeaderProps } from './HubPageHeader';
+export { HubToolbar } from './HubToolbar';
 export { HubSearch } from './HubSearch';
 export type { HubSearchProps } from './HubSearch';
 export { HubShell } from './HubShell';

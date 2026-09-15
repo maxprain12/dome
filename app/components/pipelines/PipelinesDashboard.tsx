@@ -1,18 +1,17 @@
-import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   LayoutGridIcon,
-  LayoutThreeColumnIcon,
   Loading03Icon,
   PlusSignIcon,
 } from '@hugeicons/core-free-icons';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import type { ExecutionPolicy } from '@/lib/pipelines/types';
-import { type DomainStat } from '@/components/shared/DomainStatChips';
-import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
+import { DashboardDataTable } from '@/components/shared/dashboard/DashboardDataTable';
+import { DashboardSectionCards } from '@/components/shared/dashboard/DashboardSectionCards';
 import { selectionSurfaceClass } from '@/components/shared/selectionSurface';
+import { cn } from '@/lib/utils';
 
 interface TemplateDef {
   key: string;
@@ -41,19 +40,6 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
   const createPipeline = usePipelinesStore((s) => s.createPipeline);
   const createPipelineWithStages = usePipelinesStore((s) => s.createPipelineWithStages);
   const [busy, setBusy] = useState<string | null>(null);
-
-  const openFirstPipeline = () => {
-    if (pipelines[0]) onOpenPipeline?.(pipelines[0].id);
-  };
-
-  const stats: DomainStat[] = [
-    {
-      id: 'pipelines',
-      label: t('pipelines.kpi_pipelines'),
-      value: pipelines.length,
-      tone: 'accent',
-    },
-  ];
 
   const templates: TemplateDef[] = [
     {
@@ -104,130 +90,93 @@ export default function PipelinesDashboard({ onOpenPipeline }: DashboardProps) {
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-col overflow-y-auto">
-      <div className="flex flex-col gap-y-3 px-6 pt-6 pb-2">
+    <div className="flex h-full min-w-0 flex-col overflow-y-auto p-6">
+      <div className="flex flex-col gap-6">
+        <DashboardSectionCards
+          items={[
+            {
+              id: 'pipelines',
+              label: t('pipelines.kpi_pipelines'),
+              value: pipelines.length,
+            },
+          ]}
+        />
+        <DashboardDataTable
+          columns={[
+            { id: 'name', header: t('pipelines.kpi_pipelines'), cell: (row) => row.name },
+          ]}
+          rows={pipelines.map((p) => ({ id: p.id, name: p.name }))}
+          emptyTitle={t('pipelines.dashboard_subtitle')}
+          onRowClick={(row) => onOpenPipeline?.(row.id)}
+        />
+
         <div>
-          <h2 className="text-lg font-semibold text-foreground">{t('pipelines.dashboard_title')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('pipelines.dashboard_subtitle')}</p>
-        </div>
-        <HubMetricGrid chips={stats} />
-      </div>
-
-      <div className="px-6 py-3">
-        <button
-          type="button"
-          onClick={openFirstPipeline}
-          disabled={pipelines.length === 0}
-          className={cn(
-            selectionSurfaceClass(false, dashboardCardClass),
-            'group flex w-full max-w-md flex-col items-stretch gap-2 p-4',
-            pipelines.length === 0 && 'cursor-not-allowed opacity-60',
-          )}
-        >
-          <div className="flex items-center justify-between">
-            <span className="inline-flex size-[34px] items-center justify-center rounded-full bg-brand-mint text-primary">
-              <HugeiconsIcon icon={LayoutThreeColumnIcon} size={18} />
-            </span>
-            <span className="text-xl font-semibold tabular-nums text-foreground">
-              {pipelines.length}
-            </span>
-          </div>
-          <span className="text-sm font-medium text-foreground">{t('pipelines.nav_kanban')}</span>
-          <span className="text-xs leading-snug text-muted-foreground">
-            {t('pipelines.nav_kanban_desc')}
-          </span>
-        </button>
-      </div>
-
-      {pipelines.length > 0 && (
-        <div className="px-6 py-3">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">
-            {t('pipelines.kpi_pipelines')}
-          </h3>
+          <h3 className="mb-2 text-sm font-semibold text-foreground">{t('pipelines.quick_start')}</h3>
           <div
             className="grid gap-3"
             style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
           >
-            {pipelines.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onOpenPipeline?.(p.id)}
-                className={cn(
-                  selectionSurfaceClass(false, dashboardCardClass),
-                  'flex cursor-pointer items-center gap-2 p-3',
-                )}
-              >
-                <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
-                <span className="truncate text-sm font-medium text-foreground">{p.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="px-6 py-3 pb-6">
-        <h3 className="mb-2 text-sm font-semibold text-foreground">{t('pipelines.quick_start')}</h3>
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
-        >
-          <button
-            type="button"
-            onClick={() => void createBlank()}
-            disabled={busy !== null}
-            className={cn(
-              selectionSurfaceClass(false, dashboardCardClass),
-              'flex flex-col items-stretch gap-1 border-dashed p-3',
-              busy !== null && 'cursor-wait',
-            )}
-          >
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-              {busy === 'blank' ? (
-                <HugeiconsIcon icon={Loading03Icon} size={15} className="animate-spin" />
-              ) : (
-                <HugeiconsIcon icon={PlusSignIcon} size={15} className="text-primary" />
-              )}
-              {t('pipelines.template_blank')}
-            </span>
-            <span className="text-xs text-muted-foreground">{t('pipelines.template_blank_desc')}</span>
-          </button>
-
-          {templates.map((tpl) => (
             <button
-              key={tpl.key}
               type="button"
-              onClick={() => void runTemplate(tpl)}
+              onClick={() => {
+                createBlank().catch(() => {});
+              }}
               disabled={busy !== null}
               className={cn(
                 selectionSurfaceClass(false, dashboardCardClass),
-                'flex flex-col items-stretch gap-1 p-3',
+                'flex flex-col items-stretch gap-1 border-dashed p-3',
                 busy !== null && 'cursor-wait',
               )}
             >
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                {busy === tpl.key ? (
+                {busy === 'blank' ? (
                   <HugeiconsIcon icon={Loading03Icon} size={15} className="animate-spin" />
                 ) : (
-                  <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
+                  <HugeiconsIcon icon={PlusSignIcon} size={15} className="text-primary" />
                 )}
-                {t(`pipelines.template_${tpl.key}`)}
+                {t('pipelines.template_blank')}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {t(`pipelines.template_${tpl.key}_desc`)}
-              </span>
-              <span className="mt-1 inline-flex flex-wrap gap-1 text-[11px]">
-                {tpl.stages.map((s, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-accent px-1.5 py-0.5 text-muted-foreground"
-                  >
-                    {s.title}
-                  </span>
-                ))}
-              </span>
+              <span className="text-xs text-muted-foreground">{t('pipelines.template_blank_desc')}</span>
             </button>
-          ))}
+
+            {templates.map((tpl) => (
+              <button
+                key={tpl.key}
+                type="button"
+                onClick={() => {
+                  runTemplate(tpl).catch(() => {});
+                }}
+                disabled={busy !== null}
+                className={cn(
+                  selectionSurfaceClass(false, dashboardCardClass),
+                  'flex flex-col items-stretch gap-1 p-3',
+                  busy !== null && 'cursor-wait',
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  {busy === tpl.key ? (
+                    <HugeiconsIcon icon={Loading03Icon} size={15} className="animate-spin" />
+                  ) : (
+                    <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
+                  )}
+                  {t(`pipelines.template_${tpl.key}`)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t(`pipelines.template_${tpl.key}_desc`)}
+                </span>
+                <span className="mt-1 inline-flex flex-wrap gap-1 text-[11px]">
+                  {tpl.stages.map((s, i) => (
+                    <span
+                      key={`${tpl.key}-${i}`}
+                      className="rounded-full bg-accent px-1.5 py-0.5 text-muted-foreground"
+                    >
+                      {s.title}
+                    </span>
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

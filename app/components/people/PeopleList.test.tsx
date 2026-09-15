@@ -89,7 +89,9 @@ describe('PeopleList', () => {
     render(<PeopleList {...defaults} onCreate={onCreate} people={[]} />);
 
     expect(screen.getByText('Todavía no hay contactos')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Nuevo contacto' }));
+    const createButtons = screen.getAllByRole('button', { name: 'Nuevo contacto' });
+    expect(createButtons.length).toBeGreaterThan(0);
+    await user.click(createButtons[0]!);
     expect(onCreate).toHaveBeenCalled();
   });
 });

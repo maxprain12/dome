@@ -7,12 +7,12 @@ import { cn } from '@/lib/utils';
  * Use these pieces for Contacts, Social, Email, GitHub, Settings, and new hubs.
  *
  * Page template
- * - `HubSectionShell` — HubPageHeader + HubHeader + optional toolbar + body
+ * - `HubSectionShell` — optional HubToolbar + body (no page title)
  *   layout="canvas" | "directory" | "grid" | "overlay" | "resource-chrome"
  *
  * Page chrome
- * - `HubPageHeader` + `HubHeader` (`app/components/hub/`) — title row of any hub
- *   Always `bg-muted`. Never `bg-card`. One primary Button + overflow DropdownMenu.
+ * - `HubToolbar` — tabs, search, filters, primary CTA. No h1, no muted strip.
+ * - `HubPageHeader` + `HubHeader` — Settings collapsed fallback only.
  *
  * Controls (one component per role)
  * - CTA primaria: `Button` `variant="default"` (`bg-primary` / `hover:bg-primary-hover`)
@@ -36,15 +36,15 @@ import { cn } from '@/lib/utils';
  * - `HubMetricGrid` — KPI row (extends DomainStatChips for chip mode)
  *
  * Sidebar section inventory
- * - Calendar — `HubSectionShell` (`layout=canvas`)
- * - People — `HubSectionShell` + `HubMasterDetail` + `HubDirectoryColumn` (`layout=directory`)
- * - Social — `HubPageHeader` + `HubDirectoryColumn` / `HubDetailPane` (`layout=directory`)
- * - Email — `HubSectionShell`; reading and compose use DetailModal
- * - GitHub — `HubSectionShell`; issues and milestones use DetailModal
- * - Marketplace — `HubPageHeader` + `HubSearch` + `ToggleGroup` (`layout=grid`)
- * - Pipelines — `HubPageHeader` + kanban canvas; dashboard cards use `selectionSurfaceClass`
- * - Agents / Workflows / Automations / Runs — `HubPageHeader` + `HubSearch` + `HubMetricGrid` (`layout=grid`)
- * - Learn — `HubPageHeader` (`layout=grid`); player surfaces are `resource-chrome`
+ * - Calendar — `HubSectionShell` + `HubToolbar` (`layout=canvas`)
+ * - People — `HubSectionShell` + `HubMasterDetail`; list toolbar holds search/filter/CTA
+ * - Social — `HubToolbar` (account + section tabs) + overview cards/chart/table
+ * - Email — `HubSectionShell` + `HubToolbar`; folder/search/CTA; table tabs = queues
+ * - GitHub — `HubSectionShell` + `HubToolbar`; issues table tabs
+ * - Marketplace — `HubToolbar` + `HubSearch` + `ToggleGroup` (`layout=grid`)
+ * - Pipelines — `HubToolbar` + kanban canvas; dashboard uses section cards + table
+ * - Agents / Workflows / Automations / Runs — `HubToolbar` + `HubSearch` + `HubMetricGrid`
+ * - Learn — `HubToolbar` (`layout=grid`); player surfaces are `resource-chrome`
  * - Settings — `HubPageHeader` + `HubHeader` when the sidebar is collapsed
  * - Resource viewers / WorkspaceHeader: `layout=resource-chrome` (drag-region Electron)
  *

@@ -10,6 +10,11 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Base UI ScrollArea sets overflow:scroll inline on the viewport. */
+.dome-left-sidebar [data-slot='scroll-area-viewport'] {
+  overflow-x: hidden !important;
+}
+
 .typeset-docs {
   --typeset-font-body: var(--font-inter);
   --typeset-font-heading: var(--font-inter);

@@ -13,7 +13,6 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   AlertDiamondIcon,
@@ -133,27 +132,6 @@ function findSentFolder(folders: EmailFolderRow[]): string | null {
 }
 
 /** Sync subtitle under the mail hub title — extracted for S3776. */
-function emailSyncDescription(
-  syncError: string | null,
-  syncing: boolean,
-  lastSyncAt: number | null,
-  t: TFunction,
-): string {
-  if (syncError) return t('email.sync_error', { error: syncError });
-  if (syncing) return t('email.syncing');
-  if (lastSyncAt) {
-    return t('email.agent_subtitle_synced', {
-      time: new Date(lastSyncAt).toLocaleString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: 'numeric',
-        month: 'short',
-      }),
-    });
-  }
-  return t('email.agent_subtitle');
-}
-
 function EmailLoadingState() {
   const { t } = useTranslation();
   return (
@@ -185,10 +163,12 @@ function EmailSyncStatusBadge({
   syncError,
   syncing,
   loading,
+  lastSyncAt,
 }: {
   syncError: string | null;
   syncing: boolean;
   loading: boolean;
+  lastSyncAt: number | null;
 }) {
   const { t } = useTranslation();
   if (syncError) {
@@ -196,6 +176,13 @@ function EmailSyncStatusBadge({
   }
   if (syncing || loading) {
     return <Badge variant="secondary">{t('email.sync_badge_syncing')}</Badge>;
+  }
+  if (lastSyncAt) {
+    return (
+      <Badge variant="outline">
+        {t('email.last_sync', { time: new Date(lastSyncAt).toLocaleTimeString() })}
+      </Badge>
+    );
   }
   return null;
 }
@@ -408,7 +395,7 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
   const [error, setError] = useState<EmailErrorInfo | null>(null);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [focusIntent, setFocusIntent] = useState<EmailFocusIntent | null>(null);
-  const [filter, setFilter] = useState<MailFilter>('all');
+  const [filter, setFilter] = useState<MailFilter>('attend');
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -617,7 +604,7 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
     setMessage(null);
     setComposing(null);
     setFolderMenuOpen(false);
-    setFilter('all');
+    setFilter('attend');
   }, [composing]);
 
   const changeAccount = useCallback((nextId: string) => {
@@ -638,7 +625,7 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
     setMessage(null);
     setComposing(null);
     setQuery('');
-    setFilter('all');
+    setFilter('attend');
   }, [activeAccountId, composing]);
 
   useEffect(() => {
@@ -817,7 +804,6 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
     <ListState variant="error" errorMessage={error.error || t('email.sync_failed')} retryLabel={t('common.retry')} onRetry={() => setAccountLoadVersion((value) => value + 1)} />
   ) : <EmailEmptyAccountState onConnect={openSettingsTab} />;
 
-  const syncDescription = emailSyncDescription(syncError, syncing, lastSyncAt, t);
   const detailOpen = composing != null || selected != null;
 
   const startCompose = () => {
@@ -846,36 +832,8 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
   return (
     <HubSectionShell
       className="@container/email text-foreground"
-      title={t('email.tab_title')}
-      description={syncDescription}
-      actions={
-        <>
-          <EmailSyncStatusBadge syncError={syncError} syncing={syncing} loading={loading} />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={t('email.sync_now')}
-            disabled={syncing || !activeAccountId}
-            onClick={() => {
-              syncNow().catch(() => {});
-            }}
-          >
-            {syncing ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
-            )}
-            <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
-          </Button>
-          <Button type="button" size="sm" onClick={startCompose} disabled={Boolean(composing) || !activeAccountId} aria-label={t('email.compose')}>
-            <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
-            <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
-          </Button>
-        </>
-      }
       toolbar={
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <>
           <EmailAccountPicker
             accounts={accounts}
             activeAccountId={activeAccountId}
@@ -890,7 +848,6 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
             onSelectFolder={changeFolder}
             disabled={Boolean(composing)}
           />
-
           <HubSearch
             className="min-w-0 flex-1 basis-[12rem]"
             value={query}
@@ -902,7 +859,31 @@ function EmailWorkspace({ projectId }: { projectId: string }) {
             aria-label={t('email.agent_search')}
             clearLabel={t('common.cancel')}
           />
-        </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <EmailSyncStatusBadge syncError={syncError} syncing={syncing} loading={loading} lastSyncAt={lastSyncAt} />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={t('email.sync_now')}
+              disabled={syncing || !activeAccountId}
+              onClick={() => {
+                syncNow().catch(() => {});
+              }}
+            >
+              {syncing ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />
+              )}
+              <span className="@[40rem]/email:inline hidden">{t('email.sync_now')}</span>
+            </Button>
+            <Button type="button" size="sm" onClick={startCompose} disabled={Boolean(composing) || !activeAccountId} aria-label={t('email.compose')}>
+              <HugeiconsIcon icon={NoteEditIcon} data-icon="inline-start" />
+              <span className="@[40rem]/email:inline hidden">{t('email.compose')}</span>
+            </Button>
+          </div>
+        </>
       }
     >
       <div className="relative flex min-h-0 flex-1 overflow-hidden">

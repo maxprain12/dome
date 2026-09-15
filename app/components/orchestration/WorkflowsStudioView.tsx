@@ -28,7 +28,7 @@ import { useWorkflowLibrary } from '@/components/agent-canvas/useWorkflowLibrary
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { type DomainStat } from '@/components/shared/DomainStatChips';
 import { HubMetricGrid } from '@/components/shared/HubMetricGrid';
-import { HubHeader, HubPageHeader, HubSearch } from '@/components/hub';
+import { HubSearch, HubToolbar } from '@/components/hub';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { askStudioMany } from '@/components/studio-hub';
 import { useHubListLoader } from '@/lib/hub/useHubListLoader';
@@ -172,12 +172,8 @@ export default function WorkflowsStudioView() {
         key="library"
         className="@container/workflows flex h-full min-h-0 flex-col overflow-hidden bg-background studio-view-enter"
       >
-        <HubPageHeader className="flex flex-col gap-y-3">
-          <HubHeader
-            title={t('tabs.workflows')}
-            description={t('automationHub.workflows_subtitle')}
-            actions={
-              <>
+        <HubToolbar className="flex-col items-stretch gap-2">
+          <div className="flex flex-wrap items-center gap-2">
                 <Input
                   ref={importInputRef}
                   type="file"
@@ -215,9 +211,7 @@ export default function WorkflowsStudioView() {
                 >
                   {t('orchestration.agent_ask_many')}
                 </Button>
-              </>
-            }
-          />
+          </div>
           <HubMetricGrid chips={stats} />
           <div className="flex flex-wrap items-center gap-3">
             <HubSearch
@@ -239,7 +233,7 @@ export default function WorkflowsStudioView() {
               ))}
             </ToggleGroup>
           </div>
-        </HubPageHeader>
+        </HubToolbar>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
