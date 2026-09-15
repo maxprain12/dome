@@ -451,6 +451,78 @@ function interactionKindForSource(sourceKind) {
  * Persist one or more people extracted from a document, email, or meeting.
  * Merges profile fields and links a timeline interaction to the source resource.
  */
+function linkRawIdentities(person, pid, rawIdentities) {
+  const identities = Array.isArray(rawIdentities) ? rawIdentities : [];
+  for (const row of identities) {
+    if (!row || typeof row !== 'object') continue;
+    const source = row.source;
+    const externalId = row.external_id || row.externalId;
+    if (!source || !externalId) continue;
+    linkIdentity({
+      personId: person.id,
+      projectId: pid,
+      source,
+      externalId,
+      displayLabel: row.display_label || row.displayLabel || undefined,
+      meta: row.meta && typeof row.meta === 'object' ? row.meta : undefined,
+    });
+  }
+}
+
+function buildIngestInteraction(personId, pid, sourceResourceId, sourceKind, summary, notes) {
+  const kindLabel = sourceKind || 'document';
+  return {
+    personId,
+    projectId: pid,
+    kind: interactionKindForSource(sourceKind),
+    refType: sourceResourceId ? 'resource' : null,
+    refId: sourceResourceId || null,
+    summary: summary || notes || `Extracted from ${kindLabel}`,
+    payload: {
+      ingested: true,
+      sourceKind: kindLabel,
+      sourceResourceId: sourceResourceId || null,
+    },
+  };
+}
+
+function maybeRecordIngestInteraction(personId, pid, sourceResourceId, sourceKind, summary, notes) {
+  if (!sourceResourceId && !summary && !sourceKind) return;
+  addInteraction(
+    buildIngestInteraction(personId, pid, sourceResourceId, sourceKind, summary, notes),
+  );
+}
+
+function ingestOneRaw(raw, ctx) {
+  if (!raw || typeof raw !== 'object') return { skip: true };
+  const displayName = String(raw.display_name || raw.displayName || '').trim();
+  if (!displayName) {
+    return { skip: true, error: { error: 'display_name required' } };
+  }
+  try {
+    const { pid, sourceResourceId, sourceKind, summary } = ctx;
+    const person = upsertPerson({
+      id: raw.person_id || raw.personId || undefined,
+      projectId: pid,
+      displayName,
+      primaryEmail: raw.primary_email || raw.primaryEmail || undefined,
+      avatarUrl: raw.avatar_url || raw.avatarUrl || undefined,
+      notes: raw.notes || undefined,
+      leadStatus: raw.lead_status || raw.leadStatus || undefined,
+      profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : undefined,
+      discoveredVia:
+        raw.discovered_via ||
+        raw.discoveredVia ||
+        (sourceResourceId ? `resource:${sourceResourceId}` : sourceKind || undefined),
+    });
+    linkRawIdentities(person, pid, raw.identities);
+    maybeRecordIngestInteraction(person.id, pid, sourceResourceId, sourceKind, summary, raw.notes);
+    return { person: getPerson(person.id, { includeInteractions: true }) };
+  } catch (err) {
+    return { error: { displayName, error: err?.message || String(err) } };
+  }
+}
+
 function ingestPeople({
   people,
   projectId,
@@ -464,64 +536,9 @@ function ingestPeople({
   const out = [];
   const errors = [];
   for (const raw of list) {
-    if (!raw || typeof raw !== 'object') continue;
-    const displayName = String(raw.display_name || raw.displayName || '').trim();
-    if (!displayName) {
-      errors.push({ error: 'display_name required' });
-      continue;
-    }
-    try {
-      const person = upsertPerson({
-        id: raw.person_id || raw.personId || undefined,
-        projectId: pid,
-        displayName,
-        primaryEmail: raw.primary_email || raw.primaryEmail || undefined,
-        avatarUrl: raw.avatar_url || raw.avatarUrl || undefined,
-        notes: raw.notes || undefined,
-        leadStatus: raw.lead_status || raw.leadStatus || undefined,
-        profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : undefined,
-        discoveredVia:
-          raw.discovered_via ||
-          raw.discoveredVia ||
-          (sourceResourceId ? `resource:${sourceResourceId}` : sourceKind || undefined),
-      });
-      const identities = Array.isArray(raw.identities) ? raw.identities : [];
-      for (const row of identities) {
-        if (!row || typeof row !== 'object') continue;
-        const source = row.source;
-        const externalId = row.external_id || row.externalId;
-        if (!source || !externalId) continue;
-        linkIdentity({
-          personId: person.id,
-          projectId: pid,
-          source,
-          externalId,
-          displayLabel: row.display_label || row.displayLabel || undefined,
-          meta: row.meta && typeof row.meta === 'object' ? row.meta : undefined,
-        });
-      }
-      if (sourceResourceId || summary || sourceKind) {
-        addInteraction({
-          personId: person.id,
-          projectId: pid,
-          kind: interactionKindForSource(sourceKind),
-          refType: sourceResourceId ? 'resource' : null,
-          refId: sourceResourceId || null,
-          summary:
-            summary ||
-            raw.notes ||
-            `Extracted from ${sourceKind || 'document'}`,
-          payload: {
-            ingested: true,
-            sourceKind: sourceKind || 'document',
-            sourceResourceId: sourceResourceId || null,
-          },
-        });
-      }
-      out.push(getPerson(person.id, { includeInteractions: true }));
-    } catch (err) {
-      errors.push({ displayName, error: err?.message || String(err) });
-    }
+    const result = ingestOneRaw(raw, { pid, sourceResourceId, sourceKind, summary });
+    if (result.person) out.push(result.person);
+    else if (result.error) errors.push(result.error);
   }
   return { people: out, errors, count: out.length };
 }
@@ -830,121 +847,169 @@ function syncGithubIdentitiesFromStore(projectId) {
 /**
  * Apply a cloud enrich response (snake_case rows from provider) onto local SQLite.
  */
-function applyCloudPersonEnrichment(personId, cloudPerson, cloudIdentity) {
-  if (typeof personId !== 'string' || !personId) throw new Error('id required');
-  const existing = db().prepare('SELECT * FROM people WHERE id = ?').get(personId);
-  if (!existing) throw new Error('Person not found');
-
+function prepareCloudPersonInput(cloudPerson, existing) {
   const existingProfile = parseJson(existing.profile_json, {});
   const cloudProfile =
     cloudPerson?.profile_json && typeof cloudPerson.profile_json === 'object'
       ? cloudPerson.profile_json
       : {};
-  const profile = { ...existingProfile, ...cloudProfile };
-  updateProfile({
-    id: personId,
+  return {
+    profile: { ...existingProfile, ...cloudProfile },
     displayName:
       typeof cloudPerson?.display_name === 'string' ? cloudPerson.display_name : undefined,
-    avatarUrl:
-      cloudPerson?.avatar_url !== undefined ? cloudPerson.avatar_url : undefined,
-    profile,
+    avatarUrl: cloudPerson?.avatar_url !== undefined ? cloudPerson.avatar_url : undefined,
+  };
+}
+
+function findLocalInstagramIdentity({ identityId, projectId, externalId }) {
+  const localById = identityId
+    ? db().prepare('SELECT * FROM person_identities WHERE id = ?').get(identityId)
+    : null;
+  const localByKey = db()
+    .prepare(
+      `SELECT * FROM person_identities
+       WHERE project_id = ? AND source = 'social_instagram' AND external_id = ?`,
+    )
+    .get(projectId, externalId);
+  return { localById, localByKey };
+}
+
+function adoptCloudIdentityId(localByKey, identityId, personId, projectId, externalId, displayLabel, meta, ts) {
+  // Adopt cloud id so push does not fight UNIQUE(project_id, source, external_id).
+  db().prepare('DELETE FROM person_identities WHERE id = ?').run(localByKey.id);
+  db()
+    .prepare(
+      `INSERT INTO person_identities
+        (id, person_id, project_id, source, external_id, display_label, meta_json, created_at, updated_at)
+       VALUES (@id, @person_id, @project_id, 'social_instagram', @external_id, @display_label, @meta_json, @ts, @ts)`,
+    )
+    .run({
+      id: identityId,
+      person_id: personId,
+      project_id: projectId,
+      external_id: externalId,
+      display_label: displayLabel ?? null,
+      meta_json: JSON.stringify(meta),
+      ts,
+    });
+}
+
+function insertInstagramIdentity(id, personId, projectId, externalId, displayLabel, meta, ts) {
+  db()
+    .prepare(
+      `INSERT INTO person_identities
+        (id, person_id, project_id, source, external_id, display_label, meta_json, created_at, updated_at)
+       VALUES (@id, @person_id, @project_id, 'social_instagram', @external_id, @display_label, @meta_json, @ts, @ts)`,
+    )
+    .run({
+      id,
+      person_id: personId,
+      project_id: projectId,
+      external_id: externalId,
+      display_label: displayLabel ?? null,
+      meta_json: JSON.stringify(meta),
+      ts,
+    });
+}
+
+function updateIdentityFields(rowId, personId, displayLabel, meta, ts) {
+  db()
+    .prepare(
+      `UPDATE person_identities SET
+        person_id = @person_id,
+        display_label = @display_label,
+        meta_json = @meta_json,
+        updated_at = @ts
+       WHERE id = @id`,
+    )
+    .run({
+      id: rowId,
+      person_id: personId,
+      display_label: displayLabel ?? null,
+      meta_json: JSON.stringify(meta),
+      ts,
+    });
+}
+
+function updateIdentityDisplay(rowId, displayLabel, meta, ts) {
+  db()
+    .prepare(
+      `UPDATE person_identities SET
+        display_label = @display_label,
+        meta_json = @meta_json,
+        updated_at = @ts
+       WHERE id = @id`,
+    )
+    .run({
+      id: rowId,
+      display_label: displayLabel ?? null,
+      meta_json: JSON.stringify(meta),
+      ts,
+    });
+}
+
+function applyCloudIdentityUpserts(personId, projectId, cloudIdentity, externalId) {
+  const meta =
+    cloudIdentity.meta_json && typeof cloudIdentity.meta_json === 'object'
+      ? cloudIdentity.meta_json
+      : {};
+  const identityId = String(cloudIdentity.id || '').trim();
+  const ts = now();
+  const { localById, localByKey } = findLocalInstagramIdentity({
+    identityId,
+    projectId,
+    externalId,
   });
+  const displayLabel = cloudIdentity.display_label ?? null;
+
+  if (localById) {
+    updateIdentityFields(localById.id, personId, displayLabel, meta, ts);
+  } else if (localByKey && identityId && identityId !== localByKey.id) {
+    adoptCloudIdentityId(
+      localByKey,
+      identityId,
+      personId,
+      projectId,
+      externalId,
+      displayLabel,
+      meta,
+      ts,
+    );
+  } else if (localByKey) {
+    updateIdentityDisplay(localByKey.id, displayLabel, meta, ts);
+  } else if (identityId) {
+    insertInstagramIdentity(
+      identityId,
+      personId,
+      projectId,
+      externalId,
+      displayLabel,
+      meta,
+      ts,
+    );
+  } else {
+    linkIdentity({
+      personId,
+      projectId,
+      source: 'social_instagram',
+      externalId,
+      displayLabel,
+      meta,
+    });
+  }
+}
+
+function applyCloudPersonEnrichment(personId, cloudPerson, cloudIdentity) {
+  if (typeof personId !== 'string' || !personId) throw new Error('id required');
+  const existing = db().prepare('SELECT * FROM people WHERE id = ?').get(personId);
+  if (!existing) throw new Error('Person not found');
+
+  updateProfile({ id: personId, ...prepareCloudPersonInput(cloudPerson, existing) });
 
   if (cloudIdentity && typeof cloudIdentity === 'object') {
     const externalId = String(cloudIdentity.external_id || '').trim();
     if (externalId) {
-      const meta =
-        cloudIdentity.meta_json && typeof cloudIdentity.meta_json === 'object'
-          ? cloudIdentity.meta_json
-          : {};
-      const identityId = String(cloudIdentity.id || '').trim();
-      const ts = now();
-      const localById = identityId
-        ? db().prepare('SELECT * FROM person_identities WHERE id = ?').get(identityId)
-        : null;
-      const localByKey = db()
-        .prepare(
-          `SELECT * FROM person_identities
-           WHERE project_id = ? AND source = 'social_instagram' AND external_id = ?`,
-        )
-        .get(existing.project_id, externalId);
-
-      if (localById) {
-        db()
-          .prepare(
-            `UPDATE person_identities SET
-              person_id = @person_id,
-              display_label = @display_label,
-              meta_json = @meta_json,
-              updated_at = @ts
-             WHERE id = @id`,
-          )
-          .run({
-            id: localById.id,
-            person_id: personId,
-            display_label: cloudIdentity.display_label ?? null,
-            meta_json: JSON.stringify(meta),
-            ts,
-          });
-      } else if (localByKey && identityId && identityId !== localByKey.id) {
-        // Adopt cloud id so push does not fight UNIQUE(project_id, source, external_id).
-        db().prepare('DELETE FROM person_identities WHERE id = ?').run(localByKey.id);
-        db()
-          .prepare(
-            `INSERT INTO person_identities
-              (id, person_id, project_id, source, external_id, display_label, meta_json, created_at, updated_at)
-             VALUES (@id, @person_id, @project_id, 'social_instagram', @external_id, @display_label, @meta_json, @ts, @ts)`,
-          )
-          .run({
-            id: identityId,
-            person_id: personId,
-            project_id: existing.project_id,
-            external_id: externalId,
-            display_label: cloudIdentity.display_label ?? null,
-            meta_json: JSON.stringify(meta),
-            ts,
-          });
-      } else if (localByKey) {
-        db()
-          .prepare(
-            `UPDATE person_identities SET
-              display_label = @display_label,
-              meta_json = @meta_json,
-              updated_at = @ts
-             WHERE id = @id`,
-          )
-          .run({
-            id: localByKey.id,
-            display_label: cloudIdentity.display_label ?? null,
-            meta_json: JSON.stringify(meta),
-            ts,
-          });
-      } else if (identityId) {
-        db()
-          .prepare(
-            `INSERT INTO person_identities
-              (id, person_id, project_id, source, external_id, display_label, meta_json, created_at, updated_at)
-             VALUES (@id, @person_id, @project_id, 'social_instagram', @external_id, @display_label, @meta_json, @ts, @ts)`,
-          )
-          .run({
-            id: identityId,
-            person_id: personId,
-            project_id: existing.project_id,
-            external_id: externalId,
-            display_label: cloudIdentity.display_label ?? null,
-            meta_json: JSON.stringify(meta),
-            ts,
-          });
-      } else {
-        linkIdentity({
-          personId,
-          projectId: existing.project_id,
-          source: 'social_instagram',
-          externalId,
-          displayLabel: cloudIdentity.display_label ?? null,
-          meta,
-        });
-      }
+      applyCloudIdentityUpserts(personId, existing.project_id, cloudIdentity, externalId);
     }
   }
 
