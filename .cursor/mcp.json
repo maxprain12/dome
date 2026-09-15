@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "Meta Social Technologies": {
+      "url": "https://mcp.facebook.com/devtools",
+      "type": "http"
+    }
+  }
+}

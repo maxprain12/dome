@@ -331,7 +331,7 @@ export function SocialPostDetailPanel({
       </header>
       <div className={cn('grid min-h-0 flex-1 grid-cols-1', hasMedia && 'grid-rows-[min(30dvh,16rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,1.35fr)_minmax(22rem,1fr)] md:grid-rows-1')}>
         {hasMedia ? <section aria-label={t('social.native.media')} className="min-h-0 min-w-0 border-b bg-muted/30 md:border-b-0 md:border-r">
-          <SocialPostMedia key={post.id} media={post.media} fit />
+          <SocialPostMedia key={post.id} media={post.media} mediaStorage={post.mediaStorage} fit />
         </section> : null}
         <div className="flex min-h-0 min-w-0 flex-col">
       <Tabs

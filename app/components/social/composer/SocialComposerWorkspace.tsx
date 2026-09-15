@@ -73,6 +73,7 @@ import {
   instagramSourceFromNative,
   type InstagramNativeValue,
 } from '@/components/social/composer/InstagramNativeFields';
+import { useSocialLocalMedia } from '@/lib/hooks/useSocialLocalMedia';
 
 const PROVIDERS: SocialProvider[] = ['linkedin', 'instagram', 'x'];
 const PROVIDER_LABELS: Record<SocialProvider, string> = {
@@ -85,6 +86,14 @@ const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = {
   instagram: InstagramIcon,
   x: TwitterIcon,
 };
+
+function ComposerMediaThumb({ item }: { item: SocialMediaItem }) {
+  const { remoteUrl, localUrl } = useSocialLocalMedia(item);
+  const src = item.type === 'video' || item.type === 'reel' ? localUrl || remoteUrl : remoteUrl || localUrl;
+  if (!src) return null;
+  return <img src={src} alt="" className="size-full object-cover" />;
+}
+
 type AiAction = 'improve' | 'shorten' | 'hashtags' | 'generate';
 
 function toLocalDateTime(timestamp: number | null): string {
@@ -469,7 +478,7 @@ export function SocialComposerWorkspace({
                     {media.map((item, index) => (
                       <div key={`${item.url ?? item.path ?? item.resourceId}-${index}`} className="flex items-center gap-3 rounded-xl bg-muted p-3">
                         <div className="size-12 shrink-0 overflow-hidden rounded-lg bg-background">
-                          {item.url && item.type !== 'video' ? <img src={item.url} alt="" className="size-full object-cover" /> : null}
+                          <ComposerMediaThumb item={item} />
                         </div>
                         <span className="min-w-0 flex-1 truncate text-sm">{item.name || item.url || item.path || t('social.composer.media_from_library')}</span>
                         <Button type="button" size="icon-sm" variant="ghost" onClick={() => setMedia((current) => current.filter((_, itemIndex) => itemIndex !== index))}>

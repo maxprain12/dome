@@ -102,6 +102,7 @@ export interface SocialPost {
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   body: string;
   media: SocialMediaItem[];
+  mediaStorage?: string[];
   linkUrl: string | null;
   topics: string[];
   campaign: string | null;

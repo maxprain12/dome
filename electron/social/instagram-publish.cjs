@@ -13,14 +13,53 @@ function pickHttpsUrl(value) {
   return /^https:\/\//i.test(trimmed) ? trimmed : null;
 }
 
+function pickNonEmptyString(data, keys) {
+  for (const key of keys) {
+    if (typeof data[key] === 'string' && data[key].trim()) return data[key].trim();
+  }
+  return null;
+}
+
 function parseMediaUploadResponse(data) {
-  if (!data || typeof data !== 'object' || typeof data.storagePath !== 'string' || !data.storagePath) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('media_upload_missing_storage_path');
+  }
+  const storagePath = pickNonEmptyString(data, ['storagePath', 'storage_path']);
+  if (!storagePath) {
     throw new Error('media_upload_missing_storage_path');
   }
   return {
-    storagePath: data.storagePath,
-    publicUrl: pickHttpsUrl(data.publicUrl) || pickHttpsUrl(data.url) || pickHttpsUrl(data.cdnUrl),
+    storagePath,
+    publicUrl:
+      pickHttpsUrl(data.publicUrl)
+      || pickHttpsUrl(data.public_url)
+      || pickHttpsUrl(data.url)
+      || pickHttpsUrl(data.cdnUrl)
+      || pickHttpsUrl(data.signedUrl)
+      || pickHttpsUrl(data.signed_url),
   };
+}
+
+/**
+ * Cloud sync only needs storagePath. A public https URL is best-effort
+ * (deployed Dome Provider may still omit it); Instagram publish checks later.
+ *
+ * @param {{ storagePath: string, publicUrl: string | null }} parsed
+ * @param {(storagePath: string) => Promise<{ storagePath: string, publicUrl: string | null }>} [sign]
+ * @returns {Promise<{ storagePath: string, publicUrl: string | null }>}
+ */
+async function resolveUploadedMedia(parsed, sign) {
+  if (parsed.publicUrl) return parsed;
+  if (typeof sign !== 'function') {
+    return { storagePath: parsed.storagePath, publicUrl: null };
+  }
+  try {
+    const signed = await sign(parsed.storagePath);
+    if (signed?.publicUrl) return signed;
+  } catch {
+    // GET /api/v1/social/media is not on the currently deployed provider.
+  }
+  return { storagePath: parsed.storagePath, publicUrl: null };
 }
 
 function mapSocialMediaUploadError(status, text) {
@@ -124,6 +163,7 @@ module.exports = {
   IG_CAROUSEL_MAX,
   pickHttpsUrl,
   parseMediaUploadResponse,
+  resolveUploadedMedia,
   mapSocialMediaUploadError,
   isPrivateOrLocalHostname,
   assertInstagramReachableUrl,

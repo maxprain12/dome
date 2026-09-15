@@ -165,7 +165,12 @@ function startOAuthCallbackServer(expectedState: string, signal: AbortSignal): P
 	const onAbort = () => finish(null);
 	signal.addEventListener("abort", onAbort, { once: true });
 
-	const sendPage = (response: import("node:http").ServerResponse, status: number, html: string) => {
+	type HtmlCallbackResponse = {
+		statusCode: number;
+		setHeader: (name: string, value: string) => void;
+		end: (chunk?: string) => void;
+	};
+	const sendPage = (response: HtmlCallbackResponse, status: number, html: string) => {
 		response.statusCode = status;
 		response.setHeader("content-type", "text/html; charset=utf-8");
 		response.end(html);

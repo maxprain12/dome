@@ -10,6 +10,7 @@ import { formatSocialBody, ProviderMark, PROVIDER_LABELS, postStatusBadgeVariant
 import { formatSocialWhen } from '@/lib/social/socialQueues';
 import { cn } from '@/lib/utils';
 import { useCachedMediaSource } from '@/lib/hooks/useCachedMediaSource';
+import { useSocialLocalMedia } from '@/lib/hooks/useSocialLocalMedia';
 
 export function socialWebUrl(value?: string | null): string | undefined {
   if (!value) return undefined;
@@ -45,22 +46,28 @@ function PublicationText({ text }: { text: string }) {
   })}</>;
 }
 
-function MediaUnavailable() {
+function MediaUnavailable({ name }: { name?: string }) {
   const { t } = useTranslation();
-  return <div className="flex min-h-36 items-center justify-center bg-muted/40 p-6 text-center text-xs text-muted-foreground">{t('social.native.media_unavailable')}</div>;
+  return (
+    <div className="flex min-h-36 flex-col items-center justify-center gap-2 bg-muted/40 p-6 text-center">
+      {name ? <p className="max-w-full truncate text-sm font-medium text-foreground">{name}</p> : null}
+      <p className="text-xs text-muted-foreground">{t('social.native.media_unavailable')}</p>
+    </div>
+  );
 }
 
-function MediaFrame({ item, compact, fit }: { item: SocialMediaItem; compact: boolean; fit: boolean }) {
+function MediaFrame({ item, compact, fit, storagePath }: { item: SocialMediaItem; compact: boolean; fit: boolean; storagePath?: string | null }) {
   const { t } = useTranslation();
   const [videoFailed, setVideoFailed] = useState(false);
   const [stillFailed, setStillFailed] = useState(false);
-  const url = socialWebUrl(item.url);
+  const { remoteUrl, localUrl, loading } = useSocialLocalMedia(item, storagePath);
+  const url = remoteUrl;
   const poster = socialWebUrl(item.thumbnailUrl);
   const cachedUrl = useCachedMediaSource(url);
   const cachedPoster = useCachedMediaSource(poster);
   const label = item.alt || item.name || t('social.native.media');
-  const playable = cachedUrl.source || url;
-  const posterSrc = cachedPoster.source || poster;
+  const playable = cachedUrl.source || url || localUrl;
+  const posterSrc = cachedPoster.source || poster || (!url ? localUrl ?? undefined : undefined);
   const mediaClass = cn('mx-auto w-full object-contain', fit ? 'h-full min-h-0' : compact ? 'max-h-80' : 'max-h-[34rem]');
   const isMotion = item.type === 'video' || item.type === 'reel';
   if (item.type === 'document') return (
@@ -70,7 +77,8 @@ function MediaFrame({ item, compact, fit }: { item: SocialMediaItem; compact: bo
       {url ? <a className="text-sm text-primary underline" href={url} target="_blank" rel="noreferrer">{t('social.native.open_document')}</a> : <p className="text-xs text-muted-foreground">{t('social.native.media_unavailable')}</p>}
     </div>
   );
-  if (isMotion && playable && !videoFailed) {
+  const remotePlayable = Boolean(url) && playable === (cachedUrl.source || url);
+  if (isMotion && remotePlayable && playable && !videoFailed) {
     return (
       <video
         src={playable}
@@ -88,7 +96,10 @@ function MediaFrame({ item, compact, fit }: { item: SocialMediaItem; compact: bo
     );
   }
   const stillSrc = isMotion ? posterSrc : (playable || posterSrc);
-  if (!stillSrc || stillFailed) return <MediaUnavailable />;
+  if (!stillSrc || stillFailed) {
+    if (loading && !stillFailed) return <div className="min-h-36 bg-muted/40" aria-hidden />;
+    return <MediaUnavailable name={item.name} />;
+  }
   return (
     <img
       src={stillSrc}
@@ -101,14 +112,14 @@ function MediaFrame({ item, compact, fit }: { item: SocialMediaItem; compact: bo
   );
 }
 
-export function SocialPostMedia({ media, compact = false, fit = false }: { media: SocialMediaItem[]; compact?: boolean; fit?: boolean }) {
+export function SocialPostMedia({ media, mediaStorage = [], compact = false, fit = false }: { media: SocialMediaItem[]; mediaStorage?: string[]; compact?: boolean; fit?: boolean }) {
   const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const current = Math.min(index, media.length - 1);
   if (!media.length) return null;
   return <div className={cn('overflow-hidden bg-muted/30', fit && 'flex h-full min-h-0 flex-col')}>
     <div className={cn(fit && 'flex min-h-0 flex-1 items-center justify-center overflow-hidden')}>
-      <MediaFrame key={`${current}-${media[current].url}`} item={media[current]} compact={compact} fit={fit} />
+      <MediaFrame key={`${current}-${media[current].url}-${media[current].path}-${media[current].resourceId}`} item={media[current]} storagePath={mediaStorage[current]} compact={compact} fit={fit} />
     </div>
     {media.length > 1 ? <div className="flex shrink-0 items-center justify-between border-t bg-card px-3 py-2">
       <Button size="icon-sm" variant="ghost" aria-label={t('social.native.previous_media')} disabled={current === 0} onClick={() => setIndex(current - 1)}><HugeiconsIcon icon={ArrowLeft01Icon} /></Button>
@@ -365,7 +376,7 @@ export function SocialPostPreview({ post, account, compact = false, detail = fal
     >
       {!detail ? renderHeader() : null}
       {!imageFirst ? renderTextBlock() : null}
-      {!detail ? <SocialPostMedia key={post.id} media={post.media || []} compact={compact} /> : null}
+      {!detail ? <SocialPostMedia key={post.id} media={post.media || []} mediaStorage={post.mediaStorage} compact={compact} /> : null}
       {imageFirst ? renderTextBlock() : null}
       {renderQuote()}
       {renderPoll()}
