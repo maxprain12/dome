@@ -9,5 +9,10 @@
   "sign_in": "Se connecter à Dome",
   "sign_in_connecting": "Connexion…",
   "sign_in_success": "Connecté à Dome",
-  "sign_in_error": "Connexion impossible"
+  "sign_in_error": "Connexion impossible",
+  "group_workspace": "Espace de travail",
+  "group_connections": "Connexions",
+  "group_many": "Many",
+  "group_files": "Fichiers",
+  "file_actions": "Actions des fichiers"
 }

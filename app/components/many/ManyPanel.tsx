@@ -423,7 +423,7 @@ export default function ManyPanel({
     <>
       <UICursorOverlay />
       <div
-        className={cn('flex h-full shrink-0 flex-col overflow-hidden bg-sidebar')}
+        className={cn('flex h-full shrink-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-sidebar')}
         style={
           isFullscreen
             ? {
@@ -544,7 +544,7 @@ export default function ManyPanel({
 
             {!showWelcomeHero ? (
               isFullscreen ? (
-                <div className="shrink-0 border-t bg-sidebar/80 backdrop-blur-sm">
+                <div className="shrink-0 border-t bg-background/95 backdrop-blur-sm">
                   <div className={cn('mx-auto w-full max-w-3xl px-4 pb-1', isPopout && 'px-3')}>
                     <ManyComposer
                       {...composerSharedProps}
@@ -569,7 +569,7 @@ export default function ManyPanel({
           </div>
 
           {isFullscreen && fullscreenHistoryOpen ? (
-            <aside className="flex w-72 shrink-0 flex-col border-l bg-card/40">
+            <aside className="flex w-[clamp(13rem,24%,18rem)] max-w-[42%] shrink-0 flex-col border-l border-sidebar-border bg-sidebar">
               <ManyHistoryView
                 onSelectSession={handleSelectSession}
                 onNewChat={handleStartNewChat}

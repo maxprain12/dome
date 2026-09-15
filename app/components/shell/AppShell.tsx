@@ -344,7 +344,7 @@ export default function AppShell() {
   }, [manyPanelRef, narrowShell, showManyInDesktopSidebar]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div className="flex flex-col h-screen overflow-hidden bg-sidebar">
       <TitleBar
         leftSidebarCollapsed={leftSidebarCollapsed}
         onToggleLeftSidebar={toggleLeftSidebar}
@@ -365,10 +365,10 @@ export default function AppShell() {
 
         <ResizablePanelGroup
           orientation="horizontal"
-          className="min-w-0 flex-1"
+          className="min-w-0 flex-1 py-2 pr-2"
         >
           <ResizablePanel id="dome-content" minSize={420}>
-            <main className="dome-main-content flex h-full min-w-0 flex-col overflow-hidden bg-card">
+            <main className="dome-main-content flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-background">
               <ContentRouter />
             </main>
           </ResizablePanel>
@@ -380,8 +380,8 @@ export default function AppShell() {
                 aria-label={t('shell.resize_right_panel', 'Redimensionar Many')}
                 disabled={!showManyInDesktopSidebar}
                 className={cn(
-                  'bg-sidebar-border hover:bg-border',
-                  !showManyInDesktopSidebar && 'pointer-events-none opacity-0',
+                  'w-2 bg-transparent hover:bg-sidebar-accent',
+                  !showManyInDesktopSidebar && 'hidden',
                 )}
               />
               <ResizablePanel

@@ -56,9 +56,9 @@ function pickRowBackground(
   folderColor: string,
   hovered: boolean,
 ): string {
-  if (isSelected) return 'color-mix(in srgb, var(--primary) 10%, transparent)';
+  if (isSelected) return 'var(--sidebar-accent)';
   if (isDragOver && isFolder) return `${folderColor}22`;
-  if (hovered) return 'var(--accent)';
+  if (hovered) return 'var(--sidebar-accent)';
   return 'transparent';
 }
 
@@ -68,7 +68,7 @@ function pickRowOutline(
   isFolder: boolean,
   folderColor: string,
 ): string {
-  if (isSelected) return '1px solid color-mix(in srgb, var(--primary) 40%, transparent)';
+  if (isSelected) return 'none';
   if (isDragOver && isFolder) return `1.5px dashed ${folderColor}`;
   return 'none';
 }
@@ -895,7 +895,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         className="flex-1 overflow-y-auto px-2 pb-2 rounded"
         onDragOver={handleRootDragOver}
         onDragLeave={() => setRootDragOver(false)}
-        onDrop={(e) => void handleRootDrop(e)}
+        onDrop={handleRootDrop}
         style={{
           outline: rootDragOver ? '1.5px dashed var(--primary)' : 'none',
           outlineOffset: -2,
@@ -994,7 +994,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         <BulkDeleteConfirmModal
           count={selectedIds.size}
           busy={bulkDeleting}
-          onConfirm={() => void handleBulkDelete()}
+          onConfirm={handleBulkDelete}
           onClose={() => setBulkDeleteConfirm(false)}
         />
       )}

@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft02Icon } from '@hugeicons/core-free-icons';
 import { HubSearch } from '@/components/hub';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   SETTINGS_GROUPS,
@@ -13,41 +12,13 @@ import {
 } from './registry';
 import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
 import { SETTINGS_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
-import { cn } from '@/lib/utils';
+import { ShellSidebar, ShellNavItem, ShellNavSection } from '@/components/shared/ShellSidebar';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+
+import { defaultSettingsGroups } from './settingsDisclosure';
 
 interface SettingsNavProps {
   collapsed: boolean;
-}
-
-/** Same density as UnifiedSidebar `SidebarNavButton`. */
-function SettingsNavButton({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: IconSvgElement;
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      onClick={onClick}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'h-auto w-full justify-start gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/80',
-        active
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent'
-          : 'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
-      )}
-    >
-      <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-    </Button>
-  );
 }
 
 /**
@@ -58,6 +29,15 @@ function SettingsNavButton({
 export default function SettingsNav({ collapsed }: SettingsNavProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const navRef = useRef<HTMLDivElement>(null);
+  const [navHeight, setNavHeight] = useState(0);
+  useEffect(() => {
+    const element = navRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setNavHeight(Math.round(entry.contentRect.height)));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const activeSection = useSettingsUiStore((s) => s.activeSection);
   const hiddenSections = useSettingsUiStore((s) => s.hiddenSections);
   const setActiveSection = useSettingsUiStore((s) => s.setActiveSection);
@@ -89,7 +69,10 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
   }, [groups, query, t]);
 
   const normalizedActive = resolveSettingsSection(activeSection);
-  const firstMatch = visibleGroups[0]?.entries[0];
+  const defaultExpanded = defaultSettingsGroups(groups, normalizedActive, navHeight);
+  const firstMatch = visibleGroups.flatMap((group) => group.entries).find(
+    (entry) => t(entry.titleKey).toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
+  ) ?? visibleGroups[0]?.entries[0];
 
   const selectSection = (section: SettingsSection) => {
     setQuery('');
@@ -101,24 +84,16 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
   };
 
   return (
-    <aside
-      className={cn(
-        'dome-left-sidebar flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width,opacity] duration-200 ease-out',
-        collapsed ? 'w-0 opacity-0' : 'w-(--chrome-rail-width) opacity-100',
-      )}
-      aria-hidden={collapsed}
-      aria-label={t('settings.nav.sidebar')}
-    >
+    <ShellSidebar collapsed={collapsed} label={t('settings.nav.sidebar')}>
       <div className="shrink-0 px-2 py-2">
-        <Button
+        <SidebarMenu><SidebarMenuItem><SidebarMenuButton
           type="button"
-          variant="ghost"
           onClick={handleBack}
-          className="mb-1.5 h-auto w-full justify-start gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+          className="mb-2"
         >
-          <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4 shrink-0" />
+          <HugeiconsIcon icon={ArrowLeft02Icon} aria-hidden />
           <span className="min-w-0 flex-1 truncate">{t('settings.back_to_app')}</span>
-        </Button>
+        </SidebarMenuButton></SidebarMenuItem></SidebarMenu>
         <div className="px-0.5">
           <HubSearch
             value={query}
@@ -133,32 +108,30 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
         </div>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
-        <nav className="flex flex-col gap-3 px-2 pb-5 pt-1" aria-label={t('settings.nav.sidebar')}>
+      <div ref={navRef} className="min-h-0 flex-1">
+      <ScrollArea className="h-full">
+        <nav className="pb-5" aria-label={t('settings.nav.sidebar')}>
           {visibleGroups.length === 0 ? (
             <p className="px-2.5 py-2 text-xs text-sidebar-foreground/60">
               {t('settings.search_empty')}
             </p>
           ) : (
-            visibleGroups.map((group) => (
-              <div key={group.labelKey} className="flex flex-col gap-0.5">
-                <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-                  {t(group.labelKey)}
-                </p>
-                {group.entries.map((entry) => (
-                  <SettingsNavButton
-                    key={entry.id}
-                    icon={entry.icon}
-                    label={t(entry.titleKey)}
-                    active={normalizedActive === entry.id}
-                    onClick={() => selectSection(entry.id)}
-                  />
-                ))}
-              </div>
-            ))
+            <SidebarGroup>
+              <SidebarGroupLabel>{t('settings.title')}</SidebarGroupLabel>
+              {visibleGroups.map((group) => {
+                if (group.entries.length === 1) {
+                  const entry = group.entries[0];
+                  return <SidebarMenu key={group.labelKey}><ShellNavItem icon={entry.icon} label={t(entry.titleKey)} active={normalizedActive === entry.id} onClick={() => selectSection(entry.id)} /></SidebarMenu>;
+                }
+                return <ShellNavSection key={group.labelKey} label={t(group.labelKey)} icon={group.entries[0].icon} activeId={group.entries.find((entry) => normalizedActive === entry.id)?.id} forceOpen={Boolean(query.trim())} defaultOpen={defaultExpanded.has(group.labelKey)}>
+                  {group.entries.map((entry) => <ShellNavItem key={entry.id} nested icon={entry.icon} label={t(entry.titleKey)} active={normalizedActive === entry.id} onClick={() => selectSection(entry.id)} />)}
+                </ShellNavSection>;
+              })}
+            </SidebarGroup>
           )}
         </nav>
       </ScrollArea>
-    </aside>
+      </div>
+    </ShellSidebar>
   );
 }
