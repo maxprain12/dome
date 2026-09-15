@@ -69,8 +69,8 @@ describe('SocialWorkspaceShell', () => {
     const user = userEvent.setup();
     render(<SocialWorkspaceShell />);
 
-    expect(await screen.findByRole('heading', { name: 'Todas las redes' })).toBeVisible();
-    expect(await screen.findByRole('heading', { name: 'Resumen de rendimiento' })).toBeVisible();
+    expect(await screen.findByRole('tab', { name: 'Inicio' })).toBeVisible();
+    expect(await screen.findByText('Interacción')).toBeVisible();
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Todo' })).toHaveTextContent('Todo');
     await user.click(screen.getByRole('tab', { name: 'Contenido' }));
@@ -141,8 +141,8 @@ describe('SocialWorkspaceShell', () => {
     ];
 
     render(<SocialWorkspaceShell />);
-    expect(await screen.findByRole('heading', { name: 'Publicaciones recientes' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Foto del estudio/i }));
+    expect(await screen.findByRole('columnheader', { name: 'Publicaciones recientes' })).toBeVisible();
+    await user.click(screen.getByText(/Foto del estudio/i));
     const detail = screen.getByRole('dialog', { name: 'Foto del estudio' });
     expect(detail).toBeVisible();
     expect(await screen.findByRole('tab', { name: 'Resumen' })).toBeVisible();
