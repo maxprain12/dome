@@ -96,3 +96,7 @@ ds-bundle/
 .design-sync/stubs/i18n-es.json
 supabase/
 test-results/
+
+# Local marketing studio builds and exports
+/dist-visual-studio/
+/visual-studio-exports/

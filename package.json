@@ -128,7 +128,10 @@
     "generate-icons": "tsx scripts/generate-icons.ts",
     "windows:startup-diag": "node scripts/windows-startup-diag.mjs",
     "restore:db": "node scripts/restore-db-backup.mjs",
-    "test:artifacts": "node --test electron/__tests__/artifact-service.test.mjs electron/__tests__/artifact-vault-mirror.test.mjs"
+    "test:artifacts": "node --test electron/__tests__/artifact-service.test.mjs electron/__tests__/artifact-vault-mirror.test.mjs",
+    "visual-studio": "vite --config vite.visual-studio.config.ts",
+    "visual-studio:build": "vite build --config vite.visual-studio.config.ts",
+    "visual-studio:export": "node scripts/visual-studio/export-pack.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
