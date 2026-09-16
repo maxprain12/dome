@@ -2,7 +2,7 @@
 
 ## shadcn/ui (librería principal)
 
-Dome migra a **[shadcn/ui](https://ui.shadcn.com/)** con primitivos **Base UI** (preset `base-luma`, color `olive`, iconos Hugeicons).
+Dome usa **[shadcn/ui](https://ui.shadcn.com/)** con primitivos **Base UI** (preset `base-mira`, color `neutral`/zinc, iconos Hugeicons).
 
 | Qué | Dónde |
 |-----|-------|
@@ -55,8 +55,8 @@ El estado "cero datos" es un caso de diseño de primera clase, no un placeholder
 ## Color System
 
 > **Fuente de verdad: [`new-color-palette.md`](new-color-palette.md) y `app/globals.css`.**
-> Paleta forest / lime / mint / lavender. Tokens shadcn (`--primary`, `--background`, …) +
-> `--brand-lime|mint|lavender` + `--primary-hover`. Sin hex en componentes.
+> Paleta zinc (`#27272A`) + tintes lime / mint / lavender. Tokens shadcn (`--primary`, `--background`, …) +
+> `--brand-lime|mint|lavender` + `--primary-hover`. Forest legacy está deprecado. Sin hex en componentes.
 > `pnpm run check:design-system` lo verifica en CI.
 
 ### Variables vigentes (resumen)
@@ -84,7 +84,7 @@ Hex por tema: `app/globals.css` (`:root` / `.dark`). Ver `new-color-palette.md`.
 | Element | Token / variante |
 |---------|------------------|
 | Primary buttons | `Button` default → `bg-primary` / `hover:bg-primary-hover` |
-| Secondary / outline | `Button` `outline` o `secondary` (borde forest, hover mint) |
+| Secondary / outline | `Button` `outline` o `secondary` (borde primary/zinc, hover mint) |
 | Soft CTA | `Button` `soft` (lime) |
 | Links / focus | `--primary` / `--ring` |
 | Success / error | `--success` / `--destructive` |
@@ -99,7 +99,7 @@ Hex por tema: `app/globals.css` (`:root` / `.dark`). Ver `new-color-palette.md`.
 
 ### Active selection (obligatorio en hubs)
 
-El estado activo de navegación, filtros y filas seleccionables usa **mint + borde forest**, no gris plano:
+El estado activo de navegación, filtros y filas seleccionables usa **mint + borde primary**, no gris plano:
 
 - Activo: `bg-brand-mint border-primary` (`rounded-xl` o chip `rounded-full`)
 - Hover idle: `hover:bg-brand-mint/55`

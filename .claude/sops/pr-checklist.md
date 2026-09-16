@@ -12,7 +12,7 @@ Before every PR is considered ready, verify each item below.
 ## i18n
 
 - [ ] All new user-visible strings use `t('some.key')` via `useTranslation()`
-- [ ] New translation keys added to all 4 languages in `app/lib/i18n.ts` (en, es, fr, pt)
+- [ ] New translation keys added to all 4 languages in `packages/i18n/locales/{en,es,fr,pt}/`
 - [ ] No hardcoded Spanish or English strings in UI components
 
 ## UI / Styling
@@ -42,6 +42,10 @@ pnpm exec tsc --noEmit
 
 # Lint
 pnpm exec eslint app/
+
+# UI / i18n / design system
+pnpm run check:guardrails
+pnpm run test:ui
 
 # Sonar pattern guards (strict + progressive on diff)
 pnpm run check:sonar-patterns

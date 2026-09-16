@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/hooks/guardrails.mjs",
+        "matcher": "git commit|git push",
+        "failClosed": false,
+        "timeout": 120
+      }
+    ]
+  }
+}

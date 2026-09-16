@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). LangGraph has been fully removed — workflows are sequenced by a native topological DAG executor in `run-engine.cjs` (each node runs through the harness).
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + **shadcn/ui** (Base UI primitives; config in `components.json`, components in `app/components/ui/`). `app/components/ui/` contains **only** original shadcn components; app-level compositions (SubpageHeader, ListState, DatePicker, ThemeProvider…) live in `app/components/shared/`. The legacy `Dome*`/`Hub*` wrappers were fully removed — see `.claude/sops/shadcn-ui.md`.
-- **i18n**: react-i18next, translations in `app/lib/i18n.ts` (en/es/fr/pt)
+- **i18n**: react-i18next; strings in `packages/i18n/locales/{en,es,fr,pt}/` (`app/lib/i18n.ts` bootstraps i18next)
 - **Language**: TypeScript (strict mode)
 
 ## Development Commands

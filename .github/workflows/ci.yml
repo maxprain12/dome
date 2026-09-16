@@ -89,6 +89,18 @@ jobs:
       - name: Design system ratchet (hardcoded colors)
         run: pnpm run check:design-system
 
+      - name: i18n locale key parity
+        run: pnpm run check:i18n-keys
+
+      - name: No raw IDs in SelectValue
+        run: pnpm run check:no-raw-ids
+
+      - name: Text containment (short timestamps)
+        run: pnpm run check:text-containment
+
+      - name: UI guardrail unit tests
+        run: pnpm run test:ui-guardrails
+
       - name: Sonar clean-code patterns (P-011)
         run: |
           pnpm run test:sonar-patterns

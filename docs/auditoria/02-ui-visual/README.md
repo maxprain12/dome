@@ -4,17 +4,15 @@ Auditoría de consistencia visual: cumplimiento del design system (`.claude/rule
 
 ## Resumen
 
-- **~385 hex colors hardcodeados** en `app/` fuera de las definiciones de paleta (51% de violación del design system).
-- **~20 puntos rotos en dark mode** (`bg-white/90`, `text-neutral-600`, colores Tailwind arbitrarios).
-- Mapeos legacy `--brand-*` duplicados en `app/globals.css:262-263` conviviendo con la paleta nueva — dos guías de diseño "activas".
-- i18n excelente: ~4.428 usos de `t()`, solo ~3 strings fuera.
-- No existe ninguna regla de lint que impida volver a introducir colores hardcodeados.
+- **0 hex hardcodeados** fuera de allowlist (`pnpm run check:design-system`).
+- i18n: claves en `packages/i18n/locales/{en,es,fr,pt}/`; paridad con `pnpm run check:i18n-keys`.
+- Existe lint de design system y contratos UI (`check:ui-contracts`).
 
 ## Tareas
 
 | Tarea | Prioridad | Esfuerzo | Estado |
 |-------|-----------|----------|--------|
-| [T01 — Migrar colores hardcodeados a variables CSS](T01-colores-hardcodeados.md) | P1 | L | ⬜ Pendiente |
+| [T01 — Migrar colores hardcodeados a variables CSS](T01-colores-hardcodeados.md) | P1 | L | ✅ Gate en cero (CI) |
 | [T02 — Arreglar dark mode roto](T02-dark-mode-roto.md) | P1 | S | ✅ Implementada |
 | [T03 — Eliminar paleta deprecada y alinear docs](T03-paleta-deprecada.md) | P2 | S | ✅ Implementada |
 | [T04 — Regla de lint del design system](T04-lint-design-system.md) | P2 | S | ✅ Implementada |
@@ -24,10 +22,9 @@ Auditoría de consistencia visual: cumplimiento del design system (`.claude/rule
 
 ## Lo que ya está bien
 
-- i18n con react-i18next prácticamente completa (en/es/fr/pt en `app/lib/i18n.ts`).
-- `--brand-primary` ya no se usa en componentes (0 usos directos).
+- i18n con react-i18next (`packages/i18n/locales`).
 - El tema reacciona a `data-theme` vía MutationObservers (`app/main.tsx`, `useDomeThemeSnapshot.ts`).
-- Estados de carga/vacío/error centralizados y con a11y (`DomeListState.tsx` con `role="status"` + `aria-live`).
+- Estados de carga/vacío/error centralizados y con a11y (`ListState` con `role="status"` + `aria-live`).
 
 ## Orden recomendado
 

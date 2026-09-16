@@ -2,7 +2,7 @@
 
 Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 
-**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-010); `pnpm run lint` surfaces renderer rules in the IDE.
+**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-011); `pnpm run lint` surfaces renderer rules in the IDE. Guardrails UI: [docs/guardrails/README.md](docs/guardrails/README.md).
 
 ---
 
@@ -13,7 +13,7 @@ Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 - **Main** (`electron/`): `better-sqlite3` + `@dome/db` (Drizzle incremental), worker threads for heavy reads/extraction. **IPC** via `electron/preload.cjs` → `window.electron.invoke('channel', args)`.
 - **State**: Zustand (`app/lib/store/`), Jotai for local UI
 - **Styling**: Tailwind + CSS variables + shadcn/ui (Base UI) — never hardcoded hex in inline styles. Setup: [.claude/sops/shadcn-ui.md](.claude/sops/shadcn-ui.md)
-- **i18n**: `app/lib/i18n.ts` — en, es, fr, pt (default `es`)
+- **i18n**: `packages/i18n/locales/{en,es,fr,pt}/` (react-i18next; `app/lib/i18n.ts` only bootstraps)
 - **Tabs**: `useTabStore` — not extra Electron windows
 - **Embeddings** (main only): `electron/services/embeddings.service.cjs` — LangChain (OpenAI / Google / Ollama); settings `embeddings_*`
 
@@ -43,17 +43,18 @@ git checkout -b feat/<short-description>
 
 ### Step 2 — Implement
 
-Obey P-001…P-010. **New IPC** (4 steps or it fails silently): handler `electron/ipc/<group>/<domain>.cjs` (subfolders: core, data, ai, agents, media, learn, sync, integrations) → register in `electron/ipc/index.cjs` with the subfolder path → `ALLOWED_CHANNELS` in `electron/preload.cjs` → renderer `window.electron.invoke('domain:action', args)`.
+Obey P-001…P-011. **New IPC** (4 steps or it fails silently): handler `electron/ipc/<group>/<domain>.cjs` (subfolders: core, data, ai, agents, media, learn, sync, integrations) → register in `electron/ipc/index.cjs` with the subfolder path → `ALLOWED_CHANNELS` in `electron/preload.cjs` → renderer `window.electron.invoke('domain:action', args)`.
 
 ### Step 3 — Validate locally
 
 ```bash
 pnpm run typecheck
 pnpm run lint
-pnpm run build
-pnpm run check:ipc-inventory
-pnpm run check:sonar-patterns
+pnpm run test:ui
+pnpm run check:guardrails
 pnpm run check:sonar-patterns -- --diff=origin/main
+pnpm run check:ipc-inventory
+pnpm run build
 pnpm run depcruise
 ```
 
