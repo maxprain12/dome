@@ -1,0 +1,12 @@
+---
+description: Traducciones en cuatro idiomas; claves viven en packages/i18n
+globs: "{app,packages/i18n}/**/*.{ts,tsx,json}"
+alwaysApply: false
+---
+
+# i18n (en, es, fr, pt)
+
+- Textos de UI pasan por `t('ns.key')`.
+- Las claves viven en `packages/i18n/locales/{en,es,fr,pt}/`, no en `app/lib/i18n.ts` (ese archivo solo inicializa i18next).
+- Toda clave nueva debe existir en los cuatro idiomas con la misma forma.
+- `pnpm run check:i18n-keys` compara los JSON. No dejes strings hardcodeados en componentes.

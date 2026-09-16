@@ -54,15 +54,13 @@ export default tseslint.config(
       // P-001 — renderer must not import Node/DB/Electron (see docs/principles.md)
       'dome/no-renderer-node-imports': 'error',
 
-      // 03/T05 — buttons go through DomeButton (design system), not Mantine
       'no-restricted-imports': [
         'error',
         {
           paths: [
             {
               name: '@mantine/core',
-              importNames: ['Button'],
-              message: 'Usa DomeButton (@/components/ui/DomeButton) en lugar de Button de Mantine.',
+              message: 'Mantine was removed. Use shadcn Button from @/components/ui/button.',
             },
           ],
         },

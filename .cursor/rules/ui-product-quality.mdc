@@ -1,0 +1,26 @@
+---
+description: Canon UI/UX de Dome desktop — tokens, densidad, estados, shadcn
+globs: app/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# UI de producto (Dome desktop)
+
+- shadcn/Base UI (`base-mira`, `neutral`). Componentes en `app/components/ui/`; composiciones en `app/components/shared/`.
+- Tokens zinc en `app/globals.css`. Sin hex en componentes. `pnpm run check:design-system`.
+- Detalles de entidad: `DetailModal`. Listas: `ListState`. Headers de hub: `HubPageHeader`.
+- Selección activa: `selectionSurfaceClass`. Texto denso: `SafeText` / `min-w-0` / `formatShortDistance`.
+- Nunca IDs opacos como label. `SelectValue` siempre con children legibles.
+- Vista principal: dashboard con KPIs aunque sean 0. Vacío, carga y error son estados de diseño.
+- Motion sobrio; prohibido `transition-all`. Iconos Hugeicons, no Lucide/Tabler.
+- i18n: `t()` + claves en `packages/i18n/locales/{en,es,fr,pt}/`.
+
+```tsx
+// Bad
+<SelectTrigger><SelectValue /></SelectTrigger>
+
+// Good
+<SelectTrigger>
+  <SelectValue>{selected ? label(selected) : t('common.unknown')}</SelectValue>
+</SelectTrigger>
+```

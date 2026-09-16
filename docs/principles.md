@@ -7,7 +7,7 @@ Cada regla tiene un id **P-NNN** que linters, CI y el auditor pueden citar en me
 | P-001  | El renderer nunca importa módulos Node/DB |
 | P-002  | Validar argumentos IPC en el límite (schemas; ver Zod) |
 | P-003  | Logs estructurados en main; evitar `console.log` ruido en producción |
-| P-004  | i18n: textos de UI en en/es/fr/pt en `app/lib/i18n.ts` |
+| P-004  | i18n: textos de UI en en/es/fr/pt en `packages/i18n/locales/` |
 | P-005  | Colores con variables CSS, no hex literales en estilos |
 | P-006  | Imports de solo tipo: `import type { … }` (verbatimModuleSyntax) |
 | P-007  | Preferir utilidades compartidas a helpers duplicados |
@@ -32,7 +32,7 @@ En procesos con acceso a Node, priorizar log estructurado o prefijos de dominio;
 
 ## P-004 — i18n
 
-Cualquier cadena visible al usuario pasa por `t('…')` y entradas en **cuatro** idiomas en `app/lib/i18n.ts`.
+Cualquier cadena visible al usuario pasa por `t('…')` y entradas en **cuatro** idiomas en `packages/i18n/locales/{en,es,fr,pt}/`. Cumplimiento: `pnpm run check:i18n-keys`.
 
 ## P-005 — Colores
 

@@ -1,6 +1,6 @@
 # SOP: shadcn/ui en Dome (Base UI + preset)
 
-Dome usa **[shadcn/ui](https://ui.shadcn.com/)** como librería principal de componentes UI (primitivos **Base UI**, estilo **base-luma**, preset **olive**). Los componentes viven en el repo (`app/components/ui/`), no en `node_modules`.
+Dome usa **[shadcn/ui](https://ui.shadcn.com/)** como librería principal de componentes UI (primitivos **Base UI**, estilo **base-mira**, paleta **neutral/zinc**). Los componentes viven en el repo (`app/components/ui/`), no en `node_modules`.
 
 Configuración actual: [`components.json`](../../components.json) en la raíz del monorepo.
 
@@ -12,7 +12,7 @@ Configuración actual: [`components.json`](../../components.json) en la raíz de
 |------|------------|
 | Componentes | shadcn/ui (`button`, `dialog`, …) en `app/components/ui/` |
 | Primitivos | `@base-ui/react` (vía shadcn CLI) |
-| Estilos | Tailwind CSS v3 + tokens CSS en `app/globals.css` |
+| Estilos | Tailwind CSS v4 + tokens CSS en `app/globals.css` |
 | Utilidad | `cn()` en `app/lib/utils/index.ts` (export desde `formatting.ts`) |
 | Iconos (preset) | `@hugeicons/react` + `@hugeicons/core-free-icons` |
 | Fuente (preset) | `@fontsource-variable/inter` |
@@ -126,9 +126,9 @@ El `Toaster` de shadcn usa `data-theme` en `<html>` (no `next-themes`).
 ## Theming
 
 - **Fuente de verdad de color:** tokens shadcn en `app/globals.css` (`:root` / `.dark`). Estado extra (`--success`, sombras) en `:root[data-theme="light|dark"]`.
-- Marca Dome: `--primary` forest, `--primary-hover`, `--brand-lime|mint|lavender`. Ver `.claude/rules/new-color-palette.md`.
+- Marca Dome: `--primary` zinc `#27272A`, `--primary-hover`, `--brand-lime|mint|lavender`. Ver `.claude/rules/new-color-palette.md`.
 - Variantes custom (no pisar con `shadcn add --overwrite` sin diff):
-  - `Button`: pill; `soft`; `secondary`/`outline` = outline forest
+  - `Button`: pill; `soft`; `secondary`/`outline` = outline primary
   - `Badge`: `lime` \| `mint` \| `lavender`
   - `Card`: `variant` `default` \| `lime` \| `lavender` \| `brand`
 - shadcn imports al inicio de `globals.css`:
@@ -146,9 +146,9 @@ El `Toaster` de shadcn usa `data-theme` en `<html>` (no `next-themes`).
 
 ## Convenciones al implementar UI nueva
 
-1. Preferir componentes shadcn sobre `DomeButton`, `DomeModal`, etc. (legacy).
+1. Preferir componentes shadcn en `app/components/ui/` (`Button`, `Dialog`). Los wrappers `Dome*`/`Hub*` fueron eliminados.
 2. Componer con Tailwind + `cn()`; no CSS modules salvo casos legacy.
-3. i18n: claves en los 4 idiomas (`app/lib/i18n.ts` o `@dome/i18n`).
+3. i18n: claves en los 4 idiomas (`packages/i18n/locales/{en,es,fr,pt}/`).
 4. Accesibilidad: usar primitivos shadcn (focus, roles); botones solo-icono con `aria-label`.
 5. Tras añadir un componente shadcn, ejecutar:
 
