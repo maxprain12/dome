@@ -1,6 +1,7 @@
 import * as api from './client';
 import type { PageContext } from './browser-context';
 import type { BrowserElement } from './page-agent';
+import type { ExtractedSocialCard } from './extractors';
 export interface ToolRequest {
   type: 'browser_tool';
   callId: string;
@@ -19,6 +20,7 @@ export type AgentSnapshot = PageContext & {
   elements: BrowserElement[];
   screenshot?: string;
   screenshotError?: string;
+  social?: ExtractedSocialCard | null;
 };
 
 export function createToolRunner({

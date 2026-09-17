@@ -396,7 +396,7 @@ export function SocialReferencesStudio({
     await load();
   };
 
-  const planFromEvidence = (item: SocialReferenceRecord) => {
+  const planFromEvidence = (item: { topics?: string[]; body?: string | null }) => {
     const topics = (item.topics || []).slice(0, 6);
     const hook = String(item.body || '').trim().split('\n')[0]?.slice(0, 180);
     onPlanPost?.({

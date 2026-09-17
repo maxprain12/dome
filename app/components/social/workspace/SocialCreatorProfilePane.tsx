@@ -174,7 +174,7 @@ export function SocialCreatorProfilePane({
                         nativeButton={false}
                         size="xs"
                         variant="outline"
-                        render={<a href={profileUrl} target="_blank" rel="noreferrer" />}
+                        render={<a href={profileUrl} target="_blank" rel="noreferrer" aria-label={t('social.cards.open_profile')} />}
                       >
                         {t('social.cards.open_profile')}
                       </Button>
