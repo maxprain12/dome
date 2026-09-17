@@ -18,11 +18,12 @@ import { SocialAccountAvatar } from '@/components/social/cards/SocialAccountAvat
 import { PROVIDER_LABELS } from '@/components/social/crm/socialCrmChrome';
 import {
   SocialDirectoryColumn,
-  SocialDirectoryRow,
   SocialFichaEmpty,
   SocialHubSplit,
 } from '@/components/social/workspace/SocialDirectoryColumn';
+import { SocialCreatorPick } from '@/components/social/workspace/SocialCreatorPick';
 import { SocialCreatorProfilePane } from '@/components/social/workspace/SocialCreatorProfilePane';
+import { coversFromPosts } from '@/components/social/workspace/socialCoverSrc';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { askStudioMany } from '@/components/studio-hub/askStudioMany';
 import { looksLikeOpaqueId } from '@/lib/social/socialQueues';
@@ -37,7 +38,7 @@ export type SocialReferenceRecord = {
   body?: string | null;
   format?: string | null;
   topics?: string[];
-  media?: Array<{ type?: 'image' | 'video' | 'reel'; url?: string }>;
+  media?: Array<{ type?: 'image' | 'video' | 'reel'; url?: string; thumbnailUrl?: string }>;
   metrics?: Record<string, number | null> | null;
   sourceKind?: string;
   limitations?: string[];
@@ -148,21 +149,17 @@ function creatorAvatarSrc(
   return profile?.author?.avatarUrl || ranked[0]?.author?.avatarUrl || null;
 }
 
+function creatorPosts(
+  member: SocialWatchlistRecord['members'][number],
+  references: SocialReferenceRecord[],
+): SocialReferenceRecord[] {
+  return references.filter((item) => matchesCreator(item, member) && item.kind !== 'profile');
+}
+
 function defaultRecipe(kind: SocialWatchlistRecord['kind']): 'hooks' | 'formats' | 'rhythm' | 'this_week' {
   if (kind === 'following') return 'this_week';
   if (kind === 'inspiration') return 'formats';
   return 'hooks';
-}
-
-function suggestionReasonKey(reason: string): string {
-  switch (reason) {
-    case 'comment':
-      return 'social.creators.reason_comment';
-    case 'hashtag':
-      return 'social.creators.reason_hashtag';
-    default:
-      return 'social.creators.reason_public';
-  }
 }
 
 export function SocialReferencesStudio({
@@ -407,32 +404,7 @@ export function SocialReferencesStudio({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
-        <div>
-          <h2 className="text-lg font-semibold">{t('social.studio.nav.references')}</h2>
-          <p className="text-sm text-muted-foreground">{t('social.creators.hint')}</p>
-        </div>
-        <form
-          className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xl"
-          onSubmit={(event) => {
-            event.preventDefault();
-            capture().catch(() => {});
-          }}
-        >
-          <Input
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder={t('social.creators.add_placeholder')}
-            aria-label={t('social.creators.add_placeholder')}
-          />
-          <Button type="submit" size="sm" disabled={saving || !url.trim()}>
-            <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
-            {t('social.creators.add')}
-          </Button>
-        </form>
-      </header>
-
-      <div className="border-b px-6 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
         <ToggleGroup
           value={[viewKind]}
           variant="outline"
@@ -451,39 +423,48 @@ export function SocialReferencesStudio({
             return (
               <ToggleGroupItem key={kind} value={kind}>
                 {watchlistLabel(kind, t)}
-                <span className="tabular-nums text-muted-foreground">{count}</span>
+                {count > 0 ? <span className="tabular-nums text-muted-foreground">{count}</span> : null}
               </ToggleGroupItem>
             );
           })}
         </ToggleGroup>
+        <form
+          className="flex min-w-0 flex-1 items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            capture().catch(() => {});
+          }}
+        >
+          <Input
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder={t('social.creators.add_placeholder')}
+            aria-label={t('social.creators.add_placeholder')}
+          />
+          <Button type="submit" size="sm" disabled={saving || !url.trim()}>
+            <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+            {t('social.creators.add')}
+          </Button>
+        </form>
       </div>
 
       {suggestions.length > 0 ? (
-        <div className="flex gap-3 overflow-x-auto border-b px-6 py-3">
-          <p className="shrink-0 self-center text-xs font-medium text-muted-foreground">
+        <div className="flex gap-2 overflow-x-auto border-b px-4 py-2">
+          <p className="shrink-0 self-center text-[11px] font-medium text-muted-foreground">
             {t('social.creators.suggestions')}
           </p>
           {suggestions.map((suggestion) => (
-            <article key={suggestion.id} className="flex min-w-64 items-center gap-2 rounded-xl border bg-card p-2">
+            <div key={suggestion.id} className="flex shrink-0 items-center gap-1.5 rounded-full border bg-card py-1 pr-1 pl-1.5">
               <SocialAccountAvatar
                 name={suggestion.displayName || suggestion.handle || suggestion.provider}
                 src={suggestion.avatarUrl}
                 size="sm"
               />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold">
-                  {creatorLabel(suggestion, t('social.creators.unknown_creator'))}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {[
-                    suggestion.handle ? `@${String(suggestion.handle).replace(/^@/, '')}` : null,
-                    PROVIDER_LABELS[suggestion.provider],
-                    t(suggestionReasonKey(suggestion.reason), { detail: suggestion.reasonDetail || '' }),
-                  ].filter(Boolean).join(' · ')}
-                </p>
-              </div>
-              <Button type="button" size="xs" variant="outline" onClick={() => { acceptSuggestion(suggestion).catch(() => {}); }}>
-                {t('social.creators.accept', { list: watchlistLabel(viewKind, t) })}
+              <span className="max-w-28 truncate text-xs font-medium">
+                {creatorLabel(suggestion, t('social.creators.unknown_creator'))}
+              </span>
+              <Button type="button" size="xs" variant="ghost" onClick={() => { acceptSuggestion(suggestion).catch(() => {}); }}>
+                {t('social.creators.accept_short')}
               </Button>
               <Button
                 type="button"
@@ -497,7 +478,7 @@ export function SocialReferencesStudio({
               >
                 {t('social.creators.dismiss')}
               </Button>
-            </article>
+            </div>
           ))}
         </div>
       ) : null}
@@ -505,7 +486,7 @@ export function SocialReferencesStudio({
       {error ? <p className="px-6 py-2 text-sm text-destructive">{error}</p> : null}
 
       <SocialHubSplit>
-        <div className="flex h-full min-h-0 w-[18.5rem] shrink-0 flex-col border-r">
+        <div className="flex h-full min-h-0 w-[21rem] shrink-0 flex-col border-r">
         <SocialDirectoryColumn
           query={members.length > 0 ? query : undefined}
           onQueryChange={members.length > 0 ? setQuery : undefined}
@@ -514,11 +495,10 @@ export function SocialReferencesStudio({
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button type="button" size="xs" variant="outline" />
+                  <Button type="button" size="icon-xs" variant="outline" aria-label={t('social.creators.recipes_toggle')} />
                 }
               >
-                <HugeiconsIcon icon={Settings02Icon} data-icon="inline-start" />
-                {t('social.creators.recipes_toggle')}
+                <HugeiconsIcon icon={Settings02Icon} />
               </PopoverTrigger>
               <PopoverContent align="end" className="w-72 gap-2 p-3">
                 <p className="text-[11px] font-medium text-muted-foreground">{t('social.creators.recipes')}</p>
@@ -587,25 +567,23 @@ export function SocialReferencesStudio({
         >
           {filteredMembers.length > 0 ? (
             <ul>
-              {filteredMembers.map((member) => (
-                <SocialDirectoryRow
-                  key={member.personId}
-                  selected={selected?.personId === member.personId}
-                  onClick={() => setSelectedPersonId(member.personId)}
-                  mark={
-                    <SocialAccountAvatar
-                      name={creatorLabel(member, t('social.creators.unknown_creator'))}
-                      src={creatorAvatarSrc(member, references)}
-                      size="sm"
-                    />
-                  }
-                  title={creatorLabel(member, t('social.creators.unknown_creator'))}
-                  subtitle={[
-                    member.handle ? `@${String(member.handle).replace(/^@/, '')}` : null,
-                    member.provider ? PROVIDER_LABELS[member.provider as keyof typeof PROVIDER_LABELS] : null,
-                  ].filter(Boolean).join(' · ')}
-                />
-              ))}
+              {filteredMembers.map((member) => {
+                const posts = creatorPosts(member, references);
+                const name = creatorLabel(member, t('social.creators.unknown_creator'));
+                return (
+                  <SocialCreatorPick
+                    key={member.personId}
+                    selected={selected?.personId === member.personId}
+                    onClick={() => setSelectedPersonId(member.personId)}
+                    name={name}
+                    handle={member.handle ? `@${String(member.handle).replace(/^@/, '')}` : null}
+                    provider={member.provider ? PROVIDER_LABELS[member.provider as keyof typeof PROVIDER_LABELS] : null}
+                    avatarUrl={creatorAvatarSrc(member, references)}
+                    covers={coversFromPosts(posts)}
+                    meta={posts.length > 0 ? t('social.creators.posts_count', { count: posts.length }) : null}
+                  />
+                );
+              })}
             </ul>
           ) : null}
         </SocialDirectoryColumn>

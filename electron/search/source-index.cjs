@@ -355,6 +355,7 @@ function indexPeople(projectId = null) {
       title: person.displayName,
       body: [person.primaryEmail, handles, person.notes].filter(Boolean).join('\n'),
       meta: {
+        email: person.primaryEmail || null,
         identities: (person.identities || []).map((i) => ({
           source: i.source,
           externalId: i.externalId,
@@ -405,8 +406,9 @@ function indexEmailMessages(accountId = null) {
   let n = 0;
   for (const row of rows) {
     const allowBody = canIndexEmailBodies(row.account_id);
-    const fromSnippet = String(row.from_json || '').slice(0, 200);
-    const bodyParts = [fromSnippet, row.snippet || ''];
+    const from = parseEmailFromJson(row.from_json);
+    const fromSnippet = from.label;
+    const bodyParts = [fromSnippet ? `from:${fromSnippet}` : '', row.snippet || ''];
     if (allowBody && row.body_text) {
       bodyParts.push(String(row.body_text).slice(0, 10_000));
     }
@@ -420,6 +422,8 @@ function indexEmailMessages(accountId = null) {
         accountId: row.account_id,
         folder: row.remote_name,
         uid: row.uid,
+        from: from.label,
+        fromEmail: from.email || null,
         hasBodyIndexed: allowBody && Boolean(row.body_text),
       },
     });
@@ -595,6 +599,7 @@ function searchPeopleDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
       title: person.displayName,
       snippet: person.primaryEmail || '',
       meta: {
+        email: person.primaryEmail || null,
         identities: (person.identities || []).map((i) => ({
           source: i.source,
           externalId: i.externalId,
@@ -605,6 +610,24 @@ function searchPeopleDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
     console.warn('[source-index] searchPeopleDirect:', err?.message || err);
     return [];
   }
+}
+
+function parseEmailFromJson(fromJson) {
+  if (!fromJson) return { name: '', email: '', label: '' };
+  let parsed = fromJson;
+  if (typeof fromJson === 'string') {
+    try {
+      parsed = JSON.parse(fromJson);
+    } catch {
+      return { name: '', email: '', label: '' };
+    }
+  }
+  const first = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!first) return { name: '', email: '', label: '' };
+  if (typeof first === 'string') return { name: first, email: '', label: first };
+  const name = first.name && first.name !== 'null' ? String(first.name).trim() : '';
+  const email = String(first.addr || first.email || '').trim();
+  return { name, email, label: name || email };
 }
 
 function searchEmailDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
@@ -636,19 +659,24 @@ function searchEmailDirect(rawTerms, projectId = null, limit = DOMAIN_CAP) {
     return db()
       .prepare(sql)
       .all(...params)
-      .map((row) => ({
-        kind: 'email',
-        id: row.source_id,
-        docId: docId('email', row.source_id),
-        projectId: row.project_id || 'default',
-        title: row.subject || '(no subject)',
-        snippet: String(row.snippet || row.from_json || '').slice(0, 120),
-        meta: {
-          accountId: row.account_id,
-          folder: row.folder,
-          uid: row.uid,
-        },
-      }));
+      .map((row) => {
+        const from = parseEmailFromJson(row.from_json);
+        return {
+          kind: 'email',
+          id: row.source_id,
+          docId: docId('email', row.source_id),
+          projectId: row.project_id || 'default',
+          title: row.subject || '(no subject)',
+          snippet: String(row.snippet || '').replace(/\s+/g, ' ').trim().slice(0, 180),
+          meta: {
+            accountId: row.account_id,
+            folder: row.folder,
+            uid: row.uid,
+            from: from.label,
+            fromEmail: from.email || null,
+          },
+        };
+      });
   } catch (err) {
     console.warn('[source-index] searchEmailDirect:', err?.message || err);
     return [];

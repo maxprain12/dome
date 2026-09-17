@@ -61,13 +61,13 @@ export function SocialProfileCard({
       <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
         {followers ? (
           <div>
-            <dt className="text-xs text-muted-foreground">{t('social.studio.growth_followers')}</dt>
+            <dt className="text-xs text-muted-foreground">{t('social.hub.growth_followers')}</dt>
             <dd className="tabular-nums font-medium">{followers}</dd>
           </div>
         ) : null}
         {model.postsCount != null ? (
           <div>
-            <dt className="text-xs text-muted-foreground">{t('social.studio.growth_posts')}</dt>
+            <dt className="text-xs text-muted-foreground">{t('social.hub.growth_posts')}</dt>
             <dd className="tabular-nums font-medium">{model.postsCount}</dd>
           </div>
         ) : null}

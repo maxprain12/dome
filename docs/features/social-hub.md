@@ -13,7 +13,7 @@ Tomada de un dashboard de analytics (resumen de rendimiento, crecimiento de audi
 | Contenido / Campañas / Eventos / Cuentas | Directorio ~36% + ficha inline (misma chrome que Contactos). |
 | Insights | Informes IA + funnel de eventos. El dato vivo vive en Inicio. |
 | Referencias | Directorio de creadores + dossier (evidencia pública, exploraciones en segundo plano). |
-| Tendencias | Creatividades visuales (vídeo primero) rankeadas por engagement real de tus posts y referencias; hashtags como chips secundarios. |
+| Tendencias | Radar híbrido: **Tu radar** (posts + referencias), y Para ti / Emergentes / Populares cuando hay evidencia temporal y multi-autor. Creatividades visuales rankeadas por engagement real; el CTA genera ángulos, no copia el título de una referencia. |
 
 Periodo (7 / 30 / 90 días) en el resumen de rendimiento. Un post reciente abre Contenido con esa ficha.
 
@@ -35,9 +35,9 @@ El estudio de **Referencias** es un directorio de creadores (inspiración / comp
 - Pegar una URL pública resuelve el perfil, lo da de alta en la vista activa y guarda posts visibles como biblioteca.
 - **Explorar ahora** encola un job en main (`social_explorations`): captura pública + resumen. Many permanece cerrado. Recetas y cadencia (manual / diario / semanal) se ajustan en el propio panel.
 - Sugerencias (`social_creator_suggestions`): hashtags de tus posts, autores de comentarios ya importados y perfiles públicos guardados. Tope de 5 candidatos por red y semana. Aceptar / descartar se recuerda.
-- Tendencias es otra pestaña: **creatividades visuales** (reels primero) rankeadas por likes/vistas reales de tus posts y referencias, más temas secundarios. CTA hacia el compositor. «Explorar este tema» reutiliza la cola de exploraciones. No se inventan Explore/Trends de la plataforma ni métricas ausentes.
+- Tendencias es otra pestaña: **radar híbrido**. **Tu radar** evoluciona el benchmark de posts y referencias. Para ti / Emergentes / Populares solo aparecen con evidencia temporal y varios autores. CTA «Crear a partir de esta tendencia». Contrato: [`docs/plans/active/social-trends-radar.md`](../plans/active/social-trends-radar.md).
 
-IPC: `social:references:*`, `social:watchlists:*`, `social:explorations:list|run|run-theme|cancel|recipes`, `social:suggestions:list|refresh|accept|dismiss`, `social:trends:snapshot`.
+IPC: `social:references:*`, `social:watchlists:*`, `social:explorations:list|run|run-theme|cancel|recipes`, `social:suggestions:list|refresh|accept|dismiss`, `social:trends:snapshot|feed|event|create-from|capabilities`.
 
 Chips de Many: un perfil/referencia se pinea con avatar y etiqueta `@handle · Instagram`, nunca el título HTML crudo. Pulsar el chip abre la ficha del creador en Referencias.
 

@@ -8,6 +8,13 @@
       "when": 1730000000000,
       "tag": "0000_baseline_v53",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1758090000000,
+      "tag": "0001_social_radar",
+      "breakpoints": true
     }
   ]
 }

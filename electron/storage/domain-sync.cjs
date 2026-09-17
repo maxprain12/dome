@@ -214,6 +214,11 @@ const DOMAIN_SPECS = {
       { name: 'social_watchlists', deltaColumn: 'updated_at', localOnly: true },
       { name: 'social_explorations', deltaColumn: 'updated_at', localOnly: true },
       { name: 'social_creator_suggestions', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_reference_metrics', deltaColumn: 'captured_at', localOnly: true, appendOnly: true },
+      { name: 'social_radar_cluster_cache', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_interest_profile', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_trend_events', deltaColumn: 'created_at', localOnly: true, appendOnly: true },
+      { name: 'social_trend_attributions', deltaColumn: 'updated_at', localOnly: true },
     ],
   },
   pipelines: {

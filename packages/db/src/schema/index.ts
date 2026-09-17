@@ -8,6 +8,7 @@ export * from './github.js';
 export * from './pipelines.js';
 export * from './sync.js';
 export * from './people.js';
+export * from './social-radar.js';
 
 import * as core from './core.js';
 import * as agents from './agents.js';
@@ -19,6 +20,7 @@ import * as github from './github.js';
 import * as pipelines from './pipelines.js';
 import * as sync from './sync.js';
 import * as people from './people.js';
+import * as socialRadar from './social-radar.js';
 
 /** Full schema object passed to drizzle(). FTS5 virtual tables are managed via raw SQL. */
 export const schema = {
@@ -32,4 +34,5 @@ export const schema = {
   ...pipelines,
   ...sync,
   ...people,
+  ...socialRadar,
 };

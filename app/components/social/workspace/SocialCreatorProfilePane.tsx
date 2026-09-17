@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { Delete02Icon, MoreHorizontalIcon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { HubSearch } from '@/components/hub/HubSearch';
@@ -169,25 +176,36 @@ export function SocialCreatorProfilePane({
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="secondary">{t('social.creators.in_list', { list: listLabel })}</Badge>
-                    {profileUrl ? (
-                      <Button
-                        nativeButton={false}
-                        size="xs"
-                        variant="outline"
-                        render={<a href={profileUrl} target="_blank" rel="noreferrer" aria-label={t('social.cards.open_profile')} />}
-                      >
-                        {t('social.cards.open_profile')}
-                      </Button>
-                    ) : null}
                     <Button type="button" size="xs" onClick={onExplore} disabled={exploring}>
                       {exploring ? t('social.creators.exploring') : t('social.creators.explore_now')}
                     </Button>
-                    <Button type="button" size="xs" variant="outline" onClick={onUseInMany}>
-                      {t('social.creators.use_in_many')}
-                    </Button>
-                    <Button type="button" size="icon-xs" variant="ghost" onClick={onRemove} aria-label={t('common.delete')}>
-                      <HugeiconsIcon icon={Delete02Icon} />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={<Button type="button" variant="ghost" size="icon-xs" />}
+                        aria-label={t('people.more_actions')}
+                      >
+                        <HugeiconsIcon icon={MoreHorizontalIcon} />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {profileUrl ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              globalThis.open(profileUrl, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            {t('social.cards.open_profile')}
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuItem onClick={onUseInMany}>
+                          {t('social.creators.use_in_many')}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={onRemove}>
+                          <HugeiconsIcon icon={Delete02Icon} />
+                          {t('common.delete')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
                 {bio ? (
@@ -199,7 +217,7 @@ export function SocialCreatorProfilePane({
                   {followers != null ? (
                     <div className="flex items-baseline gap-1.5">
                       <dd className="font-medium tabular-nums">{compact(followers)}</dd>
-                      <dt className="text-muted-foreground">{t('social.studio.growth_followers')}</dt>
+                      <dt className="text-muted-foreground">{t('social.hub.growth_followers')}</dt>
                     </div>
                   ) : null}
                   <div className="flex items-baseline gap-1.5">

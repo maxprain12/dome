@@ -77,8 +77,15 @@ function avatarFromEvidence(member, references) {
   return (profile || matches[0])?.author?.avatarUrl || null;
 }
 
-function createSocialReferenceStore(database) {
+function createSocialReferenceStore(database, { radarStore } = {}) {
   const q = () => database.getQueries();
+  const snapshotMetrics = (referenceId, metrics) => {
+    try {
+      radarStore?.snapshotReferenceMetrics?.(referenceId, metrics);
+    } catch {
+      // snapshots are best-effort; capture must still succeed
+    }
+  };
 
   function capture({
     projectId = 'default',
@@ -128,6 +135,7 @@ function createSocialReferenceStore(database) {
       notes: notes ?? existing?.notes ?? null,
     };
     if (existing) {
+      snapshotMetrics(existing.id, parseJson(existing.metrics_json, null));
       q().updateSocialReference.run(
         payload.personId, payload.resourceId, payload.title, payload.body, payload.format,
         JSON.stringify(payload.topics), JSON.stringify(payload.media),
@@ -135,6 +143,7 @@ function createSocialReferenceStore(database) {
         JSON.stringify(payload.source), payload.sourceKind, JSON.stringify(payload.limitations),
         now, payload.notes, now, existing.id,
       );
+      snapshotMetrics(existing.id, payload.metrics);
       if (collectionId) addToCollection(collectionId, existing.id);
       return { reference: serializeReference(q().getSocialReferenceById.get(existing.id)), created: false };
     }
@@ -147,6 +156,7 @@ function createSocialReferenceStore(database) {
       JSON.stringify(payload.source), payload.sourceKind, JSON.stringify(payload.limitations),
       now, payload.notes, now, now,
     );
+    snapshotMetrics(id, payload.metrics);
     if (collectionId) addToCollection(collectionId, id);
     return { reference: serializeReference(q().getSocialReferenceById.get(id)), created: true };
   }

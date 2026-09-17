@@ -554,9 +554,13 @@ declare global {
           page?: number;
           pageSize?: number;
         }) => Promise<EmailResult<{ envelopes?: any[]; accountId?: string; folder?: string }>>;
-        read: (params: { accountId?: string | null; messageId: string; projectId?: string; folder?: string }) => Promise<
-          EmailResult<{ message?: any; accountId?: string }>
-        >;
+        read: (params: {
+          accountId?: string | null;
+          messageId: string;
+          projectId?: string;
+          folder?: string;
+          cacheOnly?: boolean;
+        }) => Promise<EmailResult<{ message?: any; accountId?: string }>>;
         search: (params: { accountId?: string | null; projectId?: string; query: string; folder?: string; pageSize?: number }) => Promise<
           EmailResult<{ envelopes?: any[]; accountId?: string }>
         >;

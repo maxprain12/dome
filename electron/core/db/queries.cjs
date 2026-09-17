@@ -1500,6 +1500,71 @@ function buildQueries(db) {
       'SELECT * FROM social_trend_snapshots WHERE project_id = ? ORDER BY created_at DESC LIMIT ?',
     ),
 
+    insertSocialReferenceMetric: db.prepare(`
+      INSERT INTO social_reference_metrics (
+        id, reference_id, captured_at, likes, comments, shares, impressions, saves, metrics_json, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    listSocialReferenceMetrics: db.prepare(
+      'SELECT * FROM social_reference_metrics WHERE reference_id = ? ORDER BY captured_at DESC LIMIT ?',
+    ),
+    getLatestSocialReferenceMetric: db.prepare(
+      'SELECT * FROM social_reference_metrics WHERE reference_id = ? ORDER BY captured_at DESC LIMIT 1',
+    ),
+
+    upsertSocialRadarClusterCache: db.prepare(`
+      INSERT INTO social_radar_cluster_cache (
+        id, project_id, feed, topic_key, payload_json, expires_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        feed = excluded.feed,
+        topic_key = excluded.topic_key,
+        payload_json = excluded.payload_json,
+        expires_at = excluded.expires_at,
+        updated_at = excluded.updated_at
+    `),
+    listSocialRadarClusterCache: db.prepare(`
+      SELECT * FROM social_radar_cluster_cache
+      WHERE project_id = ? AND feed = ? AND expires_at > ?
+      ORDER BY updated_at DESC
+    `),
+    getSocialRadarClusterCache: db.prepare('SELECT * FROM social_radar_cluster_cache WHERE id = ?'),
+    deleteExpiredSocialRadarClusterCache: db.prepare(
+      'DELETE FROM social_radar_cluster_cache WHERE expires_at <= ?',
+    ),
+
+    getSocialInterestProfile: db.prepare(
+      'SELECT * FROM social_interest_profile WHERE project_id = ? AND topic_key = ?',
+    ),
+    listSocialInterestProfile: db.prepare(
+      'SELECT * FROM social_interest_profile WHERE project_id = ? ORDER BY weight DESC',
+    ),
+    upsertSocialInterestProfile: db.prepare(`
+      INSERT INTO social_interest_profile (id, project_id, topic_key, weight, evidence_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(project_id, topic_key) DO UPDATE SET
+        weight = excluded.weight,
+        evidence_json = excluded.evidence_json,
+        updated_at = excluded.updated_at
+    `),
+
+    insertSocialTrendEvent: db.prepare(`
+      INSERT INTO social_trend_events (id, project_id, cluster_id, event_type, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `),
+    listSocialTrendEvents: db.prepare(`
+      SELECT * FROM social_trend_events WHERE project_id = ? ORDER BY created_at DESC LIMIT ?
+    `),
+
+    insertSocialTrendAttribution: db.prepare(`
+      INSERT INTO social_trend_attributions (
+        id, project_id, cluster_id, draft_id, post_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    listSocialTrendAttributions: db.prepare(
+      'SELECT * FROM social_trend_attributions WHERE project_id = ? ORDER BY created_at DESC LIMIT ?',
+    ),
+
     insertSocialExploration: db.prepare(`
       INSERT INTO social_explorations (
         id, project_id, person_id, watchlist_kind, recipe_id, status, summary, payload_json,

@@ -549,7 +549,7 @@ async function readMessageHeaders(accountId, uid, { folder = 'INBOX' } = {}) {
  *
  * `messageId` may be an IMAP uid or a Dome cache row id (`emsg-?`).
  */
-async function readMessage(accountId, messageId, { folder = 'INBOX', projectId = null, forceLive = false } = {}) {
+async function readMessage(accountId, messageId, { folder = 'INBOX', projectId = null, forceLive = false, cacheOnly = false } = {}) {
   const emailStore = require('./email-store.cjs');
   const rawId = String(messageId || '').trim();
   let id = rawId.startsWith('emsg-') ? accountId || null : resolveAccountId(accountId, projectId);
@@ -594,6 +594,13 @@ async function readMessage(accountId, messageId, { folder = 'INBOX', projectId =
         source: 'cache',
       };
     }
+    if (cacheOnly) {
+      return { success: false, error: 'Not cached', source: 'cache' };
+    }
+  }
+
+  if (cacheOnly) {
+    return { success: false, error: 'Not cached', source: 'cache' };
   }
 
   const dest = messageExportDir(id, uid, resolvedFolder);

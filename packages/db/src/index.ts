@@ -5,6 +5,7 @@ export { runDrizzleMigrate } from './migrate.js';
 export * from './schema/index.js';
 export * as settingsRepo from './repos/settings.js';
 export * as tagsRepo from './repos/tags.js';
+export * as socialRadarRepo from './repos/social-radar.js';
 
 // Re-export pilot table symbols for spike/tests
 export { settings, tags } from './schema/core.js';

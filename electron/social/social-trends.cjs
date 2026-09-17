@@ -1,5 +1,8 @@
 'use strict';
 
+const { buildRadarFeeds } = require('./radar/radar-feed.cjs');
+const { enrichCluster } = require('./radar/radar-enrich.cjs');
+
 const WINDOW_DAYS = new Set([7, 30, 90]);
 
 function uniqueSorted(values) {
@@ -216,7 +219,13 @@ function buildTrendSignals({ ownPosts, references, windowDays }) {
   };
 }
 
-function deriveTrends(store, referenceStore, { projectId = 'default', windowDays = 30 } = {}) {
+function deriveTrends(store, referenceStore, {
+  projectId = 'default',
+  windowDays = 30,
+  language = 'es',
+  database = null,
+  radarStore = null,
+} = {}) {
   const days = WINDOW_DAYS.has(Number(windowDays)) ? Number(windowDays) : 30;
   const metricByPost = new Map((store.listLatestMetrics?.() || []).map((row) => [row.postId, row]));
   const ownPosts = (store.listPosts({ projectId, limit: 400 }) || []).map((post) => ({
@@ -246,7 +255,47 @@ function deriveTrends(store, referenceStore, { projectId = 'default', windowDays
     periodDays: days,
     payload: snapshot,
   });
-  return { success: true, ...snapshot, snapshotId: saved?.id || null };
+  if (!database || !radarStore) {
+    return { success: true, ...snapshot, snapshotId: saved?.id || null, feeds: emptyFeeds() };
+  }
+  return buildRadarFeeds({
+    database,
+    store,
+    referenceStore,
+    radarStore,
+    projectId,
+    windowDays: days,
+    language,
+  }).then((radar) => ({
+    success: true,
+    ...snapshot,
+    ...radar,
+    limitations: uniqueSorted([...(snapshot.limitations || []), ...(radar.limitations || [])]),
+    snapshotId: saved?.id || null,
+  }));
+}
+
+function emptyFeeds() {
+  return { radar: [], forYou: [], emerging: [], popular: [] };
+}
+
+function createFromTrend(radarStore, cluster, { projectId = 'default' } = {}) {
+  const enriched = cluster.creativeBrief ? cluster : enrichCluster(cluster, { affinity: cluster.affinity || 0 });
+  const body = [...enriched.creativeBrief.angles, '', ...enriched.creativeBrief.structure].join('\n');
+  const attribution = radarStore.createAttribution({ projectId, clusterId: cluster.id });
+  radarStore.recordEvent({
+    projectId,
+    clusterId: cluster.id,
+    eventType: 'generate',
+    payload: { topics: cluster.topics || [cluster.title], topicKey: cluster.topicKey },
+  });
+  return {
+    seed: {
+      body,
+      topics: (cluster.topics || []).slice(0, 6),
+    },
+    attribution,
+  };
 }
 
 function countBy(items, keyFn) {
@@ -390,6 +439,7 @@ function buildProfileComparison({ ownAccount, ownMetric, reference }) {
 
 module.exports = {
   deriveTrends,
+  createFromTrend,
   buildTrendSignals,
   buildTrendCreatives,
   buildCompetitiveReport,
