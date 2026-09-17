@@ -41,7 +41,9 @@ describe('drizzle-bridge', () => {
       const version = db.prepare("SELECT value FROM settings WHERE key = 'schema_version'").get();
       assert.equal(parseInt(version.value, 10), SCHEMA_HEAD);
       const drizzleCount = db.prepare('SELECT COUNT(*) AS c FROM __drizzle_migrations').get();
-      assert.ok(drizzleCount.c >= 1);
+      assert.ok(drizzleCount.c >= 2);
+      assert.equal(db.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE name = 'social_reference_metrics'").get().c, 1);
+      assert.equal(db.prepare("SELECT COUNT(*) AS c FROM sqlite_master WHERE name = 'social_trend_events'").get().c, 1);
     } finally {
       db.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });

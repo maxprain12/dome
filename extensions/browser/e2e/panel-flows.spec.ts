@@ -738,14 +738,16 @@ test('usa composer avanzado, recursos, adjuntos y SSE rico', async () => {
     .getByRole('button', { name: 'Preguntar a Many', exact: true })
     .click();
 
-  await page.getByText('Razonamiento', { exact: true }).click();
+  await page.getByText('Pensado', { exact: true }).click();
   await expect(
     page.getByText('I am checking the source and its claims.', {
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByText('web search', { exact: true })).toBeVisible();
-  await expect(page.getByText('Found 3 sources', { exact: true })).toBeVisible();
+  await page.getByText('Búsqueda hecha', { exact: true }).click();
+  await expect(
+    page.getByText('technology work economic growth', { exact: true }),
+  ).toBeVisible();
   await expect(page.locator('.rendered-markdown h2')).toHaveText('Key ideas');
   await expect(
     page.getByText('2560 tokens', { exact: true }).first(),
@@ -877,7 +879,7 @@ test('busca, abre, fija y elimina sesiones enriquecidas', async () => {
     .getByRole('button', { name: /Desktop conversation/ })
     .click();
   await expect(page.getByText('Earlier answer', { exact: true })).toBeVisible();
-  await expect(page.getByText('web search', { exact: true })).toBeVisible();
+  await expect(page.getByText('Búsqueda hecha', { exact: true })).toBeVisible();
   await expect(
     page.getByText('1024 tokens', { exact: true }),
   ).toBeVisible();

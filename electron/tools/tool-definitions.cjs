@@ -1017,7 +1017,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'social_trends_snapshot',
-        description: 'Derive trend signals from own posts and saved references. Source: Social hub.',
+        description: 'Derive trend clusters from own posts, references and optional cloud sensors. Returns claims with evidence. Source: Social hub.',
         parameters: { type: 'object', properties: { window_days: { type: 'number' } } },
       },
     },

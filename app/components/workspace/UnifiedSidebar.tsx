@@ -650,7 +650,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={t('sidebar.new_resource', 'Nuevo recurso')}
+                aria-label={t('sidebar.new_resource')}
                 onClick={(e) => {
                   const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
                   setAddMenu({ x: rect.left, y: rect.bottom + 4 });
@@ -676,7 +676,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
                 size="icon-sm"
                 onClick={() => setWorkspaceOpen(!workspaceOpen)}
                 aria-expanded={workspaceOpen}
-                aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
+                aria-label={workspaceOpen ? t('sidebar.collapse_workspace') : t('sidebar.expand_workspace')}
               >
                 <HugeiconsIcon icon={ChevronDownIcon} className={`shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} />
               </Button>

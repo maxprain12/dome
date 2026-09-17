@@ -14,5 +14,10 @@
   "group_connections": "Conexiones",
   "group_many": "Many",
   "group_files": "Archivos",
-  "file_actions": "Acciones de archivos"
+  "file_actions": "Acciones de archivos",
+  "navigation": "Navegación",
+  "new_folder": "Nueva carpeta",
+  "new_resource": "Nuevo recurso",
+  "collapse_workspace": "Contraer workspace",
+  "expand_workspace": "Expandir workspace"
 }

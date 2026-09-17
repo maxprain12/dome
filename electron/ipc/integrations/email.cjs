@@ -79,6 +79,8 @@ const ReadMessageSchema = z.object({
   messageId: z.string().min(1),
   projectId: z.string().min(1).optional(),
   folder: z.string().optional(),
+  /** Cmd+K preview: never hit IMAP if the body is not already cached. */
+  cacheOnly: z.boolean().optional(),
 });
 
 const SearchSchema = z.object({
@@ -248,8 +250,8 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = ReadMessageSchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params' };
-      const { accountId, messageId, folder, projectId } = parsed.data;
-      return await emailService.readMessage(accountId ?? null, messageId, { folder, projectId });
+      const { accountId, messageId, folder, projectId, cacheOnly } = parsed.data;
+      return await emailService.readMessage(accountId ?? null, messageId, { folder, projectId, cacheOnly });
     } catch (err) {
       console.error('[Email IPC] read error:', err);
       return fail(err);

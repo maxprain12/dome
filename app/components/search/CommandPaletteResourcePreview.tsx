@@ -1,25 +1,25 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Folder01Icon,
-  Mail01Icon,
-  Share08Icon,
-  Task01Icon,
-  UserIcon,
 } from '@hugeicons/core-free-icons';
-import { typesetDocsClass } from '@/lib/typeset';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/types';
 import ResourceIcon from '@/components/shared/ResourceIcon';
+import MarkdownBody from '@/components/shared/MarkdownBody';
 import { loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { formatDistanceToNow } from '@/lib/utils';
 import { Spinner } from '@/components/ui/spinner';
-import { metaString, type PalettePreviewTarget, type SourceHitRow } from './commandPaletteTypes';
+import { type PalettePreviewTarget } from './commandPaletteTypes';
+import {
+  classifyPreviewContent,
+  previewPlainText,
+  wrapCmdkPreviewHtml,
+} from './commandPalettePreviewBody';
+import { CommandPaletteSourcePreview } from './CommandPaletteSourcePreview';
+import { useDomeThemeSnapshot } from '@/lib/chat/useDomeThemeSnapshot';
 
 const CACHE_MAX = 30;
-const MARKDOWN_MAX = 2000;
 const SNIPPET_RADIUS = 260;
 
 interface PreviewData {
@@ -31,6 +31,8 @@ interface PreviewData {
   markdown: string | null;
   /** Plain-text body (non-note text resources). */
   text: string | null;
+  /** Renderable HTML document (agent reports, artifacts, imported pages). */
+  html: string | null;
   /** Image cover (image/video thumbnails). */
   imageUrl: string | null;
   /** First PDF page render. */
@@ -77,14 +79,15 @@ async function fetchPreview(resourceId: string): Promise<PreviewData | null> {
     folderPath: await fetchFolderPath(r.folder_id),
     markdown: null,
     text: null,
+    html: null,
     imageUrl: null,
     pdfDataUrl: null,
   };
 
-  if (type === 'note') {
+  if (type === 'note' || type === 'notebook') {
     try {
       const md = await loadNoteMarkdown(r as unknown as Resource);
-      if (md?.trim()) data.markdown = md.trim().slice(0, MARKDOWN_MAX);
+      Object.assign(data, classifyPreviewContent(md));
     } catch { /* fall through to plain text */ }
   } else if (type === 'pdf') {
     try {
@@ -96,14 +99,24 @@ async function fetchPreview(resourceId: string): Promise<PreviewData | null> {
     } catch { /* fall through to plain text */ }
   } else if ((type === 'image' || type === 'video') && typeof r.thumbnail_data === 'string' && r.thumbnail_data) {
     data.imageUrl = r.thumbnail_data;
+  } else if (type === 'artifact') {
+    try {
+      const result = await window.electron?.artifacts?.get?.(resourceId);
+      const record = result && typeof result === 'object' && 'success' in result && result.success
+        ? (result as { data?: { template?: unknown; state?: { html?: unknown } } }).data
+        : null;
+      const template = typeof record?.template === 'string' ? record.template : '';
+      const stateHtml = typeof record?.state?.html === 'string' ? record.state.html : '';
+      Object.assign(data, classifyPreviewContent(template || stateHtml));
+    } catch { /* fall through to plain text */ }
   }
 
-  if (!data.markdown && !data.pdfDataUrl && !data.imageUrl) {
+  if (!data.markdown && !data.pdfDataUrl && !data.imageUrl && !data.html) {
     const text =
       (typeof r.content_text === 'string' && r.content_text.trim()) ||
       (typeof r.content === 'string' && r.content.trim()) ||
       '';
-    data.text = text || null;
+    Object.assign(data, classifyPreviewContent(text || null));
   }
 
   return data;
@@ -134,65 +147,61 @@ function highlight(text: string, query: string): ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
-function SourceHitPreview({ hit, query }: { hit: SourceHitRow; query: string }) {
-  const { t } = useTranslation();
-  const icon =
-    hit.kind === 'issue'
-      ? Task01Icon
-      : hit.kind === 'email'
-        ? Mail01Icon
-        : hit.kind === 'person'
-          ? UserIcon
-          : Share08Icon;
+const HTML_PAGE_WIDTH = 720;
 
-  const state = metaString(hit.meta, 'state');
-  const repo = metaString(hit.meta, 'fullName');
-  const folder = metaString(hit.meta, 'folder');
-  const provider = metaString(hit.meta, 'provider');
-  const number = hit.meta?.number;
+function extraHostTokens(): string {
+  if (typeof document === 'undefined') return '';
+  const cs = getComputedStyle(document.documentElement);
+  return ['--font-heading', '--font-sans', '--radius']
+    .map((name) => {
+      const value = cs.getPropertyValue(name).trim();
+      return value ? `${name}:${value};` : '';
+    })
+    .join('');
+}
 
-  const metaLine = (() => {
-    if (hit.kind === 'issue') {
-      const stateLabel =
-        state === 'closed' ? t('command.find_preview_state_closed') : t('command.find_preview_state_open');
-      const num = typeof number === 'number' ? `#${number}` : null;
-      return [stateLabel, repo, num].filter(Boolean).join(' · ');
-    }
-    if (hit.kind === 'email') {
-      return folder ? t('command.find_email_folder', { folder }) : t('command.find_email_fallback');
-    }
-    if (hit.kind === 'social_post') {
-      return [provider, metaString(hit.meta, 'status')].filter(Boolean).join(' · ') || t('command.social_posts');
-    }
-    return t('command.people');
-  })();
+function CmdkHtmlPreview({ html, title }: { html: string; title: string }) {
+  const theme = useDomeThemeSnapshot();
+  const hostRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [scale, setScale] = useState(1);
+  const srcDoc = useMemo(() => {
+    return wrapCmdkPreviewHtml(html, `${theme.cssVars}${extraHostTokens()}`);
+  }, [html, theme.cssVars]);
 
-  const body = hit.snippet?.trim() || null;
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return undefined;
+    const sync = () => {
+      const width = el.clientWidth;
+      if (width > 0) setScale(Math.min(1, width / HTML_PAGE_WIDTH));
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [srcDoc]);
+
+  const safeScale = scale > 0 ? scale : 1;
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.style.width = `${HTML_PAGE_WIDTH}px`;
+    frame.style.height = `${100 / safeScale}%`;
+    frame.style.transform = `scale(${safeScale})`;
+  }, [safeScale]);
 
   return (
-    <div className="dome-cmdk-preview flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border px-3.5 py-2.5">
-        <div className="flex items-center gap-2">
-          <HugeiconsIcon icon={icon} className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
-            {hit.title}
-          </span>
-        </div>
-        <div className="mt-1 text-[11px] text-muted-foreground">
-          <span className="truncate">{metaLine}</span>
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3">
-        {body ? (
-          <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-            {highlight(contextAround(body, query.trim()), query.trim())}
-          </p>
-        ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
-            {t('command.preview_empty')}
-          </div>
-        )}
-      </div>
+    <div ref={hostRef} className="relative h-full min-h-0 overflow-hidden bg-muted/40">
+      <iframe
+        ref={frameRef}
+        title={title}
+        sandbox=""
+        srcDoc={srcDoc}
+        className="absolute left-0 top-0 origin-top-left border-0 bg-background"
+        tabIndex={-1}
+      />
     </div>
   );
 }
@@ -246,13 +255,20 @@ export default function CommandPaletteResourcePreview({ target, query }: Props) 
 
   const matchContext = useMemo(() => {
     if (!preview || !query.trim()) return null;
-    const source = preview.markdown ?? preview.text ?? '';
+    const source = previewPlainText(preview.html ?? preview.markdown ?? preview.text);
     if (!source || source.toLowerCase().indexOf(query.trim().toLowerCase()) < 0) return null;
     return contextAround(source, query.trim());
   }, [preview, query]);
 
   if (target.kind === 'source') {
-    return <SourceHitPreview hit={target.hit} query={query} />;
+    return (
+      <CommandPaletteSourcePreview
+        hit={target.hit}
+        query={query}
+        highlight={highlight}
+        contextAround={contextAround}
+      />
+    );
   }
 
   if (loading && !preview) {
@@ -295,29 +311,30 @@ export default function CommandPaletteResourcePreview({ target, query }: Props) 
         </div>
       </div>
 
-      {matchContext ? (
+      {matchContext && !preview.html && !preview.pdfDataUrl && !preview.imageUrl ? (
         <div className="shrink-0 border-b bg-primary/5 px-3.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
           <span className="line-clamp-4">{highlight(matchContext, query.trim())}</span>
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {preview.markdown ? (
-          <div className={typesetDocsClass('px-3.5 py-3')}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}
-            >
-              {preview.markdown}
-            </ReactMarkdown>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {preview.html ? (
+          <CmdkHtmlPreview html={preview.html} title={t('command.preview_frame')} />
+        ) : preview.markdown ? (
+          <div className="h-full overflow-y-auto px-1 py-1">
+            <MarkdownBody content={preview.markdown} surface={false} compact />
           </div>
         ) : preview.pdfDataUrl ? (
-          <img src={preview.pdfDataUrl} alt="" className="block w-full" draggable={false} />
+          <div className="h-full overflow-y-auto">
+            <img src={preview.pdfDataUrl} alt="" className="block w-full" draggable={false} />
+          </div>
         ) : preview.imageUrl ? (
-          <img src={preview.imageUrl} alt="" className="block w-full object-contain" draggable={false} />
+          <div className="flex h-full items-center justify-center overflow-hidden p-3">
+            <img src={preview.imageUrl} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
+          </div>
         ) : preview.text ? (
-          <p className="whitespace-pre-wrap px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground">
-            {highlight(contextAround(preview.text, query.trim()), query.trim())}
+          <p className="h-full overflow-y-auto whitespace-pre-wrap px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground">
+            {highlight(contextAround(previewPlainText(preview.text), query.trim()), query.trim())}
           </p>
         ) : (
           <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">

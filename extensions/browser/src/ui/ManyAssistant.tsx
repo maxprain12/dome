@@ -285,7 +285,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
             })),
             tools: message.toolCalls?.map((tool, toolIndex) => ({
               id: tool.id || `${id}:tool:${index}:${toolIndex}`,
-              name: readableToolLabel(tool.name, t('toolActivity')),
+              name: tool.name?.trim() || t('toolActivity'),
               arguments: tool.arguments,
               status:
                 tool.status ??

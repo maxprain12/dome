@@ -22,7 +22,10 @@ const {
   queueThemeExplorations,
 } = require('./social-explorations.cjs');
 const { isCachedAvatarUrl, persistSocialAvatar } = require('./social-avatar-cache.cjs');
-const { deriveTrends, buildCompetitiveReport, buildFitSuggestions, buildProfileComparison } = require('./social-trends.cjs');
+const { deriveTrends, buildCompetitiveReport, buildFitSuggestions, buildProfileComparison, createFromTrend } = require('./social-trends.cjs');
+const { createRadarStore } = require('./radar/radar-store.cjs');
+const { fetchCloudCapabilities } = require('./radar/radar-cloud.cjs');
+const { radarFlags, platformCapabilities } = require('./radar/radar-flags.cjs');
 const calendarBridge = require('./social-calendar-bridge.cjs');
 const sourceIndex = require('../search/source-index.cjs');
 const insights = require('./social-insights.cjs');
@@ -56,7 +59,8 @@ let _instance = null;
 function createSocialService(database, windowManager) {
   const store = createSocialStore(database);
   const oauth = createSocialOAuth(store);
-  const references = createSocialReferenceStore(database);
+  const radarStore = createRadarStore(database);
+  const references = createSocialReferenceStore(database, { radarStore });
   let schedulerTimer = null;
   let metricsTimer = null;
   let reportTimer = null;
@@ -962,8 +966,44 @@ function createSocialService(database, windowManager) {
     return resolvePublicSocial({ store, database }, { url });
   }
 
-  function snapshotTrends({ projectId = 'default', windowDays = 30 } = {}) {
-    return deriveTrends(store, references, { projectId, windowDays });
+  async function snapshotTrends({ projectId = 'default', windowDays = 30, language = 'es' } = {}) {
+    return deriveTrends(store, references, {
+      projectId,
+      windowDays,
+      language,
+      database,
+      radarStore,
+    });
+  }
+
+  function recordTrendEvent(input) {
+    return { id: radarStore.recordEvent(input) };
+  }
+
+  function createPostFromTrend({ projectId = 'default', clusterId, cluster } = {}) {
+    const cached = cluster || radarStore.getCachedCluster(clusterId);
+    if (!cached) throw new Error('Trend cluster not found');
+    return createFromTrend(radarStore, cached, { projectId });
+  }
+
+  async function trendCapabilities() {
+    const flags = radarFlags(database);
+    const cloud = await fetchCloudCapabilities(database);
+    return {
+      ...platformCapabilities({
+        connected: cloud.x === 'cloud',
+        hasSocialCloud: cloud.x === 'cloud',
+        flags,
+      }),
+      ...cloud,
+      flags,
+    };
+  }
+
+  function getTrendFeed({ projectId = 'default', feed = 'radar' } = {}) {
+    const allowed = new Set(['radar', 'forYou', 'emerging', 'popular']);
+    const key = allowed.has(feed) ? feed : 'radar';
+    return { feed: key, clusters: radarStore.listCachedClusters(projectId, key) };
   }
 
   function competitiveReport({ watchlistId, projectId = 'default' } = {}) {
@@ -1101,6 +1141,10 @@ function createSocialService(database, windowManager) {
     searchInstagramLocations,
     resolvePublic,
     snapshotTrends,
+    recordTrendEvent,
+    createPostFromTrend,
+    trendCapabilities,
+    getTrendFeed,
     competitiveReport,
     insightsSnapshot,
     runCreatorExploration,

@@ -21,6 +21,7 @@ import {
   type PaletteRow,
   type SourceHitRow,
 } from './commandPaletteTypes';
+import { personContactSnippet } from './commandPalettePreviewBody';
 import { useCommandPaletteSearch } from './useCommandPaletteSearch';
 import { CommandPaletteResultsList } from './CommandPaletteResultsList';
 import CommandPaletteResourcePreview from './CommandPaletteResourcePreview';
@@ -58,8 +59,15 @@ function issueSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string,
 
 function emailSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string, string>) => string): string {
   const folder = metaString(hit.meta, 'folder');
+  const from = metaString(hit.meta, 'from');
+  if (from && folder) return `${from} · ${folder}`;
   if (folder) return t('command.find_email_folder', { folder });
-  return hit.snippet || t('command.find_email_fallback');
+  return from || t('command.find_email_fallback');
+}
+
+function personSublabel(hit: SourceHitRow, t: (key: string, opts?: Record<string, string>) => string): string {
+  const email = metaString(hit.meta, 'email') || personContactSnippet(hit.snippet);
+  return email || t('command.people');
 }
 
 function openPersonRow(hit: SourceHitRow, openPeopleTab: () => void, closePalette: () => void): void {
@@ -345,7 +353,7 @@ export default function CommandPalette() {
           kind: 'person',
           icon: UserIcon,
           label: hit.title,
-          sublabel: hit.snippet || t('command.people'),
+          sublabel: personSublabel(hit, t),
           sourceId: hit.id,
           meta: hit.meta,
           snippet: hit.snippet,

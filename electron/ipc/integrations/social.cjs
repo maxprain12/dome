@@ -248,6 +248,21 @@ const CampaignIdOnlySchema = z.object({ campaignId: z.string().min(1) });
 const TrendsSchema = z.object({
   projectId: z.string().min(1).max(80).optional(),
   windowDays: z.union([z.literal(7), z.literal(30), z.literal(90)]).optional(),
+  language: z.enum(['es', 'en', 'fr', 'pt']).optional(),
+});
+const TrendFeedSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  feed: z.enum(['forYou', 'emerging', 'popular', 'radar']).optional(),
+});
+const TrendEventSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  clusterId: z.string().min(1).max(160).nullable().optional(),
+  eventType: z.enum(['impression', 'open', 'save', 'dismiss', 'generate', 'publish', 'post_performance']),
+  payload: z.record(z.string(), z.unknown()).optional(),
+});
+const TrendCreateSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  clusterId: z.string().min(1).max(160),
 });
 const CompetitiveSchema = z.object({
   projectId: z.string().min(1).max(80).optional(),
@@ -750,10 +765,26 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     service.references.unlinkCampaignReference(campaignId, referenceId);
     return { success: true };
   }));
-  ipcMain.handle('social:trends:snapshot', wrap(TrendsSchema, ({ projectId, windowDays }) =>
-    service.snapshotTrends({ projectId: projectId || 'default', windowDays: windowDays || 30 })));
+  ipcMain.handle('social:trends:snapshot', wrap(TrendsSchema, ({ projectId, windowDays, language }) =>
+    service.snapshotTrends({
+      projectId: projectId || 'default',
+      windowDays: windowDays || 30,
+      language: language || 'es',
+    })));
   ipcMain.handle('social:trends:list', wrap(ProjectQuerySchema, ({ projectId, limit }) =>
     service.references.getTrendSnapshots({ projectId: projectId || 'default', limit: limit || 10 })));
+  ipcMain.handle('social:trends:feed', wrap(TrendFeedSchema, ({ projectId, feed }) =>
+    service.getTrendFeed({ projectId: projectId || 'default', feed: feed || 'radar' })));
+  ipcMain.handle('social:trends:event', wrap(TrendEventSchema, ({ projectId, clusterId, eventType, payload }) =>
+    service.recordTrendEvent({
+      projectId: projectId || 'default',
+      clusterId: clusterId || null,
+      eventType,
+      payload: payload || {},
+    })));
+  ipcMain.handle('social:trends:create-from', wrap(TrendCreateSchema, ({ projectId, clusterId }) =>
+    service.createPostFromTrend({ projectId: projectId || 'default', clusterId })));
+  ipcMain.handle('social:trends:capabilities', wrap(null, () => service.trendCapabilities()));
   ipcMain.handle('social:reports:competitive', wrap(CompetitiveSchema, ({ projectId, watchlistId }) =>
     service.competitiveReport({ projectId: projectId || 'default', watchlistId })));
   ipcMain.handle('social:insights:snapshot', wrap(InsightsSchema, ({ projectId, watchlistId, referenceId }) =>

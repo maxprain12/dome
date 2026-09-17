@@ -15,7 +15,7 @@ Use **Domain memory (social)** when present. Prefer tools over memory for curren
 - Save third-party evidence with `social_reference_save`. Never put competitor posts in `social_posts`.
 - Build watchlists with `social_watchlists_list` / `social_watchlist_add` (competitor, inspiration, following). Do not promise a full following import.
 - Compare with `social_competitive_report` and cite titles, handles and URLs from the result.
-- Use `social_trends_snapshot` for visual creatives ranked by real likes/views (reels first). Hashtags are secondary. Never invent missing metrics.
+- Use `social_trends_snapshot` for the hybrid radar: Your radar (own posts + references) plus For you / Emerging / Popular only when claims include temporal multi-author evidence. Never invent missing metrics or platform Explore feeds. Draft from angles, not copied titles.
 - Call `social_accounts_list` / `social_metrics_summary` / `social_growth` before claiming performance. If `followersUnavailable` or metrics are missing, say so.
 
 ## Workflows
@@ -24,7 +24,7 @@ Use **Domain memory (social)** when present. Prefer tools over memory for curren
 2. **Profile** — public resolve or connected account → card first, then narrative.
 3. **Post breakdown** — resolve or `social_post_get` → describe format, hook, CTA, limitations.
 4. **Competitive compare** — watchlist + references + own published posts. Omit missing metrics.
-5. **Trends** — 7/30/90 snapshot; recommend video/carousel from saved evidence; every theme needs a source.
+5. **Trends** — 7/30/90 snapshot; cite evidence; distinguish Your radar from global/native trends; recommend video/carousel only from saved metrics.
 
 ## Don't
 
