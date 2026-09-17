@@ -25,6 +25,8 @@ import {
   LayoutGridIcon,
   Menu01Icon,
   Tag01Icon,
+  RefreshIcon,
+  ArrowUpDownIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
@@ -42,6 +44,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { getFolderColor } from './folderTabShared';
 import type { FolderViewMode, ProjectTag } from './folderTabViewHelpers';
+import type { ExplorerSortDir, ExplorerSortKey } from '@/lib/workspace/explorerSort';
 
 export interface FolderTabToolbarProps {
   canGoBack: boolean;
@@ -78,6 +81,10 @@ export interface FolderTabToolbarProps {
   handleNewNote: () => void | Promise<void>;
   handleUpload: () => void | Promise<void>;
   setUrlModalOpen: (v: boolean) => void;
+  onRefresh: () => void;
+  sortKey: ExplorerSortKey;
+  sortDir: ExplorerSortDir;
+  onSortChange: (key: ExplorerSortKey, dir: ExplorerSortDir) => void;
 }
 
 export default function FolderTabToolbar(props: FolderTabToolbarProps) {
@@ -117,6 +124,10 @@ export default function FolderTabToolbar(props: FolderTabToolbarProps) {
     handleNewNote,
     handleUpload,
     setUrlModalOpen,
+    onRefresh,
+    sortKey,
+    sortDir,
+    onSortChange,
   } = props;
 
   return (
@@ -237,6 +248,75 @@ export default function FolderTabToolbar(props: FolderTabToolbarProps) {
             <HugeiconsIcon icon={Menu01Icon} />
           </ToggleGroupItem>
         </ToggleGroup>
+
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t('folder.sort')}
+                    />
+                  }
+                />
+              }
+            >
+              <HugeiconsIcon icon={ArrowUpDownIcon} />
+            </TooltipTrigger>
+            <TooltipContent>{t('folder.sort')}</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent side="bottom" align="end" sideOffset={4} className="w-44">
+            <DropdownMenuGroup>
+              {([
+                ['name', t('folder.sortName')] as const,
+                ['type', t('folder.sortType')] as const,
+                ['date', t('folder.sortDate')] as const,
+              ]).map(([key, label]) => (
+                <DropdownMenuItem
+                  key={key}
+                  className={cn(sortKey === key && 'font-semibold')}
+                  onClick={() => onSortChange(key, sortDir)}
+                >
+                  {label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className={cn(sortDir === 'asc' && 'font-semibold')}
+                onClick={() => onSortChange(sortKey, 'asc')}
+              >
+                {t('folder.sortAsc')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={cn(sortDir === 'desc' && 'font-semibold')}
+                onClick={() => onSortChange(sortKey, 'desc')}
+              >
+                {t('folder.sortDesc')}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={onRefresh}
+                aria-label={t('folder.refresh')}
+              />
+            }
+          >
+            <HugeiconsIcon icon={RefreshIcon} />
+          </TooltipTrigger>
+          <TooltipContent>{t('folder.refresh')}</TooltipContent>
+        </Tooltip>
 
         <DropdownMenu>
           <Tooltip>

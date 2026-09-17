@@ -1,5 +1,6 @@
 /** Shared context-menu items for resources/folders (sidebar + folder tab view). */
 
+import type { ComponentType, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   PencilEdit02Icon,
@@ -14,11 +15,22 @@ import {
   PanelRightOpenIcon,
   Maximize02Icon,
   PaintBoardIcon,
+  ViewIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+} from '@/components/ui/dropdown-menu';
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+} from '@/components/ui/context-menu';
 import type { Resource } from '@/lib/hooks/useResources';
 import { showToast } from '@/lib/store/useToastStore';
+import { explorerModHint } from '@/lib/workspace/explorerKeyboard';
 
 export type ResourceContextMenuActions = {
   onRename: () => void;
@@ -29,6 +41,8 @@ export type ResourceContextMenuActions = {
   onOpenInWindow?: () => void;
   onChangeColor?: () => void;
   onNewSubfolder?: () => void;
+  onPreview?: () => void;
+  onOpen?: () => void;
 };
 
 export type ResourceContextMenuOptions = {
@@ -41,21 +55,26 @@ type ResourceContextMenuItemsProps = {
   options: ResourceContextMenuOptions;
   actions: ResourceContextMenuActions;
   onDismiss: () => void;
-  /**
-   * When provided, filesystem actions are rendered (reveal in Finder, open
-   * with the system app, copy path, duplicate) — the workspace mirrors the
-   * real filesystem, so these behave like their Finder counterparts.
-   */
   resource?: Resource;
+  variant?: 'dropdown' | 'context';
 };
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform);
+
+type ItemProps = {
+  variant?: 'default' | 'destructive';
+  onClick?: (event: React.MouseEvent) => void;
+  className?: string;
+  children?: ReactNode;
+};
 
 async function resolveResourcePath(resourceId: string): Promise<string | null> {
   try {
     const res = await window.electron?.resource?.getFilePath(resourceId);
     if (res?.success && typeof res.data === 'string') return res.data;
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return null;
 }
 
@@ -64,13 +83,23 @@ export default function ResourceContextMenuItems({
   actions,
   onDismiss,
   resource,
+  variant = 'dropdown',
 }: ResourceContextMenuItemsProps) {
   const { t } = useTranslation();
   const { isFolder, isNote, canOpenInSplit } = options;
+  const Item = (variant === 'context' ? ContextMenuItem : DropdownMenuItem) as ComponentType<ItemProps>;
+  const Separator = variant === 'context' ? ContextMenuSeparator : DropdownMenuSeparator;
+  const Shortcut = variant === 'context' ? ContextMenuShortcut : DropdownMenuShortcut;
+  const mod = explorerModHint(typeof navigator === 'undefined' ? undefined : navigator.platform);
 
-  const menuItem = (icon: React.ReactNode, label: string, action: () => void, danger = false) => (
-    <DropdownMenuItem
-      variant={danger ? 'destructive' : 'default'}
+  const menuItem = (
+    icon: ReactNode,
+    label: string,
+    action: () => void,
+    extra?: { danger?: boolean; shortcut?: string },
+  ) => (
+    <Item
+      variant={extra?.danger ? 'destructive' : 'default'}
       onClick={(e) => {
         e.stopPropagation();
         onDismiss();
@@ -79,7 +108,8 @@ export default function ResourceContextMenuItems({
       className="dome-folder-view__row-menu-item"
     >
       {icon} {label}
-    </DropdownMenuItem>
+      {extra?.shortcut ? <Shortcut>{extra.shortcut}</Shortcut> : null}
+    </Item>
   );
 
   const revealLabel = IS_MAC ? t('folder.reveal_in_finder') : t('folder.reveal_in_explorer');
@@ -91,7 +121,6 @@ export default function ResourceContextMenuItems({
       showToast('warning', t('folder.no_file_on_disk'));
       return;
     }
-    // Folders open directly; files are highlighted inside their folder.
     if (isFolder) await window.electron?.openPath?.(abs);
     else await window.electron?.showItemInFolder?.(abs);
   };
@@ -133,7 +162,23 @@ export default function ResourceContextMenuItems({
 
   return (
     <>
-      {menuItem(<HugeiconsIcon icon={PencilEdit02Icon} />, t('folder.rename'), actions.onRename)}
+      {actions.onOpen
+        ? menuItem(<HugeiconsIcon icon={FolderOpenIcon} />, t('folder.open'), actions.onOpen)
+        : null}
+      {actions.onPreview
+        ? menuItem(
+            <HugeiconsIcon icon={ViewIcon} />,
+            t('folder.quickLook'),
+            actions.onPreview,
+            { shortcut: t('folder.shortcutSpace') },
+          )
+        : null}
+      {menuItem(
+        <HugeiconsIcon icon={PencilEdit02Icon} />,
+        t('folder.rename'),
+        actions.onRename,
+        { shortcut: t('folder.shortcutF2') },
+      )}
       {!isFolder && actions.onOpenInSplit && canOpenInSplit
         ? menuItem(
             <HugeiconsIcon icon={PanelRightOpenIcon} />,
@@ -168,21 +213,39 @@ export default function ResourceContextMenuItems({
         : null}
       {resource ? (
         <>
-          <DropdownMenuSeparator />
-          {menuItem(<HugeiconsIcon icon={FolderSymlinkIcon} />, revealLabel, () => void handleReveal())}
+          <Separator />
+          {menuItem(<HugeiconsIcon icon={FolderSymlinkIcon} />, revealLabel, () => {
+            void handleReveal();
+          })}
           {!isFolder
             ? menuItem(
                 <HugeiconsIcon icon={ExternalLinkIcon} />,
                 t('folder.open_with_system'),
-                () => void handleOpenWithSystem(),
+                () => {
+                  void handleOpenWithSystem();
+                },
               )
             : null}
-          {menuItem(<HugeiconsIcon icon={ClipboardCopyIcon} />, t('folder.copy_path'), () => void handleCopyPath())}
-          {menuItem(<HugeiconsIcon icon={CopyPlusIcon} />, t('folder.duplicate'), () => void handleDuplicate())}
+          {menuItem(<HugeiconsIcon icon={ClipboardCopyIcon} />, t('folder.copy_path'), () => {
+            void handleCopyPath();
+          })}
+          {menuItem(
+            <HugeiconsIcon icon={CopyPlusIcon} />,
+            t('folder.duplicate'),
+            () => {
+              void handleDuplicate();
+            },
+            { shortcut: `${mod}D` },
+          )}
         </>
       ) : null}
-      <DropdownMenuSeparator />
-      {menuItem(<HugeiconsIcon icon={Delete02Icon} />, t('folder.delete'), actions.onDelete, true)}
+      <Separator />
+      {menuItem(
+        <HugeiconsIcon icon={Delete02Icon} />,
+        t('folder.delete'),
+        actions.onDelete,
+        { danger: true, shortcut: t('folder.shortcutDelete') },
+      )}
     </>
   );
 }

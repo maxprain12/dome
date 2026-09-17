@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-17T08:44:49.653Z
+> Última generación: 2026-09-17T22:06:34.862Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -207,7 +207,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:projects:getVaultRoot` | `electron/ipc/data/database.cjs:296` |
 | `db:projects:setVaultRoot` | `electron/ipc/data/database.cjs:277` |
 | `db:projects:update` | `electron/ipc/data/database.cjs:253` |
-| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:1972` |
+| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:1968` |
 | `db:resources:create` | `electron/ipc/data/database.cjs:332` |
 | `db:resources:delete` | `electron/ipc/data/database.cjs:1795` |
 | `db:resources:ensureUrl` | `electron/ipc/data/database.cjs:397` |
@@ -218,9 +218,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:resources:getByProject` | `electron/ipc/data/database.cjs:370` |
 | `db:resources:getRoot` | `electron/ipc/data/database.cjs:1825` |
 | `db:resources:listLight` | `electron/ipc/data/database.cjs:1776` |
-| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:1908` |
-| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1841` |
-| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:1948` |
+| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:1909` |
+| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1842` |
+| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:1944` |
 | `db:resources:search` | `electron/ipc/data/database.cjs:511` |
 | `db:resources:searchForMention` | `electron/ipc/data/database.cjs:563` |
 | `db:resources:update` | `electron/ipc/data/database.cjs:484` |

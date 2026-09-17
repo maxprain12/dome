@@ -68,7 +68,7 @@
     "test:edit-diff": "node --test electron/__tests__/edit-diff.test.mjs",
     "test:git-tools": "node --test electron/__tests__/git-tools.test.mjs",
     "test:resource-files": "node --experimental-sqlite --test electron/__tests__/resource-vault-io.test.mjs",
-    "test:resource-update-helpers": "node --test electron/__tests__/resource-update-helpers.test.mjs",
+    "test:resource-update-helpers": "node --test electron/__tests__/resource-update-helpers.test.mjs electron/__tests__/resource-move.test.mjs",
     "test:db": "tsx scripts/test-db.ts",
     "test:drizzle-spike": "node scripts/drizzle-spike.mjs",
     "db:perf-baseline": "node scripts/db-perf-baseline.mjs",

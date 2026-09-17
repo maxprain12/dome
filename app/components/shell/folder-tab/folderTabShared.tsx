@@ -69,6 +69,8 @@ export const TYPE_LABELS: Record<string, string> = {
 export const TYPE_COLORS: Record<string, string> = {
   note: 'var(--primary)', notebook: 'var(--primary)', url: 'var(--success)',
   pdf: 'var(--destructive)', image: 'var(--warning)', video: CONTENT_PINK, audio: 'var(--primary)', ppt: 'var(--warning)',
+  excel: 'var(--success)', csv: 'var(--success)', xlsx: 'var(--success)',
+  document: 'var(--primary)', docx: 'var(--primary)', artifact: 'var(--primary)',
 };
 
 // ─── ColorPickerPopover ───────────────────────────────────────────────────────

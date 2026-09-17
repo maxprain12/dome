@@ -1,386 +1,37 @@
 /** Grid card for a folder or resource inside FolderTabView. */
 
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckIcon,
-  FileEditIcon,
-  Folder01Icon,
   MoreVerticalIcon,
-  PlayIcon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Spinner } from '@/components/ui/spinner';
 import { MetaLine, SafeText } from '@/components/shared/SafeText';
-import { typesetDocsClass } from '@/lib/typeset';
 import { cn } from '@/lib/utils';
-import { formatRelativePair } from '@/lib/utils/formatting';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/lib/hooks/useResources';
-import ResourceIcon from '@/components/shared/ResourceIcon';
 import { useResourceVisualPreview, type ResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
-import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
-import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
-import { getFolderColor, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
+import { isExplorerMultiSelectEvent } from '@/lib/workspace/explorerSelection';
+import { FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ColorPickerPopover from './ColorPickerPopover';
 import ResourceContextMenuItems from './ResourceContextMenuItems';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-
-const SNIPPET_MAX = 280;
-const MARKDOWN_PREVIEW_MAX = 1500;
-const SHEET_TYPES = new Set(['excel', 'csv', 'xlsx', 'xls']);
-
-function buildArtifactThumbSrcDoc(template: string, data: Record<string, unknown> | null): string {
-  const dataJson = JSON.stringify(data ?? {}).replace(/</g, '\\u003c');
-  const inject =
-    `<script>${DOME_IFRAME_STORAGE_SHIM_SCRIPT};` +
-    `window.DOME_DATA=${dataJson};` +
-    `window.__dome_updateState=function(){};` +
-    `window.__dome_collectState=function(){return window.DOME_DATA;};</script>`;
-  if (/<head[^>]*>/i.test(template)) return template.replace(/<head[^>]*>/i, (m) => m + inject);
-  if (/<html[^>]*>/i.test(template)) return template.replace(/<html[^>]*>/i, (m) => m + inject);
-  return inject + template;
-}
-
-function ArtifactThumb({ template, data }: { template: string; data: Record<string, unknown> | null }) {
-  const srcDoc = useMemo(() => buildArtifactThumbSrcDoc(template, data), [template, data]);
-  const frameSource = useArtifactFrameSrc(srcDoc);
-  return (
-    <iframe
-      title="artifact-preview"
-      className="dome-fs-card__artifact-thumb"
-      sandbox="allow-scripts"
-      scrolling="no"
-      {...(frameSource.src
-        ? { src: frameSource.src }
-        : { srcDoc: frameSource.fallbackSrcdoc ?? undefined })}
-      tabIndex={-1}
-      aria-hidden
-    />
-  );
-}
-
-function stripHtml(input: string): string {
-  if (!input) return '';
-  return input.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function plainTextFromContent(content: string): string {
-  const trimmed = content.trim();
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    try {
-      const parts: string[] = [];
-      const walk = (node: unknown) => {
-        if (!node || typeof node !== 'object') return;
-        const n = node as { text?: unknown; content?: unknown };
-        if (typeof n.text === 'string') parts.push(n.text);
-        if (Array.isArray(n.content)) {
-          for (const c of n.content) walk(c);
-          parts.push(' ');
-        }
-      };
-      walk(JSON.parse(trimmed));
-      const text = parts.join('').replace(/\s+/g, ' ').trim();
-      if (text) return text;
-    } catch {
-      /* fall through */
-    }
-  }
-  return stripHtml(content);
-}
-
-function pickSnippet(item: Resource): string {
-  const meta = (item.metadata ?? {}) as Record<string, unknown>;
-  for (const key of ['snippet', 'summary', 'description', 'excerpt', 'preview_text'] as const) {
-    const c = meta[key];
-    if (typeof c === 'string' && c.trim()) return c.trim();
-  }
-  if (typeof item.content_text === 'string' && item.content_text.trim()) {
-    return item.content_text.trim().slice(0, SNIPPET_MAX);
-  }
-  if (typeof item.content === 'string' && item.content.trim()) {
-    const text = plainTextFromContent(item.content);
-    if (text) return text.slice(0, SNIPPET_MAX);
-  }
-  return '';
-}
-
-/** Best-effort Markdown for the card: vault body, plain content, or Tiptap text. */
-function pickMarkdown(item: Resource): string | null {
-  const content = item.content;
-  if (typeof content === 'string' && content.trim()) {
-    const trimmed = content.trim();
-    if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.startsWith('<')) {
-      return trimmed.slice(0, MARKDOWN_PREVIEW_MAX);
-    }
-    if (trimmed.startsWith('{')) {
-      const text = plainTextFromContent(trimmed);
-      if (text) return text.slice(0, MARKDOWN_PREVIEW_MAX);
-    }
-  }
-  if (typeof item.content_text === 'string' && item.content_text.trim()) {
-    return item.content_text.trim().slice(0, MARKDOWN_PREVIEW_MAX);
-  }
-  return null;
-}
-
-function normalizeCardTitle(value: string): string {
-  return value
-    .replace(/\s+/g, ' ')
-    .replace(/[.…]+$/u, '')
-    .trim()
-    .toLowerCase();
-}
-
-/**
- * Drop a leading heading/line that repeats the card title so the preview
- * doesn't paint the same long name twice (footer + body).
- */
-function stripLeadingTitleFromMarkdown(markdown: string, title: string): string {
-  const normalizedTitle = normalizeCardTitle(title);
-  if (!normalizedTitle || !markdown.trim()) return markdown;
-
-  const headingMatch = markdown.match(/^\s{0,3}#{1,6}\s+(.+?)(?:\n+|$)/u);
-  if (headingMatch) {
-    const heading = normalizeCardTitle(headingMatch[1] ?? '');
-    if (heading && (heading === normalizedTitle || heading.startsWith(`${normalizedTitle} `))) {
-      return markdown.slice(headingMatch[0].length).trimStart();
-    }
-  }
-
-  const lineMatch = markdown.match(/^\s*(.+?)(?:\n+|$)/u);
-  if (lineMatch) {
-    const line = normalizeCardTitle(lineMatch[1] ?? '');
-    if (line && line === normalizedTitle) {
-      return markdown.slice(lineMatch[0].length).trimStart();
-    }
-  }
-
-  return markdown;
-}
-
-function NoteMarkdownThumb({ markdown, title }: { markdown: string; title: string }) {
-  const body = useMemo(
-    () => stripLeadingTitleFromMarkdown(markdown, title),
-    [markdown, title],
-  );
-  if (!body) {
-    return (
-      <div className="dome-fs-card__note-thumb dome-fs-card__note-thumb--empty" aria-hidden>
-        <HugeiconsIcon icon={FileEditIcon} strokeWidth={1.25} />
-      </div>
-    );
-  }
-  return (
-    <div className={typesetDocsClass('dome-fs-card__md-thumb')} aria-hidden>
-      <div className="dome-fs-card__md-thumb-inner">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            a: ({ children }) => <span className="dome-fs-card__md-link">{children}</span>,
-            img: () => null,
-          }}
-        >
-          {body}
-        </ReactMarkdown>
-      </div>
-    </div>
-  );
-}
-
-function PdfPageThumb({ dataUrl }: { dataUrl: string }) {
-  return (
-    <div className="dome-fs-card__pdf-thumb" aria-hidden>
-      <img
-        src={dataUrl}
-        alt=""
-        className="dome-fs-card__pdf-thumb-img"
-        draggable={false}
-        loading="lazy"
-      />
-    </div>
-  );
-}
-
-function PreviewLoading() {
-  return (
-    <div className="dome-fs-card__cover-loading" aria-hidden>
-      <Spinner className="size-5 text-muted-foreground" />
-    </div>
-  );
-}
-
-type SheetPreview = {
-  sheet: string | null;
-  headers: string[];
-  rows: string[][];
-};
-
-const SHEET_HEADER_RE = /^\[Sheet:\s*([^\]]+)\]\s*/i;
-
-function splitSnippetCells(line: string): string[] {
-  return line.split(',').map((c) => c.trim()).slice(0, 4);
-}
-
-/** Strip optional `[Sheet: name]` prefix; null if body is empty. */
-function spreadsheetBodyAndSheet(
-  trimmed: string,
-): { sheet: string | null; body: string } | null {
-  const sheetMatch = trimmed.match(SHEET_HEADER_RE);
-  const body = (sheetMatch ? trimmed.slice(sheetMatch[0].length) : trimmed).trim();
-  if (!body) return null;
-  return { sheet: sheetMatch?.[1]?.trim() ?? null, body };
-}
-
-/** Newline rows, or flattened dumps: "headers 1,row… 2,row…". */
-function spreadsheetSnippetLines(body: string): string[] {
-  let lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 2) {
-    lines = body.split(/\s+(?=\d+,)/).map((l) => l.trim()).filter(Boolean);
-  }
-  return lines;
-}
-
-/** Align cells to header width; drop leading numeric index when present. */
-function alignSpreadsheetRow(line: string, headerCount: number): string[] {
-  const cells = splitSnippetCells(line);
-  if (cells.length > headerCount && /^\d+$/.test(cells[0] ?? '')) {
-    return cells.slice(1, headerCount + 1);
-  }
-  return cells.slice(0, headerCount);
-}
-
-function parseSpreadsheetRows(lines: string[], headers: string[]): string[][] {
-  return lines
-    .slice(1, 4)
-    .map((line) => alignSpreadsheetRow(line, headers.length))
-    .filter((r) => r.some(Boolean));
-}
-
-/** Turn a spreadsheet text dump into a small table preview. */
-function parseSpreadsheetSnippet(snippet: string): SheetPreview | null {
-  const trimmed = snippet.trim();
-  if (!trimmed) return null;
-
-  const extracted = spreadsheetBodyAndSheet(trimmed);
-  if (!extracted) return null;
-
-  const lines = spreadsheetSnippetLines(extracted.body);
-  if (lines.length === 0) return null;
-
-  const headers = splitSnippetCells(lines[0]).slice(0, 3);
-  if (headers.length === 0) return null;
-
-  return {
-    sheet: extracted.sheet,
-    headers,
-    rows: parseSpreadsheetRows(lines, headers),
-  };
-}
-
-function SpreadsheetThumb({ snippet }: { snippet: string }) {
-  const parsed = useMemo(() => parseSpreadsheetSnippet(snippet), [snippet]);
-  if (!parsed) {
-    return (
-      <div className="dome-fs-card__sheet dome-fs-card__sheet--empty" aria-hidden>
-        <span className="dome-fs-card__sheet-label">Excel</span>
-      </div>
-    );
-  }
-  return (
-    <div className="dome-fs-card__sheet" aria-hidden>
-      {parsed.sheet ? (
-        <div className="dome-fs-card__sheet-tab">{parsed.sheet}</div>
-      ) : null}
-      <table className="dome-fs-card__sheet-table">
-        <thead>
-          <tr>
-            {parsed.headers.map((h) => (
-              <th key={h}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {parsed.rows.map((row, i) => (
-            <tr key={i}>
-              {parsed.headers.map((_, j) => (
-                <td key={j}>{row[j] ?? ''}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function NoteTextThumb({ text, searchQuery }: { text: string; searchQuery?: string }) {
-  return (
-    <p className="dome-fs-card__note-thumb" aria-hidden>
-      {searchQuery ? highlightSnippet(text, searchQuery) : text}
-    </p>
-  );
-}
-
-function TypeIconThumb({
-  item,
-  accent,
-}: {
-  item: Resource;
-  accent?: string;
-}) {
-  return (
-    <div
-      className="dome-fs-card__type-thumb"
-      style={accent ? { color: accent } : undefined}
-      aria-hidden
-    >
-      <div className="dome-fs-card__type-thumb-glyph">
-        {item.type === 'note' || item.type === 'notebook' ? (
-          <HugeiconsIcon icon={FileEditIcon} strokeWidth={1.25} />
-        ) : (
-          <ResourceIcon type={item.type} name={item.title} size={32} strokeWidth={1.25} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function pickThumbnail(item: Resource): string | null {
-  if (item.thumbnail_data) return item.thumbnail_data;
-  const meta = (item.metadata ?? {}) as Record<string, unknown>;
-  for (const key of ['preview_image', 'thumbnail', 'og_image', 'cover'] as const) {
-    const c = meta[key];
-    if (typeof c === 'string' && c.trim()) return c.trim();
-  }
-  return null;
-}
-
-function highlightSnippet(text: string, query: string): ReactNode {
-  const q = query.trim();
-  if (!q) return text;
-  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  const parts: ReactNode[] = [];
-  let lastIndex = 0;
-  for (const match of text.matchAll(re)) {
-    const idx = match.index ?? 0;
-    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
-    parts.push(
-      <mark key={idx} className="dome-folder-view__search-mark">
-        {match[0]}
-      </mark>,
-    );
-    lastIndex = idx + match[0].length;
-  }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-  return parts.length > 0 ? parts : text;
-}
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+  CoverPreviewContent,
+  deriveCardPresentation,
+  highlightSnippet,
+  type CardPresentation,
+  type TranslateFn,
+} from './FolderItemPreview';
 
 interface FolderCardProps {
   item: Resource;
@@ -395,278 +46,36 @@ interface FolderCardProps {
   onOpenInSplit?: () => void;
   onOpenInWindow?: () => void;
   onNewSubfolder?: () => void;
-  onToggleSelect: (e: React.MouseEvent) => void;
+  onPreview?: () => void;
+  onToggleSelect: (event: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void;
   selected: boolean;
-  showSelectionChrome: boolean;
   searchQuery?: string;
   searchFocused?: boolean;
   cardRef?: React.Ref<HTMLDivElement>;
-}
-
-type TranslateFn = ReturnType<typeof useTranslation>['t'];
-
-interface CardPresentation {
-  folderColor: string | undefined;
-  typeColor: string;
-  typeLabel: string;
-  timeAgoShort: string;
-  timeAgoFull: string;
-  coverImage: string | null;
-  isPdfCover: boolean;
-  pdfDataUrl: string | null;
-  artifactTemplate: string | null;
-  snippet: string;
-  noteMarkdown: string | null;
-  displayTitle: string;
-  isMediaCard: boolean;
-  isVideoCard: boolean;
-  isSheetCard: boolean;
-  isNoteCard: boolean;
-  isPdfCard: boolean;
-  hasCustomFolderColor: boolean;
-}
-
-function deriveCardPresentation(
-  item: Resource,
-  isFolder: boolean,
-  visual: ResourceVisualPreview,
-  searchQuery: string | undefined,
-  t: TranslateFn,
-): CardPresentation {
-  const folderColor = isFolder ? getFolderColor(item) : undefined;
-  const typeColor = isFolder ? (folderColor ?? 'var(--muted-foreground)') : 'var(--muted-foreground)';
-  const typeLabel = isFolder
-    ? t('folder.typeFolder', 'Carpeta')
-    : (TYPE_LABELS[item.type] ?? item.type);
-  const timePair = item.updated_at
-    ? formatRelativePair(
-      typeof item.updated_at === 'number'
-        ? item.updated_at
-        : new Date(item.updated_at).getTime(),
-    )
-    : { short: '—', full: '—' };
-
-  const eagerThumbnail = isFolder ? null : pickThumbnail(item);
-  const isPdfCard = !isFolder && (
-    item.type === 'pdf' || visual.kind === 'pdf' || /\.pdf$/i.test(item.title ?? '')
-  );
-  const pdfDataUrl = isPdfCard ? visual.pdfDataUrl : null;
-  const coverImage = eagerThumbnail || visual.imageUrl || null;
-
-  const artifactTemplate = !isFolder && visual.kind === 'artifact' && !visual.failed
-    ? (visual.artifact?.template ?? null)
-    : null;
-
-  const eagerSnippet = isFolder ? '' : pickSnippet(item);
-  const lazySnippet = isFolder
-    ? ''
-    : (visual.snippet ?? (visual.kind === 'artifact' ? visual.artifact?.snippet ?? '' : ''));
-  const snippet = eagerSnippet || lazySnippet;
-
-  const isSheetCard = !isFolder && (
-    SHEET_TYPES.has(item.type)
-    || /\.(xlsx?|csv)$/i.test(item.title ?? '')
-    || /^\[Sheet:/i.test(snippet)
-  );
-  const isNoteCard = !isFolder && (item.type === 'note' || item.type === 'notebook');
-
-  // Prefer lazy vault markdown, then eager content / content_text, then snippet.
-  const noteMarkdown = isNoteCard && !searchQuery
-    ? (visual.markdown?.trim() || pickMarkdown(item) || (snippet ? snippet.slice(0, MARKDOWN_PREVIEW_MAX) : null))
-    : isNoteCard && searchQuery && snippet
-      ? snippet
-      : null;
-
-  return {
-    folderColor,
-    typeColor,
-    typeLabel,
-    timeAgoShort: timePair.short,
-    timeAgoFull: timePair.full,
-    coverImage,
-    isPdfCover: Boolean(pdfDataUrl),
-    pdfDataUrl,
-    artifactTemplate,
-    snippet,
-    noteMarkdown,
-    displayTitle: item.title || t('folder.untitled'),
-    isMediaCard: !isFolder && (item.type === 'image' || item.type === 'video'),
-    isVideoCard: !isFolder && item.type === 'video',
-    isSheetCard,
-    isNoteCard,
-    isPdfCard,
-    hasCustomFolderColor: Boolean(folderColor && folderColor.startsWith('#')),
-  };
-}
-
-/** PDF first-page / loading — extracted for S3776. `undefined` = continue cover chain. */
-function pdfCoverPreview(
-  p: CardPresentation,
-  visual: ResourceVisualPreview,
-): ReactNode | undefined {
-  // PDF first-page render (lazy IPC) — prefer over generic icon.
-  if (p.pdfDataUrl) return <PdfPageThumb dataUrl={p.pdfDataUrl} />;
-  if (p.isPdfCard && visual.loading) return <PreviewLoading />;
-  return undefined;
-}
-
-/** Note markdown / text / loading — extracted for S3776. `undefined` = continue cover chain. */
-function noteCoverPreview(
-  p: CardPresentation,
-  visual: ResourceVisualPreview,
-  searchQuery?: string,
-): ReactNode | undefined {
-  if (!p.isNoteCard) return undefined;
-  if (p.noteMarkdown) {
-    return searchQuery
-      ? <NoteTextThumb text={p.noteMarkdown} searchQuery={searchQuery} />
-      : <NoteMarkdownThumb markdown={p.noteMarkdown} title={p.displayTitle} />;
-  }
-  if (visual.loading) return <PreviewLoading />;
-  return undefined;
-}
-
-function CoverPreviewContent({
-  item,
-  isFolderCard,
-  p,
-  visual,
-  searchQuery,
-}: {
-  item: Resource;
-  isFolderCard: boolean;
-  p: CardPresentation;
-  visual: ResourceVisualPreview;
-  searchQuery?: string;
-}) {
-  if (isFolderCard) {
-    return (
-      <HugeiconsIcon
-        icon={Folder01Icon}
-        className="dome-fs-card__cover-icon"
-        style={{ color: p.typeColor }}
-        strokeWidth={1.25}
-      />
-    );
-  }
-  if (p.artifactTemplate) {
-    return <ArtifactThumb template={p.artifactTemplate} data={visual.artifact?.data ?? null} />;
-  }
-  const pdfPreview = pdfCoverPreview(p, visual);
-  if (pdfPreview !== undefined) return pdfPreview;
-  if (p.coverImage) {
-    return (
-      <img
-        src={p.coverImage}
-        alt=""
-        className="dome-fs-card__cover-img"
-        draggable={false}
-        loading="lazy"
-      />
-    );
-  }
-  if (p.isSheetCard && p.snippet) {
-    return <SpreadsheetThumb snippet={p.snippet} />;
-  }
-  const notePreview = noteCoverPreview(p, visual, searchQuery);
-  if (notePreview !== undefined) return notePreview;
-  if (p.snippet && !p.isSheetCard) {
-    return <NoteTextThumb text={p.snippet} searchQuery={searchQuery} />;
-  }
-  if (visual.loading) {
-    return <PreviewLoading />;
-  }
-  return <TypeIconThumb item={item} accent={p.typeColor} />;
-}
-
-function ResourceCaption({
-  p,
-  searchQuery,
-}: {
-  p: CardPresentation;
-  searchQuery?: string;
-}) {
-  return (
-    <div className="dome-fs-card__caption">
-      {/* Single line in overlay captions — long names get ellipsis + title tooltip. */}
-      <SafeText as="h3" lines={1} className="dome-fs-card__title" title={p.displayTitle}>
-        {searchQuery ? highlightSnippet(p.displayTitle, searchQuery) : p.displayTitle}
-      </SafeText>
-      <MetaLine
-        className="dome-fs-card__meta"
-        leading={(
-          <Badge variant="secondary" className="max-w-full truncate" title={p.typeLabel}>
-            {p.typeLabel}
-          </Badge>
-        )}
-        trailing={p.timeAgoShort}
-        trailingTitle={p.timeAgoFull}
-      />
-    </div>
-  );
+  childCount?: number;
+  dropActive?: boolean;
+  dragging?: boolean;
+  renameArmed?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
 function CardChrome({
-  showSelectionChrome,
-  selected,
   renaming,
   hovered,
   menuOpen,
-  menuBtnRef,
-  onToggleSelect,
-  onShowMenu,
-  onToggleMenu,
-  t,
+  menu,
 }: {
-  showSelectionChrome: boolean;
-  selected: boolean;
   renaming: boolean;
   hovered: boolean;
   menuOpen: boolean;
-  menuBtnRef: React.RefObject<HTMLButtonElement>;
-  onToggleSelect: (e: React.MouseEvent) => void;
-  onShowMenu: (pos: { top: number; right: number }) => void;
-  onToggleMenu: () => void;
-  t: TranslateFn;
+  menu: ReactNode;
 }) {
-  return (
-    <>
-      {showSelectionChrome ? (
-        <span className="dome-fs-card__select">
-          <Input
-            type="checkbox"
-            checked={selected}
-            onChange={() => {}}
-            onClick={(e) => { e.stopPropagation(); onToggleSelect(e); }}
-            className="dome-fs-tree-row__checkbox rounded border"
-            aria-label={t('selection.deselect')}
-          />
-        </span>
-      ) : null}
-
-      {(hovered || menuOpen) && !renaming ? (
-        <Button
-          ref={menuBtnRef}
-          type="button"
-          variant="secondary"
-          size="icon-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!menuOpen && menuBtnRef.current) {
-              const rect = menuBtnRef.current.getBoundingClientRect();
-              onShowMenu({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-            }
-            onToggleMenu();
-          }}
-          className="dome-fs-card__menu-btn"
-          aria-label={t('folder.rowActions', 'Acciones')}
-          title={t('folder.rowActions', 'Acciones')}
-        >
-          <HugeiconsIcon icon={MoreVerticalIcon} />
-        </Button>
-      ) : null}
-    </>
-  );
+  if ((hovered || menuOpen) && !renaming) return menu;
+  return null;
 }
 
 function FolderFooter({
@@ -724,7 +133,7 @@ function FolderFooter({
     <Button
       type="button"
       variant="ghost"
-      className="dome-fs-card__footer h-auto"
+      className="dome-fs-card__footer h-auto min-w-0 w-full shrink whitespace-normal"
       onClick={onActivate}
       aria-label={p.displayTitle}
     >
@@ -745,29 +154,25 @@ function FolderFooter({
   );
 }
 
-function CardMenuLayers({
+function FolderItemMenus({
   item,
   isFolderCard,
-  folderColor,
-  menuOpen,
-  menuPos,
-  onDismissMenu,
+  variant,
+  onDismiss,
   startRenaming,
   openColorPicker,
-  colorPickerPos,
-  onCloseColorPicker,
+  onOpen,
+  onPreview,
   actions,
 }: {
   item: Resource;
   isFolderCard: boolean;
-  folderColor: string | undefined;
-  menuOpen: boolean;
-  menuPos: { top: number; right: number } | null;
-  onDismissMenu: () => void;
+  variant: 'dropdown' | 'context';
+  onDismiss: () => void;
   startRenaming: () => void;
   openColorPicker: () => void;
-  colorPickerPos: { top: number; left: number } | null;
-  onCloseColorPicker: () => void;
+  onOpen: () => void;
+  onPreview?: () => void;
   actions: Pick<
     FolderCardProps,
     | 'onDelete'
@@ -780,84 +185,69 @@ function CardMenuLayers({
   >;
 }) {
   return (
-    <>
-      {menuOpen && menuPos
-        ? createPortal(
-            <DropdownMenu open onOpenChange={(open) => { if (!open) onDismissMenu(); }}>
-              <DropdownMenuTrigger
-                nativeButton={false}
-                render={
-                  <span
-                    className="pointer-events-none fixed size-px"
-                    style={{ top: menuPos.top, right: menuPos.right }}
-                    aria-hidden
-                  />
-                }
-              />
-              <DropdownMenuContent
-                align="end"
-                side="bottom"
-                sideOffset={0}
-                positionMethod="fixed"
-                className="dome-folder-view__row-menu w-auto"
-              >
-                <ResourceContextMenuItems
-                  resource={item}
-                  options={{
-                    isFolder: isFolderCard,
-                    isNote: item.type === 'note',
-                    canOpenInSplit: Boolean(actions.onOpenInSplit),
-                  }}
-                  actions={{
-                    onRename: startRenaming,
-                    onOpenInSplit: actions.onOpenInSplit,
-                    onOpenInWindow: actions.onOpenInWindow,
-                    onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
-                    onMoveToFolder: actions.onMoveToFolder,
-                    onMoveToProject: actions.onMoveToProject,
-                    onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
-                    onDelete: actions.onDelete,
-                  }}
-                  onDismiss={onDismissMenu}
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>,
-            document.body,
-          )
-        : null}
-
-      {colorPickerPos && actions.onChangeColor ? (
-        <ColorPickerPopover
-          pos={colorPickerPos}
-          currentColor={folderColor?.startsWith('#') ? folderColor : FOLDER_COLOR_DEFAULT}
-          onSave={actions.onChangeColor}
-          onClose={onCloseColorPicker}
-        />
-      ) : null}
-    </>
+    <ResourceContextMenuItems
+      resource={item}
+      variant={variant}
+      options={{
+        isFolder: isFolderCard,
+        isNote: item.type === 'note',
+        canOpenInSplit: Boolean(actions.onOpenInSplit),
+      }}
+      actions={{
+        onOpen,
+        onPreview,
+        onRename: startRenaming,
+        onOpenInSplit: actions.onOpenInSplit,
+        onOpenInWindow: actions.onOpenInWindow,
+        onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
+        onMoveToFolder: actions.onMoveToFolder,
+        onMoveToProject: actions.onMoveToProject,
+        onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
+        onDelete: actions.onDelete,
+      }}
+      onDismiss={onDismiss}
+    />
   );
 }
 
-/** Notes / artifacts stack preview + footer; media/PDF/sheets keep overlay caption. */
-function shouldUseStackedMeta(isFolderCard: boolean, p: CardPresentation): boolean {
-  return isFolderCard || p.isNoteCard || Boolean(p.artifactTemplate);
+function CardColorPicker({
+  folderColor,
+  colorPickerPos,
+  onChangeColor,
+  onClose,
+}: {
+  folderColor: string | undefined;
+  colorPickerPos: { top: number; left: number } | null;
+  onChangeColor?: (color: string) => void;
+  onClose: () => void;
+}) {
+  if (!colorPickerPos || !onChangeColor) return null;
+  return (
+    <ColorPickerPopover
+      pos={colorPickerPos}
+      currentColor={folderColor?.startsWith('#') ? folderColor : FOLDER_COLOR_DEFAULT}
+      onSave={onChangeColor}
+      onClose={onClose}
+    />
+  );
 }
 
 /** Root class list for a folder/resource card — extracted for S3776. */
 function folderCardRootClassName(opts: {
   isFolderCard: boolean;
-  useStackedMeta: boolean;
   p: CardPresentation;
   searchFocused?: boolean;
   selected: boolean;
   menuOpen: boolean;
   isLast?: boolean;
+  dropActive?: boolean;
+  dragging?: boolean;
 }): string {
-  const { isFolderCard, useStackedMeta, p, searchFocused, selected, menuOpen, isLast } = opts;
+  const { isFolderCard, p, searchFocused, selected, menuOpen, isLast, dropActive, dragging } = opts;
   return cn(
     'dome-fs-card',
     isFolderCard ? 'dome-fs-card--folder' : 'dome-fs-card--resource',
-    useStackedMeta && !isFolderCard && 'dome-fs-card--stacked',
+    !isFolderCard && 'dome-fs-card--stacked',
     p.isMediaCard && 'dome-fs-card--media',
     p.isSheetCard && 'dome-fs-card--sheet',
     p.isNoteCard && 'dome-fs-card--note',
@@ -867,6 +257,9 @@ function folderCardRootClassName(opts: {
     selected && 'dome-fs-card--selected',
     menuOpen && 'dome-fs-card--menu-open',
     isLast && 'dome-fs-card--last',
+    dropActive && 'dome-fs-card--drop-target',
+    dragging && 'dome-fs-card--dragging',
+    'dome-fs-card--icon',
   );
 }
 
@@ -882,12 +275,12 @@ function commitFolderCardRename(
 function activateFolderCard(
   e: React.MouseEvent,
   renaming: boolean,
-  onToggleSelect: (e: React.MouseEvent) => void,
+  onToggleSelect: (event: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void,
   onOpen: () => void,
 ): void {
   if (renaming) return;
-  if (e.metaKey || e.ctrlKey) {
-    e.preventDefault();
+  e.stopPropagation();
+  if (isExplorerMultiSelectEvent(e)) {
     onToggleSelect(e);
     return;
   }
@@ -910,10 +303,8 @@ function FolderCardBody({
   item,
   isFolderCard,
   renaming,
-  useStackedMeta,
   p,
   visual,
-  searchQuery,
   previewRef,
   chrome,
   stackedFooter,
@@ -922,11 +313,9 @@ function FolderCardBody({
   item: Resource;
   isFolderCard: boolean;
   renaming: boolean;
-  useStackedMeta: boolean;
   p: CardPresentation;
   visual: ResourceVisualPreview;
-  searchQuery?: string;
-  previewRef: React.Ref<HTMLDivElement>;
+  previewRef: (node: Element | null) => void;
   chrome: ReactNode;
   stackedFooter: ReactNode;
   onActivate: (e: React.MouseEvent) => void;
@@ -938,18 +327,9 @@ function FolderCardBody({
         <div
           className="dome-fs-card__cover dome-fs-card__cover--folder cursor-pointer"
           onClick={onActivate}
-          style={p.hasCustomFolderColor
-            ? { background: `color-mix(in srgb, ${p.typeColor} 14%, var(--card))` }
-            : undefined}
         >
           {chrome}
-          <CoverPreviewContent
-            item={item}
-            isFolderCard
-            p={p}
-            visual={visual}
-            searchQuery={searchQuery}
-          />
+          <CoverPreviewContent item={item} isFolderCard p={p} visual={visual} />
         </div>
         {stackedFooter}
       </>
@@ -958,64 +338,19 @@ function FolderCardBody({
 
   if (renaming) return stackedFooter;
 
-  if (useStackedMeta) {
-    return (
-      <>
-        <div ref={previewRef} className="dome-fs-card__surface">
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn(
-              'dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked h-auto',
-              p.artifactTemplate && 'dome-fs-card__cover--artifact',
-            )}
-            onClick={onActivate}
-            aria-label={p.displayTitle}
-          >
-            {chrome}
-            <CoverPreviewContent
-              item={item}
-              isFolderCard={false}
-              p={p}
-              visual={visual}
-              searchQuery={searchQuery}
-            />
-          </Button>
-        </div>
-        {stackedFooter}
-      </>
-    );
-  }
-
   return (
-    <div ref={previewRef} className="dome-fs-card__surface">
-      <Button
-        type="button"
-        variant="ghost"
-        className={cn(
-          'dome-fs-card__cover dome-fs-card__cover--resource h-auto',
-          p.artifactTemplate && 'dome-fs-card__cover--artifact',
-        )}
+    <>
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <div
+        ref={previewRef as React.Ref<HTMLDivElement>}
+        className="dome-fs-card__cover dome-fs-card__cover--resource dome-fs-card__cover--stacked cursor-pointer"
         onClick={onActivate}
-        aria-label={p.displayTitle}
       >
         {chrome}
-        <CoverPreviewContent
-          item={item}
-          isFolderCard={false}
-          p={p}
-          visual={visual}
-          searchQuery={searchQuery}
-        />
-        {p.isVideoCard ? (
-          <span className="dome-fs-card__play-badge" aria-hidden>
-            <HugeiconsIcon icon={PlayIcon} fill="currentColor" strokeWidth={0} />
-          </span>
-        ) : null}
-        <div className="dome-fs-card__scrim" aria-hidden />
-        <ResourceCaption p={p} searchQuery={searchQuery} />
-      </Button>
-    </div>
+        <CoverPreviewContent item={item} isFolderCard={false} p={p} visual={visual} />
+      </div>
+      {stackedFooter}
+    </>
   );
 }
 
@@ -1032,17 +367,25 @@ function FolderCardImpl({
   onOpenInSplit,
   onOpenInWindow,
   onNewSubfolder,
+  onPreview,
   onToggleSelect,
   selected,
-  showSelectionChrome,
   searchQuery,
   searchFocused,
   cardRef,
+  childCount = 0,
+  dropActive,
+  dragging,
+  renameArmed,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
 }: FolderCardProps) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(item.title ?? '');
   const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
@@ -1050,11 +393,11 @@ function FolderCardImpl({
   const renameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const close = () => setMenuOpen(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [menuOpen]);
+    if (!renameArmed) return;
+    setRenaming(true);
+    setRenameValue(item.title ?? '');
+    requestAnimationFrame(() => renameRef.current?.focus());
+  }, [renameArmed, item.title]);
 
   const startRenaming = () => {
     setRenaming(true);
@@ -1062,10 +405,9 @@ function FolderCardImpl({
     requestAnimationFrame(() => renameRef.current?.focus());
   };
 
-  const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
   const isFolderCard = isFolder;
-  const p = deriveCardPresentation(item, isFolder, visual, searchQuery, t);
-  const useStackedMeta = shouldUseStackedMeta(isFolderCard, p);
+  const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
+  const p = deriveCardPresentation(item, isFolder, visual, searchQuery, t, childCount);
 
   const commitRename = () => {
     commitFolderCardRename(renameValue, item.title, onRename);
@@ -1081,18 +423,54 @@ function FolderCardImpl({
     setColorPickerPos(colorPickerPosFromButton(menuBtnRef.current));
   };
 
+  const menuActions = {
+    onDelete,
+    onChangeColor,
+    onMoveToProject,
+    onMoveToFolder,
+    onOpenInSplit,
+    onOpenInWindow,
+    onNewSubfolder,
+  };
+
   const chrome = (
     <CardChrome
-      showSelectionChrome={showSelectionChrome}
-      selected={selected}
       renaming={renaming}
       hovered={hovered}
       menuOpen={menuOpen}
-      menuBtnRef={menuBtnRef}
-      onToggleSelect={onToggleSelect}
-      onShowMenu={setMenuPos}
-      onToggleMenu={() => setMenuOpen((v) => !v)}
-      t={t}
+      menu={(
+        <DropdownMenu onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                ref={menuBtnRef}
+                type="button"
+                variant="secondary"
+                size="icon-xs"
+                className="dome-fs-card__menu-btn"
+                aria-label={t('folder.rowActions', 'Acciones')}
+                title={t('folder.rowActions', 'Acciones')}
+                onClick={(e) => e.stopPropagation()}
+              />
+            }
+          >
+            <HugeiconsIcon icon={MoreVerticalIcon} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="dome-folder-view__row-menu w-auto">
+            <FolderItemMenus
+              item={item}
+              isFolderCard={isFolderCard}
+              variant="dropdown"
+              onDismiss={() => setMenuOpen(false)}
+              startRenaming={startRenaming}
+              openColorPicker={openColorPicker}
+              onOpen={onOpen}
+              onPreview={onPreview}
+              actions={menuActions}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     />
   );
 
@@ -1112,62 +490,74 @@ function FolderCardImpl({
   );
 
   return (
-    <div
-      ref={cardRef}
-      className={folderCardRootClassName({
-        isFolderCard,
-        useStackedMeta,
-        p,
-        searchFocused,
-        selected,
-        menuOpen,
-        isLast,
-      })}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onContextMenu={(e) => {
-        if (renaming) return;
-        e.preventDefault();
-        setMenuPos({ top: e.clientY, right: window.innerWidth - e.clientX });
-        setMenuOpen(true);
-      }}
-    >
-      <FolderCardBody
-        item={item}
-        isFolderCard={isFolderCard}
-        renaming={renaming}
-        useStackedMeta={useStackedMeta}
-        p={p}
-        visual={visual}
-        searchQuery={searchQuery}
-        previewRef={previewRef as unknown as React.Ref<HTMLDivElement>}
-        chrome={chrome}
-        stackedFooter={stackedFooter}
-        onActivate={handleCardActivate}
-      />
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <div
+            ref={cardRef}
+            className={folderCardRootClassName({
+              isFolderCard,
+              p,
+              searchFocused,
+              selected,
+              menuOpen,
+              isLast,
+              dropActive,
+              dragging,
+            })}
+            aria-selected={selected}
+            draggable={!renaming}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onContextMenu={() => {
+              if (!selected) onToggleSelect({});
+            }}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onDragEnd={onDragEnd}
+            onDoubleClick={(e) => {
+              if (renaming) return;
+              e.preventDefault();
+              onOpen();
+            }}
+          />
+        }
+      >
+        <FolderCardBody
+          item={item}
+          isFolderCard={isFolderCard}
+          renaming={renaming}
+          p={p}
+          visual={visual}
+          previewRef={previewRef}
+          chrome={chrome}
+          stackedFooter={stackedFooter}
+          onActivate={handleCardActivate}
+        />
 
-      <CardMenuLayers
-        item={item}
-        isFolderCard={isFolderCard}
-        folderColor={p.folderColor}
-        menuOpen={menuOpen}
-        menuPos={menuPos}
-        onDismissMenu={() => setMenuOpen(false)}
-        startRenaming={startRenaming}
-        openColorPicker={openColorPicker}
-        colorPickerPos={colorPickerPos}
-        onCloseColorPicker={() => setColorPickerPos(null)}
-        actions={{
-          onDelete,
-          onChangeColor,
-          onMoveToProject,
-          onMoveToFolder,
-          onOpenInSplit,
-          onOpenInWindow,
-          onNewSubfolder,
-        }}
-      />
-    </div>
+        <CardColorPicker
+          folderColor={p.folderColor}
+          colorPickerPos={colorPickerPos}
+          onChangeColor={onChangeColor}
+          onClose={() => setColorPickerPos(null)}
+        />
+      </ContextMenuTrigger>
+      <ContextMenuContent className="dome-folder-view__row-menu w-auto">
+        <FolderItemMenus
+          item={item}
+          isFolderCard={isFolderCard}
+          variant="context"
+          onDismiss={() => undefined}
+          startRenaming={startRenaming}
+          openColorPicker={openColorPicker}
+          onOpen={onOpen}
+          onPreview={onPreview}
+          actions={menuActions}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -1181,7 +571,11 @@ const FolderCard = memo(FolderCardImpl, (prev, next) => (
   prev.isFolder === next.isFolder &&
   prev.selected === next.selected &&
   prev.searchFocused === next.searchFocused &&
-  prev.searchQuery === next.searchQuery
+  prev.searchQuery === next.searchQuery &&
+  prev.childCount === next.childCount &&
+  prev.dropActive === next.dropActive &&
+  prev.dragging === next.dragging &&
+  prev.renameArmed === next.renameArmed
 ));
 
 export default FolderCard;
