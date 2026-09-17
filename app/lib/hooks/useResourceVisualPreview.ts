@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ArtifactRecord, Resource } from '@/types';
 import { loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
+import { mergedDomeDataPayload, resolveArtifactHtmlCss } from '@/lib/chat/artifactDocument';
+import { prepareNotePreviewMarkdown, NOTE_PREVIEW_MARKDOWN_MAX } from '@/lib/workspace/explorerPreviewMarkdown';
 
 /**
  * Lazy, cached visual previews for `ResourceCard`:
@@ -33,6 +35,10 @@ interface ArtifactPreview {
   title: string | null;
   /** Raw HTML template, for rendering a real visual thumbnail in an iframe. */
   template: string | null;
+  /** Body HTML extracted for the workspace srcdoc (theme + DOME_DATA). */
+  bodyHtml: string | null;
+  /** Artifact-authored CSS hoisted from the template / state. */
+  artifactCss: string;
   /** The artifact's state.data, injected as `window.DOME_DATA` for the preview. */
   data: Record<string, unknown> | null;
 }
@@ -80,7 +86,7 @@ function stripToPlainText(input: string): string {
   return trimmed.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-const MARKDOWN_MAX = 1500;
+const MARKDOWN_MAX = NOTE_PREVIEW_MARKDOWN_MAX;
 
 /**
  * Vault notes store raw Markdown in `content`; older notes may hold Tiptap
@@ -179,11 +185,12 @@ async function fetchResourceDetail(resourceId: string): Promise<ResourceDetailPr
       // empty) — load it through the same path the editor uses so the card
       // preview matches what the editor renders.
       const markdown = await extractMarkdown(r);
+      const prepared = markdown ? prepareNotePreviewMarkdown(markdown, MARKDOWN_MAX) : null;
 
       const detail: ResourceDetailPreview = {
         imageUrl,
         snippet: snippet || null,
-        markdown,
+        markdown: prepared,
       };
       setBounded(detailCache, resourceId, detail);
       return detail;
@@ -302,14 +309,12 @@ async function fetchArtifactPreview(resourceId: string): Promise<ArtifactPreview
       }
       const record = (result as { data?: ArtifactRecord }).data;
       if (!record) return null;
+      const { html, css } = resolveArtifactHtmlCss(record);
+      const data = mergedDomeDataPayload(record);
       const state =
         record.state && typeof record.state === 'object'
           ? (record.state as Record<string, unknown>)
           : {};
-      const data =
-        state.data && typeof state.data === 'object' && !Array.isArray(state.data)
-          ? (state.data as Record<string, unknown>)
-          : null;
       const candidates: unknown[] = [
         data?.['title'],
         data?.['name'],
@@ -349,6 +354,8 @@ async function fetchArtifactPreview(resourceId: string): Promise<ArtifactPreview
         snippet: snippet ?? '',
         title: record.title ?? null,
         template: htmlSource,
+        bodyHtml: html.trim() || null,
+        artifactCss: css,
         data,
       };
       setBounded(artifactCache, resourceId, preview);

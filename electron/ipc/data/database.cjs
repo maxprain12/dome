@@ -1836,6 +1836,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
   /** Collect resource id and all descendants (folder tree) for move/delete operations */
   const { collectSubtreeIds: collectResourceSubtreeIds } = require('../../storage/resource-delete.cjs');
+  const { validateMoveToFolder } = require('../../storage/resource-move.cjs');
 
   // Move resource (and folder subtree) to another project root (clears folder_id on root only)
   ipcMain.handle('db:resources:moveToProject', (event, arg1, arg2) => {
@@ -1910,20 +1911,15 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-
-      // Verify the folder exists and is actually a folder
-      if (folderId) {
-        const folder = queries.getResourceById.get(folderId);
-        if (!folder) {
-          return { success: false, error: 'Folder not found' };
-        }
-        if (folder.type !== 'folder') {
-          return { success: false, error: 'Target is not a folder' };
-        }
-        // Prevent moving folder into itself
-        if (resourceId === folderId) {
-          return { success: false, error: 'Cannot move folder into itself' };
-        }
+      const resource = queries.getResourceById.get(resourceId);
+      const folder = folderId ? queries.getResourceById.get(folderId) : null;
+      const subtreeIds =
+        resource?.type === 'folder' && folderId
+          ? collectResourceSubtreeIds(queries, resourceId)
+          : [];
+      const check = validateMoveToFolder({ resource, folder, folderId, subtreeIds });
+      if (!check.ok) {
+        return { success: false, error: check.error };
       }
 
       queries.moveResourceToFolder.run(folderId || null, Date.now(), resourceId);

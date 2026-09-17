@@ -4,123 +4,24 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Folder01Icon,
 } from '@hugeicons/core-free-icons';
-import type { Resource } from '@/types';
 import ResourceIcon from '@/components/shared/ResourceIcon';
 import MarkdownBody from '@/components/shared/MarkdownBody';
-import { loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { formatDistanceToNow } from '@/lib/utils';
 import { Spinner } from '@/components/ui/spinner';
 import { type PalettePreviewTarget } from './commandPaletteTypes';
 import {
-  classifyPreviewContent,
   previewPlainText,
   wrapCmdkPreviewHtml,
 } from './commandPalettePreviewBody';
 import { CommandPaletteSourcePreview } from './CommandPaletteSourcePreview';
 import { useDomeThemeSnapshot } from '@/lib/chat/useDomeThemeSnapshot';
+import {
+  getCachedResourcePreview,
+  loadResourcePreview,
+  type ResourcePreviewData,
+} from '@/lib/resources/loadResourcePreview';
 
-const CACHE_MAX = 30;
 const SNIPPET_RADIUS = 260;
-
-interface PreviewData {
-  title: string;
-  type: string;
-  updatedAt: number | null;
-  folderPath: string;
-  /** Note body rendered as Markdown. */
-  markdown: string | null;
-  /** Plain-text body (non-note text resources). */
-  text: string | null;
-  /** Renderable HTML document (agent reports, artifacts, imported pages). */
-  html: string | null;
-  /** Image cover (image/video thumbnails). */
-  imageUrl: string | null;
-  /** First PDF page render. */
-  pdfDataUrl: string | null;
-}
-
-const cache = new Map<string, PreviewData>();
-
-function remember(id: string, data: PreviewData): void {
-  if (cache.has(id)) cache.delete(id);
-  cache.set(id, data);
-  while (cache.size > CACHE_MAX) {
-    const oldest = cache.keys().next().value;
-    if (oldest === undefined) break;
-    cache.delete(oldest);
-  }
-}
-
-async function fetchFolderPath(folderId: unknown): Promise<string> {
-  const parts: string[] = [];
-  let current = typeof folderId === 'string' ? folderId : null;
-  const seen = new Set<string>();
-  while (current && !seen.has(current) && parts.length < 4) {
-    seen.add(current);
-    const res = await window.electron?.db?.resources?.getById?.(current);
-    if (!res?.success || !res.data) break;
-    const row = res.data as { title?: string; folder_id?: string | null };
-    if (row.title) parts.unshift(row.title);
-    current = typeof row.folder_id === 'string' ? row.folder_id : null;
-  }
-  return parts.join(' / ');
-}
-
-async function fetchPreview(resourceId: string): Promise<PreviewData | null> {
-  const res = await window.electron?.db?.resources?.getById?.(resourceId);
-  if (!res?.success || !res.data) return null;
-  const r = res.data as unknown as Record<string, unknown>;
-  const type = String(r.type ?? 'note');
-
-  const data: PreviewData = {
-    title: String(r.title ?? ''),
-    type,
-    updatedAt: typeof r.updated_at === 'number' ? r.updated_at : null,
-    folderPath: await fetchFolderPath(r.folder_id),
-    markdown: null,
-    text: null,
-    html: null,
-    imageUrl: null,
-    pdfDataUrl: null,
-  };
-
-  if (type === 'note' || type === 'notebook') {
-    try {
-      const md = await loadNoteMarkdown(r as unknown as Resource);
-      Object.assign(data, classifyPreviewContent(md));
-    } catch { /* fall through to plain text */ }
-  } else if (type === 'pdf') {
-    try {
-      const page = await window.electron?.pdf?.renderPage?.({ resourceId, pageNumber: 1, scale: 1 });
-      if (page && typeof page === 'object' && 'success' in page && page.success) {
-        const url = (page as { dataUrl?: string }).dataUrl;
-        if (typeof url === 'string' && url) data.pdfDataUrl = url;
-      }
-    } catch { /* fall through to plain text */ }
-  } else if ((type === 'image' || type === 'video') && typeof r.thumbnail_data === 'string' && r.thumbnail_data) {
-    data.imageUrl = r.thumbnail_data;
-  } else if (type === 'artifact') {
-    try {
-      const result = await window.electron?.artifacts?.get?.(resourceId);
-      const record = result && typeof result === 'object' && 'success' in result && result.success
-        ? (result as { data?: { template?: unknown; state?: { html?: unknown } } }).data
-        : null;
-      const template = typeof record?.template === 'string' ? record.template : '';
-      const stateHtml = typeof record?.state?.html === 'string' ? record.state.html : '';
-      Object.assign(data, classifyPreviewContent(template || stateHtml));
-    } catch { /* fall through to plain text */ }
-  }
-
-  if (!data.markdown && !data.pdfDataUrl && !data.imageUrl && !data.html) {
-    const text =
-      (typeof r.content_text === 'string' && r.content_text.trim()) ||
-      (typeof r.content === 'string' && r.content.trim()) ||
-      '';
-    Object.assign(data, classifyPreviewContent(text || null));
-  }
-
-  return data;
-}
 
 /** Slice `text` around the first occurrence of `query` so the match is visible. */
 function contextAround(text: string, query: string): string {
@@ -218,10 +119,10 @@ interface Props {
 export default function CommandPaletteResourcePreview({ target, query }: Props) {
   const { t } = useTranslation();
   const resourceId = target.kind === 'resource' ? target.resourceId : null;
-  const [preview, setPreview] = useState<PreviewData | null>(() =>
-    resourceId ? (cache.get(resourceId) ?? null) : null,
+  const [preview, setPreview] = useState<ResourcePreviewData | null>(() =>
+    resourceId ? (getCachedResourcePreview(resourceId) ?? null) : null,
   );
-  const [loading, setLoading] = useState(Boolean(resourceId && !cache.has(resourceId)));
+  const [loading, setLoading] = useState(Boolean(resourceId && !getCachedResourcePreview(resourceId)));
 
   useEffect(() => {
     if (!resourceId) {
@@ -229,7 +130,7 @@ export default function CommandPaletteResourcePreview({ target, query }: Props) 
       setLoading(false);
       return;
     }
-    const cached = cache.get(resourceId);
+    const cached = getCachedResourcePreview(resourceId);
     if (cached) {
       setPreview(cached);
       setLoading(false);
@@ -239,9 +140,8 @@ export default function CommandPaletteResourcePreview({ target, query }: Props) 
     setLoading(true);
     const timer = window.setTimeout(async () => {
       try {
-        const data = await fetchPreview(resourceId);
+        const data = await loadResourcePreview(resourceId);
         if (cancelled) return;
-        if (data) remember(resourceId, data);
         setPreview(data);
       } finally {
         if (!cancelled) setLoading(false);

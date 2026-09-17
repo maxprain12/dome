@@ -6,8 +6,10 @@ import { getFolderColor } from './folderTabShared';
 import FolderListRow from './FolderListRow';
 import FolderCard from './FolderCard';
 import NewFolderInline from './NewFolderInline';
+import { FolderExplorerEmpty, FolderExplorerError } from './FolderExplorerEmpty';
 import type { FolderListEntry, FolderViewMode } from './folderTabViewHelpers';
 import { useFolderVirtualWindow } from './useFolderVirtualWindow';
+import { cn } from '@/lib/utils';
 
 export interface FolderTabBodyProps {
   viewMode: FolderViewMode;
@@ -43,9 +45,24 @@ export interface FolderTabBodyProps {
   handleOpenInSplit: (item: Resource) => void;
   handleOpenInWindow: (item: Resource) => void | Promise<void>;
   handleNewSubfolder: (parentId: string) => void;
-  toggleSelectId: (id: string) => void;
+  toggleSelectId: (id: string, event: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean }) => void;
   handleCreateFolder: (name: string) => void | Promise<void>;
   onCancelCreateFolder: () => void;
+  loadError?: string | null;
+  onRetry?: () => void;
+  onImport?: () => void;
+  onNewNote?: () => void;
+  onNewFolder?: () => void;
+  childCountByFolder?: Map<string, number>;
+  dropTargetId?: string | null;
+  draggingIds?: string[];
+  renameArmedId?: string | null;
+  onPreview?: (item: Resource) => void;
+  onItemDragStart?: (item: Resource, e: React.DragEvent) => void;
+  onItemDragOver?: (item: Resource | null, e: React.DragEvent) => void;
+  onItemDragLeave?: () => void;
+  onItemDrop?: (item: Resource | null, e: React.DragEvent) => void;
+  onItemDragEnd?: (e: React.DragEvent) => void;
 }
 
 export default function FolderTabBody(props: FolderTabBodyProps) {
@@ -82,6 +99,21 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
     toggleSelectId,
     handleCreateFolder,
     onCancelCreateFolder,
+    loadError,
+    onRetry,
+    onImport,
+    onNewNote,
+    onNewFolder,
+    childCountByFolder,
+    dropTargetId,
+    draggingIds,
+    renameArmedId,
+    onPreview,
+    onItemDragStart,
+    onItemDragOver,
+    onItemDragLeave,
+    onItemDrop,
+    onItemDragEnd,
   } = props;
   const windowRange = useFolderVirtualWindow(rowsToRender.length, viewMode);
   const visibleRows = windowRange.enabled
@@ -113,6 +145,26 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
   const buildNewSubfolderHandler = (item: Resource, isFolder: boolean) =>
     isFolder ? () => handleNewSubfolder(item.id) : undefined;
 
+  const itemDnD = (item: Resource) => ({
+    dropActive: dropTargetId === item.id,
+    dragging: Boolean(draggingIds?.includes(item.id)),
+    renameArmed: renameArmedId === item.id,
+    onPreview: onPreview ? () => onPreview(item) : undefined,
+    onDragStart: onItemDragStart
+      ? (e: React.DragEvent) => onItemDragStart(item, e)
+      : undefined,
+    onDragOver: onItemDragOver
+      ? (e: React.DragEvent) => onItemDragOver(item, e)
+      : undefined,
+    onDragLeave: onItemDragLeave,
+    onDrop: onItemDrop ? (e: React.DragEvent) => { void onItemDrop(item, e); } : undefined,
+    onDragEnd: onItemDragEnd,
+  });
+
+  if (loadError) {
+    return <FolderExplorerError message={loadError} onRetry={() => onRetry?.()} />;
+  }
+
   if (showNoResults) {
     return (
       <p className="dome-folder-view__empty dome-folder-view__empty--search">
@@ -137,12 +189,25 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
         </div>
       );
     }
-    return <p className="dome-folder-view__empty">{t('folder.emptyFolderShort', 'Carpeta vacía')}</p>;
+    return (
+      <FolderExplorerEmpty
+        onImport={() => onImport?.()}
+        onNewFolder={() => onNewFolder?.()}
+        onNewNote={() => onNewNote?.()}
+      />
+    );
   }
 
   if (viewMode === 'list') {
     return (
-      <div ref={windowRange.hostRef}>
+      <div
+        ref={windowRange.hostRef}
+        className={cn(dropTargetId === null && 'dome-folder-view__list--drop-target')}
+        onDragOver={(e) => onItemDragOver?.(null, e)}
+        onDrop={(e) => {
+          void onItemDrop?.(null, e);
+        }}
+      >
         <div className="dome-folder-view__list-header">
           <span className="dome-folder-view__list-header-name">
             {t('folder.colName', 'Nombre')}
@@ -180,14 +245,14 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
             onOpenInSplit={buildOpenInSplitHandler(item, isFolder)}
             onOpenInWindow={buildOpenInWindowHandler(item, isFolder)}
             onNewSubfolder={buildNewSubfolderHandler(item, isFolder)}
-            selected={selectedIds.has(item.id)}
+            selected={selectedIds.has(item.id) && selectedIds.size > 1}
             showSelectionChrome={showSelectionChrome}
             onToggleSelect={(e) => {
-              e.stopPropagation();
-              toggleSelectId(item.id);
+              toggleSelectId(item.id, e);
             }}
             searchQuery={isFiltering ? normalizedSearchQuery : undefined}
             searchFocused={isFiltering && idx === searchFocusIndex}
+            {...itemDnD(item)}
           />
           );
         })}
@@ -207,7 +272,14 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
   }
 
   return (
-    <div ref={windowRange.hostRef}>
+    <div
+      ref={windowRange.hostRef}
+      className={cn(dropTargetId === null && 'dome-folder-view__list--drop-target')}
+      onDragOver={(e) => onItemDragOver?.(null, e)}
+      onDrop={(e) => {
+        void onItemDrop?.(null, e);
+      }}
+    >
       <div className="dome-folder-view__grid-header">
         <span className="dome-folder-view__list-header-count">{statusLabel}</span>
       </div>
@@ -230,14 +302,14 @@ export default function FolderTabBody(props: FolderTabBodyProps) {
             onOpenInSplit={buildOpenInSplitHandler(item, isFolder)}
             onOpenInWindow={buildOpenInWindowHandler(item, isFolder)}
             onNewSubfolder={buildNewSubfolderHandler(item, isFolder)}
-            selected={selectedIds.has(item.id)}
-            showSelectionChrome={showSelectionChrome}
+            selected={selectedIds.has(item.id) && selectedIds.size > 1}
             onToggleSelect={(e) => {
-              e.stopPropagation();
-              toggleSelectId(item.id);
+              toggleSelectId(item.id, e);
             }}
             searchQuery={isFiltering ? normalizedSearchQuery : undefined}
             searchFocused={isFiltering && idx === searchFocusIndex}
+            childCount={isFolder ? (childCountByFolder?.get(item.id) ?? 0) : 0}
+            {...itemDnD(item)}
           />
           );
         })}

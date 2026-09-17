@@ -20,6 +20,8 @@ interface SelectionActionBarProps {
   onDeselect: () => void;
   /** Icon-only single-row variant for narrow containers (sidebar tree). */
   compact?: boolean;
+  /** Flush strip under a toolbar (folder explorer). */
+  embedded?: boolean;
 }
 
 export default function SelectionActionBar({
@@ -29,6 +31,7 @@ export default function SelectionActionBar({
   onDelete,
   onDeselect,
   compact = false,
+  embedded = false,
 }: SelectionActionBarProps) {
   const { t } = useTranslation();
   if (count === 0) return null;
@@ -46,7 +49,7 @@ export default function SelectionActionBar({
   ) => (
     <Button
       type="button"
-      variant="outline"
+      variant={embedded || compact ? 'ghost' : 'outline'}
       size={compact ? 'icon-sm' : 'sm'}
       onClick={onClick}
       className={cn(
@@ -64,18 +67,26 @@ export default function SelectionActionBar({
   return (
     <div
       className={cn(
-        'flex animate-in fade-in items-center rounded-lg border bg-primary/10 shadow-sm duration-150',
-        compact ? 'gap-1.5 p-1.5' : 'mb-4 gap-3 px-4 py-2.5',
+        'flex animate-in fade-in items-center duration-150',
+        compact && 'gap-1.5 rounded-lg border bg-primary/10 p-1.5 shadow-sm',
+        embedded && 'w-full min-w-0 gap-2',
+        !compact && !embedded && 'mb-4 gap-3 rounded-lg border bg-primary/10 px-4 py-2.5 shadow-sm',
       )}
     >
-      <Badge
-        variant="secondary"
-        className={cn(compact && 'size-5 shrink-0 justify-center rounded-full p-0')}
-        title={compact ? countLabel : undefined}
-      >
-        {compact ? count : countLabel}
-      </Badge>
-      <div className={cn('flex flex-wrap items-center', compact ? 'gap-1' : 'gap-2')}>
+      {embedded ? (
+        <span className="min-w-0 truncate text-sm font-medium text-foreground">
+          {countLabel}
+        </span>
+      ) : (
+        <Badge
+          variant="secondary"
+          className={cn(compact && 'size-5 shrink-0 justify-center rounded-full p-0')}
+          title={compact ? countLabel : undefined}
+        >
+          {compact ? count : countLabel}
+        </Badge>
+      )}
+      <div className={cn('flex flex-wrap items-center', compact ? 'gap-1' : embedded ? 'ml-auto gap-1' : 'gap-2')}>
         {actionBtn(<HugeiconsIcon icon={FolderOpenIcon} size={compact ? 14 : 16} />, t('selection.move_to_folder'), onMoveToFolder)}
         {onMoveToProject
           ? actionBtn(<HugeiconsIcon icon={FolderInputIcon} size={compact ? 14 : 16} />, t('selection.move_to_project'), onMoveToProject)

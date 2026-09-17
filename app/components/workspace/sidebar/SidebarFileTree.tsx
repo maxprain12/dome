@@ -2,13 +2,13 @@
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ChevronDownIcon,
   Search01Icon,
   Folder01Icon,
   FolderOpenIcon,
   Cancel01Icon,
   MoreHorizontalIcon,
   CheckIcon,
+  ArrowRight01Icon,
 } from '@hugeicons/core-free-icons';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,25 @@ import MoveFolderModal from '@/components/workspace/MoveFolderModal';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import { useAppStore } from '@/lib/store/useAppStore';
+import ListState from '@/components/shared/ListState';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import {
+  beginExplorerDrag,
+  canDropExplorerItems,
+  endExplorerDrag,
+  explorerDragIdsForItem,
+  getActiveExplorerDrag,
+  isInternalResourceDrag,
+  isOsFileDrag,
+  setExplorerDragGhost,
+  writeExplorerDrag,
+  type ExplorerNode,
+} from '@/lib/workspace/explorerDnD';
+import { classifyExplorerKey } from '@/lib/workspace/explorerKeyboard';
+import { importPathsIntoFolderView } from '@/components/shell/folder-tab/folderTabViewHelpers';
+import { flattenVisibleTree, nextVisibleTreeId, treeParentId } from './sidebarTreeNav';
 
 import ResourceIcon from '@/components/shared/ResourceIcon';
 import { parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
@@ -37,7 +56,7 @@ export interface TreeNodeProps {
   onContextMenu: (e: React.MouseEvent, r: Resource) => void;
   onRenameCommit: (id: string, newTitle: string) => void;
   onRenameCancel: () => void;
-  onDragStart: (node: TreeNodeData) => void;
+  onDragStart: (node: TreeNodeData, event: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent, node: TreeNodeData) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent, targetNode: TreeNodeData) => void;
@@ -49,30 +68,6 @@ export interface TreeNodeProps {
 
 // ── Pure helpers (kept outside the component so they don't add to its complexity) ──
 
-function pickRowBackground(
-  isSelected: boolean,
-  isDragOver: boolean,
-  isFolder: boolean,
-  folderColor: string,
-  hovered: boolean,
-): string {
-  if (isSelected) return 'var(--sidebar-accent)';
-  if (isDragOver && isFolder) return `${folderColor}22`;
-  if (hovered) return 'var(--sidebar-accent)';
-  return 'transparent';
-}
-
-function pickRowOutline(
-  isSelected: boolean,
-  isDragOver: boolean,
-  isFolder: boolean,
-  folderColor: string,
-): string {
-  if (isSelected) return 'none';
-  if (isDragOver && isFolder) return `1.5px dashed ${folderColor}`;
-  return 'none';
-}
-
 function pickFolderColor(
   isFolder: boolean,
   resource: Resource | undefined,
@@ -81,9 +76,8 @@ function pickFolderColor(
 }
 
 function buildDragHandlers(
-  inSelectionMode: boolean,
   node: TreeNodeData,
-  onDragStart: (n: TreeNodeData) => void,
+  onDragStart: (n: TreeNodeData, e: React.DragEvent) => void,
   onDragOver: (e: React.DragEvent, n: TreeNodeData) => void,
   onDragLeave: () => void,
   onDrop: (e: React.DragEvent, n: TreeNodeData) => void,
@@ -91,19 +85,13 @@ function buildDragHandlers(
   onContextMenu: (e: React.MouseEvent, r: Resource) => void,
 ) {
   return {
-    onDragStart: () => {
-      if (!inSelectionMode) onDragStart(node);
-    },
-    onDragOver: (e: React.DragEvent) => {
-      if (!inSelectionMode) onDragOver(e, node);
-    },
+    onDragStart: (e: React.DragEvent) => onDragStart(node, e),
+    onDragOver: (e: React.DragEvent) => onDragOver(e, node),
     onDragLeave: onDragLeave,
-    onDrop: (e: React.DragEvent) => {
-      if (!inSelectionMode) onDrop(e, node);
-    },
+    onDrop: (e: React.DragEvent) => onDrop(e, node),
     onDragEnd: onDragEnd,
     onContextMenu: (e: React.MouseEvent) => {
-      if (node.resource && !inSelectionMode) {
+      if (node.resource) {
         e.preventDefault();
         onContextMenu(e, node.resource);
       }
@@ -141,26 +129,23 @@ function SelectionCheckbox({
       aria-checked={isSelected}
     >
       {isSelected ? (
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-          <path
-            d="M1.5 4L3.5 6L6.5 2"
-            stroke="white"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <HugeiconsIcon icon={CheckIcon} className="size-2.5 text-primary-foreground" strokeWidth={2.5} />
       ) : null}
     </button>
   );
 }
 
 function ChevronToggle({ isFolder, isExpanded }: { isFolder: boolean; isExpanded: boolean }) {
-  if (!isFolder) return null;
+  if (!isFolder) {
+    return <span className="dome-fs-sidebar-chevron" aria-hidden />;
+  }
   return (
     <HugeiconsIcon
-      icon={ChevronDownIcon}
-      className={`size-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
+      icon={ArrowRight01Icon}
+      className={cn(
+        'dome-fs-sidebar-chevron-icon',
+        isExpanded && 'dome-fs-sidebar-chevron-icon--open',
+      )}
       strokeWidth={2.5}
     />
   );
@@ -203,7 +188,6 @@ function NodeIcon({
         className="size-3.5"
         style={{ color: folderColor }}
         strokeWidth={1.75}
-        fill={`${folderColor}33`}
       />
     </span>
   );
@@ -230,9 +214,10 @@ function NodeNameField({
   nodeId: string;
   nodeName: string;
 }) {
+  const { t } = useTranslation();
   if (isRenaming) {
     return (
-      <input
+      <Input
         ref={renameRef}
         type="text"
         value={renameValue}
@@ -240,23 +225,13 @@ function NodeNameField({
         onKeyDown={handleRenameKeyDown}
         onBlur={() => onRenameCommit(nodeId, renameValue)}
         onClick={(e) => e.stopPropagation()}
-        aria-label="Rename"
-        className="flex-1 outline-none rounded px-1"
-        style={{
-          fontSize: 12,
-          background: 'var(--card)',
-          border: '1px solid var(--primary)',
-          color: 'var(--foreground)',
-          minWidth: 0,
-        }}
+        aria-label={t('folder.rename')}
+        className="h-6 flex-1 px-1 text-xs"
       />
     );
   }
   return (
-    <span
-      className="truncate flex-1 dome-fs-tree-name"
-      style={{ fontSize: 12, fontWeight: isFolder ? 500 : 400 }}
-    >
+    <span className={cn('truncate min-w-0 flex-1 text-xs', isFolder && 'font-medium')}>
       {nodeName}
     </span>
   );
@@ -327,7 +302,7 @@ function TreeChildren({
   // Constant per-level offset (containers nest, so indentation stays
   // linear even in deep trees); the guide line sits under the chevron.
   return (
-    <div className="ml-3 w-[calc(100%-0.75rem)] min-w-0 overflow-hidden border-l border-border">
+    <div className="dome-fs-sidebar-group" role="group">
       {node.children!.map((child) => (
         <TreeNode
           key={child.id}
@@ -393,8 +368,6 @@ export function TreeNode({
   const isSelected = selectedIds?.has(node.id) ?? false;
   const inSelectionMode = Boolean(onToggleSelect);
   const folderColor = pickFolderColor(isFolder, node.resource);
-  const rowBg = pickRowBackground(isSelected, isDragOver, isFolder, folderColor, hovered);
-  const rowOutline = pickRowOutline(isSelected, isDragOver, isFolder, folderColor);
 
   useEffect(() => {
     if (!isRenaming) return;
@@ -423,7 +396,6 @@ export function TreeNode({
   };
 
   const dragHandlers = buildDragHandlers(
-    inSelectionMode,
     node,
     onDragStart,
     onDragOver,
@@ -436,17 +408,19 @@ export function TreeNode({
   return (
     <div>
       <div
-        className="flex items-center w-full relative rounded transition-colors"
-        style={{
-          paddingLeft: 6,
-          paddingRight: 4,
-          height: 28,
-          background: rowBg,
-          minWidth: 0,
-          outline: rowOutline,
-          outlineOffset: -1,
-        }}
-        draggable={!isRenaming && !inSelectionMode}
+        role="treeitem"
+        aria-level={depth + 1}
+        aria-selected={isSelected}
+        aria-expanded={isFolder ? isExpanded : undefined}
+        className={cn(
+          'dome-fs-sidebar-row',
+          isSelected && 'dome-fs-sidebar-row--selected',
+          isDragOver && isFolder && 'dome-fs-sidebar-row--drop',
+          hovered && 'dome-fs-sidebar-row--hovered',
+        )}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        tabIndex={-1}
+        draggable={!isRenaming}
         onDragStart={dragHandlers.onDragStart}
         onDragOver={dragHandlers.onDragOver}
         onDragLeave={dragHandlers.onDragLeave}
@@ -455,7 +429,20 @@ export function TreeNode({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onContextMenu={dragHandlers.onContextMenu}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            handleClick();
+          }
+        }}
       >
+        {depth > 0 ? (
+          <span
+            className="dome-fs-sidebar-guide"
+            style={{ left: `${(depth - 1) * 16 + 16}px` }}
+            aria-hidden
+          />
+        ) : null}
         {inSelectionMode ? (
           <SelectionCheckbox
             isSelected={isSelected}
@@ -467,21 +454,12 @@ export function TreeNode({
         <button
           type="button"
           onClick={inSelectionMode ? () => onToggleSelect!(node.id) : handleClick}
-          className="flex items-center flex-1 text-left min-w-0"
-          style={{
-            gap: 5,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: hovered ? 'var(--foreground)' : 'var(--muted-foreground)',
-            padding: 0,
-            minWidth: 0,
-          }}
+          className={cn(
+            'dome-fs-sidebar-row__main',
+            isFolder ? 'font-medium text-sidebar-foreground' : 'text-sidebar-foreground',
+          )}
         >
-          <span
-            className="shrink-0 flex items-center justify-center"
-            style={{ width: 14, height: 14 }}
-          >
+          <span className="dome-fs-sidebar-chevron-slot">
             <ChevronToggle isFolder={isFolder} isExpanded={isExpanded} />
           </span>
 
@@ -539,17 +517,6 @@ export function TreeNode({
 }
 
 // ---------------------------------------------------------------------------
-// Helper: check if `target` is inside `ancestor` in the tree
-// ---------------------------------------------------------------------------
-function isDescendant(target: TreeNodeData, ancestor: TreeNodeData): boolean {
-  if (!ancestor.children) return false;
-  for (const child of ancestor.children) {
-    if (child.id === target.id || isDescendant(target, child)) return true;
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
 // FileTree — tree container with all state and operations
 // ---------------------------------------------------------------------------
 export interface FileTreeProps {
@@ -557,9 +524,11 @@ export interface FileTreeProps {
   onRefresh: () => void;
   /** Folder ids to expand when resources move/create under them (agent runs). */
   autoExpandFolderIds?: string[];
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [] }: FileTreeProps) {
+export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [], error, onRetry }: FileTreeProps) {
   const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -749,72 +718,163 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
     }
   }, [resources, onRefresh]);
 
+  const explorerById = useMemo(() => {
+    const map = new Map<string, ExplorerNode>();
+    for (const resource of resources) {
+      map.set(resource.id, {
+        id: resource.id,
+        type: resource.type,
+        folder_id: resource.folder_id,
+        project_id: resource.project_id,
+      });
+    }
+    return map;
+  }, [resources]);
+
+  const [focusId, setFocusId] = useState<string | null>(null);
+
   // Drag-and-drop handlers
-  const handleDragStart = useCallback((node: TreeNodeData) => {
+  const handleDragStart = useCallback((node: TreeNodeData, event: React.DragEvent) => {
+    if (!node.resource) return;
+    const ids = explorerDragIdsForItem(
+      node.id,
+      selectionMode ? selectedIds : new Set([node.id]),
+      resourcesById,
+    );
+    const payload = { ids, projectId };
+    writeExplorerDrag(event.dataTransfer, payload);
+    beginExplorerDrag(payload);
+    setExplorerDragGhost(event.dataTransfer, node.name, ids.length);
     dragNodeRef.current = node;
     dragEnterCountRef.current = {};
-  }, []);
+  }, [projectId, resourcesById, selectedIds, selectionMode]);
 
   const handleDragOver = useCallback((e: React.DragEvent, target: TreeNodeData) => {
-    if (!dragNodeRef.current) return;
-    if (dragNodeRef.current.id === target.id) return;
-    // Only allow drop on folders; also allow drop on root (handled separately)
-    if (target.type !== 'folder') return;
+    const types = e.dataTransfer.types;
+    if (isOsFileDrag(types) && target.type === 'folder') {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      if (dragOverId !== target.id) setDragOverId(target.id);
+      setExpandedIds((prev) => new Set(prev).add(target.id));
+      return;
+    }
+    const drag = getActiveExplorerDrag();
+    if (!drag && !isInternalResourceDrag(types) && !dragNodeRef.current) return;
+    const sourceIds = drag?.ids ?? (dragNodeRef.current ? [dragNodeRef.current.id] : []);
+    const check = canDropExplorerItems({
+      sourceIds,
+      targetFolderId: target.type === 'folder' ? target.id : null,
+      projectId: drag?.projectId ?? projectId,
+      byId: explorerById,
+    });
+    if (!check.ok) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     if (dragOverId !== target.id) setDragOverId(target.id);
-    // Auto-expand folder after hovering
     setExpandedIds((prev) => new Set(prev).add(target.id));
-  }, [dragOverId]);
+  }, [dragOverId, explorerById, projectId]);
 
   const handleDragLeave = useCallback(() => {
     setDragOverId(null);
   }, []);
 
+  const importIntoFolder = useCallback(async (folderId: string | null, event: React.DragEvent) => {
+    const files = Array.from(event.dataTransfer.files ?? []);
+    const paths = (globalThis.window.electron?.getPathsForFiles?.(files) ?? []).filter(Boolean) as string[];
+    if (!paths.length) return;
+    await importPathsIntoFolderView({
+      paths,
+      effectiveProjectId: projectId,
+      listFolderId: folderId,
+      refetch: async () => onRefresh(),
+    });
+  }, [onRefresh, projectId]);
+
   const handleDrop = useCallback(async (e: React.DragEvent, target: TreeNodeData) => {
     e.preventDefault();
-    const dragNode = dragNodeRef.current;
-    if (!dragNode || !dragNode.resource) { setDragOverId(null); dragNodeRef.current = null; return; }
-    if (dragNode.id === target.id) { setDragOverId(null); dragNodeRef.current = null; return; }
-    if (target.type !== 'folder') { setDragOverId(null); dragNodeRef.current = null; return; }
-    // Don't move a folder into itself or its descendant
-    if (dragNode.type === 'folder' && isDescendant(target, dragNode)) { setDragOverId(null); dragNodeRef.current = null; return; }
-    await window.electron?.db?.resources?.moveToFolder(dragNode.id, target.id);
-    dragNodeRef.current = null;
     setDragOverId(null);
+    if (isOsFileDrag(e.dataTransfer.types) && target.type === 'folder') {
+      await importIntoFolder(target.id, e);
+      endExplorerDrag();
+      dragNodeRef.current = null;
+      return;
+    }
+    const drag = getActiveExplorerDrag();
+    const sourceIds = drag?.ids ?? (dragNodeRef.current ? [dragNodeRef.current.id] : []);
+    const check = canDropExplorerItems({
+      sourceIds,
+      targetFolderId: target.type === 'folder' ? target.id : null,
+      projectId: drag?.projectId ?? projectId,
+      byId: explorerById,
+    });
+    if (!check.ok) {
+      endExplorerDrag();
+      dragNodeRef.current = null;
+      return;
+    }
+    for (const id of sourceIds) {
+      const result = await window.electron?.db?.resources?.moveToFolder(id, target.id);
+      if (!result?.success) break;
+    }
+    endExplorerDrag();
+    dragNodeRef.current = null;
     onRefresh();
-  }, [onRefresh]);
+  }, [explorerById, importIntoFolder, onRefresh, projectId]);
 
   const handleDragEnd = useCallback(() => {
     dragNodeRef.current = null;
     setDragOverId(null);
     setRootDragOver(false);
+    endExplorerDrag();
   }, []);
 
   const handleRootDragOver = useCallback((e: React.DragEvent) => {
     if (e.defaultPrevented) {
-      // A folder row already claimed this drag.
       setRootDragOver(false);
       return;
     }
-    const dragNode = dragNodeRef.current;
-    if (!dragNode?.resource?.folder_id) return; // nothing dragged, or already at root
+    if (isOsFileDrag(e.dataTransfer.types)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setRootDragOver(true);
+      return;
+    }
+    const drag = getActiveExplorerDrag();
+    const sourceIds = drag?.ids ?? (dragNodeRef.current ? [dragNodeRef.current.id] : []);
+    if (sourceIds.length === 0) return;
+    const check = canDropExplorerItems({
+      sourceIds,
+      targetFolderId: null,
+      projectId: drag?.projectId ?? projectId,
+      byId: explorerById,
+    });
+    if (!check.ok) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setRootDragOver(true);
-  }, []);
+  }, [explorerById, projectId]);
 
   const handleRootDrop = useCallback(async (e: React.DragEvent) => {
     setRootDragOver(false);
-    if (e.defaultPrevented) return; // handled by a folder row
-    const dragNode = dragNodeRef.current;
+    if (e.defaultPrevented) return;
+    if (isOsFileDrag(e.dataTransfer.types)) {
+      e.preventDefault();
+      await importIntoFolder(null, e);
+      return;
+    }
+    const drag = getActiveExplorerDrag();
+    const sourceIds = drag?.ids ?? (dragNodeRef.current ? [dragNodeRef.current.id] : []);
     dragNodeRef.current = null;
     setDragOverId(null);
-    if (!dragNode?.resource?.folder_id) return;
+    endExplorerDrag();
+    if (sourceIds.length === 0) return;
     e.preventDefault();
-    await window.electron?.db?.resources?.moveToFolder(dragNode.id, null);
+    for (const id of sourceIds) {
+      const result = await window.electron?.db?.resources?.moveToFolder(id, null);
+      if (!result?.success) break;
+    }
     onRefresh();
-  }, [onRefresh]);
+  }, [importIntoFolder, onRefresh]);
 
   const tree = buildTree(resources);
   const q = searchQuery.trim().toLowerCase();
@@ -830,11 +890,50 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
   };
 
   const filteredTree = filterTree(tree);
+  const visibleRows = flattenVisibleTree(filteredTree, expandedIds);
+
+  const handleTreeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const command = classifyExplorerKey(event.nativeEvent);
+    if (!command) return;
+    if (command === 'arrowDown' || command === 'arrowUp') {
+      event.preventDefault();
+      const nextId = nextVisibleTreeId(visibleRows, focusId, command === 'arrowDown' ? 1 : -1);
+      if (nextId) setFocusId(nextId);
+      return;
+    }
+    if (command === 'arrowRight' && focusId) {
+      event.preventDefault();
+      const row = visibleRows.find((item) => item.id === focusId);
+      if (row?.node.type === 'folder' && !expandedIds.has(focusId)) handleToggle(focusId);
+      return;
+    }
+    if (command === 'arrowLeft' && focusId) {
+      event.preventDefault();
+      if (expandedIds.has(focusId)) {
+        handleToggle(focusId);
+        return;
+      }
+      const parentId = treeParentId(visibleRows, focusId);
+      if (parentId) setFocusId(parentId);
+      return;
+    }
+    if (command === 'open' && focusId) {
+      event.preventDefault();
+      const row = visibleRows.find((item) => item.id === focusId);
+      if (!row) return;
+      if (row.node.type === 'folder') handleOpenFolder(row.node.id, row.node.name, row.node.resource?.project_id);
+      else handleSelect(row.node);
+      return;
+    }
+    if (command === 'rename' && focusId) {
+      event.preventDefault();
+      setRenameId(focusId);
+    }
+  };
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-x-hidden">
-      {/* Search + selection toggle */}
-      <div className="flex min-w-0 items-center gap-1.5 px-0 pt-2 pb-1.5">
+      <div className="flex min-w-0 items-center gap-1.5 px-1 pb-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--accent)', border: '1px solid var(--border)' }}>
           <HugeiconsIcon icon={Search01Icon} className="size-3 shrink-0 text-muted-foreground" strokeWidth={2} />
           <input
@@ -846,25 +945,27 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
           />
         </div>
         {!selectionMode ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             title={t('common.select')}
             onClick={() => setSelectionMode(true)}
-            className="shrink-0 flex items-center justify-center rounded"
-            style={{ width: 24, height: 26, background: 'var(--accent)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--muted-foreground)' }}
+            className="size-[26px] shrink-0"
           >
             <HugeiconsIcon icon={CheckIcon} className="size-3" />
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-xs"
             title={t('common.cancel')}
             onClick={exitSelectionMode}
-            className="shrink-0 flex items-center justify-center rounded"
-            style={{ width: 24, height: 26, background: 'color-mix(in srgb, var(--primary) 12%, transparent)', border: '1px solid var(--primary)', cursor: 'pointer', color: 'var(--primary)' }}
+            className="size-[26px] shrink-0"
           >
             <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -892,19 +993,35 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
 
       {/* Tree */}
       <div
-        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded px-1 pb-2"
+        role="tree"
+        aria-label={t('workspace.search_workspace')}
+        tabIndex={0}
+        className={cn('dome-fs-sidebar-tree', rootDragOver && 'dome-fs-sidebar-tree--drop')}
         onDragOver={handleRootDragOver}
         onDragLeave={() => setRootDragOver(false)}
-        onDrop={handleRootDrop}
-        style={{
-          outline: rootDragOver ? '1.5px dashed var(--primary)' : 'none',
-          outlineOffset: -2,
+        onDrop={(event) => {
+          void handleRootDrop(event);
         }}
+        onKeyDown={handleTreeKeyDown}
       >
-        {filteredTree.length === 0 ? (
-          <p className="text-center py-4" style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-            {t('ui.no_results')}
+        {error ? (
+          <ListState
+            variant="error"
+            compact
+            errorMessage={error}
+            onRetry={onRetry}
+          />
+        ) : filteredTree.length === 0 && q ? (
+          <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+            {t('folder.treeNoResults')}
           </p>
+        ) : filteredTree.length === 0 ? (
+          <ListState
+            variant="empty"
+            compact
+            title={t('folder.treeEmpty')}
+            description={t('folder.emptyHint')}
+          />
         ) : (
           filteredTree.map((node) => (
             <TreeNode
@@ -925,7 +1042,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onDragEnd={handleDragEnd}
-              selectedIds={selectionMode ? selectedIds : undefined}
+              selectedIds={selectionMode ? selectedIds : (focusId ? new Set([focusId]) : undefined)}
               onToggleSelect={selectionMode ? handleToggleSelect : undefined}
             />
           ))

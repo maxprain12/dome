@@ -16,7 +16,9 @@ import FolderTabToolbar from './folder-tab/FolderTabToolbar';
 import FolderTabBody from './folder-tab/FolderTabBody';
 import FolderTabDialogs from './folder-tab/FolderTabDialogs';
 import FolderTabDropOverlay from './folder-tab/FolderTabDropOverlay';
+import ResourceQuickLook from './folder-tab/ResourceQuickLook';
 import { useFolderOsDrop } from './folder-tab/useFolderOsDrop';
+import { useFolderExplorerSession } from './folder-tab/useFolderExplorerSession';
 import { useFolderTabSearchController } from './folder-tab/useFolderTabSearch';
 import {
   useFolderNavAltArrowKeys,
@@ -24,7 +26,6 @@ import {
   useTaggedResourcesLoader,
 } from './folder-tab/useFolderTabEffects';
 import {
-  useToggleSelectId,
   useBulkMoveToFolder,
   useBulkDelete,
   useFolderTabResourceActions,
@@ -48,6 +49,7 @@ import {
   canOpenResourceInSplit,
   buildBreadcrumbExcludingCurrent,
   persistFolderViewMode,
+  importPathsIntoFolderView,
 } from './folder-tab/folderTabViewHelpers';
 
 interface FolderTabViewProps {
@@ -61,17 +63,14 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null);
   const [moveProjectIds, setMoveProjectIds] = useState<string[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [folderPickOpen, setFolderPickOpen] = useState(false);
   // When set, the folder picker moves just these ids (single-card "Move to
   // folder"); when null it falls back to the current multi-selection.
   const [folderMoveIds, setFolderMoveIds] = useState<string[] | null>(null);
   const [viewMode, setViewMode] = useState<FolderViewMode>(() => readFolderViewMode());
-  const showSelectionChrome = selectedIds.size > 0;
 
   // Dome-UI dialogs (never native confirm/prompt).
   const [deleteTarget, setDeleteTarget] = useState<Resource | null>(null);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
 
@@ -102,6 +101,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const {
     resources: allResources,
     isLoading,
+    error,
     createResource,
     deleteResource,
     updateResource,
@@ -155,30 +155,10 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [subfolders, files, folderId, getBreadcrumbPath, getFolderById, viewCtx.isProjectRoot],
   );
 
-  const toggleSelectId = useToggleSelectId(setSelectedIds);
-  const handleBulkMoveToFolder = useBulkMoveToFolder({
-    folderMoveIds,
-    selectedIds,
-    resourceMapForSelection,
-    moveToFolder,
-    refetch,
-    setSelectedIds,
-    setFolderMoveIds,
-    setFolderPickOpen,
-  });
-
   const openFolderPickerFor = useCallback((id: string) => {
     setFolderMoveIds([id]);
     setFolderPickOpen(true);
   }, []);
-
-  const handleBulkDelete = useBulkDelete({
-    selectedIds,
-    refetch,
-    setSelectedIds,
-    setBulkDeleting,
-    setBulkDeleteOpen,
-  });
 
   const { openResourceTab, openResourceInSplit, navigateFolderTab, updateTab, activeTabId, tabs } =
     useTabStore(
@@ -291,6 +271,67 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [listItems, normalizedSearchQuery, t],
   );
 
+  const importOsPaths = useCallback(
+    async (paths: string[], folderIdOverride: string | null) => {
+      await importPathsIntoFolderView({
+        paths,
+        effectiveProjectId,
+        listFolderId: folderIdOverride,
+        refetch,
+      });
+    },
+    [effectiveProjectId, refetch],
+  );
+
+  const explorer = useFolderExplorerSession({
+    entries: filteredListItems,
+    untitled: t('folder.untitled'),
+    copySuffix: t('folder.copy_suffix'),
+    viewMode,
+    allResources,
+    projectId: effectiveProjectId,
+    listFolderId,
+    moveToFolder,
+    refetch,
+    openEntry: actions.openListItem,
+    importOsPaths,
+  });
+
+  const {
+    selectedIds,
+    setSelectedIds,
+    showSelectionChrome,
+    bulkDeleteOpen,
+    setBulkDeleteOpen,
+  } = explorer;
+
+  const handleBulkMoveToFolder = useBulkMoveToFolder({
+    folderMoveIds,
+    selectedIds,
+    resourceMapForSelection,
+    moveToFolder,
+    refetch,
+    setSelectedIds,
+    setFolderMoveIds,
+    setFolderPickOpen,
+  });
+
+  const handleBulkDelete = useBulkDelete({
+    selectedIds,
+    refetch,
+    setSelectedIds,
+    setBulkDeleting,
+    setBulkDeleteOpen,
+  });
+
+  const childCountByFolder = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const [folderKey, children] of resourceIndex.byFolder) {
+      counts.set(folderKey, children.length);
+    }
+    return counts;
+  }, [resourceIndex]);
+
   const { setRowRef, closeSearch, openSearch, handleSearchKeyDown } = useFolderTabSearchController({
     searchOpen,
     searchQuery,
@@ -331,7 +372,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     );
   }
 
-  const { isEmpty, showNoResults, rowsToRender, statusLabel } = computeFolderViewStatus({
+  const { isEmpty, showNoResults, statusLabel } = computeFolderViewStatus({
     tagFilterId,
     listItems,
     subfoldersLen: subfolders.length,
@@ -392,20 +433,31 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         handleNewNote={actions.handleNewNote}
         handleUpload={actions.handleUpload}
         setUrlModalOpen={setUrlModalOpen}
+        onRefresh={() => {
+          void refetch();
+        }}
+        sortKey={explorer.sortKey}
+        sortDir={explorer.sortDir}
+        onSortChange={explorer.setSort}
       />
 
-      <SelectionActionBar
-        count={selectedIds.size}
-        onMoveToFolder={() => {
-          setFolderMoveIds(null);
-          setFolderPickOpen(true);
-        }}
-        onMoveToProject={() =>
-          setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourceMapForSelection)])
-        }
-        onDelete={() => setBulkDeleteOpen(true)}
-        onDeselect={() => setSelectedIds(new Set())}
-      />
+      {selectedIds.size > 1 ? (
+        <div className="dome-folder-view__selection">
+          <SelectionActionBar
+            embedded
+            count={selectedIds.size}
+            onMoveToFolder={() => {
+              setFolderMoveIds(null);
+              setFolderPickOpen(true);
+            }}
+            onMoveToProject={() =>
+              setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourceMapForSelection)])
+            }
+            onDelete={() => setBulkDeleteOpen(true)}
+            onDeselect={explorer.clearSelection}
+          />
+        </div>
+      ) : null}
 
       {colorPickerPos ? (
         <ColorPickerPopover
@@ -430,7 +482,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
           statusLabel={statusLabel}
           searchQuery={searchQuery}
           normalizedSearchQuery={normalizedSearchQuery}
-          rowsToRender={rowsToRender}
+          rowsToRender={explorer.sortedEntries}
           searchFocusIndex={searchFocusIndex}
           selectedIds={selectedIds}
           showSelectionChrome={showSelectionChrome}
@@ -449,11 +501,50 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
           handleOpenInSplit={actions.handleOpenInSplit}
           handleOpenInWindow={actions.handleOpenInWindow}
           handleNewSubfolder={actions.handleNewSubfolder}
-          toggleSelectId={toggleSelectId}
+          toggleSelectId={(id, event) => explorer.selectItem(id, event)}
           handleCreateFolder={actions.handleCreateFolder}
           onCancelCreateFolder={onCancelCreateFolder}
+          loadError={error}
+          onRetry={() => {
+            void refetch();
+          }}
+          onImport={() => {
+            void actions.handleUpload();
+          }}
+          onNewNote={() => {
+            void actions.handleNewNote();
+          }}
+          onNewFolder={() => setCreatingFolder(true)}
+          childCountByFolder={childCountByFolder}
+          dropTargetId={explorer.dropTargetId}
+          draggingIds={explorer.draggingIds}
+          renameArmedId={explorer.renameArmedId}
+          onPreview={(item) => explorer.openQuickLook(item.id)}
+          onItemDragStart={explorer.handleItemDragStart}
+          onItemDragOver={explorer.handleItemDragOver}
+          onItemDragLeave={explorer.handleItemDragLeave}
+          onItemDrop={explorer.handleItemDrop}
+          onItemDragEnd={explorer.handleDragEnd}
         />
       </div>
+
+      <footer className="dome-folder-view__status" aria-live="polite">
+        {statusLabel}
+      </footer>
+
+      <ResourceQuickLook
+        open={Boolean(explorer.quickLookId)}
+        resource={explorer.quickLookResource}
+        resources={explorer.quickLookList}
+        onOpenChange={(open) => {
+          if (!open) explorer.setQuickLookId(null);
+        }}
+        onNavigate={(item) => explorer.setQuickLookId(item.id)}
+        onOpenResource={(item) => {
+          explorer.setQuickLookId(null);
+          actions.openListItem({ item, isFolder: item.type === 'folder' });
+        }}
+      />
 
       <FolderTabDialogs
         folderPickOpen={folderPickOpen}
