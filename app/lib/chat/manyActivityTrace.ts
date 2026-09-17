@@ -159,7 +159,7 @@ export function isCallGroupWorking(calls: Array<{ status: ActivityToolStatus }>)
 }
 
 export function classifyToolKind(name: string): ActivityKind {
-  const canonical = canonicalToolName(name);
+  const canonical = canonicalToolName(name.replaceAll(' ', '_'));
   if (SEARCH_TOOLS.has(canonical) || canonical.startsWith('web_')) return 'search';
   if (CODING_TOOLS.has(canonical) || canonical.startsWith('git_') || canonical.startsWith('file_')) {
     return 'coding';

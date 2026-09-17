@@ -38,6 +38,7 @@ function call(name: string, extra: Partial<ToolCallData> = {}): ToolCallData {
 describe('classifyToolKind', () => {
   it('classifies search, coding aliases and leftover tools as steps', () => {
     expect(classifyToolKind('web_search')).toBe('search');
+    expect(classifyToolKind('web search')).toBe('search');
     expect(classifyToolKind('web_fetch')).toBe('search');
     expect(classifyToolKind('deep_research')).toBe('search');
     expect(classifyToolKind('read_file')).toBe('coding');
