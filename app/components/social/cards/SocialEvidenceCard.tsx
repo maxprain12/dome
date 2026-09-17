@@ -110,6 +110,83 @@ function SocialEvidenceTile({
   );
 }
 
+function SocialEvidenceRow({
+  model,
+  className,
+  actions,
+}: {
+  model: SocialEvidenceCardModel;
+  className?: string;
+  actions?: React.ReactNode;
+}) {
+  const { t, i18n } = useTranslation();
+  const handle = model.author.handle ? `@${model.author.handle.replace(/^@/, '')}` : model.author.name;
+  const title = String(model.body || model.title || '').trim().split('\n')[0] || t('social.hub.no_text');
+  const cover = coverSrc(model);
+  const when = model.publishedAt ? formatSocialWhen(model.publishedAt, i18n.language) : null;
+  const externalUrl = socialWebUrl(model.url);
+  const compact = (value: number) =>
+    Intl.NumberFormat(i18n.language, { notation: 'compact' }).format(value);
+  const publicData = model.limitations.includes('og_only') || model.fetchMethod === 'open_graph';
+  const meta = [
+    model.metrics?.likes != null ? t('social.creators.likes_count', { count: compact(model.metrics.likes) }) : null,
+    model.metrics?.comments != null
+      ? t('social.creators.comments_count', { count: compact(model.metrics.comments) })
+      : null,
+    when,
+  ].filter(Boolean);
+
+  return (
+    <article
+      className={cn(
+        'flex min-w-0 items-start gap-3 overflow-hidden rounded-2xl border bg-card p-3 text-card-foreground',
+        className,
+      )}
+      data-provider={model.provider}
+    >
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+        {cover ? (
+          <img
+            src={cover}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            className="size-full object-cover"
+          />
+        ) : (
+          <SocialAccountAvatar name={model.author.name} src={model.author.avatarUrl} className="size-full rounded-none" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <p className="truncate text-sm font-semibold">{handle}</p>
+          {model.format ? (
+            <Badge variant="secondary">
+              {t(`social.native.format_${model.format}`, { defaultValue: model.format })}
+            </Badge>
+          ) : null}
+          {publicData ? <Badge variant="outline">{t('chat.visual_public_data')}</Badge> : null}
+        </div>
+        <p className="mt-0.5 line-clamp-1 text-sm text-foreground">{title}</p>
+        {meta.length > 0 ? (
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{meta.join(' · ')}</p>
+        ) : null}
+        {externalUrl ? (
+          <a
+            href={externalUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex text-xs font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            {t('chat.visual_view_post', { network: PROVIDER_LABELS[model.provider] })}
+          </a>
+        ) : null}
+      </div>
+      {actions}
+    </article>
+  );
+}
+
 export function SocialEvidenceCard({
   model,
   compact = false,
@@ -119,7 +196,7 @@ export function SocialEvidenceCard({
 }: {
   model: SocialEvidenceCardModel;
   compact?: boolean;
-  variant?: 'default' | 'tile';
+  variant?: 'default' | 'tile' | 'row';
   className?: string;
   actions?: React.ReactNode;
 }) {
@@ -130,6 +207,9 @@ export function SocialEvidenceCard({
 
   if (variant === 'tile') {
     return <SocialEvidenceTile model={model} className={className} actions={actions} />;
+  }
+  if (variant === 'row') {
+    return <SocialEvidenceRow model={model} className={className} actions={actions} />;
   }
 
   return (

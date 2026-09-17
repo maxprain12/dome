@@ -30,7 +30,7 @@ export function SocialDirectoryRow({
   meta?: string | null;
 }) {
   return (
-    <li className="border-b border-border/80 last:border-b-0">
+    <li className="px-2 py-px">
       <button
         type="button"
         onClick={onClick}

@@ -6,7 +6,8 @@ export const socialPostGetDefinition: ToolDefinition = {
     name: 'social_post_get',
     description:
       'Get one social post by id (sp-…). Use when Source / mentioned-sources lists a social_post id, ' +
-      'or the user refers to a pinned post. Returns body, provider, status, campaign, media and metrics. ' +
+      'or the user refers to a pinned or latest post. Returns body, provider, status, campaign, media and metrics. ' +
+      'The chat already shows a visual card of the post — follow with an analysis artifact card, not a markdown table. ' +
       'Source: Social hub.',
     parameters: {
       type: 'object',
