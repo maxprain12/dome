@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowRight01Icon, Wrench01Icon } from '@hugeicons/core-free-icons';
+import { Wrench01Icon } from '@hugeicons/core-free-icons';
 import { Badge } from '@/components/ui/badge';
 import {
   Attachment,
@@ -10,12 +11,6 @@ import {
   AttachmentTitle,
 } from '@/components/ui/attachment';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { ChatToolMarker } from '@/components/chat/ChatToolMarker';
 import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
 import {
   Message,
@@ -34,6 +29,13 @@ import {
 } from '@/components/ui/message-scroller';
 import { Spinner } from '@/components/ui/spinner';
 import ManyAvatar from '@/components/many/ManyAvatar';
+import ManyActivityTrace, { ManyActivityBlocks } from '@/components/many/conversation/ManyActivityTrace';
+import {
+  activitySegmentsFromCalls,
+  activityTraceCopyFromT,
+  type ActivityToolCall,
+  type ActivityTraceCopy,
+} from '@/lib/chat/manyActivityTrace';
 import { cn } from '@/lib/utils';
 
 export interface ManySurfaceToolCall {
@@ -75,6 +77,7 @@ interface ManyConversationSurfaceProps {
   reasoningLabel: string;
   toolsLabel: string;
   imageLabel: string;
+  traceCopy?: ActivityTraceCopy;
   renderAssistant?: (message: ManyConversationSurfaceMessage) => ReactNode;
   approval?: ReactNode;
   notices?: ReactNode;
@@ -91,68 +94,104 @@ function formatToolResult(result: unknown): string {
   }
 }
 
-function ToolMarker({
-  tool,
-  toolsLabel,
-}: {
-  tool: ManySurfaceToolCall;
-  toolsLabel: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const result = formatToolResult(tool.result);
-  const hasDetails = Boolean(
-    tool.error || result || Object.keys(tool.arguments).length > 0,
-  );
+function toToolCall(tool: ManySurfaceToolCall): ActivityToolCall {
+  return {
+    id: tool.id,
+    name: tool.name,
+    arguments: tool.arguments,
+    status: tool.status,
+    result: tool.result,
+    error: tool.error,
+  };
+}
+
+function SurfaceToolDetail({ call }: { call: ActivityToolCall }) {
+  const text = call.error || formatToolResult(call.result) || JSON.stringify(call.arguments, null, 2);
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <ChatToolMarker
-        label={tool.name.replaceAll('_', ' ')}
-        summary={tool.progress}
-        status={tool.status}
-        icon={Wrench01Icon}
-        expanded={open}
-        expandable={hasDetails}
-        onToggle={() => setOpen((value) => !value)}
-      />
-      {hasDetails ? (
-        <CollapsibleContent className="ml-3 border-l px-3 py-2">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {toolsLabel}
-          </p>
-          <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/50 p-2 text-[11px]">
-            {tool.error || result || JSON.stringify(tool.arguments, null, 2)}
-          </pre>
-        </CollapsibleContent>
-      ) : null}
-    </Collapsible>
+    <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/50 p-2 text-[11px]">
+      {text}
+    </pre>
   );
 }
 
-function ReasoningBlock({
-  text,
-  label,
-  live,
+function resolveTraceCopy(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  override?: ActivityTraceCopy,
+): ActivityTraceCopy {
+  if (override) return override;
+  return activityTraceCopyFromT((key, opts) => {
+    const nested = t(`chat.${key}`, opts);
+    if (typeof nested === 'string' && nested !== `chat.${key}`) return nested;
+    return String(t(key, opts ?? {}));
+  });
+}
+
+function defaultLinkMode(): 'ipc' | 'anchor' {
+  const host = globalThis as {
+    window?: { electron?: { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> } };
+  };
+  return typeof host.window?.electron?.invoke === 'function' ? 'ipc' : 'anchor';
+}
+
+function SurfaceAssistantActivity({
+  message,
+  copy,
+  reasoningLabel,
+  renderAssistant,
+  linkMode,
 }: {
-  text: string;
-  label: string;
-  live: boolean;
+  message: ManyConversationSurfaceMessage;
+  copy: ActivityTraceCopy;
+  reasoningLabel: string;
+  renderAssistant?: (message: ManyConversationSurfaceMessage) => ReactNode;
+  linkMode: 'ipc' | 'anchor';
 }) {
-  const [open, setOpen] = useState(live);
+  const { t } = useTranslation();
+  const live = Boolean(message.isStreaming && !message.text);
+  const segments = useMemo(
+    () => activitySegmentsFromCalls((message.tools ?? []).map(toToolCall)),
+    [message.tools],
+  );
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted">
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          className={cn('transition-transform', open && 'rotate-90')}
+    <div className="group/turn flex min-w-0 w-full flex-col gap-2">
+      {message.reasoning ? (
+        <ManyActivityTrace
+          kind="reasoning"
+          working={live}
+          copy={copy}
+          title={live ? reasoningLabel : copy.reasoningDone}
+          reasoning={message.reasoning}
+          linkMode={linkMode}
         />
-        <span className={cn(live && 'shimmer')}>{label}</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="ml-1.5 border-l py-1 pl-3.5">
-        <div className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
-          {text}
+      ) : null}
+      {segments.length > 0 ? (
+        <ManyActivityBlocks
+          segments={segments}
+          copy={copy}
+          toolLabelT={t}
+          linkMode={linkMode}
+          renderToolDetail={(call) => <SurfaceToolDetail call={call} />}
+        />
+      ) : null}
+      {message.text ? (
+        <div className="min-w-0 break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+          {renderAssistant ? renderAssistant(message) : message.text}
+          {message.isStreaming ? (
+            <span
+              aria-hidden
+              className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current motion-reduce:animate-none"
+            />
+          ) : null}
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      ) : null}
+      {message.usageLabel ? (
+        <MessageFooter>
+          <Badge variant="outline" className="font-normal tabular-nums">
+            {message.usageLabel}
+          </Badge>
+        </MessageFooter>
+      ) : null}
+    </div>
   );
 }
 
@@ -170,11 +209,15 @@ export default function ManyConversationSurface({
   reasoningLabel,
   toolsLabel,
   imageLabel,
+  traceCopy,
   renderAssistant,
   approval,
   notices,
   className,
 }: ManyConversationSurfaceProps) {
+  const { t } = useTranslation();
+  const copy = useMemo(() => resolveTraceCopy(t, traceCopy), [t, traceCopy]);
+  const linkMode = defaultLinkMode();
   return (
     <MessageScrollerProvider key={threadId} autoScroll defaultScrollPosition="end">
       <MessageScroller className={cn('min-h-0 flex-1', className)} data-surface="many">
@@ -250,36 +293,13 @@ export default function ManyConversationSurface({
                               </MarkerContent>
                             </Marker>
                           ) : (
-                            <div className="group/turn flex min-w-0 w-full flex-col gap-2">
-                              {message.reasoning ? (
-                                <ReasoningBlock
-                                  text={message.reasoning}
-                                  label={reasoningLabel}
-                                  live={Boolean(message.isStreaming && !message.text)}
-                                />
-                              ) : null}
-                              {message.tools?.map((tool) => (
-                                <ToolMarker key={tool.id} tool={tool} toolsLabel={toolsLabel} />
-                              ))}
-                              {message.text ? (
-                                <div className="min-w-0 break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
-                                  {renderAssistant ? renderAssistant(message) : message.text}
-                                  {message.isStreaming ? (
-                                    <span
-                                      aria-hidden
-                                      className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current"
-                                    />
-                                  ) : null}
-                                </div>
-                              ) : null}
-                              {message.usageLabel ? (
-                                <MessageFooter>
-                                  <Badge variant="outline" className="font-normal tabular-nums">
-                                    {message.usageLabel}
-                                  </Badge>
-                                </MessageFooter>
-                              ) : null}
-                            </div>
+                            <SurfaceAssistantActivity
+                              message={message}
+                              copy={copy}
+                              reasoningLabel={reasoningLabel}
+                              renderAssistant={renderAssistant}
+                              linkMode={linkMode}
+                            />
                           )}
                         </MessageContent>
                       </Message>

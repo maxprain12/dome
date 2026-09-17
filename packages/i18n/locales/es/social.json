@@ -985,6 +985,7 @@
     "typical_likes": "likes típicos",
     "format_all": "Todos",
     "views_count": "{{count}} vistas",
-    "likes_count": "{{count}} likes"
+    "likes_count": "{{count}} likes",
+    "comments_count": "{{count}} comentarios"
   }
 }

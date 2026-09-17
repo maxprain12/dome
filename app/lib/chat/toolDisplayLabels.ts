@@ -1,4 +1,3 @@
-import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import {
   canonicalToolName,
   normalizeToolId,
@@ -172,7 +171,7 @@ export function getToolDisplayLabel(
 }
 
 export function getToolDisplayLabelForCall(
-  toolCall: Pick<ToolCallData, 'name' | 'arguments'>,
+  toolCall: { name: string; arguments?: Record<string, unknown> },
   t: ToolLabelT,
   streaming = false,
 ): string {
