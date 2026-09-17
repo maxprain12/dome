@@ -15,6 +15,7 @@ export type OpenIntent =
       at: number;
     }
   | { kind: 'social-post'; postId: string; at: number }
+  | { kind: 'social-creator'; personId?: string; handle?: string | null; url?: string | null; at: number }
   | { kind: 'person'; personId: string; at: number };
 
 interface OpenIntentState {
@@ -83,6 +84,21 @@ export function focusSocialPost(detail: { postId: string }): void {
     at: Date.now(),
   });
   dispatchDomeEvent('dome:focus-social-post', detail);
+}
+
+export function focusSocialCreator(detail: {
+  personId?: string;
+  handle?: string | null;
+  url?: string | null;
+}): void {
+  useOpenIntentStore.getState().setIntent({
+    kind: 'social-creator',
+    personId: detail.personId,
+    handle: detail.handle,
+    url: detail.url,
+    at: Date.now(),
+  });
+  dispatchDomeEvent('dome:focus-social-creator', detail);
 }
 
 export function focusPerson(detail: { personId: string }): void {

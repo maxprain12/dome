@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": "dome-social-insights",
+    "name": "Social Insights",
+    "description": "Explore profiles, compare competitors, and ground social recommendations in saved evidence.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["social", "insights", "official"],
+    "featured": true,
+    "source": "official"
+  },
+  {
+    "id": "dome-social-operations",
+    "name": "Social Operations",
+    "description": "Ideate, draft, schedule and publish with confirmation using connected accounts.",
+    "author": "Dome",
+    "version": "1.0.0",
+    "tags": ["social", "operations", "official"],
+    "featured": true,
+    "source": "official"
+  }
+]

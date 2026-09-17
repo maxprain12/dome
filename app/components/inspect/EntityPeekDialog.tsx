@@ -8,7 +8,7 @@ import {
   AppModalHeader,
 } from '@/components/shared/AppModal';
 import { getToolDisplayLabelForCall } from '@/lib/chat/toolDisplayLabels';
-import { focusEmail, focusGithubIssue, focusSocialPost } from '@/lib/store/useOpenIntentStore';
+import { focusEmail, focusGithubIssue, focusSocialPost, focusSocialCreator } from '@/lib/store/useOpenIntentStore';
 import { useInspectStore, type InspectPinKind, type InspectTarget } from '@/lib/store/useInspectStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { PersonPeekBody } from './PersonPeekBody';
@@ -18,6 +18,7 @@ function entityActionLabel(pinKind: InspectPinKind | undefined, t: (key: string)
   if (pinKind === 'email') return t('inspect.open_email');
   if (pinKind === 'issue') return t('inspect.open_issue');
   if (pinKind === 'social_post') return t('inspect.open_social');
+  if (pinKind === 'social_profile' || pinKind === 'social_reference') return t('social.studio.nav.references');
   return t('inspect.open_entity');
 }
 
@@ -35,6 +36,11 @@ function openEntity(target: Extract<InspectTarget, { kind: 'entity' }>): void {
   if (target.pinKind === 'social_post') {
     useTabStore.getState().openSocialTab();
     focusSocialPost({ postId: target.id });
+    return;
+  }
+  if (target.pinKind === 'social_profile' || target.pinKind === 'social_reference') {
+    useTabStore.getState().openSocialTab();
+    focusSocialCreator({ personId: target.id });
     return;
   }
   useTabStore.getState().openResourceTab(target.id, target.entityType, target.title);

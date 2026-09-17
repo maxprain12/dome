@@ -80,7 +80,10 @@ export function ChatToolMarker({
     <Marker
       variant="border"
       role={isPending ? 'status' : undefined}
-      className={cn('not-typeset min-w-0 w-full flex-1', className)}
+      className={cn(
+        'not-typeset chat-tool-enter min-w-0 w-full flex-1',
+        className,
+      )}
       render={
         <Button
           type="button"
@@ -100,7 +103,10 @@ export function ChatToolMarker({
     <Marker
       variant="border"
       role={isPending ? 'status' : undefined}
-      className={cn('not-typeset min-w-0 w-full flex-1', className)}
+      className={cn(
+        'not-typeset chat-tool-enter min-w-0 w-full flex-1',
+        className,
+      )}
     >
       {markerBody}
     </Marker>

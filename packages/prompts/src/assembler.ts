@@ -27,6 +27,9 @@ const VOICE_LANGUAGE_NAMES: Record<string, string> = {
 
 const PINNED_SOURCE_TOOL_HINTS: Record<string, string> = {
   social_post: ' → social_post_get',
+  social_reference: ' → social_reference_list',
+  social_profile: ' → social_public_resolve',
+  social_campaign: ' → social_campaigns_list',
   email: ' → email_read',
   issue: ' → github_get_issue',
 };

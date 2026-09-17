@@ -13,7 +13,9 @@ export type SocialSection =
   | 'insights'
   | 'automations'
   | 'inbox'
-  | 'accounts';
+  | 'accounts'
+  | 'references'
+  | 'trends';
 
 export type SocialSelection =
   | { kind: 'none' }
@@ -29,6 +31,8 @@ export type SocialEditor =
       post: SocialPost | null;
       campaignId?: string | null;
       campaignName?: string | null;
+      seedBody?: string | null;
+      seedTopics?: string[] | null;
     }
   | { kind: 'campaign' }
   | { kind: 'event'; card: SocialEventCard | null };

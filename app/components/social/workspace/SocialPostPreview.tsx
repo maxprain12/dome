@@ -2,7 +2,7 @@ import { useState, type VideoHTMLAttributes } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon, ArrowRight01Icon, BubbleChatIcon, FavouriteIcon, Share01Icon, ViewIcon, Bookmark01Icon, ExternalLinkIcon, File02Icon } from '@hugeicons/core-free-icons';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { SocialAccountAvatar } from '@/components/social/cards/SocialAccountAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { SocialAccount, SocialMediaItem, SocialPost, SocialPostSource } from '../socialTypes';
@@ -134,7 +134,7 @@ export function SocialPostAuthor({ post, account }: { post: SocialPost; account?
   const author = post.source?.authorName || account?.displayName || account?.handle || PROVIDER_LABELS[post.provider];
   const handle = post.source?.authorHandle || account?.handle;
   return <>
-    <Avatar size="lg"><AvatarImage src={socialWebUrl(post.source?.avatarUrl)} alt={author} /><AvatarFallback>{author.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+    <SocialAccountAvatar name={author} src={post.source?.avatarUrl || account?.avatarUrl} />
     <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{author}</p><p className="truncate text-xs text-muted-foreground">{[handle && `@${handle.replace(/^@/, '')}`, formatSocialWhen(post.publishedAt ?? post.scheduledAt ?? post.updatedAt, i18n.language)].filter(Boolean).join(' · ')}</p></div>
   </>;
 }

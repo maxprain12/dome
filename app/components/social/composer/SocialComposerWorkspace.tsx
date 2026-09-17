@@ -172,6 +172,8 @@ export function SocialComposerWorkspace({
   post,
   initialCampaignId,
   initialAccountId,
+  initialBody,
+  initialTopics,
   onClose,
   onSaved,
 }: {
@@ -180,6 +182,8 @@ export function SocialComposerWorkspace({
   post: SocialPost | null;
   initialCampaignId?: string | null;
   initialAccountId?: string | null;
+  initialBody?: string | null;
+  initialTopics?: string[] | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -188,11 +192,11 @@ export function SocialComposerWorkspace({
   const initialAccount = accounts.find((account) => account.id === initialAccountId);
   const initialProvider = post?.provider ?? initialAccount?.provider ?? 'linkedin';
   const [providers, setProviders] = useState<SocialProvider[]>([initialProvider]);
-  const [body, setBody] = useState(post?.body ?? '');
+  const [body, setBody] = useState(post?.body ?? initialBody ?? '');
   const [media, setMedia] = useState<SocialMediaItem[]>(post?.media ?? []);
   const [mediaUrl, setMediaUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState(post?.linkUrl ?? '');
-  const [topics, setTopics] = useState((post?.topics ?? []).join(', '));
+  const [topics, setTopics] = useState((post?.topics ?? initialTopics ?? []).join(', '));
   const [campaignId, setCampaignId] = useState(post?.campaignId ?? initialCampaignId ?? '');
   const [eventCardId, setEventCardId] = useState(post?.eventCardId ?? '');
   const [eventCards, setEventCards] = useState<SocialEventCard[]>([]);

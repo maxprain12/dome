@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 75;
+const SCHEMA_HEAD = 77;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1348,6 +1348,172 @@ function migration75(db, version) {
   setSchemaVersion(db, 75);
 }
 
+function migration76(db, version) {
+  if (version >= 76) return;
+  console.log('[DB] Running migration 76 - social avatars, references, watchlists, trends');
+  const accountCols = db.prepare("PRAGMA table_info('social_accounts')").all().map((c) => c.name);
+  if (!accountCols.includes('avatar_url')) {
+    db.exec('ALTER TABLE social_accounts ADD COLUMN avatar_url TEXT');
+  }
+  const reportCols = db.prepare("PRAGMA table_info('social_reports')").all().map((c) => c.name);
+  if (!reportCols.includes('report_type')) {
+    db.exec("ALTER TABLE social_reports ADD COLUMN report_type TEXT NOT NULL DEFAULT 'growth'");
+  }
+  if (!reportCols.includes('scope_json')) {
+    db.exec('ALTER TABLE social_reports ADD COLUMN scope_json TEXT');
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_references (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      provider TEXT NOT NULL,
+      external_url TEXT NOT NULL,
+      external_post_id TEXT,
+      person_id TEXT,
+      resource_id TEXT,
+      title TEXT,
+      body TEXT,
+      format TEXT,
+      topics_json TEXT,
+      media_json TEXT,
+      metrics_json TEXT,
+      source_json TEXT,
+      source_kind TEXT NOT NULL DEFAULT 'manual',
+      limitations_json TEXT,
+      captured_at INTEGER NOT NULL,
+      notes TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE(project_id, external_url)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_collections (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      name TEXT NOT NULL,
+      description TEXT,
+      kind TEXT NOT NULL DEFAULT 'inspiration',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_collection_items (
+      collection_id TEXT NOT NULL,
+      reference_id TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      added_at INTEGER NOT NULL,
+      PRIMARY KEY (collection_id, reference_id)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_watchlists (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('competitor','inspiration','following','custom')),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_watchlist_members (
+      watchlist_id TEXT NOT NULL,
+      person_id TEXT NOT NULL,
+      role TEXT,
+      notes TEXT,
+      handle TEXT,
+      provider TEXT,
+      profile_url TEXT,
+      avatar_url TEXT,
+      display_name TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (watchlist_id, person_id)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_campaign_references (
+      campaign_id TEXT NOT NULL,
+      reference_id TEXT NOT NULL,
+      notes TEXT,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (campaign_id, reference_id)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_public_snapshots (
+      id TEXT PRIMARY KEY,
+      canonical_url TEXT NOT NULL UNIQUE,
+      payload_json TEXT NOT NULL,
+      fetch_method TEXT,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_trend_snapshots (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      period_days INTEGER NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_references_url ON social_references(project_id, external_url)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_references_person ON social_references(person_id, captured_at DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_watchlists_kind ON social_watchlists(project_id, kind)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_public_snapshots_exp ON social_public_snapshots(expires_at)');
+  setSchemaVersion(db, 76);
+  console.log('[DB] Migration 76 complete');
+}
+
+function migration77(db, version) {
+  if (version >= 77) return;
+  console.log('[DB] Running migration 77 - social explorations and creator suggestions');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_explorations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      person_id TEXT NOT NULL,
+      watchlist_kind TEXT NOT NULL,
+      recipe_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('queued','running','ready','limited','failed','cancelled')),
+      summary TEXT,
+      payload_json TEXT,
+      limitations_json TEXT,
+      run_id TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      started_at INTEGER,
+      completed_at INTEGER
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_creator_suggestions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default',
+      provider TEXT NOT NULL,
+      handle TEXT,
+      display_name TEXT,
+      profile_url TEXT,
+      avatar_url TEXT,
+      reason TEXT NOT NULL,
+      reason_detail TEXT,
+      status TEXT NOT NULL CHECK(status IN ('pending','accepted','dismissed')),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE(project_id, provider, profile_url)
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_explorations_person ON social_explorations(project_id, person_id, created_at DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_social_suggestions_status ON social_creator_suggestions(project_id, status, updated_at DESC)');
+  setSchemaVersion(db, 77);
+  console.log('[DB] Migration 77 complete');
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1410,6 +1576,8 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration73(db, version);
   migration74(db, version);
   migration75(db, version);
+  migration76(db, version);
+  migration77(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

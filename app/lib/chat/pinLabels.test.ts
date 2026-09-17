@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  decodeHtmlEntities,
   emailPinsMatch,
   formatEmailPinLabel,
   formatSocialPostPinLabel,
+  formatSocialProfilePinLabel,
   normalizePinnedResource,
   stripPinnedMentionTokens,
   toEmailPin,
@@ -91,6 +93,28 @@ describe('formatEmailPinLabel', () => {
   });
 });
 
+describe('formatSocialProfilePinLabel', () => {
+  it('prefers handle and decodes HTML entities in titles', () => {
+    expect(decodeHtmlEntities('Manychat (&#064;manychat) &#x2022; Instagram photos')).toContain('@manychat');
+    expect(
+      formatSocialProfilePinLabel({
+        fallbackTitle: 'Manychat (&#064;manychat) &#x2022; Instagram photos and videos',
+        handle: 'manychat',
+        provider: 'instagram',
+      }),
+    ).toBe('@manychat · Instagram');
+  });
+
+  it('strips HTML titles down to a readable name when handle is missing', () => {
+    expect(
+      formatSocialProfilePinLabel({
+        fallbackTitle: 'Manychat (&#064;manychat) &#x2022; Instagram photos and videos',
+        provider: 'instagram',
+      }),
+    ).toBe('Manychat · Instagram');
+  });
+});
+
 describe('normalizePinnedResource', () => {
   it('rewrites social pins that used body as title', () => {
     const pin = normalizePinnedResource({
@@ -101,6 +125,18 @@ describe('normalizePinnedResource', () => {
       meta: { provider: 'linkedin', status: 'draft' },
     });
     expect(pin.title).toBe('LinkedIn · draft');
+  });
+
+  it('keeps social_profile kind and a readable pin title', () => {
+    const pin = normalizePinnedResource({
+      id: 'sr-1',
+      title: 'Manychat (&#064;manychat) &#x2022; Instagram photos and videos',
+      type: 'social_profile',
+      kind: 'social_profile',
+      meta: { provider: 'instagram', handle: 'manychat', avatarUrl: 'https://img.test/a.jpg' },
+    });
+    expect(pin.kind).toBe('social_profile');
+    expect(pin.title).toBe('@manychat · Instagram');
   });
 
   it('keeps campaign names for social_campaign', () => {

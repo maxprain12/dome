@@ -1134,7 +1134,7 @@ function createBaseSchema(db) {
               last_sync_at INTEGER,
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL
-            , account_kind TEXT NOT NULL DEFAULT 'member', cloud_publishing INTEGER NOT NULL DEFAULT 0)
+            , account_kind TEXT NOT NULL DEFAULT 'member', cloud_publishing INTEGER NOT NULL DEFAULT 0, avatar_url TEXT)
   `);
 
   db.exec(`
@@ -1208,7 +1208,154 @@ function createBaseSchema(db) {
               error TEXT,
               data TEXT,
               created_at INTEGER NOT NULL,
+              completed_at INTEGER,
+              report_type TEXT NOT NULL DEFAULT 'growth',
+              scope_json TEXT
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_references (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              provider TEXT NOT NULL,
+              external_url TEXT NOT NULL,
+              external_post_id TEXT,
+              person_id TEXT,
+              resource_id TEXT,
+              title TEXT,
+              body TEXT,
+              format TEXT,
+              topics_json TEXT,
+              media_json TEXT,
+              metrics_json TEXT,
+              source_json TEXT,
+              source_kind TEXT NOT NULL DEFAULT 'manual',
+              limitations_json TEXT,
+              captured_at INTEGER NOT NULL,
+              notes TEXT,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              UNIQUE(project_id, external_url)
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_collections (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              name TEXT NOT NULL,
+              description TEXT,
+              kind TEXT NOT NULL DEFAULT 'inspiration',
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_collection_items (
+              collection_id TEXT NOT NULL,
+              reference_id TEXT NOT NULL,
+              position INTEGER NOT NULL DEFAULT 0,
+              added_at INTEGER NOT NULL,
+              PRIMARY KEY (collection_id, reference_id)
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_watchlists (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              name TEXT NOT NULL,
+              kind TEXT NOT NULL CHECK(kind IN ('competitor','inspiration','following','custom')),
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_watchlist_members (
+              watchlist_id TEXT NOT NULL,
+              person_id TEXT NOT NULL,
+              role TEXT,
+              notes TEXT,
+              handle TEXT,
+              provider TEXT,
+              profile_url TEXT,
+              avatar_url TEXT,
+              display_name TEXT,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              PRIMARY KEY (watchlist_id, person_id)
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_campaign_references (
+              campaign_id TEXT NOT NULL,
+              reference_id TEXT NOT NULL,
+              notes TEXT,
+              created_at INTEGER NOT NULL,
+              PRIMARY KEY (campaign_id, reference_id)
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_public_snapshots (
+              id TEXT PRIMARY KEY,
+              canonical_url TEXT NOT NULL UNIQUE,
+              payload_json TEXT NOT NULL,
+              fetch_method TEXT,
+              expires_at INTEGER NOT NULL,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_trend_snapshots (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              period_days INTEGER NOT NULL,
+              payload_json TEXT NOT NULL,
+              created_at INTEGER NOT NULL
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_explorations (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              person_id TEXT NOT NULL,
+              watchlist_kind TEXT NOT NULL,
+              recipe_id TEXT NOT NULL,
+              status TEXT NOT NULL CHECK(status IN ('queued','running','ready','limited','failed','cancelled')),
+              summary TEXT,
+              payload_json TEXT,
+              limitations_json TEXT,
+              run_id TEXT,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              started_at INTEGER,
               completed_at INTEGER
+            )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_creator_suggestions (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              provider TEXT NOT NULL,
+              handle TEXT,
+              display_name TEXT,
+              profile_url TEXT,
+              avatar_url TEXT,
+              reason TEXT NOT NULL,
+              reason_detail TEXT,
+              status TEXT NOT NULL CHECK(status IN ('pending','accepted','dismissed')),
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              UNIQUE(project_id, provider, profile_url)
             )
   `);
 
@@ -1847,6 +1994,18 @@ function createBaseSchema(db) {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_social_reports_created ON social_reports(created_at)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_social_references_url ON social_references(project_id, external_url)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_social_references_person ON social_references(person_id, captured_at DESC)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_social_watchlists_kind ON social_watchlists(project_id, kind)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_social_public_snapshots_exp ON social_public_snapshots(expires_at)
   `);
 
   db.exec(`

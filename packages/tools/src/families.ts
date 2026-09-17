@@ -85,6 +85,10 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   social_metrics_summary: 'social',
   social_campaigns_list: 'social', social_campaign_create: 'social',
   social_growth: 'social',
+  social_public_resolve: 'social', social_reference_save: 'social',
+  social_reference_list: 'social', social_watchlists_list: 'social',
+  social_watchlist_add: 'social', social_competitive_report: 'social',
+  social_trends_snapshot: 'social', social_campaign_from_references: 'social',
   // artifacts
   artifact_create: 'artifacts', artifact_get: 'artifacts', artifact_merge_data: 'artifacts',
   artifact_update_state: 'artifacts', artifact_list: 'artifacts', artifact_delete: 'artifacts',

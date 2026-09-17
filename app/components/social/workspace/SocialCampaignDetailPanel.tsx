@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useDetailModalClose } from '@/components/shared/DetailModal';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -31,11 +32,18 @@ export function SocialCampaignDetailPanel({
 }) {
   const closeDetail = useDetailModalClose();
   const { t } = useTranslation();
+  const [inspiration, setInspiration] = useState<Array<{ id: string; title: string; author?: { name?: string } }>>([]);
   const campaignPosts = posts.filter((post) => post.campaignId === campaign.id);
   const total = campaignPosts.length;
   const published = campaignPosts.filter((post) => post.status === 'published').length;
   const progress = total ? Math.round((published / total) * 100) : 0;
   const unavailable = t('social.studio.crm.unavailable');
+
+  useEffect(() => {
+    window.electron.invoke('social:campaigns:references:list', { campaignId: campaign.id }).then((res) => {
+      if (res?.success && Array.isArray(res.data)) setInspiration(res.data);
+    }).catch(() => {});
+  }, [campaign.id]);
 
   const handleMany = () => {
     closeDetail?.();
@@ -46,7 +54,7 @@ export function SocialCampaignDetailPanel({
       type: 'social_campaign',
       meta: { status: campaign.status, goal: campaign.goal },
     });
-    many.setPendingOneShotSkill('dome-social-growth');
+    many.setPendingOneShotSkill('dome-social-operations');
     many.setPendingManyHandoff(
       t('social.agent_action_campaign') + (campaign.goal ? `: ${campaign.goal}` : ''),
     );
@@ -94,6 +102,7 @@ export function SocialCampaignDetailPanel({
         <TabsList variant="line" className="w-full justify-start rounded-none border-b px-3">
           <TabsTrigger value="info">{t('social.studio.crm.tab_info')}</TabsTrigger>
           <TabsTrigger value="posts">{t('social.studio.crm.tab_posts')}</TabsTrigger>
+          <TabsTrigger value="inspiration">{t('social.references.inspiration')}</TabsTrigger>
         </TabsList>
         <TabsContent value="info" className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full">
@@ -127,6 +136,23 @@ export function SocialCampaignDetailPanel({
                     title={socialPostLabel(post)}
                     subtitle={t(`social.studio.status.${post.status}`)}
                   />
+                ))}
+              </ul>
+            )}
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="inspiration" className="min-h-0 flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            {inspiration.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                {t('social.references.inspiration_empty')}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1 p-3">
+                {inspiration.map((item) => (
+                  <li key={item.id} className="rounded-lg border px-3 py-2 text-sm">
+                    {item.author?.name || item.title}
+                  </li>
                 ))}
               </ul>
             )}

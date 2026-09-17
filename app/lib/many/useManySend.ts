@@ -44,11 +44,28 @@ import {
 import type { DomeTab } from '@/lib/store/useTabStore';
 import { hydratePinnedContext } from '@/lib/many/hydratePinnedContext';
 
+type PinKind = NonNullable<PinnedResource['kind']>;
+type PinnedSourceKind = 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
+
+function isPinnedSourceKind(kind: string): kind is PinnedSourceKind {
+  switch (kind) {
+    case 'issue':
+    case 'email':
+    case 'social_post':
+    case 'social_campaign':
+    case 'social_reference':
+    case 'social_profile':
+      return true;
+    default:
+      return false;
+  }
+}
+
 type Updater<T> = T | ((prev: T) => T);
 
 type PreparedManySendInput = {
   textPart: string;
-  pinSnapshot: Array<{ id: string; title: string; type: string; kind: 'person' | 'resource' | 'issue' | 'email' | 'social_post' }>;
+  pinSnapshot: Array<{ id: string; title: string; type: string; kind: PinKind }>;
   userRunMessage: ChatRunMessage;
   userMessage: string;
   hasAttachments: boolean;
@@ -321,10 +338,7 @@ function buildManyVolatileContext(
     pinnedSources:
       enrichedSources.length > 0
         ? enrichedSources
-            .filter(
-              (src): src is typeof src & { kind: 'issue' | 'email' | 'social_post' } =>
-                src.kind === 'issue' || src.kind === 'email' || src.kind === 'social_post',
-            )
+            .filter((src): src is typeof src & { kind: PinnedSourceKind } => isPinnedSourceKind(src.kind))
             .map((src) => ({
               kind: src.kind,
               id: src.id,

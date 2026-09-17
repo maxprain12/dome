@@ -53,6 +53,7 @@ async function fetchProfile(accessToken) {
     externalId: me.sub,
     displayName: me.name || [me.given_name, me.family_name].filter(Boolean).join(' ') || 'LinkedIn',
     handle: me.email || null,
+    avatarUrl: me.picture || null,
   };
 }
 
@@ -638,6 +639,7 @@ module.exports = {
   ensureAccessToken,
   publishPost,
   fetchPostMetrics,
+  fetchProfile,
   fetchAccountMetrics,
   listRecentPosts,
   listComments,

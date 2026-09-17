@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractContact, detectMediaKind } from './extractors';
+import { extractContact, extractSocial, detectMediaKind } from './extractors';
 
 function htmlDoc(html: string): Document {
   const doc = document.implementation.createHTMLDocument('page');
@@ -105,4 +105,33 @@ it('reads public GitHub profile facts without treating repositories as contacts'
   expect(contact?.profile?.company).toBe('Analytical Engine');
   expect(contact?.profile?.website).toBe('https://ada.example');
   expect(extractContact(doc, 'https://github.com/ada/engine')).toBeNull();
+});
+
+describe('extractSocial', () => {
+  it('extracts a visible Instagram post without inventing metrics', () => {
+    const doc = htmlDoc(`
+      <head>
+        <meta property="og:title" content="Ada on Instagram" />
+        <meta property="og:description" content="A carousel about math" />
+        <meta property="og:image" content="https://instagram.com/media.jpg" />
+      </head>
+      <body><article>A carousel about math</article></body>
+    `);
+    const card = extractSocial(doc, 'https://www.instagram.com/p/AbC123/');
+    expect(card?.provider).toBe('instagram');
+    expect(card?.kind).toBe('post');
+    expect(card?.metrics).toBeNull();
+    expect(card?.limitations).toContain('metrics_unavailable');
+    expect(card?.fetchMethod).toBe('user_browser');
+    expect(card?.author.name).toContain('Ada');
+  });
+
+  it('extracts an X profile from the signed-in tab', () => {
+    const card = extractSocial(
+      htmlDoc('<head><meta property="og:title" content="Ada (@ada)" /></head>'),
+      'https://x.com/ada',
+    );
+    expect(card?.kind).toBe('profile');
+    expect(card?.provider).toBe('x');
+  });
 });

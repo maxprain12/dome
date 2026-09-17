@@ -122,6 +122,7 @@
   "tool_browser_scroll": "Faire défiler",
   "tool_browser_find": "Rechercher dans la page",
   "tool_browser_extract_contact": "Extraire le profil",
+  "tool_browser_extract_social": "Extraire le post social",
   "tool_dome_capture_page": "Enregistrer la page dans Dome",
   "tool_dome_list_notes": "Consulter les notes",
   "tool_dome_read_note": "Lire la note",

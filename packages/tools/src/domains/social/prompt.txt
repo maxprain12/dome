@@ -59,7 +59,30 @@ network with `social_post_draft`, ADAPTING the copy to each platform (length,
 tone, hashtags) instead of copying it verbatim. Reuse the same `campaign` and
 `topics` values so analytics can compare them.
 
-## Recommendations & campaign analysis
+## Public URLs, references and watchlists
+
+6. `social_public_resolve` — turn a public Instagram / X / LinkedIn URL into a card.
+   Prefer this before guessing. If `limitations` includes `requires_browser`,
+   ask the user to open the page and use `browser_extract_social`.
+7. `social_reference_save` / `social_reference_list` — third-party evidence lives
+   in references, NEVER in `social_posts` (that table is the user's editorial
+   pipeline). Dedupes by canonical URL.
+8. `social_watchlists_list` / `social_watchlist_add` — curated competitor,
+   inspiration and following lists. Do not promise a full following import.
+9. `social_competitive_report` — compare own published posts with saved
+   references. Cite titles/handles, never invent metrics or fill gaps with zeros.
+10. `social_trends_snapshot` — derived from own posts + saved references.
+    Rank visual creatives (reels first) by real likes/views. Hashtags are
+    secondary. Each signal has provenance (`oauth_own`, `manual`, `web_search`,
+    `browser_capture` or derived synthesis). Never present a trend as official
+    without a source, and never invent missing views.
+11. `social_campaign_from_references` — create a campaign and attach inspiration
+    references. Keep the brief honest about which hooks/formats came from which
+    evidence.
+
+When Source / **mentioned-sources** lists a `social_reference` or `social_profile`,
+use `social_reference_list` / `social_public_resolve` (or the pinned body) before
+claiming it is missing.
 
 Use `social_metrics_summary` (optionally `refresh: true`) before making claims
 about performance. Look at `topPosts`, per-provider totals and the `topics` /

@@ -144,6 +144,17 @@ export function createToolRunner({
       }
       if (name === 'browser_extract_contact')
         return { success: true, data: (await read(false)).contact };
+      if (name === 'browser_extract_social') {
+        const page = await read(false);
+        if (!page.social) {
+          return {
+            success: false,
+            error: 'This tab is not a supported Instagram, LinkedIn or X profile/post.',
+            data: { url: page.url, title: page.title },
+          };
+        }
+        return { success: true, source: 'social_public', card: page.social };
+      }
       if (name === 'browser_navigate') {
         const url = new URL(String(args.url));
         if (!['http:', 'https:'].includes(url.protocol))

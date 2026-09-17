@@ -8,7 +8,7 @@ import type { PinnedResource } from '@/lib/store/useManyStore';
 const BODY_MAX = 2000;
 
 export type EnrichedPinnedSource = {
-  kind: 'issue' | 'email' | 'social_post' | 'social_campaign';
+  kind: 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
   id: string;
   title: string;
   meta: Record<string, unknown> | null;
@@ -88,11 +88,43 @@ async function hydrateSocialPost(pin: PinnedResource): Promise<EnrichedPinnedSou
         provider: row.provider ?? baseMeta.provider,
         status: row.status ?? baseMeta.status,
         campaign: row.campaign ?? baseMeta.campaign,
+        url: row.externalUrl ?? baseMeta.url,
+        avatarUrl: asRecord(row.source)?.avatarUrl ?? baseMeta.avatarUrl,
         ...(body ? { body } : {}),
       },
     };
   } catch {
     return { kind: 'social_post', id: pin.id, title: pin.title, meta: baseMeta };
+  }
+}
+
+async function hydrateSocialReference(pin: PinnedResource): Promise<EnrichedPinnedSource> {
+  const baseMeta = { ...(pin.meta ?? {}) };
+  const kind = pin.type === 'social_profile' ? 'social_profile' : 'social_reference';
+  try {
+    const res = await window.electron?.invoke?.('social:references:get', { referenceId: pin.id });
+    const row = res?.success ? asRecord(res.data) : null;
+    if (!row) {
+      return { kind, id: pin.id, title: pin.title, meta: baseMeta };
+    }
+    const body = typeof row.body === 'string' ? clip(row.body) : '';
+    const author = asRecord(row.author) || {};
+    return {
+      kind,
+      id: pin.id,
+      title: String(row.title || author.name || pin.title),
+      meta: {
+        ...baseMeta,
+        provider: row.provider ?? baseMeta.provider,
+        url: row.url ?? baseMeta.url,
+        avatarUrl: author.avatarUrl ?? baseMeta.avatarUrl,
+        handle: author.handle ?? baseMeta.handle,
+        limitations: row.limitations ?? baseMeta.limitations,
+        ...(body ? { body } : {}),
+      },
+    };
+  } catch {
+    return { kind, id: pin.id, title: pin.title, meta: baseMeta };
   }
 }
 
@@ -244,21 +276,28 @@ export async function hydratePinnedContext(
 ): Promise<HydratedPinnedContext> {
   const peoplePins = pinned.filter((r) => r.kind === 'person');
   const campaignPins = pinned.filter((r) => r.type === 'social_campaign');
+  const referencePins = pinned.filter(
+    (r) => r.type === 'social_reference' || r.type === 'social_profile',
+  );
   const sourcePins = pinned.filter(
     (r) =>
       (r.kind === 'issue' || r.kind === 'email' || r.kind === 'social_post') &&
-      r.type !== 'social_campaign',
+      r.type !== 'social_campaign' &&
+      r.type !== 'social_reference' &&
+      r.type !== 'social_profile',
   );
   const docPins = pinned.filter(
     (r) =>
       r.type !== 'social_campaign' &&
+      r.type !== 'social_reference' &&
+      r.type !== 'social_profile' &&
       r.kind !== 'person' &&
       r.kind !== 'issue' &&
       r.kind !== 'email' &&
       r.kind !== 'social_post',
   );
 
-  const [people, sources, campaigns, docs] = await Promise.all([
+  const [people, sources, campaigns, references, docs] = await Promise.all([
     Promise.all(peoplePins.map(hydratePerson)),
     Promise.all(sourcePins.map((pin) => {
       if (pin.kind === 'email') return hydrateEmail(pin);
@@ -266,9 +305,10 @@ export async function hydratePinnedContext(
       return hydrateSocialPost(pin);
     })),
     Promise.all(campaignPins.map(hydrateSocialCampaign)),
+    Promise.all(referencePins.map(hydrateSocialReference)),
     Promise.all(docPins.map(hydrateDoc)),
   ]);
 
-  const allSources = [...sources, ...campaigns];
+  const allSources = [...sources, ...campaigns, ...references];
   return { people, sources: allSources, docs };
 }

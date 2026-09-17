@@ -114,7 +114,7 @@ export type VolatileSourceOptions = {
   }>;
   /** Integration entities mentioned via @: tasks, mail, social posts. */
   pinnedSources?: Array<{
-    kind: 'issue' | 'email' | 'social_post';
+    kind: 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
     id: string;
     title: string;
     meta?: Record<string, unknown> | null;

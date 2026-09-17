@@ -10,6 +10,19 @@
 
 const { createSocialStore, PROVIDERS } = require('./social-store.cjs');
 const { createSocialOAuth } = require('./social-oauth.cjs');
+const { createSocialReferenceStore } = require('./social-reference-store.cjs');
+const { resolvePublicSocial } = require('./social-public-resolver.cjs');
+const {
+  getRecipes,
+  saveRecipes,
+  runExploration,
+  cancelExploration,
+  refreshSuggestions,
+  dueScheduledExplorations,
+  queueThemeExplorations,
+} = require('./social-explorations.cjs');
+const { isCachedAvatarUrl, persistSocialAvatar } = require('./social-avatar-cache.cjs');
+const { deriveTrends, buildCompetitiveReport, buildFitSuggestions, buildProfileComparison } = require('./social-trends.cjs');
 const calendarBridge = require('./social-calendar-bridge.cjs');
 const sourceIndex = require('../search/source-index.cjs');
 const insights = require('./social-insights.cjs');
@@ -43,6 +56,7 @@ let _instance = null;
 function createSocialService(database, windowManager) {
   const store = createSocialStore(database);
   const oauth = createSocialOAuth(store);
+  const references = createSocialReferenceStore(database);
   let schedulerTimer = null;
   let metricsTimer = null;
   let reportTimer = null;
@@ -50,6 +64,8 @@ function createSocialService(database, windowManager) {
   let tickRunning = false;
   let reportRunning = false;
   let commentPollRunning = false;
+  let avatarRefreshPromise = null;
+  let explorationJobRunning = false;
 
   function broadcast(channel, payload) {
     try {
@@ -75,13 +91,75 @@ function createSocialService(database, windowManager) {
 
   // ── Connections ──────────────────────────────────────────────────────────
 
+  async function hydrateAccountAvatar(account) {
+    if (!account?.id || isCachedAvatarUrl(account.avatarUrl)) return account;
+    let remoteUrl = account.avatarUrl || null;
+    try {
+      const mod = providerModule(account.provider);
+      if (typeof mod.fetchProfile === 'function') {
+        const accessToken = typeof mod.ensureAccessToken === 'function'
+          ? await mod.ensureAccessToken(store, account.id)
+          : store.getAccountTokens(account.id)?.access_token;
+        if (accessToken) {
+          const profile = await mod.fetchProfile(accessToken, account.externalId);
+          if (profile?.avatarUrl) remoteUrl = profile.avatarUrl;
+          if (profile?.displayName || profile?.handle || profile?.externalId) {
+            store.updateAccountProfile(account.id, {
+              displayName: profile.displayName,
+              handle: profile.handle,
+              externalId: profile.externalId,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Social] avatar profile lookup:', err.message);
+    }
+    const cached = await persistSocialAvatar({
+      remoteUrl,
+      provider: account.provider,
+      handle: account.handle,
+      currentUrl: account.avatarUrl,
+    });
+    if (cached && cached !== account.avatarUrl) {
+      store.updateAccountProfile(account.id, { avatarUrl: cached });
+      return store.serializeAccount(store.getAccount(account.id)) || account;
+    }
+    return store.serializeAccount(store.getAccount(account.id)) || account;
+  }
+
+  async function ensureAccountAvatars() {
+    if (avatarRefreshPromise) return avatarRefreshPromise;
+    avatarRefreshPromise = (async () => {
+      try {
+        const accounts = store.listAccounts();
+        for (const account of accounts) {
+          if (isCachedAvatarUrl(account.avatarUrl)) continue;
+          try {
+            const next = await hydrateAccountAvatar(account);
+            if (next?.avatarUrl && next.avatarUrl !== account.avatarUrl) {
+              broadcast('social:account-updated', next);
+            }
+          } catch (err) {
+            console.warn('[Social] avatar hydrate:', err.message);
+          }
+        }
+        return store.listAccounts();
+      } finally {
+        avatarRefreshPromise = null;
+      }
+    })();
+    return avatarRefreshPromise;
+  }
+
   async function connectOAuth(provider) {
     const mod = providerModule(provider);
     const account = await oauth.startConnect(provider, (p, tokenData) =>
       mod.finalizeOAuthAccount(store, tokenData)
     );
-    broadcast('social:account-updated', account);
-    return account;
+    const hydrated = await hydrateAccountAvatar(account);
+    broadcast('social:account-updated', hydrated);
+    return hydrated;
   }
 
   async function connectWithToken(provider, accessToken) {
@@ -90,8 +168,9 @@ function createSocialService(database, windowManager) {
       throw new Error(`${provider} does not support manual token connection — use OAuth.`);
     }
     const account = await mod.connectWithToken(store, { accessToken });
-    broadcast('social:account-updated', account);
-    return account;
+    const hydrated = await hydrateAccountAvatar(account);
+    broadcast('social:account-updated', hydrated);
+    return hydrated;
   }
 
   function forgetLocalPost(postId) {
@@ -879,6 +958,91 @@ function createSocialService(database, windowManager) {
     return providerModule('instagram').searchLocations(store, account, { query });
   }
 
+  async function resolvePublic(url) {
+    return resolvePublicSocial({ store, database }, { url });
+  }
+
+  function snapshotTrends({ projectId = 'default', windowDays = 30 } = {}) {
+    return deriveTrends(store, references, { projectId, windowDays });
+  }
+
+  function competitiveReport({ watchlistId, projectId = 'default' } = {}) {
+    const lists = references.ensureDefaultWatchlists(projectId);
+    const watchlist = watchlistId
+      ? lists.find((item) => item.id === watchlistId)
+      : lists.find((item) => item.kind === 'competitor') || lists[0];
+    const refs = references.listReferences({ projectId, limit: 200 });
+    const handles = new Set(
+      (watchlist?.members || []).map((member) => String(member.handle || '').replace(/^@/, '').toLowerCase()).filter(Boolean),
+    );
+    const urls = new Set((watchlist?.members || []).map((member) => member.profileUrl).filter(Boolean));
+    const scoped = watchlist && (handles.size > 0 || urls.size > 0)
+      ? refs.filter((ref) => {
+          const handle = String(ref.author?.handle || '').replace(/^@/, '').toLowerCase();
+          return (handle && handles.has(handle)) || (ref.url && urls.has(ref.url));
+        })
+      : refs;
+    return buildCompetitiveReport({
+      ownPosts: store.listPosts({ projectId, limit: 400 }),
+      watchlist,
+      references: scoped,
+    });
+  }
+
+  function insightsSnapshot({ projectId = 'default', referenceId, watchlistId } = {}) {
+    const report = competitiveReport({ projectId, watchlistId });
+    const refs = references.listReferences({ projectId, limit: 200 });
+    const selected = referenceId ? refs.find((item) => item.id === referenceId) : refs.find((item) => item.kind === 'profile') || refs[0];
+    const accounts = store.listAccounts().filter((account) => account.status === 'active');
+    const ownAccount = selected?.provider
+      ? accounts.find((account) => account.provider === selected.provider)
+      : accounts[0];
+    const ownMetric = ownAccount ? store.getLatestAccountMetric?.(ownAccount.id) : null;
+    return {
+      success: true,
+      comparison: buildProfileComparison({ ownAccount, ownMetric, reference: selected }),
+      fits: buildFitSuggestions({
+        ownPosts: store.listPosts({ projectId, limit: 400 }),
+        references: refs,
+      }),
+      competitive: report,
+      selectedReferenceId: selected?.id || null,
+    };
+  }
+
+  async function runCreatorExploration(input) {
+    const result = await runExploration({ store, references, resolvePublic, database }, input);
+    broadcast('social:explorations-updated', { exploration: result, personId: input.personId });
+    return result;
+  }
+
+  async function tickExplorations() {
+    if (explorationJobRunning) return;
+    explorationJobRunning = true;
+    try {
+      const queued = references.listQueuedExplorations?.(1)?.[0];
+      if (queued) {
+        await runCreatorExploration({
+          projectId: queued.projectId || 'default',
+          personId: queued.personId,
+          recipeId: queued.recipeId,
+          watchlistKind: queued.watchlistKind,
+          explorationId: queued.id,
+          theme: queued.payload?.theme || null,
+        });
+        return;
+      }
+      const due = dueScheduledExplorations({ store, references, resolvePublic, database }, { projectId: 'default' });
+      const next = due[0];
+      if (!next) return;
+      await runCreatorExploration({ projectId: 'default', ...next });
+    } catch (err) {
+      console.warn('[Social] exploration tick:', err.message);
+    } finally {
+      explorationJobRunning = false;
+    }
+  }
+
   function startScheduler() {
     if (schedulerTimer) return;
     schedulerTimer = setInterval(() => { void tick().catch((err) => console.warn('[Social] tick:', err.message)); }, SCHEDULER_TICK_MS);
@@ -886,6 +1050,14 @@ function createSocialService(database, windowManager) {
     reportTimer = setInterval(() => void maybeGenerateAutoReport().catch(() => {}), REPORT_CHECK_MS);
     commentTimer = setInterval(() => void pollCommentsAndAutoReply().catch(() => {}), COMMENT_POLL_MS);
     setTimeout(() => { void tick().catch((err) => console.warn('[Social] tick:', err.message)); }, 15 * 1000);
+    setTimeout(() => {
+      ensureAccountAvatars().catch((err) => console.warn('[Social] avatars:', err.message));
+    }, 3 * 1000);
+    setTimeout(() => {
+      refreshSuggestions({ store, references, resolvePublic, database }, { projectId: 'default' });
+    }, 20 * 1000);
+    setTimeout(() => { void tickExplorations().catch(() => {}); }, 45 * 1000);
+    setInterval(() => { void tickExplorations().catch(() => {}); }, 30 * 60 * 1000);
     setTimeout(() => void refreshAllMetrics().catch(() => {}), 90 * 1000);
     setTimeout(() => void maybeGenerateAutoReport().catch(() => {}), 3 * 60 * 1000);
     setTimeout(() => void pollCommentsAndAutoReply().catch(() => {}), 2 * 60 * 1000);
@@ -895,6 +1067,7 @@ function createSocialService(database, windowManager) {
   return {
     store,
     oauth,
+    references,
     PROVIDERS,
     providerCapabilities: Object.fromEntries(
       PROVIDERS.map((p) => [p, {
@@ -918,6 +1091,7 @@ function createSocialService(database, windowManager) {
     generateReport,
     startScheduler,
     stopScheduler,
+    ensureAccountAvatars,
     createDraftFromMatchedComment,
     sendReplyDraft,
     listPostComments,
@@ -925,6 +1099,54 @@ function createSocialService(database, windowManager) {
     pollCommentsAndAutoReply,
     getIntegrationCapabilities,
     searchInstagramLocations,
+    resolvePublic,
+    snapshotTrends,
+    competitiveReport,
+    insightsSnapshot,
+    runCreatorExploration,
+    cancelCreatorExploration: (id) => {
+      const result = cancelExploration({ references }, id);
+      broadcast('social:explorations-updated', { exploration: result, personId: result?.personId });
+      return result;
+    },
+    listExplorations: (input) => references.listExplorations(input),
+    listSuggestions: (input) => references.listSuggestions(input),
+    refreshCreatorSuggestions: (input) => refreshSuggestions({ store, references, resolvePublic, database }, input),
+    acceptCreatorSuggestion: ({ suggestionId, watchlistKind = 'inspiration', projectId = 'default' }) => {
+      const suggestion = references.getSuggestion(suggestionId);
+      if (!suggestion) throw new Error('Suggestion not found');
+      const lists = references.ensureDefaultWatchlists(projectId);
+      const list = lists.find((item) => item.kind === watchlistKind) || lists[0];
+      if (!list) throw new Error('Watchlist missing');
+      const updated = references.addWatchlistMember(list.id, {
+        handle: suggestion.handle,
+        provider: suggestion.provider,
+        profileUrl: suggestion.profileUrl,
+        avatarUrl: suggestion.avatarUrl,
+        displayName: suggestion.displayName,
+      });
+      const member = (updated.members || []).find((item) => {
+        const handle = String(suggestion.handle || '').replace(/^@/, '').toLowerCase();
+        const itemHandle = String(item.handle || '').replace(/^@/, '').toLowerCase();
+        if (handle && itemHandle && handle === itemHandle) return true;
+        return Boolean(suggestion.profileUrl && item.profileUrl === suggestion.profileUrl);
+      }) || updated.members?.[0] || null;
+      return {
+        suggestion: references.setSuggestionStatus(suggestionId, 'accepted'),
+        member,
+      };
+    },
+    dismissCreatorSuggestion: (suggestionId) => references.setSuggestionStatus(suggestionId, 'dismissed'),
+    getExplorationRecipes: () => getRecipes(database),
+    saveExplorationRecipes: (recipes) => saveRecipes(database, recipes),
+    queueThemeExplorations: async (input) => {
+      const result = queueThemeExplorations({ store, references, resolvePublic, database }, input);
+      if (result.queued > 0) {
+        setTimeout(() => { void tickExplorations().catch(() => {}); }, 0);
+      }
+      return result;
+    },
+    tickExplorations,
   };
 }
 

@@ -628,6 +628,23 @@ function repairSkillDirectoryNames() {
   }
 }
 
+const OFFICIAL_SKILL_DIRS = new Set(['dome-social-insights', 'dome-social-operations']);
+
+function repairOfficialSkillFrontmatterNames() {
+  const root = userSkillsDir();
+  if (!fs.existsSync(root)) return;
+  for (const id of OFFICIAL_SKILL_DIRS) {
+    const file = path.join(root, id, 'SKILL.md');
+    if (!fs.existsSync(file)) continue;
+    const text = fs.readFileSync(file, 'utf8');
+    const next = text.replace(/^name:\s*.+$/m, `name: ${id}`);
+    if (next !== text) {
+      fs.writeFileSync(file, next);
+      console.log(`[Skills] Aligned frontmatter name for ${id}`);
+    }
+  }
+}
+
 function removeSkill(skillId) {
   const safeId = slugifySkillId(skillId);
   if (!safeId) throw new Error('Invalid skill id');
@@ -714,6 +731,7 @@ module.exports = {
   removeSkill,
   readSkillFile,
   repairSkillDirectoryNames,
+  repairOfficialSkillFrontmatterNames,
   resolveSkillDirectoryId,
   slugifySkillId,
 };

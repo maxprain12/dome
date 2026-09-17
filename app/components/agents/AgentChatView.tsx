@@ -28,6 +28,9 @@ import { buildCitationMap } from '@/lib/utils/citations';
 import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { UnifiedChatHeader } from '@/components/chat/UnifiedChatHeader';
 import { UnifiedChatEmptyState } from '@/components/chat/UnifiedChatEmptyState';
+import { ChatSuggestionPills } from '@/components/chat/ChatSuggestionPills';
+import { useStudioPromptItems } from '@/lib/chat/studioPrompts';
+import { hydratePinnedContext } from '@/lib/many/hydratePinnedContext';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
@@ -42,7 +45,7 @@ import {
   startAgentRun,
   type PersistentRun,
 } from '@/lib/automations/api';
-import { CHAT_THINKING_ROTATION_KEYS, streamingLabelForActiveRun, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
+import { CHAT_THINKING_ROTATION_KEYS, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
 import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentTypes';
 import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
@@ -92,6 +95,29 @@ interface AgentChatViewProps {
 
 /** Prompt fragment for a single pinned resource (never throws). */
 async function buildPinnedResourceEntry(resource: PinnedResource): Promise<string> {
+  const isSocial =
+    resource.kind === 'social_post' ||
+    resource.type === 'social_post' ||
+    resource.type === 'social_campaign' ||
+    resource.type === 'social_reference' ||
+    resource.type === 'social_profile';
+  if (isSocial) {
+    try {
+      const hydrated = await hydratePinnedContext([resource]);
+      const source = hydrated.sources[0];
+      if (!source) return '';
+      const meta = source.meta || {};
+      const lines = [
+        `\n### [${source.title}] (${source.kind})`,
+        meta.provider ? `provider: ${String(meta.provider)}` : '',
+        meta.body ? String(meta.body) : '',
+        meta.url ? `url: ${String(meta.url)}` : '',
+      ].filter(Boolean);
+      return lines.join('\n');
+    } catch {
+      return `\n### [${resource.title}]\n`;
+    }
+  }
   try {
     const result = await window.electron?.ai?.tools?.resourceGet?.(resource.id, {
       includeContent: true,
@@ -110,12 +136,7 @@ async function buildPinnedResourceEntry(resource: PinnedResource): Promise<strin
 
 /** System-prompt block with the resources pinned by the user ('' when there are none). */
 async function buildPinnedResourcesBlock(pinnedResources: PinnedResource[]): Promise<string> {
-  if (
-    pinnedResources.length === 0 ||
-    typeof window.electron?.ai?.tools?.resourceGet !== 'function'
-  ) {
-    return '';
-  }
+  if (pinnedResources.length === 0) return '';
   let pinnedBlock =
     '\n\n## Pinned Context Resources\nThe following resources have been pinned by the user. Use their content directly.\n';
   for (const resource of pinnedResources) {
@@ -243,6 +264,13 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const thinkingLabelIdxRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
+  const studioPrompts = useStudioPromptItems({
+    surface: 'agent-chat',
+    onFill: (text, skillId) => {
+      setInput(text);
+      if (skillId) setPendingOneShotSkillId(skillId);
+    },
+  });
 
   const {
     setAgent: setStoreAgent,
@@ -746,7 +774,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
             }
             title={agent.name}
             description={agent.description || t('agent.empty_chat')}
-          />
+          >
+            <ChatSuggestionPills items={studioPrompts} />
+          </UnifiedChatEmptyState>
         ) : (
           <>
             {messageGroups.map((group) => (

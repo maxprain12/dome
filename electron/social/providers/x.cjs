@@ -44,7 +44,7 @@ async function xFetch(accessToken, path, options = {}) {
 }
 
 async function fetchProfile(accessToken) {
-  const me = await xFetch(accessToken, '/users/me?user.fields=public_metrics,username,name');
+  const me = await xFetch(accessToken, '/users/me?user.fields=public_metrics,username,name,profile_image_url');
   const u = me?.data;
   if (!u?.id) throw new Error('X: could not load user profile');
   return {
@@ -52,6 +52,7 @@ async function fetchProfile(accessToken) {
     displayName: u.name || u.username || 'X',
     handle: u.username ? `@${u.username}` : null,
     followers: u.public_metrics?.followers_count ?? null,
+    avatarUrl: (u.profile_image_url || '').replace(/_normal\.(jpe?g|png|webp)/i, '_400x400.$1') || null,
   };
 }
 
@@ -318,6 +319,7 @@ module.exports = {
   ensureAccessToken,
   publishPost,
   fetchPostMetrics,
+  fetchProfile,
   fetchAccountMetrics,
   listRecentPosts,
   listComments,
