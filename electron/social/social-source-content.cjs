@@ -34,6 +34,7 @@ function instagramContent(post, account) {
     source: {
       authorName: account.display_name || account.displayName || post.username,
       authorHandle: post.username || account.handle,
+      avatarUrl: account.avatar_url || account.avatarUrl || undefined,
       format: post.media_product_type === 'REELS' ? 'reel' : post.media_type === 'CAROUSEL_ALBUM' ? 'carousel' : post.media_type === 'VIDEO' ? 'video' : 'image',
       ...native,
     },
@@ -154,6 +155,7 @@ async function linkedinContent(post, account, resolveAsset) {
     source: {
       authorName: account.display_name || account.displayName,
       authorHandle: account.handle,
+      avatarUrl: account.avatar_url || account.avatarUrl || undefined,
       format: linkedinFormat(content),
       link: article ? { title: article.title, description: article.description, imageUrl: articleImage } : undefined,
       poll: linkedinPoll(content.poll),

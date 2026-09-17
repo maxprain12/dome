@@ -7,7 +7,7 @@
 
 /** @type {Record<string, string[]>} */
 const DOMAIN_TABLES = {
-  social: ['social_accounts', 'social_posts', 'social_metrics', 'social_account_metrics'],
+  social: ['social_accounts', 'social_posts', 'social_metrics', 'social_account_metrics', 'social_references', 'social_collections', 'social_watchlists'],
   pipelines: [
     'pipelines',
     'pipeline_stages',

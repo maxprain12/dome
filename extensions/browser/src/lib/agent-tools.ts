@@ -1,6 +1,7 @@
 import * as api from './client';
 import type { PageContext } from './browser-context';
 import type { BrowserElement } from './page-agent';
+import type { ExtractedSocialCard } from './extractors';
 export interface ToolRequest {
   type: 'browser_tool';
   callId: string;
@@ -19,6 +20,7 @@ export type AgentSnapshot = PageContext & {
   elements: BrowserElement[];
   screenshot?: string;
   screenshotError?: string;
+  social?: ExtractedSocialCard | null;
 };
 
 export function createToolRunner({
@@ -144,6 +146,17 @@ export function createToolRunner({
       }
       if (name === 'browser_extract_contact')
         return { success: true, data: (await read(false)).contact };
+      if (name === 'browser_extract_social') {
+        const page = await read(false);
+        if (!page.social) {
+          return {
+            success: false,
+            error: 'This tab is not a supported Instagram, LinkedIn or X profile/post.',
+            data: { url: page.url, title: page.title },
+          };
+        }
+        return { success: true, source: 'social_public', card: page.social };
+      }
       if (name === 'browser_navigate') {
         const url = new URL(String(args.url));
         if (!['http:', 'https:'].includes(url.protocol))

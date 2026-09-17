@@ -21,9 +21,13 @@ import { ResourceIconBox } from '@/components/shared/ResourceIcon';
 import { inferResourceVisualKind } from '@/lib/resources/resourceVisual';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 import { useInspectStore, type InspectPinKind } from '@/lib/store/useInspectStore';
+import { SocialAccountAvatar } from '@/components/social/cards/SocialAccountAvatar';
+import { socialProviderLabel } from '@/lib/chat/pinLabels';
+import { focusSocialCreator } from '@/lib/store/useOpenIntentStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { cn } from '@/lib/utils';
 
-export type PinnedResourceChip = Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind'>;
+export type PinnedResourceChip = Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind' | 'meta'>;
 
 export interface PinnedResourceChipListProps {
   resources: PinnedResourceChip[];
@@ -33,7 +37,21 @@ export interface PinnedResourceChipListProps {
   align?: 'start' | 'end';
 }
 
+function isSocialPin(resource: PinnedResourceChip): boolean {
+  return (
+    resource.kind === 'social_profile'
+    || resource.kind === 'social_reference'
+    || resource.type === 'social_profile'
+    || resource.type === 'social_reference'
+  );
+}
+
 function PinMedia({ resource }: { resource: PinnedResourceChip }) {
+  if (isSocialPin(resource)) {
+    const name = resource.title;
+    const avatar = typeof resource.meta?.avatarUrl === 'string' ? resource.meta.avatarUrl : null;
+    return <SocialAccountAvatar name={name} src={avatar} size="sm" className="size-full rounded-md" />;
+  }
   if (resource.kind === 'person') {
     return (
       <span className="flex size-full items-center justify-center text-muted-foreground">
@@ -81,6 +99,12 @@ export function PinnedResourceChipList({
   if (resources.length === 0) return null;
 
   const descriptionFor = (resource: PinnedResourceChip) => {
+    if (isSocialPin(resource)) {
+      const provider = socialProviderLabel(
+        typeof resource.meta?.provider === 'string' ? resource.meta.provider : null,
+      );
+      return `${provider} · ${t('social.studio.nav.references')}`;
+    }
     if (resource.kind === 'person') return t('command.people');
     if (resource.kind === 'email') return t('email.tab_title');
     if (resource.kind === 'issue') return t('command.issues');
@@ -89,6 +113,15 @@ export function PinnedResourceChipList({
   };
 
   const openPeek = (resource: PinnedResourceChip) => {
+    if (isSocialPin(resource)) {
+      useTabStore.getState().openSocialTab();
+      focusSocialCreator({
+        personId: resource.id,
+        handle: typeof resource.meta?.handle === 'string' ? resource.meta.handle : null,
+        url: typeof resource.meta?.url === 'string' ? resource.meta.url : null,
+      });
+      return;
+    }
     if (resource.kind === 'person') {
       useInspectStore.getState().open({
         kind: 'person',

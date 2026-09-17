@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SocialAutomationsStudio } from '@/components/social/automations/SocialAutomationsStudio';
 import { useTranslation } from 'react-i18next';
 import { SocialAccountsManager } from '@/components/social/accounts/SocialAccountsManager';
@@ -14,8 +14,12 @@ import { SocialOverviewDashboard } from './SocialOverviewDashboard';
 import { SocialInboxHub } from './SocialInboxHub';
 import { contentFilterItems, SocialCampaignsHub, SocialContentHub } from './SocialListHubs';
 import { SocialStudioNav } from './SocialStudioNav';
+import { SocialReferencesStudio, type SocialCreatorFocus } from './SocialReferencesStudio';
+import { SocialTrendsStudio } from './SocialTrendsStudio';
 import type { SocialContentFilter, SocialEditor, SocialSection, SocialSelection } from './socialWorkspaceTypes';
 import { useSocialWorkspace } from './useSocialWorkspace';
+import { onDomeEvent } from '@/lib/events/domeEvents';
+import { useOpenIntentStore } from '@/lib/store/useOpenIntentStore';
 
 export { formatSocialBody };
 
@@ -29,6 +33,19 @@ export function SocialWorkspaceShell() {
   const [accountId, setAccountId] = useState<string>('all');
   const [contentFilter, setContentFilter] = useState<SocialContentFilter>('all');
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
+  const [creatorFocus, setCreatorFocus] = useState<SocialCreatorFocus | null>(null);
+
+  useEffect(() => {
+    const pending = useOpenIntentStore.getState().consume('social-creator');
+    if (pending) {
+      setSection('references');
+      setCreatorFocus(pending);
+    }
+    return onDomeEvent('dome:focus-social-creator', (detail) => {
+      setSection('references');
+      setCreatorFocus(detail);
+    });
+  }, []);
 
   const navigate = (next: SocialSection, nextSelection: SocialSelection = { kind: 'none' }) => {
     setSection(next);
@@ -50,6 +67,8 @@ export function SocialWorkspaceShell() {
         post={editor.post}
         initialCampaignId={editor.campaignId}
         initialAccountId={selectedAccountId}
+        initialBody={editor.seedBody}
+        initialTopics={editor.seedTopics}
         onClose={() => setEditor({ kind: 'none' })}
         onSaved={() => {
           setEditor({ kind: 'none' });
@@ -138,6 +157,15 @@ export function SocialWorkspaceShell() {
             onInboxChanged={() => {
               workspace.load().catch(() => {});
             }}
+            onPlanPost={(seed) => {
+              setEditor({
+                kind: 'post',
+                post: null,
+                seedBody: seed.body,
+                seedTopics: seed.topics,
+              });
+            }}
+            creatorFocus={creatorFocus}
           />
         )}
       </div>
@@ -181,6 +209,8 @@ function SectionBody({
   accountId,
   replyDrafts,
   onInboxChanged,
+  onPlanPost,
+  creatorFocus,
 }: {
   section: SocialSection;
   filteredPosts: SocialPost[];
@@ -208,6 +238,8 @@ function SectionBody({
   accountId: string | null;
   replyDrafts: ReturnType<typeof useSocialWorkspace>['replyDrafts'];
   onInboxChanged: () => void;
+  onPlanPost: (seed: { body?: string; topics?: string[] }) => void;
+  creatorFocus: SocialCreatorFocus | null;
 }) {
   const { t } = useTranslation();
 
@@ -276,6 +308,10 @@ function SectionBody({
       return <SocialInboxHub drafts={replyDrafts.filter((draft) => !accountId || draft.accountId === accountId)} onChanged={onInboxChanged} />;
     case 'accounts':
       return <SocialAccountsManager embedded />;
+    case 'references':
+      return <SocialReferencesStudio onPlanPost={onPlanPost} focusCreator={creatorFocus} />;
+    case 'trends':
+      return <SocialTrendsStudio onPlanPost={onPlanPost} />;
     default: {
       const _exhaustive: never = section;
       void _exhaustive;

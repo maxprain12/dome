@@ -135,6 +135,14 @@ const TOOL_HANDLER_MAP = {
   social_campaigns_list: 'socialCampaignsList',
   social_campaign_create: 'socialCampaignCreate',
   social_growth: 'socialGrowth',
+  social_public_resolve: 'socialPublicResolve',
+  social_reference_save: 'socialReferenceSave',
+  social_reference_list: 'socialReferenceList',
+  social_watchlists_list: 'socialWatchlistsList',
+  social_watchlist_add: 'socialWatchlistAdd',
+  social_competitive_report: 'socialCompetitiveReport',
+  social_trends_snapshot: 'socialTrendsSnapshot',
+  social_campaign_from_references: 'socialCampaignFromReferences',
 
   // Entity creation
   agent_create: 'agentCreate',
@@ -940,6 +948,92 @@ function getAllToolDefinitions() {
         parameters: {
           type: 'object',
           properties: { days: { type: 'number' }, refresh: { type: 'boolean' } },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_public_resolve',
+        description: 'Resolve a public Instagram, X or LinkedIn URL into a structured card. Source: Social hub.',
+        parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_reference_save',
+        description: 'Save a third-party social URL as a reference. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: { url: { type: 'string' }, notes: { type: 'string' }, collection_id: { type: 'string' } },
+          required: ['url'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_reference_list',
+        description: 'List saved social references. Source: Social hub.',
+        parameters: { type: 'object', properties: { limit: { type: 'number' } } },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_watchlists_list',
+        description: 'List social watchlists and members. Source: Social hub.',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_watchlist_add',
+        description: 'Add a profile to a competitor, inspiration or following watchlist. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            watchlist_id: { type: 'string' },
+            kind: { type: 'string', enum: ['competitor', 'inspiration', 'following', 'custom'] },
+            url: { type: 'string' },
+            handle: { type: 'string' },
+            provider: { type: 'string', enum: ['linkedin', 'instagram', 'x'] },
+            display_name: { type: 'string' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_competitive_report',
+        description: 'Compare own posts with saved references. Source: Social hub.',
+        parameters: { type: 'object', properties: { watchlist_id: { type: 'string' } } },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_trends_snapshot',
+        description: 'Derive trend signals from own posts and saved references. Source: Social hub.',
+        parameters: { type: 'object', properties: { window_days: { type: 'number' } } },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_campaign_from_references',
+        description: 'Create a campaign and attach saved references as inspiration. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            goal: { type: 'string' },
+            reference_ids: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['name'],
         },
       },
     },

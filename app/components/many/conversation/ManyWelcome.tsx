@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   BarChartIcon,
   BotIcon,
@@ -10,31 +9,10 @@ import {
   Mail01Icon,
   Search01Icon,
 } from '@hugeicons/core-free-icons';
-import { Button } from '@/components/ui/button';
 import ManyAvatar from '@/components/many/ManyAvatar';
+import { ChatSuggestionPills } from '@/components/chat/ChatSuggestionPills';
+import { useStudioPromptItems } from '@/lib/chat/studioPrompts';
 import { cn } from '@/lib/utils';
-
-interface SuggestionPillProps {
-  label: string;
-  onClick: () => void;
-  icon?: IconSvgElement;
-  className?: string;
-}
-
-function SuggestionPill({ label, onClick, icon, className }: SuggestionPillProps) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className={cn('rounded-full font-normal shadow-none', className)}
-    >
-      {icon ? <HugeiconsIcon icon={icon} data-icon="inline-start" /> : null}
-      {label}
-    </Button>
-  );
-}
 
 const HERO_SUGGESTIONS = [
   { icon: Search01Icon, labelKey: 'chat.quick_search_library' },
@@ -67,6 +45,7 @@ export default function ManyWelcome({
   className,
 }: ManyWelcomeProps) {
   const { t } = useTranslation();
+  const studioPrompts = useStudioPromptItems({ surface: 'many', onFill: onPrompt });
 
   if (variant === 'hero') {
     return (
@@ -84,16 +63,18 @@ export default function ManyWelcome({
           {t('many.welcome_hints')}
         </p>
         {composer ? <div className="mb-6 w-full max-w-2xl">{composer}</div> : null}
-        <div className="flex w-full max-w-2xl flex-wrap justify-center gap-2">
-          {HERO_SUGGESTIONS.map(({ icon, labelKey }) => (
-            <SuggestionPill
-              key={labelKey}
-              icon={icon}
-              label={t(labelKey)}
-              onClick={() => onPrompt(t(labelKey))}
-            />
-          ))}
-        </div>
+        <ChatSuggestionPills
+          className="max-w-2xl"
+          items={[
+            ...HERO_SUGGESTIONS.map(({ icon, labelKey }) => ({
+              id: labelKey,
+              icon,
+              label: t(labelKey),
+              onClick: () => onPrompt(t(labelKey)),
+            })),
+            ...studioPrompts.slice(0, 3),
+          ]}
+        />
       </div>
     );
   }
@@ -108,23 +89,24 @@ export default function ManyWelcome({
       <p className="mx-auto mt-3 max-w-md text-[13px] text-muted-foreground/80">
         {t('many.welcome_hints')}
       </p>
-      <div className="mx-auto mt-6 flex max-w-md flex-wrap justify-center gap-1.5">
-        {[
-          'chat.quick_empty_summarize',
-          'chat.quick_empty_focus',
-          'chat.quick_empty_organize',
-          ...(supportsTools
-            ? (['chat.quick_empty_search_resources', 'chat.quick_empty_query_db'] as const)
-            : []),
-        ].map((key) => (
-          <SuggestionPill
-            key={key}
-            label={t(key)}
-            onClick={() => onPrompt(t(key))}
-            className="text-xs"
-          />
-        ))}
-      </div>
+      <ChatSuggestionPills
+        className="mx-auto mt-6 max-w-md"
+        items={[
+          ...[
+            'chat.quick_empty_summarize',
+            'chat.quick_empty_focus',
+            'chat.quick_empty_organize',
+            ...(supportsTools
+              ? (['chat.quick_empty_search_resources', 'chat.quick_empty_query_db'] as const)
+              : []),
+          ].map((key) => ({
+            id: key,
+            label: t(key),
+            onClick: () => onPrompt(t(key)),
+          })),
+          ...studioPrompts.slice(0, 2),
+        ]}
+      />
     </div>
   );
 }

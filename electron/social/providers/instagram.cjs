@@ -94,6 +94,10 @@ function buildInstagramProfile(me, fallbackUserId) {
     displayName: asTokenString(user?.name) || username || 'Instagram',
     handle: username ? `@${username.replace(/^@/, '')}` : null,
     followers: typeof user?.followers_count === 'number' ? user.followers_count : null,
+    avatarUrl: asTokenString(user?.profile_picture_url)
+      || asTokenString(user?.profile_picture?.url)
+      || asTokenString(user?.profile_pic_url)
+      || null,
   };
 }
 
@@ -223,7 +227,7 @@ async function igTokenRequest(path, form) {
 }
 
 async function fetchProfile(accessToken, fallbackUserId) {
-  const fieldSets = ['user_id,username,name,followers_count', 'user_id,username'];
+  const fieldSets = ['user_id,username,name,followers_count,profile_picture_url', 'user_id,username,name,followers_count', 'user_id,username'];
   const paths = ['/me'];
   if (fallbackUserId) paths.push(`/${encodeURIComponent(fallbackUserId)}`);
   let lastErr;
@@ -232,7 +236,17 @@ async function fetchProfile(accessToken, fallbackUserId) {
       try {
         const me = await igFetch(path, { accessToken, params: { fields } });
         const profile = buildInstagramProfile(me, fallbackUserId);
-        if (profile) return profile;
+        if (profile) {
+          if (!profile.avatarUrl) {
+            try {
+              const pic = await igFetch('/me', { accessToken, params: { fields: 'profile_picture_url' } });
+              profile.avatarUrl = asTokenString(unwrapInstagramUserPayload(pic)?.profile_picture_url) || null;
+            } catch {
+              /* picture is optional — public HTML fallback fills it later */
+            }
+          }
+          return profile;
+        }
       } catch (err) {
         lastErr = err;
       }
@@ -769,6 +783,7 @@ module.exports = {
   publishPost,
   deleteRemotePost,
   fetchPostMetrics,
+  fetchProfile,
   fetchAccountMetrics,
   listRecentPosts,
   listComments,

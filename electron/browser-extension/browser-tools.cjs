@@ -72,6 +72,11 @@ const definitions = [
     empty,
   ],
   [
+    'browser_extract_social',
+    'Extract the visible Instagram, LinkedIn or X profile/post from the current signed-in tab as a structured social card. Uses only on-screen data. Never invent metrics.',
+    empty,
+  ],
+  [
     'dome_capture_page',
     'Save the current page and its readable text in the selected Dome project.',
     empty,

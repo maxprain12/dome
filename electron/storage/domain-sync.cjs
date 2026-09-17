@@ -40,6 +40,7 @@ const VALID_DOMAINS = /** @type {const} */ ([
  * @property {string} [wire]        Wire key (defaults to `name`) — must match the provider catalog.
  * @property {boolean} [appendOnly]
  * @property {string[]} [excludePush]  Local-only columns that must never travel.
+ * @property {boolean} [localOnly]     Skip push/pull until the provider catalog knows the table.
  * @property {(row: Record<string, unknown>) => Record<string, unknown>} [mapPushRow]
  *                                  Extra per-row shaping after excludePush (contract guards).
  * @property {string} [selectSql]   Custom SELECT producing wire-shaped rows (must expose `id`).
@@ -198,7 +199,7 @@ function applyPersonIdentityRow(db, row) {
 const DOMAIN_SPECS = {
   social: {
     tables: [
-      { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials'] },
+      { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials', 'avatar_url'] },
       // campaign_id is local-only (social_campaigns is not cloud-synced); wire keeps denormalized `campaign`.
       {
         name: 'social_posts',
@@ -208,6 +209,11 @@ const DOMAIN_SPECS = {
       },
       { name: 'social_metrics', deltaColumn: 'updated_at' },
       { name: 'social_account_metrics', deltaColumn: 'updated_at' },
+      { name: 'social_references', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_collections', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_watchlists', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_explorations', deltaColumn: 'updated_at', localOnly: true },
+      { name: 'social_creator_suggestions', deltaColumn: 'updated_at', localOnly: true },
     ],
   },
   pipelines: {
@@ -457,6 +463,7 @@ function buildPushRows(db, domain, sinceMs) {
   /** @type {Record<string, Record<string, unknown>[]>} */
   const rows = {};
   for (const table of spec.tables) {
+    if (table.localOnly) continue;
     const deltaCol = table.deltaColumn;
     let raw;
     if (table.selectSql) {
@@ -597,6 +604,7 @@ function applyPullPayload(db, domain, data, localDeviceId) {
 
   const rowsByTable = data.rows || {};
   for (const tableSpec of spec.tables) {
+    if (tableSpec.localOnly) continue;
     const remoteRows = rowsByTable[tableSpec.wire ?? tableSpec.name] ?? rowsByTable[tableSpec.name];
     if (!Array.isArray(remoteRows) || remoteRows.length === 0) continue;
     const cols = pragmaColumns(db, tableSpec.name);
@@ -858,12 +866,22 @@ async function sendPushRequest(deps, db, domain, rows, tombstones) {
   // synced_settings, many_session_index); el catálogo del provider solo
   // conoce el nombre wire — sin mapear responde 422 unknown_table y bloquea
   // el push del dominio entero.
-  const wireTombstones = tombstones.map((t) => {
+  const pushable = new Set(
+    (DOMAIN_SPECS[domain]?.tables || [])
+      .filter((tbl) => !tbl.localOnly)
+      .map((tbl) => tbl.name),
+  );
+  const skippedTombstones = tombstones.filter((t) => !pushable.has(t.table));
+  const outboundTombstones = tombstones.filter((t) => pushable.has(t.table));
+  const wireTombstones = outboundTombstones.map((t) => {
     const spec = DOMAIN_SPECS[domain]?.tables.find((tbl) => tbl.name === t.table);
     return spec?.wire ? { ...t, table: spec.wire } : t;
   });
   const body = JSON.stringify({ deviceId, rows, tombstones: wireTombstones });
   const url = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/data/${domain}/push`;
+  if (skippedTombstones.length) {
+    syncTombstone.markTombstonesSynced(db, skippedTombstones);
+  }
 
   for (let attempt = 0; ; attempt += 1) {
     const res = await domeOauth.fetchWithDomeAuth(deps.database, url, {
@@ -882,8 +900,8 @@ async function sendPushRequest(deps, db, domain, rows, tombstones) {
       return { success: false, error: `${res.status} ${t}` };
     }
     const data = await res.json();
-    if (tombstones.length) {
-      syncTombstone.markTombstonesSynced(db, tombstones);
+    if (outboundTombstones.length) {
+      syncTombstone.markTombstonesSynced(db, outboundTombstones);
     }
     return { success: true, data };
   }

@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const { shell } = require('electron');
 const { listAllSkills, userSkillsDir } = require('../../skills/index.cjs');
 const skillInstall = require('../../skills/install.cjs');
+const { getElectronRoot } = require('../../paths.cjs');
 
 /**
  * @param {object} param0
@@ -51,12 +52,15 @@ function register({ ipcMain, windowManager, validateSender }) {
       if (typeof id !== 'string' || !/^[\w-]+$/.test(id)) {
         return { success: false, error: 'Invalid skill id' };
       }
-      const bundledPath = path.join(__dirname, '..', 'skills', 'bundled', id, 'SKILL.md');
+      const bundledPath = path.join(getElectronRoot(), 'skills', 'bundled', id, 'SKILL.md');
       if (!fs.existsSync(bundledPath)) {
         return { success: false, error: 'Bundled skill not found' };
       }
       const destDir = path.join(userSkillsDir(), id);
       const destFile = path.join(destDir, 'SKILL.md');
+      if (fs.existsSync(destFile)) {
+        return { success: true, skipped: true };
+      }
       fs.mkdirSync(destDir, { recursive: true });
       const content = fs.readFileSync(bundledPath, 'utf8');
       fs.writeFileSync(destFile, content, 'utf8');

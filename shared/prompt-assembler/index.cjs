@@ -62,6 +62,9 @@ const VOICE_LANGUAGE_NAMES = {
 };
 const PINNED_SOURCE_TOOL_HINTS = {
   social_post: " \u2192 social_post_get",
+  social_reference: " \u2192 social_reference_list",
+  social_profile: " \u2192 social_public_resolve",
+  social_campaign: " \u2192 social_campaigns_list",
   email: " \u2192 email_read",
   issue: " \u2192 github_get_issue"
 };

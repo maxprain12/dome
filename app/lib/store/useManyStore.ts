@@ -29,7 +29,7 @@ export interface PinnedResource {
   title: string;
   type: string;
   /** Defaults to resource when omitted (legacy pins). */
-  kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post';
+  kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
   identities?: Array<{
     source: string;
     externalId: string;

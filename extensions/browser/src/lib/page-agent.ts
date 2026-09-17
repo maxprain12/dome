@@ -1,5 +1,5 @@
 import { showActionPointer } from './action-pointer';
-import { extractContact } from './extractors';
+import { extractContact, extractSocial } from './extractors';
 import { getPageSnapshot } from './page-content';
 import { inViewport, pageRoots, rendered } from './page-dom';
 
@@ -73,7 +73,9 @@ export function createPageAgent(doc: Document = document) {
     });
     return {
       ...getPageSnapshot(doc, doc.location.href),
-      contact: extractContact(doc, doc.location.href), snapshotId, elements: inventory,
+      contact: extractContact(doc, doc.location.href),
+      social: extractSocial(doc, doc.location.href),
+      snapshotId, elements: inventory,
       elementsTruncated: candidates.length > inventory.length,
     };
   }

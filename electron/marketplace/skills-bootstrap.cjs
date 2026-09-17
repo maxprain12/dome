@@ -75,7 +75,8 @@ function migrateLegacySkills(db) {
  */
 function repairSkillDirectoriesOnce(db) {
   try {
-    const { repairSkillDirectoryNames } = require('../skills/install.cjs');
+    const { repairSkillDirectoryNames, repairOfficialSkillFrontmatterNames } = require('../skills/install.cjs');
+    repairOfficialSkillFrontmatterNames();
     repairSkillDirectoryNames();
   } catch (err) {
     console.warn('[Skills] Directory repair failed (non-fatal):', err?.message);

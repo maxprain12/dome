@@ -80,6 +80,9 @@ import {
 import { renderToolSuccessHighlight } from '@/lib/chat/toolResultHighlights';
 import { renderTreeToolSummary } from '@/lib/chat/renderTreeToolSummary';
 import SubagentTranscript from '@/components/many/conversation/SubagentTranscript';
+import { SocialEvidenceCard } from '@/components/social/cards/SocialEvidenceCard';
+import { SocialProfileCard } from '@/components/social/cards/SocialProfileCard';
+import { parseSocialToolResult } from '@/components/chat/tool-card/socialToolResults';
 
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -133,6 +136,10 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     if (!isFilesystemTreeTool(toolCall.name)) return null;
     return parseTreeToolSummary(toolCall.result);
   }, [toolCall.name, toolCall.result]);
+  const socialView = useMemo(
+    () => parseSocialToolResult(toolCall.name, toolCall.result),
+    [toolCall.name, toolCall.result],
+  );
   const pinnedIds = useMemo(() => new Set(pinnedResources.map((r) => r.id)), [pinnedResources]);
 
   const parsedResult = useMemo(() => {
@@ -190,6 +197,36 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   const renderErrorBlock = (): ReactNode => {
     if (!toolCall.error) return null;
     return <Alert variant="destructive"><AlertDescription>{toolCall.error}</AlertDescription></Alert>;
+  };
+
+  const renderSocialCards = (): ReactNode => {
+    if (showRawJson || !socialView) return null;
+    if (socialView.type === 'profile') return <SocialProfileCard model={socialView.model} compact />;
+    if (socialView.type === 'post') return <SocialEvidenceCard model={socialView.model} compact />;
+    if (socialView.type === 'profiles') {
+      return (
+        <div className="flex flex-col gap-2">
+          {socialView.models.map((model) => (
+            <SocialProfileCard
+              key={`${model.provider}:${model.author.handle || model.author.name}`}
+              model={model}
+              compact
+            />
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col gap-2">
+        {socialView.models.map((model, index) => (
+          <SocialEvidenceCard
+            key={`${model.provider}:${model.url || model.author.name}:${index}`}
+            model={model}
+            compact
+          />
+        ))}
+      </div>
+    );
   };
 
   const renderFormattedView = (): ReactNode => {
@@ -437,28 +474,32 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   );
 
   const renderResultContent = (): ReactNode => {
-    const renderers: ReadonlyArray<() => ReactNode> = [
-      renderSoftConfirmation,
-      renderErrorBlock,
-      renderFormattedView,
-      renderRawJson,
-      renderDocuments,
-      renderPersistedArtifact,
-      renderArtifactCardItem,
-      renderContentImageItems,
-      renderImageResult,
-      renderResourceList,
-      renderJsonPrettyView,
-    ];
+    const skipDump = Boolean(socialView) && !showRawJson;
+    const renderers: ReadonlyArray<() => ReactNode> = skipDump
+      ? [renderSoftConfirmation, renderErrorBlock, renderFormattedView]
+      : [
+          renderSoftConfirmation,
+          renderErrorBlock,
+          renderFormattedView,
+          renderRawJson,
+          renderDocuments,
+          renderPersistedArtifact,
+          renderArtifactCardItem,
+          renderContentImageItems,
+          renderImageResult,
+          renderResourceList,
+          renderJsonPrettyView,
+        ];
     for (const renderer of renderers) {
       const node = renderer();
       if (node) return node;
     }
-    return renderFallback();
+    return skipDump ? null : renderFallback();
   };
 
   const hasResult = Boolean(toolCall.result || toolCall.error);
   const canExpand = !isPending && hasResult;
+  const showRichInline = Boolean(socialView) && !isPending && !toolCall.error;
   const cardSummary = smartToolSummary(toolCall.name, toolCall.arguments);
 
   const toolLabel = (
@@ -509,7 +550,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   ) : null;
 
   return (
-    <div className={cn('flex min-w-0 max-w-full flex-col gap-1', className)}>
+    <div className={cn('chat-tool-trace flex min-w-0 max-w-full flex-col gap-1', className)}>
       <ChatToolMarker
         label={toolLabel}
         summary={cardSummary}
@@ -535,6 +576,10 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
           ) : null
         }
       />
+      {isPending && toolCall.name.startsWith('social_') ? (
+        <div className="chat-tool-skeleton" aria-hidden />
+      ) : null}
+      {showRichInline ? <div className="ml-1 pl-3">{renderSocialCards()}</div> : null}
       {expandedBody}
     </div>
   );

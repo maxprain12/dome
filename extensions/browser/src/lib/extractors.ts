@@ -37,7 +37,18 @@ function metaContent(doc: Document, key: string): string {
   const el =
     doc.querySelector(`meta[property="${key}"]`) ||
     doc.querySelector(`meta[name="${key}"]`);
-  return (el?.getAttribute('content') || '').trim();
+  return decodeHtmlEntities(el?.getAttribute('content') || '').trim();
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, digits) => String.fromCodePoint(Number(digits)));
 }
 
 function firstHandle(pathname: string, requiredPrefix?: string): string {
@@ -489,4 +500,87 @@ export function detectMediaKind(url: string): 'youtube' | 'video' | 'article' {
   if (/\.(mp4|webm|mov)(\?|$)/i.test(url) || /vimeo\.com/i.test(url))
     return 'video';
   return 'article';
+}
+
+export type ExtractedSocialCard = {
+  provider: 'instagram' | 'x' | 'linkedin';
+  kind: 'profile' | 'post';
+  url: string;
+  author: { name: string; handle: string | null; avatarUrl: string | null };
+  body: string | null;
+  media: Array<{ type: 'image' | 'video'; url: string }>;
+  metrics: null;
+  format: string | null;
+  limitations: Array<'metrics_unavailable' | 'og_only'>;
+  fetchMethod: 'user_browser';
+  fetchedAt: number;
+};
+
+function socialProviderFromHost(host: string): ExtractedSocialCard['provider'] | null {
+  if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'instagram';
+  if (host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com')) {
+    return 'x';
+  }
+  if (host === 'linkedin.com' || host.endsWith('.linkedin.com')) return 'linkedin';
+  return null;
+}
+
+function visibleImages(doc: Document): Array<{ type: 'image'; url: string }> {
+  return Array.from(doc.querySelectorAll('img'))
+    .map((img) => img.currentSrc || img.src)
+    .filter((src) => /^https?:\/\//i.test(src))
+    .slice(0, 6)
+    .map((url) => ({ type: 'image' as const, url }));
+}
+
+/** Typed profile/post extraction from the user's signed-in browser tab. */
+export function extractSocial(doc: Document, pageUrl: string): ExtractedSocialCard | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+  const provider = socialProviderFromHost(host);
+  if (!provider) return null;
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  const isPost =
+    (provider === 'instagram' && (parts[0] === 'p' || parts[0] === 'reel' || parts[0] === 'reels')) ||
+    (provider === 'x' && parts.includes('status')) ||
+    (provider === 'linkedin' && parts.some((part) => part === 'posts' || part === 'activity' || part === 'feed' || part === 'pulse'));
+  const contact = !isPost ? extractContact(doc, pageUrl) : null;
+  const ogTitle = metaContent(doc, 'og:title') || doc.title || '';
+  const ogDesc = metaContent(doc, 'og:description') || metaContent(doc, 'description');
+  const ogImage = metaContent(doc, 'og:image');
+  const article = cleanText(doc.querySelector('article') || doc.querySelector('main'), 4000);
+  const name = (
+    contact?.displayName ||
+    ogTitle.replace(/\s*[|\-–].*$/, '').replace(/\(@.*\)$/, '').trim() ||
+    provider
+  ).trim();
+  const handle = contact?.profile && typeof contact.profile === 'object' && 'handle' in contact.profile
+    ? String((contact.profile as { handle?: string }).handle || '')
+    : parts[0]?.replace(/^@/, '') || null;
+  const media = visibleImages(doc);
+  if (ogImage && !media.some((item) => item.url === ogImage)) {
+    media.unshift({ type: 'image', url: ogImage });
+  }
+  return {
+    provider,
+    kind: isPost ? 'post' : 'profile',
+    url: parsed.href.split('?')[0],
+    author: {
+      name,
+      handle: handle ? handle.replace(/^@/, '') : null,
+      avatarUrl: contact?.avatarUrl || ogImage || null,
+    },
+    body: (isPost ? article || ogDesc : contact?.notes || ogDesc) || null,
+    media: media.slice(0, 6),
+    metrics: null,
+    format: isPost ? (parts[0] === 'reel' || parts[0] === 'reels' ? 'reel' : 'post') : 'profile',
+    limitations: ['metrics_unavailable'],
+    fetchMethod: 'user_browser',
+    fetchedAt: Date.now(),
+  };
 }

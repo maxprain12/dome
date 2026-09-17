@@ -272,6 +272,14 @@ const TOOL_SUMMARY_SPECS: Record<
   web_search: { keys: ['query', 'q'], render: (value) => `"${value}"` },
   web_fetch: { keys: ['url'] },
   resource_search: { keys: ['query', 'q'], render: (value) => `"${value}"` },
+  social_public_resolve: { keys: ['url'] },
+  social_post_get: { keys: ['post_id', 'postId'] },
+  social_posts_list: { keys: ['status'] },
+  social_reference_save: { keys: ['url'] },
+  social_reference_list: { keys: ['query', 'collection'] },
+  social_watchlist_add: { keys: ['handle', 'url', 'name'] },
+  social_trends_snapshot: { keys: ['provider'] },
+  social_competitive_report: { keys: ['watchlist_id', 'watchlistId'] },
   skill_read: {
     keys: ['skill_id'],
     render: (value, args) => {

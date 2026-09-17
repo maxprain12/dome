@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type InspectPinKind = 'person' | 'resource' | 'issue' | 'email' | 'social_post';
+export type InspectPinKind = 'person' | 'resource' | 'issue' | 'email' | 'social_post' | 'social_profile' | 'social_reference';
 
 export type InspectToolCall = {
   id: string;

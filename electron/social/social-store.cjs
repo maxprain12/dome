@@ -171,14 +171,14 @@ function createSocialStore(database) {
 
   // ── Accounts ─────────────────────────────────────────────────────────────
 
-  function createAccount({ provider, accountKind = 'member', displayName, handle, externalId, tokens, scopes }) {
+  function createAccount({ provider, accountKind = 'member', displayName, handle, externalId, tokens, scopes, avatarUrl = null }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
     if (!ACCOUNT_KINDS.includes(accountKind)) throw new Error(`Unknown account kind: ${accountKind}`);
     const now = Date.now();
     const id = `soc-${provider}-${crypto.randomBytes(6).toString('hex')}`;
     q().createSocialAccount.run(
       id, provider, accountKind, displayName || null, handle || null, externalId || null,
-      encryptCredentials(tokens || {}), scopes || null, 'active', null, now, null, now, now
+      encryptCredentials(tokens || {}), scopes || null, 'active', null, now, null, now, now, avatarUrl || null
     );
     return getAccount(id);
   }
@@ -222,12 +222,16 @@ function createSocialStore(database) {
     );
   }
 
-  function updateAccountProfile(accountId, { displayName, handle, externalId }) {
+  function updateAccountProfile(accountId, { displayName, handle, externalId, avatarUrl }) {
     const row = getAccount(accountId);
     if (!row) throw new Error(`Social account not found: ${accountId}`);
     q().updateSocialAccountProfile.run(
-      displayName ?? row.display_name, handle ?? row.handle, externalId ?? row.external_id,
-      Date.now(), accountId
+      displayName ?? row.display_name,
+      handle ?? row.handle,
+      externalId ?? row.external_id,
+      avatarUrl || row.avatar_url,
+      Date.now(),
+      accountId,
     );
   }
 
@@ -365,6 +369,7 @@ function createSocialStore(database) {
       connectedAt: row.connected_at,
       lastSyncAt: row.last_sync_at,
       cloudPublishing: row.cloud_publishing === 1,
+      avatarUrl: row.avatar_url || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -516,6 +521,7 @@ function createSocialStore(database) {
       scheduledAt, null, null, null, null, createdBy, groupId, now, now
     );
     if (source !== undefined) writePostSource(id, source);
+    else attachAccountAuthor(id, accountId);
     return serializePost(q().getSocialPostById.get(id));
   }
 
@@ -590,7 +596,16 @@ function createSocialStore(database) {
       now,
     );
     if (source) {
-      q().updateImportedSocialPost.run(String(body || ''), externalUrl, pubAt, now, null, linkUrl, JSON.stringify(source), id);
+      const account = serializeAccount(getAccount(accountId));
+      const merged = {
+        ...source,
+        avatarUrl: source.avatarUrl || account?.avatarUrl || undefined,
+        authorName: source.authorName || account?.displayName || undefined,
+        authorHandle: source.authorHandle || account?.handle || undefined,
+      };
+      q().updateImportedSocialPost.run(String(body || ''), externalUrl, pubAt, now, null, linkUrl, JSON.stringify(merged), id);
+    } else {
+      attachAccountAuthor(id, accountId);
     }
     if (metrics && typeof metrics === 'object') {
       insertMetric(id, metrics);
@@ -658,6 +673,19 @@ function createSocialStore(database) {
     if (next.scheduledAt && row.status === 'draft') return 'scheduled';
     if (!next.scheduledAt && row.status === 'scheduled') return 'draft';
     return row.status;
+  }
+
+  function attachAccountAuthor(postId, accountId) {
+    if (!accountId) return;
+    const account = serializeAccount(getAccount(accountId));
+    if (!account) return;
+    const existing = parseSource(q().getSocialPostById.get(postId)?.source_json);
+    writePostSource(postId, {
+      ...(existing || {}),
+      authorName: existing?.authorName || account.displayName || account.handle,
+      authorHandle: existing?.authorHandle || account.handle,
+      avatarUrl: existing?.avatarUrl || account.avatarUrl || undefined,
+    });
   }
 
   function writePostSource(postId, source) {
@@ -830,14 +858,22 @@ function createSocialStore(database) {
       model: row.model,
       error: row.error,
       data,
+      reportType: row.report_type || 'growth',
+      scope: (() => {
+        try { return row.scope_json ? JSON.parse(row.scope_json) : null; } catch { return null; }
+      })(),
       createdAt: row.created_at,
       completedAt: row.completed_at,
     };
   }
 
-  function createReport({ trigger = 'user', periodDays = 30 } = {}) {
+  function createReport({ trigger = 'user', periodDays = 30, reportType = 'growth', scope = null } = {}) {
     const id = `srp-${crypto.randomBytes(8).toString('hex')}`;
-    q().createSocialReport.run(id, 'generating', trigger, periodDays, null, null, null, null, null, Date.now(), null);
+    q().createSocialReport.run(
+      id, 'generating', trigger, periodDays, null, null, null, null, null, Date.now(), null,
+      reportType || 'growth',
+      scope ? JSON.stringify(scope).slice(0, 20000) : null,
+    );
     return getReport(id);
   }
 

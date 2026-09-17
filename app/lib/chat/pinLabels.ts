@@ -16,8 +16,25 @@ const PROVIDER_LABEL: Record<string, string> = {
 const MAX_GENERIC = 48;
 const MAX_SOCIAL_PART = 28;
 
+export function decodeHtmlEntities(text: string): string {
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : '';
+    })
+    .replace(/&#(\d+);/g, (_, digits) => {
+      const code = Number(digits);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : '';
+    });
+}
+
 export function truncatePinLabel(text: string, max = MAX_GENERIC): string {
-  const cleaned = text.replace(/\s+/g, ' ').trim();
+  const cleaned = decodeHtmlEntities(text).replace(/\s+/g, ' ').trim();
   if (!cleaned) return '';
   if (cleaned.length <= max) return cleaned;
   return `${cleaned.slice(0, Math.max(1, max - 1))}…`;
@@ -48,6 +65,28 @@ export function formatSocialPostPinLabel(opts: {
     return fallback;
   }
   return `${provider} · post`;
+}
+
+export function formatSocialProfilePinLabel(opts: {
+  name?: string | null;
+  handle?: string | null;
+  provider?: string | null;
+  fallbackTitle?: string | null;
+}): string {
+  const provider = socialProviderLabel(opts.provider);
+  const handle = String(opts.handle || '')
+    .replace(/^@/, '')
+    .trim();
+  if (handle) return truncatePinLabel(`@${handle} · ${provider}`, MAX_GENERIC);
+  const raw = decodeHtmlEntities(opts.name || opts.fallbackTitle || '')
+    .replace(/\s*[•·|].*$/, '')
+    .replace(/\s*\(@[^)]+\)\s*/g, ' ')
+    .replace(/\s+on Instagram$/i, '')
+    .replace(/\s+on X$/i, '')
+    .replace(/\s+\|\s*LinkedIn$/i, '')
+    .trim();
+  if (raw && !looksLikeProseDump(raw)) return truncatePinLabel(`${raw} · ${provider}`, MAX_GENERIC);
+  return `${provider} · profile`;
 }
 
 function looksLikeProseDump(text: string): boolean {
@@ -196,6 +235,22 @@ export function normalizePinnedResource(resource: PinnedResource): PinnedResourc
       kind: 'social_post',
       type: 'social_campaign',
       title: formatResourcePinLabel(pickCampaignName(meta, resource.title)),
+      meta,
+    };
+  }
+
+  if (resource.type === 'social_reference' || resource.type === 'social_profile') {
+    const kind = resource.type === 'social_profile' ? 'social_profile' : 'social_reference';
+    return {
+      ...resource,
+      kind,
+      type: resource.type,
+      title: formatSocialProfilePinLabel({
+        name: typeof meta?.name === 'string' ? meta.name : null,
+        handle: typeof meta?.handle === 'string' ? meta.handle : null,
+        provider: typeof meta?.provider === 'string' ? meta.provider : null,
+        fallbackTitle: resource.title,
+      }),
       meta,
     };
   }

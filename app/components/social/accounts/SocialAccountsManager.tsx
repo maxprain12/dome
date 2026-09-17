@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 import { socialAccountLabel } from '@/lib/social/socialQueues';
 import type { SocialAccount } from '@/components/social/socialTypes';
+import { SocialAccountAvatar } from '@/components/social/cards/SocialAccountAvatar';
 import { ProviderMark } from '@/components/social/crm/socialCrmChrome';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '@/components/settings/blocks';
 import {
@@ -153,7 +154,11 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
               key={account.id}
               title={
                 <span className="flex min-w-0 items-center gap-2">
-                  <ProviderMark provider={account.provider} />
+                  <SocialAccountAvatar
+                    name={socialAccountLabel(account)}
+                    src={account.avatarUrl}
+                    size="sm"
+                  />
                   <span className="truncate">{socialAccountLabel(account)}</span>
                   <Badge variant={account.status === 'active' ? 'lime' : 'outline'}>
                     {t(accountStatusKey(account.status))}

@@ -12,6 +12,8 @@ Tomada de un dashboard de analytics (resumen de rendimiento, crecimiento de audi
 | Inicio | Canvas: KPIs con tendencia, serie de audiencia, mix likes/comentarios/compartidos, tira de posts recientes. |
 | Contenido / Campañas / Eventos / Cuentas | Directorio ~36% + ficha inline (misma chrome que Contactos). |
 | Insights | Informes IA + funnel de eventos. El dato vivo vive en Inicio. |
+| Referencias | Directorio de creadores + dossier (evidencia pública, exploraciones en segundo plano). |
+| Tendencias | Creatividades visuales (vídeo primero) rankeadas por engagement real de tus posts y referencias; hashtags como chips secundarios. |
 
 Periodo (7 / 30 / 90 días) en el resumen de rendimiento. Un post reciente abre Contenido con esa ficha.
 
@@ -25,6 +27,19 @@ Periodo (7 / 30 / 90 días) en el resumen de rendimiento. Un post reciente abre 
 | `SocialDirectoryColumn` | Lista maestra de las secciones editoriales. |
 | Sync feed | `social:posts:sync` importa posts ya publicados en IG / X / LinkedIn org (`created_by=import`). |
 | Heurísticas | [`app/lib/social/socialQueues.ts`](../../app/lib/social/socialQueues.ts) |
+
+## Referentes (migración 76–77)
+
+El estudio de **Referencias** es un directorio de creadores (inspiración / competencia / siguiendo), no una lista plana de URLs. Cada fila es un miembro de `social_watchlists`. Los posts públicos capturados viven en `social_references` como evidencia del dossier.
+
+- Pegar una URL pública resuelve el perfil, lo da de alta en la vista activa y guarda posts visibles como biblioteca.
+- **Explorar ahora** encola un job en main (`social_explorations`): captura pública + resumen. Many permanece cerrado. Recetas y cadencia (manual / diario / semanal) se ajustan en el propio panel.
+- Sugerencias (`social_creator_suggestions`): hashtags de tus posts, autores de comentarios ya importados y perfiles públicos guardados. Tope de 5 candidatos por red y semana. Aceptar / descartar se recuerda.
+- Tendencias es otra pestaña: **creatividades visuales** (reels primero) rankeadas por likes/vistas reales de tus posts y referencias, más temas secundarios. CTA hacia el compositor. «Explorar este tema» reutiliza la cola de exploraciones. No se inventan Explore/Trends de la plataforma ni métricas ausentes.
+
+IPC: `social:references:*`, `social:watchlists:*`, `social:explorations:list|run|run-theme|cancel|recipes`, `social:suggestions:list|refresh|accept|dismiss`, `social:trends:snapshot`.
+
+Chips de Many: un perfil/referencia se pinea con avatar y etiqueta `@handle · Instagram`, nunca el título HTML crudo. Pulsar el chip abre la ficha del creador en Referencias.
 
 ## Campañas (migración 69)
 
@@ -43,8 +58,8 @@ Los comentarios públicos se anidan como en la red (`parentId` → hilo). En cad
 
 ## Tools de agente
 
-`social_accounts_list`, `social_posts_list`, `social_post_draft`, `social_post_publish` (HITL), `social_metrics_summary`, `social_growth`, `social_campaigns_list`, `social_campaign_create`.  
-Skill: `dome-social-growth`.
+`social_accounts_list`, `social_posts_list`, `social_post_draft`, `social_post_publish` (HITL), `social_metrics_summary`, `social_growth`, `social_campaigns_list`, `social_campaign_create`, `social_public_resolve`, `social_reference_save`, `social_reference_list`, `social_watchlists_list`, `social_watchlist_add`, `social_competitive_report`, `social_trends_snapshot`, `social_campaign_from_references`.  
+Skills: `dome-social-insights`, `dome-social-operations` (recommended, one-click install).
 
 ## Módulos main
 

@@ -7,6 +7,7 @@ export const DOME_EVENTS = {
   focusGithubIssue: 'dome:focus-github-issue',
   focusEmail: 'dome:focus-email',
   focusSocialPost: 'dome:focus-social-post',
+  focusSocialCreator: 'dome:focus-social-creator',
   focusPerson: 'dome:focus-person',
   manySidebarOpen: 'dome:many-sidebar-open',
   agentsChanged: 'dome:agents-changed',
@@ -29,6 +30,7 @@ export type DomeEventPayloads = {
     uid?: string | number;
   };
   'dome:focus-social-post': { postId: string };
+  'dome:focus-social-creator': { personId?: string; handle?: string | null; url?: string | null };
   'dome:focus-person': { personId: string };
   'dome:many-sidebar-open': undefined;
   'dome:agents-changed': undefined;

@@ -23,6 +23,7 @@ import {
   Layers01Icon,
   Plug01Icon,
   Search01Icon,
+  Share08Icon,
   ShoppingBag01Icon,
   TerminalIcon,
   UserMultiple02Icon,
@@ -51,6 +52,7 @@ export function getCategory(name: string): ToolCategory {
   if (n === 'glob' || n === 'ls' || n.includes('shell') || n.includes('codegen')) return 'file';
   if (n === 'task' || n.includes('subagent') || n.includes('agent') || n.includes('call_') || n.includes('delegate')) return 'agent';
   if (n.includes('postgres') || n.includes('sql') || n.includes('query') || n.includes('database') || n.includes('db')) return 'db';
+  if (n.startsWith('social_')) return 'search';
   if (n.startsWith('mcp') || n.includes('mcp_')) return 'mcp';
   return 'default';
 }
@@ -116,12 +118,22 @@ export const TOOL_ICONS: Record<string, IconSvgElement> = {
   shell_exec: TerminalIcon,
   // Subagent delegation (deepagents `task`)
   task: UserMultiple02Icon,
+  social_accounts_list: Share08Icon,
+  social_posts_list: Share08Icon,
+  social_post_get: Share08Icon,
+  social_public_resolve: Share08Icon,
+  social_reference_save: Share08Icon,
+  social_reference_list: Share08Icon,
+  social_watchlist_add: Share08Icon,
+  social_trends_snapshot: Share08Icon,
+  social_competitive_report: Share08Icon,
 };
 
 export function getIconForTool(name: string): IconSvgElement {
   const norm = (name || '').toLowerCase();
   if (TOOL_ICONS[norm]) return TOOL_ICONS[norm];
   if (TOOL_ICONS[name]) return TOOL_ICONS[name];
+  if (norm.startsWith('social_')) return Share08Icon;
   if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) return DatabaseIcon;
   if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug01Icon;
   return GlobeIcon;

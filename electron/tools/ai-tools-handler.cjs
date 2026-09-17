@@ -2960,13 +2960,15 @@ function socialService() {
 
 async function socialAccountsList() {
   try {
-    const accounts = socialService().store.listAccounts();
+    const svc = socialService();
+    await svc.ensureAccountAvatars();
+    const accounts = svc.store.listAccounts();
     return {
       success: true,
       source: 'social',
       accounts: accounts.map((a) => ({
         id: a.id, provider: a.provider, displayName: a.displayName,
-        handle: a.handle, status: a.status,
+        handle: a.handle, status: a.status, avatarUrl: a.avatarUrl || null,
       })),
     };
   } catch (err) {
@@ -3124,6 +3126,109 @@ async function socialGrowth({ days = 90, refresh = false } = {}) {
       success: true,
       source: 'social',
       ...service.getGrowth({ days: Math.min(Math.max(Number(days) || 90, 7), 365) }),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialPublicResolve({ url } = {}) {
+  try {
+    if (!url) return { success: false, error: 'url is required' };
+    return await socialService().resolvePublic(String(url));
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialReferenceSave({ url, notes, collection_id } = {}) {
+  try {
+    if (!url) return { success: false, error: 'url is required' };
+    const service = socialService();
+    const resolved = await service.resolvePublic(String(url));
+    const result = service.references.capture({
+      url: resolved?.card?.url || url,
+      card: resolved?.card || null,
+      notes: notes != null ? String(notes) : null,
+      collectionId: collection_id || null,
+    });
+    return { success: true, source: 'social', ...result, card: resolved?.card || null };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialReferenceList({ limit = 40 } = {}) {
+  try {
+    const references = socialService().references.listReferences({ limit: Math.min(Number(limit) || 40, 200) });
+    return { success: true, source: 'social', references };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialWatchlistsList() {
+  try {
+    const watchlists = socialService().references.ensureDefaultWatchlists('default');
+    return { success: true, source: 'social', watchlists };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialWatchlistAdd({ watchlist_id, kind, url, handle, provider, display_name } = {}) {
+  try {
+    const service = socialService();
+    const lists = service.references.ensureDefaultWatchlists('default');
+    let watchlist = watchlist_id ? lists.find((item) => item.id === watchlist_id) : null;
+    if (!watchlist && kind) watchlist = lists.find((item) => item.kind === kind) || service.references.createWatchlist({ name: kind, kind });
+    if (!watchlist) return { success: false, error: 'watchlist_id or kind is required' };
+    const parsedUrl = url ? String(url) : null;
+    const updated = service.references.addWatchlistMember(watchlist.id, {
+      profileUrl: parsedUrl,
+      handle: handle || null,
+      provider: provider || null,
+      displayName: display_name || handle || null,
+    });
+    return { success: true, source: 'social', watchlist: updated };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialCompetitiveReport({ watchlist_id } = {}) {
+  try {
+    return { success: true, source: 'social', ...socialService().competitiveReport({ watchlistId: watchlist_id }) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialTrendsSnapshot({ window_days = 30 } = {}) {
+  try {
+    return socialService().snapshotTrends({ windowDays: Number(window_days) || 30 });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialCampaignFromReferences({ name, goal, reference_ids } = {}) {
+  try {
+    if (!name || !String(name).trim()) return { success: false, error: 'name is required' };
+    const service = socialService();
+    const campaign = service.store.createCampaign({
+      name: String(name).trim(),
+      goal: goal != null ? String(goal) : null,
+    });
+    const ids = Array.isArray(reference_ids) ? reference_ids.map(String).filter(Boolean) : [];
+    for (const referenceId of ids) {
+      service.references.linkCampaignReference(campaign.id, referenceId);
+    }
+    return {
+      success: true,
+      source: 'social',
+      campaign,
+      references: ids.map((id) => service.references.getReference(id)).filter(Boolean),
     };
   } catch (err) {
     return { success: false, error: err.message };
@@ -4839,6 +4944,14 @@ module.exports = {
   socialCampaignsList,
   socialCampaignCreate,
   socialGrowth,
+  socialPublicResolve,
+  socialReferenceSave,
+  socialReferenceList,
+  socialWatchlistsList,
+  socialWatchlistAdd,
+  socialCompetitiveReport,
+  socialTrendsSnapshot,
+  socialCampaignFromReferences,
 
   // Entity creation
   agentCreate,

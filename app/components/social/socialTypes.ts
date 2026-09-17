@@ -14,6 +14,7 @@ export interface SocialAccount {
   connectedAt: number | null;
   lastSyncAt: number | null;
   cloudPublishing?: boolean;
+  avatarUrl?: string | null;
 }
 
 export interface SocialMediaItem {

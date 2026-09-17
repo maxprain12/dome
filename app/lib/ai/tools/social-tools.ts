@@ -305,6 +305,204 @@ export function createSocialGrowthTool(): AnyAgentTool {
   };
 }
 
+export function createSocialPublicResolveTool(): AnyAgentTool {
+  return {
+    label: 'Resolve public social URL',
+    name: 'social_public_resolve',
+    description:
+      'Resolve a public Instagram, X or LinkedIn profile/post URL into a structured card with honest limitations. Source: Social hub.',
+    parameters: Type.Object({
+      url: Type.String({ description: 'Public https URL.' }),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const url = readStringParam(args as Record<string, unknown>, 'url', { required: true });
+      const res = await window.electron.invoke('social:public:resolve', { url });
+      if (!res?.success) return ipcError(res, 'Failed to resolve URL.');
+      return jsonResult({ success: true, source: 'social_public', ...(res.data || {}) });
+    },
+  };
+}
+
+export function createSocialReferenceSaveTool(): AnyAgentTool {
+  return {
+    label: 'Save social reference',
+    name: 'social_reference_save',
+    description: 'Save a third-party social URL as a reference. Source: Social hub.',
+    parameters: Type.Object({
+      url: Type.String(),
+      notes: Type.Optional(Type.String()),
+      collection_id: Type.Optional(Type.String()),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const params = args as Record<string, unknown>;
+      const res = await window.electron.invoke('social:references:capture', {
+        url: readStringParam(params, 'url', { required: true }),
+        notes: readStringParam(params, 'notes') || null,
+        collectionId: readStringParam(params, 'collection_id') || null,
+      });
+      if (!res?.success) return ipcError(res, 'Failed to save reference.');
+      return jsonResult({ success: true, source: 'social', ...(res.data || {}) });
+    },
+  };
+}
+
+export function createSocialReferenceListTool(): AnyAgentTool {
+  return {
+    label: 'List social references',
+    name: 'social_reference_list',
+    description: 'List saved social references. Source: Social hub.',
+    parameters: Type.Object({
+      limit: Type.Optional(Type.Number()),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const limit = readNumberParam(args as Record<string, unknown>, 'limit') ?? 40;
+      const res = await window.electron.invoke('social:references:list', { limit });
+      if (!res?.success) return ipcError(res, 'Failed to list references.');
+      return jsonResult({ success: true, source: 'social', references: res.data ?? [] });
+    },
+  };
+}
+
+export function createSocialWatchlistsListTool(): AnyAgentTool {
+  return {
+    label: 'List watchlists',
+    name: 'social_watchlists_list',
+    description: 'List social watchlists and members. Source: Social hub.',
+    parameters: Type.Object({}),
+    execute: async () => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const res = await window.electron.invoke('social:watchlists:list');
+      if (!res?.success) return ipcError(res, 'Failed to list watchlists.');
+      return jsonResult({ success: true, source: 'social', watchlists: res.data ?? [] });
+    },
+  };
+}
+
+export function createSocialWatchlistAddTool(): AnyAgentTool {
+  return {
+    label: 'Add watchlist member',
+    name: 'social_watchlist_add',
+    description: 'Add a competitor, inspiration or followed profile to a watchlist. Source: Social hub.',
+    parameters: Type.Object({
+      watchlist_id: Type.Optional(Type.String()),
+      kind: Type.Optional(
+        Type.Union([
+          Type.Literal('competitor'),
+          Type.Literal('inspiration'),
+          Type.Literal('following'),
+          Type.Literal('custom'),
+        ]),
+      ),
+      url: Type.Optional(Type.String()),
+      handle: Type.Optional(Type.String()),
+      provider: Type.Optional(ProviderSchema),
+      display_name: Type.Optional(Type.String()),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const params = args as Record<string, unknown>;
+      const lists = await window.electron.invoke('social:watchlists:list');
+      if (!lists?.success) return ipcError(lists, 'Failed to list watchlists.');
+      const kind = readStringParam(params, 'kind');
+      const watchlistId = readStringParam(params, 'watchlist_id');
+      const match = Array.isArray(lists.data)
+        ? lists.data.find((item: { id?: string; kind?: string }) =>
+            watchlistId ? item.id === watchlistId : item.kind === kind,
+          )
+        : null;
+      if (!match?.id) return jsonResult({ success: false, error: 'Watchlist not found.' });
+      const res = await window.electron.invoke('social:watchlists:add-member', {
+        watchlistId: match.id,
+        profileUrl: readStringParam(params, 'url') || undefined,
+        handle: readStringParam(params, 'handle') || undefined,
+        provider: readStringParam(params, 'provider') || undefined,
+        displayName: readStringParam(params, 'display_name') || undefined,
+      });
+      if (!res?.success) return ipcError(res, 'Failed to add watchlist member.');
+      return jsonResult({ success: true, source: 'social', watchlist: res.data });
+    },
+  };
+}
+
+export function createSocialCompetitiveReportTool(): AnyAgentTool {
+  return {
+    label: 'Competitive report',
+    name: 'social_competitive_report',
+    description: 'Compare own posts with saved references. Source: Social hub.',
+    parameters: Type.Object({
+      watchlist_id: Type.Optional(Type.String()),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const res = await window.electron.invoke('social:reports:competitive', {
+        watchlistId: readStringParam(args as Record<string, unknown>, 'watchlist_id') || undefined,
+      });
+      if (!res?.success) return ipcError(res, 'Failed to generate competitive report.');
+      return jsonResult({ success: true, source: 'social', ...(res.data || {}) });
+    },
+  };
+}
+
+export function createSocialTrendsSnapshotTool(): AnyAgentTool {
+  return {
+    label: 'Social trends',
+    name: 'social_trends_snapshot',
+    description: 'Derive trend signals from own posts and saved references. Source: Social hub.',
+    parameters: Type.Object({
+      window_days: Type.Optional(Type.Number()),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const windowDays = readNumberParam(args as Record<string, unknown>, 'window_days') ?? 30;
+      const res = await window.electron.invoke('social:trends:snapshot', { windowDays });
+      if (!res?.success) return ipcError(res, 'Failed to snapshot trends.');
+      return jsonResult({ success: true, source: 'social', ...(res.data || {}) });
+    },
+  };
+}
+
+export function createSocialCampaignFromReferencesTool(): AnyAgentTool {
+  return {
+    label: 'Campaign from references',
+    name: 'social_campaign_from_references',
+    description: 'Create a campaign and attach saved references as inspiration. Source: Social hub.',
+    parameters: Type.Object({
+      name: Type.String(),
+      goal: Type.Optional(Type.String()),
+      reference_ids: Type.Optional(Type.Array(Type.String())),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const params = args as Record<string, unknown>;
+      const name = readStringParam(params, 'name', { required: true });
+      const created = await window.electron.invoke('social:campaigns:create', {
+        name,
+        goal: readStringParam(params, 'goal') || null,
+      });
+      if (!created?.success) return ipcError(created, 'Failed to create campaign.');
+      const ids = Array.isArray(params.reference_ids) ? params.reference_ids.map(String) : [];
+      for (const referenceId of ids) {
+        await window.electron.invoke('social:campaigns:references:link', {
+          campaignId: created.data?.id,
+          referenceId,
+        });
+      }
+      return jsonResult({ success: true, source: 'social', campaign: created.data, referenceIds: ids });
+    },
+  };
+}
+
 export function createSocialTools(): AnyAgentTool[] {
   return [
     createSocialAccountsListTool(),
@@ -316,5 +514,13 @@ export function createSocialTools(): AnyAgentTool[] {
     createSocialCampaignsListTool(),
     createSocialCampaignCreateTool(),
     createSocialGrowthTool(),
+    createSocialPublicResolveTool(),
+    createSocialReferenceSaveTool(),
+    createSocialReferenceListTool(),
+    createSocialWatchlistsListTool(),
+    createSocialWatchlistAddTool(),
+    createSocialCompetitiveReportTool(),
+    createSocialTrendsSnapshotTool(),
+    createSocialCampaignFromReferencesTool(),
   ];
 }

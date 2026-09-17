@@ -180,7 +180,7 @@ function pinPostInMany(post: SocialPost, snippet: string) {
       status: post.status,
     },
   });
-  many.setPendingOneShotSkill('dome-social-growth');
+    many.setPendingOneShotSkill('dome-social-operations');
   many.setPendingManyHandoff(snippet);
   many.setOpen(true);
 }

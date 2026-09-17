@@ -1217,8 +1217,8 @@ function buildQueries(db) {
     createSocialAccount: db.prepare(`
       INSERT INTO social_accounts (
         id, provider, account_kind, display_name, handle, external_id, credentials, scopes,
-        status, last_error, connected_at, last_sync_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        status, last_error, connected_at, last_sync_at, created_at, updated_at, avatar_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialAccountById: db.prepare('SELECT * FROM social_accounts WHERE id = ?'),
     listSocialAccounts: db.prepare('SELECT * FROM social_accounts ORDER BY created_at ASC'),
@@ -1226,7 +1226,7 @@ function buildQueries(db) {
       SELECT * FROM social_accounts WHERE provider = ? ORDER BY created_at ASC
     `),
     updateSocialAccountProfile: db.prepare(`
-      UPDATE social_accounts SET display_name = ?, handle = ?, external_id = ?, updated_at = ? WHERE id = ?
+      UPDATE social_accounts SET display_name = ?, handle = ?, external_id = ?, avatar_url = ?, updated_at = ? WHERE id = ?
     `),
     updateSocialAccountCredentials: db.prepare(`
       UPDATE social_accounts SET credentials = ?, scopes = ?, status = ?, last_error = ?, updated_at = ? WHERE id = ?
@@ -1394,8 +1394,8 @@ function buildQueries(db) {
 
     createSocialReport: db.prepare(`
       INSERT INTO social_reports (
-        id, status, trigger, period_days, title, content, model, error, data, created_at, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, status, trigger, period_days, title, content, model, error, data, created_at, completed_at, report_type, scope_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateSocialReportResult: db.prepare(`
       UPDATE social_reports
@@ -1408,6 +1408,143 @@ function buildQueries(db) {
       SELECT * FROM social_reports WHERE trigger = ? ORDER BY created_at DESC LIMIT 1
     `),
     deleteSocialReport: db.prepare('DELETE FROM social_reports WHERE id = ?'),
+
+    upsertSocialPublicSnapshot: db.prepare(`
+      INSERT INTO social_public_snapshots (id, canonical_url, payload_json, fetch_method, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(canonical_url) DO UPDATE SET
+        payload_json = excluded.payload_json,
+        fetch_method = excluded.fetch_method,
+        expires_at = excluded.expires_at,
+        updated_at = excluded.updated_at
+    `),
+    getSocialPublicSnapshotByUrl: db.prepare('SELECT * FROM social_public_snapshots WHERE canonical_url = ?'),
+    deleteExpiredSocialPublicSnapshots: db.prepare('DELETE FROM social_public_snapshots WHERE expires_at < ?'),
+
+    insertSocialReference: db.prepare(`
+      INSERT INTO social_references (
+        id, project_id, provider, external_url, external_post_id, person_id, resource_id,
+        title, body, format, topics_json, media_json, metrics_json, source_json, source_kind,
+        limitations_json, captured_at, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateSocialReference: db.prepare(`
+      UPDATE social_references SET
+        person_id = ?, resource_id = ?, title = ?, body = ?, format = ?, topics_json = ?,
+        media_json = ?, metrics_json = ?, source_json = ?, source_kind = ?, limitations_json = ?,
+        captured_at = ?, notes = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    getSocialReferenceById: db.prepare('SELECT * FROM social_references WHERE id = ?'),
+    getSocialReferenceByUrl: db.prepare('SELECT * FROM social_references WHERE project_id = ? AND external_url = ?'),
+    listSocialReferences: db.prepare('SELECT * FROM social_references WHERE project_id = ? ORDER BY captured_at DESC LIMIT ?'),
+    deleteSocialReference: db.prepare('DELETE FROM social_references WHERE id = ?'),
+
+    insertSocialCollection: db.prepare(`
+      INSERT INTO social_collections (id, project_id, name, description, kind, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    listSocialCollections: db.prepare('SELECT * FROM social_collections WHERE project_id = ? ORDER BY updated_at DESC'),
+    addSocialCollectionItem: db.prepare(`
+      INSERT OR REPLACE INTO social_collection_items (collection_id, reference_id, position, added_at)
+      VALUES (?, ?, ?, ?)
+    `),
+    removeSocialCollectionItem: db.prepare(
+      'DELETE FROM social_collection_items WHERE collection_id = ? AND reference_id = ?',
+    ),
+    listSocialCollectionItems: db.prepare(
+      'SELECT reference_id FROM social_collection_items WHERE collection_id = ? ORDER BY position ASC, added_at ASC',
+    ),
+
+    insertSocialWatchlist: db.prepare(`
+      INSERT INTO social_watchlists (id, project_id, name, kind, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `),
+    listSocialWatchlists: db.prepare('SELECT * FROM social_watchlists WHERE project_id = ? ORDER BY updated_at DESC'),
+    getSocialWatchlistById: db.prepare('SELECT * FROM social_watchlists WHERE id = ?'),
+    upsertSocialWatchlistMember: db.prepare(`
+      INSERT INTO social_watchlist_members (
+        watchlist_id, person_id, role, notes, handle, provider, profile_url, avatar_url, display_name, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(watchlist_id, person_id) DO UPDATE SET
+        role = excluded.role,
+        notes = excluded.notes,
+        handle = excluded.handle,
+        provider = excluded.provider,
+        profile_url = excluded.profile_url,
+        avatar_url = excluded.avatar_url,
+        display_name = excluded.display_name,
+        updated_at = excluded.updated_at
+    `),
+    listSocialWatchlistMembers: db.prepare('SELECT * FROM social_watchlist_members WHERE watchlist_id = ? ORDER BY updated_at DESC'),
+    deleteSocialWatchlistMember: db.prepare(
+      'DELETE FROM social_watchlist_members WHERE watchlist_id = ? AND person_id = ?',
+    ),
+
+    insertSocialCampaignReference: db.prepare(`
+      INSERT OR IGNORE INTO social_campaign_references (campaign_id, reference_id, notes, created_at)
+      VALUES (?, ?, ?, ?)
+    `),
+    deleteSocialCampaignReference: db.prepare(
+      'DELETE FROM social_campaign_references WHERE campaign_id = ? AND reference_id = ?',
+    ),
+    listSocialCampaignReferenceIds: db.prepare(
+      'SELECT reference_id FROM social_campaign_references WHERE campaign_id = ? ORDER BY created_at DESC',
+    ),
+
+    insertSocialTrendSnapshot: db.prepare(`
+      INSERT INTO social_trend_snapshots (id, project_id, period_days, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `),
+    listSocialTrendSnapshots: db.prepare(
+      'SELECT * FROM social_trend_snapshots WHERE project_id = ? ORDER BY created_at DESC LIMIT ?',
+    ),
+
+    insertSocialExploration: db.prepare(`
+      INSERT INTO social_explorations (
+        id, project_id, person_id, watchlist_kind, recipe_id, status, summary, payload_json,
+        limitations_json, run_id, created_at, updated_at, started_at, completed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateSocialExploration: db.prepare(`
+      UPDATE social_explorations SET
+        status = ?, summary = ?, payload_json = ?, limitations_json = ?, run_id = ?,
+        updated_at = ?, started_at = ?, completed_at = ?
+      WHERE id = ?
+    `),
+    getSocialExplorationById: db.prepare('SELECT * FROM social_explorations WHERE id = ?'),
+    listSocialExplorationsByPerson: db.prepare(`
+      SELECT * FROM social_explorations WHERE project_id = ? AND person_id = ? ORDER BY created_at DESC LIMIT ?
+    `),
+    listQueuedSocialExplorations: db.prepare(`
+      SELECT * FROM social_explorations WHERE status IN ('queued','running') ORDER BY created_at ASC LIMIT ?
+    `),
+    listLatestSocialExplorationByRecipe: db.prepare(`
+      SELECT * FROM social_explorations
+      WHERE project_id = ? AND person_id = ? AND recipe_id = ?
+      ORDER BY created_at DESC LIMIT 1
+    `),
+
+    insertSocialCreatorSuggestion: db.prepare(`
+      INSERT INTO social_creator_suggestions (
+        id, project_id, provider, handle, display_name, profile_url, avatar_url,
+        reason, reason_detail, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(project_id, provider, profile_url) DO UPDATE SET
+        handle = excluded.handle,
+        display_name = excluded.display_name,
+        avatar_url = COALESCE(excluded.avatar_url, avatar_url),
+        reason = excluded.reason,
+        reason_detail = excluded.reason_detail,
+        updated_at = excluded.updated_at
+    `),
+    listSocialCreatorSuggestions: db.prepare(`
+      SELECT * FROM social_creator_suggestions WHERE project_id = ? AND status = ? ORDER BY updated_at DESC LIMIT ?
+    `),
+    getSocialCreatorSuggestionById: db.prepare('SELECT * FROM social_creator_suggestions WHERE id = ?'),
+    updateSocialCreatorSuggestionStatus: db.prepare(`
+      UPDATE social_creator_suggestions SET status = ?, updated_at = ? WHERE id = ?
+    `),
   };
 }
 

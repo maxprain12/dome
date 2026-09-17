@@ -122,6 +122,7 @@
   "tool_browser_scroll": "Scroll page",
   "tool_browser_find": "Find on page",
   "tool_browser_extract_contact": "Extract profile",
+  "tool_browser_extract_social": "Extract social post",
   "tool_dome_capture_page": "Save page to Dome",
   "tool_dome_list_notes": "List notes",
   "tool_dome_read_note": "Read note",

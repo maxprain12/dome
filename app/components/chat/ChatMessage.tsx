@@ -73,7 +73,7 @@ export interface ChatMessageData {
     id: string;
     title: string;
     type: string;
-    kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post';
+    kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
   }>;
   /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];

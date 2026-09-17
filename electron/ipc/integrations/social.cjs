@@ -194,6 +194,109 @@ const DmRuleInputSchema = z.object({
   captureLead: z.boolean().optional(),
 });
 const DmRulePatchSchema = z.object({ ruleId: z.string().uuid(), patch: DmRuleInputSchema.partial() });
+const PublicResolveSchema = z.object({ url: z.string().url().max(2000) });
+const ProjectQuerySchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  limit: z.number().int().positive().max(400).optional(),
+});
+const ReferenceCaptureSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  url: z.string().url().max(2000),
+  notes: z.string().max(4000).nullable().optional(),
+  collectionId: z.string().min(1).optional().nullable(),
+  personId: z.string().min(1).optional().nullable(),
+  resourceId: z.string().min(1).optional().nullable(),
+  sourceKind: z.enum(['manual', 'open_graph', 'user_browser', 'connected_account']).optional(),
+});
+const ReferenceIdSchema = z.object({ referenceId: z.string().min(1) });
+const CollectionCreateSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  kind: z.enum(['inspiration', 'competitor', 'following', 'custom']).optional(),
+});
+const CollectionItemSchema = z.object({
+  collectionId: z.string().min(1),
+  referenceId: z.string().min(1),
+});
+const WatchlistCreateSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  name: z.string().min(1).max(200),
+  kind: z.enum(['competitor', 'inspiration', 'following', 'custom']),
+});
+const WatchlistMemberSchema = z.object({
+  watchlistId: z.string().min(1),
+  personId: z.string().min(1).optional(),
+  handle: z.string().max(80).optional(),
+  provider: ProviderSchema.optional(),
+  profileUrl: z.string().url().optional(),
+  avatarUrl: z.string().max(400_000).optional().nullable(),
+  displayName: z.string().max(200).optional(),
+  role: z.string().max(80).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+const WatchlistMemberRemoveSchema = z.object({
+  watchlistId: z.string().min(1),
+  personId: z.string().min(1),
+});
+const CampaignReferenceSchema = z.object({
+  campaignId: z.string().min(1),
+  referenceId: z.string().min(1),
+  notes: z.string().max(2000).optional().nullable(),
+});
+const CampaignIdOnlySchema = z.object({ campaignId: z.string().min(1) });
+const TrendsSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  windowDays: z.union([z.literal(7), z.literal(30), z.literal(90)]).optional(),
+});
+const CompetitiveSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  watchlistId: z.string().min(1).optional(),
+});
+const InsightsSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  watchlistId: z.string().min(1).optional(),
+  referenceId: z.string().min(1).optional(),
+});
+const ExplorationRunSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  personId: z.string().min(1),
+  recipeId: z.enum(['hooks', 'formats', 'rhythm', 'this_week']).optional(),
+  watchlistKind: z.enum(['competitor', 'inspiration', 'following', 'custom']).optional(),
+});
+const ExplorationThemeSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  theme: z.string().min(1).max(80),
+  provider: ProviderSchema.optional(),
+});
+const ExplorationListSchema = z.object({
+  projectId: z.string().min(1).max(80).optional(),
+  personId: z.string().min(1),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+const ExplorationIdSchema = z.object({ explorationId: z.string().min(1) });
+const SuggestionIdSchema = z.object({
+  suggestionId: z.string().min(1),
+  watchlistKind: z.enum(['competitor', 'inspiration', 'following', 'custom']).optional(),
+  projectId: z.string().min(1).max(80).optional(),
+});
+const RecipesSchema = z.object({
+  competitor: z.array(z.object({
+    id: z.string().min(1),
+    enabled: z.boolean(),
+    cadence: z.enum(['manual', 'daily', 'weekly']),
+  })).optional(),
+  inspiration: z.array(z.object({
+    id: z.string().min(1),
+    enabled: z.boolean(),
+    cadence: z.enum(['manual', 'daily', 'weekly']),
+  })).optional(),
+  following: z.array(z.object({
+    id: z.string().min(1),
+    enabled: z.boolean(),
+    cadence: z.enum(['manual', 'daily', 'weekly']),
+  })).optional(),
+});
 
 function register({ ipcMain, windowManager, database, fileStorage }) {
   const service = getSocialService(database, windowManager);
@@ -254,7 +357,10 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   }));
 
   // Accounts
-  ipcMain.handle('social:accounts:list', wrap(null, () => service.store.listAccounts()));
+  ipcMain.handle('social:accounts:list', wrap(null, () => {
+    service.ensureAccountAvatars().catch((err) => console.warn('[Social] avatars:', err.message));
+    return service.store.listAccounts();
+  }));
   ipcMain.handle('social:connect-oauth', wrap(ConnectOAuthSchema, ({ provider }) => service.connectOAuth(provider)));
   ipcMain.handle('social:connect-token', wrap(ConnectTokenSchema, ({ provider, accessToken }) =>
     service.connectWithToken(provider, accessToken)
@@ -566,6 +672,124 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('social:dm-rules:create', wrap(DmRuleInputSchema, (input) => eventCardsClient.createDmRule(database, input)));
   ipcMain.handle('social:dm-rules:update', wrap(DmRulePatchSchema, ({ ruleId, patch }) => eventCardsClient.updateDmRule(database, ruleId, patch)));
   ipcMain.handle('social:dm-rules:delete', wrap(z.object({ ruleId: z.string().uuid() }), ({ ruleId }) => eventCardsClient.deleteDmRule(database, ruleId)));
+
+  ipcMain.handle('social:public:resolve', wrap(PublicResolveSchema, ({ url }) => service.resolvePublic(url)));
+  ipcMain.handle('social:references:list', wrap(ProjectQuerySchema, ({ projectId, limit }) =>
+    service.references.listReferences({ projectId: projectId || 'default', limit: limit || 80 })));
+  ipcMain.handle('social:references:get', wrap(ReferenceIdSchema, ({ referenceId }) => {
+    const reference = service.references.getReference(referenceId);
+    if (!reference) throw new Error('Reference not found');
+    return reference;
+  }));
+  ipcMain.handle('social:references:capture', wrap(ReferenceCaptureSchema, async (input) => {
+    const resolved = await service.resolvePublic(input.url);
+    const card = resolved?.card || null;
+    const projectId = input.projectId || 'default';
+    const main = service.references.capture({
+      projectId,
+      url: card?.url || input.url,
+      card,
+      notes: input.notes,
+      collectionId: input.collectionId,
+      personId: input.personId,
+      resourceId: input.resourceId,
+      sourceKind: input.sourceKind || card?.fetchMethod || 'manual',
+    });
+    const recent = [];
+    for (const post of (card?.recentPosts || []).slice(0, 8)) {
+      if (!post?.url) continue;
+      recent.push(service.references.capture({
+        projectId,
+        url: post.url,
+        card: post,
+        sourceKind: post.fetchMethod || 'open_graph',
+      }).reference);
+    }
+    return { ...main, recentPosts: recent.filter(Boolean) };
+  }));
+  ipcMain.handle('social:references:delete', wrap(ReferenceIdSchema, ({ referenceId }) =>
+    service.references.deleteReference(referenceId)));
+  ipcMain.handle('social:collections:list', wrap(ProjectQuerySchema, ({ projectId }) =>
+    service.references.listCollections({ projectId: projectId || 'default' })));
+  ipcMain.handle('social:collections:create', wrap(CollectionCreateSchema, (input) =>
+    service.references.createCollection({
+      projectId: input.projectId || 'default',
+      name: input.name,
+      description: input.description,
+      kind: input.kind,
+    })));
+  ipcMain.handle('social:collections:add', wrap(CollectionItemSchema, ({ collectionId, referenceId }) => {
+    service.references.addToCollection(collectionId, referenceId);
+    return { success: true };
+  }));
+  ipcMain.handle('social:collections:remove', wrap(CollectionItemSchema, ({ collectionId, referenceId }) => {
+    service.references.removeFromCollection(collectionId, referenceId);
+    return { success: true };
+  }));
+  ipcMain.handle('social:watchlists:list', wrap(ProjectQuerySchema, ({ projectId }) =>
+    service.references.ensureDefaultWatchlists(projectId || 'default')));
+  ipcMain.handle('social:watchlists:create', wrap(WatchlistCreateSchema, (input) =>
+    service.references.createWatchlist({
+      projectId: input.projectId || 'default',
+      name: input.name,
+      kind: input.kind,
+    })));
+  ipcMain.handle('social:watchlists:add-member', wrap(WatchlistMemberSchema, ({ watchlistId, ...member }) =>
+    service.references.addWatchlistMember(watchlistId, member)));
+  ipcMain.handle('social:watchlists:remove-member', wrap(WatchlistMemberRemoveSchema, ({ watchlistId, personId }) => {
+    service.references.removeWatchlistMember(watchlistId, personId);
+    return { success: true };
+  }));
+  ipcMain.handle('social:campaigns:references:list', wrap(CampaignIdOnlySchema, ({ campaignId }) =>
+    service.references.listCampaignReferences(campaignId)));
+  ipcMain.handle('social:campaigns:references:link', wrap(CampaignReferenceSchema, ({ campaignId, referenceId, notes }) => {
+    service.references.linkCampaignReference(campaignId, referenceId, notes);
+    return { success: true };
+  }));
+  ipcMain.handle('social:campaigns:references:unlink', wrap(CampaignReferenceSchema, ({ campaignId, referenceId }) => {
+    service.references.unlinkCampaignReference(campaignId, referenceId);
+    return { success: true };
+  }));
+  ipcMain.handle('social:trends:snapshot', wrap(TrendsSchema, ({ projectId, windowDays }) =>
+    service.snapshotTrends({ projectId: projectId || 'default', windowDays: windowDays || 30 })));
+  ipcMain.handle('social:trends:list', wrap(ProjectQuerySchema, ({ projectId, limit }) =>
+    service.references.getTrendSnapshots({ projectId: projectId || 'default', limit: limit || 10 })));
+  ipcMain.handle('social:reports:competitive', wrap(CompetitiveSchema, ({ projectId, watchlistId }) =>
+    service.competitiveReport({ projectId: projectId || 'default', watchlistId })));
+  ipcMain.handle('social:insights:snapshot', wrap(InsightsSchema, ({ projectId, watchlistId, referenceId }) =>
+    service.insightsSnapshot({ projectId: projectId || 'default', watchlistId, referenceId })));
+  ipcMain.handle('social:explorations:list', wrap(ExplorationListSchema, ({ projectId, personId, limit }) =>
+    service.listExplorations({ projectId: projectId || 'default', personId, limit: limit || 20 })));
+  ipcMain.handle('social:explorations:run', wrap(ExplorationRunSchema, ({ projectId, personId, recipeId, watchlistKind }) =>
+    service.runCreatorExploration({
+      projectId: projectId || 'default',
+      personId,
+      recipeId: recipeId || 'hooks',
+      watchlistKind: watchlistKind || 'inspiration',
+    })));
+  ipcMain.handle('social:explorations:run-theme', wrap(ExplorationThemeSchema, ({ projectId, theme, provider }) =>
+    service.queueThemeExplorations({
+      projectId: projectId || 'default',
+      theme,
+      provider: provider || null,
+    })));
+  ipcMain.handle('social:explorations:cancel', wrap(ExplorationIdSchema, ({ explorationId }) =>
+    service.cancelCreatorExploration(explorationId)));
+  ipcMain.handle('social:explorations:recipes', wrap(null, () => service.getExplorationRecipes()));
+  ipcMain.handle('social:explorations:recipes:set', wrap(RecipesSchema, (recipes) =>
+    service.saveExplorationRecipes(recipes)));
+  ipcMain.handle('social:suggestions:list', wrap(ProjectQuerySchema, ({ projectId }) =>
+    service.listSuggestions({ projectId: projectId || 'default', status: 'pending', limit: 8 })));
+  ipcMain.handle('social:suggestions:refresh', wrap(ProjectQuerySchema, ({ projectId }) =>
+    service.refreshCreatorSuggestions({ projectId: projectId || 'default' })));
+  ipcMain.handle('social:suggestions:accept', wrap(SuggestionIdSchema, ({ suggestionId, watchlistKind, projectId }) =>
+    service.acceptCreatorSuggestion({
+      suggestionId,
+      watchlistKind: watchlistKind || 'inspiration',
+      projectId: projectId || 'default',
+    })));
+  ipcMain.handle('social:suggestions:dismiss', wrap(z.object({ suggestionId: z.string().min(1) }), ({ suggestionId }) =>
+    service.dismissCreatorSuggestion(suggestionId)));
 
   service.startScheduler();
   // Backfill calendar events for already-scheduled posts (boot catch-up).

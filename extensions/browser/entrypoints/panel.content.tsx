@@ -1,6 +1,6 @@
 import { hideActionPointer } from '../src/lib/action-pointer';
 import { createPageAgent, type ElementAction } from '../src/lib/page-agent';
-import { extractContact } from '../src/lib/extractors';
+import { extractContact, extractSocial } from '../src/lib/extractors';
 import { pageRoots, rendered } from '../src/lib/page-dom';
 import { getPageSnapshot } from '../src/lib/page-content';
 import type { PageAction } from '../src/lib/browser-context';
@@ -63,6 +63,7 @@ export default defineContentScript({
           return Promise.resolve({
             ...getPageSnapshot(),
             contact: extractContact(document, location.href),
+            social: extractSocial(document, location.href),
             headings: headings().map((el, index) => ({
               index,
               text: (el.textContent || '').trim().slice(0, 160),
