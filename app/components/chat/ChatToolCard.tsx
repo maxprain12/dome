@@ -47,6 +47,8 @@ interface ChatToolCardProps {
   toolCall: ToolCallData;
   className?: string;
   surfaceVariant?: ChatToolSurfaceVariant;
+  /** `detail` skips the marker and always shows the inspectable result body. */
+  variant?: 'card' | 'detail';
 }
 
 // Config, parsers y highlights extraídos (03/T02) — misma API pública.
@@ -98,7 +100,11 @@ function dispatchSoftConfirm(approved: boolean) {
   window.dispatchEvent(new CustomEvent('dome:quick-reply', { detail: { text } }));
 }
 
-export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardProps) {
+export default function ChatToolCard({
+  toolCall,
+  className = '',
+  variant = 'card',
+}: ChatToolCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
@@ -516,8 +522,25 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     </>
   );
 
-  const expandedBody = expanded && canExpand ? (
-    <div className="not-typeset ml-1 border-l border-border py-1 pl-3">
+  const showDetailBody = variant === 'detail' || (expanded && canExpand);
+  const expandedBody = showDetailBody ? (
+    <div className={cn(variant === 'detail' ? 'not-typeset' : 'not-typeset ml-1 border-l border-border py-1 pl-3')}>
+      {variant === 'detail' && !isPending ? (
+        <div className="mb-1.5 flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            aria-label={t('inspect.inspect_tool')}
+            onClick={() => {
+              useInspectStore.getState().open({ kind: 'tool', toolCall });
+            }}
+          >
+            <HugeiconsIcon icon={InformationCircleIcon} />
+          </Button>
+        </div>
+      ) : null}
       {Object.keys(toolCall.arguments).length > 0 ? (
         <>
           <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -548,6 +571,18 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       {renderResultContent()}
     </div>
   ) : null;
+
+  if (variant === 'detail') {
+    return (
+      <div className={cn('chat-tool-trace flex min-w-0 max-w-full flex-col gap-1', className)}>
+        {isPending && toolCall.name.startsWith('social_') ? (
+          <div className="chat-tool-skeleton" aria-hidden />
+        ) : null}
+        {showRichInline ? renderSocialCards() : null}
+        {expandedBody}
+      </div>
+    );
+  }
 
   return (
     <div className={cn('chat-tool-trace flex min-w-0 max-w-full flex-col gap-1', className)}>
@@ -583,6 +618,17 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       {expandedBody}
     </div>
   );
+}
+
+/** Result body reused by Many activity traces without the compact marker chrome. */
+export function ChatToolResultBody({
+  toolCall,
+  className,
+}: {
+  toolCall: ToolCallData;
+  className?: string;
+}) {
+  return <ChatToolCard toolCall={toolCall} className={className} variant="detail" />;
 }
 
 /** Grouped tool calls: compact header with count, expandable to show individual cards */

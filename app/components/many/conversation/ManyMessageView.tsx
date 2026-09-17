@@ -2,18 +2,22 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ArrowRight01Icon,
   CheckmarkCircle02Icon,
   Copy01Icon,
   RefreshIcon,
 } from '@hugeicons/core-free-icons';
+import { ChatToolResultBody, SubagentToolSection } from '@/components/chat/ChatToolCard';
+import ChatTodoList from '@/components/chat/ChatTodoList';
+import SourceReference from '@/components/chat/SourceReference';
+import ManyActionSuggestion from '@/components/many/conversation/ManyActionSuggestion';
+import ManyActivityTrace, { ManyActivityBlocks } from '@/components/many/conversation/ManyActivityTrace';
+import {
+  ManyAssistantVisualBody,
+  ManyReferenceCardsFromBlocks,
+} from '@/components/many/conversation/ManyVisualCards';
+import { PinnedResourceChipList } from '@/components/many/PinnedResourceChipList';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
 import { Button } from '@/components/ui/button';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
 import { MessageFooter } from '@/components/ui/message';
 import { Spinner } from '@/components/ui/spinner';
@@ -24,11 +28,6 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from '@/components/ui/attachment';
-import ChatToolCard, { ChatToolCardGroup, SubagentToolSection } from '@/components/chat/ChatToolCard';
-import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
-import SourceReference from '@/components/chat/SourceReference';
-import ManyActionSuggestion from '@/components/many/conversation/ManyActionSuggestion';
-import { PinnedResourceChipList } from '@/components/many/PinnedResourceChipList';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
 import {
@@ -39,6 +38,8 @@ import {
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import type { ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
 import { interleaveMessageParts, type MessagePart } from '@/lib/chat/interleaveMessageParts';
+import { activityTraceCopyFromT } from '@/lib/chat/manyActivityTrace';
+import { parseTodos } from '@/lib/chat/todos';
 import { stripPinnedMentionTokens } from '@/lib/chat/pinLabels';
 import { extractActionSuggestions } from '@/lib/many/actionSuggestions';
 import { extractCitationNumbers } from '@/lib/utils/citations';
@@ -69,35 +70,14 @@ type SourceRef = {
   nodeTitle?: string;
 };
 
-function toolBlockKey(block: ToolDisplayBlock, idx: number): string {
-  if (block.type === 'tool') return block.call.id;
-  if (block.type === 'tool-group') return `group:${block.name}:${idx}`;
-  return `subagent:${block.agentKey}:${idx}`;
-}
-
-function ToolBlock({ block }: { block: ToolDisplayBlock }) {
-  if (block.type === 'tool') {
-    return <ChatToolCard toolCall={block.call} surfaceVariant="many" />;
-  }
-  if (block.type === 'tool-group') {
-    return <ChatToolCardGroup name={block.name} calls={block.calls} surfaceVariant="many" />;
-  }
-  return (
-    <SubagentToolSection agentKey={block.agentKey} agentLabel={block.agentLabel} surfaceVariant="many">
-      {block.blocks.map((inner, innerIdx) =>
-        inner.type === 'tool' ? (
-          <ChatToolCard key={inner.call.id} toolCall={inner.call} surfaceVariant="many" />
-        ) : (
-          <ChatToolCardGroup
-            key={`${inner.name}:${innerIdx}`}
-            name={inner.name}
-            calls={inner.calls}
-            surfaceVariant="many"
-          />
-        ),
-      )}
-    </SubagentToolSection>
-  );
+function toolBlocksKey(blocks: ToolDisplayBlock[]): string {
+  return blocks
+    .map((block, idx) => {
+      if (block.type === 'tool') return block.call.id;
+      if (block.type === 'tool-group') return `group:${block.name}:${idx}`;
+      return `subagent:${block.agentKey}:${idx}`;
+    })
+    .join('|');
 }
 
 /** Build keyed visual segments for a user message — extracted for S3776. */
@@ -343,34 +323,56 @@ function ManyUserMessageTurn({
   );
 }
 
-function AssistantThinking({
-  thinking,
-  thinkingOpen,
-  thinkingIsLive,
-  onOpenChange,
-  label,
+function AssistantMessageParts({
+  parts,
+  isStreaming,
+  citationMap,
+  onClickCitation,
+  copy,
+  toolLabelT,
 }: {
-  thinking: string;
-  thinkingOpen: boolean;
-  thinkingIsLive: boolean;
-  onOpenChange: (open: boolean) => void;
-  label: string;
+  parts: MessagePart[];
+  isStreaming: boolean;
+  citationMap: ManyMessageData['citationMap'];
+  onClickCitation: (n: number) => void;
+  copy: ReturnType<typeof activityTraceCopyFromT>;
+  toolLabelT: (key: string, opts?: { defaultValue?: string }) => string;
 }) {
   return (
-    <Collapsible open={thinkingOpen} onOpenChange={onOpenChange} className="w-full min-w-0">
-      <CollapsibleTrigger className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted motion-reduce:transition-none">
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          className={cn('transition-transform motion-reduce:transition-none', thinkingOpen && 'rotate-90')}
-        />
-        <span className={cn(thinkingIsLive && 'shimmer')}>{label}</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="ml-1.5 border-l py-1 pl-3.5">
-        <div className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
-          {thinking}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    <>
+      {parts.map((part, partIdx) =>
+        part.type === 'tools' ? (
+          <div key={`part:${partIdx}:tools:${toolBlocksKey(part.blocks)}`} className="flex w-full min-w-0 flex-col gap-2">
+            <ManyActivityBlocks
+              blocks={part.blocks}
+              copy={copy}
+              toolLabelT={toolLabelT}
+              linkMode="ipc"
+              renderToolDetail={(call) => <ChatToolResultBody toolCall={call} />}
+              renderTodos={(call) => {
+                const todos = parseTodos(call.arguments);
+                return todos.length > 0 ? <ChatTodoList todos={todos} /> : null;
+              }}
+              renderSubagent={({ agentKey, agentLabel, children }) => (
+                <SubagentToolSection agentKey={agentKey} agentLabel={agentLabel} surfaceVariant="many">
+                  {children}
+                </SubagentToolSection>
+              )}
+            />
+            <ManyReferenceCardsFromBlocks blocks={part.blocks} />
+          </div>
+        ) : (
+          <ManyAssistantVisualBody
+            key={`part:${partIdx}:text`}
+            content={part.text}
+            allowStreaming={isStreaming && partIdx === parts.length - 1}
+            citationMap={citationMap}
+            onClickCitation={onClickCitation}
+            showCaret={isStreaming && partIdx === parts.length - 1}
+          />
+        ),
+      )}
+    </>
   );
 }
 
@@ -382,52 +384,6 @@ function AssistantStreamingStatus({ label }: { label: string }) {
       </MarkerIcon>
       <MarkerContent className="shimmer">{label}</MarkerContent>
     </Marker>
-  );
-}
-
-function AssistantMessageParts({
-  parts,
-  isStreaming,
-  citationMap,
-  onClickCitation,
-}: {
-  parts: MessagePart[];
-  isStreaming: boolean;
-  citationMap: ManyMessageData['citationMap'];
-  onClickCitation: (n: number) => void;
-}) {
-  return (
-    <>
-      {parts.map((part, partIdx) =>
-        part.type === 'tools' ? (
-          <div
-            key={`part:${partIdx}:tools`}
-            className="flex w-full min-w-0 flex-col gap-1.5"
-          >
-            {part.blocks.map((block, idx) => (
-              <ToolBlock key={toolBlockKey(block, idx)} block={block} />
-            ))}
-          </div>
-        ) : (
-          <div
-            key={`part:${partIdx}:text`}
-            className="min-w-0 w-full break-words text-sm leading-relaxed [overflow-wrap:anywhere]"
-          >
-            <MarkdownRenderer
-              content={part.text}
-              citationMap={citationMap}
-              onClickCitation={onClickCitation}
-            />
-            {isStreaming && partIdx === parts.length - 1 ? (
-              <span
-                aria-hidden
-                className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current motion-reduce:animate-none"
-              />
-            ) : null}
-          </div>
-        ),
-      )}
-    </>
   );
 }
 
@@ -535,15 +491,12 @@ function ManyAssistantMessageTurn({
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
-  // `null` = the user has not decided; follow the live heuristic below.
-  const [thinkingOpenOverride, setThinkingOpenOverride] = useState<boolean | null>(null);
-
   const isAssistant = message.role === 'assistant';
-
-  // While the model reasons and has written nothing, the reasoning *is* the
-  // content — show it. Fold it away once the answer starts. Manual toggle wins.
   const thinkingIsLive = isAssistantThinkingLive(message);
-  const thinkingOpen = thinkingOpenOverride ?? thinkingIsLive;
+  const traceCopy = useMemo(
+    () => activityTraceCopyFromT((key, opts) => t(`chat.${key}`, opts)),
+    [t],
+  );
 
   const openCitation = useCallback(
     (citationNumber: number) => openMessageCitation(citationNumber, message, onClickCitation),
@@ -552,7 +505,9 @@ function ManyAssistantMessageTurn({
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(
+        message.content ? stripArtifactBlocks(message.content) : '',
+      );
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -592,21 +547,16 @@ function ManyAssistantMessageTurn({
 
   const formattedTime = useMemo(() => formatMessageTime(message.timestamp), [message.timestamp]);
 
-  const assistantMarkdown = useMemo(
-    () => (message.content ? stripArtifactBlocks(message.content) : ''),
-    [message.content],
-  );
-
-  // The turn is rebuilt in emission order: prose, the tools run at that point,
-  // more prose. Stored messages carry no offsets and degrade to tools-first.
+  // Keep artifact fences in the prose so visual cards can render in place.
+  // Offsets on tool calls were measured against this original content.
   const messageParts = useMemo(
     () =>
       interleaveMessageParts(
-        assistantMarkdown,
+        message.content ?? '',
         coalesceDuplicateToolCalls(message.toolCalls ?? []),
         t,
       ),
-    [assistantMarkdown, message.toolCalls, t],
+    [message.content, message.toolCalls, t],
   );
 
   const actionSuggestions = useMemo(
@@ -629,12 +579,11 @@ function ManyAssistantMessageTurn({
   return (
     <div className={cn('group/turn flex min-w-0 w-full flex-col gap-2', className)}>
       {showThinking && message.thinking ? (
-        <AssistantThinking
-          thinking={message.thinking}
-          thinkingOpen={thinkingOpen}
-          thinkingIsLive={thinkingIsLive}
-          onOpenChange={setThinkingOpenOverride}
-          label={t('chat.reasoning')}
+        <ManyActivityTrace
+          kind="reasoning"
+          working={thinkingIsLive}
+          copy={traceCopy}
+          reasoning={message.thinking}
         />
       ) : null}
 
@@ -660,6 +609,8 @@ function ManyAssistantMessageTurn({
         isStreaming={Boolean(message.isStreaming)}
         citationMap={message.citationMap}
         onClickCitation={openCitation}
+        copy={traceCopy}
+        toolLabelT={t}
       />
 
       {showPdfActions ? (

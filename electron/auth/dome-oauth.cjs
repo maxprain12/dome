@@ -65,6 +65,22 @@ function isInvalidGrantResponse(status, bodyText) {
   }
 }
 
+function oauthTokenUrl() {
+  return `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/oauth/token`;
+}
+
+function isUnreachableNetworkError(err) {
+  const code = err?.cause?.code || err?.code;
+  return code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ECONNRESET' || code === 'ETIMEDOUT';
+}
+
+function networkRefreshMessage(err) {
+  const code = err?.cause?.code || err?.code;
+  const base = err?.message || 'Refresh network error';
+  const detail = code ? `${base} (${code})` : base;
+  return `${detail} via ${oauthTokenUrl()}`;
+}
+
 async function refreshAccessToken(database, refreshToken, attempt = 0) {
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
@@ -73,17 +89,17 @@ async function refreshAccessToken(database, refreshToken, attempt = 0) {
   });
   let response;
   try {
-    response = await fetch(`${getDomeProviderBaseUrl()}/api/oauth/token`, {
+    response = await fetch(oauthTokenUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     });
   } catch (err) {
-    if (attempt < REFRESH_MAX_ATTEMPTS - 1) {
+    if (!isUnreachableNetworkError(err) && attempt < REFRESH_MAX_ATTEMPTS - 1) {
       await sleep(REFRESH_RETRY_BASE_MS * (attempt + 1));
       return refreshAccessToken(database, refreshToken, attempt + 1);
     }
-    throw new RefreshTokenError(err?.message || 'Refresh network error', { fatal: false });
+    throw new RefreshTokenError(networkRefreshMessage(err), { fatal: false });
   }
 
   if (!response.ok) {

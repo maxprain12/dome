@@ -67,7 +67,10 @@ export const hubFieldLabelClass = 'text-[11px] text-muted-foreground';
 
 export function hubDirectoryRowClass(selected: boolean, className?: string) {
   return cn(
-    selectionSurfaceClass(selected, 'flex w-full items-center gap-2.5 px-3 py-2.5 text-left'),
+    selectionSurfaceClass(
+      selected,
+      'flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left',
+    ),
     className,
   );
 }
