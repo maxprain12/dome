@@ -163,6 +163,7 @@ function extraHostTokens(): string {
 function CmdkHtmlPreview({ html, title }: { html: string; title: string }) {
   const theme = useDomeThemeSnapshot();
   const hostRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   const [scale, setScale] = useState(1);
   const srcDoc = useMemo(() => {
     return wrapCmdkPreviewHtml(html, `${theme.cssVars}${extraHostTokens()}`);
@@ -183,18 +184,22 @@ function CmdkHtmlPreview({ html, title }: { html: string; title: string }) {
 
   const safeScale = scale > 0 ? scale : 1;
 
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.style.width = `${HTML_PAGE_WIDTH}px`;
+    frame.style.height = `${100 / safeScale}%`;
+    frame.style.transform = `scale(${safeScale})`;
+  }, [safeScale]);
+
   return (
     <div ref={hostRef} className="relative h-full min-h-0 overflow-hidden bg-muted/40">
       <iframe
+        ref={frameRef}
         title={title}
         sandbox=""
         srcDoc={srcDoc}
         className="absolute left-0 top-0 origin-top-left border-0 bg-background"
-        style={{
-          width: HTML_PAGE_WIDTH,
-          height: `${100 / safeScale}%`,
-          transform: `scale(${safeScale})`,
-        }}
         tabIndex={-1}
       />
     </div>

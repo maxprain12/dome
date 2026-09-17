@@ -166,7 +166,7 @@ function SocialSourcePreview({ hit, query, highlight, contextAround }: {
             <Spinner className="size-4 text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <p className="text-[13px] font-semibold text-foreground">{hit.title}</p>
             <p className="text-[11px] text-muted-foreground">
               {[provider, status].filter(Boolean).join(' · ') || t('command.social_posts')}
