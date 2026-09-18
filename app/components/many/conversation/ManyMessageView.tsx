@@ -8,6 +8,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { ChatToolResultBody, SubagentToolSection } from '@/components/chat/ChatToolCard';
 import ChatTodoList from '@/components/chat/ChatTodoList';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import SourceReference from '@/components/chat/SourceReference';
 import ManyActionSuggestion from '@/components/many/conversation/ManyActionSuggestion';
 import ManyActivityTrace, { ManyActivityBlocks } from '@/components/many/conversation/ManyActivityTrace';
@@ -379,10 +380,15 @@ function AssistantMessageParts({
             key={`part:${partIdx}:text`}
             content={part.text}
             allowStreaming={isStreaming && partIdx === parts.length - 1}
-            citationMap={citationMap}
-            onClickCitation={onClickCitation}
             showCaret={isStreaming && partIdx === parts.length - 1}
             toolCalls={toolCalls}
+            renderMarkdown={(content) => (
+              <MarkdownRenderer
+                content={content}
+                citationMap={citationMap}
+                onClickCitation={onClickCitation}
+              />
+            )}
           />
         ),
       )}
