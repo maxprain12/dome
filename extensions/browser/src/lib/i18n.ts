@@ -20,6 +20,27 @@ import esSocial from '../../../../packages/i18n/locales/es/social.json';
 import frSocial from '../../../../packages/i18n/locales/fr/social.json';
 import ptSocial from '../../../../packages/i18n/locales/pt/social.json';
 
+type LocaleBundle = Record<string, unknown>;
+
+/**
+ * Desktop `chat.json` must live at `chat.*` (visual cards, etc.), but the
+ * extension already uses `chat` as the Chat tab label. Keep that string at
+ * `chat.tab` so Playwright and the header still see "Chat".
+ */
+export function mergeExtensionResources(
+  base: LocaleBundle,
+  packs: { notes: object; chat: LocaleBundle; social: object; many: object },
+): LocaleBundle {
+  const tab = typeof base.chat === 'string' ? base.chat : 'Chat';
+  return {
+    ...base,
+    notes: packs.notes,
+    chat: { ...packs.chat, tab },
+    social: packs.social,
+    many: packs.many,
+  };
+}
+
 // A dedicated instance keeps the host page and Desktop's application state isolated.
 export const extensionI18n = createInstance();
 export function initializeI18n(language = browser.i18n.getUILanguage()) {
@@ -28,10 +49,38 @@ export function initializeI18n(language = browser.i18n.getUILanguage()) {
     fallbackLng: 'es',
     supportedLngs: ['en', 'es', 'fr', 'pt'],
     resources: {
-      en: { translation: { ...en, notes: enNotes, chat: enChat, social: enSocial, many: enMany } },
-      es: { translation: { ...es, notes: esNotes, chat: esChat, social: esSocial, many: esMany } },
-      fr: { translation: { ...fr, notes: frNotes, chat: frChat, social: frSocial, many: frMany } },
-      pt: { translation: { ...pt, notes: ptNotes, chat: ptChat, social: ptSocial, many: ptMany } },
+      en: {
+        translation: mergeExtensionResources(en, {
+          notes: enNotes,
+          chat: enChat,
+          social: enSocial,
+          many: enMany,
+        }),
+      },
+      es: {
+        translation: mergeExtensionResources(es, {
+          notes: esNotes,
+          chat: esChat,
+          social: esSocial,
+          many: esMany,
+        }),
+      },
+      fr: {
+        translation: mergeExtensionResources(fr, {
+          notes: frNotes,
+          chat: frChat,
+          social: frSocial,
+          many: frMany,
+        }),
+      },
+      pt: {
+        translation: mergeExtensionResources(pt, {
+          notes: ptNotes,
+          chat: ptChat,
+          social: ptSocial,
+          many: ptMany,
+        }),
+      },
     },
     interpolation: { escapeValue: false },
   });
