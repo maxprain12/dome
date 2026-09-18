@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import ArtifactCard from '@/components/chat/ArtifactCard';
 import type { AnyArtifact, ChartArtifact, TableArtifact, ListArtifact, ActionItemsArtifact, CreatedEntityArtifact } from '@/components/chat/ArtifactCard';
-import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { SocialAccountAvatar } from '@/components/social/cards/SocialAccountAvatar';
 import { SocialEvidenceCard } from '@/components/social/cards/SocialEvidenceCard';
 import { SocialProfileCard } from '@/components/social/cards/SocialProfileCard';
@@ -25,7 +26,6 @@ import {
   type VisualCardToolCall,
 } from '@/lib/chat/manyVisualCards';
 import type { ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
-import type { ManyMessageData } from '@/lib/many/types';
 import { cn } from '@/lib/utils';
 
 const KPI_LABEL: Record<ManySocialInsightKpi['label'], string> = {
@@ -583,20 +583,22 @@ function InvalidArtifactPlaceholder() {
   return <p className="px-1.5 text-xs text-muted-foreground">{t('chat.artifact_invalid')}</p>;
 }
 
+function PortableMarkdown({ content }: { content: string }) {
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
+}
+
 export function ManyAssistantVisualBody({
   content,
   allowStreaming,
-  citationMap,
-  onClickCitation,
   showCaret,
   toolCalls,
+  renderMarkdown,
 }: {
   content: string;
   allowStreaming: boolean;
-  citationMap: ManyMessageData['citationMap'];
-  onClickCitation: (n: number) => void;
   showCaret: boolean;
   toolCalls?: VisualCardToolCall[];
+  renderMarkdown?: (content: string) => ReactNode;
 }) {
   const suppressProfileMetrics = useMemo(
     () => collectSocialReferenceCards(toolCalls ?? []).some((card) => card.kind === 'profile'),
@@ -618,11 +620,7 @@ export function ManyAssistantVisualBody({
               key={key}
               className="min-w-0 w-full break-words text-sm leading-relaxed [overflow-wrap:anywhere]"
             >
-              <MarkdownRenderer
-                content={segment.content}
-                citationMap={citationMap}
-                onClickCitation={onClickCitation}
-              />
+              {renderMarkdown ? renderMarkdown(segment.content) : <PortableMarkdown content={segment.content} />}
             </div>
           );
         }
