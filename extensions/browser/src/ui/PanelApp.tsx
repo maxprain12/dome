@@ -660,7 +660,7 @@ export default function PanelApp({
             showPopoutToggle={false}
             manyImageSrc={manyMark}
             viewLabels={{
-              chat: t('chat'),
+              chat: t('chat.tab'),
               history: t('history'),
               context: t('context'),
             }}

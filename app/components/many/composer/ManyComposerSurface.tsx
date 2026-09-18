@@ -239,7 +239,7 @@ export default function ManyComposerSurface({
           align="block-end"
           className="shrink-0 justify-between gap-2 border-0 px-2 pb-2 pt-0.5"
         >
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
             <Button
               type="button"
               variant="ghost"
@@ -253,7 +253,7 @@ export default function ManyComposerSurface({
             </Button>
             {controls}
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="relative z-10 flex shrink-0 items-center gap-1">
             {usage}
             {isLoading ? (
               <Button

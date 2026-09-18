@@ -377,10 +377,6 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   }, [refreshSessions, t, view]);
 
   useEffect(() => {
-    if (!mentionActive) {
-      setResourceResults([]);
-      return;
-    }
     let cancelled = false;
     const timer = setTimeout(() => {
       api
@@ -401,7 +397,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [mentionActive, projectId, resourceQuery, token]);
+  }, [projectId, resourceQuery, token]);
 
   useEffect(
     () => cancelOnUnmount,
@@ -928,7 +924,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       <ManyConversationSurface
         threadId={threadId}
         messages={messages}
-        ariaLabel={t('chat')}
+        ariaLabel={t('chat.tab')}
         manyImageSrc={manyMark}
         loadingLabel={
           running && !pendingApproval && !messages.at(-1)?.text
