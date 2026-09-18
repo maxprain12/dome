@@ -1,24 +1,27 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import ArtifactCard from '@/components/chat/ArtifactCard';
-import type { AnyArtifact, ChartArtifact, TableArtifact } from '@/components/chat/ArtifactCard';
+import type { AnyArtifact, ChartArtifact, TableArtifact, ListArtifact, ActionItemsArtifact, CreatedEntityArtifact } from '@/components/chat/ArtifactCard';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { SocialAccountAvatar } from '@/components/social/cards/SocialAccountAvatar';
 import { SocialEvidenceCard } from '@/components/social/cards/SocialEvidenceCard';
 import { SocialProfileCard } from '@/components/social/cards/SocialProfileCard';
 import { Badge } from '@/components/ui/badge';
-import type { DashboardArtifactV } from '@/lib/chat/artifactSchemas';
+import type { DashboardArtifactV, CalendarEventArtifactV, FlashcardDeckArtifactV } from '@/lib/chat/artifactSchemas';
 import {
   asRenderableArtifact,
   cleanVisualLabel,
   collectSocialInsight,
   collectSocialReferenceCards,
+  collectWorkCards,
   flattenToolDisplayCalls,
+  formatVisualWhen,
   isGenericVisualTitle,
   parseAssistantVisualSegments,
   type ManySocialInsight,
   type ManySocialInsightKpi,
   type ManySocialInsightMix,
+  type ManyWorkCard,
   type VisualCardToolCall,
 } from '@/lib/chat/manyVisualCards';
 import type { ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
@@ -32,6 +35,9 @@ const KPI_LABEL: Record<ManySocialInsightKpi['label'], string> = {
   saves: 'chat.visual_saves',
   shares: 'chat.visual_shares',
   engagement: 'chat.visual_engagement',
+  followers: 'chat.visual_followers',
+  posts: 'chat.visual_posts',
+  following: 'chat.visual_following',
 };
 
 const MIX_LABEL: Record<ManySocialInsightMix['label'], string> = {
@@ -148,6 +154,25 @@ function VisualOverview({
   );
 }
 
+function compactBarValue(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  if (Math.abs(value) < 1000) return String(Math.round(value));
+  return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
+function comparisonBarLabel(label: string, t: (key: string) => string): string {
+  switch (label) {
+    case 'Followers':
+      return t('chat.visual_followers');
+    case 'Following':
+      return t('chat.visual_following');
+    case 'Posts':
+      return t('chat.visual_posts');
+    default:
+      return label;
+  }
+}
+
 function VisualBars({
   rows,
 }: {
@@ -161,7 +186,7 @@ function VisualBars({
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="min-w-0 truncate">{row.label}</span>
             <span className="shrink-0 tabular-nums text-muted-foreground">
-              {row.display ?? String(row.value)}
+              {row.display ?? compactBarValue(row.value)}
             </span>
           </div>
           <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
@@ -183,17 +208,22 @@ function ManySocialInsightCard({ insight }: { insight: ManySocialInsight }) {
     label: t(MIX_LABEL[part.label]),
     percent: part.percent,
   }));
+  const showIdentity = insight.source === 'post';
+  const comparisonTitle =
+    insight.source === 'profile' ? t('chat.visual_profile_scale') : t('chat.visual_recent_posts');
   return (
     <VisualPanel>
-      <header className="flex min-w-0 items-center gap-3">
-        <SocialAccountAvatar name={insight.authorName} src={insight.avatarUrl} size="sm" />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{handle}</p>
-          <p className="truncate text-xs text-muted-foreground">{insight.title}</p>
-        </div>
-      </header>
+      {showIdentity ? (
+        <header className="flex min-w-0 items-center gap-3">
+          <SocialAccountAvatar name={insight.authorName} src={insight.avatarUrl} size="sm" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{handle}</p>
+            <p className="truncate text-xs text-muted-foreground">{insight.title}</p>
+          </div>
+        </header>
+      ) : null}
 
-      <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
+      <div className={cn('grid min-w-0 gap-3 sm:grid-cols-2', showIdentity && 'mt-4')}>
         {mixSlices.length > 0 ? (
           <VisualInset title={t('chat.visual_engagement_mix')}>
             <VisualDonut slices={mixSlices} />
@@ -215,12 +245,12 @@ function ManySocialInsightCard({ insight }: { insight: ManySocialInsight }) {
 
       {insight.comparison.length > 1 ? (
         <div className="mt-4 min-w-0">
-          <p className="text-xs font-medium text-muted-foreground">{t('chat.visual_recent_posts')}</p>
+          <p className="text-xs font-medium text-muted-foreground">{comparisonTitle}</p>
           <div className="mt-2">
             <VisualBars
               rows={insight.comparison.map((row) => ({
                 key: row.label,
-                label: row.label,
+                label: comparisonBarLabel(row.label, t),
                 value: row.impressions,
               }))}
             />
@@ -370,7 +400,7 @@ function ManyCompactTable({ artifact }: { artifact: TableArtifact }) {
   );
 }
 
-function ManyCompactArtifact({ artifact }: { artifact: AnyArtifact }) {
+export function ManyCompactArtifact({ artifact }: { artifact: AnyArtifact }) {
   switch (artifact.type) {
     case 'dashboard':
       return <ManyCompactDashboard artifact={artifact} />;
@@ -378,9 +408,125 @@ function ManyCompactArtifact({ artifact }: { artifact: AnyArtifact }) {
       return <ManyCompactChart artifact={artifact} />;
     case 'table':
       return <ManyCompactTable artifact={artifact} />;
+    case 'calendar_event':
+      return <ManyCompactCalendar artifact={artifact} />;
+    case 'flashcard_deck':
+      return <ManyCompactFlashcards artifact={artifact} />;
+    case 'list':
+      return <ManyCompactList artifact={artifact} />;
+    case 'action_items':
+      return <ManyCompactActions artifact={artifact} />;
+    case 'created_entity':
+      return <ManyCompactEntity artifact={artifact} />;
     default:
       return <ArtifactCard artifact={artifact} />;
   }
+}
+
+const WORK_KICKER: Record<ManyWorkCard['kicker'], string> = {
+  note: 'chat.visual_note',
+  resource: 'chat.visual_resource',
+  event: 'chat.visual_event',
+  events: 'chat.visual_agenda',
+  flashcards: 'chat.visual_flashcards',
+};
+
+function ManyWorkCardView({ card }: { card: ManyWorkCard }) {
+  const { t } = useTranslation();
+  const detail =
+    card.kind === 'flashcards' && card.count != null
+      ? t('chat.visual_cards_count', { count: card.count })
+      : card.detail;
+  return (
+    <VisualPanel title={t(WORK_KICKER[card.kicker])}>
+      {card.title ? <p className="text-sm font-medium leading-snug">{card.title}</p> : null}
+      {detail ? (
+        <p className={cn('text-xs text-muted-foreground', card.title ? 'mt-1' : undefined)}>{detail}</p>
+      ) : null}
+      {card.items && card.items.length > 0 ? (
+        <ul className={cn('min-w-0 divide-y', (card.title || detail) && 'mt-3')}>
+          {card.items.map((item) => (
+            <li key={item.title} className="flex min-w-0 flex-col gap-0.5 py-2 first:pt-0 last:pb-0">
+              <span className="truncate text-sm font-medium">{item.title}</span>
+              {item.detail ? <span className="text-xs text-muted-foreground">{item.detail}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </VisualPanel>
+  );
+}
+
+function ManyCompactCalendar({ artifact }: { artifact: CalendarEventArtifactV }) {
+  const when = formatVisualWhen(artifact.start_at, artifact.end_at, artifact.all_day === true);
+  const location = cleanVisualLabel(artifact.location || '');
+  return (
+    <ManyWorkCardView
+      card={{
+        key: artifact.title,
+        kind: 'event',
+        kicker: 'event',
+        title: artifact.title,
+        detail: [when, location].filter(Boolean).join(' · ') || undefined,
+      }}
+    />
+  );
+}
+
+function ManyCompactFlashcards({ artifact }: { artifact: FlashcardDeckArtifactV }) {
+  return (
+    <ManyWorkCardView
+      card={{
+        key: artifact.title,
+        kind: 'flashcards',
+        kicker: 'flashcards',
+        title: artifact.title,
+        count: artifact.card_count,
+      }}
+    />
+  );
+}
+
+function ManyCompactList({ artifact }: { artifact: ListArtifact }) {
+  return (
+    <ManyWorkCardView
+      card={{
+        key: artifact.title || 'list',
+        kind: 'resource',
+        kicker: 'resource',
+        title: artifact.title || '',
+        items: artifact.items.slice(0, 8).map((item) => ({ title: item })),
+      }}
+    />
+  );
+}
+
+function ManyCompactActions({ artifact }: { artifact: ActionItemsArtifact }) {
+  return (
+    <ManyWorkCardView
+      card={{
+        key: artifact.title || 'actions',
+        kind: 'resource',
+        kicker: 'resource',
+        title: artifact.title || '',
+        items: artifact.items.slice(0, 8).map((item) => ({ title: item.text })),
+      }}
+    />
+  );
+}
+
+function ManyCompactEntity({ artifact }: { artifact: CreatedEntityArtifact }) {
+  return (
+    <ManyWorkCardView
+      card={{
+        key: artifact.name,
+        kind: 'resource',
+        kicker: 'resource',
+        title: artifact.name,
+        detail: artifact.description,
+      }}
+    />
+  );
 }
 
 export function ManyReferenceCards({
@@ -392,9 +538,13 @@ export function ManyReferenceCards({
 }) {
   const cards = useMemo(() => collectSocialReferenceCards(calls), [calls]);
   const insight = useMemo(() => collectSocialInsight(calls), [calls]);
-  if (cards.length === 0 && !insight) return null;
+  const work = useMemo(() => collectWorkCards(calls), [calls]);
+  if (cards.length === 0 && !insight && work.length === 0) return null;
   return (
     <div className={cn('not-typeset flex w-full min-w-0 flex-col gap-2', className)}>
+      {work.map((card) => (
+        <ManyWorkCardView key={card.key} card={card} />
+      ))}
       {cards.map((card) =>
         card.kind === 'profile' ? (
           <SocialProfileCard key={card.key} model={card.model} />
@@ -439,16 +589,22 @@ export function ManyAssistantVisualBody({
   citationMap,
   onClickCitation,
   showCaret,
+  toolCalls,
 }: {
   content: string;
   allowStreaming: boolean;
   citationMap: ManyMessageData['citationMap'];
   onClickCitation: (n: number) => void;
   showCaret: boolean;
+  toolCalls?: VisualCardToolCall[];
 }) {
+  const suppressProfileMetrics = useMemo(
+    () => collectSocialReferenceCards(toolCalls ?? []).some((card) => card.kind === 'profile'),
+    [toolCalls],
+  );
   const segments = useMemo(
-    () => parseAssistantVisualSegments(content, allowStreaming),
-    [allowStreaming, content],
+    () => parseAssistantVisualSegments(content, allowStreaming, { suppressProfileMetrics }),
+    [allowStreaming, content, suppressProfileMetrics],
   );
 
   return (

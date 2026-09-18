@@ -32,6 +32,13 @@ const CLOUD_PROVIDERS: AIProviderType[] = [
   'openai-codex',
   'opencode',
   'opencode-go',
+  'xai',
+  'groq',
+  'mistral',
+  'fireworks',
+  'together',
+  'google-vertex',
+  'azure-openai-responses',
 ];
 
 /** Local catalog from @dome/ai — no remote /models API or API key required. */
@@ -40,7 +47,19 @@ const CATALOG_PROVIDERS: AIProviderType[] = ['opencode', 'opencode-go'];
 /** OAuth subscription providers: main resolves token; no renderer API key needed. */
 const OAUTH_MODEL_PROVIDERS: AIProviderType[] = ['dome', 'claude-oauth', 'openai-codex'];
 
-const STATIC_CATALOG_PROVIDERS: AIProviderType[] = ['deepseek', 'moonshot', 'qwen', 'copilot'];
+const STATIC_CATALOG_PROVIDERS: AIProviderType[] = [
+  'deepseek',
+  'moonshot',
+  'qwen',
+  'copilot',
+  'xai',
+  'groq',
+  'mistral',
+  'fireworks',
+  'together',
+  'google-vertex',
+  'azure-openai-responses',
+];
 
 function isDynamicCloudProvider(provider: AIProviderType): boolean {
   return CLOUD_PROVIDERS.includes(provider) || isLocalOpenAICompatProvider(provider);

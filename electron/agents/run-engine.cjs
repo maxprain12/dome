@@ -7,6 +7,7 @@ const approval = require('../ipc/agents/approval.cjs');
 // Single agent runtime: every agent turn runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('./agent-runtime.cjs');
+const { extraHitlToolNames, parseManyAgentMode } = require('./many-agent-mode.cjs');
 const { getToolDefinitionsByIds, getAllToolDefinitions } = require('../tools/tool-definitions.cjs');
 const streamingTts = require('../transcription/streaming-tts.cjs');
 const { getOpenAIKey } = require('../ai/openai-key.cjs');
@@ -28,6 +29,7 @@ const {
 const { capResultText } = require('../tools/tool-result-cap.cjs');
 const runUiPhase = require('./run-ui-phase.cjs');
 const runStore = require('./run-store.cjs');
+const { notifyRunEvent } = require('./run-listeners.cjs');
 const { topologicalLevels, mergePayloads, getInputPayloads } = require('./workflow-dag.cjs');
 const {
   upsertAutomation,
@@ -93,6 +95,7 @@ function now() {
 
 function emit(channel, payload) {
   _windowManager?.broadcast?.(channel, payload);
+  notifyRunEvent(channel, payload);
 }
 
 function listAutomations(filters = {}) {
@@ -336,11 +339,15 @@ function applyTextDelta(current, delta) {
 function handleTextChunk(data, runId, context, heartbeat) {
   if (!data.text) return;
   transitionUiPhaseFromChunk(runId, context, 'text');
-  context.fullResponse = applyTextDelta(context.fullResponse || '', data.text);
-  emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: data.text });
-  // Feed chunk to streaming TTS if this run requested autoSpeak
-  if (context.autoSpeak) {
-    streamingTts.feedChunk(runId, data.text);
+  const previous = context.fullResponse || '';
+  const next = applyTextDelta(previous, data.text);
+  const emitted = next.startsWith(previous) ? next.slice(previous.length) : data.text;
+  context.fullResponse = next;
+  if (emitted) {
+    emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: emitted });
+    if (context.autoSpeak) {
+      streamingTts.feedChunk(runId, emitted);
+    }
   }
   patchRun(runId, {
     status: 'running',
@@ -506,6 +513,7 @@ function handleInterruptChunk(data, runId, context, heartbeat) {
     threadId: context.threadId,
     metadata: {
       pendingApproval: {
+        kind: data.kind || (data.actionRequests[0]?.name === 'questionnaire' ? 'questionnaire' : 'tool'),
         actionRequests: data.actionRequests,
         reviewConfigs,
         pendingToolCall: data.pendingToolCall ?? null,
@@ -518,6 +526,7 @@ function handleInterruptChunk(data, runId, context, heartbeat) {
   emit(RUN_CHUNK_CHANNEL, {
     runId,
     type: 'interrupt',
+    kind: data.kind || null,
     actionRequests: data.actionRequests,
     reviewConfigs,
     threadId: data.threadId,
@@ -550,6 +559,13 @@ function createRunChunkEmitter(runId, context) {
     const handler = CHUNK_HANDLERS[data.type];
     if (handler) handler(data, runId, context, heartbeat);
   };
+}
+
+function hitlToolsForRun(skipHitl, agentMode) {
+  if (skipHitl) return null;
+  const extra = extraHitlToolNames(parseManyAgentMode(agentMode));
+  if (extra.length === 0) return agentRuntime.HITL_TOOL_NAMES;
+  return new Set([...agentRuntime.HITL_TOOL_NAMES, ...extra]);
 }
 
 function prepareAgentRunContext(runId, params) {
@@ -605,6 +621,7 @@ function prepareAgentRunContext(runId, params) {
     // (branch, commit, shell, edit) resumed into "no coding workspace".
     workspacePath: params.workspacePath ?? null,
     thinkingLevel: params.thinkingLevel ?? 'off',
+    agentMode: params.agentMode ?? 'agent',
   };
   return { context, useDirectToolsRun, automationProjectId, runtimeContext };
 }
@@ -763,7 +780,7 @@ async function executeAgentRun(runId, params) {
       sessionId: params.sessionId ?? null,
       skipHitl: !!params.skipHitl,
       hitlInterrupt: !params.skipHitl,
-      requiresApproval: params.skipHitl ? null : agentRuntime.HITL_TOOL_NAMES,
+      requiresApproval: hitlToolsForRun(params.skipHitl, params.agentMode),
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
       automationProjectId,
@@ -773,6 +790,7 @@ async function executeAgentRun(runId, params) {
       userMemory: params.userMemory ?? null,
       workspacePath: params.workspacePath ?? null,
       thinkingLevel: params.thinkingLevel ?? 'off',
+      agentMode: params.agentMode ?? 'agent',
     });
     const current = getRun(runId);
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
@@ -905,6 +923,10 @@ async function runAgentResume(run, context, metadata, providerConfig, controller
     subagentIds: resumeOpts.subagentIds,
     workspacePath: resumeOpts.workspacePath ?? null,
     thinkingLevel: resumeOpts.thinkingLevel ?? 'off',
+    agentMode: resumeOpts.agentMode ?? 'agent',
+    skipHitl: !!resumeOpts.skipHitl,
+    hitlInterrupt: !resumeOpts.skipHitl,
+    requiresApproval: hitlToolsForRun(resumeOpts.skipHitl, resumeOpts.agentMode),
     signal: controller.signal,
     onChunk: createRunChunkEmitter(runId, context),
   });

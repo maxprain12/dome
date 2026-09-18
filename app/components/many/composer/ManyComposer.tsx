@@ -22,6 +22,7 @@ import {
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
 import { ThinkingLevelSwitcher } from '@/components/chat/ThinkingLevelSwitcher';
+import { ManyModeSwitcher } from './ManyModeSwitcher';
 import ManyComposerChips from './ManyComposerChips';
 import ManyComposerInput from './ManyComposerInput';
 import ManyCapabilitiesMenu from './ManyCapabilitiesMenu';
@@ -42,6 +43,8 @@ import { listSkills, type SkillItem } from '@/lib/skills/client';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { db } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
+import { parseComposerModeCommand, parseManyAgentMode, modeFromSlashId } from '@/lib/many/agentMode';
+import { composerModeIslandClass } from '@/lib/many/composerMode';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -190,29 +193,6 @@ function syncRemovedResourcePins(
   }
 }
 
-function syncRemovedSkillTokens(
-  value: string,
-  pendingOneShotSkillId: string | null,
-  activeStickySkillId: string | null,
-  currentSessionId: string | null,
-  skillLabels: Record<string, string>,
-  setPendingOneShotSkill: (id: string | null) => void,
-  setActiveSkillForSession: (sessionId: string, skillId: string | null) => void,
-): void {
-  if (pendingOneShotSkillId) {
-    const label = skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId;
-    if (!value.includes(`/${label}`)) {
-      setPendingOneShotSkill(null);
-    }
-  }
-  if (activeStickySkillId && currentSessionId) {
-    const label = skillLabels[activeStickySkillId] || activeStickySkillId;
-    if (!value.includes(`/${label}`)) {
-      setActiveSkillForSession(currentSessionId, null);
-    }
-  }
-}
-
 export interface ManyComposerProps {
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
@@ -280,6 +260,70 @@ const ManyComposer = memo(function ManyComposer({
   const activeSkillIdBySession = useManyStore((s) => s.activeSkillIdBySession);
   const setActiveSkillForSession = useManyStore((s) => s.setActiveSkillForSession);
   const currentSessionId = useManyStore((s) => s.currentSessionId);
+  const agentModeBySession = useManyStore((s) => s.agentModeBySession);
+  const setAgentModeForSession = useManyStore((s) => s.setAgentModeForSession);
+  const planTodosBySession = useManyStore((s) => s.planTodosBySession);
+
+  const runComposerCommand = useCallback(
+    async (raw: string): Promise<boolean> => {
+      const cmd = raw.trim().toLowerCase();
+      if (!currentSessionId) return false;
+      const nextMode = parseComposerModeCommand(cmd);
+      if (nextMode) {
+        setAgentModeForSession(currentSessionId, nextMode);
+        setInput('');
+        showToast('info', t('many.mode_now', { mode: t(`many.mode_${nextMode}`) }));
+        return true;
+      }
+      if (cmd === '/todos') {
+        const todos = planTodosBySession[currentSessionId] ?? [];
+        showToast(
+          'info',
+          todos.length > 0
+            ? todos.map((item) => `${item.step}. ${item.text}`).join('\n')
+            : t('many.plan_empty'),
+        );
+        setInput('');
+        return true;
+      }
+      if (cmd === '/compact') {
+        setInput('');
+        const res = await window.electron?.threads?.compact?.(currentSessionId);
+        if (res?.success) {
+          showToast('success', t('many.compact_done'));
+        } else {
+          showToast('error', res?.error || t('many.compact_failed'));
+        }
+        return true;
+      }
+      if (cmd === '/tree') {
+        setInput('');
+        const res = await window.electron?.threads?.getHistory?.(currentSessionId, 20);
+        const count = Array.isArray(res?.history) ? res.history.length : 0;
+        showToast('info', t('many.tree_entries', { count }));
+        return true;
+      }
+      return false;
+    },
+    [
+      currentSessionId,
+      planTodosBySession,
+      setAgentModeForSession,
+      setInput,
+      t,
+    ],
+  );
+
+  const submitComposer = useCallback(() => {
+    const trimmed = input.trim();
+    if (trimmed.startsWith('/')) {
+      void runComposerCommand(trimmed).then((handled) => {
+        if (!handled) onSend();
+      });
+      return;
+    }
+    onSend();
+  }, [input, onSend, runComposerCommand]);
 
   const activeStickySkillId = currentSessionId
     ? activeSkillIdBySession[currentSessionId] ?? null
@@ -349,12 +393,24 @@ const ManyComposer = memo(function ManyComposer({
     projectId: mentionProjectId,
   });
 
+  const slashModeItems = useMemo(
+    () =>
+      (['plan', 'draft', 'agent'] as const).map((mode) => ({
+        id: `mode:${mode}`,
+        name: mode,
+        description: t(`many.mode_${mode}_hint`),
+        prompt: '',
+      })),
+    [t],
+  );
+
   const slash = useSlashSkills({
     input,
     setInput,
     inputRef: inputRef as RefObject<HTMLTextAreaElement | null>,
     containerRef,
     enabled: true,
+    prefixItems: slashModeItems,
   });
 
   const hash = useHashMcpMention({
@@ -367,11 +423,19 @@ const ManyComposer = memo(function ManyComposer({
 
   const applySlashOneShot = useCallback(
     (skill: SlashSkillItem) => {
-      slash.insertSlashSkill(skill);
+      const cursor = inputRef.current?.selectionStart ?? input.length;
+      const mode = modeFromSlashId(skill.id);
+      if (mode && currentSessionId) {
+        slash.removeSlashTokenFromInput(cursor);
+        setAgentModeForSession(currentSessionId, mode);
+        showToast('info', t('many.mode_now', { mode: t(`many.mode_${mode}`) }));
+        return;
+      }
+      slash.removeSlashTokenFromInput(cursor);
       setPendingOneShotSkill(skill.id);
       setSkillLabels((prev) => ({ ...prev, [skill.id]: skill.name }));
     },
-    [slash, setPendingOneShotSkill],
+    [currentSessionId, input, inputRef, setAgentModeForSession, setPendingOneShotSkill, slash, t],
   );
 
   const handleSlashStickyToggle = useCallback(
@@ -380,12 +444,8 @@ const ManyComposer = memo(function ManyComposer({
       if (enabling) {
         setActiveSkillForSession(currentSessionId, skill.id);
         setSkillLabels((prev) => ({ ...prev, [skill.id]: skill.name }));
-        setInput((prev) => {
-          const token = `/${skill.name}`;
-          if (prev.includes(token)) return prev;
-          const gap = prev.length > 0 && !/\s$/.test(prev) ? ' ' : '';
-          return `${prev}${gap}${token} `;
-        });
+        const cursor = inputRef.current?.selectionStart ?? input.length;
+        slash.removeSlashTokenFromInput(cursor);
       } else {
         setActiveSkillForSession(currentSessionId, null);
         setInput((prev) =>
@@ -397,7 +457,7 @@ const ManyComposer = memo(function ManyComposer({
       }
       slash.setSlashActive(false);
     },
-    [currentSessionId, setActiveSkillForSession, setInput, slash],
+    [currentSessionId, input, inputRef, setActiveSkillForSession, setInput, slash],
   );
 
   const handleKeyDown = useCallback(
@@ -413,10 +473,10 @@ const ManyComposer = memo(function ManyComposer({
       if (mention.mentionKeyDown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        onSend();
+        submitComposer();
       }
     },
-    [hash, slash, mention, applySlashOneShot, onSend],
+    [hash, slash, mention, applySlashOneShot, submitComposer],
   );
 
   const handlePickFiles = useCallback(
@@ -477,15 +537,6 @@ const ManyComposer = memo(function ManyComposer({
       slash.updateFromText(val, cursor);
       hash.updateFromText(val, cursor);
       syncRemovedResourcePins(previous, val, pinnedResources, removePinnedResource);
-      syncRemovedSkillTokens(
-        val,
-        pendingOneShotSkillId,
-        activeStickySkillId,
-        currentSessionId,
-        skillLabels,
-        setPendingOneShotSkill,
-        setActiveSkillForSession,
-      );
     },
     [
       input,
@@ -495,22 +546,41 @@ const ManyComposer = memo(function ManyComposer({
       hash,
       pinnedResources,
       removePinnedResource,
-      pendingOneShotSkillId,
-      activeStickySkillId,
-      currentSessionId,
-      skillLabels,
-      setPendingOneShotSkill,
-      setActiveSkillForSession,
     ],
+  );
+
+  const agentMode = parseManyAgentMode(
+    currentSessionId ? agentModeBySession[currentSessionId] : 'agent',
   );
 
   const hasPlaceholderOverride = placeholderOverride != null && placeholderOverride !== '';
   const rotatingPlaceholder = useRotatingComposerPlaceholder(PLACEHOLDER_HINT_KEYS, {
-    enabled: !hasPlaceholderOverride && !isLoading,
+    enabled: !hasPlaceholderOverride && !isLoading && agentMode === 'agent',
   });
-  const placeholder = hasPlaceholderOverride ? placeholderOverride! : rotatingPlaceholder;
+  const placeholder = hasPlaceholderOverride
+    ? placeholderOverride!
+    : agentMode === 'agent'
+      ? rotatingPlaceholder
+      : t(`many.input_placeholder_${agentMode}`);
 
-  const canSend = !!input.trim() || attachments.length > 0 || pinnedResources.length > 0;
+  const canSend =
+    !!input.trim()
+    || attachments.length > 0
+    || pinnedResources.length > 0
+    || Boolean(pendingOneShotSkillId || activeStickySkillId);
+
+  const composerSkills = useMemo(() => {
+    const out: Array<{ id: string; name: string }> = [];
+    const seen = new Set<string>();
+    const push = (id: string | null) => {
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      out.push({ id, name: skillLabels[id] || id });
+    };
+    push(pendingOneShotSkillId);
+    push(activeStickySkillId);
+    return out;
+  }, [pendingOneShotSkillId, activeStickySkillId, skillLabels]);
 
   const mentionHighlightLabels = pinnedResources.map((r) => r.title);
   const fileHighlightNames = attachments.map((a) => a.name);
@@ -571,25 +641,31 @@ const ManyComposer = memo(function ManyComposer({
         ) : null}
 
         <InputGroup
-          data-disabled={isLoading ? true : undefined}
           className={cn(
             // shrink-0: never let the flex column stretch the island to fill leftover panel height
-            'h-auto max-h-[min(50vh,22rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow]',
+            'h-auto max-h-[min(50vh,22rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow,background-color]',
             'has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/30',
+            composerModeIslandClass(agentMode),
             isDragging && 'border-primary/50 bg-primary/5',
             isWelcome && 'rounded-3xl shadow-md',
           )}
         >
-          {onAttachmentsChange &&
-          (attachments.length > 0 || pinnedResources.length > 0) ? (
+          {attachments.length > 0 || pinnedResources.length > 0 || composerSkills.length > 0 ? (
             <InputGroupAddon align="block-start" className="min-w-0 overflow-hidden px-0 pt-0">
               <ManyComposerChips
                 attachments={attachments}
                 pinnedResources={pinnedResources}
+                skills={composerSkills}
                 onRemoveAttachment={(id) =>
-                  onAttachmentsChange(attachments.filter((a) => a.id !== id))
+                  onAttachmentsChange?.(attachments.filter((a) => a.id !== id))
                 }
                 onRemovePinned={removePinnedResource}
+                onRemoveSkill={(id) => {
+                  if (id === pendingOneShotSkillId) setPendingOneShotSkill(null);
+                  if (id === activeStickySkillId && currentSessionId) {
+                    setActiveSkillForSession(currentSessionId, null);
+                  }
+                }}
               />
             </InputGroupAddon>
           ) : null}
@@ -659,10 +735,18 @@ const ManyComposer = memo(function ManyComposer({
                 }
                 disabled={isLoading}
               />
+              <ManyModeSwitcher
+                disabled={false}
+                mode={agentMode}
+                onModeChange={(next) => {
+                  if (!currentSessionId) return;
+                  setAgentModeForSession(currentSessionId, next);
+                }}
+              />
               <span className="min-w-0 shrink">
                 <InlineModelSwitcher />
               </span>
-              <ThinkingLevelSwitcher disabled={isLoading} />
+              <ThinkingLevelSwitcher disabled={false} />
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
@@ -679,15 +763,16 @@ const ManyComposer = memo(function ManyComposer({
                 >
                   <HugeiconsIcon icon={StopCircleIcon} />
                 </Button>
-              ) : (
+              ) : null}
+              {(!isLoading || canSend) && (
                 <Button
                   type="button"
                   size="icon-sm"
                   className="rounded-full"
-                  onClick={onSend}
+                  onClick={submitComposer}
                   disabled={!canSend}
-                  title={t('chat.send')}
-                  aria-label={t('chat.send')}
+                  title={isLoading ? t('many.steer_send') : t('chat.send')}
+                  aria-label={isLoading ? t('many.steer_send') : t('chat.send')}
                 >
                   <HugeiconsIcon icon={ArrowUp02Icon} />
                 </Button>
@@ -720,6 +805,10 @@ const ManyComposer = memo(function ManyComposer({
               <span className="inline-flex items-center gap-1">
                 <Kbd>/</Kbd>
                 {t('many.composer_hint_skills')}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd>/</Kbd>
+                {t('many.composer_hint_mode')}
               </span>
               <span className="inline-flex items-center gap-1">
                 <Kbd>@</Kbd>

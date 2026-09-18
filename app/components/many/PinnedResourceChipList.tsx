@@ -4,6 +4,7 @@ import {
   Cancel01Icon,
   Mail01Icon,
   Share08Icon,
+  SparklesIcon,
   Task01Icon,
   UserIcon,
 } from '@hugeicons/core-free-icons';
@@ -182,6 +183,64 @@ export function PinnedResourceChipList({
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemove(resource.id);
+                }}
+              >
+                <HugeiconsIcon icon={Cancel01Icon} />
+              </AttachmentAction>
+            </AttachmentActions>
+          ) : null}
+        </Attachment>
+      ))}
+    </AttachmentGroup>
+  );
+}
+
+export function ManySkillChipList({
+  skills,
+  onRemove,
+  className,
+  align = 'start',
+}: {
+  skills: Array<{ id: string; name: string }>;
+  onRemove?: (id: string) => void;
+  className?: string;
+  align?: 'start' | 'end';
+}) {
+  const { t } = useTranslation();
+  if (skills.length === 0) return null;
+  return (
+    <AttachmentGroup
+      className={cn(
+        'max-w-full flex-wrap overflow-x-hidden *:data-[slot=attachment]:max-w-full',
+        align === 'end' && 'justify-end',
+        className,
+      )}
+    >
+      {skills.map((skill) => (
+        <Attachment
+          key={`skill-${skill.id}`}
+          size="sm"
+          state="done"
+          className="max-w-full"
+          title={skill.name}
+        >
+          <AttachmentMedia>
+            <span className="flex size-full items-center justify-center text-muted-foreground">
+              <HugeiconsIcon icon={SparklesIcon} size={14} />
+            </span>
+          </AttachmentMedia>
+          <AttachmentContent className="min-w-0 overflow-hidden">
+            <AttachmentTitle>{skill.name}</AttachmentTitle>
+            <AttachmentDescription>{t('chat.attached_skill')}</AttachmentDescription>
+          </AttachmentContent>
+          {onRemove ? (
+            <AttachmentActions>
+              <AttachmentAction
+                type="button"
+                aria-label={t('chat.remove_from_context')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(skill.id);
                 }}
               >
                 <HugeiconsIcon icon={Cancel01Icon} />

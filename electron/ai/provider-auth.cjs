@@ -23,6 +23,13 @@ const API_KEY_CHAT_PROVIDERS = new Set([
   'qwen',
   'opencode',
   'opencode-go',
+  'xai',
+  'groq',
+  'mistral',
+  'fireworks',
+  'together',
+  'google-vertex',
+  'azure-openai-responses',
 ]);
 
 /**

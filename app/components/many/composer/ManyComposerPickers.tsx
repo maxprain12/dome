@@ -19,9 +19,10 @@ import {
 } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import type { HashMcpItem } from '@/lib/chat/useHashMcpMention';
 import type { MentionResource } from '@/lib/chat/useResourceMention';
 import type { SlashSkillItem } from '@/lib/chat/useSlashSkills';
-import type { HashMcpItem } from '@/lib/chat/useHashMcpMention';
+import { isSlashModeId } from '@/lib/many/agentMode';
 
 /**
  * Caret-anchored pickers for the composer tokens: @recurso, /skill and #mcp.
@@ -80,12 +81,40 @@ export function ManySkillPicker({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const modeItems = skills.filter((skill) => isSlashModeId(skill.id));
+  const skillItems = skills.filter((skill) => !isSlashModeId(skill.id));
 
   return (
     <PickerShell open={open} anchorRect={anchorRect} panelRef={panelRef} width={300} maxHeight={280}>
       <CommandList className="max-h-72">
+        {modeItems.length > 0 ? (
+          <CommandGroup heading={t('chat.slash_modes_title')}>
+            {modeItems.map((skill) => {
+              const idx = skills.indexOf(skill);
+              return (
+                <CommandItem
+                  key={skill.id}
+                  value={skill.id}
+                  onSelect={() => onPick(skill)}
+                  onMouseEnter={() => onHover(idx)}
+                  className={cn('flex-col items-start gap-0.5', idx === selectedIdx && 'bg-muted')}
+                >
+                  <span className="font-medium">/{skill.name}</span>
+                  {skill.description ? (
+                    <span className="line-clamp-2 text-xs text-muted-foreground">
+                      {skill.description}
+                    </span>
+                  ) : null}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        ) : null}
+        {skillItems.length > 0 ? (
         <CommandGroup heading={t('chat.slash_skills_title')}>
-          {skills.map((skill, idx) => (
+          {skillItems.map((skill) => {
+            const idx = skills.indexOf(skill);
+            return (
             <div key={skill.id} className="flex flex-col">
               <CommandItem
                 value={skill.id}
@@ -100,26 +129,29 @@ export function ManySkillPicker({
                   </span>
                 ) : null}
               </CommandItem>
-              <div className="flex items-center gap-2 px-3 pb-2">
-                <Checkbox
-                  id={`many-skill-sticky-${skill.id}`}
-                  checked={activeStickySkillId === skill.id}
-                  onCheckedChange={(checked) => {
-                    if (!currentSessionId) return;
-                    onToggleSticky(skill, checked === true);
-                    onClose();
-                  }}
-                />
-                <Label
-                  htmlFor={`many-skill-sticky-${skill.id}`}
-                  className="text-xs font-normal text-muted-foreground"
-                >
-                  {t('chat.slash_keep_active')}
-                </Label>
-              </div>
+              {currentSessionId ? (
+                <div className="flex items-center gap-2 px-3 pb-2">
+                  <Checkbox
+                    id={`many-skill-sticky-${skill.id}`}
+                    checked={activeStickySkillId === skill.id}
+                    onCheckedChange={(checked) => {
+                      onToggleSticky(skill, checked === true);
+                      onClose();
+                    }}
+                  />
+                  <Label
+                    htmlFor={`many-skill-sticky-${skill.id}`}
+                    className="text-xs font-normal text-muted-foreground"
+                  >
+                    {t('chat.slash_keep_active')}
+                  </Label>
+                </div>
+              ) : null}
             </div>
-          ))}
+            );
+          })}
         </CommandGroup>
+        ) : null}
         <CommandEmpty>{t('common.no_results')}</CommandEmpty>
       </CommandList>
     </PickerShell>

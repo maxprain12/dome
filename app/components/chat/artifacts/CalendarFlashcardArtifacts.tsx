@@ -27,11 +27,6 @@ export function CalendarEventArtifact({ artifact }: { artifact: CalendarEventArt
           {artifact.location}
         </p>
       ) : null}
-      {artifact.event_id ? (
-        <p className="text-[10px] font-mono truncate opacity-70 text-muted-foreground">
-          id: {artifact.event_id}
-        </p>
-      ) : null}
     </div>
   );
 }

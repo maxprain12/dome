@@ -18,6 +18,12 @@ import { coalesceDuplicateToolCalls, mergeTerminalToolCalls } from '@/lib/chat/c
 import { pickTerminalAssistantText } from '@/lib/chat/applyTextDelta';
 import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
 import { streamingLabelForToolCall, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
+import { parseManyAgentMode } from '@/lib/many/agentMode';
+import {
+  extractPlanDocument,
+  markCompletedSteps,
+  questionnaireFromActionRequests,
+} from '@/lib/many/planDocument';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
 
 export interface UseManyRunLifecycleOptions {
@@ -61,7 +67,11 @@ export function useManyRunLifecycle({
   const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ManyMessageData | null>(null);
   const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
   const approvalQueueLen = useApprovalStore((s) => s.queue.length);
-  const showHitlInline = Boolean(pendingApproval || approvalQueueLen > 0);
+  const questionnairePending =
+    questionnaireFromActionRequests(pendingApproval?.actionRequests).length > 0;
+  const showHitlInline = Boolean(
+    (pendingApproval && !questionnairePending) || approvalQueueLen > 0,
+  );
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
   const [lastBudgetSessionId, setLastBudgetSessionId] = useState<string | null>(null);
   const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
@@ -292,9 +302,25 @@ export function useManyRunLifecycle({
       requestAnimationFrame(() => scrollToBottomRef.current(true));
       if (run.status === 'completed') {
         window.dispatchEvent(new Event('dome:resources-changed'));
+        const sid = currentSessionIdRef.current;
+        if (sid && finalContent) {
+          const store = useManyStore.getState();
+          const mode = parseManyAgentMode(store.agentModeBySession[sid]);
+          const executing = store.planExecutingBySession[sid] === true;
+          if (mode === 'plan') {
+            const document = extractPlanDocument(finalContent);
+            if (document) {
+              store.setPlanDocumentForSession(sid, { ...document, messageId: undefined });
+              store.setPlanChoiceOpenForSession(sid, true);
+            }
+          } else if (executing) {
+            const current = store.planTodosBySession[sid] ?? [];
+            store.setPlanTodosForSession(sid, markCompletedSteps(finalContent, current));
+          }
+        }
       }
     },
-    [addMessage, refreshSessionFromThreadRef, scrollToBottomRef, setActiveRunId, setIsLoading, setSessionRunState, setStatus, t],
+    [addMessage, currentSessionIdRef, refreshSessionFromThreadRef, scrollToBottomRef, setActiveRunId, setIsLoading, setSessionRunState, setStatus, t],
   );
 
   const handleManyPendingApproval = useCallback(
@@ -493,6 +519,7 @@ export function useManyRunLifecycle({
     loadingHint,
     showContextUsage,
     showHitlInline,
+    questionnairePending,
     streamingMessageRef,
     hitlDecisionsRef,
     voiceAutoSpeakForRunIdRef,

@@ -14,6 +14,8 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { typesetDocsClass } from '@/lib/typeset';
+import ResourceIcon from '@/components/shared/ResourceIcon';
+import MermaidDiagram from './MermaidDiagram';
 import './markdown-renderer.css';
 
 /** UUID v4 pattern for resource IDs */
@@ -460,6 +462,12 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         };
 
         if (isDomeLink) {
+          const resourceMatch = href.match(/^dome:\/\/resource\/[^/]+\/([^/?#]+)/);
+          const resourceType = resourceMatch?.[1] && !/^[0-9a-f-]{8,}$/i.test(resourceMatch[1])
+            ? resourceMatch[1]
+            : isDomeFolder
+              ? 'folder'
+              : undefined;
           return (
             <button
               type="button"
@@ -467,8 +475,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
               onClick={handleAllClicks}
               className="md-dome-link not-typeset"
             >
+              {resourceType ? (
+                <ResourceIcon type={resourceType} size={14} className="md-dome-link-type" />
+              ) : null}
               <span className="md-dome-link-icon">↗</span>
-              {children}
+              <span className="md-dome-link-label">{children}</span>
             </button>
           );
         }
@@ -487,6 +498,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
 
       code: ({ children, className }) => {
         const isBlock = className?.startsWith('language-');
+        const language = className?.replace(/^language-/, '') ?? '';
+        const text = String(children ?? '').replace(/\n$/, '');
+        if (isBlock && language === 'mermaid') {
+          return <MermaidDiagram code={text} />;
+        }
         if (isBlock) {
           return <code className={className}>{children}</code>;
         }

@@ -281,7 +281,7 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
  * Note: "xhigh" is only supported by selected model families. Use model thinking-level metadata
  * from @dome/ai to detect support for a concrete model.
  */
-export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 /**
  * Extensible interface for custom app messages.

@@ -2,8 +2,39 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'module';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
+
+/** macOS updates xattrs when Electron reads the graph; skip HMR if bytes did not change. */
+function ignoreStatOnlyHmr() {
+  const hashes = new Map<string, string>();
+  const inflight = new Set<string>();
+  const digest = (src: string) => createHash('sha1').update(src).digest('hex');
+  const keyOf = (id: string) => path.resolve((id.split('?')[0] || id).normalize());
+  return {
+    name: 'ignore-stat-only-hmr',
+    enforce: 'pre' as const,
+    transform(code: string, id: string) {
+      if (id.includes('node_modules') || id.includes('\0')) return;
+      hashes.set(keyOf(id), digest(code));
+    },
+    async handleHotUpdate(ctx: { file: string; read: () => Promise<string> }) {
+      const file = keyOf(ctx.file);
+      if (inflight.has(file)) return [];
+      inflight.add(file);
+      try {
+        const next = digest(await ctx.read());
+        const prev = hashes.get(file);
+        hashes.set(file, next);
+        if (prev === next) return [];
+        return undefined;
+      } finally {
+        inflight.delete(file);
+      }
+    },
+  };
+}
 
 const require = createRequire(import.meta.url);
 const { version: appVersion } = require('./package.json') as { version: string };
@@ -16,6 +47,7 @@ const sentryRelease = `dome@${appVersion}`;
 
 export default defineConfig({
   plugins: [
+    ignoreStatOnlyHmr(),
     react(),
     tailwindcss(),
     // Must be last so it sees the final bundle + maps.
@@ -81,6 +113,21 @@ export default defineConfig({
       return 5173;
     })(),
     strictPort: true,
+    watch: {
+      ignored: [
+        '**/.git/**',
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/*.tsbuildinfo',
+        '**/.DS_Store',
+        '**/.cursor/**',
+        '**/electron/**',
+        '**/docs/**',
+        '**/packages/**/tsconfig.json',
+        '**/packages/**/tsconfig.*.json',
+        '**/packages/i18n/locales/**',
+      ],
+    },
   },
 
   // Optimize dependencies

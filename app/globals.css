@@ -1,12 +1,14 @@
 @import "./styles/theme-tokens.css";
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 @import "./typeset.css";
 
-/* Tailwind v4 auto-detecta fuentes: excluir docs/ (los .md contienen clases de ejemplo) */
-@source not "../docs";
+/* Solo `app/` — el auto-scan del repo (packages, electron, docs) invalidaba
+   globals.css al abrir la ventana de Electron (xattr / primer compile). */
+@source ".";
+@source "../index.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

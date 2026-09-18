@@ -376,20 +376,27 @@ export function applyV4Mutations(header: JsonlV4Header, mutations: SessionMutati
 		leafId: null,
 		name: undefined,
 	};
-	let nextSeq = 1;
+	let lastSeq = 0;
+	const seenEntryIds = new Set<string>();
 	for (const mutation of mutations) {
 		const seq = getMutationSeq(mutation);
-		if (seq !== nextSeq) {
-			throw new SessionError("invalid_session", `v4 mutation has non-consecutive seq ${seq}`);
+		if (seq <= lastSeq) continue;
+		if (mutation.kind === "entry") {
+			const entryId = mutation.entry.id;
+			if (seenEntryIds.has(entryId)) {
+				lastSeq = seq;
+				continue;
+			}
+			seenEntryIds.add(entryId);
 		}
-		nextSeq = seq + 1;
+		lastSeq = seq;
 		applyMutation(mutation, state);
 	}
 	return {
 		header,
 		entries: state.entries,
 		leafId: state.leafId,
-		nextSeq,
+		nextSeq: lastSeq + 1,
 		labelsById: state.labelsById,
 		name: state.name,
 	};

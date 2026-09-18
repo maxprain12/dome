@@ -82,4 +82,21 @@ describe('mergeManySessionMessages', () => {
     expect(user?.pinnedResources?.[0]?.id).toBe('new');
     expect(user?.attachments?.images[0]?.name).toBe('shot');
   });
+
+  it('preserves local skills when JSONL user turn has no UI fields', () => {
+    const local: ManyMessage[] = [
+      msg({
+        role: 'user',
+        content: 'genera el informe',
+        timestamp: 1000,
+        skills: [{ id: 'pptx', name: 'pptx' }],
+      }),
+    ];
+    const db: ManyMessage[] = [
+      msg({ role: 'user', content: 'genera el informe', timestamp: 1000 }),
+    ];
+    const merged = mergeManySessionMessages(local, db);
+    const user = merged.find((m) => m.role === 'user');
+    expect(user?.skills?.[0]?.name).toBe('pptx');
+  });
 });

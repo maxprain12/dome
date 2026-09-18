@@ -29,7 +29,7 @@ export type ModelApi =
  * Which levels a given model actually supports is *not* decided here — ask
  * `window.electron.ai.getThinkingLevels()`, which reads the real model registry.
  */
-export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 // =============================================================================
 // Authentication Types
@@ -472,7 +472,14 @@ export type ProviderType =
   | 'opencode'
   | 'opencode-go'
   | 'vllm'
-  | 'lmstudio';
+  | 'lmstudio'
+  | 'xai'
+  | 'groq'
+  | 'mistral'
+  | 'fireworks'
+  | 'together'
+  | 'google-vertex'
+  | 'azure-openai-responses';
 
 /**
  * Provider metadata for UI display

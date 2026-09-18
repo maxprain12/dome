@@ -19,5 +19,6 @@ describe('settings registry', () => {
     expect(resolveSettingsSection('unknown')).toBe('general');
     expect(new Set(SETTINGS_ENTRIES.map((entry) => entry.id)).size).toBe(SETTINGS_ENTRIES.length);
     expect(SETTINGS_ENTRIES.map((entry) => entry.id)).toContain('browser_extension');
+    expect(SETTINGS_ENTRIES.map((entry) => entry.id)).toContain('remote_many');
   });
 });

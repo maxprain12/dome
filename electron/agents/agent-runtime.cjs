@@ -38,6 +38,7 @@ class HitlInterruptError extends Error {
 
 /** Tools that require in-app approval before execution (HITL). */
 const HITL_TOOL_NAMES = new Set([
+  'questionnaire',
   'resource_delete',
   'artifact_delete',
   'ppt_create',
@@ -406,6 +407,7 @@ function lastRawUserMessage(messages) {
 }
 
 const DOME_PINS_CUSTOM_TYPE = 'dome.pins';
+const DOME_SKILLS_CUSTOM_TYPE = 'dome.skills';
 
 /** One-line pin cue for the harness user turn (titles only — no opaque ids). */
 function formatPinnedTurnSignal(lastRaw) {
@@ -447,6 +449,26 @@ async function persistDomePins(session, lastRaw) {
     });
   } catch (err) {
     console.warn('[AgentRuntime] dome.pins persist skipped:', err?.message || err);
+  }
+}
+
+async function persistDomeSkills(session, lastRaw) {
+  const skills = lastRaw?.skills;
+  if (!session || !Array.isArray(skills) || skills.length === 0) return;
+  try {
+    const ctx = await session.buildContext();
+    const lastUser = [...(ctx.messages ?? [])].reverse().find((m) => m && m.role === 'user');
+    await session.appendCustomEntry(DOME_SKILLS_CUSTOM_TYPE, {
+      messageTimestamp: typeof lastUser?.timestamp === 'number' ? lastUser.timestamp : Date.now(),
+      skills: skills
+        .map((skill) => ({
+          id: String(skill?.id || skill?.name || ''),
+          name: String(skill?.name || skill?.title || '').trim(),
+        }))
+        .filter((skill) => skill.name),
+    });
+  } catch (err) {
+    console.warn('[AgentRuntime] dome.skills persist skipped:', err?.message || err);
   }
 }
 
@@ -521,9 +543,11 @@ function buildBeforeToolCall(opts, caps) {
 
     // Caps: block when the cap has already been reached in history.
     // Tools without an explicit cap fall back to DEFAULT_PER_TOOL_CAP.
-    const runLimit = typeof limits[name] === 'number' ? limits[name] : DEFAULT_PER_TOOL_CAP;
-    const toolBlock = checkPerToolCap(messages, name, runLimit);
-    if (toolBlock) return toolBlock;
+    if (name !== 'questionnaire') {
+      const runLimit = typeof limits[name] === 'number' ? limits[name] : DEFAULT_PER_TOOL_CAP;
+      const toolBlock = checkPerToolCap(messages, name, runLimit);
+      if (toolBlock) return toolBlock;
+    }
 
     // Mutation threshold: heavy mutators get a few free calls, then need approval.
     const threshold = checkMutationThreshold({
@@ -800,16 +824,23 @@ function parseToolArgs(raw) {
 
 function buildInterruptPayload(toolCall, reviewConfigs, threadId) {
   const args = parseToolArgs(toolCall?.arguments);
+  const isQuestionnaire = String(toolCall?.name || '') === 'questionnaire';
   const actionRequests = [{
     name: toolCall.name,
     args,
-    description: `Approve tool call: ${toolCall.name}`,
+    description: isQuestionnaire
+      ? 'Answer clarifying questions'
+      : `Approve tool call: ${toolCall.name}`,
   }];
   return {
     __interrupt__: true,
+    kind: isQuestionnaire ? 'questionnaire' : 'tool',
     threadId,
     actionRequests,
-    reviewConfigs: reviewConfigs || [{ actionName: toolCall.name, allowedDecisions: ['approve', 'reject'] }],
+    reviewConfigs: reviewConfigs || [{
+      actionName: toolCall.name,
+      allowedDecisions: isQuestionnaire ? ['approve', 'reject'] : ['approve', 'reject'],
+    }],
     pendingToolCall: {
       id: toolCall.id || `hitl_${Date.now()}`,
       name: toolCall.name,
@@ -1314,6 +1345,7 @@ function forwardResumeInterrupt(err, setup, onChunk) {
   if (typeof onChunk === 'function') {
     onChunk({
       type: 'interrupt',
+      kind: payload.kind,
       actionRequests: payload.actionRequests,
       reviewConfigs: payload.reviewConfigs,
       threadId: payload.threadId,
@@ -1334,6 +1366,8 @@ async function resumeDomeAgent(surface, opts) {
     throw new Error('No pending tool call to resume');
   }
 
+  const toolName = pendingToolCall.name;
+  const isQuestionnaireResume = toolName === 'questionnaire';
   const setup = await setupHarness(surface, {
     ...opts,
     provider,
@@ -1342,16 +1376,41 @@ async function resumeDomeAgent(surface, opts) {
     baseUrl,
     messages: messages || [{ role: 'user', content: 'Continue after approval.' }],
     threadId,
-    hitlInterrupt: false,
-    skipHitl: true,
+    hitlInterrupt: isQuestionnaireResume ? true : false,
+    skipHitl: isQuestionnaireResume ? false : true,
   });
 
   const { harness, session, resolvedModel, cleanup, executeToolInMain } = setup;
   const toolCallId = pendingToolCall.id || `hitl_${Date.now()}`;
-  const toolName = pendingToolCall.name;
   const toolArgs = parseToolArgs(pendingToolCall.arguments);
 
   const decision = Array.isArray(decisions) ? decisions[0] : null;
+  if (toolName === 'questionnaire') {
+    const plan = require('./many-plan.cjs');
+    const questions = plan.parseQuestionnaireQuestions(toolArgs);
+    const cancelled =
+      decision?.cancelled === true
+      || decision?.type === 'reject';
+    const answers = Array.isArray(decision?.answers) ? decision.answers : [];
+    const resultText = plan.formatQuestionnaireResult(questions, answers, cancelled);
+    try {
+      await appendResumeToolCallMessage({ session, resolvedModel, toolCallId, toolName, effectiveArgs: toolArgs });
+      await finalizeResumeToolResult({ session, onChunk, toolCallId, toolName, resultText, isError: false });
+      return await continueResumeTurn({ harness, onChunk });
+    } catch (err) {
+      if (err instanceof HitlInterruptError) {
+        return forwardResumeInterrupt(err, setup, onChunk);
+      }
+      console.error('[AgentRuntime] resume failed:', err?.message || err);
+      if (typeof onChunk === 'function' && err?.message) {
+        onChunk({ type: 'error', error: err.message });
+      }
+      throw err;
+    } finally {
+      cleanup();
+    }
+  }
+
   const approveAll =
     decision?.type === 'approve_all'
     || decision?.autoApproveRemaining === true
@@ -1510,6 +1569,7 @@ function forwardHitlInterrupt(err, threadId, opts) {
   if (typeof opts.onChunk === 'function') {
     opts.onChunk({
       type: 'interrupt',
+      kind: payload.kind,
       actionRequests: payload.actionRequests,
       reviewConfigs: payload.reviewConfigs,
       threadId: payload.threadId,
@@ -1545,6 +1605,27 @@ function handleRunError(err, threadId, opts) {
   throw surfaced;
 }
 
+const liveHarnessByThread = new Map();
+
+function registerLiveHarness(threadId, harness) {
+  if (threadId && harness) liveHarnessByThread.set(threadId, harness);
+}
+
+function unregisterLiveHarness(threadId) {
+  if (threadId) liveHarnessByThread.delete(threadId);
+}
+
+async function steerLiveHarness(threadId, text) {
+  const harness = liveHarnessByThread.get(threadId);
+  if (!harness || typeof harness.steer !== 'function') {
+    return { success: false, error: 'not_running' };
+  }
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return { success: false, error: 'empty' };
+  await harness.steer(trimmed);
+  return { success: true };
+}
+
 async function runDomeAgent(surface, opts) {
   console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
 
@@ -1555,9 +1636,11 @@ async function runDomeAgent(surface, opts) {
 
   const setup = await setupHarness(surface, opts);
   const { harness, threadId, cleanup, session } = setup;
+  registerLiveHarness(threadId, harness);
 
   try {
     await persistDomePins(session, lastRaw);
+    await persistDomeSkills(session, lastRaw);
     await tryEmitBudgetSafely(setup, opts, 'budget telemetry skipped');
     const assistant = await harness.prompt(
       userPrompt,
@@ -1565,14 +1648,12 @@ async function runDomeAgent(surface, opts) {
     );
     const finalText = assistantText(assistant);
     throwIfAssistantError(assistant, finalText, opts);
-    // Re-measure once the turn is done. The pre-turn reading is taken against an
-    // empty session, so the indicator showed only the static segments (system,
-    // tools, skills) and reported the conversation as zero however long it got.
     await tryEmitBudgetSafely(setup, opts, 'post-turn budget skipped');
     return finalText;
   } catch (err) {
     return handleRunError(err, threadId, opts);
   } finally {
+    unregisterLiveHarness(threadId);
     cleanup();
   }
 }
@@ -1588,6 +1669,7 @@ module.exports = {
   runDomeAgent,
   resumeDomeAgent,
   openHarnessForThread,
+  steerLiveHarness,
   HitlInterruptError,
   HITL_TOOL_NAMES,
   // exported for tests

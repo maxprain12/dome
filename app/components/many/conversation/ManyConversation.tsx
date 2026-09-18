@@ -15,12 +15,10 @@ import {
 } from '@/components/ui/message-scroller';
 import ManyTurn from './ManyTurn';
 import ManyWelcome from './ManyWelcome';
-import ManyApprovalGate from './ManyApprovalGate';
 import { ManyLoadingMarker, ManyErrorNotice } from './ManyNotices';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import type { ManyAvatarState } from '@/components/many/ManyAvatar';
 import type { ManyMessageData } from '@/lib/many/types';
-import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { cn } from '@/lib/utils';
 
 export interface ManyConversationHandle {
@@ -39,9 +37,6 @@ interface ManyConversationProps {
   /** What the run is doing right now; shown while no assistant message exists yet. */
   loadingHint?: string;
   hasStreamingMessage: boolean;
-  showApprovalGate: boolean;
-  pendingApproval: RunPendingApproval | null;
-  onDismissApproval: () => void;
   onRegenerate: (messageId: string) => void;
   error: string | null;
   onRetryError: () => void;
@@ -85,9 +80,6 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
       isLoading,
       loadingHint,
       hasStreamingMessage,
-      showApprovalGate,
-      pendingApproval,
-      onDismissApproval,
       onRegenerate,
       error,
       onRetryError,
@@ -136,14 +128,6 @@ const ManyConversation = forwardRef<ManyConversationHandle, ManyConversationProp
                     {isLoading && !hasStreamingMessage ? (
                       <MessageScrollerItem messageId="many-analyzing">
                         <ManyLoadingMarker label={loadingHint || t('chat.analyzing')} />
-                      </MessageScrollerItem>
-                    ) : null}
-                    {showApprovalGate ? (
-                      <MessageScrollerItem messageId="many-approval-gate">
-                        <ManyApprovalGate
-                          pendingApproval={pendingApproval}
-                          onDismissApproval={onDismissApproval}
-                        />
                       </MessageScrollerItem>
                     ) : null}
                     {error ? (

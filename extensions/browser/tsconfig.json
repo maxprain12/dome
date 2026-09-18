@@ -23,7 +23,8 @@
     "entrypoints",
     "wxt.config.ts",
     "vitest.config.ts",
-    ".wxt/wxt.d.ts"
+    ".wxt/wxt.d.ts",
+    "../../app/types/global.d.ts"
   ],
   "extends": "./.wxt/tsconfig.json"
 }

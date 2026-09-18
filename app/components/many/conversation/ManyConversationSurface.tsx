@@ -30,12 +30,15 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import ManyAvatar from '@/components/many/ManyAvatar';
 import ManyActivityTrace, { ManyActivityBlocks } from '@/components/many/conversation/ManyActivityTrace';
+import { ManyReferenceCards } from '@/components/many/conversation/ManyVisualCards';
+import { ManySkillChipList } from '@/components/many/PinnedResourceChipList';
 import {
   activitySegmentsFromCalls,
   activityTraceCopyFromT,
   type ActivityToolCall,
   type ActivityTraceCopy,
 } from '@/lib/chat/manyActivityTrace';
+import { skillChipsFromUserTurn, stripSkillInvocationText } from '@/lib/chat/userTurnContext';
 import { cn } from '@/lib/utils';
 
 export interface ManySurfaceToolCall {
@@ -65,6 +68,7 @@ export interface ManyConversationSurfaceMessage {
   toolLabel?: string;
   isStreaming?: boolean;
   usageLabel?: string;
+  skills?: Array<{ id: string; name: string }>;
 }
 
 interface ManyConversationSurfaceProps {
@@ -133,6 +137,53 @@ function defaultLinkMode(): 'ipc' | 'anchor' {
   return typeof host.window?.electron?.invoke === 'function' ? 'ipc' : 'anchor';
 }
 
+function SurfaceUserTurn({
+  message,
+  imageLabel,
+}: {
+  message: ManyConversationSurfaceMessage;
+  imageLabel: string;
+}) {
+  const skills = skillChipsFromUserTurn(message.text, message.skills);
+  const body = stripSkillInvocationText(message.text);
+  return (
+    <div className="flex max-w-[88%] flex-col items-end gap-1.5">
+      {skills.length > 0 ? (
+        <ManySkillChipList skills={skills} align="end" className="max-w-full" />
+      ) : null}
+      {body ? (
+        <Bubble variant="secondary" align="end" className="max-w-full">
+          <BubbleContent>
+            <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {body}
+            </span>
+          </BubbleContent>
+        </Bubble>
+      ) : null}
+      {message.images && message.images.length > 0 ? (
+        <AttachmentGroup className="max-w-full justify-end">
+          {message.images.map((image) => (
+            <Attachment key={image.id} state="done" size="sm">
+              <AttachmentMedia variant="image">
+                <img
+                  src={image.dataUrl}
+                  alt={image.name || imageLabel}
+                  loading="lazy"
+                />
+              </AttachmentMedia>
+              <AttachmentContent>
+                <AttachmentTitle>
+                  {image.name || imageLabel}
+                </AttachmentTitle>
+              </AttachmentContent>
+            </Attachment>
+          ))}
+        </AttachmentGroup>
+      ) : null}
+    </div>
+  );
+}
+
 function SurfaceAssistantActivity({
   message,
   copy,
@@ -173,6 +224,7 @@ function SurfaceAssistantActivity({
           renderToolDetail={(call) => <SurfaceToolDetail call={call} />}
         />
       ) : null}
+      {message.tools && message.tools.length > 0 ? <ManyReferenceCards calls={message.tools} /> : null}
       {message.text ? (
         <div className="min-w-0 break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
           {renderAssistant ? renderAssistant(message) : message.text}
@@ -247,37 +299,7 @@ export default function ManyConversationSurface({
                         ) : null}
                         <MessageContent>
                           {isUser ? (
-                            <div className="flex max-w-[88%] flex-col items-end gap-1.5">
-                              {message.text ? (
-                                <Bubble variant="secondary" align="end" className="max-w-full">
-                                  <BubbleContent>
-                                    <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                                      {message.text}
-                                    </span>
-                                  </BubbleContent>
-                                </Bubble>
-                              ) : null}
-                              {message.images && message.images.length > 0 ? (
-                                <AttachmentGroup className="max-w-full justify-end">
-                                  {message.images.map((image) => (
-                                    <Attachment key={image.id} state="done" size="sm">
-                                      <AttachmentMedia variant="image">
-                                        <img
-                                          src={image.dataUrl}
-                                          alt={image.name || imageLabel}
-                                          loading="lazy"
-                                        />
-                                      </AttachmentMedia>
-                                      <AttachmentContent>
-                                        <AttachmentTitle>
-                                          {image.name || imageLabel}
-                                        </AttachmentTitle>
-                                      </AttachmentContent>
-                                    </Attachment>
-                                  ))}
-                                </AttachmentGroup>
-                              ) : null}
-                            </div>
+                            <SurfaceUserTurn message={message} imageLabel={imageLabel} />
                           ) : isToolResult ? (
                             <Marker variant="border">
                               <MarkerIcon>

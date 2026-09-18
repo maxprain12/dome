@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 const runEngine = require('../../agents/run-engine.cjs');
+const agentRuntime = require('../../agents/agent-runtime.cjs');
 
 function register({ ipcMain, windowManager, validateSender }) {
   ipcMain.handle('runs:get', (event, runId) => {
@@ -70,6 +71,19 @@ function register({ ipcMain, windowManager, validateSender }) {
       return { success: true };
     } catch (error) {
       console.error('[Runs] abort error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('runs:steer', async (event, raw) => {
+    try {
+      validateSender(event, windowManager);
+      const threadId = typeof raw?.threadId === 'string' ? raw.threadId.trim() : '';
+      const text = typeof raw?.text === 'string' ? raw.text : '';
+      if (!threadId) return { success: false, error: 'threadId_required' };
+      return await agentRuntime.steerLiveHarness(threadId, text);
+    } catch (error) {
+      console.error('[Runs] steer error:', error);
       return { success: false, error: error.message };
     }
   });

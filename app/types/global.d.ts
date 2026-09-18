@@ -27,6 +27,31 @@ type EmailResult<T = Record<string, never>> = {
   helpUrl?: string | null;
 } & Partial<T>;
 
+type IpcAiChatProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'dome'
+  | 'minimax'
+  | 'openrouter'
+  | 'copilot'
+  | 'claude-oauth'
+  | 'openai-codex'
+  | 'deepseek'
+  | 'moonshot'
+  | 'qwen'
+  | 'opencode'
+  | 'opencode-go'
+  | 'vllm'
+  | 'lmstudio'
+  | 'xai'
+  | 'groq'
+  | 'mistral'
+  | 'fireworks'
+  | 'together'
+  | 'google-vertex'
+  | 'azure-openai-responses';
+
 interface ProviderModelsListResult {
   success: boolean;
   models?: Array<{
@@ -872,6 +897,59 @@ declare global {
         }>;
       };
 
+      remoteMany: {
+        status: () => Promise<{
+          success: boolean;
+          data?: {
+            enabled: boolean;
+            connected: boolean;
+            deviceId?: string;
+            displayName?: string;
+            publicKey?: string;
+            pairing?: { active: boolean; code?: string; pairingId?: string; expiresAt?: number | null } | null;
+            lastError?: string | null;
+            cursor?: number;
+          };
+          error?: string;
+        }>;
+        setEnabled: (payload: { enabled: boolean }) => Promise<{
+          success: boolean;
+          data?: Record<string, unknown>;
+          error?: string;
+        }>;
+        pairStart: () => Promise<{
+          success: boolean;
+          data?: { active: boolean; code?: string; pairingId?: string; expiresAt?: number };
+          error?: string;
+        }>;
+        pairCancel: () => Promise<{ success: boolean; data?: { cancelled: boolean }; error?: string }>;
+        revoke: (payload: { deviceId: string }) => Promise<{
+          success: boolean;
+          data?: { revoked: boolean };
+          error?: string;
+        }>;
+        presence: () => Promise<{
+          success: boolean;
+          data?: {
+            devices?: Array<{
+              id: string;
+              kind: 'desktop' | 'companion';
+              displayName: string;
+              online: boolean;
+              revoked?: boolean;
+            }>;
+            pairings?: Array<{
+              id: string;
+              desktopDeviceId: string;
+              companionDeviceId: string | null;
+              status: string;
+            }>;
+          };
+          error?: string;
+        }>;
+        onStatus: (callback: (data: unknown) => void) => () => void;
+      };
+
       people: {
         list: (payload?: string | { projectId?: string; leadStatus?: string; limit?: number }) => Promise<{
           success: boolean;
@@ -1477,23 +1555,7 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider:
-            | 'openai'
-            | 'anthropic'
-            | 'google'
-            | 'dome'
-            | 'minimax'
-            | 'openrouter'
-            | 'copilot'
-            | 'claude-oauth'
-            | 'openai-codex'
-            | 'deepseek'
-            | 'moonshot'
-            | 'qwen'
-            | 'opencode'
-            | 'opencode-go'
-            | 'vllm'
-            | 'lmstudio',
+          provider: IpcAiChatProvider,
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -1531,24 +1593,7 @@ declare global {
           cached?: boolean;
         }>;
         stream: (
-          provider:
-            | 'openai'
-            | 'anthropic'
-            | 'google'
-            | 'dome'
-            | 'ollama'
-            | 'minimax'
-            | 'openrouter'
-            | 'copilot'
-            | 'claude-oauth'
-            | 'openai-codex'
-            | 'deepseek'
-            | 'moonshot'
-            | 'qwen'
-            | 'opencode'
-            | 'opencode-go'
-            | 'vllm'
-            | 'lmstudio',
+          provider: IpcAiChatProvider | 'ollama',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -1566,24 +1611,7 @@ declare global {
           error?: string;
         }>;
         streamAgent: (
-          provider:
-            | 'openai'
-            | 'anthropic'
-            | 'google'
-            | 'ollama'
-            | 'minimax'
-            | 'openrouter'
-            | 'copilot'
-            | 'claude-oauth'
-            | 'openai-codex'
-            | 'dome'
-            | 'deepseek'
-            | 'moonshot'
-            | 'qwen'
-            | 'opencode'
-            | 'opencode-go'
-            | 'vllm'
-            | 'lmstudio',
+          provider: IpcAiChatProvider | 'ollama',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,
@@ -1645,7 +1673,7 @@ declare global {
         /** Reasoning efforts this provider/model supports, from the real model registry. */
         getThinkingLevels: (params: { provider: string; model: string; baseUrl?: string }) => Promise<{
           success: boolean;
-          data?: { reasoning: boolean; levels: Array<'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'> };
+          data?: { reasoning: boolean; levels: Array<'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'> };
           error?: string;
         }>;
         // AI Tools for Many agent

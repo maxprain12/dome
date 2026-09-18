@@ -177,13 +177,13 @@ export default function ManyActivityTrace({
                 const content = (
                   <>
                     <TraceGuideDot status={row.status} />
-                    <SafeText className={cn('shrink-0 font-medium', rowTone(row.status))}>
+                    <SafeText className={cn('min-w-0 flex-1 break-words font-medium', rowTone(row.status))}>
                       {row.primary}
                     </SafeText>
                     {row.secondary ? (
                       <SafeText
                         className={cn(
-                          'min-w-0 flex-1 text-[11.5px] text-muted-foreground',
+                          'min-w-0 basis-full break-words text-[11.5px] text-muted-foreground sm:basis-auto sm:flex-1',
                           row.mono && 'font-mono',
                         )}
                         title={row.secondary}
@@ -204,7 +204,7 @@ export default function ManyActivityTrace({
                   </>
                 );
                 const rowClass = cn(
-                  'flex min-w-0 items-baseline gap-1.5 rounded-md py-0.5 pl-4 pr-1.5 text-left text-xs',
+                  'flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 rounded-md py-0.5 pl-4 pr-1.5 text-left text-xs',
                   selected && 'bg-muted',
                 );
                 return (

@@ -33,6 +33,13 @@ const ALL_CHAT_PROVIDERS = [
   'opencode-go',
   'vllm',
   'lmstudio',
+  'xai',
+  'groq',
+  'mistral',
+  'fireworks',
+  'together',
+  'google-vertex',
+  'azure-openai-responses',
 ];
 
 function assertChatProvider(provider) {

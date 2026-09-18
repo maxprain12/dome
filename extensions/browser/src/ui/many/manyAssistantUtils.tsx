@@ -1,10 +1,18 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  ManyCompactArtifact,
+} from '../../../../../app/components/many/conversation/ManyVisualCards';
 import type { ManyComposerImage } from '../../../../../app/components/many/composer/ManyComposerSurface';
 import type {
   ManyConversationSurfaceMessage,
   ManySurfaceToolCall,
 } from '../../../../../app/components/many/conversation/ManyConversationSurface';
+import {
+  asRenderableArtifact,
+  collectSocialReferenceCards,
+  parseAssistantVisualSegments,
+} from '../../../../../app/lib/chat/manyVisualCards';
 import type * as api from '../../lib/client';
 
 export const MANY_PREFERENCE_KEYS = {
@@ -90,20 +98,38 @@ export function formatUsage(
 }
 
 export function assistantMarkdown(message: ManyConversationSurfaceMessage) {
+  const suppressProfileMetrics = collectSocialReferenceCards(message.tools ?? []).some(
+    (card) => card.kind === 'profile',
+  );
+  const segments = parseAssistantVisualSegments(message.text, Boolean(message.isStreaming), {
+    suppressProfileMetrics,
+  });
   return (
-    <div className="rendered-markdown">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children, href }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {children}
-            </a>
-          ),
-        }}
-      >
-        {message.text}
-      </ReactMarkdown>
+    <div className="rendered-markdown flex min-w-0 flex-col gap-2">
+      {segments.map((segment, index) => {
+        const key = `visual:${index}:${segment.kind}`;
+        if (segment.kind === 'text') {
+          if (!segment.content.trim()) return null;
+          return (
+            <ReactMarkdown
+              key={key}
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ children, href }) => (
+                  <a href={href} target="_blank" rel="noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {segment.content}
+            </ReactMarkdown>
+          );
+        }
+        if (segment.kind !== 'artifact') return null;
+        const artifact = asRenderableArtifact(segment.value);
+        return artifact ? <ManyCompactArtifact key={key} artifact={artifact} /> : null;
+      })}
     </div>
   );
 }

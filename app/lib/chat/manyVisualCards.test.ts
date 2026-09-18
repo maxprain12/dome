@@ -4,6 +4,7 @@ import {
   asRenderableArtifact,
   collectSocialInsight,
   collectSocialReferenceCards,
+  collectWorkCards,
   flattenToolDisplayCalls,
   parseAssistantVisualSegments,
   scrubOpaqueIdsFromProse,
@@ -92,7 +93,32 @@ describe('collectSocialInsight', () => {
     expect(insight?.title).toContain('Chongqing');
     expect(insight?.kpis.some((kpi) => kpi.label === 'impressions' && kpi.value === '233')).toBe(true);
     expect(insight?.comparison).toHaveLength(2);
+    expect(insight?.source).toBe('post');
     expect(JSON.stringify(insight)).not.toContain('sp-deadbeef');
+  });
+
+  it('builds KPIs and scale bars from a public profile', () => {
+    const insight = collectSocialInsight([
+      call({
+        name: 'social_public_resolve',
+        result: {
+          success: true,
+          card: {
+            kind: 'profile',
+            provider: 'instagram',
+            body: 'Spark creativity at every desk.',
+            followers: 57751,
+            postsCount: 1369,
+            following: 806,
+            author: { name: 'MelGeek', handle: 'melgeek_oficial' },
+          },
+        },
+      }),
+    ]);
+    expect(insight?.source).toBe('profile');
+    expect(insight?.kpis.some((kpi) => kpi.label === 'followers')).toBe(true);
+    expect(insight?.kpis.some((kpi) => kpi.label === 'posts')).toBe(true);
+    expect(insight?.comparison).toHaveLength(3);
   });
 });
 
@@ -161,5 +187,83 @@ describe('parseAssistantVisualSegments', () => {
     expect(artifact.value.type).toBe('chart');
     const data = artifact.value.data as { labels: string[] };
     expect(data.labels[0]).toBe('Chongqing');
+  });
+
+  it('lifts labeled metric lists into a dashboard and bar chart', () => {
+    const segments = parseAssistantVisualSegments(
+      [
+        'He resuelto el perfil.',
+        '',
+        '📌 Resumen del perfil',
+        '',
+        '- **Handle:** @melgeek_oficial',
+        '- **Bio:** Spark creativity at every desk.',
+        '- **Followers:** 57.751',
+        '- **Following:** 806',
+        '- **Posts totales:** 1.369 (cuenta madura, ritmo constante)',
+        '- **Categoría inferida:** Mechanical keyboards',
+      ].join('\n'),
+    );
+    const kinds = segments.filter((segment) => segment.kind === 'artifact').map((segment) => {
+      if (segment.kind !== 'artifact') return '';
+      return String(segment.value.type);
+    });
+    expect(kinds).toEqual(['dashboard', 'chart']);
+    const prose = segments
+      .filter((segment) => segment.kind === 'text')
+      .map((segment) => (segment.kind === 'text' ? segment.content : ''))
+      .join('\n');
+    expect(prose).toContain('He resuelto el perfil.');
+    expect(prose).not.toContain('57.751');
+    expect(prose).not.toContain('@melgeek_oficial');
+  });
+
+  it('drops duplicate profile metric lists when a profile card already exists', () => {
+    const segments = parseAssistantVisualSegments(
+      ['📌 Resumen del perfil', '', '- **Followers:** 57.751', '- **Posts totales:** 1.369'].join('\n'),
+      false,
+      { suppressProfileMetrics: true },
+    );
+    expect(segments.some((segment) => segment.kind === 'artifact')).toBe(false);
+    expect(segments.some((segment) => segment.kind === 'text' && segment.content.includes('57.751'))).toBe(
+      false,
+    );
+  });
+});
+
+describe('collectWorkCards', () => {
+  it('shows a saved note without the resource id', () => {
+    const cards = collectWorkCards([
+      call({
+        name: 'resource_create',
+        result: {
+          success: true,
+          resource: { id: 'res_hidden', type: 'note', title: 'Briefing de la semana', content: 'Enviar el resumen.' },
+        },
+      }),
+    ]);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.kind).toBe('note');
+    expect(cards[0]?.title).toBe('Briefing de la semana');
+    expect(JSON.stringify(cards)).not.toContain('res_hidden');
+  });
+
+  it('stacks upcoming events without calendar ids', () => {
+    const cards = collectWorkCards([
+      call({
+        name: 'calendar_list_events',
+        result: {
+          success: true,
+          events: [
+            { id: 'evt-1', title: 'Dentista', start_at: Date.parse('2026-09-18T16:00:00Z'), location: 'Clínica' },
+            { id: 'evt-2', title: 'sp-deadbeef' },
+          ],
+        },
+      }),
+    ]);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.kind).toBe('events');
+    expect(cards[0]?.items?.map((item) => item.title)).toEqual(['Dentista']);
+    expect(JSON.stringify(cards)).not.toContain('evt-1');
   });
 });

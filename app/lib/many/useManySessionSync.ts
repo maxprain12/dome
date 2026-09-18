@@ -13,6 +13,7 @@ import {
 import { mergeManySessionMessages } from '@/lib/chat/mergeManySessionMessages';
 import { syncManyActiveRunIndicators } from '@/lib/chat/syncManyActiveRunIndicators';
 import { syncManyDeletedIdsFromDb } from '@/lib/store/manySessionStorage';
+import { onRunUpdated } from '@/lib/automations/api';
 
 const SESSION_LOAD_RETRY_MS = [0, 250, 600, 1200] as const;
 
@@ -205,6 +206,39 @@ export function useManySessionSync({ chatProjectId, showHistory }: UseManySessio
     if (ids.length === 0) return;
     void syncManyActiveRunIndicators(ids);
   }, [showHistory, historySessionIdsKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return undefined;
+    try {
+      const unsubscribe = onRunUpdated((payload) => {
+        const run = payload?.run;
+        if (!run || run.ownerType !== 'many' || !run.threadId) return;
+        const threadId = run.threadId;
+        const state = useManyStore.getState();
+        if (!state.sessions.some((session) => session.id === threadId)) {
+          state.hydrateSession({
+            id: threadId,
+            title: run.title || 'Many',
+            messages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+        const next = useManyStore.getState();
+        const currentId = next.currentSessionId;
+        const idleEmpty = next.messages.length === 0 && !next.activeRunBySessionId[currentId ?? ''];
+        if (idleEmpty && currentId !== threadId) {
+          next.switchSession(threadId);
+        }
+        void hydrateFromThreads();
+      });
+      return () => {
+        unsubscribe?.();
+      };
+    } catch {
+      return undefined;
+    }
+  }, [hydrateFromThreads]);
 
   return {
     currentSession,

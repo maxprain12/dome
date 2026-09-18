@@ -405,7 +405,14 @@ export type AIProviderType =
   | 'opencode'
   | 'opencode-go'
   | 'vllm'
-  | 'lmstudio';
+  | 'lmstudio'
+  | 'xai'
+  | 'groq'
+  | 'mistral'
+  | 'fireworks'
+  | 'together'
+  | 'google-vertex'
+  | 'azure-openai-responses';
 
 // Configuración de IA
 export interface AISettings {

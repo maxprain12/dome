@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ import ManyHitlInlineCard from '../../../../app/components/many/ManyHitlInlineCa
 import ManyComposerSurface, {
   type ManyComposerImage,
 } from '../../../../app/components/many/composer/ManyComposerSurface';
+import { ManySkillPicker, ManyMentionPicker } from '../../../../app/components/many/composer/ManyComposerPickers';
 import ManyConversationSurface, {
   type ManyConversationSurfaceMessage,
 } from '../../../../app/components/many/conversation/ManyConversationSurface';
@@ -42,12 +44,42 @@ import type {
   ManyAssistantProps,
 } from './many/types';
 import { useManyTransport } from './many/useManyTransport';
+import { useSlashSkills } from '../../../../app/lib/chat/useSlashSkills';
+import { skillChipsFromUserTurn, stripSkillInvocationText } from '../../../../app/lib/chat/userTurnContext';
+import { ManyPlanDock } from '../../../../app/components/many/conversation/ManyPlanDock';
+import { ManyModeSwitcher } from '../../../../app/components/many/composer/ManyModeSwitcher';
+import {
+  modeFromSlashId,
+  parseComposerModeCommand,
+  type ManyAgentMode,
+} from '../../../../app/lib/many/agentMode';
+import { composerModeIslandClass } from '../../../../app/lib/many/composerMode';
+import {
+  extractPlanTodoItems,
+  formatExecutePrompt,
+  formatRefinePrompt,
+  markCompletedSteps,
+  questionnaireFromActionRequests,
+  type PlanTodo,
+} from '../../../../app/lib/many/planDocument';
+import type { MentionItem } from '../../../../app/lib/chat/mentionItems';
 
 export type {
   ManyAssistantHandle,
   ManyAssistantHeaderState,
   Task,
 } from './many/types';
+
+function mentionTrigger(text: string, cursor: number): { index: number; query: string } | null {
+  const upto = text.slice(0, cursor);
+  const atIdx = upto.lastIndexOf('@');
+  if (atIdx < 0) return null;
+  const before = atIdx === 0 ? ' ' : upto[atIdx - 1];
+  if (atIdx > 0 && !/\s/.test(before ?? '')) return null;
+  const after = upto.slice(atIdx + 1);
+  if (after.includes(' ') || after.includes('\n')) return null;
+  return { index: atIdx, query: after };
+}
 
 const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(function ManyAssistant(
   {
@@ -83,7 +115,16 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   const [thinkingLevel, setThinkingLevel] = useState<api.ThinkingLevel>('off');
   const [mcpServerIds, setMcpServerIds] = useState<string[]>([]);
   const [pins, setPins] = useState<api.PinnedResource[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<Array<{ id: string; title: string }>>([]);
   const [images, setImages] = useState<ManyComposerImage[]>([]);
+  const composerWrapRef = useRef<HTMLDivElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const mentionPanelRef = useRef<HTMLDivElement>(null);
+  const lastPlanExtractId = useRef<string | null>(null);
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionSelectedIdx, setMentionSelectedIdx] = useState(0);
+  const [mentionRect, setMentionRect] = useState<{ top: number; left: number } | null>(null);
   const [resourceQuery, setResourceQuery] = useState('');
   const [resourceResults, setResourceResults] = useState<api.ResourceSearchItem[]>([]);
   const [toolsEnabled, setToolsEnabled] = useState(true);
@@ -96,6 +137,11 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   const [error, setError] = useState('');
   const [appliedMessageId, setAppliedMessageId] = useState<string | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const [agentMode, setAgentMode] = useState<ManyAgentMode>('agent');
+  const [planTodos, setPlanTodos] = useState<PlanTodo[]>([]);
+  const [planExecuting, setPlanExecuting] = useState(false);
+  const [planChoiceOpen, setPlanChoiceOpen] = useState(false);
+  const [planRefineArmed, setPlanRefineArmed] = useState(false);
 
   const refreshSessions = useCallback(async () => {
     const result = await api.listManySessions(token);
@@ -143,6 +189,9 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     setCompaction(null);
     setApprovalEditOpen(false);
     setAppliedMessageId(null);
+    setPlanTodos([]);
+    setPlanExecuting(false);
+    setPlanChoiceOpen(false);
   }, [interactionLocked, setApprovalEditOpen]);
 
   const startNewChat = useCallback(() => {
@@ -328,7 +377,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   }, [refreshSessions, t, view]);
 
   useEffect(() => {
-    if (resourceQuery.trim().length < 2) {
+    if (!mentionActive) {
       setResourceResults([]);
       return;
     }
@@ -336,7 +385,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     const timer = setTimeout(() => {
       api
         .searchResources(token, {
-          query: resourceQuery.trim(),
+          query: resourceQuery.trim() || '*',
           projectId,
           limit: 10,
         })
@@ -352,23 +401,53 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [projectId, resourceQuery, token]);
+  }, [mentionActive, projectId, resourceQuery, token]);
 
   useEffect(
     () => cancelOnUnmount,
     [cancelOnUnmount],
   );
 
+  useEffect(() => {
+    if (running || pendingApproval) return;
+    const last = [...messages].reverse().find((message) => message.role === 'assistant');
+    if (!last?.text || last.id === lastPlanExtractId.current) return;
+    lastPlanExtractId.current = last.id;
+    if (agentMode === 'plan') {
+      const extracted = extractPlanTodoItems(last.text);
+      if (extracted.length > 0) {
+        setPlanTodos(extracted);
+        setPlanChoiceOpen(true);
+      }
+      return;
+    }
+    if (planExecuting) {
+      setPlanTodos((current) => markCompletedSteps(last.text, current));
+    }
+  }, [agentMode, messages, pendingApproval, planExecuting, running]);
+
   const run = async (instruction: string) => {
     if (interactionLocked) return;
+    const nextMode = parseComposerModeCommand(instruction);
+    if (nextMode) {
+      setAgentMode(nextMode);
+      setPrompt('');
+      return;
+    }
     const context = getContext();
     if (!context.trim() && images.length === 0 && !toolsEnabled) {
       setError(t('emptyContext'));
       return;
     }
-    const displayPrompt = instruction.trim() || t('imagePromptFallback');
+    const rawInstruction = instruction.trim() || t('imagePromptFallback');
+    const displayPrompt = stripSkillInvocationText(rawInstruction) || rawInstruction;
     const messageImages = images.map((image) => ({ ...image }));
+    const skills = skillChipsFromUserTurn(
+      rawInstruction,
+      selectedSkills.map((skill) => ({ id: skill.id, name: skill.title })),
+    );
     setPrompt('');
+    setSelectedSkills([]);
     setAppliedMessageId(null);
     const bodyImages = messageImages.map((image) => ({
       dataUrl: image.dataUrl,
@@ -378,6 +457,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     await runTransport({
       displayPrompt,
       images: messageImages,
+      skills,
       buildBody: (streamId) => ({
           action: 'ask',
           browserTools: toolsEnabled,
@@ -395,7 +475,8 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           mcpServerIds: toolsEnabled ? mcpServerIds : [],
           pinnedResources: resourceToolsEnabled ? pins : [],
           attachments: bodyImages.length > 0 ? { images: bodyImages } : undefined,
-          prompt: `${displayPrompt}\nRespond in ${i18n.language}. Task: ${task}. Use the browser tools whenever the request depends on the current page or asks you to navigate or interact.`,
+          prompt: `${rawInstruction}\nRespond in ${i18n.language}. Task: ${task}. Use the browser tools whenever the request depends on the current page or asks you to navigate or interact.`,
+          agentMode,
       }),
       onStarted: () =>
         browser.storage.local.set({ 'dome.manyThread': threadId }),
@@ -456,6 +537,86 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       label: skill.name,
       description: skill.description,
     })) ?? [];
+  const slashCatalog = skillItems.map((skill) => ({
+    id: skill.id,
+    name: skill.label,
+    description: skill.description || '',
+    prompt: '',
+  }));
+  const slashModeItems = (
+    ['plan', 'draft', 'agent'] as const
+  ).map((mode) => ({
+    id: `mode:${mode}`,
+    name: mode,
+    description: t(`many.mode_${mode}_hint`),
+    prompt: '',
+  }));
+  const slash = useSlashSkills({
+    input: prompt,
+    setInput: setPrompt,
+    inputRef: composerInputRef,
+    containerRef: composerWrapRef,
+    catalog: slashCatalog,
+    enabled: true,
+    prefixItems: slashModeItems,
+  });
+  const pickSlashSkill = useCallback(
+    (skill: { id: string; name: string; description: string; prompt?: string }) => {
+      const cursor = composerInputRef.current?.selectionStart ?? prompt.length;
+      const mode = modeFromSlashId(skill.id);
+      if (mode) {
+        slash.removeSlashTokenFromInput(cursor);
+        setAgentMode(mode);
+        return;
+      }
+      slash.removeSlashTokenFromInput(cursor);
+      setSelectedSkills((previous) =>
+        previous.some((item) => item.id === skill.id)
+          ? previous
+          : [...previous, { id: skill.id, title: skill.name }],
+      );
+    },
+    [prompt, slash],
+  );
+
+  const mentionItems: MentionItem[] = resourceResults.map((resource) => ({
+    kind: 'resource',
+    id: resource.id,
+    title: readableLabel(resource.title ?? resource.name, t('untitledResource')),
+    type: resource.type || resource.kind || 'resource',
+  }));
+
+  const pickMention = useCallback(
+    (item: MentionItem) => {
+      const cursor = composerInputRef.current?.selectionStart ?? prompt.length;
+      const trig = mentionTrigger(prompt, cursor);
+      if (trig) {
+        setPrompt(`${prompt.slice(0, trig.index)}${prompt.slice(cursor)}`);
+      }
+      setPins((previous) =>
+        previous.some((pin) => pin.id === item.id)
+          ? previous
+          : [...previous, { id: item.id, title: item.title }],
+      );
+      setMentionActive(false);
+    },
+    [prompt],
+  );
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setResourceQuery(mentionQuery);
+    setMentionSelectedIdx(0);
+  }, [mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive || !composerWrapRef.current) {
+      setMentionRect(null);
+      return;
+    }
+    const rect = composerWrapRef.current.getBoundingClientRect();
+    setMentionRect({ top: rect.top, left: rect.left });
+  }, [mentionActive]);
   const mcpItems =
     bootstrap?.catalogs.mcp.servers
       .filter((server) => server.enabled)
@@ -478,7 +639,13 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   );
 
   const controls = (
-    <ManyAssistantControls
+    <>
+      <ManyModeSwitcher
+        disabled={interactionLocked}
+        mode={agentMode}
+        onModeChange={setAgentMode}
+      />
+      <ManyAssistantControls
       skills={skillItems}
       mcpServers={mcpItems}
       resources={resourceItems}
@@ -496,9 +663,19 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       thinkingLevels={
         bootstrap?.config.capabilities.thinkingLevels ?? ['off']
       }
-      onInsertSkill={(label) =>
-        setPrompt((previous) => `${previous}/${label} `)
-      }
+      onInsertSkill={(label) => {
+        const match = slashCatalog.find((skill) => skill.name === label);
+        if (match) {
+          pickSlashSkill(match);
+          return;
+        }
+        setPrompt((previous) => `${previous}/${label} `);
+        setSelectedSkills((previous) =>
+          previous.some((item) => item.title === label)
+            ? previous
+            : [...previous, { id: label, title: label }],
+        );
+      }}
       onToggleMcp={(item) => {
         setMcpServerIds((previous) =>
           previous.includes(item.id)
@@ -527,6 +704,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       }}
       onThinkingLevelChange={setThinkingLevel}
     />
+    </>
   );
 
   const pinSession = async (id: string, pinned: boolean) => {
@@ -663,6 +841,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     );
   }
 
+  const questionnaireQuestions = questionnaireFromActionRequests(pendingApproval?.actionRequests);
   const approvalAction = pendingApproval?.actionRequests[0];
   const approvalAllowsEdit = Boolean(
     approvalAction &&
@@ -671,7 +850,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         ?.allowedDecisions.includes('edit'),
   );
   const approvalNode =
-    pendingApproval && approvalAction ? (
+    pendingApproval && approvalAction && questionnaireQuestions.length === 0 ? (
       <div
         className={
           phase === 'resuming'
@@ -788,7 +967,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
             </div>
           ) : null
         }
-        approval={approvalNode}
+        approval={null}
         emptyState={
           <div className="many-welcome">
             <ManyAvatar size="lg" state="idle" imageSrc={manyMark} />
@@ -850,11 +1029,88 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         </p>
       ) : null}
 
+      {approvalNode ? <div className="mx-3 mb-1">{approvalNode}</div> : null}
+      <ManyPlanDock
+        questions={questionnaireQuestions}
+        todos={planTodos}
+        phase={
+          questionnaireQuestions.length > 0
+            ? 'questionnaire'
+            : planExecuting && planTodos.length > 0
+              ? 'executing'
+              : agentMode === 'plan' && planTodos.length > 0 && planChoiceOpen
+                ? 'choose'
+                : null
+        }
+        busy={running}
+        onSubmitQuestionnaire={(answers) => {
+          resumeApproval({ type: 'approve', answers }).catch(() => setError(t('error')));
+        }}
+        onCancelQuestionnaire={() => {
+          resumeApproval({ type: 'reject', cancelled: true }).catch(() => setError(t('error')));
+        }}
+        onExecute={() => {
+          setAgentMode('agent');
+          setPlanExecuting(true);
+          setPlanChoiceOpen(false);
+          run(formatExecutePrompt(planTodos)).catch(() => setError(t('error')));
+        }}
+        onStay={() => setPlanChoiceOpen(false)}
+        onRefine={() => {
+          setPlanRefineArmed(true);
+        }}
+      />
+
       <ManyComposerSurface
         value={prompt}
         onValueChange={setPrompt}
+        onCaretChange={(value, caret) => {
+          const mention = mentionTrigger(value, caret);
+          if (mention) {
+            setMentionQuery(mention.query);
+            setMentionActive(true);
+            slash.setSlashActive(false);
+            return;
+          }
+          setMentionActive(false);
+          slash.updateFromText(value, caret);
+        }}
+        onInputKeyDown={(event) => {
+          if (mentionActive) {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setMentionSelectedIdx((idx) =>
+                Math.min(idx + 1, Math.max(mentionItems.length - 1, 0)),
+              );
+              return true;
+            }
+            if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              setMentionSelectedIdx((idx) => Math.max(idx - 1, 0));
+              return true;
+            }
+            if (event.key === 'Enter' || event.key === 'Tab') {
+              event.preventDefault();
+              const selected = mentionItems[mentionSelectedIdx];
+              if (selected) pickMention(selected);
+              return true;
+            }
+            if (event.key === 'Escape') {
+              setMentionActive(false);
+              return true;
+            }
+          }
+          const result = slash.handleSlashKeyDown(event);
+          if (!result.handled) return false;
+          if (result.skill) pickSlashSkill(result.skill);
+          return true;
+        }}
         onSend={() => {
-          run(prompt).catch(() => setError(t('error')));
+          const next = planRefineArmed
+            ? formatRefinePrompt(planTodos, prompt)
+            : prompt;
+          setPlanRefineArmed(false);
+          run(next).catch(() => setError(t('error')));
         }}
         onStop={stop}
         onFiles={(files) => {
@@ -866,9 +1122,13 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         onRemovePin={(id) =>
           setPins((previous) => previous.filter((pin) => pin.id !== id))
         }
+        onRemoveSkill={(id) =>
+          setSelectedSkills((previous) => previous.filter((skill) => skill.id !== id))
+        }
         images={images}
         pins={pins}
-        placeholder={t('askPlaceholder')}
+        skills={selectedSkills}
+        placeholder={planRefineArmed ? t('many.plan_refine_placeholder', 'Refine the plan…') : t('askPlaceholder')}
         sendLabel={t('ask')}
         stopLabel={t('cancel')}
         attachLabel={t('attachImages')}
@@ -876,8 +1136,37 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
         isLoading={running}
         disabled={disabled || loading || interactionLocked}
         maxLength={3800}
+        islandClassName={composerModeIslandClass(agentMode)}
         controls={controls}
         usage={usageNode}
+        inputRef={composerInputRef}
+        containerRef={composerWrapRef}
+        pickers={
+          <>
+            <ManySkillPicker
+              open={slash.slashActive}
+              anchorRect={slash.slashRect}
+              panelRef={slash.slashDropdownRef}
+              skills={slash.filteredSkills}
+              selectedIdx={slash.slashSelectedIdx}
+              onHover={slash.setSlashSelectedIdx}
+              onPick={pickSlashSkill}
+              activeStickySkillId={null}
+              currentSessionId={null}
+              onToggleSticky={() => {}}
+              onClose={() => slash.setSlashActive(false)}
+            />
+            <ManyMentionPicker
+              open={mentionActive}
+              anchorRect={mentionRect}
+              panelRef={mentionPanelRef}
+              resources={mentionItems}
+              selectedIdx={mentionSelectedIdx}
+              onHover={setMentionSelectedIdx}
+              onSelect={pickMention}
+            />
+          </>
+        }
       />
     </aside>
   );

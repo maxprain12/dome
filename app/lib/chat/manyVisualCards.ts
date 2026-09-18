@@ -25,7 +25,7 @@ export type ManySocialReferenceCard = {
 };
 
 export type ManySocialInsightKpi = {
-  label: 'impressions' | 'likes' | 'comments' | 'saves' | 'shares' | 'engagement';
+  label: 'impressions' | 'likes' | 'comments' | 'saves' | 'shares' | 'engagement' | 'followers' | 'posts' | 'following';
   value: string;
 };
 
@@ -45,6 +45,7 @@ export type ManySocialInsight = {
   handle: string | null;
   authorName: string;
   avatarUrl: string | null;
+  source: 'post' | 'profile';
   kpis: ManySocialInsightKpi[];
   mix: ManySocialInsightMix[];
   comparison: ManySocialInsightCompare[];
@@ -217,56 +218,90 @@ function engagementRate(model: SocialEvidenceCardModel): number | null {
   return Math.round((engaged / impressions) * 1000) / 10;
 }
 
+function compactCount(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return compactNumber(value);
+}
+
 export function collectSocialInsight(calls: VisualCardToolCall[]): ManySocialInsight | null {
-  const { fromGet, posts } = collectPostAndProfileCards(calls);
+  const { fromGet, posts, profiles } = collectPostAndProfileCards(calls);
   const ranked = newestPosts(fromGet.length > 0 ? [...fromGet, ...posts] : posts);
   const focus = ranked[0];
-  if (!focus) return null;
+  if (focus) {
+    const kpis: ManySocialInsightKpi[] = [];
+    const metrics = focus.model.metrics;
+    if (metrics?.impressions != null) {
+      kpis.push({ label: 'impressions', value: compactNumber(metrics.impressions) });
+    }
+    if (metrics?.likes != null) kpis.push({ label: 'likes', value: compactNumber(metrics.likes) });
+    if (metrics?.comments != null) kpis.push({ label: 'comments', value: compactNumber(metrics.comments) });
+    if (metrics?.saves != null) kpis.push({ label: 'saves', value: compactNumber(metrics.saves) });
+    if (metrics?.shares != null) kpis.push({ label: 'shares', value: compactNumber(metrics.shares) });
+    const rate = engagementRate(focus.model);
+    if (rate != null) kpis.push({ label: 'engagement', value: `${rate}%` });
 
+    const mixParts: Array<{ label: ManySocialInsightMix['label']; value: number }> = [
+      { label: 'likes', value: metrics?.likes ?? 0 },
+      { label: 'comments', value: metrics?.comments ?? 0 },
+      { label: 'saves', value: metrics?.saves ?? 0 },
+    ];
+    const mixTotal = mixParts.reduce((sum, part) => sum + part.value, 0);
+    const mix: ManySocialInsightMix[] =
+      mixTotal > 0
+        ? mixParts
+            .filter((part) => part.value > 0)
+            .map((part) => ({ label: part.label, percent: Math.round((part.value / mixTotal) * 100) }))
+        : [];
+
+    const comparison = ranked.slice(0, MAX_COMPARISON_POSTS).map((card) => ({
+      label: postLabel(card.model),
+      impressions: card.model.metrics?.impressions ?? 0,
+      likes: card.model.metrics?.likes ?? 0,
+    }));
+
+    if (kpis.length === 0 && comparison.every((row) => row.impressions === 0 && row.likes === 0)) {
+      return collectProfileInsight(profiles[0]?.model ?? null);
+    }
+
+    return {
+      title: postLabel(focus.model),
+      handle: focus.model.author.handle ?? null,
+      authorName: focus.model.author.name,
+      avatarUrl: focus.model.author.avatarUrl ?? null,
+      source: 'post',
+      kpis,
+      mix,
+      comparison,
+      topics: (focus.model.topics ?? []).filter((topic) => topic && !looksLikeOpaqueId(topic)).slice(0, 6),
+    };
+  }
+  return collectProfileInsight(profiles[0]?.model ?? null);
+}
+
+function collectProfileInsight(model: SocialEvidenceCardModel | null): ManySocialInsight | null {
+  if (!model) return null;
   const kpis: ManySocialInsightKpi[] = [];
-  const metrics = focus.model.metrics;
-  if (metrics?.impressions != null) {
-    kpis.push({ label: 'impressions', value: compactNumber(metrics.impressions) });
-  }
-  if (metrics?.likes != null) kpis.push({ label: 'likes', value: compactNumber(metrics.likes) });
-  if (metrics?.comments != null) kpis.push({ label: 'comments', value: compactNumber(metrics.comments) });
-  if (metrics?.saves != null) kpis.push({ label: 'saves', value: compactNumber(metrics.saves) });
-  if (metrics?.shares != null) kpis.push({ label: 'shares', value: compactNumber(metrics.shares) });
-  const rate = engagementRate(focus.model);
-  if (rate != null) kpis.push({ label: 'engagement', value: `${rate}%` });
-
-  const mixParts: Array<{ label: ManySocialInsightMix['label']; value: number }> = [
-    { label: 'likes', value: metrics?.likes ?? 0 },
-    { label: 'comments', value: metrics?.comments ?? 0 },
-    { label: 'saves', value: metrics?.saves ?? 0 },
-  ];
-  const mixTotal = mixParts.reduce((sum, part) => sum + part.value, 0);
-  const mix: ManySocialInsightMix[] =
-    mixTotal > 0
-      ? mixParts
-          .filter((part) => part.value > 0)
-          .map((part) => ({ label: part.label, percent: Math.round((part.value / mixTotal) * 100) }))
-      : [];
-
-  const comparison = ranked.slice(0, MAX_COMPARISON_POSTS).map((card) => ({
-    label: postLabel(card.model),
-    impressions: card.model.metrics?.impressions ?? 0,
-    likes: card.model.metrics?.likes ?? 0,
-  }));
-
-  if (kpis.length === 0 && comparison.every((row) => row.impressions === 0 && row.likes === 0)) {
-    return null;
-  }
-
+  const followers = compactCount(model.followers);
+  if (followers) kpis.push({ label: 'followers', value: followers });
+  const posts = compactCount(model.postsCount);
+  if (posts) kpis.push({ label: 'posts', value: posts });
+  const following = compactCount(model.following);
+  if (following) kpis.push({ label: 'following', value: following });
+  const comparison: ManySocialInsightCompare[] = [];
+  if (model.followers != null) comparison.push({ label: 'Followers', impressions: model.followers, likes: 0 });
+  if (model.following != null) comparison.push({ label: 'Following', impressions: model.following, likes: 0 });
+  if (model.postsCount != null) comparison.push({ label: 'Posts', impressions: model.postsCount, likes: 0 });
+  if (kpis.length === 0 && comparison.length < 2) return null;
   return {
-    title: postLabel(focus.model),
-    handle: focus.model.author.handle ?? null,
-    authorName: focus.model.author.name,
-    avatarUrl: focus.model.author.avatarUrl ?? null,
+    title: model.author.name,
+    handle: model.author.handle ?? null,
+    authorName: model.author.name,
+    avatarUrl: model.author.avatarUrl ?? null,
+    source: 'profile',
     kpis,
-    mix,
+    mix: [],
     comparison,
-    topics: (focus.model.topics ?? []).filter((topic) => topic && !looksLikeOpaqueId(topic)).slice(0, 6),
+    topics: (model.topics ?? []).filter((topic) => topic && !looksLikeOpaqueId(topic)).slice(0, 6),
   };
 }
 
@@ -274,6 +309,153 @@ export function asRenderableArtifact(value: Record<string, unknown>): AnyArtifac
   const type = value.type;
   if (typeof type !== 'string' || !KNOWN_ARTIFACT_TYPES.has(type)) return null;
   return value as AnyArtifact;
+}
+
+export type ManyWorkKind = 'note' | 'resource' | 'event' | 'events' | 'flashcards';
+
+export type ManyWorkItem = {
+  title: string;
+  detail?: string;
+};
+
+export type ManyWorkCard = {
+  key: string;
+  kind: ManyWorkKind;
+  kicker: ManyWorkKind;
+  title: string;
+  detail?: string;
+  count?: number;
+  items?: ManyWorkItem[];
+};
+
+const RESOURCE_TOOLS = new Set(['resource_create', 'resource_update']);
+const CALENDAR_WRITE_TOOLS = new Set([
+  'calendar_create_event',
+  'calendar_update_event',
+  'calendar_create',
+  'calendar_update',
+]);
+const CALENDAR_LIST_TOOLS = new Set(['calendar_list_events', 'calendar_get_upcoming']);
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function humanTitle(value: unknown, max = 120): string | null {
+  const title = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!title || looksLikeOpaqueId(title)) return null;
+  return title.slice(0, max);
+}
+
+function parseStamp(value: unknown): Date | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return new Date(value);
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return new Date(parsed);
+  }
+  return null;
+}
+
+export function formatVisualWhen(start: unknown, end: unknown, allDay: boolean): string | undefined {
+  const startDate = parseStamp(start);
+  if (!startDate) return undefined;
+  const day = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(startDate);
+  if (allDay) return day;
+  const timeFmt = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+  const startTime = timeFmt.format(startDate);
+  const endDate = parseStamp(end);
+  if (!endDate) return `${day} · ${startTime}`;
+  return `${day} · ${startTime}–${timeFmt.format(endDate)}`;
+}
+
+function eventDetail(rec: Record<string, unknown>): string | undefined {
+  const when = formatVisualWhen(
+    rec.start_at_iso ?? rec.startAt ?? rec.start_at,
+    rec.end_at_iso ?? rec.endAt ?? rec.end_at,
+    rec.all_day === true || rec.allDay === true,
+  );
+  const location = humanTitle(rec.location, 80);
+  return [when, location].filter(Boolean).join(' · ') || undefined;
+}
+
+function workFromEvent(rec: Record<string, unknown> | null, index: number): ManyWorkCard | null {
+  if (!rec) return null;
+  const title = humanTitle(rec.title, 80);
+  if (!title) return null;
+  return {
+    key: `event-${title}-${index}`,
+    kind: 'event',
+    kicker: 'event',
+    title,
+    detail: eventDetail(rec),
+  };
+}
+
+function workFromResource(obj: Record<string, unknown>, index: number): ManyWorkCard | null {
+  const rec = asObject(obj.resource) ?? obj;
+  const title = humanTitle(rec.title, 120);
+  if (!title) return null;
+  const type = String(rec.type || 'note').toLowerCase();
+  const excerpt = humanTitle(rec.content, 280) ?? undefined;
+  return {
+    key: `resource-${title}-${index}`,
+    kind: type === 'note' ? 'note' : 'resource',
+    kicker: type === 'note' ? 'note' : 'resource',
+    title,
+    detail: excerpt,
+  };
+}
+
+export function collectWorkCards(calls: VisualCardToolCall[]): ManyWorkCard[] {
+  const cards: ManyWorkCard[] = [];
+  calls.forEach((call, index) => {
+    if (call.status !== 'success') return;
+    const name = call.name.toLowerCase();
+    const obj = unwrapToolResultObject(call.result);
+    if (!obj) return;
+    if (RESOURCE_TOOLS.has(name)) {
+      const card = workFromResource(obj, index);
+      if (card) cards.push(card);
+      return;
+    }
+    if (CALENDAR_WRITE_TOOLS.has(name)) {
+      const card = workFromEvent(asObject(obj.event) ?? obj, index);
+      if (card) cards.push(card);
+      return;
+    }
+    if (CALENDAR_LIST_TOOLS.has(name)) {
+      const rows = Array.isArray(obj.events) ? obj.events : Array.isArray(obj.items) ? obj.items : [];
+      const items = rows
+        .map((row) => workFromEvent(asObject(row), index))
+        .filter((row): row is ManyWorkCard => row != null)
+        .slice(0, 8)
+        .map((row) => ({ title: row.title, detail: row.detail }));
+      if (items.length === 0) return;
+      cards.push({
+        key: `agenda-${index}`,
+        kind: 'events',
+        kicker: 'events',
+        title: '',
+        items,
+      });
+      return;
+    }
+    if (name === 'flashcard_create') {
+      const deck = asObject(obj.deck) ?? obj;
+      const title = humanTitle(deck.title, 120);
+      if (!title) return;
+      const count = typeof deck.card_count === 'number' ? deck.card_count : null;
+      cards.push({
+        key: `flashcards-${title}-${index}`,
+        kind: 'flashcards',
+        kicker: 'flashcards',
+        title,
+        count: typeof count === 'number' ? count : undefined,
+      });
+    }
+  });
+  return cards;
 }
 
 const OPAQUE_ID_PARENS = /\s*\((?:sp|sa|soc|scamp|sr)-[0-9a-f]{6,}\)/gi;
@@ -290,6 +472,147 @@ export function isGenericVisualTitle(title: string): boolean {
   return /^(métrica|metric|imp|imps|impressions?|likes?|valor|value|ratio|table|chart|post|posts)$/i.test(
     cleanVisualLabel(title),
   );
+}
+
+const LABELED_LIST_ITEM =
+  /^\s*(?:[-*]|\d+[.)])\s+(?:\*\*)?([^:*\n]+?)(?:\*\*)?:\s*(.+)\s*$/;
+const PROFILE_FIELD_LABEL =
+  /^(handle|usuario|user|bio|biograf[ií]a|categor[ií]a(?: inferida)?|category|nombre|name)$/i;
+const METRIC_FIELD_LABEL =
+  /(followers?|seguidores|following|seguidos|posts?|publicaciones|impresiones|impressions?|likes?|me gusta|comments?|comentarios|saves?|guardados|shares?|compartidos|engagement|alcance|reach|views?|vistas)/i;
+const VISUAL_HEADING =
+  /^(?:#{1,3}\s+)?(?:[📌📊🎯✅🔹]\s*)?(resumen(?: del perfil)?|profile summary|overview|m[eé]tricas(?: clave)?|key metrics|stats|estad[ií]sticas)\s*$/iu;
+
+function parseHumanNumber(raw: string): number | null {
+  let text = cleanVisualLabel(raw).replace(/["“”]/g, '');
+  const cut = text.indexOf('(');
+  if (cut >= 0) text = text.slice(0, cut);
+  text = text.replace(/%/g, '').trim();
+  if (!text) return null;
+  const mil = text.match(/^([\d.,\s]+)\s*(mil|k)\b/i);
+  if (mil?.[1]) {
+    const n = parseGroupedNumber(mil[1]);
+    return n == null ? null : n * 1000;
+  }
+  const mill = text.match(/^([\d.,\s]+)\s*(mill\.?|m)\b/i);
+  if (mill?.[1]) {
+    const n = parseGroupedNumber(mill[1]);
+    return n == null ? null : n * 1_000_000;
+  }
+  return parseGroupedNumber(text);
+}
+
+function parseGroupedNumber(raw: string): number | null {
+  const text = raw.replace(/\s/g, '');
+  if (!text) return null;
+  if (/^\d{1,3}(\.\d{3})+$/.test(text)) return Number(text.replace(/\./g, ''));
+  if (/^\d{1,3}(,\d{3})+$/.test(text)) return Number(text.replace(/,/g, ''));
+  if (/^\d+[.,]\d{1,2}$/.test(text)) return Number(text.replace(',', '.'));
+  if (/^\d+$/.test(text)) return Number(text);
+  return null;
+}
+
+function parseLabeledListItem(line: string): { label: string; value: string } | null {
+  const match = line.match(LABELED_LIST_ITEM);
+  if (!match?.[1] || match[2] == null) return null;
+  const label = cleanVisualLabel(match[1]);
+  const value = cleanVisualLabel(match[2]);
+  if (!label || !value) return null;
+  return { label, value };
+}
+
+function takeLabeledList(
+  lines: string[],
+  start: number,
+): { items: Array<{ label: string; value: string }>; end: number } | null {
+  const items: Array<{ label: string; value: string }> = [];
+  let index = start;
+  while (index < lines.length) {
+    const line = lines[index] ?? '';
+    if (!line.trim()) {
+      const next = parseLabeledListItem(lines[index + 1] ?? '');
+      if (next) {
+        index += 1;
+        continue;
+      }
+      break;
+    }
+    const item = parseLabeledListItem(line);
+    if (!item) break;
+    items.push(item);
+    index += 1;
+  }
+  if (items.length < 2) return null;
+  return { items, end: index };
+}
+
+function labeledListKind(
+  items: Array<{ label: string; value: string }>,
+): 'metrics' | 'profile-copy' | null {
+  const metrics = items.filter(
+    (item) => METRIC_FIELD_LABEL.test(item.label) && parseHumanNumber(item.value) != null,
+  );
+  const profile = items.filter((item) => PROFILE_FIELD_LABEL.test(item.label));
+  if (metrics.length >= 2) return 'metrics';
+  if (profile.length >= 2) return 'profile-copy';
+  return null;
+}
+
+function isVisualHeading(line: string): boolean {
+  return VISUAL_HEADING.test(cleanVisualLabel(line));
+}
+
+function headingTitle(line: string): string {
+  return cleanVisualLabel(line)
+    .replace(/^#+\s*/, '')
+    .replace(/^[📌📊🎯✅🔹]\s*/, '');
+}
+
+function listToArtifacts(
+  items: Array<{ label: string; value: string }>,
+  title: string,
+): ParsedArtifactSegment[] {
+  const kpis: Array<{ id: string; label: string; value: string }> = [];
+  const labels: string[] = [];
+  const data: number[] = [];
+  const sections: Array<{ id: string; title: string; body: string }> = [];
+  for (const item of items) {
+    if (PROFILE_FIELD_LABEL.test(item.label)) continue;
+    const numeric = parseHumanNumber(item.value);
+    if (numeric != null && METRIC_FIELD_LABEL.test(item.label)) {
+      kpis.push({ id: item.label, label: item.label, value: compactNumber(numeric) });
+      labels.push(item.label);
+      data.push(numeric);
+      continue;
+    }
+    if (item.value.length > 0 && item.value.length < 180) {
+      sections.push({ id: item.label, title: item.label, body: item.value });
+    }
+  }
+  const segments: ParsedArtifactSegment[] = [];
+  if (kpis.length >= 2) {
+    segments.push({
+      kind: 'artifact',
+      artifactType: 'dashboard',
+      value: { type: 'dashboard', title, kpis, sections },
+    });
+  }
+  if (data.length >= 2) {
+    segments.push({
+      kind: 'artifact',
+      artifactType: 'chart',
+      value: {
+        type: 'chart',
+        chart_type: 'bar',
+        title: '',
+        data: {
+          labels,
+          datasets: [{ label: '', data, color: 'var(--foreground)' }],
+        },
+      },
+    });
+  }
+  return segments;
 }
 
 function splitPipeRow(line: string): string[] {
@@ -362,7 +685,10 @@ function tableToArtifact(table: { headers: string[]; rows: string[][] }): Record
   return { type: 'table', title: headers[0] || '', headers, rows };
 }
 
-function liftTablesInText(text: string): ParsedArtifactSegment[] {
+function liftVisualsInText(
+  text: string,
+  options?: { suppressProfileMetrics?: boolean },
+): ParsedArtifactSegment[] {
   const lines = text.split('\n');
   const segments: ParsedArtifactSegment[] = [];
   let cursor = 0;
@@ -384,16 +710,42 @@ function liftTablesInText(text: string): ParsedArtifactSegment[] {
         continue;
       }
     }
+
+    const listed = takeLabeledList(lines, i);
+    if (listed) {
+      const kind = labeledListKind(listed.items);
+      if (kind) {
+        let blockStart = i;
+        let title = '';
+        let heading = i - 1;
+        while (heading >= cursor && !(lines[heading] ?? '').trim()) heading -= 1;
+        if (heading >= cursor && isVisualHeading(lines[heading] ?? '')) {
+          title = headingTitle(lines[heading] ?? '');
+          blockStart = heading;
+        }
+        const before = lines.slice(cursor, blockStart).join('\n');
+        if (before.trim()) segments.push({ kind: 'text', content: before });
+        if (kind === 'metrics' && !options?.suppressProfileMetrics) {
+          for (const piece of listToArtifacts(listed.items, title)) segments.push(piece);
+        }
+        cursor = listed.end;
+        i = listed.end;
+        continue;
+      }
+    }
     i += 1;
   }
   const tail = lines.slice(cursor).join('\n');
   if (tail.length > 0) segments.push({ kind: 'text', content: tail });
-  return segments.length > 0 ? segments : [{ kind: 'text', content: text }];
+  if (segments.length > 0) return segments;
+  if (cursor > 0) return [{ kind: 'text', content: '' }];
+  return [{ kind: 'text', content: text }];
 }
 
 export function parseAssistantVisualSegments(
   content: string,
   allowStreaming = false,
+  options?: { suppressProfileMetrics?: boolean },
 ): ParsedArtifactSegment[] {
   const scrubbed = scrubOpaqueIdsFromProse(content);
   const base = parseArtifactBlocks(scrubbed, { allowStreaming });
@@ -403,7 +755,7 @@ export function parseAssistantVisualSegments(
       expanded.push(segment);
       continue;
     }
-    for (const piece of liftTablesInText(segment.content)) expanded.push(piece);
+    for (const piece of liftVisualsInText(segment.content, options)) expanded.push(piece);
   }
   return expanded.length > 0 ? expanded : [{ kind: 'text', content: '' }];
 }

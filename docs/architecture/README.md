@@ -8,8 +8,9 @@
 - [Aislamiento por worktree](worktree-isolation.md) — `DOME_PROFILE` y desarrollo en paralelo.
 - [Herramientas de runtime para agentes](agent-runtime-tools.md) — DevTools, observabilidad local.
 - [Runtime de agente](agent-runtime.md) — `@dome/agent-core`, loop nativo, skills, compactación.
+- [Remote Many](remote-many.md) — Companion como mando remoto; Provider solo relay cifrado.
 - [Extensión de navegador](../features/browser-extension.md) — captura web → puente local autenticado.
-- [Decisiones (ADRs)](decisions/) — registro numerado (p. ej. `0002` Drizzle incremental, layered app structure).
+- [Decisiones (ADRs)](decisions/) — registro numerado (p. ej. `0002` Drizzle incremental, `0016` Remote Many).
 
 Las guías de **features** del producto están en [../features/](../features/).
 

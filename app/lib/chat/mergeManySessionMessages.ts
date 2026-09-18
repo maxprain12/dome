@@ -16,6 +16,7 @@ function messageRichness(message: ManyMessage): number {
   }
   if (message.thinking) score += 500;
   if (message.pinnedResources?.length) score += 50 + message.pinnedResources.length * 10;
+  if (message.skills?.length) score += 40 + message.skills.length * 10;
   if (message.attachments?.images?.length || message.attachments?.videos?.length) score += 40;
   return score;
 }
@@ -52,6 +53,7 @@ function preserveLocalUiFields(localMsg: ManyMessage, incoming: ManyMessage): Ma
       incoming.pinnedResources?.length
         ? incoming.pinnedResources
         : localMsg.pinnedResources,
+    skills: incoming.skills?.length ? incoming.skills : localMsg.skills,
     attachments: incoming.attachments ?? localMsg.attachments,
   };
 }
@@ -77,7 +79,9 @@ function alignPreservingLocalUi(local: ManyMessage[], db: ManyMessage[]): ManyMe
     const localMessage = local[li]!;
     if (
       localMessage.role === 'user' &&
-      ((localMessage.pinnedResources?.length ?? 0) > 0 || localMessage.attachments)
+      ((localMessage.pinnedResources?.length ?? 0) > 0
+        || (localMessage.skills?.length ?? 0) > 0
+        || localMessage.attachments)
     ) {
       result.push(localMessage);
     }

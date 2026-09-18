@@ -1045,6 +1045,17 @@ function tryStartBrowserExtensionBridge() {
   }
 }
 
+function tryStartRemoteMany() {
+  try {
+    const remoteMany = require('./remote/index.cjs');
+    remoteMany.start({ database, windowManager }).catch((e) =>
+      console.warn('[Main] Remote Many failed:', e?.message),
+    );
+  } catch (err) {
+    console.warn('[Main] Remote Many:', err?.message || err);
+  }
+}
+
 function tryAutoStartDomeMcpServer() {
   try {
     const q = database.getQueries();
@@ -1310,6 +1321,7 @@ app
 
     tryInitTranscriptionShortcut();
     tryStartBrowserExtensionBridge();
+    tryStartRemoteMany();
     tryAutoStartDomeMcpServer();
     trySyncSentryConsent();
 

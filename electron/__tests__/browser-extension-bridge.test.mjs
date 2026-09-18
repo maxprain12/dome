@@ -139,6 +139,24 @@ describe('browser extension protocol', () => {
       true,
     );
     assert.equal(
+      AiStreamBodySchema.safeParse({
+        action: 'ask',
+        prompt: 'Planifica',
+        agentMode: 'plan',
+      }).success,
+      true,
+    );
+    assert.equal(
+      AiResumeBodySchema.safeParse({
+        streamId: 'stream-1',
+        decision: {
+          type: 'approve',
+          answers: [{ id: 'scope', value: 'full', label: 'Full review' }],
+        },
+      }).success,
+      true,
+    );
+    assert.equal(
       ResourceSearchBodySchema.safeParse({ query: 'dome', limit: 31 }).success,
       false,
     );
