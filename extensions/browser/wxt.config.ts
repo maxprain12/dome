@@ -17,6 +17,7 @@ export default defineConfig({
     '@/components': fileURLToPath(
       new URL('../../app/components', import.meta.url),
     ),
+    '@/types': fileURLToPath(new URL('../../app/types', import.meta.url)),
   },
   vite: () => ({ plugins: [tailwindcss()] }),
   modules: ['@wxt-dev/module-react'],

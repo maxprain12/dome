@@ -81,8 +81,6 @@ describe('ManyAssistantVisualBody', () => {
             '| Likes | 18 |',
           ].join('\n')}
           allowStreaming={false}
-          citationMap={undefined}
-          onClickCitation={() => {}}
           showCaret={false}
         />
       </MemoryRouter>,
@@ -104,8 +102,6 @@ describe('ManyAssistantVisualBody', () => {
             '| China 2 | 609 | 44 |',
           ].join('\n')}
           allowStreaming={false}
-          citationMap={undefined}
-          onClickCitation={() => {}}
           showCaret={false}
         />
       </MemoryRouter>,
@@ -132,8 +128,6 @@ describe('ManyAssistantVisualBody', () => {
             '- **Posts totales:** 1.369',
           ].join('\n')}
           allowStreaming={false}
-          citationMap={undefined}
-          onClickCitation={() => {}}
           showCaret={false}
         />
       </MemoryRouter>,
@@ -149,8 +143,6 @@ describe('ManyAssistantVisualBody', () => {
         <ManyAssistantVisualBody
           content={'```artifact:calendar_event\n{"type":"calendar_event","title":"Dentista","start_at":"2026-09-18T16:00:00.000Z","end_at":"2026-09-18T17:00:00.000Z","event_id":"evt-hidden","location":"Clínica"}\n```'}
           allowStreaming={false}
-          citationMap={undefined}
-          onClickCitation={() => {}}
           showCaret={false}
         />
       </MemoryRouter>,
