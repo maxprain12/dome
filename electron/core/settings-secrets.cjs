@@ -13,6 +13,7 @@ const SECRET_KEYS = new Set([
   'copilot_github_token',
   'claude_oauth_credentials',
   'openai_codex_oauth_credentials',
+  'remote_many_private_key',
 ]);
 
 function isSecretSettingKey(key) {

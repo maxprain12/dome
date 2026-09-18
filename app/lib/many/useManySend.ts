@@ -15,7 +15,7 @@ import {
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { buildManyFloatingPrompt, getPartOfDay } from '@/lib/prompts/loader';
 import { buildDomeSystemPrompt, formatVolatileSourceContext } from '@/lib/chat/buildDomeSystemPrompt';
-import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
+import { appendRunSkillsToPrompt, extractSlashSkillLabels } from '@/lib/skills/resolve-run-skills';
 import { resolveMemoryDomains } from '@/lib/personality/domainMemory';
 import { showToast } from '@/lib/store/useToastStore';
 import type { CompactionNoticeData, ManyMessageData } from '@/lib/many/types';
@@ -23,7 +23,7 @@ import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
-import { abortRun, startAgentRun, type PersistentRun } from '@/lib/automations/api';
+import { abortRun, startAgentRun, steerRun, type PersistentRun } from '@/lib/automations/api';
 import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/manySendController';
 import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
 import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentTypes';
@@ -32,6 +32,14 @@ import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile'
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
 import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
+import { QUESTIONNAIRE_TOOL_DEFINITION } from '@/lib/many/planDocument';
+import {
+  extractPlanTodos,
+  filterToolIdsForAgentMode,
+  filterToolsForAgentMode,
+  parseManyAgentMode,
+  promptOverlayForAgentMode,
+} from '@/lib/many/agentMode';
 import {
   useManyStore,
   type ManyChatSession,
@@ -59,6 +67,28 @@ function isPinnedSourceKind(kind: string): kind is PinnedSourceKind {
     default:
       return false;
   }
+}
+
+function snapshotTurnSkills(text: string): Array<{ id: string; name: string }> {
+  const state = useManyStore.getState();
+  const out: Array<{ id: string; name: string }> = [];
+  const seen = new Set<string>();
+  const push = (id: string, name: string) => {
+    const label = name.trim();
+    if (!label) return;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ id: id || label, name: label });
+  };
+  for (const name of extractSlashSkillLabels(text)) push(name, name);
+  const sticky = state.currentSessionId
+    ? (state.activeSkillIdBySession[state.currentSessionId] ?? null)
+    : null;
+  for (const id of [state.pendingOneShotSkillId, sticky]) {
+    if (id) push(id, id);
+  }
+  return out;
 }
 
 type Updater<T> = T | ((prev: T) => T);
@@ -91,7 +121,8 @@ async function prepareManySendInput(
     kind: r.kind ?? ('resource' as const),
   }));
   if (
-    (!textPart && args.chatAttachments.length === 0 && pinSnapshot.length === 0) ||
+    (!textPart && args.chatAttachments.length === 0 && pinSnapshot.length === 0
+      && !useManyStore.getState().pendingOneShotSkillId) ||
     args.isSubmittingRef.current
   ) {
     return null;
@@ -107,7 +138,8 @@ async function prepareManySendInput(
   const hasAttachments =
     (userRunMessage.attachments?.images?.length ?? 0) > 0 ||
     (userRunMessage.attachments?.videos?.length ?? 0) > 0;
-  if (!userMessage && !hasAttachments && pinSnapshot.length === 0) return null;
+  if (!userMessage && !hasAttachments && pinSnapshot.length === 0
+    && !useManyStore.getState().pendingOneShotSkillId) return null;
 
   return { textPart, pinSnapshot, userRunMessage, userMessage, hasAttachments };
 }
@@ -374,16 +406,29 @@ async function resolveManyToolDefinitions(args: {
   supportsTools: boolean;
   activeTools: AnyAgentTool[];
   mcpEnabled: boolean;
+  agentMode: ReturnType<typeof parseManyAgentMode>;
 }): Promise<{
   toolDefinitions: unknown[];
   toolIds: string[];
   mcpServerIds: string[];
 }> {
-  const toolDefinitions =
+  const toolIds = args.toolsEnabled
+    ? filterToolIdsForAgentMode(
+        args.activeTools.map((tool) => tool.name),
+        args.agentMode,
+      )
+    : [];
+  let toolDefinitions: unknown[] =
     args.toolsEnabled && args.supportsTools && args.activeTools.length > 0
-      ? toOpenAIToolDefinitions(args.activeTools)
+      ? toOpenAIToolDefinitions(filterToolsForAgentMode(args.activeTools, args.agentMode))
       : [];
-  const toolIds = args.toolsEnabled ? args.activeTools.map((tool) => tool.name) : [];
+  if (args.agentMode === 'plan' && args.toolsEnabled) {
+    const hasQuestionnaire = toolDefinitions.some((row) => {
+      const rec = row as { function?: { name?: string }; name?: string };
+      return (rec.function?.name || rec.name) === 'questionnaire';
+    });
+    if (!hasQuestionnaire) toolDefinitions = [...toolDefinitions, QUESTIONNAIRE_TOOL_DEFINITION];
+  }
   const mcpServerIds: string[] = [];
   if (args.toolsEnabled && args.mcpEnabled) {
     const servers = await loadMcpServersSetting();
@@ -416,6 +461,7 @@ async function buildManyRunMessages(args: {
   currentSessionId: string | null;
   sendOptions: ManySendOptions | undefined;
   voiceLanguage: string;
+  agentMode: ReturnType<typeof parseManyAgentMode>;
 }): Promise<Array<{ role: string; content: string }>> {
   const staticPersona = args.buildStaticPersona();
   const toolHint = buildSharedResourceHint({
@@ -443,6 +489,10 @@ async function buildManyRunMessages(args: {
     activeStickySkillId: stickySkillId,
   });
   manySkillState.setPendingOneShotSkill(null);
+  const overlay = promptOverlayForAgentMode(args.agentMode);
+  if (overlay) {
+    unifiedSystemPrompt = `${unifiedSystemPrompt}\n\n${overlay}`;
+  }
 
   // The pinned context lives in the system prompt (`mentioned-sources`
   // / `mentioned-people`), not in the user's message. Appending it here
@@ -533,6 +583,7 @@ async function dispatchManyAgentRun(args: {
   userMemory: string;
   workspacePath: string | undefined;
   voiceLanguage: string;
+  agentMode: ReturnType<typeof parseManyAgentMode>;
 }): Promise<PersistentRun> {
   const run = await startAgentRun({
     ownerType: 'many',
@@ -557,6 +608,7 @@ async function dispatchManyAgentRun(args: {
     thinkingLevel: args.currentSessionId
       ? useManyStore.getState().thinkingLevelBySession[args.currentSessionId] ?? 'off'
       : 'off',
+    agentMode: args.agentMode,
   });
   if (args.sendOptions?.autoSpeak) {
     args.voiceAutoSpeakForRunIdRef.current = run.id;
@@ -642,11 +694,18 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     },
   );
 
+  const agentMode = parseManyAgentMode(
+    args.currentSessionId
+      ? useManyStore.getState().agentModeBySession[args.currentSessionId]
+      : 'agent',
+  );
+
   const { toolDefinitions, toolIds, mcpServerIds } = await resolveManyToolDefinitions({
     toolsEnabled: args.toolsEnabled,
     supportsTools: args.supportsTools,
     activeTools: args.activeTools,
     mcpEnabled: args.mcpEnabled,
+    agentMode,
   });
 
   capturePostHog(ANALYTICS_EVENTS.AI_CHAT_STARTED, {
@@ -676,6 +735,7 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     currentSessionId: args.currentSessionId,
     sendOptions: args.sendOptions,
     voiceLanguage,
+    agentMode,
   });
 
   args.setStreamingMessage({
@@ -724,6 +784,7 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     userMemory: args.userMemory,
     workspacePath,
     voiceLanguage,
+    agentMode,
   });
 }
 
@@ -931,6 +992,19 @@ export function useManySend(options: UseManySendOptions) {
 
   const handleSend = useCallback(
     async (messageOverride?: string, sendOptions?: ManySendOptions) => {
+      if (isLoading) {
+        const steerText = (messageOverride ?? input).trim();
+        if (!steerText || !currentSessionId) return;
+        addMessage({ role: 'user', content: steerText });
+        setInput('');
+        try {
+          await steerRun(currentSessionId, steerText);
+        } catch (err) {
+          showToast('error', err instanceof Error ? err.message : t('many.steer_failed'));
+        }
+        return;
+      }
+
       const prepared = await prepareManySendInput({
         messageOverride,
         input,
@@ -941,6 +1015,7 @@ export function useManySend(options: UseManySendOptions) {
       });
       if (!prepared) return;
       const { textPart, pinSnapshot, userRunMessage, userMessage } = prepared;
+      const skillSnapshot = snapshotTurnSkills(userMessage);
 
       if (pdfRegionStreamingMessage?.isStreaming) return;
 
@@ -952,8 +1027,6 @@ export function useManySend(options: UseManySendOptions) {
         await handlePdfRegionSend(userMessage, pendingRegion);
         return;
       }
-
-      if (isLoading) return;
 
       if (sendOptions?.openPanel) {
         useManyStore.getState().setOpen(true);
@@ -978,6 +1051,7 @@ export function useManySend(options: UseManySendOptions) {
         content: userMessage,
         attachments: userRunMessage.attachments,
         ...(pinSnapshot.length > 0 ? { pinnedResources: pinSnapshot } : {}),
+        ...(skillSnapshot.length > 0 ? { skills: skillSnapshot } : {}),
       });
       if (currentSessionId) {
         activeRunSessionIdRef.current = currentSessionId;

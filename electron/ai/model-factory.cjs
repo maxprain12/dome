@@ -28,6 +28,13 @@ const DEFAULT_MODELS = {
   'opencode-go': 'deepseek-v4-flash',
   vllm: '',
   lmstudio: '',
+  xai: 'grok-4',
+  groq: 'llama-3.3-70b-versatile',
+  mistral: 'mistral-large-latest',
+  fireworks: 'accounts/fireworks/models/llama-v3p3-70b-instruct',
+  together: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  'google-vertex': 'gemini-2.5-flash',
+  'azure-openai-responses': 'gpt-5',
 };
 
 const DEFAULT_BASE_URLS = {
@@ -41,6 +48,11 @@ const DEFAULT_BASE_URLS = {
   'openai-codex': 'https://chatgpt.com/backend-api',
   vllm: 'http://127.0.0.1:8000/v1',
   lmstudio: 'http://127.0.0.1:1234/v1',
+  xai: 'https://api.x.ai/v1',
+  groq: 'https://api.groq.com/openai/v1',
+  mistral: 'https://api.mistral.ai',
+  fireworks: 'https://api.fireworks.ai/inference',
+  together: 'https://api.together.ai/v1',
 };
 
 function stripZodJsonSchemaMeta(obj) {
@@ -63,6 +75,11 @@ function resolveApiKey(provider, apiKey) {
   if (provider === 'google') return process.env.GOOGLE_API_KEY;
   if (provider === 'openrouter') return process.env.OPENROUTER_API_KEY;
   if (provider === 'opencode' || provider === 'opencode-go') return process.env.OPENCODE_API_KEY;
+  if (provider === 'xai') return process.env.XAI_API_KEY;
+  if (provider === 'groq') return process.env.GROQ_API_KEY;
+  if (provider === 'mistral') return process.env.MISTRAL_API_KEY;
+  if (provider === 'fireworks') return process.env.FIREWORKS_API_KEY;
+  if (provider === 'together') return process.env.TOGETHER_API_KEY;
   return apiKey;
 }
 

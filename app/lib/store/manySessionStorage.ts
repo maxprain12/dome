@@ -24,6 +24,12 @@ export interface ManySessionUiMeta {
   pinned?: boolean;
   createdAt?: number;
   updatedAt?: number;
+  agentMode?: 'plan' | 'draft' | 'agent';
+  planTodos?: unknown[];
+  planTitle?: string;
+  planBody?: string;
+  planMessageId?: string;
+  planExecuting?: boolean;
 }
 
 export type ManySessionUiMetaMap = Record<string, ManySessionUiMeta>;

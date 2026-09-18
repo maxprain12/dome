@@ -80,4 +80,50 @@ describe("JSONL v4 codec", () => {
 		const snapshot = parseV4SessionText(`${header}${mutation}`);
 		expect(snapshot.entries[0]).toMatchObject({ type: "custom", customType: "dome.pins" });
 	});
+
+	it("loads a session with duplicate and gapped seq instead of discarding it", () => {
+		const header = encodeV4Header({
+			kind: "header",
+			version: 4,
+			id: "s3",
+			createdAt: 1,
+			cwd: "/tmp",
+		});
+		const first = encodeV4Mutation({
+			kind: "entry",
+			entry: {
+				type: "message",
+				id: "m1",
+				seq: 1,
+				parentId: null,
+				timestamp: 10,
+				message: { role: "user", content: [{ type: "text", text: "hola" }] },
+			},
+		});
+		const dup = encodeV4Mutation({
+			kind: "entry",
+			entry: {
+				type: "message",
+				id: "m1-dup",
+				seq: 1,
+				parentId: "m1",
+				timestamp: 11,
+				message: { role: "assistant", content: [{ type: "text", text: "dup" }] },
+			},
+		});
+		const gapped = encodeV4Mutation({
+			kind: "entry",
+			entry: {
+				type: "message",
+				id: "m2",
+				seq: 3,
+				parentId: "m1",
+				timestamp: 12,
+				message: { role: "assistant", content: [{ type: "text", text: "plan" }] },
+			},
+		});
+		const snapshot = parseV4SessionText(`${header}${first}${dup}${gapped}`);
+		expect(snapshot.entries.map((entry) => entry.id)).toEqual(["m1", "m2"]);
+		expect(snapshot.nextSeq).toBe(4);
+	});
 });

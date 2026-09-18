@@ -51,7 +51,8 @@ export type ThinkingLevel =
   | 'low'
   | 'medium'
   | 'high'
-  | 'xhigh';
+  | 'xhigh'
+  | 'max';
 
 export interface ManyConfig {
   provider: string;
@@ -241,9 +242,9 @@ export interface ApprovalReviewConfig {
 }
 
 export type ApprovalDecision =
-  | { type: 'approve' }
+  | { type: 'approve'; answers?: Array<{ id: string; value: string; label: string; wasCustom?: boolean; index?: number }> }
   | { type: 'approve_all' }
-  | { type: 'reject'; message?: string }
+  | { type: 'reject'; message?: string; cancelled?: boolean }
   | {
       type: 'edit';
       editedAction: { name: string; args: Record<string, unknown> };
@@ -316,6 +317,7 @@ export type ManyStreamBody = {
   memoryEnabled?: boolean;
   projectId?: string;
   thinkingLevel?: ThinkingLevel;
+  agentMode?: 'plan' | 'draft' | 'agent';
   mcpServerIds?: string[];
   pinnedResources?: PinnedResource[];
   attachments?: { images: ImageAttachment[] };

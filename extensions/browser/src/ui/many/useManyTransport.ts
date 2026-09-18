@@ -35,6 +35,7 @@ import type {
 interface StartRun {
   displayPrompt: string;
   images: ManyComposerImage[];
+  skills?: Array<{ id: string; name: string }>;
   buildBody: (streamId: string) => api.ManyStreamBody;
   onStarted: () => Promise<void>;
 }
@@ -337,6 +338,7 @@ export function useManyTransport({
   const run = async ({
     displayPrompt,
     images,
+    skills,
     buildBody,
     onStarted,
   }: StartRun) => {
@@ -358,6 +360,7 @@ export function useManyTransport({
         text: displayPrompt,
         timestamp: Date.now(),
         images,
+        ...(skills && skills.length > 0 ? { skills } : {}),
       },
       {
         id: messageId,

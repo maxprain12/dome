@@ -6,6 +6,7 @@ import {
   Calendar03Icon,
   CloudCogIcon,
   CloudIcon,
+  ComputerIcon,
   DatabaseIcon,
   GlobeIcon,
   LayoutGridIcon,
@@ -45,7 +46,8 @@ export type SettingsSection =
   | 'calendar'
   | 'email'
   | 'social'
-  | 'browser_extension';
+  | 'browser_extension'
+  | 'remote_many';
 
 /** Sections reachable from the nav (legacy aliases resolve into these). */
 type NavSection = Exclude<SettingsSection, 'transcription'>;
@@ -95,6 +97,7 @@ const GROUP_DEFS: GroupDef[] = [
     labelKey: 'settings.groups.automation_extensions',
     sections: [
       { id: 'browser_extension', icon: Link01Icon },
+      { id: 'remote_many', icon: ComputerIcon },
       { id: 'mcp', icon: Plug02Icon },
       { id: 'dome_mcp', icon: ServerStack01Icon },
       { id: 'skills', icon: MagicWand01Icon },
@@ -122,6 +125,7 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   features: lazy(() => import('./sections/FeaturesSection')),
   ai: lazy(() => import('./sections/AISection')),
   browser_extension: lazy(() => import('./sections/BrowserExtensionSection')),
+  remote_many: lazy(() => import('./sections/RemoteManySection')),
   mcp: lazy(() => import('./sections/McpSection')),
   dome_mcp: lazy(() => import('./sections/DomeMcpSection')),
   skills: lazy(() => import('./sections/SkillsSection')),

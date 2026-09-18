@@ -9,6 +9,7 @@ import {
   MAX_MANY_SESSIONS,
   persistManySessionMeta,
   persistManySessions,
+  persistManySessionUiMeta,
   pruneManySessionUiMeta,
   removeManySessionUiMeta,
   setPersistedCurrentManySessionId,
@@ -20,6 +21,9 @@ import {
 } from '@/lib/chat/manyThreadBridge';
 import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 import type { ThinkingLevel } from '@/lib/ai/types';
+import type { ManyAgentMode } from '@/lib/many/agentMode';
+import { parseManyAgentMode } from '@/lib/many/agentMode';
+import { parsePlanDocument, parsePlanTodos, type PlanDocument, type PlanTodo } from '@/lib/many/planDocument';
 import { emailPinsMatch, normalizePinnedResource } from '@/lib/chat/pinLabels';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
@@ -63,6 +67,8 @@ export interface ManyMessage {
   attachments?: StructuredMessageAttachments;
   /** Snapshot of pins that rode with this user turn (shown in transcript). */
   pinnedResources?: Array<Pick<PinnedResource, 'id' | 'title' | 'type' | 'kind' | 'meta'>>;
+  /** Skills invoked with this user turn (chips instead of /tokens in the log). */
+  skills?: Array<{ id: string; name: string }>;
   /** Tool calls for assistant messages (traceability) */
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Reasoning/chain-of-thought for assistant messages */
@@ -304,6 +310,21 @@ interface ManyState {
    */
   thinkingLevelBySession: Record<string, ThinkingLevel>;
   setThinkingLevelForSession: (sessionId: string, level: ThinkingLevel) => void;
+  agentModeBySession: Record<string, ManyAgentMode>;
+  setAgentModeForSession: (sessionId: string, mode: ManyAgentMode) => void;
+  planTodosBySession: Record<string, PlanTodo[]>;
+  setPlanTodosForSession: (sessionId: string, todos: PlanTodo[] | string[]) => void;
+  planDocumentBySession: Record<string, PlanDocument>;
+  setPlanDocumentForSession: (
+    sessionId: string,
+    document: (PlanDocument & { messageId?: string }) | null,
+  ) => void;
+  planExecutingBySession: Record<string, boolean>;
+  setPlanExecutingForSession: (sessionId: string, executing: boolean) => void;
+  planChoiceOpenBySession: Record<string, boolean>;
+  setPlanChoiceOpenForSession: (sessionId: string, open: boolean) => void;
+  planPanelOpenBySession: Record<string, boolean>;
+  setPlanPanelOpenForSession: (sessionId: string, open: boolean) => void;
   /** Last text-to-speech error (voice assistant HUD) */
   ttsError: string | null;
   setTtsError: (message: string | null) => void;
@@ -521,6 +542,10 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const { sessions: localSessions, currentSessionId } = get();
     const localById = new Map(localSessions.map((s) => [s.id, s]));
     const byId = new Map<string, ManyChatSession>();
+    const nextModes = { ...get().agentModeBySession };
+    const nextTodos = { ...get().planTodosBySession };
+    const nextDocuments = { ...get().planDocumentBySession };
+    const nextExecuting = { ...get().planExecutingBySession };
 
     // Many is a GLOBAL personal assistant: its chat history must be visible
     // regardless of which project is active. Previously history was hard-scoped to
@@ -549,6 +574,18 @@ export const useManyStore = create<ManyState>((set, get) => ({
         updatedAt: meta?.updatedAt ?? local?.updatedAt ?? summary.updatedAt,
         pinned: meta?.pinned ?? local?.pinned,
       });
+      if (meta?.agentMode) nextModes[summary.id] = parseManyAgentMode(meta.agentMode);
+      const storedTodos = parsePlanTodos(meta?.planTodos);
+      if (storedTodos.length > 0) nextTodos[summary.id] = storedTodos;
+      const storedDoc = parsePlanDocument({
+        title: meta?.planTitle,
+        body: meta?.planBody,
+        todos: storedTodos,
+      });
+      if (storedDoc) {
+        nextDocuments[summary.id] = storedDoc;
+      }
+      if (meta?.planExecuting === true) nextExecuting[summary.id] = true;
     }
 
     for (const local of localSessions) {
@@ -574,7 +611,13 @@ export const useManyStore = create<ManyState>((set, get) => ({
     if (ok) {
       pruneManySessionUiMeta(nextSessions.map((s) => s.id));
     }
-    set({ sessions: nextSessions });
+    set({
+      sessions: nextSessions,
+      agentModeBySession: nextModes,
+      planTodosBySession: nextTodos,
+      planDocumentBySession: nextDocuments,
+      planExecutingBySession: nextExecuting,
+    });
     publishManySync(get, 'hydrate');
   },
 
@@ -709,6 +752,104 @@ export const useManyStore = create<ManyState>((set, get) => ({
   setThinkingLevelForSession: (sessionId, level) =>
     set((state) => ({
       thinkingLevelBySession: { ...state.thinkingLevelBySession, [sessionId]: level },
+    })),
+
+  agentModeBySession: {},
+  setAgentModeForSession: (sessionId, mode) => {
+    const next = parseManyAgentMode(mode);
+    set((state) => ({
+      agentModeBySession: { ...state.agentModeBySession, [sessionId]: next },
+      planExecutingBySession: {
+        ...state.planExecutingBySession,
+        [sessionId]: next === 'agent' ? state.planExecutingBySession[sessionId] === true : false,
+      },
+      planChoiceOpenBySession: {
+        ...state.planChoiceOpenBySession,
+        [sessionId]:
+          next === 'plan' ? (state.planTodosBySession[sessionId]?.length ?? 0) > 0 : false,
+      },
+    }));
+    const meta = loadManySessionUiMeta();
+    persistManySessionUiMeta({
+      ...meta,
+      [sessionId]: {
+        ...meta[sessionId],
+        agentMode: next,
+        planExecuting: next === 'agent' ? meta[sessionId]?.planExecuting === true : false,
+      },
+    });
+  },
+  planTodosBySession: {},
+  planDocumentBySession: {},
+  setPlanTodosForSession: (sessionId, todos) => {
+    const parsed = parsePlanTodos(todos);
+    set((state) => {
+      const current = state.planDocumentBySession[sessionId];
+      return {
+        planTodosBySession: { ...state.planTodosBySession, [sessionId]: parsed },
+        planChoiceOpenBySession: { ...state.planChoiceOpenBySession, [sessionId]: parsed.length > 0 },
+        planDocumentBySession: current
+          ? { ...state.planDocumentBySession, [sessionId]: { ...current, todos: parsed } }
+          : state.planDocumentBySession,
+      };
+    });
+    const meta = loadManySessionUiMeta();
+    persistManySessionUiMeta({
+      ...meta,
+      [sessionId]: { ...meta[sessionId], planTodos: parsed },
+    });
+  },
+  setPlanDocumentForSession: (sessionId, document) => {
+    if (!document) {
+      set((state) => {
+        const nextDocs = { ...state.planDocumentBySession };
+        delete nextDocs[sessionId];
+        return { planDocumentBySession: nextDocs };
+      });
+      return;
+    }
+    const parsed = parsePlanTodos(document.todos);
+    const nextDoc: PlanDocument = {
+      title: document.title.slice(0, 80) || 'Plan',
+      body: document.body.slice(0, 12_000),
+      excerpt: document.excerpt.slice(0, 180),
+      todos: parsed,
+    };
+    set((state) => ({
+      planTodosBySession: { ...state.planTodosBySession, [sessionId]: parsed },
+      planDocumentBySession: { ...state.planDocumentBySession, [sessionId]: nextDoc },
+    }));
+    const meta = loadManySessionUiMeta();
+    persistManySessionUiMeta({
+      ...meta,
+      [sessionId]: {
+        ...meta[sessionId],
+        planTodos: parsed,
+        planTitle: nextDoc.title,
+        planBody: nextDoc.body,
+      },
+    });
+  },
+  planExecutingBySession: {},
+  setPlanExecutingForSession: (sessionId, executing) => {
+    set((state) => ({
+      planExecutingBySession: { ...state.planExecutingBySession, [sessionId]: executing },
+    }));
+    const meta = loadManySessionUiMeta();
+    persistManySessionUiMeta({
+      ...meta,
+      [sessionId]: { ...meta[sessionId], planExecuting: executing },
+    });
+  },
+  planChoiceOpenBySession: {},
+  setPlanChoiceOpenForSession: (sessionId, open) =>
+    set((state) => ({
+      planChoiceOpenBySession: { ...state.planChoiceOpenBySession, [sessionId]: open },
+    })),
+  planPanelOpenBySession: {},
+  setPlanPanelOpenForSession: (sessionId, open) =>
+    set((state) => ({
+      planPanelOpenBySession: { ...state.planPanelOpenBySession, [sessionId]: open },
     })),
 
   ttsError: null,

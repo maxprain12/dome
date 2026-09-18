@@ -15,6 +15,10 @@ export interface UseSlashSkillsOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** When false, / skill picker is disabled. */
   enabled?: boolean;
+  /** Preloaded catalog (browser extension). When set, skips Electron `skills:list`. */
+  catalog?: SlashSkillItem[];
+  /** Commands shown above skills (`/plan`, `/draft`, `/agent`). */
+  prefixItems?: SlashSkillItem[];
 }
 
 function isSlashTriggerPosition(textUpToCursor: string): { slashIdx: number; query: string } | null {
@@ -35,12 +39,16 @@ function isSlashTriggerPosition(textUpToCursor: string): { slashIdx: number; que
 /**
  * /-command picker for file-based skills (SKILL.md), same source as Settings > Skills.
  */
+const EMPTY_SLASH_ITEMS: SlashSkillItem[] = [];
+
 export function useSlashSkills({
   input,
   setInput,
   inputRef,
   containerRef,
   enabled = true,
+  catalog,
+  prefixItems = EMPTY_SLASH_ITEMS,
 }: UseSlashSkillsOptions) {
   const [slashActive, setSlashActive] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
@@ -73,25 +81,30 @@ export function useSlashSkills({
   }, []);
 
   useEffect(() => {
+    if (catalog) {
+      setAllSkills(catalog);
+      return;
+    }
     if (!slashActive) return;
     void loadSkills();
-  }, [slashActive, loadSkills]);
+  }, [catalog, slashActive, loadSkills]);
 
   useEffect(() => {
     const q = slashQuery.trim().toLowerCase();
-    if (!q) {
-      setFilteredSkills(allSkills);
-      return;
-    }
-    setFilteredSkills(
-      allSkills.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q) ||
-          s.id.toLowerCase().includes(q),
-      ),
-    );
-  }, [allSkills, slashQuery]);
+    const matches = (item: SlashSkillItem) => {
+      if (!q) return true;
+      return (
+        item.name.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q) ||
+        item.id.toLowerCase().includes(q)
+      );
+    };
+    const prefix = prefixItems.filter(matches);
+    const skills = !q
+      ? allSkills
+      : allSkills.filter(matches);
+    setFilteredSkills([...prefix, ...skills]);
+  }, [allSkills, slashQuery, prefixItems]);
 
   useEffect(() => {
     setSlashSelectedIdx(0);

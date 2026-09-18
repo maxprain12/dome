@@ -10,7 +10,10 @@ import ManyConversation, {
 } from './conversation/ManyConversation';
 import ManyWelcome from './conversation/ManyWelcome';
 import { ManyCompactionNotice, ManyPdfRegionChip } from './conversation/ManyNotices';
+import { ManyPlanDockHost } from './conversation/ManyPlanDock';
+import { ManyPlanPanel } from './conversation/ManyPlanCard';
 import ManyComposer from './composer/ManyComposer';
+import ManyApprovalGate from './conversation/ManyApprovalGate';
 import ContextUsageIndicator from './ContextUsageIndicator';
 import UICursorOverlay from './UICursorOverlay';
 import { useManyStore } from '@/lib/store/useManyStore';
@@ -21,6 +24,7 @@ import { useManySessionSync } from '@/lib/many/useManySessionSync';
 import { useManyRunLifecycle } from '@/lib/many/useManyRunLifecycle';
 import { useManySend } from '@/lib/many/useManySend';
 import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
+import { formatRefinePrompt } from '@/lib/many/planDocument';
 import { estimateClientBudgetFromChat } from '@/lib/chat/contextUsage';
 import { createManyToolsForContext } from '@/lib/ai';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
@@ -102,6 +106,7 @@ export default function ManyPanel({
   const [fullscreenHistoryOpen, setFullscreenHistoryOpen] = useState(isFullscreen);
   const [isLoading, setIsLoading] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [planRefineArmed, setPlanRefineArmed] = useState(false);
 
   const settings = useManyConversationSettings();
   const {
@@ -401,9 +406,27 @@ export default function ManyPanel({
     setResourceToolsEnabled,
     setMemoryEnabled,
     supportsTools,
-    onSend: () => handleSend(),
+    onSend: () => {
+      if (planRefineArmed) {
+        const todos = currentSessionId
+          ? useManyStore.getState().planTodosBySession[currentSessionId] ?? []
+          : [];
+        const body = currentSessionId
+          ? useManyStore.getState().planDocumentBySession[currentSessionId]?.body
+          : '';
+        const text = input.trim();
+        setPlanRefineArmed(false);
+        void handleSend(formatRefinePrompt(todos, text, body));
+        return;
+      }
+      void handleSend();
+    },
     onAbort: handleAbort,
-    placeholderOverride: pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null,
+    placeholderOverride: planRefineArmed
+      ? t('many.plan_refine_placeholder')
+      : pendingPdfRegion
+        ? t('many.input_placeholder_pdf_region')
+        : null,
     attachments: chatAttachments,
     onAttachmentsChange: setChatAttachments,
   };
@@ -520,9 +543,6 @@ export default function ManyPanel({
                 isLoading={isLoading}
                 loadingHint={loadingHint}
                 hasStreamingMessage={Boolean(streamingMessage)}
-                showApprovalGate={showHitlInline}
-                pendingApproval={pendingApproval}
-                onDismissApproval={() => setPendingApproval(null)}
                 onRegenerate={handleRegenerate}
                 error={error}
                 onRetryError={handleDismissError}
@@ -540,6 +560,24 @@ export default function ManyPanel({
                 event={compactionNotice}
                 onDismiss={() => setCompactionNotice(null)}
               />
+            ) : null}
+            <ManyPlanDockHost
+              pendingApproval={pendingApproval}
+              onExecute={(prompt) => {
+                void handleSend(prompt);
+              }}
+              onRefineRequest={() => {
+                setPlanRefineArmed(true);
+                inputRef.current?.focus();
+              }}
+            />
+            {showHitlInline ? (
+              <div className="shrink-0 border-t px-3 py-2">
+                <ManyApprovalGate
+                  pendingApproval={pendingApproval}
+                  onDismissApproval={() => setPendingApproval(null)}
+                />
+              </div>
             ) : null}
 
             {!showWelcomeHero ? (
@@ -567,6 +605,8 @@ export default function ManyPanel({
               )
             ) : null}
           </div>
+
+          <ManyPlanPanel />
 
           {isFullscreen && fullscreenHistoryOpen ? (
             <aside className="flex w-[clamp(13rem,24%,18rem)] max-w-[42%] shrink-0 flex-col border-l border-sidebar-border bg-sidebar">

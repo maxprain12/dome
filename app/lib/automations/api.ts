@@ -274,6 +274,7 @@ export async function startAgentRun(params: {
    * directly. The main process clamps it to what the model actually supports.
    */
   thinkingLevel?: ThinkingLevel;
+  agentMode?: 'plan' | 'draft' | 'agent';
 }): Promise<PersistentRun> {
   return invoke<PersistentRun>('runs:start', params);
 }
@@ -297,6 +298,10 @@ export async function resumeRun(runId: string, decisions: Array<unknown>): Promi
 
 export async function abortRun(runId: string): Promise<void> {
   await invoke<void>('runs:abort', runId);
+}
+
+export async function steerRun(threadId: string, text: string): Promise<void> {
+  await invoke<void>('runs:steer', { threadId, text });
 }
 
 export function onRunUpdated(callback: (payload: { run: PersistentRun }) => void): () => void {
@@ -395,6 +400,7 @@ export type RunChunkPayload =
   | {
       runId: string;
       type: 'interrupt';
+      kind?: string;
       actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
       reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
       threadId?: string;

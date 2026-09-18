@@ -187,6 +187,13 @@ const API_KEY_CHAT_PROVIDERS: AIProviderType[] = [
   'qwen',
   'opencode',
   'opencode-go',
+  'xai',
+  'groq',
+  'mistral',
+  'fireworks',
+  'together',
+  'google-vertex',
+  'azure-openai-responses',
 ];
 
 const OAUTH_CHAT_PROVIDERS: AIProviderType[] = ['dome', 'copilot', 'claude-oauth', 'openai-codex'];
@@ -989,6 +996,13 @@ export async function chat(
     case 'qwen':
     case 'opencode':
     case 'opencode-go':
+    case 'xai':
+    case 'groq':
+    case 'mistral':
+    case 'fireworks':
+    case 'together':
+    case 'google-vertex':
+    case 'azure-openai-responses':
       if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
       return chatViaMainProcess(
         config.provider,
@@ -1126,6 +1140,13 @@ export async function* chatStream(
     case 'qwen':
     case 'opencode':
     case 'opencode-go':
+    case 'xai':
+    case 'groq':
+    case 'mistral':
+    case 'fireworks':
+    case 'together':
+    case 'google-vertex':
+    case 'azure-openai-responses':
       if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
       yield* streamViaMainProcess(
         config.provider,

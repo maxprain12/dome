@@ -1,5 +1,6 @@
 /** Tool definition registry (leaf module — no handler/dispatcher imports). */
 const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('../prompts/prompt-sections.cjs');
+const { QUESTIONNAIRE_TOOL_DEFINITION } = require('../agents/many-plan.cjs');
 
 /** Lazy `@dome/tools` (ESM build consumed from main). */
 let _domeToolsPkg = null;
@@ -330,6 +331,7 @@ function getToolDefsBySubagent() {
  */
 function getAllToolDefinitions() {
   return [
+    QUESTIONNAIRE_TOOL_DEFINITION,
     {
       type: 'function',
       function: {

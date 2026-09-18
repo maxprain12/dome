@@ -22,7 +22,8 @@
     "email": "Correo",
     "dome_mcp": "Dome como MCP",
     "social": "Social",
-    "browser_extension": "Extensión de navegador"
+    "browser_extension": "Extensión de navegador",
+    "remote_many": "Many remoto"
   },
   "groups": {
     "account": "Cuenta",

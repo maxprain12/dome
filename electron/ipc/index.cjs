@@ -66,6 +66,7 @@ const openaiCodexOAuthHandlers = require('./integrations/openai-codex-oauth.cjs'
 const githubHandlers = require('./integrations/github.cjs');
 const peopleHandlers = require('./integrations/people.cjs');
 const browserExtensionHandlers = require('./integrations/browser-extension.cjs');
+const remoteManyHandlers = require('./sync/remote-many.cjs');
 
 let _ipcRegistered = false;
 
@@ -194,6 +195,7 @@ function registerAll(deps) {
   githubHandlers.register({ ipcMain: secureIpcMain, windowManager });
   peopleHandlers.register({ ipcMain: secureIpcMain, windowManager });
   browserExtensionHandlers.register({ ipcMain: secureIpcMain, windowManager });
+  remoteManyHandlers.register({ ipcMain: secureIpcMain, windowManager });
 }
 
 module.exports = { registerAll };

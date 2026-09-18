@@ -162,6 +162,7 @@ const ALLOWED_CHANNELS = {
     'runs:resume',
     'runs:abort',
     'runs:delete',
+    'runs:steer',
     'automations:get',
     'automations:list',
     'automations:upsert',
@@ -771,6 +772,12 @@ const ALLOWED_CHANNELS = {
     'browser-extension:pair-start',
     'browser-extension:pair-cancel',
     'browser-extension:revoke',
+    'remote-many:status',
+    'remote-many:set-enabled',
+    'remote-many:pair-start',
+    'remote-many:pair-cancel',
+    'remote-many:revoke',
+    'remote-many:presence',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -888,6 +895,7 @@ const ALLOWED_CHANNELS = {
     'ppt-capture:render-slide',
     // In-app approval (HITL — main requests approval, renderer shows modal)
     'approval:requested',
+    'remote-many:status',
     'domain-sync:completed',
     'domain-sync:progress',
     'settings:cloud-updated',
@@ -1307,6 +1315,20 @@ const electronHandler = {
     revoke: (payload) => ipcRenderer.invoke('browser-extension:revoke', payload),
   },
 
+  remoteMany: {
+    status: () => ipcRenderer.invoke('remote-many:status'),
+    setEnabled: (payload) => ipcRenderer.invoke('remote-many:set-enabled', payload),
+    pairStart: () => ipcRenderer.invoke('remote-many:pair-start'),
+    pairCancel: () => ipcRenderer.invoke('remote-many:pair-cancel'),
+    revoke: (payload) => ipcRenderer.invoke('remote-many:revoke', payload),
+    presence: () => ipcRenderer.invoke('remote-many:presence'),
+    onStatus: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('remote-many:status', subscription);
+      return () => ipcRenderer.removeListener('remote-many:status', subscription);
+    },
+  },
+
   // ============================================
   // PEOPLE / IDENTITIES API (unified contacts)
   // ============================================
@@ -1559,6 +1581,7 @@ const electronHandler = {
     startWorkflow: (params) => ipcRenderer.invoke('runs:startWorkflow', params),
     resume: (runId, decisions) => ipcRenderer.invoke('runs:resume', { runId, decisions }),
     abort: (runId) => ipcRenderer.invoke('runs:abort', runId),
+    steer: (params) => ipcRenderer.invoke('runs:steer', params),
     delete: (runId) => ipcRenderer.invoke('runs:delete', runId),
     onUpdated: (callback) => {
       const subscription = (_event, data) => callback(data);

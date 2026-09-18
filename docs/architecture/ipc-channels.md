@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-17T22:06:34.862Z
+> Última generación: 2026-09-18T15:47:16.690Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -96,12 +96,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `auth:profiles:list` | `electron/ipc/integrations/auth.cjs:3` |
 | `auth:resolve` | `electron/ipc/integrations/auth.cjs:42` |
 | `auth:validate` | `electron/ipc/integrations/auth.cjs:67` |
-| `automations:delete` | `electron/ipc/agents/runs.cjs:118` |
-| `automations:get` | `electron/ipc/agents/runs.cjs:88` |
-| `automations:list` | `electron/ipc/agents/runs.cjs:98` |
-| `automations:notifyContext` | `electron/ipc/agents/runs.cjs:139` |
-| `automations:runNow` | `electron/ipc/agents/runs.cjs:129` |
-| `automations:upsert` | `electron/ipc/agents/runs.cjs:108` |
+| `automations:delete` | `electron/ipc/agents/runs.cjs:132` |
+| `automations:get` | `electron/ipc/agents/runs.cjs:102` |
+| `automations:list` | `electron/ipc/agents/runs.cjs:112` |
+| `automations:notifyContext` | `electron/ipc/agents/runs.cjs:153` |
+| `automations:runNow` | `electron/ipc/agents/runs.cjs:143` |
+| `automations:upsert` | `electron/ipc/agents/runs.cjs:122` |
 | `browser-extension:pair-cancel` | `electron/ipc/integrations/browser-extension.cjs:39` |
 | `browser-extension:pair-start` | `electron/ipc/integrations/browser-extension.cjs:32` |
 | `browser-extension:revoke` | `electron/ipc/integrations/browser-extension.cjs:46` |
@@ -467,6 +467,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `quiz:createRun` | `electron/ipc/learn/quiz.cjs:25` |
 | `quiz:getRun` | `electron/ipc/learn/quiz.cjs:110` |
 | `quiz:listRuns` | `electron/ipc/learn/quiz.cjs:92` |
+| `remote-many:pair-cancel` | `electron/ipc/sync/remote-many.cjs:43` |
+| `remote-many:pair-start` | `electron/ipc/sync/remote-many.cjs:32` |
+| `remote-many:presence` | `electron/ipc/sync/remote-many.cjs:63` |
+| `remote-many:revoke` | `electron/ipc/sync/remote-many.cjs:50` |
+| `remote-many:set-enabled` | `electron/ipc/sync/remote-many.cjs:23` |
+| `remote-many:status` | `electron/ipc/sync/remote-many.cjs:17` |
 | `resource:delete` | `electron/ipc/data/resources.cjs:519` |
 | `resource:duplicate` | `electron/ipc/data/resources.cjs:479` |
 | `resource:export` | `electron/ipc/data/resources.cjs:433` |
@@ -483,14 +489,15 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `resource:scheduleIndex` | `electron/ipc/data/resources.cjs:46` |
 | `resource:setThumbnail` | `electron/ipc/data/resources.cjs:583` |
 | `resource:writeExcelContent` | `electron/ipc/data/resources.cjs:307` |
-| `runs:abort` | `electron/ipc/agents/runs.cjs:66` |
-| `runs:delete` | `electron/ipc/agents/runs.cjs:77` |
-| `runs:get` | `electron/ipc/agents/runs.cjs:6` |
-| `runs:getActiveBySession` | `electron/ipc/agents/runs.cjs:26` |
-| `runs:list` | `electron/ipc/agents/runs.cjs:16` |
-| `runs:resume` | `electron/ipc/agents/runs.cjs:56` |
-| `runs:start` | `electron/ipc/agents/runs.cjs:36` |
-| `runs:startWorkflow` | `electron/ipc/agents/runs.cjs:46` |
+| `runs:abort` | `electron/ipc/agents/runs.cjs:67` |
+| `runs:delete` | `electron/ipc/agents/runs.cjs:91` |
+| `runs:get` | `electron/ipc/agents/runs.cjs:7` |
+| `runs:getActiveBySession` | `electron/ipc/agents/runs.cjs:27` |
+| `runs:list` | `electron/ipc/agents/runs.cjs:17` |
+| `runs:resume` | `electron/ipc/agents/runs.cjs:57` |
+| `runs:start` | `electron/ipc/agents/runs.cjs:37` |
+| `runs:startWorkflow` | `electron/ipc/agents/runs.cjs:47` |
+| `runs:steer` | `electron/ipc/agents/runs.cjs:78` |
 | `security:grant-external-path` | `electron/ipc/core/system.cjs:133` |
 | `select-file` | `electron/ipc/core/system.cjs:51` |
 | `select-files` | `electron/ipc/core/system.cjs:71` |

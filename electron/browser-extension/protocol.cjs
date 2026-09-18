@@ -116,6 +116,7 @@ const AiStreamBodySchema = z.object({
   memoryEnabled: z.boolean().optional(),
   projectId: z.string().min(1).max(120).optional(),
   thinkingLevel: z.enum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh']).optional(),
+  agentMode: z.enum(['plan', 'draft', 'agent']).optional(),
   mcpServerIds: z.array(z.string().min(1).max(120)).max(20).optional(),
   pinnedResources: z.array(PinnedResourceSchema).max(20).optional(),
   attachments: z.object({
@@ -138,9 +139,24 @@ const AiCancelBodySchema = z.object({
 }).strict();
 
 const ApprovalDecisionSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('approve') }).strict(),
+  z.object({
+    type: z.literal('approve'),
+    answers: z.array(
+      z.object({
+        id: z.string().min(1).max(80),
+        value: z.string().max(2_000),
+        label: z.string().max(2_000),
+        wasCustom: z.boolean().optional(),
+        index: z.number().int().min(1).max(40).optional(),
+      }).strict(),
+    ).max(20).optional(),
+  }).strict(),
   z.object({ type: z.literal('approve_all') }).strict(),
-  z.object({ type: z.literal('reject'), message: z.string().max(1_000).optional() }).strict(),
+  z.object({
+    type: z.literal('reject'),
+    message: z.string().max(1_000).optional(),
+    cancelled: z.boolean().optional(),
+  }).strict(),
   z.object({
     type: z.literal('edit'),
     editedAction: z.object({

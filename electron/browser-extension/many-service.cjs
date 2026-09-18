@@ -13,6 +13,12 @@ const {
 const {
   getAllToolDefinitions,
 } = require('../tools/tool-definitions.cjs');
+const {
+  parseManyAgentMode,
+  filterToolDefinitionsForMode,
+  extraHitlToolNames,
+  applyAgentModeToMessages,
+} = require('../agents/many-agent-mode.cjs');
 
 const PINNED_SESSIONS_SETTING = 'browser_extension_pinned_sessions';
 const MAX_SESSION_MESSAGES = 200;
@@ -219,17 +225,21 @@ function createManyService(deps = {}) {
     resourceToolsEnabled,
     memoryEnabled,
     mcpServerIds,
+    agentMode,
   }) {
     if (!toolsEnabled) {
       return { toolDefinitions: [], toolIds: [], mcpServerIds: [] };
     }
-    const toolDefinitions = getNativeToolDefinitions().filter((definition) => {
-      const name = toolDefinitionName(definition);
-      if (!name || name === 'browser_get_active_tab') return false;
-      if (!resourceToolsEnabled && name.startsWith('resource_')) return false;
-      if (!memoryEnabled && name === REMEMBER_TOOL_NAME) return false;
-      return true;
-    });
+    const toolDefinitions = filterToolDefinitionsForMode(
+      getNativeToolDefinitions().filter((definition) => {
+        const name = toolDefinitionName(definition);
+        if (!name || name === 'browser_get_active_tab') return false;
+        if (!resourceToolsEnabled && name.startsWith('resource_')) return false;
+        if (!memoryEnabled && name === REMEMBER_TOOL_NAME) return false;
+        return true;
+      }),
+      parseManyAgentMode(agentMode),
+    );
     return {
       toolDefinitions,
       toolIds: toolDefinitions.map(toolDefinitionName),
@@ -335,6 +345,7 @@ function createManyService(deps = {}) {
     resourceToolsEnabled = true,
     memoryEnabled = true,
     projectId,
+    agentMode: rawAgentMode,
   }) {
     const id = streamId || `ext_${Date.now()}`;
     const sessionId = threadId || `browser-extension:${id}`;
@@ -359,11 +370,13 @@ function createManyService(deps = {}) {
     const database = getDatabase();
     const effectiveProjectId = resolveProjectId(database, projectId);
     const cfg = await resolveStreamProviderConfig(database, model);
+    const agentMode = parseManyAgentMode(rawAgentMode);
     const runtimeTools = buildRuntimeToolConfig({
       toolsEnabled,
       resourceToolsEnabled,
       memoryEnabled,
       mcpServerIds,
+      agentMode,
     });
     const supportsVision = await detectVision(cfg);
     const promptContext = buildBrowserSystemContext({
@@ -394,13 +407,21 @@ function createManyService(deps = {}) {
           ? { pinnedResources }
           : {}),
       };
-      const messages = [
-        {
-          role: 'system',
-          content: promptContext.systemPrompt,
-        },
-        userMessage,
-      ];
+      const messages = applyAgentModeToMessages(
+        [
+          {
+            role: 'system',
+            content: promptContext.systemPrompt,
+          },
+          userMessage,
+        ],
+        agentMode,
+      );
+      const hitlNames = extraHitlToolNames(agentMode);
+      const requiresApproval = new Set([
+        ...require('../agents/agent-runtime.cjs').HITL_TOOL_NAMES,
+        ...hitlNames,
+      ]);
       const result = await runManyAgent({
         provider: cfg.provider,
         model: cfg.model,
@@ -423,7 +444,8 @@ function createManyService(deps = {}) {
           runtimeTools.mcpServerIds.length > 0,
         skipHitl: false,
         hitlInterrupt: true,
-        requiresApproval: require('../agents/agent-runtime.cjs').HITL_TOOL_NAMES,
+        requiresApproval,
+        agentMode,
         thinkingLevel,
         userMemory: promptContext.userMemory,
         runtimeContext:
@@ -440,6 +462,7 @@ function createManyService(deps = {}) {
           threadId: result.threadId || sessionId,
           sessionId,
           pendingApproval: {
+            kind: result.kind || null,
             actionRequests: result.actionRequests,
             reviewConfigs: result.reviewConfigs,
             pendingToolCall: result.pendingToolCall,
@@ -455,6 +478,7 @@ function createManyService(deps = {}) {
             toolIds: runtimeTools.toolIds,
             mcpServerIds: runtimeTools.mcpServerIds,
             userMemory: promptContext.userMemory,
+            agentMode,
           },
           browserTools,
           thinkingLevel,
@@ -530,6 +554,7 @@ function createManyService(deps = {}) {
       streamId,
       threadId: pending.threadId,
       expiresAt: pending.expiresAt,
+      kind: pending.pendingApproval.kind || null,
       actionRequests: pending.pendingApproval.actionRequests || [],
       reviewConfigs: pending.pendingApproval.reviewConfigs || [],
     };
@@ -571,6 +596,7 @@ function createManyService(deps = {}) {
           pending.effectiveConfig.mcpServerIds.length > 0,
         userMemory: pending.effectiveConfig.userMemory,
         thinkingLevel: pending.thinkingLevel,
+        agentMode: pending.effectiveConfig.agentMode,
         runtimeContext:
           Array.isArray(pending.pinnedResources) && pending.pinnedResources.length > 0
             ? { pinnedResourceIds: pending.pinnedResources.map((resource) => resource.id) }
@@ -591,6 +617,7 @@ function createManyService(deps = {}) {
           ...pending,
           threadId: result.threadId || pending.threadId,
           pendingApproval: {
+            kind: result.kind || null,
             actionRequests: result.actionRequests,
             reviewConfigs: result.reviewConfigs,
             pendingToolCall: result.pendingToolCall,

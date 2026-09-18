@@ -15,14 +15,16 @@ import { ResourceIconBox } from '@/components/shared/ResourceIcon';
 import { inferResourceVisualKind, type ResourceVisualKind } from '@/lib/resources/resourceVisual';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import type { PinnedResource } from '@/lib/store/useManyStore';
-import { PinnedResourceChipList } from '@/components/many/PinnedResourceChipList';
+import { PinnedResourceChipList, ManySkillChipList } from '@/components/many/PinnedResourceChipList';
 import CodingWorkspaceChip from '@/components/many/composer/CodingWorkspaceChip';
 
 interface ManyComposerChipsProps {
   attachments: ChatAttachment[];
   pinnedResources: PinnedResource[];
+  skills?: Array<{ id: string; name: string }>;
   onRemoveAttachment: (id: string) => void;
   onRemovePinned: (id: string) => void;
+  onRemoveSkill?: (id: string) => void;
 }
 
 type AttachmentUiState = 'idle' | 'uploading' | 'processing' | 'error' | 'done';
@@ -60,16 +62,19 @@ function attachmentDescription(
 export default function ManyComposerChips({
   attachments,
   pinnedResources,
+  skills = [],
   onRemoveAttachment,
   onRemovePinned,
+  onRemoveSkill,
 }: ManyComposerChipsProps) {
   const { t } = useTranslation();
-  if (attachments.length === 0 && pinnedResources.length === 0) return null;
+  if (attachments.length === 0 && pinnedResources.length === 0 && skills.length === 0) return null;
 
   return (
     <div className="flex flex-col min-w-0 w-full gap-y-2 px-2.5 pt-2">
       <CodingWorkspaceChip pinnedResources={pinnedResources} />
       <PinnedResourceChipList resources={pinnedResources} onRemove={onRemovePinned} />
+      <ManySkillChipList skills={skills} onRemove={onRemoveSkill} />
       {attachments.length > 0 ? (
         <AttachmentGroup className="w-full max-w-full flex-wrap overflow-x-hidden *:data-[slot=attachment]:max-w-full">
           {attachments.map((attachment) => (

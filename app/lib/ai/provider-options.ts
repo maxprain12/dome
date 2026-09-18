@@ -27,6 +27,13 @@ const PROVIDER_LOGO_PATHS = {
   'opencode-go': '/brandlogo/opencode-go.svg',
   vllm: '/brandlogo/vllm.svg',
   lmstudio: '/brandlogo/lmstudio.svg',
+  xai: '/brandlogo/OpenAI-black-monoblossom.svg',
+  groq: '/brandlogo/ollama.svg',
+  mistral: '/brandlogo/deepseek.svg',
+  fireworks: '/brandlogo/openrouter.svg',
+  together: '/brandlogo/openrouter.svg',
+  'google-vertex': '/brandlogo/googlegemini.svg',
+  'azure-openai-responses': '/brandlogo/OpenAI-black-monoblossom.svg',
 } as const;
 
 export type ProviderWithBrandLogo = keyof typeof PROVIDER_LOGO_PATHS;
@@ -193,5 +200,47 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.vllm.name,
     description: PROVIDERS.vllm.description + '. Requires a vLLM server.',
     logoSrc: PROVIDER_LOGO_PATHS.vllm,
+  },
+  {
+    value: 'xai',
+    label: PROVIDERS.xai.name,
+    description: PROVIDERS.xai.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.xai,
+  },
+  {
+    value: 'groq',
+    label: PROVIDERS.groq.name,
+    description: PROVIDERS.groq.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.groq,
+  },
+  {
+    value: 'mistral',
+    label: PROVIDERS.mistral.name,
+    description: PROVIDERS.mistral.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.mistral,
+  },
+  {
+    value: 'fireworks',
+    label: PROVIDERS.fireworks.name,
+    description: PROVIDERS.fireworks.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.fireworks,
+  },
+  {
+    value: 'together',
+    label: PROVIDERS.together.name,
+    description: PROVIDERS.together.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.together,
+  },
+  {
+    value: 'google-vertex',
+    label: PROVIDERS['google-vertex'].name,
+    description: PROVIDERS['google-vertex'].description + '. Requires Google Cloud credentials.',
+    logoSrc: PROVIDER_LOGO_PATHS['google-vertex'],
+  },
+  {
+    value: 'azure-openai-responses',
+    label: PROVIDERS['azure-openai-responses'].name,
+    description: PROVIDERS['azure-openai-responses'].description + '. Requires Azure API key.',
+    logoSrc: PROVIDER_LOGO_PATHS['azure-openai-responses'],
   },
 ];

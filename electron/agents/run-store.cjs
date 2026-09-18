@@ -8,6 +8,7 @@
 
 const crypto = require('node:crypto');
 const { safeStringify } = require('../tools/tool-result-cap.cjs');
+const { notifyRunEvent } = require('./run-listeners.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -57,6 +58,7 @@ function toJson(value) {
 
 function emit(channel, payload) {
   _windowManager?.broadcast?.(channel, payload);
+  notifyRunEvent(channel, payload);
 }
 
 function normalizeRunRow(row) {

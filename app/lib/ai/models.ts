@@ -80,7 +80,14 @@ export type AIProviderType =
   | 'opencode'
   | 'opencode-go'
   | 'vllm'
-  | 'lmstudio';
+  | 'lmstudio'
+  | 'xai'
+  | 'groq'
+  | 'mistral'
+  | 'fireworks'
+  | 'together'
+  | 'google-vertex'
+  | 'azure-openai-responses';
 
 export const LOCAL_OPENAI_COMPAT_PROVIDERS = ['vllm', 'lmstudio'] as const;
 export type LocalOpenAICompatProvider = (typeof LOCAL_OPENAI_COMPAT_PROVIDERS)[number];
@@ -1048,6 +1055,114 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     docsUrl: 'https://lmstudio.ai/docs',
     baseUrl: LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
   },
+  xai: {
+    id: 'xai',
+    name: 'xAI',
+    description: 'Grok via xAI',
+    icon: 'xai',
+    models: [
+      { id: 'grok-4', name: 'Grok 4', reasoning: true, input: ['text'], contextWindow: 256000, maxTokens: 16384 },
+      { id: 'grok-3', name: 'Grok 3', reasoning: true, input: ['text'], contextWindow: 131072, maxTokens: 8192 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'xai-...',
+    docsUrl: 'https://docs.x.ai',
+    baseUrl: 'https://api.x.ai/v1',
+  },
+  groq: {
+    id: 'groq',
+    name: 'Groq',
+    description: 'Inferencia rápida OpenAI-compatible',
+    icon: 'groq',
+    models: [
+      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 32768 },
+      { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', reasoning: true, input: ['text'], contextWindow: 131072, maxTokens: 16384 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'gsk_...',
+    docsUrl: 'https://console.groq.com',
+    baseUrl: 'https://api.groq.com/openai/v1',
+  },
+  mistral: {
+    id: 'mistral',
+    name: 'Mistral',
+    description: 'Mistral Large y Codestral',
+    icon: 'mistral',
+    models: [
+      { id: 'mistral-large-latest', name: 'Mistral Large', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 8192 },
+      { id: 'codestral-latest', name: 'Codestral', reasoning: false, input: ['text'], contextWindow: 256000, maxTokens: 8192 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: '...',
+    docsUrl: 'https://console.mistral.ai',
+    baseUrl: 'https://api.mistral.ai',
+  },
+  fireworks: {
+    id: 'fireworks',
+    name: 'Fireworks',
+    description: 'Fireworks Inference',
+    icon: 'fireworks',
+    models: [
+      { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', name: 'Llama 3.3 70B', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 16384 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: '...',
+    docsUrl: 'https://docs.fireworks.ai',
+    baseUrl: 'https://api.fireworks.ai/inference',
+  },
+  together: {
+    id: 'together',
+    name: 'Together',
+    description: 'Together AI',
+    icon: 'together',
+    models: [
+      { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', name: 'Llama 3.1 70B Turbo', reasoning: false, input: ['text'], contextWindow: 131072, maxTokens: 8192 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: '...',
+    docsUrl: 'https://docs.together.ai',
+    baseUrl: 'https://api.together.ai/v1',
+  },
+  'google-vertex': {
+    id: 'google-vertex',
+    name: 'Google Vertex',
+    description: 'Gemini en Vertex AI',
+    icon: 'google',
+    models: [
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', reasoning: true, input: ['text', 'image'], contextWindow: 1048576, maxTokens: 65536 },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', reasoning: true, input: ['text', 'image'], contextWindow: 1048576, maxTokens: 65536 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'AIza...',
+    docsUrl: 'https://cloud.google.com/vertex-ai',
+  },
+  'azure-openai-responses': {
+    id: 'azure-openai-responses',
+    name: 'Azure OpenAI',
+    description: 'Azure OpenAI Responses',
+    icon: 'openai',
+    models: [
+      { id: 'gpt-5', name: 'GPT-5', reasoning: true, input: ['text', 'image'], contextWindow: 400000, maxTokens: 16384 },
+      { id: 'gpt-4.1', name: 'GPT-4.1', reasoning: false, input: ['text', 'image'], contextWindow: 1047576, maxTokens: 32768 },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: '...',
+    docsUrl: 'https://learn.microsoft.com/azure/ai-foundry/openai/',
+  },
 };
 
 // =============================================================================
@@ -1139,6 +1254,13 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'vllm':
     case 'lmstudio':
       return '';
+    case 'xai': return 'grok-4';
+    case 'groq': return 'llama-3.3-70b-versatile';
+    case 'mistral': return 'mistral-large-latest';
+    case 'fireworks': return 'accounts/fireworks/models/llama-v3p3-70b-instruct';
+    case 'together': return 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo';
+    case 'google-vertex': return 'gemini-2.5-flash';
+    case 'azure-openai-responses': return 'gpt-5';
     default:
       return '';
   }

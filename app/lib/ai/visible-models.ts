@@ -31,6 +31,13 @@ export const VISIBLE_MODELS_CONFIGURABLE_PROVIDERS: readonly AIProviderType[] = 
   'openai-codex',
   'opencode',
   'opencode-go',
+  'xai',
+  'groq',
+  'mistral',
+  'fireworks',
+  'together',
+  'google-vertex',
+  'azure-openai-responses',
 ] as const;
 
 export type VisibleModelsByProvider = Partial<Record<AIProviderType, string[]>>;
@@ -69,6 +76,13 @@ export const DEFAULT_VISIBLE_MODEL_IDS: Readonly<Record<string, readonly string[
     'qwen3.7-plus',
     'glm-5.2',
   ],
+  xai: ['grok-4', 'grok-3'],
+  groq: ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b'],
+  mistral: ['mistral-large-latest', 'codestral-latest'],
+  fireworks: ['accounts/fireworks/models/llama-v3p3-70b-instruct'],
+  together: ['meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo'],
+  'google-vertex': ['gemini-2.5-flash', 'gemini-2.5-pro'],
+  'azure-openai-responses': ['gpt-5', 'gpt-4.1'],
 };
 
 export function isVisibleModelsConfigurable(provider: AIProviderType): boolean {

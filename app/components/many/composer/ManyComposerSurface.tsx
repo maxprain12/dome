@@ -22,6 +22,7 @@ import {
   InputGroupTextarea,
 } from '@/components/ui/input-group';
 import { cn } from '@/lib/utils';
+import { PinnedResourceChipList, ManySkillChipList } from '@/components/many/PinnedResourceChipList';
 
 export interface ManyComposerImage {
   id: string;
@@ -35,6 +36,11 @@ export interface ManyComposerPin {
   type?: string;
 }
 
+export interface ManyComposerSkill {
+  id: string;
+  title: string;
+}
+
 interface ManyComposerSurfaceProps {
   value: string;
   onValueChange: (value: string) => void;
@@ -43,8 +49,10 @@ interface ManyComposerSurfaceProps {
   onFiles: (files: File[]) => void;
   onRemoveImage: (id: string) => void;
   onRemovePin: (id: string) => void;
+  onRemoveSkill?: (id: string) => void;
   images: ManyComposerImage[];
   pins: ManyComposerPin[];
+  skills?: ManyComposerSkill[];
   placeholder: string;
   sendLabel: string;
   stopLabel: string;
@@ -58,7 +66,11 @@ interface ManyComposerSurfaceProps {
   usage?: ReactNode;
   pickers?: ReactNode;
   inputRef?: RefObject<HTMLTextAreaElement>;
+  containerRef?: RefObject<HTMLDivElement | null>;
+  onInputKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
+  onCaretChange?: (value: string, caret: number) => void;
   className?: string;
+  islandClassName?: string;
 }
 
 function imageFilesFromClipboard(event: ClipboardEvent<HTMLTextAreaElement>): File[] {
@@ -81,8 +93,10 @@ export default function ManyComposerSurface({
   onFiles,
   onRemoveImage,
   onRemovePin,
+  onRemoveSkill,
   images,
   pins,
+  skills = [],
   placeholder,
   sendLabel,
   stopLabel,
@@ -96,13 +110,19 @@ export default function ManyComposerSurface({
   usage,
   pickers,
   inputRef,
+  containerRef,
+  onInputKeyDown,
+  onCaretChange,
   className,
+  islandClassName,
 }: ManyComposerSurfaceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const canSend = !disabled && Boolean(value.trim() || images.length > 0);
+  const canSend =
+    !disabled && Boolean(value.trim() || images.length > 0 || pins.length > 0 || skills.length > 0);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (onInputKeyDown?.(event)) return;
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
     if (canSend && !isLoading) onSend();
@@ -131,6 +151,7 @@ export default function ManyComposerSurface({
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
     >
+      <div ref={containerRef} className="relative min-w-0">
       <Input
         ref={fileInputRef}
         type="file"
@@ -148,51 +169,58 @@ export default function ManyComposerSurface({
         className={cn(
           'h-auto max-h-[min(55vh,24rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm',
           dragging && 'border-primary/50 bg-primary/5 ring-2 ring-primary/15',
+          islandClassName,
         )}
       >
-        {pins.length > 0 || images.length > 0 ? (
+        {pins.length > 0 || images.length > 0 || skills.length > 0 ? (
           <InputGroupAddon
             align="block-start"
-            className="flex min-w-0 flex-wrap justify-start gap-1.5 px-2 pt-2"
+            className="min-w-0 overflow-hidden px-0 pt-0"
           >
-            {pins.map((pin) => (
-              <span
-                key={pin.id}
-                className="inline-flex max-w-full items-center gap-1 rounded-full border bg-muted/50 px-2 py-1 text-[11px]"
-              >
-                <span className="truncate">{pin.title}</span>
-                <button
-                  type="button"
-                  onClick={() => onRemovePin(pin.id)}
-                  aria-label={`${removeLabel}: ${pin.title}`}
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                </button>
-              </span>
-            ))}
-            {images.map((image) => (
-              <span
-                key={image.id}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-muted/50 p-1 text-[11px]"
-              >
-                <img src={image.dataUrl} alt="" className="size-7 rounded object-cover" />
-                <span className="max-w-24 truncate">{image.name}</span>
-                <button
-                  type="button"
-                  onClick={() => onRemoveImage(image.id)}
-                  aria-label={`${removeLabel}: ${image.name}`}
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                </button>
-              </span>
-            ))}
+            <div className="flex min-w-0 w-full flex-col gap-y-2 px-2.5 pt-2">
+              <PinnedResourceChipList
+                resources={pins.map((pin) => ({
+                  id: pin.id,
+                  title: pin.title,
+                  type: pin.type || 'resource',
+                }))}
+                onRemove={onRemovePin}
+              />
+              <ManySkillChipList
+                skills={skills.map((skill) => ({ id: skill.id, name: skill.title }))}
+                onRemove={onRemoveSkill}
+              />
+              {images.length > 0 ? (
+                <div className="flex min-w-0 flex-wrap gap-1.5">
+                  {images.map((image) => (
+                    <span
+                      key={image.id}
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-muted/50 p-1 text-[11px]"
+                    >
+                      <img src={image.dataUrl} alt="" className="size-7 rounded object-cover" />
+                      <span className="max-w-24 truncate">{image.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveImage(image.id)}
+                        aria-label={`${removeLabel}: ${image.name}`}
+                      >
+                        <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </InputGroupAddon>
         ) : null}
 
         <InputGroupTextarea
           ref={inputRef}
           value={value}
-          onChange={(event) => onValueChange(event.target.value)}
+          onChange={(event) => {
+            onValueChange(event.target.value);
+            onCaretChange?.(event.target.value, event.target.selectionStart ?? event.target.value.length);
+          }}
           onKeyDown={handleKeyDown}
           onPaste={(event) => {
             const files = imageFilesFromClipboard(event);
@@ -254,6 +282,7 @@ export default function ManyComposerSurface({
         </InputGroupAddon>
       </InputGroup>
       {pickers}
+      </div>
     </form>
   );
 }

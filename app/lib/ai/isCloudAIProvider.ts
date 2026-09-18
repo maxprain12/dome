@@ -11,6 +11,13 @@ export function isCloudAIProvider(provider: AIProviderType): boolean {
     provider === 'moonshot' ||
     provider === 'qwen' ||
     provider === 'opencode' ||
-    provider === 'opencode-go'
+    provider === 'opencode-go' ||
+    provider === 'xai' ||
+    provider === 'groq' ||
+    provider === 'mistral' ||
+    provider === 'fireworks' ||
+    provider === 'together' ||
+    provider === 'google-vertex' ||
+    provider === 'azure-openai-responses'
   );
 }

@@ -5,12 +5,18 @@ import { truncateToolResultForRenderer } from '@/lib/chat/truncateToolResult';
 
 /** Session `custom` / `custom_message` type for composer pins (JSONL v4). */
 export const DOME_PINS_CUSTOM_TYPE = 'dome.pins';
+export const DOME_SKILLS_CUSTOM_TYPE = 'dome.skills';
 
 export type HarnessPinnedResource = {
   id: string;
   title: string;
   type: string;
   kind?: string;
+};
+
+export type HarnessTurnSkill = {
+  id: string;
+  name: string;
 };
 
 /** Minimal shape persisted in JSONL thread checkpoints. */
@@ -30,6 +36,7 @@ export type HarnessManyMessage = {
   thinking?: string;
   attachments?: StructuredMessageAttachments;
   pinnedResources?: HarnessPinnedResource[];
+  skills?: HarnessTurnSkill[];
 };
 
 type PiContentBlock = {
@@ -145,6 +152,64 @@ function attachPinsToUser(
   const nearest = [...out].reverse().find((m) => m.role === 'user');
   if (nearest) {
     nearest.pinnedResources = pins.pinnedResources;
+    return true;
+  }
+  return false;
+}
+
+function parseTurnSkills(value: unknown): HarnessTurnSkill[] {
+  if (!Array.isArray(value)) return [];
+  const skills: HarnessTurnSkill[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (!isRecord(item)) continue;
+    const name =
+      typeof item.name === 'string'
+        ? item.name.trim()
+        : typeof item.title === 'string'
+          ? item.title.trim()
+          : '';
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : name;
+    skills.push({ id, name });
+  }
+  return skills;
+}
+
+function parseDomeSkillsPayload(msg: PiMessage): {
+  messageTimestamp?: number;
+  skills: HarnessTurnSkill[];
+} | null {
+  if (msg.customType !== DOME_SKILLS_CUSTOM_TYPE) return null;
+  const payload = isRecord(msg.details) ? msg.details : isRecord(msg.data) ? msg.data : null;
+  if (!payload) return null;
+  const skills = parseTurnSkills(payload.skills);
+  if (skills.length === 0) return null;
+  return {
+    messageTimestamp: typeof payload.messageTimestamp === 'number' ? payload.messageTimestamp : undefined,
+    skills,
+  };
+}
+
+function attachSkillsToUser(
+  out: HarnessManyMessage[],
+  entry: { messageTimestamp?: number; skills: HarnessTurnSkill[] },
+): boolean {
+  if (entry.messageTimestamp !== undefined) {
+    const byTs = [...out].reverse().find(
+      (m) => m.role === 'user' && m.timestamp === entry.messageTimestamp,
+    );
+    if (byTs) {
+      byTs.skills = entry.skills;
+      return true;
+    }
+  }
+  const nearest = [...out].reverse().find((m) => m.role === 'user');
+  if (nearest) {
+    nearest.skills = entry.skills;
     return true;
   }
   return false;
@@ -416,6 +481,7 @@ export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessag
   let index = 0;
   let pendingPins: { messageTimestamp?: number; pinnedResources: HarnessPinnedResource[] } | null =
     null;
+  let pendingSkills: { messageTimestamp?: number; skills: HarnessTurnSkill[] } | null = null;
 
   while (index < raw.length) {
     const item = raw[index];
@@ -440,6 +506,10 @@ export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessag
         attachPinsToUser(out, pendingPins);
         pendingPins = null;
       }
+      if (pendingSkills) {
+        attachSkillsToUser(out, pendingSkills);
+        pendingSkills = null;
+      }
       index += 1;
       continue;
     }
@@ -447,6 +517,8 @@ export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessag
     if (msg.role === 'custom') {
       const pins = parseDomePinsPayload(msg);
       if (pins && !attachPinsToUser(out, pins)) pendingPins = pins;
+      const skills = parseDomeSkillsPayload(msg);
+      if (skills && !attachSkillsToUser(out, skills)) pendingSkills = skills;
       index += 1;
       continue;
     }

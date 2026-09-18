@@ -152,6 +152,26 @@ describe('harnessMessagesToManyMessages — interleaving', () => {
     });
   });
 
+  it('attaches dome.skills custom entries to the nearest user turn', () => {
+    const msgs = harnessMessagesToManyMessages([
+      { role: 'user', content: 'genera el informe', timestamp: 100 },
+      {
+        role: 'custom',
+        customType: 'dome.skills',
+        details: {
+          messageTimestamp: 100,
+          skills: [{ id: 'pptx', name: 'pptx' }, { id: 'advo-identity', name: 'advo-identity' }],
+        },
+      },
+      { role: 'assistant', content: [{ type: 'text', text: 'Listo.' }], timestamp: 200 },
+    ]);
+    const user = msgs.find((m) => m.role === 'user');
+    expect(user?.skills).toEqual([
+      { id: 'pptx', name: 'pptx' },
+      { id: 'advo-identity', name: 'advo-identity' },
+    ]);
+  });
+
   it('replaces a prefix assistant block when the next block restates the whole turn', () => {
     const first = 'Voy a buscar a la persona en tu agenda de contactos.';
     const full = `${first}\n\nYa tengo la ficha de @mery_sugy.`;

@@ -75,6 +75,8 @@ export interface ChatMessageData {
     type: string;
     kind?: 'person' | 'resource' | 'issue' | 'email' | 'social_post' | 'social_campaign' | 'social_reference' | 'social_profile';
   }>;
+  /** Skills invoked with this user turn (shown as chips, not raw /tokens). */
+  skills?: Array<{ id: string; name: string }>;
   /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];
 }

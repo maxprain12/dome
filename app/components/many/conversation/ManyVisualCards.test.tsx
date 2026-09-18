@@ -46,6 +46,26 @@ describe('ManyReferenceCards', () => {
     expect(screen.queryByText('sp-hidden')).not.toBeInTheDocument();
     expect(screen.getByText('233')).toBeInTheDocument();
   });
+
+  it('shows a saved note from Desktop tools without the resource id', () => {
+    render(
+      <ManyReferenceCards
+        calls={[
+          {
+            name: 'resource_create',
+            status: 'success',
+            result: {
+              success: true,
+              resource: { id: 'res_hidden', type: 'note', title: 'Briefing de la semana', content: 'Enviar el resumen.' },
+            },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Briefing de la semana')).toBeInTheDocument();
+    expect(screen.getByText('Enviar el resumen.')).toBeInTheDocument();
+    expect(screen.queryByText('res_hidden')).not.toBeInTheDocument();
+  });
 });
 
 describe('ManyAssistantVisualBody', () => {
@@ -96,5 +116,47 @@ describe('ManyAssistantVisualBody', () => {
     expect(screen.getByText('609')).toBeInTheDocument();
     expect(screen.queryByText('Copy')).not.toBeInTheDocument();
     expect(screen.queryByText('Imp')).not.toBeInTheDocument();
+  });
+
+  it('renders labeled metric lists as a compact overview and bars', () => {
+    render(
+      <MemoryRouter>
+        <ManyAssistantVisualBody
+          content={[
+            'He resuelto el perfil.',
+            '',
+            '📌 Resumen del perfil',
+            '',
+            '- **Followers:** 57.751',
+            '- **Following:** 806',
+            '- **Posts totales:** 1.369',
+          ].join('\n')}
+          allowStreaming={false}
+          citationMap={undefined}
+          onClickCitation={() => {}}
+          showCaret={false}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByText('Followers').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('57.8K').length).toBeGreaterThan(0);
+    expect(screen.queryByText('📌 Resumen del perfil')).not.toBeInTheDocument();
+  });
+
+  it('renders a calendar artifact without the event id', () => {
+    render(
+      <MemoryRouter>
+        <ManyAssistantVisualBody
+          content={'```artifact:calendar_event\n{"type":"calendar_event","title":"Dentista","start_at":"2026-09-18T16:00:00.000Z","end_at":"2026-09-18T17:00:00.000Z","event_id":"evt-hidden","location":"Clínica"}\n```'}
+          allowStreaming={false}
+          citationMap={undefined}
+          onClickCitation={() => {}}
+          showCaret={false}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Dentista')).toBeInTheDocument();
+    expect(screen.getByText(/Clínica/)).toBeInTheDocument();
+    expect(screen.queryByText('evt-hidden')).not.toBeInTheDocument();
   });
 });

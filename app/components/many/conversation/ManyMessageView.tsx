@@ -15,7 +15,8 @@ import {
   ManyAssistantVisualBody,
   ManyReferenceCardsFromBlocks,
 } from '@/components/many/conversation/ManyVisualCards';
-import { PinnedResourceChipList } from '@/components/many/PinnedResourceChipList';
+import { ManyPlanArtifactSlot } from '@/components/many/conversation/ManyPlanCard';
+import { PinnedResourceChipList, ManySkillChipList } from '@/components/many/PinnedResourceChipList';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
 import { Button } from '@/components/ui/button';
 import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker';
@@ -38,9 +39,11 @@ import {
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import type { ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
 import { interleaveMessageParts, type MessagePart } from '@/lib/chat/interleaveMessageParts';
+import { flattenToolDisplayCalls } from '@/lib/chat/manyVisualCards';
 import { activityTraceCopyFromT } from '@/lib/chat/manyActivityTrace';
 import { parseTodos } from '@/lib/chat/todos';
 import { stripPinnedMentionTokens } from '@/lib/chat/pinLabels';
+import { skillChipsFromUserTurn, stripSkillInvocationText } from '@/lib/chat/userTurnContext';
 import { extractActionSuggestions } from '@/lib/many/actionSuggestions';
 import { extractCitationNumbers } from '@/lib/utils/citations';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
@@ -88,7 +91,9 @@ function buildKeyedUserVisualSegments(
   images: UserMessageImageRef[] | undefined,
 ): KeyedUserVisualSegment[] | null {
   if (!content) return null;
-  const displayContent = stripPinnedMentionTokens(content, pinnedResources ?? []);
+  const displayContent = stripSkillInvocationText(
+    stripPinnedMentionTokens(content, pinnedResources ?? []),
+  );
   if (!displayContent.trim() && (pinnedResources?.length ?? 0) > 0) {
     // Pins are rendered as chips; nothing left to show in the bubble.
     return [];
@@ -117,7 +122,7 @@ function resolveUserBubbleText(
       .join('');
   }
   if (!message.content) return '';
-  return stripPinnedMentionTokens(stripArtifactBlocks(message.content), pinned);
+  return stripSkillInvocationText(stripPinnedMentionTokens(stripArtifactBlocks(message.content), pinned));
 }
 
 /** Citation map → SourceReference rows — extracted for S3776. */
@@ -284,12 +289,17 @@ function ManyUserMessageTurn({
   const userText = resolveUserBubbleText(userVisualSegments, message);
   const hasBody = Boolean(userText.trim());
   const pinned = message.pinnedResources ?? [];
-  const showFooter = hasBody || pinned.length > 0 || (userVisualSegments?.some((s) => s.type === 'image') ?? false);
+  const skills = skillChipsFromUserTurn(message.content, message.skills);
+  const showFooter =
+    hasBody || pinned.length > 0 || skills.length > 0 || (userVisualSegments?.some((s) => s.type === 'image') ?? false);
 
   return (
     <div className={cn('group/turn flex min-w-0 flex-col items-end gap-1.5', className)}>
       {pinned.length > 0 ? (
         <PinnedResourceChipList resources={pinned} align="end" className="max-w-[88%]" />
+      ) : null}
+      {skills.length > 0 ? (
+        <ManySkillChipList skills={skills} align="end" className="max-w-[88%]" />
       ) : null}
 
       {userVisualSegments ? (
@@ -338,6 +348,9 @@ function AssistantMessageParts({
   copy: ReturnType<typeof activityTraceCopyFromT>;
   toolLabelT: (key: string, opts?: { defaultValue?: string }) => string;
 }) {
+  const toolCalls = parts.flatMap((part) =>
+    part.type === 'tools' ? flattenToolDisplayCalls(part.blocks) : [],
+  );
   return (
     <>
       {parts.map((part, partIdx) =>
@@ -369,6 +382,7 @@ function AssistantMessageParts({
             citationMap={citationMap}
             onClickCitation={onClickCitation}
             showCaret={isStreaming && partIdx === parts.length - 1}
+            toolCalls={toolCalls}
           />
         ),
       )}
@@ -612,6 +626,14 @@ function ManyAssistantMessageTurn({
         copy={traceCopy}
         toolLabelT={t}
       />
+
+      {showIdleExtras ? (
+        <ManyPlanArtifactSlot
+          messageId={message.id}
+          content={message.content}
+          isLastInGroup={isLastInGroup}
+        />
+      ) : null}
 
       {showPdfActions ? (
         <AssistantPdfRegionActions
