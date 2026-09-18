@@ -664,7 +664,7 @@ export default function PanelApp({
               history: t('history'),
               context: t('context'),
             }}
-            viewPresentation="labels"
+            viewPresentation="icons"
             secondaryActions={
               <>
                 {secondaryTasks.map((secondaryTask) => (
