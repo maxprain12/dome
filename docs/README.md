@@ -100,12 +100,14 @@ pnpm run check:ipc-inventory # tras añadir canales IPC
 
 ---
 
-## Provider y marketing (otros repos)
+## Ecosistema (repos hermanos)
 
 | Repo | Documentación |
 |------|----------------|
-| **dome-provider** | Backend OAuth, proxy IA, billing — ver [MASTER.md](../MASTER.md) |
-| **landing-page-dome** | Sitio Astro, descarga — implementación; el brief vive en [marketing/](marketing/analisis-mercado.md) |
+| **[dome](https://github.com/maxprain12/dome)** | Este repo — Desktop Electron; Many se ejecuta aquí |
+| **[dome-provider](https://github.com/maxprain12/dome-provider)** | OAuth, proxy IA, billing, relay Remote Many — ver [MASTER.md](../MASTER.md) |
+| **[dome-companion](https://github.com/maxprain12/dome-companion)** | App iOS; mando remoto de Many (no un Many en la nube) |
+| **[landing-page-dome](https://github.com/maxprain12/landing-page-dome)** | Sitio Astro, descarga — implementación; el brief vive en [marketing/](marketing/analisis-mercado.md) |
 
 ---
 

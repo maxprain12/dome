@@ -4,6 +4,20 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+Cambios en `main` posteriores a la release pública [v2.8.9](https://github.com/maxprain12/dome/releases/tag/v2.8.9) (2026-07-05). Las tags `v2.8.6`–`v2.8.9` existen en GitHub; este archivo aún no las desglosa.
+
+### Added
+
+- **Remote Many.** Companion controla el Many de Desktop a través de un relay cifrado en Provider (`remote-many/1`). Desktop no abre un puerto; Provider no ejecuta agentes ni descifra payloads. Contrato: [docs/architecture/remote-many.md](docs/architecture/remote-many.md), ADR-0016. (#1690)
+- **Trends Radar.** Pestaña Social → Tendencias: radar híbrido (Tu radar / Para ti / Emergentes / Populares) con clusters, evidencia y afinidad. Contrato: [docs/plans/active/social-trends-radar.md](docs/plans/active/social-trends-radar.md). (#1688, #1686)
+- **Explorador tipo Finder.** Vista de workspace con previews en vivo de notas y artefactos. (#1689)
+- **Extensión de navegador.** Paridad Many en el panel, control de página, pairing y puente loopback (`127.0.0.1:37215`). Guía: [docs/features/browser-extension.md](docs/features/browser-extension.md). (#1635, #1645, #1658, #1691, #1692)
+
+### Changed
+
+- Plan mode y visor mermaid de planes en Many, junto con Remote Many. (#1690)
+- Trazas de actividad y tarjetas visuales para análisis social en Many. (#1687)
+
 ## [2.8.5](https://github.com/maxprain12/dome/releases/tag/v2.8.5) - 2026-07-02
 
 Simplificación de la superficie de tools del agente, errores de tool visibles en la UI y cap automático para APIs OpenAI-compat.
