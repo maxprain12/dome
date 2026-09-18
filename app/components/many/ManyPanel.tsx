@@ -10,7 +10,7 @@ import ManyConversation, {
 } from './conversation/ManyConversation';
 import ManyWelcome from './conversation/ManyWelcome';
 import { ManyCompactionNotice, ManyPdfRegionChip } from './conversation/ManyNotices';
-import { ManyPlanDockHost } from './conversation/ManyPlanDock';
+import { ManyPlanDockHost } from './conversation/ManyPlanDockHost';
 import { ManyPlanPanel } from './conversation/ManyPlanCard';
 import ManyComposer from './composer/ManyComposer';
 import ManyApprovalGate from './conversation/ManyApprovalGate';

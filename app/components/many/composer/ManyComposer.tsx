@@ -735,7 +735,14 @@ const ManyComposer = memo(function ManyComposer({
                 }
                 disabled={isLoading}
               />
-              <ManyModeSwitcher disabled={false} />
+              <ManyModeSwitcher
+                disabled={false}
+                mode={agentMode}
+                onModeChange={(next) => {
+                  if (!currentSessionId) return;
+                  setAgentModeForSession(currentSessionId, next);
+                }}
+              />
               <span className="min-w-0 shrink">
                 <InlineModelSwitcher />
               </span>

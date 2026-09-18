@@ -11,30 +11,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { parseManyAgentMode, type ManyAgentMode } from '@/lib/many/agentMode';
 import { composerModeSwitcherClass } from '@/lib/many/composerMode';
-import { useManyStore } from '@/lib/store/useManyStore';
 import { cn } from '@/lib/utils';
 
 const MODES: ManyAgentMode[] = ['plan', 'draft', 'agent'];
 
 interface ManyModeSwitcherProps {
   disabled?: boolean;
-  mode?: ManyAgentMode;
-  onModeChange?: (mode: ManyAgentMode) => void;
+  mode: ManyAgentMode;
+  onModeChange: (mode: ManyAgentMode) => void;
 }
 
 export function ManyModeSwitcher({
   disabled = false,
-  mode: modeProp,
+  mode,
   onModeChange,
 }: ManyModeSwitcherProps) {
   const { t } = useTranslation();
-  const currentSessionId = useManyStore((s) => s.currentSessionId);
-  const agentModeBySession = useManyStore((s) => s.agentModeBySession);
-  const setAgentModeForSession = useManyStore((s) => s.setAgentModeForSession);
-  const storeMode = parseManyAgentMode(
-    currentSessionId ? agentModeBySession[currentSessionId] : 'agent',
-  );
-  const mode = modeProp ?? storeMode;
 
   return (
     <DropdownMenu>
@@ -44,7 +36,7 @@ export function ManyModeSwitcher({
             type="button"
             variant="ghost"
             size="xs"
-            disabled={disabled || (!onModeChange && !currentSessionId)}
+            disabled={disabled}
             aria-label={t('many.mode_label')}
             className={cn(
               'gap-1 rounded-full px-2',
@@ -61,13 +53,7 @@ export function ManyModeSwitcher({
         <DropdownMenuRadioGroup
           value={mode}
           onValueChange={(next) => {
-            const parsed = parseManyAgentMode(next);
-            if (onModeChange) {
-              onModeChange(parsed);
-              return;
-            }
-            if (!currentSessionId) return;
-            setAgentModeForSession(currentSessionId, parsed);
+            onModeChange(parseManyAgentMode(next));
           }}
         >
           {MODES.map((option) => (

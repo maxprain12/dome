@@ -5,6 +5,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
   type RefObject,
 } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -66,7 +67,7 @@ interface ManyComposerSurfaceProps {
   usage?: ReactNode;
   pickers?: ReactNode;
   inputRef?: RefObject<HTMLTextAreaElement>;
-  containerRef?: RefObject<HTMLDivElement | null>;
+  containerRef?: Ref<HTMLDivElement>;
   onInputKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
   onCaretChange?: (value: string, caret: number) => void;
   className?: string;

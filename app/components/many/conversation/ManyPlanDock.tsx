@@ -1,20 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { parseManyAgentMode } from '@/lib/many/agentMode';
 import {
   OTHER_OPTION_VALUE,
-  extractPlanDocument,
-  formatExecutePrompt,
-  questionnaireFromActionRequests,
   type PlanTodo,
   type QuestionnaireAnswer,
   type QuestionnaireQuestion,
 } from '@/lib/many/planDocument';
-import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
-import { useManyStore } from '@/lib/store/useManyStore';
 import { cn } from '@/lib/utils';
 
 const SUBMIT_TAB = '__submit__';
@@ -69,93 +63,6 @@ export function ManyPlanDock({
         />
       )}
     </div>
-  );
-}
-
-interface ManyPlanDockHostProps {
-  pendingApproval: RunPendingApproval | null;
-  onExecute: (prompt: string) => void;
-  onRefineRequest: () => void;
-}
-
-export function ManyPlanDockHost({
-  pendingApproval,
-  onExecute,
-  onRefineRequest,
-}: ManyPlanDockHostProps) {
-  const currentSessionId = useManyStore((s) => s.currentSessionId);
-  const agentModeBySession = useManyStore((s) => s.agentModeBySession);
-  const planTodosBySession = useManyStore((s) => s.planTodosBySession);
-  const planDocumentBySession = useManyStore((s) => s.planDocumentBySession);
-  const planExecutingBySession = useManyStore((s) => s.planExecutingBySession);
-  const planChoiceOpenBySession = useManyStore((s) => s.planChoiceOpenBySession);
-  const setAgentModeForSession = useManyStore((s) => s.setAgentModeForSession);
-  const setPlanExecutingForSession = useManyStore((s) => s.setPlanExecutingForSession);
-  const setPlanChoiceOpenForSession = useManyStore((s) => s.setPlanChoiceOpenForSession);
-  const setPlanDocumentForSession = useManyStore((s) => s.setPlanDocumentForSession);
-  const lastAssistantText = useManyStore((s) => {
-    const id = s.currentSessionId;
-    if (!id) return '';
-    const messages = s.sessions.find((row) => row.id === id)?.messages ?? [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message?.role === 'assistant' && message.content?.trim()) return message.content;
-    }
-    return '';
-  });
-
-  const questions = useMemo(
-    () => questionnaireFromActionRequests(pendingApproval?.actionRequests),
-    [pendingApproval],
-  );
-  const todos = currentSessionId ? planTodosBySession[currentSessionId] ?? [] : [];
-  const document = currentSessionId ? planDocumentBySession[currentSessionId] : undefined;
-  const executing = currentSessionId ? planExecutingBySession[currentSessionId] === true : false;
-  const choiceOpen = currentSessionId ? planChoiceOpenBySession[currentSessionId] !== false : false;
-  const agentMode = parseManyAgentMode(
-    currentSessionId ? agentModeBySession[currentSessionId] : 'agent',
-  );
-
-  useEffect(() => {
-    if (!currentSessionId || agentMode !== 'plan' || todos.length > 0 || !lastAssistantText) return;
-    const recovered = extractPlanDocument(lastAssistantText);
-    if (recovered) {
-      setPlanDocumentForSession(currentSessionId, recovered);
-      setPlanChoiceOpenForSession(currentSessionId, true);
-    }
-  }, [agentMode, currentSessionId, lastAssistantText, setPlanChoiceOpenForSession, setPlanDocumentForSession, todos.length]);
-
-  let phase: ManyPlanDockPhase | null = null;
-  if (questions.length > 0) phase = 'questionnaire';
-  else if (executing && todos.length > 0) phase = 'executing';
-  else if (agentMode === 'plan' && todos.length > 0 && choiceOpen) phase = 'choose';
-
-  return (
-    <ManyPlanDock
-      questions={questions}
-      todos={todos}
-      phase={phase}
-      onSubmitQuestionnaire={(answers) => {
-        pendingApproval?.submitResume([{ type: 'approve', answers }]);
-      }}
-      onCancelQuestionnaire={() => {
-        pendingApproval?.submitResume([{ type: 'reject', cancelled: true }]);
-      }}
-      onExecute={() => {
-        if (!currentSessionId) return;
-        setAgentModeForSession(currentSessionId, 'agent');
-        setPlanExecutingForSession(currentSessionId, true);
-        setPlanChoiceOpenForSession(currentSessionId, false);
-        onExecute(formatExecutePrompt(todos, document?.body));
-      }}
-      onStay={() => {
-        if (!currentSessionId) return;
-        setPlanChoiceOpenForSession(currentSessionId, false);
-      }}
-      onRefine={() => {
-        onRefineRequest();
-      }}
-    />
   );
 }
 
@@ -239,32 +146,40 @@ function QuestionnairePane({
     setTab(next ? next.id : SUBMIT_TAB);
   }, [answered, current, multi, questions, submit]);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      if (current && typingOther[current.id]) {
-        setTypingOther((prev) => ({ ...prev, [current.id]: false }));
-        setSelected((prev) => {
-          const next = { ...prev };
-          delete next[current.id];
-          return next;
-        });
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (current && typingOther[current.id]) {
+          setTypingOther((prev) => ({ ...prev, [current.id]: false }));
+          setSelected((prev) => {
+            const next = { ...prev };
+            delete next[current.id];
+            return next;
+          });
+          return;
+        }
+        onCancel?.();
         return;
       }
-      onCancel?.();
-      return;
-    }
-    if (event.key !== 'Enter' || event.shiftKey) return;
-    event.preventDefault();
-    if (showingSubmit) {
-      submit();
-      return;
-    }
-    advance();
-  };
+      if (event.key !== 'Enter' || event.shiftKey) return;
+      event.preventDefault();
+      if (showingSubmit) {
+        submit();
+        return;
+      }
+      advance();
+    };
+    node.addEventListener('keydown', onKey);
+    return () => node.removeEventListener('keydown', onKey);
+  }, [advance, current, onCancel, showingSubmit, submit, typingOther]);
 
   return (
-    <div className="flex flex-col gap-3" onKeyDown={onKeyDown}>
+    <div ref={rootRef} className="flex flex-col gap-3">
       {multi ? (
         <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('many.plan_ready')}>
           {questions.map((question) => {
@@ -361,12 +276,19 @@ function QuestionOptions({
 }) {
   const { t } = useTranslation();
   const otherValue = OTHER_OPTION_VALUE;
+  const customInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!typingOther) return;
+    customInputRef.current?.focus();
+  }, [typingOther]);
+
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-foreground">{question.prompt}</p>
       {typingOther ? (
         <Input
-          autoFocus
+          ref={customInputRef}
           value={custom}
           onChange={(event) => onCustom(event.target.value)}
           placeholder={t('many.plan_type_something')}

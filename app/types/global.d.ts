@@ -27,6 +27,31 @@ type EmailResult<T = Record<string, never>> = {
   helpUrl?: string | null;
 } & Partial<T>;
 
+type IpcAiChatProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'dome'
+  | 'minimax'
+  | 'openrouter'
+  | 'copilot'
+  | 'claude-oauth'
+  | 'openai-codex'
+  | 'deepseek'
+  | 'moonshot'
+  | 'qwen'
+  | 'opencode'
+  | 'opencode-go'
+  | 'vllm'
+  | 'lmstudio'
+  | 'xai'
+  | 'groq'
+  | 'mistral'
+  | 'fireworks'
+  | 'together'
+  | 'google-vertex'
+  | 'azure-openai-responses';
+
 interface ProviderModelsListResult {
   success: boolean;
   models?: Array<{
@@ -1530,23 +1555,7 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider:
-            | 'openai'
-            | 'anthropic'
-            | 'google'
-            | 'dome'
-            | 'minimax'
-            | 'openrouter'
-            | 'copilot'
-            | 'claude-oauth'
-            | 'openai-codex'
-            | 'deepseek'
-            | 'moonshot'
-            | 'qwen'
-            | 'opencode'
-            | 'opencode-go'
-            | 'vllm'
-            | 'lmstudio',
+          provider: IpcAiChatProvider,
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -1584,24 +1593,7 @@ declare global {
           cached?: boolean;
         }>;
         stream: (
-          provider:
-            | 'openai'
-            | 'anthropic'
-            | 'google'
-            | 'dome'
-            | 'ollama'
-            | 'minimax'
-            | 'openrouter'
-            | 'copilot'
-            | 'claude-oauth'
-            | 'openai-codex'
-            | 'deepseek'
-            | 'moonshot'
-            | 'qwen'
-            | 'opencode'
-            | 'opencode-go'
-            | 'vllm'
-            | 'lmstudio',
+          provider: IpcAiChatProvider | 'ollama',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -1619,24 +1611,7 @@ declare global {
           error?: string;
         }>;
         streamAgent: (
-          provider:
-            | 'openai'
-            | 'anthropic'
-            | 'google'
-            | 'ollama'
-            | 'minimax'
-            | 'openrouter'
-            | 'copilot'
-            | 'claude-oauth'
-            | 'openai-codex'
-            | 'dome'
-            | 'deepseek'
-            | 'moonshot'
-            | 'qwen'
-            | 'opencode'
-            | 'opencode-go'
-            | 'vllm'
-            | 'lmstudio',
+          provider: IpcAiChatProvider | 'ollama',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,
