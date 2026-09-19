@@ -1,6 +1,6 @@
 # Arquitectura – índice
 
-**Ecosistema:** el índice [MASTER](../../MASTER.md) relaciona Dome Desktop, dome-provider y el sitio `landing-page-dome`; este directorio cubre sólo **arquitectura del cliente Desktop**.
+**Ecosistema:** el índice [MASTER](../../MASTER.md) relaciona las cuatro piezas — [Desktop](https://github.com/maxprain12/dome), [Provider](https://github.com/maxprain12/dome-provider), [Companion](https://github.com/maxprain12/dome-companion) y [landing](https://github.com/maxprain12/landing-page-dome); este directorio cubre sólo **arquitectura del cliente Desktop**.
 - [Capas y dependencias](layers.md) — modelo de referencia (Types → Config → Repo → Service → Runtime → UI).
 - [Dominios de producto](domains.md) — mapa al código (`app/`, `electron/ipc/`).
 - [Fronteras renderer / main](boundaries.md) — IPC, validación, seguridad.

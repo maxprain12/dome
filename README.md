@@ -26,6 +26,7 @@ Dome is an open-source desktop app for **founder-creators**. Keep notes, PDFs, v
 ## Table of Contents
 
 - [Features](#features)
+- [Related repositories](#related-repositories)
 - [Tech Stack](#tech-stack)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -52,11 +53,26 @@ One app. Pick an edition in onboarding (or Settings → Features). See [docs/pro
 |---|---|
 | **Documents** | Projects, Notion-style editor, PDF/PPT/video viewers, URL and YouTube ingest, hybrid semantic search, **Ready for AI** |
 | **People** | Contacts and leads with identities from email, social, and GitHub |
-| **Many** | Dome-native agent runtime grounded in the open resource *and* the open person; MCP tools |
+| **Many** | Dome-native agent runtime grounded in the open resource *and* the open person; MCP tools. **Remote Many** lets the iOS Companion drive that same Desktop Many through an encrypted Provider relay — Desktop never opens a port; Provider never runs agents. See [docs/architecture/remote-many.md](docs/architecture/remote-many.md). |
 | **Channels** | Email (IMAP) and Social (LinkedIn / Instagram / X) attached to People — not separate products |
 | **Study edition** | Flashcards (FSRS), quizzes, Studio outputs from the library |
 | **Dev edition** | GitHub tracking plus agents / workflows when you turn them on |
 | **Local-first** | SQLite + LanceDB on disk; Ollama or your own cloud keys; Google Drive import with tokens stored locally |
+
+---
+
+## Related repositories
+
+Dome Desktop is one of four sister repos:
+
+| Repo | Role |
+|------|------|
+| **[dome](https://github.com/maxprain12/dome)** | This repo — Electron desktop app; Many execution plane |
+| **[dome-provider](https://github.com/maxprain12/dome-provider)** | OAuth, AI proxy, billing, encrypted Remote Many relay |
+| **[dome-companion](https://github.com/maxprain12/dome-companion)** | iOS companion — remote cockpit for Desktop Many |
+| **[landing-page-dome](https://github.com/maxprain12/landing-page-dome)** | Public Astro site and download links |
+
+Ecosystem index (ES): [MASTER.md](MASTER.md).
 
 ---
 
