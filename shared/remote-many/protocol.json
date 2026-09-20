@@ -1,0 +1,49 @@
+{
+  "name": "remote-many",
+  "version": 1,
+  "hkdfInfo": "dome-remote-many-v1",
+  "maxEnvelopeBytes": 65536,
+  "commandTtlMs": 900000,
+  "eventTtlMs": 86400000,
+  "heartbeatMs": 15000,
+  "onlineWindowMs": 45000,
+  "pairingTtlMs": 600000,
+  "agentModes": [
+    "plan",
+    "draft",
+    "agent"
+  ],
+  "commandTypes": [
+    "session.start",
+    "session.list",
+    "session.get",
+    "message.send",
+    "run.cancel",
+    "run.resume",
+    "approval.decide",
+    "capabilities.request",
+    "model.set",
+    "refs.list",
+    "refs.preview",
+    "refs.export",
+    "mode.set"
+  ],
+  "eventTypes": [
+    "presence",
+    "start",
+    "text",
+    "thinking",
+    "tool_call",
+    "tool_progress",
+    "tool_result",
+    "approval",
+    "plan",
+    "done",
+    "error",
+    "session.list",
+    "capabilities",
+    "run.status",
+    "visual",
+    "refs"
+  ]
+}

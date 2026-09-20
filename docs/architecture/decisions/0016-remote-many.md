@@ -17,7 +17,7 @@ Dome Desktop es el único runtime completo de Many (`@dome/agent-core`, sesiones
 
 ## Contrato
 
-Protocolo versionado `remote-many/1` documentado en [../remote-many.md](../remote-many.md). Scopes OAuth: `remote.connect`, `remote.control`, `remote.approve`.
+Protocolo versionado `remote-many/1` documentado en [../remote-many.md](../remote-many.md). La fuente canónica de tipos de mensaje es [`shared/remote-many/protocol.json`](../../../shared/remote-many/protocol.json). Scopes OAuth: `remote.connect`, `remote.control`, `remote.approve`.
 
 ## Consecuencias
 

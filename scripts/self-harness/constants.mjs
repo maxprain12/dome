@@ -62,6 +62,7 @@ export const DEFAULT_GATES = Object.freeze([
   ['pnpm', ['run', 'lint']],
   ['pnpm', ['run', 'build']],
   ['pnpm', ['run', 'check:ipc-inventory']],
+  ['pnpm', ['run', 'check:remote-protocol']],
   ['pnpm', ['run', 'check:sonar-patterns']],
   ['pnpm', ['run', 'depcruise']],
 ]);

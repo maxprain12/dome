@@ -54,6 +54,7 @@ pnpm run test:ui
 pnpm run check:guardrails
 pnpm run check:sonar-patterns -- --diff=origin/main
 pnpm run check:ipc-inventory
+pnpm run check:remote-protocol
 pnpm run build
 pnpm run depcruise
 ```
