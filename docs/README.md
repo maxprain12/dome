@@ -31,6 +31,7 @@ pnpm run build:packages      # @dome/db, @dome/agent-core, …
 pnpm run test:drizzle-spike  # smoke Drizzle (settings + tags)
 pnpm run db:perf-baseline    # métricas locales de dome.db
 pnpm run check:ipc-inventory # tras añadir canales IPC
+pnpm run check:remote-protocol # contrato Remote Many vs protocol.json
 ```
 
 ---

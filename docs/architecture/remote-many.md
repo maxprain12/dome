@@ -17,6 +17,8 @@ Companion controla el Many de Desktop a través de un relay cifrado en Dome Prov
 
 ## Protocolo `remote-many/1`
 
+**Fuente canónica:** [`shared/remote-many/protocol.json`](../../shared/remote-many/protocol.json). El runtime Desktop (`electron/remote/protocol.cjs`) carga ese JSON. Los tipos TypeScript (`shared/remote-many/protocol.ts`, reexportados en `app/lib/remote-protocol.ts`) se generan con `pnpm run generate:remote-protocol`. CI falla si CJS, TS, docs o el executor se desvían (`pnpm run check:remote-protocol`).
+
 Sobre de transporte (único objeto que ve Provider):
 
 ```json
@@ -27,7 +29,7 @@ Clave: ECDH P-256 (SPKI) → HKDF-SHA256 (salt = pairingId UTF-8, info = `dome-r
 
 ### Comandos (Companion → Desktop)
 
-`session.start` · `session.list` · `message.send` · `run.cancel` · `run.resume` · `approval.decide` · `capabilities.request` · `model.set` · `refs.list` · `refs.preview` · `refs.export` · `mode.set`
+`session.start` · `session.list` · `session.get` · `message.send` · `run.cancel` · `run.resume` · `approval.decide` · `capabilities.request` · `model.set` · `refs.list` · `refs.preview` · `refs.export` · `mode.set`
 
 `refs.list` lee recursos, skills y MCP **locales** de Desktop (SQLite + `~/.dome/skills`). `refs.preview` abre una preview compacta (título, extracto, diapositivas) del documento generado. `refs.export` envía el fichero en trozos (~28 KB) para abrirlo en el iPhone (PDF, PPTX, imagen, nota, audio/vídeo, Office) si el formato es visible en móvil; el techo es 20 MB y el relay sigue cifrado. Companion no pide biblioteca a la nube. `message.send` puede llevar `pinnedResources`, `skills`, `mcpServerIds` y `mode` (`plan` | `draft` | `agent`). Las skills viajan como overlay de sistema, no como «Use these skills» en el log. `mode.set` fija el modo del hilo.
 
@@ -50,3 +52,21 @@ Prefijo `/api/v1/remote/*`. Autenticación Bearer OAuth. Actor derivado de `aud`
 ## Desktop
 
 Servicio saliente en `electron/remote/`. Ejecuta con Run Engine. `powerSaveBlocker` solo durante un run activo; dormir implica offline.
+
+## Sister repos
+
+Companion y Provider **no** viven en este repo. Deben copiar `commandTypes` y `eventTypes` de `shared/remote-many/protocol.json`. No inventar campos.
+
+### dome-companion follow-up
+
+`DomeCompanion/RemoteManyProtocol.swift` (`RemoteCommandType` / `RemoteEventType`) tiene que coincidir con:
+
+- Comandos: `session.start`, `session.list`, `session.get`, `message.send`, `run.cancel`, `run.resume`, `approval.decide`, `capabilities.request`, `model.set`, `refs.list`, `refs.preview`, `refs.export`, `mode.set`
+- Eventos: `presence`, `start`, `text`, `thinking`, `tool_call`, `tool_progress`, `tool_result`, `approval`, `plan`, `done`, `error`, `session.list`, `capabilities`, `run.status`, `visual`, `refs`
+- Modos: `plan`, `draft`, `agent`
+
+A la fecha de este cambio el enum Swift en Companion `main` ya lista esos tipos. El follow-up útil es un check de CI en `dome-companion` que falle si el enum se desvía del JSON de Desktop.
+
+### dome-provider follow-up
+
+`lib/remote-protocol.ts` está desfasado: le faltan `refs.list` / `refs.preview` / `refs.export` / `mode.set` y los eventos `plan` / `visual` / `refs`. Provider solo retransmite sobres opacos, pero ese archivo es el contrato TypeScript que Mateo contrastó. Actualizarlo contra `shared/remote-many/protocol.json` en un PR de `dome-provider`.

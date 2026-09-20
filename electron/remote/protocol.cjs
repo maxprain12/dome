@@ -1,52 +1,31 @@
 'use strict';
 
-const PROTOCOL_NAME = 'remote-many';
-const PROTOCOL_VERSION = 1;
-const HKDF_INFO = 'dome-remote-many-v1';
-const MAX_ENVELOPE_BYTES = 64 * 1024;
-const COMMAND_TTL_MS = 15 * 60 * 1000;
-const EVENT_TTL_MS = 24 * 60 * 60 * 1000;
-const HEARTBEAT_MS = 15_000;
-const ONLINE_WINDOW_MS = 45_000;
-const PAIRING_TTL_MS = 10 * 60 * 1000;
+const spec = require('../../shared/remote-many/protocol.json');
 
-const COMMAND_TYPES = Object.freeze([
-  'session.start',
-  'session.list',
-  'session.get',
-  'message.send',
-  'run.cancel',
-  'run.resume',
-  'approval.decide',
-  'capabilities.request',
-  'model.set',
-  'refs.list',
-  'refs.preview',
-  'refs.export',
-  'mode.set',
-]);
+function freezeStrings(values, label) {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new Error(`remote-many protocol missing ${label}`);
+  }
+  return Object.freeze([...values]);
+}
 
-const EVENT_TYPES = Object.freeze([
-  'presence',
-  'start',
-  'text',
-  'thinking',
-  'tool_call',
-  'tool_progress',
-  'tool_result',
-  'approval',
-  'plan',
-  'done',
-  'error',
-  'session.list',
-  'capabilities',
-  'run.status',
-  'visual',
-  'refs',
-]);
+const PROTOCOL_NAME = spec.name;
+const PROTOCOL_VERSION = spec.version;
+const HKDF_INFO = spec.hkdfInfo;
+const MAX_ENVELOPE_BYTES = spec.maxEnvelopeBytes;
+const COMMAND_TTL_MS = spec.commandTtlMs;
+const EVENT_TTL_MS = spec.eventTtlMs;
+const HEARTBEAT_MS = spec.heartbeatMs;
+const ONLINE_WINDOW_MS = spec.onlineWindowMs;
+const PAIRING_TTL_MS = spec.pairingTtlMs;
+
+const COMMAND_TYPES = freezeStrings(spec.commandTypes, 'commandTypes');
+const EVENT_TYPES = freezeStrings(spec.eventTypes, 'eventTypes');
+const AGENT_MODES = freezeStrings(spec.agentModes, 'agentModes');
 
 const COMMAND_TYPE_SET = new Set(COMMAND_TYPES);
 const EVENT_TYPE_SET = new Set(EVENT_TYPES);
+const AGENT_MODE_SET = new Set(AGENT_MODES);
 
 function isCommandType(value) {
   return COMMAND_TYPE_SET.has(value);
@@ -54,6 +33,10 @@ function isCommandType(value) {
 
 function isEventType(value) {
   return EVENT_TYPE_SET.has(value);
+}
+
+function isAgentMode(value) {
+  return AGENT_MODE_SET.has(value);
 }
 
 function isEnvelope(value) {
@@ -89,8 +72,10 @@ module.exports = {
   PAIRING_TTL_MS,
   COMMAND_TYPES,
   EVENT_TYPES,
+  AGENT_MODES,
   isCommandType,
   isEventType,
+  isAgentMode,
   isEnvelope,
   envelopeByteLength,
 };

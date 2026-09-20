@@ -65,6 +65,11 @@ jobs:
       - name: IPC inventory up to date
         run: pnpm run check:ipc-inventory
 
+      - name: Remote Many protocol contract
+        run: |
+          pnpm run check:remote-protocol
+          pnpm run test:remote-protocol
+
       - name: IPC Zod policy (new files)
         run: pnpm run check:ipc-zod
 

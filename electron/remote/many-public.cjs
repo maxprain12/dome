@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('node:fs/promises');
-const { PROTOCOL_VERSION } = require('./protocol.cjs');
+const { PROTOCOL_VERSION, AGENT_MODES } = require('./protocol.cjs');
 const { getAllToolDefinitions } = require('../tools/tool-definitions.cjs');
 const { getAISettings } = require('../ai/ai-settings.cjs');
 const bridge = require('../agents/dome-harness-bridge.cjs');
@@ -158,7 +158,7 @@ async function buildCapabilities(database, options = {}) {
     models,
     tools: listToolNames(),
     sessions: ['list', 'start', 'get'],
-    modes: ['plan', 'draft', 'agent'],
+    modes: [...AGENT_MODES],
     agentMode: 'agent',
     streamEvents: [
       'start',

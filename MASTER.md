@@ -43,7 +43,7 @@
 └───────────────────────────────┘  └──────────────────────────┘
 ```
 
-**Remote Many:** Companion controla el Many de Desktop a través de un relay cifrado en Provider. Desktop no abre un puerto; Provider no ejecuta agentes ni descifra payloads. Contrato: [docs/architecture/remote-many.md](./docs/architecture/remote-many.md) (ADR-0016).
+**Remote Many:** Companion controla el Many de Desktop a través de un relay cifrado en Provider. Desktop no abre un puerto; Provider no ejecuta agentes ni descifra payloads. Contrato canónico: [`shared/remote-many/protocol.json`](./shared/remote-many/protocol.json) ([docs/architecture/remote-many.md](./docs/architecture/remote-many.md), ADR-0016).
 
 **Marca:** la interfaz web (landing + Dome Provider) sigue [design-brand.md](https://github.com/maxprain12/dome-provider/blob/main/docs/design-brand.md); Dome Desktop usa otro tema según el producto en este repo.
 

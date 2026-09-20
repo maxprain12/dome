@@ -51,6 +51,8 @@ pnpm run test:ui
 pnpm run check:sonar-patterns
 pnpm run check:sonar-patterns -- --diff=origin/main
 pnpm run test:sonar-patterns
+pnpm run check:ipc-inventory
+pnpm run check:remote-protocol
 
 # Architecture: must return 0 results
 grep -rE "bun:|require('fs')\|require('better-sqlite3')" app/
