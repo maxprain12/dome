@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { shell } = require('electron');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const { encryptSessionField, decryptSessionField } = require('../core/settings-secrets.cjs');
@@ -37,6 +37,7 @@ function generatePKCE() {
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh if expiring within 5 min
 const REFRESH_MAX_ATTEMPTS = 3;
 const REFRESH_RETRY_BASE_MS = 400;
+const refreshes = new WeakMap();
 
 class RefreshTokenError extends Error {
   /**
@@ -93,6 +94,7 @@ async function refreshAccessToken(database, refreshToken, attempt = 0) {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
+      signal: AbortSignal.timeout(10_000),
     });
   } catch (err) {
     if (!isUnreachableNetworkError(err) && attempt < REFRESH_MAX_ATTEMPTS - 1) {
@@ -120,6 +122,24 @@ async function refreshAccessToken(database, refreshToken, attempt = 0) {
   return data;
 }
 
+// Both proactive renewal and concurrent 401s must share the entire rotation,
+// including persistence. Provider refresh tokens can only be used once.
+function refreshSession(database, row) {
+  const pending = refreshes.get(database);
+  if (pending) return pending;
+  const promise = (async () => {
+    const token = await refreshAccessToken(database, row.refresh_token);
+    const queries = database.getQueries();
+    const current = decodeSessionRow(queries.getDomeProviderSessionWithRefresh.get());
+    if (!current || current.refresh_token !== row.refresh_token) return current;
+    const expiresAt = Date.now() + Number(token.expires_in || 3600) * 1000;
+    persistSession(queries, row.user_id, token.access_token, token.refresh_token || row.refresh_token, expiresAt);
+    return { ...row, access_token: token.access_token, expires_at: expiresAt };
+  })().finally(() => refreshes.delete(database));
+  refreshes.set(database, promise);
+  return promise;
+}
+
 async function getOrRefreshSession(database) {
   try {
     const queries = database.getQueries();
@@ -141,21 +161,13 @@ async function getOrRefreshSession(database) {
 
     if (row.refresh_token) {
       try {
-        const tokenResponse = await refreshAccessToken(database, row.refresh_token);
-        const newExpiresInSec = Number(tokenResponse.expires_in || 3600);
-        const newExpiresAt = now + newExpiresInSec * 1000;
-        persistSession(
-          queries,
-          row.user_id,
-          tokenResponse.access_token,
-          tokenResponse.refresh_token || row.refresh_token,
-          newExpiresAt,
-        );
+        const refreshed = await refreshSession(database, row);
+        if (!refreshed) return { connected: false };
         return {
           connected: true,
-          userId: row.user_id,
-          accessToken: tokenResponse.access_token,
-          expiresAt: newExpiresAt,
+          userId: refreshed.user_id,
+          accessToken: refreshed.access_token,
+          expiresAt: refreshed.expires_at,
         };
       } catch (err) {
         console.warn('[Dome OAuth] Refresh failed:', err?.message);
@@ -188,7 +200,7 @@ async function getOrRefreshSession(database) {
 }
 
 async function fetchWithDomeAuth(database, url, options = {}) {
-  let session = await getOrRefreshSession(database);
+  const session = await getOrRefreshSession(database);
   if (!session.connected || !session.accessToken) {
     throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
   }
@@ -198,17 +210,14 @@ async function fetchWithDomeAuth(database, url, options = {}) {
     const row = decodeSessionRow(database.getQueries().getDomeProviderSessionWithRefresh.get());
     if (row?.refresh_token) {
       try {
-        const tokenResponse = await refreshAccessToken(database, row.refresh_token);
-        const now = Date.now();
-        const newExpiresAt = now + Number(tokenResponse.expires_in || 3600) * 1000;
-        persistSession(
-          database.getQueries(),
-          row.user_id,
-          tokenResponse.access_token,
-          tokenResponse.refresh_token || row.refresh_token,
-          newExpiresAt,
-        );
-        response = await doFetch(tokenResponse.access_token);
+        // A delayed 401 may belong to the token another request already rotated.
+        const refreshed = row.access_token !== session.accessToken
+          ? row
+          : await refreshSession(database, row);
+        if (refreshed?.access_token) {
+          await response.body?.cancel();
+          response = await doFetch(refreshed.access_token);
+        }
       } catch (err) {
         console.warn('[Dome OAuth] Retry refresh on 401 failed:', err?.message);
       }
