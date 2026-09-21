@@ -1,6 +1,7 @@
 'use strict';
 
 const os = require('node:os');
+const { setTimeout: sleep } = require('node:timers/promises');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const { fetchWithDomeAuth } = require('../auth/dome-oauth.cjs');
 const { getOrCreateDeviceId } = require('../storage/device-id.cjs');
@@ -86,7 +87,7 @@ async function api(database, path, options = {}) {
       ...(options.headers || {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
-    signal: options.signal || (options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined),
+    signal: AbortSignal.any([AbortSignal.timeout(options.timeoutMs ?? 10_000), ...(options.signal ? [options.signal] : [])]),
   });
   const text = await response.text();
   let json = null;
@@ -132,10 +133,8 @@ function createClient({ database, windowManager }) {
     },
   });
 
-  let stopped = false;
-  let abort = null;
+  let lifecycle = null;
   let heartbeatTimer = null;
-  let reconnectTimer = null;
   let commandCursor = Number(setting(database, CURSOR_SETTING, '0')) || 0;
   const pairKeys = new Map();
   let lastError = null;
@@ -159,8 +158,9 @@ function createClient({ database, windowManager }) {
     };
   }
 
-  async function refreshPairKeys() {
-    const presence = await api(database, '/api/v1/remote/presence');
+  async function refreshPairKeys(signal) {
+    const presence = await api(database, '/api/v1/remote/presence', { signal });
+    signal?.throwIfAborted();
     pairKeys.clear();
     const devices = new Map((presence.devices || []).map((row) => [row.id, row]));
     for (const row of presence.pairings || []) {
@@ -177,9 +177,10 @@ function createClient({ database, windowManager }) {
     return presence;
   }
 
-  async function register() {
+  async function register(signal) {
     await api(database, '/api/v1/remote/devices', {
       method: 'POST',
+      signal,
       body: {
         id: deviceId,
         displayName: displayName(database),
@@ -189,15 +190,16 @@ function createClient({ database, windowManager }) {
     });
   }
 
-  async function heartbeat() {
+  async function heartbeat(signal) {
     await api(database, '/api/v1/remote/heartbeat', {
       method: 'POST',
+      signal,
       body: {
         deviceId,
         capabilities: await buildCapabilities(database),
       },
     });
-    await refreshPairKeys();
+    await refreshPairKeys(signal);
   }
 
   const textBuf = new Map();
@@ -237,8 +239,8 @@ function createClient({ database, windowManager }) {
       const current = textBuf.get(key) || { text: '', event, timer: null };
       current.text += event.payload?.text || '';
       current.event = event;
-      if (current.timer) clearTimeout(current.timer);
-      current.timer = setTimeout(() => flushTextBuffer(key), 220);
+      // Bound latency from the first fragment, even while tokens keep arriving.
+      current.timer ??= setTimeout(() => flushTextBuffer(key), 220);
       textBuf.set(key, current);
       if (current.text.length >= 500) flushTextBuffer(key);
       return;
@@ -329,28 +331,38 @@ function createClient({ database, windowManager }) {
     }
   }
 
-  async function listenCommands() {
-    let delay = 2_000;
+  async function listenCommands(signal) {
+    let delay = 500;
     let registered = false;
-    while (!stopped && isEnabled(database)) {
-      abort = new AbortController();
+    while (!signal.aborted && isEnabled(database)) {
+      const abort = new AbortController();
+      const streamSignal = AbortSignal.any([signal, abort.signal]);
+      let idleTimer;
+      const resetIdleTimer = () => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => abort.abort(), 35_000);
+      };
       try {
         if (!registered) {
-          await register();
+          await register(signal);
           registered = true;
         }
-        await refreshPairKeys();
+        // Registration alone does not mark the desktop online. Announce it now,
+        // including after waking up, instead of waiting for the next interval.
+        await heartbeat(signal);
+        resetIdleTimer();
         const response = await fetchWithDomeAuth(
           database,
           providerUrl('/api/v1/remote/commands/stream', { deviceId, since: commandCursor }),
-          { method: 'GET', headers: { Accept: 'text/event-stream' }, signal: abort.signal },
+          { method: 'GET', headers: { Accept: 'text/event-stream' }, signal: streamSignal },
         );
         if (!response.ok || !response.body) {
           throw new Error(`command_stream_${response.status}`);
         }
+        signal.throwIfAborted();
         connected = true;
         lastError = null;
-        delay = 2_000;
+        delay = 500;
         broadcast();
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -358,6 +370,7 @@ function createClient({ database, windowManager }) {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
+          resetIdleTimer();
           buffer += decoder.decode(value, { stream: true });
           buffer = parseSseBuffer(buffer, (frame) => {
             void handleFrame(frame).catch((err) => {
@@ -367,34 +380,44 @@ function createClient({ database, windowManager }) {
             });
           });
         }
-        connected = false;
       } catch (err) {
-        connected = false;
+        if (signal.aborted) return;
         if (err?.status === 401) registered = false;
-        if (!stopped && err?.name !== 'AbortError') {
+        if (err?.name !== 'AbortError') {
           const message = err?.message || 'remote_disconnected';
           if (!/command_stream_|ECONNRESET|socket hang up/i.test(message)) {
             lastError = message;
           }
+        }
+      } finally {
+        clearTimeout(idleTimer);
+        abort.abort();
+        if (!signal.aborted) {
+          connected = false;
           broadcast();
         }
       }
-      if (stopped || !isEnabled(database)) return;
-      await new Promise((resolve) => {
-        reconnectTimer = setTimeout(resolve, delay);
-      });
+      if (signal.aborted || !isEnabled(database)) return;
+      try {
+        await sleep(delay, undefined, { signal });
+      } catch {
+        return;
+      }
       delay = Math.min(delay * 2, 30_000);
     }
   }
 
-  function startHeartbeat() {
+  function startHeartbeat(signal) {
+    let busy = false;
     clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(() => {
-      if (!isEnabled(database) || stopped) return;
-      heartbeat().catch((err) => {
+      if (!isEnabled(database) || signal.aborted || busy) return;
+      busy = true;
+      heartbeat(signal).catch((err) => {
+        if (signal.aborted) return;
         lastError = err?.message || 'heartbeat_failed';
         broadcast();
-      });
+      }).finally(() => { busy = false; });
     }, HEARTBEAT_MS);
   }
 
@@ -427,24 +450,26 @@ function createClient({ database, windowManager }) {
   }
 
   async function start() {
-    stopped = false;
+    if (lifecycle) return getStatus();
     if (!isEnabled(database)) {
       connected = false;
       broadcast();
       return getStatus();
     }
-    startHeartbeat();
-    void listenCommands();
+    lifecycle = new AbortController();
+    startHeartbeat(lifecycle.signal);
+    listenCommands(lifecycle.signal).catch((err) => {
+      console.warn('[RemoteMany] listener failed:', err?.message);
+    });
     broadcast();
     return getStatus();
   }
 
   function stop() {
-    stopped = true;
+    lifecycle?.abort();
+    lifecycle = null;
     connected = false;
-    abort?.abort();
     clearInterval(heartbeatTimer);
-    clearTimeout(reconnectTimer);
     broadcast();
   }
 
