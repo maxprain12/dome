@@ -150,4 +150,18 @@ describe('durable harness compaction', () => {
     expect(JSON.stringify(vi.mocked(completeSimple).mock.calls[0][1]).includes('Preserve decisions')).toBe(true);
     expect((await session.getBranch()).filter((entry) => entry.type === 'compaction')).toHaveLength(1);
   });
+
+  it('keeps the summary model and its auth together when the model changes during preparation', async () => {
+    const session = await new InMemorySessionRepo().create();
+    await seed(session);
+    const getApiKeyAndHeaders = vi.fn(async () => ({ apiKey: 'original-model-key' }));
+    const agent = new AgentHarness({ env, session, model, getApiKeyAndHeaders });
+    agent.on('session_before_compact', async () => {
+      await agent.setModel({ ...model, id: 'next-model' });
+    });
+    await agent.compact();
+    expect(getApiKeyAndHeaders).toHaveBeenCalledWith(model);
+    expect(vi.mocked(completeSimple).mock.calls[0][0]).toBe(model);
+    expect(vi.mocked(completeSimple).mock.calls[0][2]).toMatchObject({ apiKey: 'original-model-key' });
+  });
 });

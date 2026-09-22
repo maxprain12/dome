@@ -843,6 +843,8 @@ export class AgentHarness<
 	}
 
 	private async compactSession(customInstructions?: string, signal?: AbortSignal, automatic = false) {
+		const model = this.model;
+		const thinkingLevel = this.thinkingLevel;
 		signal?.throwIfAborted();
 		const branchEntries = await this.session.getBranch();
 		const preparationResult = prepareCompaction(branchEntries, DEFAULT_COMPACTION_SETTINGS);
@@ -860,12 +862,12 @@ export class AgentHarness<
 			throw new AgentHarnessError("compaction", "Compaction cancelled");
 		}
 		const provided = hookResult?.compaction;
-		const auth = provided ? undefined : await this.getApiKeyAndHeaders?.(this.model);
+		const auth = provided ? undefined : await this.getApiKeyAndHeaders?.(model);
 		signal?.throwIfAborted();
 		const compactResult = provided
 			? { ok: true as const, value: provided }
-			: await compact(preparation, this.model, auth?.apiKey ?? "", auth?.headers,
-				customInstructions, signal, this.thinkingLevel);
+			: await compact(preparation, model, auth?.apiKey ?? "", auth?.headers,
+				customInstructions, signal, thinkingLevel);
 		if (!compactResult.ok) throw compactResult.error;
 		signal?.throwIfAborted();
 		const result = compactResult.value;

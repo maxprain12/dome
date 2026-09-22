@@ -36,7 +36,9 @@ Run package tests/builds and all repository gates, then PR and squash auto-merge
   persistence and event reporting. Provider summary failures retain original
   history; cancellation and storage/hook failures are not swallowed.
 - Preserved error/aborted stop reasons when removing incomplete tool calls.
-- Passed workspace package builds, 80 agent-core tests, 12 runtime/HITL tests,
+- Kept summary model/reasoning snapshots stable while hooks/auth resolve, so a
+  concurrent model change cannot pair one model's credentials with another.
+- Passed workspace package builds, 81 agent-core tests, 12 runtime/HITL tests,
   461 renderer tests, typecheck, lint (zero errors), guardrails, diff Sonar checks,
   IPC inventory, remote protocol, production build and dependency-cruiser.
 - No UI changes, new dependencies or runtime abstractions. No live-provider
