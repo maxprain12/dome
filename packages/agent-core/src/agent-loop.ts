@@ -35,8 +35,10 @@ function sanitizeAssistantToolCalls(message: AssistantMessage): AssistantMessage
 		return isValidToolCallName(block.name);
 	});
 	if (content.length === message.content.length) return message;
-	const stopReason = content.some((block) => block.type === "toolCall") ? message.stopReason : "stop";
-	return { ...message, content, stopReason: stopReason === "toolUse" && !content.some((b) => b.type === "toolCall") ? "stop" : stopReason };
+	const stopReason = message.stopReason === "toolUse" && !content.some((block) => block.type === "toolCall")
+		? "stop"
+		: message.stopReason;
+	return { ...message, content, stopReason };
 }
 
 /**

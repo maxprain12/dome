@@ -586,6 +586,9 @@ export interface SessionCompactEvent {
 	type: "session_compact";
 	compactionEntry: CompactionEntry;
 	fromHook: boolean;
+	automatic?: boolean;
+	/** Character-based estimate after compaction; old provider usage predates the checkpoint. */
+	tokensAfter?: number;
 }
 
 export interface SessionBeforeTreeEvent {
@@ -825,6 +828,8 @@ export interface AgentHarnessOptions<
 	) => Promise<{ apiKey: string; headers?: Record<string, string> } | undefined>;
 	/** Curated stream/provider request options. Snapshotted at turn start. */
 	streamOptions?: AgentHarnessStreamOptions;
+	/** Persist a compaction checkpoint before requests approaching the context limit. */
+	autoCompaction?: boolean;
 	model: Model<any>;
 	thinkingLevel?: ThinkingLevel;
 	activeToolNames?: string[];

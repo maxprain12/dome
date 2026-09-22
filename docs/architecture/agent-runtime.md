@@ -20,8 +20,8 @@ Agent Team, and the bench harness — goes through it.
   legacy renderer chunk shape consumed over `ai:stream:chunk`.
 
 The harness drives: stream → tools → repeat, with argument validation,
-`tool_call` hooks (creation caps + HITL), `context` hook (summarization
-compaction), JSONL session persistence, and skills in the system prompt.
+`tool_call` hooks (creation caps + HITL), durable summarization compaction,
+JSONL session persistence, and skills in the system prompt.
 
 ## Bridge (`dome-harness-bridge.cjs`)
 
@@ -93,8 +93,11 @@ Still present (not LangGraph / not the agent runtime):
 | Popup | Segmented bar + category rows: system prompt, tool defs, rules, skills, MCP, subagents, summarized conversation, conversation |
 | Backend | `budget` chunk from `buildBudgetBreakdown()` + `measurePromptDetailed` at run start; `usage` chunk for live provider input; `compaction` chunk + `CompactionNotice` when autocompaction runs |
 
-Autocompaction: harness `context` hook (`buildCompaction` in `agent-runtime.cjs`).
-Manual: `threads:compact` IPC → `session_compact` event.
+Autocompaction: `autoCompaction: true` in the harness, checked before provider
+requests. Manual: `threads:compact` IPC. Both use the same turn-aware preparation,
+fresh authentication, cancellable summarization and persisted JSONL checkpoint.
+The `session_compact` event reports whether the compaction was automatic.
+Reopening a conversation reuses its checkpoint; the full history remains in JSONL.
 
 Estimates use chars÷4 (refined with `estimateContextTokens` when usage blocks exist).
 Live fill uses provider `inputTokens`.

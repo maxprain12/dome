@@ -135,6 +135,17 @@ describe('agent loop: basic turns', () => {
     expect(streamFn.callCount()).toBe(1);
   });
 
+  it.each(['error', 'aborted'])('preserves %s when removing an incomplete tool call', async (stopReason) => {
+    const message = { ...assistantToolCall([{ id: 'partial', name: '', arguments: {} }]), stopReason };
+    const streamFn = scriptedStreamFn([message]);
+    const { messages, events } = await run(
+      [{ role: 'user', content: 'go', timestamp: 1 }], makeContext(), makeConfig(streamFn), streamFn,
+    );
+    expect(messages.at(-1)).toMatchObject({ stopReason, content: [] });
+    expect(events.some((event) => event.type === 'tool_execution_start')).toBe(false);
+    expect(streamFn.callCount()).toBe(1);
+  });
+
   it('ends immediately when the model reports stopReason=aborted', async () => {
     const streamFn = scriptedStreamFn([assistantText('', 'aborted')]);
     const { events } = await run([userMsg('hi')], makeContext(), makeConfig(streamFn), streamFn);
