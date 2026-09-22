@@ -959,6 +959,33 @@ function createBaseSchema(db) {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS plugin_grants (
+      plugin_id TEXT PRIMARY KEY,
+      manifest_digest TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      permissions_json TEXT NOT NULL,
+      config_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS plugin_publications (
+      id TEXT PRIMARY KEY,
+      plugin_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('prepared','publishing','published','conflict','failed','cancelled')),
+      request_json TEXT NOT NULL,
+      result_json TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -969,6 +996,8 @@ function createBaseSchema(db) {
           FOREIGN KEY (parent_id) REFERENCES projects(id) ON DELETE CASCADE
         )
   `);
+
+  db.exec('CREATE INDEX IF NOT EXISTS idx_plugin_publications_plugin ON plugin_publications(plugin_id, updated_at DESC)');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS quiz_runs (

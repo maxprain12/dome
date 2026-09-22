@@ -2,6 +2,30 @@
  * Dome Plugin API types
  */
 
+export type PluginPermission =
+  | 'notes.read'
+  | 'notes.write'
+  | 'content.publish'
+  | 'resources.read'
+  | 'projects.read'
+  | 'calendar.read';
+
+export type PluginFieldType = 'text' | 'date' | 'tags' | 'slug' | 'sitePath';
+
+export interface PluginFieldDefinition {
+  id: string;
+  type: PluginFieldType;
+  label: string;
+  required?: boolean;
+}
+
+export interface PluginVaultTemplate {
+  id: string;
+  title: string;
+  schemaVersion: number;
+  fields: PluginFieldDefinition[];
+}
+
 export interface DomePluginManifest {
   id: string;
   name: string;
@@ -10,25 +34,38 @@ export interface DomePluginManifest {
   version: string;
   minDomeVersion?: string;
   repo?: string;
+  apiVersion?: 1;
   type?: 'pet' | 'view';
   entry?: string;
-  permissions?: Array<'resources' | 'settings' | 'calendar' | 'projects'>;
+  permissions?: PluginPermission[];
+  contributes?: {
+    view?: { id: string; title: string };
+    vaultTemplate?: PluginVaultTemplate;
+  };
   sprites?: Record<string, string | string[]>;
 }
 
 export interface DomePluginInfo extends DomePluginManifest {
   dir: string;
   enabled: boolean;
+  configured: boolean;
+  manifestDigest: string;
 }
 
-export interface DomePluginAPI {
-  resources: {
-    search: (query: string) => Promise<unknown[]>;
-    get: (id: string) => Promise<unknown>;
-    list: (projectId?: string) => Promise<unknown[]>;
+export interface PluginConfiguration {
+  pluginId?: string;
+  projectId: string;
+  permissions: PluginPermission[];
+  github?: {
+    repo: string;
+    branch: string;
+    pathPrefix: string;
   };
-  settings: {
-    get: (key: string) => Promise<string | null>;
-    set: (key: string, value: string) => Promise<void>;
-  };
+}
+
+export interface PluginNoteSchema {
+  pluginId: string;
+  template: PluginVaultTemplate;
+  values: Record<string, string | string[]>;
+  updatedAt: number;
 }

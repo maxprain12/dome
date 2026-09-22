@@ -29,7 +29,8 @@ export type TabType =
   | 'transcriptions'
   | 'transcription-detail'
   | 'semantic-graph'
-  | 'artifact';
+  | 'artifact'
+  | 'plugin';
 
 export type TabConfig = {
   type: TabType;
@@ -71,6 +72,7 @@ const TAB_CONFIGS: TabConfig[] = [
   { type: 'transcription-detail', projectScoped: true, sidebarNav: false, resourceSource: false, needsResourceId: true },
   { type: 'semantic-graph', projectScoped: true, sidebarNav: false, resourceSource: false, needsResourceId: false },
   { type: 'artifact', projectScoped: true, sidebarNav: false, resourceSource: true, needsResourceId: true },
+  { type: 'plugin', projectScoped: false, sidebarNav: false, resourceSource: false, needsResourceId: false },
 ];
 
 export const TAB_REGISTRY: Record<TabType, TabConfig> = Object.fromEntries(

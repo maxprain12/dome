@@ -40,6 +40,7 @@
   "adding": "Ajout…",
   "install_plugin": "Installer",
   "installing_plugin": "Installation…",
+  "plugin_installed_configure": "\"{{name}}\" installé. Configurez-le dans Réglages → Plugins.",
   "activate": "Activer",
   "activating": "Activation…",
   "default_author": "Équipe Dome",

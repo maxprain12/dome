@@ -533,6 +533,7 @@ export default function MarketplaceView() {
   const [mcpServers, setMcpServers] = useState<MCPManifest[]>([]);
   const [catalogSkills, setCatalogSkills] = useState<SkillManifest[]>([]);
   const [availablePlugins, setAvailablePlugins] = useState<AvailablePlugin[]>([]);
+  const [installedLocalPluginIds, setInstalledLocalPluginIds] = useState<Set<string>>(new Set());
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null);
   const [installedMcpNames, setInstalledMcpNames] = useState<Set<string>>(new Set());
   const [installingMcpId, setInstallingMcpId] = useState<string | null>(null);
@@ -549,7 +550,10 @@ export default function MarketplaceView() {
 
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
   const loadWorkflow = useCanvasStore((s) => s.loadWorkflow);
-  const installedPluginIds = useMemo(() => new Set(plugins.map((p) => p.id)), [plugins]);
+  const installedPluginIds = useMemo(() => new Set([
+    ...plugins.map((p) => p.id),
+    ...installedLocalPluginIds,
+  ]), [plugins, installedLocalPluginIds]);
 
   const isItemInstalled = useCallback(
     (item: UnifiedItem): boolean => {
@@ -591,6 +595,8 @@ export default function MarketplaceView() {
     setInstalledAgentRecords(agentRecords);
     setInstalledWorkflowIds(workflowIds);
     setInstalledWorkflowRecords(workflowRecords);
+    const pluginResult = await window.electron.plugins.list();
+    if (pluginResult.success) setInstalledLocalPluginIds(new Set(pluginResult.data?.map((plugin) => plugin.id) || []));
   };
 
   useEffect(() => {
@@ -770,12 +776,22 @@ export default function MarketplaceView() {
     }
   };
 
-  const handleInstallPlugin = async () => {
+  const handleInstallPlugin = async (plugin: AvailablePlugin) => {
     if (installingPlugin) return;
     setInstallingPlugin('installing');
     try {
-      const result = await window.electron.marketplace.installPlugin();
-      if (result.success) await refresh();
+      const result = plugin.bundled
+        ? await window.electron.plugins.installBundled(plugin.bundled)
+        : plugin.repo
+          ? await window.electron.plugins.installFromRepo(plugin.repo)
+          : { success: false, error: 'Plugin source is missing' };
+      if (result.success) {
+        setInstalledLocalPluginIds((current) => new Set([...current, plugin.id]));
+        showToast('success', t('marketplace.plugin_installed_configure', { name: plugin.name, defaultValue: `"${plugin.name}" installed. Configure it in Settings → Plugins.` }));
+        await refresh();
+      } else {
+        showToast('error', result.error || t('marketplace.install_error', 'Could not install plugin'));
+      }
     } finally {
       setInstallingPlugin(null);
     }
@@ -803,7 +819,7 @@ export default function MarketplaceView() {
     })),
     ...availablePlugins.map((p) => ({
       id: p.id, name: p.name, description: p.description, author: p.author,
-      tags: [], type: 'plugins' as const, raw: p,
+      tags: [], version: p.version, type: 'plugins' as const, raw: p,
     })),
   ], [agents, workflows, mcpServers, catalogSkills, availablePlugins]);
 
@@ -926,7 +942,7 @@ export default function MarketplaceView() {
       }
       return {
         label: installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin'),
-        onAction: () => void handleInstallPlugin(),
+        onAction: () => void handleInstallPlugin(plugin),
         disabled: !!installingPlugin,
       };
     }

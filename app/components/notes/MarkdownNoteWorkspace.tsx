@@ -33,6 +33,7 @@ import NoteHeroCover from '@/components/notes/NoteHeroCover';
 import NoteQuickTagModal from '@/components/notes/NoteQuickTagModal';
 import { countWordsFromMarkdown, loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { HOME_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
+import PluginNoteFields from '@/components/notes/PluginNoteFields';
 
 interface MarkdownNoteWorkspaceProps {
   resourceId: string;
@@ -625,6 +626,7 @@ export default function MarkdownNoteWorkspace({
               onChange={handleTitleChange}
               onBlur={handleTitleBlur}
             />
+            <PluginNoteFields resourceId={resourceId} readOnly={readOnly} onSaved={(updatedAt) => setResource((current) => current ? { ...current, updated_at: updatedAt } : current)} />
             {editorBlockNode}
           </div>
         </div>
@@ -686,6 +688,7 @@ export default function MarkdownNoteWorkspace({
                 tags={resourceTags}
                 onRequestAddTag={readOnly ? undefined : () => setTagQuickModalOpen(true)}
               />
+              <PluginNoteFields resourceId={resourceId} readOnly={readOnly} onSaved={(updatedAt) => setResource((current) => current ? { ...current, updated_at: updatedAt } : current)} />
               {editorBlockNode}
             </div>
           </div>

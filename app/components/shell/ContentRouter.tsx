@@ -40,6 +40,7 @@ const TranscriptionsListPage = lazy(() => import('@/components/transcription/Tra
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
 const SemanticGraphView = lazy(() => import('@/components/semantic-graph/SemanticGraphView'));
 const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/ArtifactWorkspaceClient'));
+const PluginRuntimeView = lazy(() => import('@/components/plugins/PluginRuntimeView'));
 
 function LegacyTagsWorkspace() {
   const project = useAppStore((s) => s.currentProject);
@@ -195,6 +196,12 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
   }
 
   switch (tab.type) {
+    case 'plugin':
+      return tab.pluginId ? (
+        <TabBoundary tab={tab}>
+          <Suspense fallback={<Loading />}><PluginRuntimeView pluginId={tab.pluginId} /></Suspense>
+        </TabBoundary>
+      ) : <NoResource />;
     case 'home':
       return (
         <TabBoundary tab={tab}>

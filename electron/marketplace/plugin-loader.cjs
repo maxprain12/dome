@@ -1,14 +1,17 @@
-/* eslint-disable no-console */
-/**
- * Plugin Loader - Validates and lists installed plugins
- * Phase 1: Manifest validation, no runtime execution yet
- */
+'use strict';
 
-const path = require('path');
-const fs = require('fs');
+/* eslint-disable no-console */
+
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { app } = require('electron');
+const { digestManifest, validateManifest } = require('../plugins/manifest.cjs');
 
 const PLUGINS_DIR = 'plugins';
+const MAX_FILE_COUNT = 2_000;
+const MAX_UNPACKED_BYTES = 100 * 1024 * 1024;
+const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 
 function getPluginsDir() {
   return path.join(app.getPath('userData'), PLUGINS_DIR);
@@ -16,321 +19,301 @@ function getPluginsDir() {
 
 function ensurePluginsDir() {
   const dir = getPluginsDir();
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-/**
- * Validate plugin manifest
- * @param {object} manifest - Parsed manifest.json
- * @returns {{ valid: boolean, error?: string }}
- */
-function validateManifest(manifest) {
-  if (!manifest || typeof manifest !== 'object') {
-    return { valid: false, error: 'Invalid manifest' };
+function resolvePluginPath(pluginDir, relativePath) {
+  const candidate = String(relativePath || '');
+  if (!candidate || candidate.includes('\0') || path.isAbsolute(candidate)) {
+    throw new Error('Invalid plugin path');
   }
-  const required = ['id', 'name', 'author', 'description', 'version'];
-  for (const key of required) {
-    if (!manifest[key] || typeof manifest[key] !== 'string') {
-      return { valid: false, error: `Missing or invalid: ${key}` };
-    }
+  const root = fs.realpathSync(pluginDir);
+  const resolved = path.resolve(root, candidate);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error('Path outside plugin directory');
   }
-  if (!/^[a-z0-9-]+$/i.test(manifest.id)) {
-    return { valid: false, error: 'Plugin id must be alphanumeric with hyphens' };
-  }
-  // Optional: type (e.g. 'pet') and sprites config
-  if (manifest.type && typeof manifest.type !== 'string') {
-    return { valid: false, error: 'manifest.type must be a string' };
-  }
-  if (manifest.sprites != null && typeof manifest.sprites !== 'object') {
-    return { valid: false, error: 'manifest.sprites must be an object' };
-  }
-  if (manifest.entry != null && typeof manifest.entry !== 'string') {
-    return { valid: false, error: 'manifest.entry must be a string' };
-  }
-  if (manifest.permissions != null && !Array.isArray(manifest.permissions)) {
-    return { valid: false, error: 'manifest.permissions must be an array' };
-  }
-  return { valid: true };
+  return resolved;
 }
 
-/**
- * List all installed plugins
- * @returns {Array<{ manifest: object, dir: string, enabled: boolean }>}
- */
-function listPlugins() {
+function readAndValidateManifest(sourceDir) {
+  const manifestPath = path.join(sourceDir, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) throw new Error('manifest.json not found');
+  const raw = fs.readFileSync(manifestPath, 'utf8');
+  if (Buffer.byteLength(raw, 'utf8') > 256 * 1024) throw new Error('manifest.json is too large');
+  let input;
+  try {
+    input = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid manifest.json');
+  }
+  const result = validateManifest(input, app.getVersion());
+  if (!result.valid) throw new Error(result.error);
+  const manifest = result.manifest;
+  if (manifest.type === 'view') {
+    const entryPath = resolvePluginPath(sourceDir, manifest.entry);
+    if (!fs.existsSync(entryPath) || !fs.statSync(entryPath).isFile()) {
+      throw new Error(`Plugin entry not found: ${manifest.entry}`);
+    }
+  }
+  return manifest;
+}
+
+function validateSourceTree(sourceDir) {
+  let count = 0;
+  let bytes = 0;
+  const visit = (current) => {
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) throw new Error('Plugin packages cannot contain symbolic links');
+    if (stat.isDirectory()) {
+      for (const name of fs.readdirSync(current)) {
+        if (name === 'node_modules' || name === '.git') continue;
+        visit(path.join(current, name));
+      }
+      return;
+    }
+    if (!stat.isFile()) throw new Error('Plugin packages may only contain files and folders');
+    count += 1;
+    bytes += stat.size;
+    if (count > MAX_FILE_COUNT) throw new Error(`Plugin exceeds ${MAX_FILE_COUNT} files`);
+    if (bytes > MAX_UNPACKED_BYTES) throw new Error('Plugin exceeds 100 MiB unpacked');
+  };
+  visit(sourceDir);
+}
+
+function copySourceTree(sourceDir, targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const name of fs.readdirSync(sourceDir)) {
+    if (name === 'node_modules' || name === '.git' || name === '.enabled') continue;
+    const source = path.join(sourceDir, name);
+    const stat = fs.lstatSync(source);
+    if (stat.isSymbolicLink()) throw new Error('Plugin packages cannot contain symbolic links');
+    const target = path.join(targetDir, name);
+    if (stat.isDirectory()) copySourceTree(source, target);
+    else fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+  }
+}
+
+function activateStagedPlugin(stagingDir, manifest) {
+  const pluginRoot = ensurePluginsDir();
+  const destination = path.join(pluginRoot, manifest.id);
+  const backup = path.join(pluginRoot, `.${manifest.id}.previous`);
+  if (fs.existsSync(backup)) fs.rmSync(backup, { recursive: true, force: true });
+  if (fs.existsSync(destination)) fs.renameSync(destination, backup);
+  try {
+    fs.renameSync(stagingDir, destination);
+    if (fs.existsSync(backup)) fs.rmSync(backup, { recursive: true, force: true });
+  } catch (error) {
+    if (fs.existsSync(destination)) fs.rmSync(destination, { recursive: true, force: true });
+    if (fs.existsSync(backup)) fs.renameSync(backup, destination);
+    throw error;
+  }
+  return { ...manifest, dir: destination, enabled: false, manifestDigest: digestManifest(manifest) };
+}
+
+function installFromDir(sourceDir) {
   ensurePluginsDir();
-  const pluginsDir = getPluginsDir();
-  const entries = fs.readdirSync(pluginsDir, { withFileTypes: true });
+  const resolvedSource = fs.realpathSync(sourceDir);
+  validateSourceTree(resolvedSource);
+  const manifest = readAndValidateManifest(resolvedSource);
+  const stagingDir = path.join(getPluginsDir(), `.staging-${manifest.id}-${crypto.randomUUID()}`);
+  try {
+    copySourceTree(resolvedSource, stagingDir);
+    const stagedManifest = readAndValidateManifest(stagingDir);
+    const plugin = activateStagedPlugin(stagingDir, stagedManifest);
+    return { success: true, plugin };
+  } catch (error) {
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+    return { success: false, error: error.message };
+  }
+}
+
+function listPlugins() {
+  const pluginsDir = ensurePluginsDir();
   const plugins = [];
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+  for (const entry of fs.readdirSync(pluginsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const pluginDir = path.join(pluginsDir, entry.name);
-    const manifestPath = path.join(pluginDir, 'manifest.json');
-
-    if (!fs.existsSync(manifestPath)) continue;
-
     try {
-      const raw = fs.readFileSync(manifestPath, 'utf8');
-      const manifest = JSON.parse(raw);
-      const { valid, error } = validateManifest(manifest);
-      if (!valid) {
-        console.warn(`[Plugins] Invalid manifest for ${entry.name}:`, error);
+      const manifest = readAndValidateManifest(pluginDir);
+      if (manifest.id !== entry.name) {
+        console.warn(`[Plugins] Ignoring ${entry.name}: manifest id does not match directory`);
         continue;
       }
-
-      const enabledPath = path.join(pluginDir, '.enabled');
-      const enabled = fs.existsSync(enabledPath);
-
       plugins.push({
         ...manifest,
         dir: pluginDir,
-        enabled,
+        enabled: fs.existsSync(path.join(pluginDir, '.enabled')),
+        manifestDigest: digestManifest(manifest),
       });
-    } catch (err) {
-      console.warn(`[Plugins] Error reading ${entry.name}:`, err.message);
+    } catch (error) {
+      console.warn(`[Plugins] Ignoring ${entry.name}:`, error.message);
     }
   }
-
   return plugins;
 }
 
-/**
- * Install plugin from a directory (copy to plugins folder)
- * @param {string} sourceDir - Path to plugin folder (contains manifest.json and runtime files)
- * @returns {{ success: boolean, plugin?: object, error?: string }}
- */
-function installFromDir(sourceDir) {
-  ensurePluginsDir();
-  const manifestPath = path.join(sourceDir, 'manifest.json');
-  if (!fs.existsSync(manifestPath)) {
-    return { success: false, error: 'manifest.json not found' };
-  }
-
-  let manifest;
-  try {
-    const raw = fs.readFileSync(manifestPath, 'utf8');
-    manifest = JSON.parse(raw);
-  } catch (err) {
-    return { success: false, error: 'Invalid manifest.json' };
-  }
-
-  const { valid, error } = validateManifest(manifest);
-  if (!valid) {
-    return { success: false, error };
-  }
-
-  const mainPath = path.join(sourceDir, 'main.js');
-  const entryPath = manifest.entry ? path.join(sourceDir, manifest.entry) : path.join(sourceDir, 'index.html');
-  const hasRuntimeEntry = fs.existsSync(mainPath) || fs.existsSync(entryPath);
-  if (!hasRuntimeEntry) {
-    return { success: false, error: 'Plugin runtime entry not found (expected main.js or entry HTML)' };
-  }
-
-  const destDir = path.join(getPluginsDir(), manifest.id);
-  if (fs.existsSync(destDir)) {
-    fs.rmSync(destDir, { recursive: true });
-  }
-  fs.mkdirSync(destDir, { recursive: true });
-
-  const copyRecursive = (src, dest) => {
-    const st = fs.statSync(src);
-    if (st.isDirectory()) {
-      fs.mkdirSync(dest, { recursive: true });
-      for (const name of fs.readdirSync(src)) {
-        copyRecursive(path.join(src, name), path.join(dest, name));
-      }
-    } else {
-      fs.copyFileSync(src, dest);
-    }
-  };
-
-  for (const name of fs.readdirSync(sourceDir)) {
-    if (name === 'node_modules') continue;
-    const src = path.join(sourceDir, name);
-    const dest = path.join(destDir, name);
-    copyRecursive(src, dest);
-  }
-
-  fs.writeFileSync(path.join(destDir, '.enabled'), '1');
-
-  return { success: true, plugin: { ...manifest, dir: destDir, enabled: true } };
-}
-
-/**
- * Uninstall a plugin
- * @param {string} pluginId - Plugin id
- * @returns {{ success: boolean, error?: string }}
- */
 function uninstall(pluginId) {
-  if (!pluginId || typeof pluginId !== 'string') {
+  if (!/^[a-z][a-z0-9-]{1,63}$/.test(String(pluginId || ''))) {
     return { success: false, error: 'Invalid plugin id' };
   }
-  if (!/^[a-z0-9-]+$/i.test(pluginId)) {
-    return { success: false, error: 'Invalid plugin id format' };
-  }
-
   const pluginDir = path.join(getPluginsDir(), pluginId);
-  if (!fs.existsSync(pluginDir)) {
-    return { success: false, error: 'Plugin not installed' };
-  }
-
-  try {
-    fs.rmSync(pluginDir, { recursive: true });
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Toggle plugin enabled state
- */
-function setEnabled(pluginId, enabled) {
-  const pluginDir = path.join(getPluginsDir(), pluginId);
-  const enabledPath = path.join(pluginDir, '.enabled');
-  if (!fs.existsSync(pluginDir)) {
-    return { success: false, error: 'Plugin not installed' };
-  }
-  if (enabled) {
-    fs.writeFileSync(enabledPath, '1');
-  } else if (fs.existsSync(enabledPath)) {
-    fs.unlinkSync(enabledPath);
-  }
+  if (!fs.existsSync(pluginDir)) return { success: false, error: 'Plugin not installed' };
+  fs.rmSync(pluginDir, { recursive: true });
   return { success: true };
 }
 
-/**
- * Download the GitHub release zipball at `zipUrl` into an in-memory Buffer.
- * @returns {Promise<Buffer>}
- */
-function downloadReleaseZip(zipUrl) {
-  const https = require('https');
-  return new Promise((resolve, reject) => {
-    const req = https.get(
-      zipUrl,
-      { headers: { 'User-Agent': 'Dome-Plugin/1.0' } },
-      (res) => {
-        if (res.statusCode !== 200) {
-          res.resume();
-          reject(new Error(`Download failed: ${res.statusCode}`));
+function setEnabled(pluginId, enabled) {
+  const plugin = listPlugins().find((item) => item.id === pluginId);
+  if (!plugin) return { success: false, error: 'Plugin not installed' };
+  const marker = path.join(plugin.dir, '.enabled');
+  if (enabled) fs.writeFileSync(marker, '1', 'utf8');
+  else fs.rmSync(marker, { force: true });
+  return { success: true };
+}
+
+function getBundledPluginDir(pluginId) {
+  const base = app.isPackaged
+    ? path.join(process.resourcesPath, 'assets', 'plugins')
+    : path.join(app.getAppPath(), 'assets', 'plugins');
+  return resolvePluginPath(base, pluginId);
+}
+
+function installBundled(pluginId) {
+  if (!/^[a-z][a-z0-9-]{1,63}$/.test(String(pluginId || ''))) {
+    return { success: false, error: 'Invalid bundled plugin id' };
+  }
+  const sourceDir = getBundledPluginDir(pluginId);
+  if (!fs.existsSync(sourceDir)) return { success: false, error: 'Bundled plugin not found' };
+  return installFromDir(sourceDir);
+}
+
+async function downloadBuffer(url) {
+  const response = await fetch(url, { headers: { 'User-Agent': 'Dome-Plugin/1.0' } });
+  if (!response.ok) throw new Error(`Download failed (${response.status})`);
+  const declaredSize = Number(response.headers.get('content-length') || 0);
+  if (declaredSize > MAX_DOWNLOAD_BYTES) throw new Error('Plugin download exceeds 20 MiB');
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > MAX_DOWNLOAD_BYTES) throw new Error('Plugin download exceeds 20 MiB');
+  return buffer;
+}
+
+async function extractZipBuffer(buffer, targetDir) {
+  const yauzl = require('yauzl');
+  await new Promise((resolve, reject) => {
+    yauzl.fromBuffer(buffer, { lazyEntries: true }, (openError, zipFile) => {
+      if (openError) return reject(openError);
+      let count = 0;
+      let bytes = 0;
+      const fail = (error) => {
+        zipFile.close();
+        reject(error);
+      };
+      zipFile.on('entry', (entry) => {
+        count += 1;
+        bytes += entry.uncompressedSize;
+        if (count > MAX_FILE_COUNT || bytes > MAX_UNPACKED_BYTES) {
+          fail(new Error('Plugin archive exceeds extraction limits'));
           return;
         }
-        const chunks = [];
-        res.on('data', (chunk) => chunks.push(chunk));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-      }
-    );
-    req.on('error', reject);
-    req.setTimeout(60000, () => {
-      req.destroy();
-      reject(new Error('Download timeout'));
+        let destination;
+        try {
+          destination = resolvePluginPath(targetDir, entry.fileName);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        if (/\/$/.test(entry.fileName)) {
+          fs.mkdirSync(destination, { recursive: true });
+          zipFile.readEntry();
+          return;
+        }
+        zipFile.openReadStream(entry, (streamError, stream) => {
+          if (streamError) return fail(streamError);
+          fs.mkdirSync(path.dirname(destination), { recursive: true });
+          const output = fs.createWriteStream(destination, { flags: 'wx' });
+          stream.pipe(output);
+          output.on('finish', () => zipFile.readEntry());
+          output.on('error', fail);
+        });
+      });
+      zipFile.on('end', resolve);
+      zipFile.on('error', reject);
+      zipFile.readEntry();
     });
   });
 }
 
-/**
- * Extract a zip buffer into a temp directory and deploy it as the plugin
- * `repoName`, validating its manifest and enabling it.
- * @returns {{ success: boolean, plugin?: object, error?: string }}
- */
-function deployReleaseBuffer(zipBuffer, repoName) {
-  const AdmZip = require('adm-zip');
-  const zip = new AdmZip(zipBuffer);
-
-  // Extract to temp directory
-  const tempDir = path.join(getPluginsDir(), '_temp');
-  if (fs.existsSync(tempDir)) {
-    fs.rmSync(tempDir, { recursive: true });
-  }
-  zip.extractAllTo(tempDir, true);
-
-  // Find the extracted folder
-  const entries = fs.readdirSync(tempDir, { withFileTypes: true });
-  const extractedDir = entries.find((e) => e.isDirectory());
-
-  if (!extractedDir) {
-    fs.rmSync(tempDir, { recursive: true });
-    return { success: false, error: 'Invalid release format' };
-  }
-
-  // Move to plugins directory with repo name as ID
-  const destDir = path.join(getPluginsDir(), repoName);
-  if (fs.existsSync(destDir)) {
-    fs.rmSync(destDir, { recursive: true });
-  }
-
-  fs.renameSync(path.join(tempDir, extractedDir.name), destDir);
-  fs.rmSync(tempDir, { recursive: true });
-
-  // Check for manifest
-  const manifestPath = path.join(destDir, 'manifest.json');
-  if (!fs.existsSync(manifestPath)) {
-    fs.rmSync(destDir, { recursive: true });
-    return { success: false, error: 'No manifest.json found in release' };
-  }
-
-  // Read and validate manifest
-  const raw = fs.readFileSync(manifestPath, 'utf8');
-  const manifest = JSON.parse(raw);
-  const { valid, error } = validateManifest(manifest);
-
-  if (!valid) {
-    fs.rmSync(destDir, { recursive: true });
-    return { success: false, error: `Invalid manifest: ${error}` };
-  }
-
-  fs.writeFileSync(path.join(destDir, '.enabled'), '1');
-  return { success: true, plugin: { ...manifest, dir: destDir, enabled: true } };
+function findPackageRoot(extractDir) {
+  if (fs.existsSync(path.join(extractDir, 'manifest.json'))) return extractDir;
+  const directories = fs.readdirSync(extractDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  if (directories.length !== 1) throw new Error('Archive must contain one plugin folder');
+  const nested = path.join(extractDir, directories[0].name);
+  if (!fs.existsSync(path.join(nested, 'manifest.json'))) throw new Error('manifest.json not found');
+  return nested;
 }
 
-/**
- * Install plugin from GitHub repo
- * Downloads the latest release and extracts to plugins directory
- * @param {string} repo - Repository in format "owner/repo"
- * @returns {{ success: boolean, plugin?: object, error?: string }}
- */
 async function installFromRepo(repo) {
-  if (!repo || typeof repo !== 'string') {
-    return { success: false, error: 'Invalid repo format. Use owner/repo' };
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(String(repo || ''))) {
+    return { success: false, error: 'Invalid repo (use owner/name)' };
   }
-
-  const [owner, repoName] = repo.split('/');
-  if (!owner || !repoName) {
-    return { success: false, error: 'Invalid repo format. Use owner/repo' };
-  }
-
-  ensurePluginsDir();
-
-  const { URL } = require('url');
-
+  const temporary = path.join(getPluginsDir(), `.download-${crypto.randomUUID()}`);
   try {
-    // Get repo info to find the latest release
-    const githubClient = require('./github-client.cjs');
-    const release = await githubClient.getLatestRelease(owner, repoName);
+    fs.mkdirSync(temporary, { recursive: true });
+    const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Dome-Plugin/1.0' },
+    });
+    if (!response.ok) throw new Error('Release not found');
+    const release = await response.json();
+    const asset = release.assets?.find((item) => item.name === 'dome-plugin.zip')
+      || release.assets?.find((item) => item.name?.endsWith('.zip'));
+    if (!asset?.browser_download_url) throw new Error('Release has no plugin ZIP asset');
+    const buffer = await downloadBuffer(asset.browser_download_url);
+    await extractZipBuffer(buffer, temporary);
+    return installFromDir(findPackageRoot(temporary));
+  } catch (error) {
+    return { success: false, error: error.message };
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
 
-    if (!release || !release.zipball_url) {
-      return { success: false, error: 'No releases found' };
+function readAsset(pluginId, relativePath) {
+  const plugin = listPlugins().find((item) => item.id === pluginId);
+  if (!plugin) return { success: false, error: 'Plugin not found' };
+  if (!plugin.enabled) return { success: false, error: 'Plugin is disabled' };
+  try {
+    const fullPath = resolvePluginPath(plugin.dir, relativePath);
+    const stat = fs.lstatSync(fullPath);
+    if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('Asset not found');
+    if (stat.size > 5 * 1024 * 1024) throw new Error('Asset exceeds 5 MiB');
+    const extension = path.extname(relativePath).toLowerCase();
+    const buffer = fs.readFileSync(fullPath);
+    const mimeTypes = {
+      '.css': 'text/css', '.gif': 'image/gif', '.html': 'text/html', '.jpeg': 'image/jpeg',
+      '.jpg': 'image/jpeg', '.js': 'text/javascript', '.json': 'application/json', '.md': 'text/markdown',
+      '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.webp': 'image/webp',
+    };
+    const mimeType = mimeTypes[extension];
+    if (!mimeType) return { success: false, error: 'Unsupported asset type' };
+    if (mimeType.startsWith('text/') || mimeType === 'application/json' || extension === '.js') {
+      return { success: true, text: buffer.toString('utf8'), mimeType };
     }
-
-    const zipUrl = new URL(release.zipball_url);
-    const zipBuffer = await downloadReleaseZip(zipUrl);
-    return deployReleaseBuffer(zipBuffer, repoName);
-  } catch (err) {
-    return { success: false, error: err.message };
+    return { success: true, dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`, mimeType };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
 
 module.exports = {
-  getPluginsDir,
   ensurePluginsDir,
-  validateManifest,
-  listPlugins,
+  getPluginsDir,
+  installBundled,
   installFromDir,
   installFromRepo,
-  uninstall,
+  listPlugins,
+  readAsset,
   setEnabled,
+  uninstall,
+  validateManifest,
 };

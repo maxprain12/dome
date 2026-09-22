@@ -141,7 +141,13 @@ function registerAll(deps) {
   notebookHandlers.register({ ipcMain: secureIpcMain, windowManager, notebookPython });
   updaterHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   syncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
-  pluginsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
+  pluginsHandlers.register({
+    ipcMain: secureIpcMain,
+    windowManager,
+    sanitizePath,
+    database,
+    fileStorage,
+  });
   mcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   indexingSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender });
   pdfRenderHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });

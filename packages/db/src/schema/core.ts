@@ -9,6 +9,27 @@ export const projects = sqliteTable('projects', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+export const pluginGrants = sqliteTable('plugin_grants', {
+  pluginId: text('plugin_id').primaryKey(),
+  manifestDigest: text('manifest_digest').notNull(),
+  projectId: text('project_id').notNull(),
+  permissionsJson: text('permissions_json').notNull(),
+  configJson: text('config_json').notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export const pluginPublications = sqliteTable('plugin_publications', {
+  id: text('id').primaryKey(),
+  pluginId: text('plugin_id').notNull(),
+  projectId: text('project_id').notNull(),
+  status: text('status').notNull(),
+  requestJson: text('request_json').notNull(),
+  resultJson: text('result_json'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

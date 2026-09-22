@@ -28,6 +28,7 @@ export interface DomeTab {
   splitOpen?: boolean;
   /** JSON string of chat artifact for type === 'artifact' */
   artifactPayload?: string;
+  pluginId?: string;
   pinned?: boolean;
   color?: string;
   /**
@@ -220,6 +221,7 @@ interface TabStore {
   openTranscriptionDetailTab: (noteId: string, title: string, projectId?: string) => void;
   openSemanticGraphTab: (focusResourceId?: string, projectId?: string) => void;
   openArtifactTab: (title: string, artifactJson: string, projectId?: string) => void;
+  openPluginTab: (pluginId: string, title: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
 
@@ -567,6 +569,10 @@ export const useTabStore = create<TabStore>((set, get) => {
 
     openNoteTab: (resourceId, title, projectId) => {
       get().openTab({ type: 'note', title, resourceId, ...(projectId ? { projectId } : {}) });
+    },
+
+    openPluginTab: (pluginId, title) => {
+      get().openTab({ id: `plugin:${pluginId}`, type: 'plugin', title, pluginId, pinned: false });
     },
 
     openSettingsTab: () => {

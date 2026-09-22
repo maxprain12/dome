@@ -1062,12 +1062,19 @@ declare global {
 
       // Plugins API
       plugins: {
-        list: () => Promise<{ success: boolean; data?: any[] }>;
-        installFromFolder: () => Promise<{ success?: boolean; cancelled?: boolean; error?: string }>;
-        installFromRepo: (repo: string) => Promise<{ success?: boolean; error?: string }>;
-        uninstall: (id: string) => Promise<{ success: boolean; error?: string }>;
-        setEnabled: (id: string, enabled: boolean) => Promise<{ success: boolean }>;
+        list: () => Promise<{ success: boolean; data?: import('@/types/plugin').DomePluginInfo[]; error?: string }>;
+        installFromFolder: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
+        installFromRepo: (repo: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        installBundled: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        uninstall: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        setEnabled: (id: string, enabled: boolean) => Promise<{ success: boolean; data?: unknown; error?: string }>;
         readAsset: (pluginId: string, relativePath: string) => Promise<{ success: boolean; dataUrl?: string; text?: string; error?: string }>;
+        configure: (pluginId: string, configuration: import('@/types/plugin').PluginConfiguration) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginConfiguration; error?: string }>;
+        getConfiguration: (pluginId: string) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginConfiguration | null; error?: string }>;
+        revoke: (pluginId: string) => Promise<{ success: boolean; error?: string }>;
+        request: (pluginId: string, method: string, params?: unknown) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        getNoteSchema: (resourceId: string) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginNoteSchema | null; error?: string }>;
+        updateNoteFields: (resourceId: string, expectedUpdatedAt: number, fields: Record<string, string | string[]>) => Promise<{ success: boolean; data?: { updatedAt: number; fields: Record<string, string | string[]> }; error?: string }>;
       };
 
       // Marketplace API (catalog sync, plugin zip install from dialog)
