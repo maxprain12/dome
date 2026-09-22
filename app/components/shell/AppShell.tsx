@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePanelRef } from 'react-resizable-panels';
 import { useShallow } from 'zustand/react/shallow';
@@ -31,7 +31,8 @@ import { cn } from '@/lib/utils';
 
 const MANY_WIDTH_KEY = MANY_PANEL_WIDTH_KEY;
 const MANY_MIN = 280;
-const MANY_MAX = 600;
+const MANY_MAX = 920;
+const MANY_PLAN_MIN = 640;
 const MANY_DEFAULT = LAYOUT_DEFAULTS.manyPanelWidth;
 
 function readManyPanelOpen(fallback = true): boolean {
@@ -118,6 +119,12 @@ export default function AppShell() {
   const [manyRightOverride, setManyRightOverride] = useState(false);
   const narrowShell = useNarrowShell();
   const manyPanelRef = usePanelRef();
+  const planPanelOpen = useManyStore((s) => {
+    const id = s.currentSessionId;
+    return Boolean(id && s.planPanelOpenBySession[id]);
+  });
+  const widthBeforePlanRef = useRef<number | null>(null);
+  const skipManyResizePersistUntilRef = useRef(0);
 
   const openChatTab = useTabStore((s) => s.openChatTab);
   const { activeTabId, tabs } = useTabStore(
@@ -182,11 +189,17 @@ export default function AppShell() {
     const next = Math.round(width);
     if (next < MANY_MIN || next > MANY_MAX) return;
     setManyWidth(next);
+    if (Date.now() < skipManyResizePersistUntilRef.current) {
+      return;
+    }
+    if (planPanelOpen) {
+      widthBeforePlanRef.current = null;
+    }
     useResizeStore.getState().setRightSidebarWidth(next);
     try {
       localStorage.setItem(MANY_WIDTH_KEY, String(next));
     } catch { /* ignore unavailable storage */ }
-  }, []);
+  }, [planPanelOpen]);
 
   const handleToggleRightSidebar = useCallback(() => {
     setRightSidebarOpen((prev) => {
@@ -296,7 +309,59 @@ export default function AppShell() {
   );
   const showManyInDesktopSidebar = showManyInSidebar && !narrowShell;
 
-  // Keep the panel group structure stable (always 2 panels on desktop) and
+  // When a plan is open, Many needs room for chat + document side by side.
+  // Expand without persisting; restore the user's width when the plan closes
+  // unless they dragged the splitter.
+  useEffect(() => {
+    if (narrowShell) return;
+    let cancelled = false;
+    let retryId = 0;
+
+    const resizeTo = (px: number, attempt = 0) => {
+      if (cancelled) return;
+      const panel = manyPanelRef.current;
+      if (!panel) {
+        if (attempt < 8) {
+          retryId = globalThis.window.requestAnimationFrame(() => resizeTo(px, attempt + 1));
+        }
+        return;
+      }
+      skipManyResizePersistUntilRef.current = Date.now() + 400;
+      setManyWidth(px);
+      try {
+        panel.resize(px);
+      } catch {
+        skipManyResizePersistUntilRef.current = 0;
+        if (attempt < 8) {
+          retryId = globalThis.window.requestAnimationFrame(() => resizeTo(px, attempt + 1));
+        }
+      }
+    };
+
+    if (planPanelOpen) {
+      if (widthBeforePlanRef.current == null) {
+        widthBeforePlanRef.current = manyWidth;
+      }
+      if (manyWidth < MANY_PLAN_MIN) {
+        resizeTo(MANY_PLAN_MIN);
+      }
+    } else {
+      const restore = widthBeforePlanRef.current;
+      if (restore != null) {
+        widthBeforePlanRef.current = null;
+        resizeTo(restore);
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      globalThis.window.cancelAnimationFrame(retryId);
+    };
+    // manyWidth is snapshotted on open; dragging while the plan is visible
+    // clears the restore ref via handleManyResize.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [planPanelOpen, narrowShell, manyPanelRef]);
+
   // collapse/expand Many imperatively. Remounting the group via `key` was
   // remounting ContentRouter → home/dashboard "reload" flash.
   // Defer + try/catch: react-resizable-panels can throw
@@ -405,7 +470,7 @@ export default function AppShell() {
               >
                 <aside
                   className={cn(
-                    'dome-right-panel flex h-full flex-col overflow-hidden bg-sidebar',
+                    'dome-right-panel flex h-full min-w-0 flex-col overflow-hidden bg-sidebar',
                     !showManyInDesktopSidebar && 'invisible',
                   )}
                   aria-label="Many"
@@ -430,7 +495,16 @@ export default function AppShell() {
           if (!open && rightSidebarOpen) handleToggleRightSidebar();
         }}
       >
-        <SheetContent side="right" showCloseButton={false} className="w-[min(92vw,30rem)] p-0">
+        <SheetContent
+          side="right"
+          showCloseButton={false}
+          className={cn(
+            'p-0',
+            planPanelOpen
+              ? 'w-[min(96vw,44rem)] sm:max-w-[44rem]'
+              : 'w-[min(92vw,30rem)] sm:max-w-[30rem]',
+          )}
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Many</SheetTitle>
             <SheetDescription>{t('shell.right_panel_description', 'Asistente contextual de Dome')}</SheetDescription>

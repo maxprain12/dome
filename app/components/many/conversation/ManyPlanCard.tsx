@@ -209,8 +209,8 @@ export function ManyPlanPanel() {
   if (!sessionId || !open || !liveDocument) return null;
 
   return (
-    <aside className="flex min-h-0 min-w-[16rem] w-[min(22rem,48%)] shrink-0 flex-col border-l border-border bg-background">
-      <header className="flex items-start gap-2 border-b px-3 py-2.5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-[1.35] flex-col overflow-hidden border-l border-border bg-background">
+      <header className="flex shrink-0 items-start gap-2 border-b px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{liveDocument.title}</p>
           <p className="text-xs text-muted-foreground">
@@ -231,9 +231,9 @@ export function ManyPlanPanel() {
         </Button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3">
         <p className="mb-2 text-xs text-muted-foreground">{t('many.plan_edit_hint')}</p>
-        <div className="min-h-48">
+        <div className="many-plan-document min-h-48 min-w-0">
           <MarkdownNoteEditor
             key={sessionId}
             ref={editorRef}
@@ -244,7 +244,9 @@ export function ManyPlanPanel() {
         </div>
 
         {diagrams.map((code, index) => (
-          <MermaidDiagram key={`${index}-${code.slice(0, 24)}`} code={code} className="mt-3" />
+          <div key={`${index}-${code.slice(0, 24)}`} className="mt-3 min-w-0 overflow-x-auto">
+            <MermaidDiagram code={code} />
+          </div>
         ))}
 
         {liveDocument.todos.length > 0 ? (
@@ -262,7 +264,7 @@ export function ManyPlanPanel() {
                   <span aria-hidden className="shrink-0 text-muted-foreground">
                     {item.completed ? '☑' : '☐'}
                   </span>
-                  <span className="min-w-0">{item.text}</span>
+                  <span className="min-w-0 break-words">{item.text}</span>
                 </button>
               </li>
             ))}
