@@ -128,6 +128,20 @@ async function main() {
   } finally {
     manifest.finishedAt = new Date().toISOString();
     manifest.interrupted = !!fatalError;
+    // Recover per-case JSON if the process nearly died after writeCaseResult
+    // but before returning the in-memory array.
+    try {
+      const casesDir = path.join(runDir, 'cases');
+      if (fs.existsSync(casesDir)) {
+        const fromDisk = fs
+          .readdirSync(casesDir)
+          .filter((name) => name.endsWith('.json'))
+          .map((name) => JSON.parse(fs.readFileSync(path.join(casesDir, name), 'utf8')));
+        if (fromDisk.length > results.length) results = fromDisk;
+      }
+    } catch (recoverErr) {
+      console.error('[Bench] Could not recover case files:', recoverErr?.message || recoverErr);
+    }
     manifest.completedCases = results.length;
     writeManifest(runDir, manifest);
     const summary = finalizeRun(runDir, manifest, results);
@@ -151,14 +165,32 @@ function fsMkdirSkills() {
   const benchSkillDir = path.join(skillsDir, 'bench-runner');
   fs.mkdirSync(benchSkillDir, { recursive: true });
   const skillMd = path.join(benchSkillDir, 'SKILL.md');
-  if (!fs.existsSync(skillMd)) {
-    fs.writeFileSync(
-      skillMd,
-      '# bench-runner\n\nSkill de prueba para el harness de benchmark Dome.\n',
-      'utf8',
-    );
-  }
+  fs.writeFileSync(
+    skillMd,
+    [
+      '---',
+      'name: bench-runner',
+      'description: Skill de prueba para el harness de benchmark Dome.',
+      '---',
+      '',
+      '# bench-runner',
+      '',
+      'Skill de prueba para el harness de benchmark Dome.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
 }
+
+
+// Last-resort: if Electron aborts mid-case without main()'s finally, still exit non-zero.
+process.on('uncaughtException', (err) => {
+  console.error('[Bench] uncaughtException:', err);
+  try { app.exit(1); } catch { process.exit(1); }
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[Bench] unhandledRejection:', err);
+});
 
 app.whenReady().then(main).catch((err) => {
   console.error('[Bench] Fatal:', err);

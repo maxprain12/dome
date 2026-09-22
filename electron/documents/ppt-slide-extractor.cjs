@@ -126,6 +126,15 @@ async function extractPptSlideImagesInner(pptxPath) {
     return { success: false, error: 'PPTX file not found' };
   }
 
+  // Headless bench has no Vite/dev server and usually no packaged app:// protocol.
+  // Fail soft so a single PPT case cannot abort the entire Electron bench process.
+  if (process.env.DOME_BENCH === '1' && !app.isPackaged) {
+    return {
+      success: false,
+      error: 'PPT slide capture unavailable in headless bench (no renderer host)',
+    };
+  }
+
   const url = buildCaptureUrl();
   let win = null;
 
