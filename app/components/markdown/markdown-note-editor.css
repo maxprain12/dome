@@ -219,3 +219,48 @@
  * El menú se posiciona con floating-ui (flip + offset) dentro del contenido,
  * así que scrollea con el texto y se voltea solo cerca de los bordes.
  */
+
+/* Plan document inside Many: wrap tables/code instead of expanding min-content. */
+.many-plan-document {
+  min-width: 0;
+}
+
+.many-plan-document .markdown-note-editor-host {
+  min-width: 0;
+  height: auto;
+  min-height: 12rem;
+}
+
+.many-plan-document .milkdown,
+.many-plan-document .crepe-frame,
+.many-plan-document .ProseMirror {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.many-plan-document .ProseMirror {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.many-plan-document .ProseMirror table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+.many-plan-document .ProseMirror th,
+.many-plan-document .ProseMirror td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.many-plan-document .ProseMirror pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.many-plan-document .ProseMirror code {
+  overflow-wrap: anywhere;
+}

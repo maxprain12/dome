@@ -99,6 +99,9 @@ export default function ManyPanel({
   const currentSessionRunPhase = useManyStore((s) =>
     currentSessionId ? s.activeRunBySessionId[currentSessionId] : undefined,
   );
+  const planPanelOpen = useManyStore((s) =>
+    currentSessionId ? s.planPanelOpenBySession[currentSessionId] === true : false,
+  );
 
   const [input, setInput] = useState('');
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
@@ -363,9 +366,9 @@ export default function ManyPanel({
         id: 'many-popout',
         route,
         options: {
-          width: 520,
+          width: planPanelOpen ? 840 : 520,
           height: 780,
-          minWidth: 380,
+          minWidth: planPanelOpen ? 640 : 380,
           minHeight: 520,
           title: `${title} — Many`,
           transparent: false,
@@ -376,7 +379,7 @@ export default function ManyPanel({
     } catch (err) {
       console.error('[ManyPanel] Failed to open popout:', err);
     }
-  }, [currentSessionId, t]);
+  }, [currentSessionId, planPanelOpen, t]);
 
   if (isHeadless) {
     return null;
@@ -446,7 +449,7 @@ export default function ManyPanel({
     <>
       <UICursorOverlay />
       <div
-        className={cn('flex h-full shrink-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-sidebar')}
+        className={cn('flex h-full min-w-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-sidebar')}
         style={
           isFullscreen
             ? {
@@ -460,15 +463,17 @@ export default function ManyPanel({
               }
             : {
                 position: 'relative',
-                width: isVisible ? `${width}px` : '0px',
-                minWidth: isVisible ? 320 : 0,
-                maxWidth: isVisible ? 600 : 0,
+                width: isVisible ? '100%' : '0px',
+                minWidth: 0,
+                maxWidth: 'none',
+                height: '100%',
                 borderLeftWidth: isVisible ? undefined : '0px',
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
                 pointerEvents: isVisible ? 'auto' : 'none',
                 transition:
                   'transform var(--duration-ui) var(--ease-out), opacity var(--duration-fast) var(--ease-out)',
+                ['--many-panel-width' as string]: `${width}px`,
               }
         }
       >
@@ -516,7 +521,12 @@ export default function ManyPanel({
             view !== 'chat' && !isFullscreen ? 'hidden' : 'flex',
           )}
         >
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div
+            className={cn(
+              'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+              planPanelOpen && !isFullscreen && 'basis-[min(18rem,40%)]',
+            )}
+          >
             {showWelcomeHero ? (
               <ManyWelcome
                 variant="hero"
