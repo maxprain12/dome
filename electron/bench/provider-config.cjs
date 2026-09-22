@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 const { readSettingSecret, writeSettingSecret } = require('../core/settings-secrets.cjs');
+const database = require('../core/database.cjs');
 
 const PROVIDER_DEFAULTS = {
   minimax: { model: 'MiniMax-M3', envKey: 'MINIMAX_BENCH_API_KEY' },
