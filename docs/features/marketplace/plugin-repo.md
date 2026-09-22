@@ -51,7 +51,7 @@ Reglas principales:
 - Las contribuciones requieren `apiVersion: 1`.
 - `notes.write` requiere `notes.read`.
 - Las rutas son relativas, no contienen `..` y no pueden salir del paquete.
-- Los tipos de campo disponibles son `text`, `date`, `tags`, `slug` y `sitePath`.
+- Los tipos de campo disponibles son `text`, `date`, `tags`, `slug`, `sitePath` y `select`. Los campos `select` deben declarar una lista de `options`.
 
 ## Vista
 

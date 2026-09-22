@@ -13,9 +13,23 @@
     "view": { "id": "content", "title": "Content" },
     "vaultTemplate": {
       "id": "astro-post",
-      "title": "Astro post",
+      "title": "Astro content",
       "schemaVersion": 1,
       "fields": [
+        {
+          "id": "collection",
+          "type": "select",
+          "label": "Collection",
+          "options": ["blog", "manual"],
+          "required": true
+        },
+        {
+          "id": "language",
+          "type": "select",
+          "label": "Language",
+          "options": ["es", "en"],
+          "required": true
+        },
         { "id": "date", "type": "date", "label": "Date", "required": true },
         { "id": "description", "type": "text", "label": "Description", "required": true },
         { "id": "cover", "type": "sitePath", "label": "Cover image" },

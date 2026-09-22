@@ -11,6 +11,7 @@ No requiere un permiso adicional. Devuelve la identidad del plugin, la bóveda c
 ```js
 const context = await DomePlugin.request('host.context');
 // { apiVersion, plugin, vault, template, destination }
+// destination.github.contentPaths: { "blog/es": "src/content/blog/es", ... }
 ```
 
 ## Notas
@@ -80,6 +81,8 @@ const receipt = await DomePlugin.request('publication.requestApproval', { id: pr
 
 Dome muestra un diálogo nativo. Al aprobar, crea blob, árbol y commit y actualiza la referencia sin `force`. La respuesta tiene estado `published`, `cancelled`, `conflict` o `failed`. Un resultado publicado incluye `commitSha`, `repo`, `branch` y `path`.
 
+Si existe `destination.github.contentPaths`, la ruta se resuelve con `fields.collection` y `fields.language`; el archivo siempre se llama `<fields.slug>.md`.
+
 ### `publication.get` — `content.publish`
 
 ```js
@@ -91,4 +94,3 @@ Sirve para recuperar el resultado persistido tras cerrar y volver a abrir la vis
 ## Compatibilidad y evolución
 
 `apiVersion` pertenece al contrato del host; `version` pertenece al plugin. Los nuevos métodos no cambian el significado de los existentes. Un cambio incompatible exige otra versión de API. Para evolucionar campos, incrementa `schemaVersion` y mantén una lectura compatible de los valores anteriores antes de pedir una migración destructiva.
-
