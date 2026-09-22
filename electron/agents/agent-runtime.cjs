@@ -657,72 +657,6 @@ async function runHitlApproval(toolCall, { name, needsApproval, thresholdApprova
   return undefined;
 }
 
-/**
- * Build a `transformContext` that performs summarization-based compaction when
- * the conversation approaches the model context window. Falls back to the
- * original messages on any error (the loop contract forbids throwing here).
- */
-function buildCompaction(core, resolvedModel, apiKey, onChunk) {
-  const settings = core.DEFAULT_COMPACTION_SETTINGS;
-  return async function transformContext(messages, signal) {
-    try {
-      const window = resolvedModel && resolvedModel.contextWindow ? resolvedModel.contextWindow : 0;
-      if (!window) return messages;
-      const estimate = core.estimateContextTokens(messages);
-      if (!core.shouldCompact(estimate.tokens, window, settings)) return messages;
-      const tokensBefore = estimate.tokens;
-
-      // Walk back from the end keeping roughly `keepRecentTokens`.
-      let acc = 0;
-      let cut = 0;
-      for (let i = messages.length - 1; i >= 0; i -= 1) {
-        acc += core.estimateTokens(messages[i]);
-        if (acc > settings.keepRecentTokens) {
-          cut = i + 1;
-          break;
-        }
-      }
-      if (cut <= 0) return messages;
-
-      const toSummarize = messages.slice(0, cut);
-      const recent = messages.slice(cut);
-      const result = await core.generateSummary(
-        toSummarize,
-        resolvedModel,
-        settings.reserveTokens,
-        apiKey || '',
-        undefined,
-        signal,
-      );
-      const summary =
-        typeof result === 'string'
-          ? result
-          : result && result.ok && typeof result.value === 'string'
-            ? result.value
-            : '';
-      if (!summary) return messages;
-
-      const summaryMessage = {
-        role: 'user',
-        content: [{ type: 'text', text: `[Conversation summary]\n${summary}` }],
-        timestamp: Date.now(),
-      };
-      const compacted = [summaryMessage, ...recent];
-      const tokensAfter = core.estimateContextTokens(compacted).tokens;
-      emitCompactionChunk(onChunk, {
-        tokensBefore,
-        tokensAfter,
-        summaryPreview: summary.slice(0, 280),
-        automatic: true,
-      });
-      return compacted;
-    } catch (err) {
-      console.error('[AgentRuntime] compaction skipped:', err && err.message ? err.message : err);
-      return messages;
-    }
-  };
-}
-
 /** Build a `shouldStopAfterTurn` that bounds the run to `limit` turns. */
 function buildTurnLimiter(limit) {
   let turns = 0;
@@ -801,15 +735,6 @@ function buildHarnessToolCallHook(session, opts, harness, fullByName) {
     });
     if (result?.block) return { block: true, reason: result.reason };
     return undefined;
-  };
-}
-
-/** Build a harness `context` hook that runs summarization-based compaction. */
-function buildHarnessContextHook(core, resolvedModel, apiKey, onChunk) {
-  const transform = buildCompaction(core, resolvedModel, apiKey, onChunk);
-  return async function harnessContext(event) {
-    const next = await transform(event.messages);
-    return { messages: next };
   };
 }
 
@@ -1069,6 +994,7 @@ async function setupHarness(surface, opts) {
     ...(activeToolNames ? { activeToolNames } : {}),
     resources,
     model: resolvedModel,
+    autoCompaction: true,
     // Clamp to what this model actually offers: asking a non-reasoning model to
     // think, or asking for a level it lacks, degrades to the nearest supported
     // one instead of being rejected by the provider.
@@ -1116,16 +1042,15 @@ async function setupHarness(surface, opts) {
     'tool_call',
     buildHarnessToolCallHook(session, { ...opts, threadId }, harness, fullByName),
   );
-  const unsubCtx = harness.on('context', buildHarnessContextHook(core, resolvedModel, apiKey, onChunk));
   const unsubEvents = harness.subscribe((event) => {
     if (!event || typeof event.type !== 'string') return;
     if (event.type === 'session_compact' && event.compactionEntry) {
       const entry = event.compactionEntry;
       emitCompactionChunk(onChunk, {
         tokensBefore: entry.tokensBefore ?? 0,
-        tokensAfter: null,
+        tokensAfter: event.tokensAfter ?? null,
         summaryPreview: typeof entry.summary === 'string' ? entry.summary.slice(0, 280) : '',
-        automatic: false,
+        automatic: event.automatic === true,
       });
       return;
     }
@@ -1163,7 +1088,6 @@ async function setupHarness(surface, opts) {
   if (signal) {
     if (signal.aborted) {
       unsubTool();
-      unsubCtx();
       unsubEvents();
       const err = new Error('Aborted');
       err.name = 'AbortError';
@@ -1189,7 +1113,6 @@ async function setupHarness(surface, opts) {
     cleanup: () => {
       if (abortListener && signal) signal.removeEventListener('abort', abortListener);
       unsubTool();
-      unsubCtx();
       unsubEvents();
     },
     executeToolInMain,

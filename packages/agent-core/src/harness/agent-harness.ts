@@ -19,7 +19,7 @@ import type {
 	ThinkingLevel,
 } from "../types.js";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "./compaction/branch-summarization.js";
-import { compact, DEFAULT_COMPACTION_SETTINGS, prepareCompaction } from "./compaction/compaction.js";
+import { compact, DEFAULT_COMPACTION_SETTINGS, estimateContextTokens, estimateTokens, prepareCompaction, shouldCompact } from "./compaction/compaction.js";
 import { convertToLlm } from "./messages.js";
 import { formatPromptTemplateInvocation } from "./prompt-templates.js";
 import { formatSkillInvocation } from "./skills.js";
@@ -191,6 +191,7 @@ export class AgentHarness<
 	private thinkingLevel: ThinkingLevel;
 	private systemPrompt: AgentHarnessOptions<TSkill, TPromptTemplate, TTool>["systemPrompt"];
 	private streamOptions: AgentHarnessStreamOptions;
+	private readonly autoCompaction: boolean;
 	private getApiKeyAndHeaders?: AgentHarnessOptions["getApiKeyAndHeaders"];
 	private resources: AgentHarnessResources<TSkill, TPromptTemplate>;
 	private tools = new Map<string, TTool>();
@@ -210,6 +211,7 @@ export class AgentHarness<
 		this.session = options.session;
 		this.resources = options.resources ?? {};
 		this.streamOptions = cloneStreamOptions(options.streamOptions);
+		this.autoCompaction = options.autoCompaction ?? false;
 		this.systemPrompt = options.systemPrompt;
 		this.getApiKeyAndHeaders = options.getApiKeyAndHeaders;
 		this.validateUniqueNames(
@@ -437,7 +439,23 @@ export class AgentHarness<
 			model: turnState.model,
 			reasoning: turnState.thinkingLevel === "off" ? undefined : turnState.thinkingLevel,
 			convertToLlm,
-			transformContext: async (messages) => {
+			transformContext: async (messages, signal) => {
+				const model = getTurnState().model;
+				if (this.autoCompaction && model.contextWindow > 0 &&
+					shouldCompact(estimateContextTokens(messages).tokens, model.contextWindow, DEFAULT_COMPACTION_SETTINGS)) {
+					await this.flushPendingSessionWrites();
+					try {
+						if (await this.compactSession(undefined, signal, true)) {
+							messages = (await this.session.buildContext()).messages;
+						}
+					} catch (error) {
+						// A provider summary failure leaves the original session intact.
+						// Storage/hook failures and cancellation must still reach the caller.
+						signal?.throwIfAborted();
+						if (!(error instanceof CompactionError)) throw error;
+					}
+				}
+				signal?.throwIfAborted();
 				const result = await this.emitHook({ type: "context", messages: [...messages] });
 				return result?.messages ?? messages;
 			},
@@ -808,55 +826,59 @@ export class AgentHarness<
 	): Promise<{ summary: string; firstKeptEntryId: string; tokensBefore: number; details?: unknown }> {
 		if (this.phase !== "idle") throw new AgentHarnessError("busy", "compact() requires idle harness");
 		this.phase = "compaction";
+		const controller = new AbortController();
+		this.runAbortController = controller;
+		const finishRunPromise = this.startRunPromise();
 		try {
-			const model = this.model;
-			if (!model) throw new AgentHarnessError("invalid_state", "No model set for compaction");
-			const auth = await this.getApiKeyAndHeaders?.(model);
-			if (!auth) throw new AgentHarnessError("auth", "No auth available for compaction");
-			const branchEntries = await this.session.getBranch();
-			const preparationResult = prepareCompaction(branchEntries, DEFAULT_COMPACTION_SETTINGS);
-			if (!preparationResult.ok) throw preparationResult.error;
-			const preparation = preparationResult.value;
-			if (!preparation) throw new AgentHarnessError("compaction", "Nothing to compact");
-			const hookResult = await this.emitHook({
-				type: "session_before_compact",
-				preparation,
-				branchEntries,
-				customInstructions,
-				signal: new AbortController().signal,
-			});
-			if (hookResult?.cancel) throw new AgentHarnessError("compaction", "Compaction cancelled");
-			const provided = hookResult?.compaction;
-			const compactResult = provided
-				? { ok: true as const, value: provided }
-				: await compact(
-						preparation,
-						model,
-						auth.apiKey,
-						auth.headers,
-						customInstructions,
-						undefined,
-						this.thinkingLevel,
-					);
-			if (!compactResult.ok) throw compactResult.error;
-			const result = compactResult.value;
-			const entryId = await this.session.appendCompaction(
-				result.summary,
-				result.firstKeptEntryId,
-				result.tokensBefore,
-				result.details,
-				provided !== undefined,
-			);
-			const entry = await this.session.getEntry(entryId);
-			if (entry?.type === "compaction") {
-				await this.emitOwn({ type: "session_compact", compactionEntry: entry, fromHook: provided !== undefined });
-			}
+			const result = await this.compactSession(customInstructions, controller.signal);
+			if (!result) throw new AgentHarnessError("compaction", "Nothing to compact");
 			return result;
 		} catch (error) {
 			throw normalizeHarnessError(error, "compaction");
 		} finally {
+			this.runAbortController = undefined;
 			this.phase = "idle";
+			finishRunPromise();
 		}
+	}
+
+	private async compactSession(customInstructions?: string, signal?: AbortSignal, automatic = false) {
+		signal?.throwIfAborted();
+		const branchEntries = await this.session.getBranch();
+		const preparationResult = prepareCompaction(branchEntries, DEFAULT_COMPACTION_SETTINGS);
+		if (!preparationResult.ok) throw preparationResult.error;
+		const preparation = preparationResult.value;
+		if (!preparation || (preparation.messagesToSummarize.length === 0 && preparation.turnPrefixMessages.length === 0)) {
+			return undefined;
+		}
+		const hookResult = await this.emitHook({
+			type: "session_before_compact", preparation, branchEntries, customInstructions,
+			signal: signal ?? new AbortController().signal,
+		});
+		if (hookResult?.cancel) {
+			if (automatic) return undefined;
+			throw new AgentHarnessError("compaction", "Compaction cancelled");
+		}
+		const provided = hookResult?.compaction;
+		const auth = provided ? undefined : await this.getApiKeyAndHeaders?.(this.model);
+		signal?.throwIfAborted();
+		const compactResult = provided
+			? { ok: true as const, value: provided }
+			: await compact(preparation, this.model, auth?.apiKey ?? "", auth?.headers,
+				customInstructions, signal, this.thinkingLevel);
+		if (!compactResult.ok) throw compactResult.error;
+		signal?.throwIfAborted();
+		const result = compactResult.value;
+		const entryId = await this.session.appendCompaction(result.summary, result.firstKeptEntryId,
+			result.tokensBefore, result.details, provided !== undefined);
+		const entry = await this.session.getEntry(entryId);
+		if (entry?.type === "compaction") {
+			const context = await this.session.buildContext();
+			const tokensAfter = context.messages.reduce((sum, message) => sum + estimateTokens(message), 0);
+			await this.emitOwn({ type: "session_compact", compactionEntry: entry,
+				fromHook: provided !== undefined, automatic, tokensAfter });
+		}
+		return result;
 	}
 
 	async navigateTree(
