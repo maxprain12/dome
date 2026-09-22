@@ -33,6 +33,8 @@ export interface AvailablePlugin {
   author: string;
   description: string;
   repo?: string;
+  version?: string;
+  bundled?: string;
 }
 
 export interface AvailableSkill {

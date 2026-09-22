@@ -25,7 +25,8 @@ import { DetailModal } from '@/components/shared/DetailModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
-import PluginRuntimeDialog from './PluginRuntimeDialog';
+import PluginConfigureDialog from '@/components/plugins/PluginConfigureDialog';
+import { useTabStore } from '@/lib/store/useTabStore';
 import type { DomePluginInfo } from '@/types/plugin';
 
 export default function PluginsSection() {
@@ -33,7 +34,7 @@ export default function PluginsSection() {
   const [plugins, setPlugins] = useState<DomePluginInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [runtimePlugin, setRuntimePlugin] = useState<DomePluginInfo | null>(null);
+  const [configurePlugin, setConfigurePlugin] = useState<DomePluginInfo | null>(null);
   const [selectedPlugin, setSelectedPlugin] = useState<DomePluginInfo | null>(null);
   const [pendingUninstallId, setPendingUninstallId] = useState<string | null>(null);
 
@@ -80,8 +81,18 @@ export default function PluginsSection() {
   };
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
+    const plugin = plugins.find((item) => item.id === id);
+    if (enabled && plugin && !plugin.configured) {
+      setConfigurePlugin(plugin);
+      return;
+    }
     const result = await window.electron?.plugins?.setEnabled?.(id, enabled);
     if (result?.success) void loadPlugins();
+    else showMessage('error', result?.error || t('settings.plugins.configure_error', 'Could not update plugin'));
+  };
+
+  const openPlugin = (plugin: DomePluginInfo) => {
+    useTabStore.getState().openPluginTab(plugin.id, plugin.name);
   };
 
   return (
@@ -177,8 +188,16 @@ export default function PluginsSection() {
                         <DropdownMenuItem onClick={() => setSelectedPlugin(plugin)}>
                           {t('common.details', 'Details')}
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setConfigurePlugin(plugin)}>
+                          {t('settings.plugins.configure', 'Configure')}
+                        </DropdownMenuItem>
+                        {plugin.configured ? (
+                          <DropdownMenuItem onClick={() => void window.electron.plugins.revoke(plugin.id).then(() => loadPlugins())}>
+                            {t('settings.plugins.revoke', 'Revoke access')}
+                          </DropdownMenuItem>
+                        ) : null}
                         {plugin.type === 'view' && plugin.enabled ? (
-                          <DropdownMenuItem onClick={() => setRuntimePlugin(plugin)}>
+                          <DropdownMenuItem onClick={() => openPlugin(plugin)}>
                             {t('settings.plugins.open')}
                           </DropdownMenuItem>
                         ) : null}
@@ -209,8 +228,12 @@ export default function PluginsSection() {
         </SettingsGroup>
       )}
 
-      {runtimePlugin ? (
-        <PluginRuntimeDialog plugin={runtimePlugin} onClose={() => setRuntimePlugin(null)} />
+      {configurePlugin ? (
+        <PluginConfigureDialog
+          plugin={configurePlugin}
+          onClose={() => setConfigurePlugin(null)}
+          onSaved={() => { setConfigurePlugin(null); void loadPlugins(); }}
+        />
       ) : null}
 
       <DetailModal
@@ -220,7 +243,7 @@ export default function PluginsSection() {
         description={selectedPlugin?.description}
         size="compact"
         footer={selectedPlugin?.type === 'view' && selectedPlugin.enabled ? (
-          <Button type="button" onClick={() => { setRuntimePlugin(selectedPlugin); setSelectedPlugin(null); }}>{t('settings.plugins.open')}</Button>
+          <Button type="button" onClick={() => { openPlugin(selectedPlugin); setSelectedPlugin(null); }}>{t('settings.plugins.open')}</Button>
         ) : null}
       >
           <div className="flex flex-col gap-4">

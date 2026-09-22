@@ -121,10 +121,11 @@ function importExternalNote(raw, ctx, deps) {
   const title = (vaultStore.parseFrontmatterTitle(raw) || fileBase || 'Untitled').trim();
   const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(raw));
   const hash = vaultStore.contentHash(raw);
+  const pluginMetadata = vaultStore.parsePluginMetadata(raw);
   const now = Date.now();
   db.prepare(
     'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-  ).run(noteId, ctx.projectId, 'note', title, vaultStore.stripFrontmatter(raw), folderId, ctx.relPath, text, hash, null, now, now);
+  ).run(noteId, ctx.projectId, 'note', title, vaultStore.stripFrontmatter(raw), folderId, ctx.relPath, text, hash, pluginMetadata ? JSON.stringify(pluginMetadata) : null, now, now);
   try { semanticIndexScheduler.scheduleSemanticReindex?.(noteId); } catch { /* */ }
   windowManager.broadcast('resource:created', {
     id: noteId, type: 'note', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
@@ -349,7 +350,7 @@ function handleChange(absPath, deps) {
 /** Resolve an existing row via vault_path first, then frontmatter id / artifact resourceId. */
 function findExistingResourceRow(db, ctx, isMd, isArtifactHtml, rawText) {
   let row = db
-    .prepare('SELECT id, type, content_hash, vault_path FROM resources WHERE project_id = ? AND vault_path = ?')
+    .prepare('SELECT id, type, content_hash, vault_path, metadata FROM resources WHERE project_id = ? AND vault_path = ?')
     .get(ctx.projectId, ctx.relPath);
   if (!row && isMd) {
     const fid = vaultStore.parseFrontmatterId(rawText);
@@ -391,8 +392,13 @@ function applyResourceUpdate(row, absPath, buf, ext, isMd, isArtifactHtml, rawTe
 
 function applyNoteUpdate(db, row, ctx, rawText, hash, now) {
   const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(rawText));
-  db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
-    .run(ctx.relPath, vaultStore.stripFrontmatter(rawText), text, hash, now, row.id);
+  const pluginMetadata = vaultStore.parsePluginMetadata(rawText);
+  const existing = typeof row.metadata === 'string' ? (() => {
+    try { return JSON.parse(row.metadata); } catch { return {}; }
+  })() : (row.metadata || {});
+  const metadata = pluginMetadata ? { ...existing, ...pluginMetadata } : existing;
+  db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ?, metadata = ?, updated_at = ? WHERE id = ?')
+    .run(ctx.relPath, vaultStore.stripFrontmatter(rawText), text, hash, JSON.stringify(metadata), now, row.id);
 }
 
 function applyUrlUpdate(db, row, ctx, rawText, hash, now) {

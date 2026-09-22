@@ -1,5 +1,13 @@
 [
   {
+    "id": "dome-cms",
+    "name": "Dome CMS",
+    "author": "Dome",
+    "description": "Write structured content in Dome and publish Markdown to an Astro repository.",
+    "version": "1.0.0",
+    "bundled": "dome-cms"
+  },
+  {
     "id": "dome-pet-plant",
     "name": "Many Pet",
     "author": "maxprain12",

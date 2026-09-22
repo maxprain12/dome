@@ -20,6 +20,7 @@ import {
   MoreHorizontalIcon,
   PlusSignIcon,
   Presentation01Icon,
+  PuzzleIcon,
   Settings01Icon,
   SparklesIcon,
   Store01Icon,
@@ -134,6 +135,7 @@ function getTabIcon(tab: DomeTab): IconSvgElement {
     case 'transcription-detail': return Mic01Icon;
     case 'semantic-graph': return HierarchySquare01Icon;
     case 'artifact': return LayoutTable01Icon;
+    case 'plugin': return PuzzleIcon;
     default: return File01Icon;
   }
 }

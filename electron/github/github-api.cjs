@@ -378,6 +378,40 @@ function listReleases(owner, repo, opts = {}) {
   return getAllPages(`/repos/${owner}/${repo}/releases`, opts);
 }
 
+function getReference(owner, repo, branch) {
+  return get(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`);
+}
+
+function getCommit(owner, repo, sha) {
+  return get(`/repos/${owner}/${repo}/git/commits/${encodeURIComponent(sha)}`);
+}
+
+function createBlob(owner, repo, content) {
+  return mutate('POST', `/repos/${owner}/${repo}/git/blobs`, { content, encoding: 'utf-8' });
+}
+
+function createTree(owner, repo, baseTree, entries) {
+  return mutate('POST', `/repos/${owner}/${repo}/git/trees`, {
+    base_tree: baseTree,
+    tree: entries,
+  });
+}
+
+function createCommit(owner, repo, message, tree, parent) {
+  return mutate('POST', `/repos/${owner}/${repo}/git/commits`, {
+    message,
+    tree,
+    parents: [parent],
+  });
+}
+
+function updateReference(owner, repo, branch, sha) {
+  return mutate('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
+    sha,
+    force: false,
+  });
+}
+
 module.exports = {
   // pagination primitives
   getAllPages,
@@ -408,4 +442,10 @@ module.exports = {
   listCollaborators,
   listBranches,
   listReleases,
+  getReference,
+  getCommit,
+  createBlob,
+  createTree,
+  createCommit,
+  updateReference,
 };

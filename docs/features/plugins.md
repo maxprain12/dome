@@ -1,209 +1,81 @@
-# Sistema de Plugins
+# Plugins de Dome
 
-Documentación del sistema de plugins de Dome (introducido en v2.0.8).
+Dome ejecuta plugins visuales en una pestaña aislada. El plugin aporta HTML, CSS y JavaScript estáticos; Dome conserva el control de los datos, los permisos y cualquier efecto externo.
 
+## Modelo del sistema
+
+Un plugin instalado pasa por cuatro estados:
+
+1. **Instalado**: el paquete y su `manifest.json` han sido validados. Permanece desactivado.
+2. **Configurado**: el usuario elige una bóveda y revisa todos los permisos declarados.
+3. **Activo**: la vista puede solicitar operaciones mediante `DomePlugin.request`.
+4. **Revocado**: Dome elimina la concesión y desactiva el plugin.
+
+Las vistas se cargan en un `iframe` con `sandbox="allow-scripts"` y una política de contenido que impide red, navegación y acceso al proceso de Electron. El renderer no entrega acceso directo a la base de datos. Cada petición cruza un único canal y vuelve a validarse en el proceso principal.
+
+## Instalar y configurar
+
+### Desde Marketplace
+
+1. Abre **Marketplace → Plugins**.
+2. Instala el plugin.
+3. Abre **Settings → Plugins** y pulsa **Configurar**.
+4. Selecciona una bóveda y revisa los permisos.
+5. Si el plugin publica contenido, indica `owner/repository`, rama y carpeta de destino.
+
+### Desde una carpeta local
+
+En **Settings → Plugins**, usa **Instalar desde carpeta** y selecciona el directorio que contiene `manifest.json`. Dome copia el paquete; modificar la carpeta original no cambia el plugin instalado.
+
+### Desde GitHub
+
+Los plugins de catálogo pueden apuntar a `owner/repository`. Dome descarga el release más reciente y busca un asset llamado `dome-plugin.zip`. El ZIP debe contener el paquete en la raíz o dentro de una única carpeta.
+
+## Permisos
+
+| Permiso | Capacidad |
+| --- | --- |
+| `notes.read` | Leer solo las notas creadas para ese plugin en la bóveda elegida. |
+| `notes.write` | Crear y actualizar esas notas. Requiere `notes.read`. |
+| `content.publish` | Preparar y, tras confirmación nativa, publicar contenido en GitHub. |
+| `resources.read` | Reservado para una futura API acotada de recursos. |
+| `projects.read` | Reservado para una futura API acotada de proyectos. |
+| `calendar.read` | Reservado para una futura API de calendario. |
+
+Declarar un permiso no lo concede. Dome guarda la concesión junto al resumen criptográfico del manifiesto. Si una actualización cambia el manifiesto, el plugin debe configurarse de nuevo.
+
+## Datos y portabilidad
+
+Las notas siguen siendo recursos normales de Dome. Los campos aportados por un plugin se guardan bajo `metadata.plugins.<plugin-id>` y se reflejan en el Markdown como `domePlugins`. Esta separación evita colisiones entre plugins y permite importar de nuevo una bóveda sin perder el contenido estructurado.
+
+```yaml
 ---
-
-## ¿Qué son los plugins?
-
-Los **plugins** extienden la funcionalidad visual de Dome con contenido personalizado. Dome soporta dos tipos:
-
-| Tipo | Descripción | Dónde aparece |
-|------|-------------|---------------|
-| **Pet** | Mascotas virtuales animadas | En el Home de Dome |
-| **View** | Vistas personalizadas | En la navegación lateral de Dome |
-
+id: 8ac7…
+title: Getting started with Astro
+domePlugins:
+  dome-cms:
+    templateId: astro-post
+    schemaVersion: 1
+    fields:
+      date: 2026-09-22
+      description: A quick guide
+      tags: [astro, tutorial]
+      slug: getting-started-with-astro
 ---
-
-## Instalar plugins
-
-### Desde el Marketplace
-
-1. Ve a **Marketplace** en la barra lateral
-2. Selecciona la pestaña **Plugins**
-3. Busca o navega por los plugins disponibles
-4. Haz clic en **Instalar** en el plugin que quieras
-5. El plugin estará disponible inmediatamente (sin reiniciar)
-
-### Manualmente (archivo .zip)
-
-1. Ve a **Settings → Marketplace → Plugins instalados**
-2. Haz clic en **Instalar desde archivo**
-3. Selecciona el archivo `.zip` del plugin
-4. Dome valida el manifest y extrae el plugin
-
----
-
-## Directorio de plugins
-
-Los plugins instalados se guardan en:
-
-```
-macOS:   ~/Library/Application Support/dome/plugins/<plugin-id>/
-Windows: %APPDATA%\dome\plugins\<plugin-id>\
-Linux:   ~/.config/dome/plugins/<plugin-id>/
-```
-
----
-
-## Plugin Pets 🐾
-
-Los **Pets** son mascotas virtuales animadas que viven en la pantalla de Home de Dome y pueden interactuar contigo.
-
-### Cómo funcionan
-
-- Se muestran como sprites animados (spritesheet)
-- Tienen diferentes estados de animación: idle, caminar, saludar, etc.
-- El motor de animación de Dome lee el manifest para saber qué frames usar
-
-### Ejemplo de Pet en Home
-
-```
-┌─────────────────────────────────┐
-│  Dome Home                      │
-│                                 │
-│  Bienvenido de vuelta, Max      │
-│                                 │
-│                   🐱            │ ← Pet animado
-│               /\_/\             │
-│              ( o.o )            │
-│               > ^ <             │
-│                                 │
-│  Tus proyectos recientes...     │
-└─────────────────────────────────┘
 ```
 
----
+## Dome CMS
 
-## Plugin Views 🪟
+Dome CMS es el primer plugin incluido con la aplicación. Crea entradas con campos de Astro, abre la nota en el editor nativo y publica un Markdown mediante un único commit Git. La confirmación de publicación pertenece a Dome y muestra repositorio, rama y ruta antes de escribir.
 
-Los **Views** añaden nuevas secciones a la navegación lateral de Dome, con contenido HTML/JS personalizado.
+Consulta [Configurar Astro para Dome CMS](./dome-cms-astro.md) para la guía de usuario y [API de plugins](./plugins-api.md) para el contrato técnico.
 
-### Ejemplo
+## Límites deliberados de v1
 
-Un plugin de tipo View podría añadir:
-- Un pomodoro timer
-- Una vista de Kanban
-- Una herramienta de mapas mentales personalizada
-- Una integración con servicios externos
+- Un plugin se vincula a una única bóveda.
+- La instalación remota usa releases de GitHub; no ejecuta scripts de instalación.
+- No existe código Node dentro del plugin.
+- La publicación Git no fuerza la rama. Si cambia entre la preparación y el commit, Dome informa de conflicto y obliga a preparar de nuevo.
+- Los permisos reservados no exponen métodos hasta que exista un caso de uso y un contrato específico.
 
-### Navegación
-
-Los View plugins aparecen en la barra lateral, con su nombre e ícono definidos en el manifest.
-
----
-
-## Estructura de un plugin
-
-Todo plugin es una carpeta con al menos un `manifest.json`:
-
-```
-my-plugin/
-├── manifest.json          ← OBLIGATORIO
-├── index.html             ← Entry point para Views
-├── assets/
-│   ├── icon.png           ← Ícono del plugin (recomendado 64x64)
-│   └── sprites.png        ← Para Pets (spritesheet)
-└── style.css              ← Opcional para Views
-```
-
----
-
-## Formato de manifest.json
-
-```json
-{
-  "id": "my-pet",
-  "name": "Mi Gato Digital",
-  "author": "TuNombre",
-  "description": "Una mascota gato para tu Dome",
-  "version": "1.0.0",
-  "type": "pet",
-
-  // Para pets: definición de sprites
-  "sprites": {
-    "idle":  { "x": 0,   "y": 0, "width": 32, "height": 32, "frames": 4 },
-    "walk":  { "x": 0,  "y": 32, "width": 32, "height": 32, "frames": 6 },
-    "greet": { "x": 0,  "y": 64, "width": 32, "height": 32, "frames": 3 }
-  },
-
-  // Para views: archivo de entrada
-  "entry": "index.html",
-
-  // Permisos requeridos (opcional)
-  "permissions": ["storage:read"]
-}
-```
-
-### Campos del manifest
-
-| Campo | Tipo | Obligatorio | Descripción |
-|-------|------|-------------|-------------|
-| `id` | string | ✅ | Identificador único (solo alfanumérico + guiones) |
-| `name` | string | ✅ | Nombre mostrado al usuario |
-| `author` | string | ✅ | Nombre del autor |
-| `description` | string | ✅ | Descripción breve |
-| `version` | string | ✅ | Versión semántica (ej: "1.0.0") |
-| `type` | string | — | `"pet"` o `"view"` (si omitido, no tiene tipo especial) |
-| `sprites` | object | Solo pets | Configuración de sprites |
-| `entry` | string | Solo views | Archivo HTML de entrada |
-| `permissions` | array | — | Permisos requeridos |
-
----
-
-## Gestión desde Settings
-
-**Settings → Marketplace → Plugins instalados**:
-
-| Acción | Descripción |
-|--------|-------------|
-| Activar/Desactivar | Toggle que habilita/deshabilita sin desinstalar |
-| Desinstalar | Elimina el plugin permanentemente |
-| Ver detalles | Muestra manifest, autor, versión, permisos |
-
----
-
-## Desarrollar tu propio plugin
-
-Para crear y publicar un plugin en el Marketplace de Dome, sigue la guía detallada:
-
-[Plugin Repo Guide](./marketplace/plugin-repo.md)
-
-Incluye:
-- Estructura de archivos requerida
-- Cómo crear sprites para Pets
-- Cómo desarrollar Views con HTML/JS
-- Cómo empaquetar y publicar
-
----
-
-## Plugin loader (`electron/plugin-loader.cjs`)
-
-### Validación de manifest
-
-Antes de instalar, Dome valida el manifest:
-
-```javascript
-function validateManifest(manifest) {
-  // Campos requeridos: id, name, author, description, version
-  // id: solo [a-z0-9-]
-  // type: debe ser string si está presente
-  // sprites: debe ser objeto si está presente
-  // entry: debe ser string si está presente
-  // permissions: debe ser array si está presente
-}
-```
-
-### IPC Channels
-
-| Canal | Descripción |
-|-------|-------------|
-| `plugins:list` | Lista plugins instalados con metadata |
-| `plugins:install` | Instala plugin desde archivo .zip |
-| `plugins:uninstall` | Desinstala plugin por ID |
-| `plugins:toggle` | Activar/desactivar plugin |
-| `plugins:getManifest` | Obtener manifest de plugin instalado |
-
----
-
-*Ver también: [marketplace/plugin-repo.md](./marketplace/plugin-repo.md) para guía de desarrollo de plugins.*
+Estos límites mantienen pequeño el núcleo de confianza y evitan una API genérica de lectura o escritura que sería difícil de auditar.

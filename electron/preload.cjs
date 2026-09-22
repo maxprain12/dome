@@ -563,9 +563,16 @@ const ALLOWED_CHANNELS = {
     'plugin:list',
     'plugin:install-from-folder',
     'plugin:install-from-repo',
+    'plugin:install-bundled',
     'plugin:uninstall',
     'plugin:setEnabled',
     'plugin:read-asset',
+    'plugin:configure',
+    'plugin:get-configuration',
+    'plugin:revoke',
+    'plugin:request',
+    'plugin:get-note-schema',
+    'plugin:update-note-fields',
     // Cloud Storage (Google Drive)
     'cloud:get-accounts',
     'cloud:auth-google',
@@ -793,6 +800,7 @@ const ALLOWED_CHANNELS = {
     'resource:created',
     'resource:updated',
     'resource:deleted',
+    'plugin:open-note',
     'chat:session-updated',
     'chat:trace-appended',
     // Note events (Docmost-style)
@@ -1355,9 +1363,18 @@ const electronHandler = {
     list: () => ipcRenderer.invoke('plugin:list'),
     installFromFolder: () => ipcRenderer.invoke('plugin:install-from-folder'),
     installFromRepo: (repo) => ipcRenderer.invoke('plugin:install-from-repo', repo),
+    installBundled: (pluginId) => ipcRenderer.invoke('plugin:install-bundled', pluginId),
     uninstall: (pluginId) => ipcRenderer.invoke('plugin:uninstall', pluginId),
     setEnabled: (pluginId, enabled) => ipcRenderer.invoke('plugin:setEnabled', pluginId, enabled),
     readAsset: (pluginId, relativePath) => ipcRenderer.invoke('plugin:read-asset', pluginId, relativePath),
+    configure: (pluginId, configuration) => ipcRenderer.invoke('plugin:configure', pluginId, configuration),
+    getConfiguration: (pluginId) => ipcRenderer.invoke('plugin:get-configuration', pluginId),
+    revoke: (pluginId) => ipcRenderer.invoke('plugin:revoke', pluginId),
+    request: (pluginId, method, params) => ipcRenderer.invoke('plugin:request', pluginId, method, params),
+    getNoteSchema: (resourceId) => ipcRenderer.invoke('plugin:get-note-schema', resourceId),
+    updateNoteFields: (resourceId, expectedUpdatedAt, fields) => ipcRenderer.invoke(
+      'plugin:update-note-fields', resourceId, expectedUpdatedAt, fields,
+    ),
   },
 
   // ============================================

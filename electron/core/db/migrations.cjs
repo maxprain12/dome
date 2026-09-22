@@ -29,7 +29,7 @@ try {
   /* outside Electron */
 }
 
-const SCHEMA_HEAD = 77;
+const SCHEMA_HEAD = 78;
 const MIN_SUPPORTED_VERSION = 50;
 
 function setSchemaVersion(db, value) {
@@ -1514,6 +1514,39 @@ function migration77(db, version) {
   console.log('[DB] Migration 77 complete');
 }
 
+function migration78(db, version) {
+  if (version >= 78) return;
+  console.log('[DB] Running migration 78 - plugin grants and publication receipts');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS plugin_grants (
+      plugin_id TEXT PRIMARY KEY,
+      manifest_digest TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      permissions_json TEXT NOT NULL,
+      config_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS plugin_publications (
+      id TEXT PRIMARY KEY,
+      plugin_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('prepared','publishing','published','conflict','failed','cancelled')),
+      request_json TEXT NOT NULL,
+      result_json TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_plugin_publications_plugin ON plugin_publications(plugin_id, updated_at DESC)');
+  setSchemaVersion(db, 78);
+  console.log('[DB] Migration 78 complete');
+}
+
 // Ordered migration steps. Order is execution order — do not sort by number
 // (51 intentionally runs before 50, matching the original frozen history).
 // migration61 also carries 62–64 internally (kept verbatim from the old file).
@@ -1578,6 +1611,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
   migration75(db, version);
   migration76(db, version);
   migration77(db, version);
+  migration78(db, version);
   // Rebuild prepared statements after ALTER TABLE / new tables.
   invalidateQueries();
 }

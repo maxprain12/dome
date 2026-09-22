@@ -40,6 +40,7 @@
   "adding": "Adding…",
   "install_plugin": "Install",
   "installing_plugin": "Installing…",
+  "plugin_installed_configure": "\"{{name}}\" instalado. Configúralo en Ajustes → Plugins.",
   "activate": "Activate",
   "activating": "Activating…",
   "default_author": "Dome Team",

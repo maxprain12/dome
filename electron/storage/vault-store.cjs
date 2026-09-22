@@ -22,6 +22,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const YAML = require('yaml');
 const {
   buildArtifactHtmlDocument,
   parseArtifactHtmlDocument,
@@ -436,14 +437,19 @@ function atomicWrite(fullPath, contents) {
 }
 
 function buildFrontmatter(resource) {
-  const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '\\"')}"`;
-  const lines = ['---'];
-  lines.push(`id: ${esc(resource.id)}`);
-  lines.push(`title: ${esc(resource.title || 'Untitled')}`);
-  if (resource.created_at) lines.push(`created: ${Number(resource.created_at)}`);
-  if (resource.updated_at) lines.push(`updated: ${Number(resource.updated_at)}`);
-  lines.push('---', '');
-  return lines.join('\n');
+  const metadata = typeof resource.metadata === 'string'
+    ? (() => { try { return JSON.parse(resource.metadata); } catch { return {}; } })()
+    : (resource.metadata || {});
+  const frontmatter = {
+    id: String(resource.id),
+    title: resource.title || 'Untitled',
+    ...(resource.created_at ? { created: Number(resource.created_at) } : {}),
+    ...(resource.updated_at ? { updated: Number(resource.updated_at) } : {}),
+    ...(metadata.plugins && typeof metadata.plugins === 'object'
+      ? { domePlugins: metadata.plugins }
+      : {}),
+  };
+  return `---\n${YAML.stringify(frontmatter).trimEnd()}\n---\n`;
 }
 
 /** SHA-256 of a file's contents (string or Buffer) — tracks external edits. */
@@ -477,20 +483,34 @@ function stripFrontmatter(raw) {
   return String(raw || '').replace(/^﻿/, '').replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
 }
 
-/** Extract the `id: "..."` field from a note's frontmatter (or null). */
-function parseFrontmatterId(raw) {
-  const m = String(raw || '').match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return null;
-  const idLine = m[1].match(/^\s*id:\s*"?([^"\n]+)"?\s*$/m);
-  return idLine ? idLine[1].trim() : null;
+function parseFrontmatter(raw) {
+  const match = String(raw || '').replace(/^﻿/, '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return {};
+  try {
+    const parsed = YAML.parse(match[1]);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
-/** Extract the `title: "..."` field from a note's frontmatter (or null). */
+/** Extract the note id from frontmatter (or null). */
+function parseFrontmatterId(raw) {
+  const value = parseFrontmatter(raw).id;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/** Extract the note title from frontmatter (or null). */
 function parseFrontmatterTitle(raw) {
-  const m = String(raw || '').match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return null;
-  const line = m[1].match(/^\s*title:\s*"?([^"\n]+)"?\s*$/m);
-  return line ? line[1].trim() : null;
+  const value = parseFrontmatter(raw).title;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function parsePluginMetadata(raw) {
+  const value = parseFrontmatter(raw).domePlugins;
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? { plugins: value }
+    : null;
 }
 
 /**
@@ -1216,7 +1236,9 @@ module.exports = {
   stripFrontmatter,
   parseFrontmatterId,
   parseFrontmatterTitle,
+  parsePluginMetadata,
   contentHash,
+  buildFrontmatter,
   isSelfWrite,
   markSelfWrite,
 };

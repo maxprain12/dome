@@ -20,6 +20,47 @@ function buildQueries(db) {
       UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ?
     `),
 
+    // Plugin grants and publication receipts
+    getPluginGrant: db.prepare('SELECT * FROM plugin_grants WHERE plugin_id = ?'),
+    upsertPluginGrant: db.prepare(`
+      INSERT INTO plugin_grants (
+        plugin_id, manifest_digest, project_id, permissions_json, config_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(plugin_id) DO UPDATE SET
+        manifest_digest = excluded.manifest_digest,
+        project_id = excluded.project_id,
+        permissions_json = excluded.permissions_json,
+        config_json = excluded.config_json,
+        updated_at = excluded.updated_at
+    `),
+    deletePluginGrant: db.prepare('DELETE FROM plugin_grants WHERE plugin_id = ?'),
+    createPluginPublication: db.prepare(`
+      INSERT INTO plugin_publications (
+        id, plugin_id, project_id, status, request_json, result_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getPluginPublication: db.prepare('SELECT * FROM plugin_publications WHERE id = ? AND plugin_id = ?'),
+    updatePluginPublication: db.prepare(`
+      UPDATE plugin_publications SET status = ?, result_json = ?, updated_at = ?
+      WHERE id = ? AND plugin_id = ?
+    `),
+    listPluginNotes: db.prepare(`
+      SELECT id, project_id, title, content, metadata, updated_at
+      FROM resources
+      WHERE project_id = ? AND type = 'note'
+      ORDER BY updated_at DESC
+    `),
+    updatePluginNoteIfCurrent: db.prepare(`
+      UPDATE resources
+      SET title = ?, content = ?, metadata = ?, updated_at = ?
+      WHERE id = ? AND project_id = ? AND type = 'note' AND updated_at = ?
+    `),
+    updatePluginNoteFieldsIfCurrent: db.prepare(`
+      UPDATE resources
+      SET metadata = ?, updated_at = ?
+      WHERE id = ? AND project_id = ? AND type = 'note' AND updated_at = ?
+    `),
+
     // Resources
     createResource: db.prepare(`
       INSERT INTO resources (id, project_id, type, title, content, vault_path, folder_id, metadata, created_at, updated_at)

@@ -1,0 +1,27 @@
+{
+  "apiVersion": 1,
+  "id": "dome-cms",
+  "name": "Dome CMS",
+  "author": "Dome",
+  "description": "Write structured content in Dome and publish Markdown to an Astro repository.",
+  "version": "1.0.0",
+  "minDomeVersion": "2.8.9",
+  "type": "view",
+  "entry": "index.html",
+  "permissions": ["notes.read", "notes.write", "content.publish"],
+  "contributes": {
+    "view": { "id": "content", "title": "Content" },
+    "vaultTemplate": {
+      "id": "astro-post",
+      "title": "Astro post",
+      "schemaVersion": 1,
+      "fields": [
+        { "id": "date", "type": "date", "label": "Date", "required": true },
+        { "id": "description", "type": "text", "label": "Description", "required": true },
+        { "id": "cover", "type": "sitePath", "label": "Cover image" },
+        { "id": "tags", "type": "tags", "label": "Tags" },
+        { "id": "slug", "type": "slug", "label": "Slug", "required": true }
+      ]
+    }
+  }
+}

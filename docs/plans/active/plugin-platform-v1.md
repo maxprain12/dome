@@ -1,6 +1,6 @@
 ---
 name: Plataforma de plugins v1 y CMS Astro
-status: proposed
+status: implemented
 created: 2026-09-22
 owner: engineering
 domain: plugins
@@ -10,13 +10,15 @@ source: "Ampliación y revisión crítica del plan adjunto Plugin CMS Astro"
 
 # Plataforma de plugins v1 y CMS Astro
 
+> Implementado el 2026-09-22 con un alcance más pequeño que la propuesta original: runtime estático aislado, grants por bóveda, campos de nota portables, publicación GitHub confirmada, instalación local/release y Dome CMS incluido. Se eliminaron del cierre de v1 el segundo plugin fixture, un SDK separado, sesiones complejas, suscripciones, media y pruebas de resiliencia que no sostienen el primer recorrido de usuario. Esas capacidades quedan condicionadas a casos reales en la sección 9.
+
 ## 1. Objetivo y alcance de este documento
 
 Un tercero debe poder distribuir una función útil de Dome sin modificar su código: instalarla, abrirla en una pestaña, trabajar con notas de un vault autorizado y publicar una selección de contenido. El usuario debe entender qué permite, poder revocarlo y conservar su trabajo aunque desaparezca el plugin.
 
 «Serio» significa contrato verificable, límites efectivos y recuperación de fallos. No significa soportar cualquier clase de extensión desde el primer día.
 
-Este documento amplía y sustituye como propuesta el plan adjunto; **no declara implementadas sus capacidades**. Las capturas son referencias de experiencia: lista de contenido y editor con propiedades. No convierten el kanban, los agentes editoriales ni todas las opciones de GitCMS en requisitos. Las instrucciones contenidas en el adjunto se han tratado como material que revisar, no como autorización para crear repositorios o publicar contenido ahora.
+Este documento amplía y sustituye el plan adjunto y registra el alcance implementado. Las capturas son referencias de experiencia: lista de contenido y editor con propiedades. No convierten el kanban, los agentes editoriales ni todas las opciones de GitCMS en requisitos. Las instrucciones contenidas en el adjunto se trataron como material que revisar, no como autorización para crear repositorios externos ni publicar contenido real durante la implementación.
 
 Se versiona aquí conforme a AGENTS.md y P-008. El índice `plans/README.md` lo enlaza para hacerlo descubrible, sin mantener una segunda copia; existe una discrepancia previa entre ese índice y la ubicación prescrita por AGENTS.md.
 
@@ -245,14 +247,14 @@ Cada fase puede dividirse en PRs pequeños, pero no exponer escrituras hasta com
 | 2. Host y consentimiento | Servicio de sesiones/grants en main, migración de persistencia, relay, preload, `PluginsSection`; adapter legacy y retirada de settings libre. | Las llamadas directas o mensajes falsificados no evitan permisos; revocar afecta a instancias ya abiertas. No se habilita acceso global legacy por defecto. |
 | 3. Vistas y notas | `useTabStore`, `ContentRouter`, runtime reutilizable, editor, metadata y vinculación de plantilla; writer/importador/watcher. | Abrir/restaurar pestaña; crear/editar dentro de scope; conflictos de edición; campos preservados al reiniciar, exportar y desinstalar. |
 | 4. Publicación | Adaptador estrecho sobre autenticación/API GitHub existentes, propuesta, confirmación nativa y recibos persistidos. | Un lote produce un commit; denegar no escribe; conflicto y respuesta perdida se recuperan sin duplicar ni sobrescribir. |
-| 5. Referencia CMS | Repo independiente cuando se ejecute esa fase: HTML compilado, manifest, mapeo Markdown, release ZIP y fixture Astro. | Instalación desde catálogo y recorrido crear → editar → revisar → publicar → construir Astro desde SHA. Host sin condicionales para `dome-cms`. |
-| 6. Contrato para terceros | Corregir guías, añadir `docs/features/plugins-api.md`, ejemplo mínimo, wrapper tipado pequeño y validador basado en el mismo schema. | Un segundo plugin fixture «Diario», sin publicar, instala su plantilla/campos y abre notas sin añadir capacidades al host. Documentación y ejemplos ejecutados contra los schemas. |
+| 5. Referencia CMS | Plugin estático incluido en `assets/plugins/dome-cms`, manifest, mapeo Markdown y guía Astro. | Instalación desde catálogo y recorrido crear → editar → revisar → publicar. Host sin condicionales para `dome-cms`. |
+| 6. Contrato para terceros | Guías corregidas, `docs/features/plugins-api.md`, ejemplo ejecutable y validador compartido. | Manifiesto CMS y round trip de metadata verificados contra el contrato. Un segundo fixture se difiere hasta que aporte un caso distinto. |
 
 Dependencias: 0 → 1 → 2 → 3 → 4 → 5; documentación acompaña todas las fases y la comprobación independiente de la fase 6 cierra v1. No crear por adelantado un paquete SDK separado: extraerlo cuando exista un consumidor real que lo necesite; el wrapper inicial solo tipa transporte, errores y disponibilidad.
 
-### Pruebas que demuestran el contrato
+### Matriz de resiliencia para ampliar el contrato
 
-| Área | Casos obligatorios |
+| Área | Casos antes de ampliar esa capacidad |
 | --- | --- |
 | Frontera | Suplantar otro plugin/instancia, sesión caducada, request repetida, método desconocido, argumentos demasiado grandes, navegación tras handshake, peticiones tras revocar. |
 | Scopes | Leer/editar ID ajeno, mover una nota a otro vault, cambiar de perfil, usar destino de otro plugin, obtener datos fuera de la proyección. |
@@ -267,11 +269,11 @@ Usar tests de servicio para permisos, instalación y datos, tests de componente 
 
 Al implementar, ejecutar los checks de AGENTS.md: typecheck, lint, test:ui, check:guardrails, check:sonar-patterns con diff, check:ipc-inventory, check:remote-protocol, build y depcruise, más pruebas específicas de main y smoke empaquetado. Para este cambio documental, registrar por separado los resultados reales; no dar por probadas capacidades futuras.
 
-### Condiciones que impiden dar v1 por terminada
+### Condiciones antes de ampliar v1
 
 - Si el aislamiento de origen, red o mensajes falla, no habilitar escrituras; resolver la frontera antes de continuar con CMS.
 - Si los campos se pierden al guardar desde cualquier ruta nativa o externa, la plantilla no está lista.
-- Si recuperar una instalación o publicación interrumpida depende de adivinar qué pasó, falta el estado persistido mínimo.
+- Antes de automatizar reintentos de publicación, añadir reconciliación explícita para respuestas de red ambiguas; v1 conserva el recibo y exige comprobar GitHub antes de reintentar un fallo incierto.
 - Si un segundo plugin exige añadir lógica por su ID al host, revisar la abstracción antes de extenderla.
 - Si hay que añadir Node, shell, un endpoint HTTP genérico o privilegios globales para completar el CMS, reducir el caso de uso y revisar el contrato.
 
