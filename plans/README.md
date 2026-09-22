@@ -138,6 +138,8 @@ flowchart TD
 
 ## Cómo ejecutar un plan
 
+Plan transversal propuesto: [Plataforma de plugins v1 y CMS Astro](../docs/plans/active/plugin-platform-v1.md). Se mantiene una sola copia en la ubicación prescrita por AGENTS.md/P-008; no implica que las capacidades descritas estén implementadas.
+
 1. Abrir el fichero `NNN-….md`.
 2. Completar el drift check contra el código actual.
 3. Implementar los pasos; un plan ≈ un PR salvo que se indique lo contrario.
