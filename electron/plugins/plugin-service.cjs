@@ -19,7 +19,8 @@ const configurationSchema = z.object({
   github: z.object({
     repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
     branch: z.string().min(1).max(200).regex(/^[A-Za-z0-9._/-]+$/),
-    pathPrefix: z.string().max(240),
+    pathPrefix: z.string().max(240).optional(),
+    contentPaths: z.record(z.string(), z.string().min(1).max(240)).optional(),
   }).optional(),
 }).strict();
 
@@ -69,10 +70,43 @@ function parseJson(raw, fallback) {
 function safePrefix(input) {
   const normalized = String(input || '').trim().replace(/^\/+|\/+$/g, '');
   if (!normalized) return 'src/content/posts';
-  if (normalized.includes('..') || normalized.startsWith('.github')) {
+  if (normalized.includes('..') || normalized.includes('\\') || normalized.startsWith('.github')) {
     throw new Error('Publication path must stay inside a content folder');
   }
   return normalized;
+}
+
+function safeContentPath(input) {
+  const raw = String(input || '').trim();
+  if (!raw || raw.startsWith('/') || raw.includes('\\')) {
+    throw new Error('Content folders must be relative paths');
+  }
+  const normalized = raw.replace(/^\/+|\/+$/g, '');
+  if (!normalized.startsWith('src/content/') || normalized.includes('..')) {
+    throw new Error('Content folders must stay inside src/content');
+  }
+  return normalized;
+}
+
+function contentPathKey(value) {
+  const key = String(value || '').trim();
+  if (!/^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(key)) {
+    throw new Error('Content path keys must use collection/language');
+  }
+  return key;
+}
+
+function resolveContentPath(github, fields) {
+  if (github.contentPaths) {
+    const collection = String(fields.collection || '').trim();
+    const language = String(fields.language || '').trim();
+    if (!collection || !language) throw new Error('Collection and language are required for publication');
+    const key = contentPathKey(`${collection}/${language}`);
+    const configured = github.contentPaths[key];
+    if (!configured) throw new Error(`No content folder configured for ${key}`);
+    return safeContentPath(configured);
+  }
+  return safePrefix(github.pathPrefix);
 }
 
 function slugify(input) {
@@ -124,6 +158,9 @@ function normalizeFields(template, input, current = {}) {
     }
     if (definition.type === 'sitePath' && trimmed && (!trimmed.startsWith('/') || trimmed.includes('..'))) {
       throw new Error(`${definition.label} must be a site path starting with /`);
+    }
+    if (definition.type === 'select' && !definition.options?.includes(trimmed)) {
+      throw new Error(`${definition.label} must use one of the declared options`);
     }
     values[definition.id] = trimmed;
   }
@@ -197,9 +234,23 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       throw new Error('All declared permissions must be reviewed before activation');
     }
     const github = parsed.github
-      ? { ...parsed.github, pathPrefix: safePrefix(parsed.github.pathPrefix) }
+      ? {
+        ...parsed.github,
+        ...(parsed.github.pathPrefix ? { pathPrefix: safePrefix(parsed.github.pathPrefix) } : {}),
+        ...(parsed.github.contentPaths
+          ? {
+            contentPaths: Object.fromEntries(Object.entries(parsed.github.contentPaths).map(([key, value]) => [
+              contentPathKey(key),
+              safeContentPath(value),
+            ])),
+          }
+          : {}),
+      }
       : undefined;
-    if (parsed.permissions.includes('content.publish') && !github) {
+    if (
+      parsed.permissions.includes('content.publish')
+      && (!github || (!github.pathPrefix && !Object.keys(github.contentPaths || {}).length))
+    ) {
       throw new Error('GitHub destination is required for publishing');
     }
     const now = Date.now();
@@ -399,7 +450,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     if (duplicate) throw new Error(`Another CMS note already uses the slug ${document.slug}`);
     const [owner, repo] = grant.github.repo.split('/');
     const reference = await githubApi.getReference(owner, repo, grant.github.branch);
-    const prefix = safePrefix(grant.github.pathPrefix);
+    const prefix = resolveContentPath(grant.github, document.fields);
     const filePath = path.posix.join(prefix, `${document.slug}.md`);
     if (!filePath.startsWith(`${prefix}/`)) throw new Error('Publication path escaped its destination');
     const id = crypto.randomUUID();
@@ -588,4 +639,4 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
   };
 }
 
-module.exports = { createPluginService };
+module.exports = { createPluginService, resolveContentPath };

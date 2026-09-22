@@ -21,10 +21,21 @@ const relativeEntrySchema = z.string().min(1).max(240).refine(
 
 const fieldSchema = z.object({
   id: identifierSchema,
-  type: z.enum(['text', 'date', 'tags', 'slug', 'sitePath']),
+  type: z.enum(['text', 'date', 'tags', 'slug', 'sitePath', 'select']),
   label: z.string().min(1).max(80),
+  options: z.array(z.string().min(1).max(80)).max(50).optional(),
   required: z.boolean().optional(),
-}).strict();
+}).strict().superRefine((value, ctx) => {
+  if (value.type === 'select' && (!value.options || value.options.length === 0)) {
+    ctx.addIssue({ code: 'custom', message: 'Select fields require options' });
+  }
+  if (value.type !== 'select' && value.options) {
+    ctx.addIssue({ code: 'custom', message: 'Only select fields can declare options' });
+  }
+  if (value.options && new Set(value.options).size !== value.options.length) {
+    ctx.addIssue({ code: 'custom', message: 'Select field options must be unique' });
+  }
+});
 
 const viewContributionSchema = z.object({
   id: identifierSchema,

@@ -10,12 +10,13 @@ export type PluginPermission =
   | 'projects.read'
   | 'calendar.read';
 
-export type PluginFieldType = 'text' | 'date' | 'tags' | 'slug' | 'sitePath';
+export type PluginFieldType = 'text' | 'date' | 'tags' | 'slug' | 'sitePath' | 'select';
 
 export interface PluginFieldDefinition {
   id: string;
   type: PluginFieldType;
   label: string;
+  options?: string[];
   required?: boolean;
 }
 
@@ -59,7 +60,8 @@ export interface PluginConfiguration {
   github?: {
     repo: string;
     branch: string;
-    pathPrefix: string;
+    pathPrefix?: string;
+    contentPaths?: Record<string, string>;
   };
 }
 

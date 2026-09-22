@@ -46,3 +46,16 @@ test('invalidates plugins that require a newer Dome version', () => {
   assert.deepEqual(result, { valid: false, error: 'Requires Dome 3.0.0 or later' });
 });
 
+test('requires options for select fields', () => {
+  const result = validateManifest({
+    ...valid,
+    contributes: {
+      ...valid.contributes,
+      vaultTemplate: {
+        ...valid.contributes.vaultTemplate,
+        fields: [{ id: 'language', type: 'select', label: 'Language', required: true }],
+      },
+    },
+  }, '2.8.9');
+  assert.equal(result.valid, false);
+});

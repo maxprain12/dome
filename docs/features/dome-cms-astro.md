@@ -53,7 +53,18 @@ const { Content } = await render(post);
 2. Instala **Dome CMS**.
 3. Abre **Settings → Plugins** y configura el plugin.
 4. Elige la bóveda que guardará tus borradores.
-5. Indica el repositorio como `owner/repository`, normalmente la rama `main`, y la carpeta `src/content/posts`.
+5. Indica el repositorio como `owner/repository`, normalmente la rama `main`, y configura las carpetas por colección e idioma.
+
+Para el plugin **Dome CMS**, cada regla usa `colección/idioma` como clave. La configuración inicial propone:
+
+| Colección | Idioma | Carpeta |
+| --- | --- | --- |
+| `blog` | `es` | `src/content/blog/es` |
+| `blog` | `en` | `src/content/blog/en` |
+| `manual` | `es` | `src/content/manual/es` |
+| `manual` | `en` | `src/content/manual/en` |
+
+Al publicar, Dome elige la carpeta según esos dos campos y siempre escribe `<slug>.md`. Por ejemplo, `blog` + `es` + `primer-articulo` produce `src/content/blog/es/primer-articulo.md`.
 
 Dome usa la conexión de GitHub que ya tengas activa. La cuenta necesita permiso de escritura en ese repositorio.
 
@@ -61,7 +72,7 @@ Dome usa la conexión de GitHub que ya tengas activa. La cuenta necesita permiso
 
 Desde la pestaña **Dome CMS**:
 
-1. Crea una entrada con título, descripción, fecha y slug.
+1. Crea una entrada con título, colección, idioma, descripción, fecha y slug.
 2. Dome abre la nota nativa. Completa el cuerpo y, si quieres, portada y etiquetas.
 3. Guarda los campos estructurados.
 4. Vuelve al CMS y pulsa **Publish**.
@@ -88,15 +99,16 @@ Si tu plataforma despliega al recibir cambios en `main`, el commit de Dome inici
 
 ## Adaptar un proyecto existente
 
-- Cambia **Content folder** en la configuración de Dome si tu colección vive en otra ruta.
+- Cambia las reglas de **Content folders by collection and language** si tus colecciones o idiomas viven en otras rutas. Las carpetas deben estar dentro de `src/content/`.
 - Ajusta el esquema de Astro para que acepte exactamente los campos anteriores. `cover` es opcional y `date` debe admitir el texto ISO que escribe Dome.
-- Mantén el `slug` como fuente de la URL aunque el nombre del archivo también lo use.
+- Mantén el `slug` como fuente de la URL y como nombre exacto del archivo; Dome no añade prefijos ni genera otro nombre.
 - Guarda imágenes en `public/` y escribe una ruta pública como `/posts/cover.jpg`; Dome CMS v1 no sube binarios.
 - Si tu colección ya exige campos adicionales, hazlos opcionales, añade valores por defecto en Astro o crea un plugin derivado con otra `vaultTemplate`.
+
+Si una combinación colección/idioma no tiene una regla, Dome detiene la publicación antes de crear el commit y muestra la combinación que falta. Añade la regla y prepara la publicación de nuevo.
 
 ## Conflictos y recuperación
 
 Dome prepara la publicación contra una revisión concreta de la rama. Si otra persona actualiza la rama antes de confirmar, Dome no fuerza el cambio: marca la propuesta como conflicto. Actualiza la vista y publica de nuevo para preparar otro commit sobre la cabecera reciente. La nota local nunca se elimina cuando falla la publicación.
 
 Para detalles de Astro, consulta la documentación oficial de [Content Collections](https://docs.astro.build/en/guides/content-collections/) y del [glob loader](https://docs.astro.build/en/reference/content-loader-reference/#glob-loader).
-

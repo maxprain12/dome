@@ -66,7 +66,7 @@ domePlugins:
 
 ## Dome CMS
 
-Dome CMS es el primer plugin incluido con la aplicación. Crea entradas con campos de Astro, abre la nota en el editor nativo y publica un Markdown mediante un único commit Git. La confirmación de publicación pertenece a Dome y muestra repositorio, rama y ruta antes de escribir.
+Dome CMS es el primer plugin incluido con la aplicación. Crea entradas con campos de Astro, abre la nota en el editor nativo y publica un Markdown mediante un único commit Git. La configuración de publicación admite carpetas por `colección/idioma` y usa el `slug` como nombre exacto del archivo. La confirmación de publicación pertenece a Dome y muestra repositorio, rama y ruta antes de escribir.
 
 Consulta [Configurar Astro para Dome CMS](./dome-cms-astro.md) para la guía de usuario y [API de plugins](./plugins-api.md) para el contrato técnico.
 

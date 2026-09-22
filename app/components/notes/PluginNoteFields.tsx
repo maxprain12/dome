@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { PluginNoteSchema } from '@/types/plugin';
 
 type FieldValues = Record<string, string | string[]>;
@@ -73,14 +74,25 @@ export default function PluginNoteFields({ resourceId, readOnly, onSaved }: {
             return (
               <Field key={field.id}>
                 <FieldLabel htmlFor={`plugin-field-${field.id}`}>{field.label}{field.required ? ' *' : ''}</FieldLabel>
-                <Input
-                  id={`plugin-field-${field.id}`}
-                  type={field.type === 'date' ? 'date' : 'text'}
-                  value={Array.isArray(value) ? value.join(', ') : value || ''}
-                  placeholder={field.type === 'tags' ? 'astro, tutorial' : undefined}
-                  disabled={readOnly}
-                  onChange={(event) => updateValue(field.id, event.target.value, field.type === 'tags')}
-                />
+                {field.type === 'select' ? (
+                  <Select
+                    value={Array.isArray(value) ? value[0] || '' : value || ''}
+                    onValueChange={(nextValue) => updateValue(field.id, nextValue || '', false)}
+                    disabled={readOnly}
+                  >
+                    <SelectTrigger id={`plugin-field-${field.id}`} className="w-full"><SelectValue placeholder={field.label} /></SelectTrigger>
+                    <SelectContent><SelectGroup>{(field.options || []).map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectGroup></SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id={`plugin-field-${field.id}`}
+                    type={field.type === 'date' ? 'date' : 'text'}
+                    value={Array.isArray(value) ? value.join(', ') : value || ''}
+                    placeholder={field.type === 'tags' ? 'astro, tutorial' : undefined}
+                    disabled={readOnly}
+                    onChange={(event) => updateValue(field.id, event.target.value, field.type === 'tags')}
+                  />
+                )}
               </Field>
             );
           })}
