@@ -10,9 +10,6 @@ function isPageHostPermission(value: string) {
 
 export default defineConfig({
   alias: {
-    '@/lib/utils': fileURLToPath(
-      new URL('../../app/lib/cn.ts', import.meta.url),
-    ),
     '@/lib': fileURLToPath(new URL('../../app/lib', import.meta.url)),
     '@/components': fileURLToPath(
       new URL('../../app/components', import.meta.url),

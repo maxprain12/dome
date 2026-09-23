@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adaptationBatchPrompt, adaptationPrompt, parseAdaptedBatch, parseAdaptedEntry } from './adapt-languages';
+import { adaptationBatchPrompt, adaptationPrompt, generateCmsTranslations, hasUntranslatedBody, parseAdaptedBatch, parseAdaptedEntry } from './adapt-languages';
 
 describe('CMS language adaptation', () => {
   it('asks the model to keep media references and return JSON', () => {
@@ -47,5 +47,33 @@ describe('CMS language adaptation', () => {
       { language: 'en', title: 'Test', description: 'A test', slug: 'test', body: '# Test' },
       { language: 'fr', title: 'Essai', description: 'Un essai', slug: 'essai', body: '# Essai' },
     ]);
+  });
+
+  it('retries copied prose and never publishes an unchanged body', async () => {
+    const input = { sourceLanguage: 'es', targets: ['en'], title: 'Noticias', description: 'Noticias recientes', slug: 'noticias', body: 'Ha salido un nuevo modelo de IA.' };
+    const replies = [
+      JSON.stringify({ translations: [{ language: 'en', title: 'News', description: 'Recent news', slug: 'news', body: input.body }] }),
+      JSON.stringify({ title: 'News', description: 'Recent news', slug: 'news', body: 'A new AI model has been released.' }),
+    ];
+    const calls: string[] = [];
+    const translated = await generateCmsTranslations(input, async (prompt) => { calls.push(prompt); return replies.shift()!; });
+    expect(translated[0].body).toBe('A new AI model has been released.');
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain('Translate the entire body');
+    await expect(generateCmsTranslations(input, async (prompt) => prompt.includes('every target')
+      ? JSON.stringify({ translations: [{ language: 'en', title: 'News', body: input.body }] })
+      : JSON.stringify({ title: 'News', body: input.body }))).rejects.toThrow('ADAPT_UNTRANSLATED');
+  });
+
+  it('preserves bodies containing only media and code', () => {
+    expect(hasUntranslatedBody('![image](dome-media:id)\n\n```js\nconst ready = true\n```', '![image](dome-media:id)\n\n```js\nconst ready = true\n```')).toBe(false);
+  });
+
+  it('rejects a translation that changes the image target', async () => {
+    const input = { sourceLanguage: 'es', targets: ['en'], title: 'Noticia', description: '', slug: 'noticia', body: 'Una foto. ![Portada](dome-media:original)' };
+    const first = JSON.stringify({ translations: [{ language: 'en', title: 'News', body: 'A photo. ![Cover](dome-media:wrong)' }] });
+    const retry = JSON.stringify({ title: 'News', body: 'A photo. ![Cover](dome-media:wrong)' });
+    const replies = [first, retry];
+    await expect(generateCmsTranslations(input, async () => replies.shift()!)).rejects.toThrow('ADAPT_MEDIA_CHANGED');
   });
 });

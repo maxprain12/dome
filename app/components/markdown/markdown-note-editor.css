@@ -25,6 +25,11 @@
   outline: none;
   padding: .5rem 0 3rem;
 }
+.markdown-note-editor-host .tiptap:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: .25rem;
+}
 
 .markdown-note-editor-host .tiptap > :first-child { margin-top: 0; }
 .markdown-note-editor-host .tiptap p { margin: .75em 0; }

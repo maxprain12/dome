@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { enUS, es, fr, ptBR } from 'date-fns/locale';
 
-export type NoteSavePillState = 'saved' | 'dirty' | 'saving' | 'error';
+export type NoteSavePillState = 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
 
 function pickLocale(language: string) {
   switch (language.split('-')[0]) {
@@ -35,6 +35,8 @@ function getStatusText(state: NoteSavePillState, savedText: string, t: TFunction
       return t('notes.save_saving');
     case 'error':
       return t('notes.save_error');
+    case 'conflict':
+      return t('notes.save_conflict_short');
     default:
       return savedText;
   }
@@ -76,28 +78,24 @@ export default function NoteSavePill({
 
   const mod = navigator.platform?.toUpperCase()?.includes('MAC') ? '⌘S' : 'Ctrl+S';
 
+  const content = <>
+    <span className="note-save-dot" aria-hidden />
+    <span>{text}</span>
+    {state === 'dirty' && dirtyHintCmdS ? (
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, opacity: 0.7 }}>{mod}</span>
+    ) : null}
+  </>;
+  if (state === 'saved' || state === 'saving' || state === 'conflict') {
+    return <span className={`save-pill note-save-pill ${state}`} role="status" aria-live="polite" title={text}>{content}</span>;
+  }
   return (
     <button
       type="button"
       className={`save-pill note-save-pill ${state}`}
-      title={
-        state === 'dirty' || state === 'error'
-          ? t('notes.save_hint_cmd_s', { kbd: `${mod}` })
-          : state === 'saving'
-            ? t('notes.save_saving')
-            : savedText
-      }
-      onClick={() => {
-        if (state === 'dirty' || state === 'error') onClickSave?.();
-      }}
-      disabled={state === 'saving'}
-      style={{ opacity: state === 'saving' ? 0.85 : undefined }}
+      title={t('notes.save_hint_cmd_s', { kbd: mod })}
+      onClick={onClickSave}
     >
-      <span className="note-save-dot" aria-hidden />
-      <span>{text}</span>
-      {state === 'dirty' && dirtyHintCmdS ? (
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, opacity: 0.7 }}>{mod}</span>
-      ) : null}
+      {content}
     </button>
   );
 }

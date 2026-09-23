@@ -81,6 +81,8 @@
   "updating_translations": "Actualizando…",
   "translations_updated": "Las traducciones se actualizaron juntas",
   "adapt_none": "Configura primero otro idioma para esta colección.",
+  "adapt_media_changed": "La traducción cambió una referencia de imagen. No se modificó ninguna entrada.",
+  "adapt_untranslated": "El contenido no se tradujo. No se modificó ninguna entrada.",
   "adapt_error": "No se pudo adaptar la entrada a otros idiomas",
   "view_publication": "Ver publicación",
   "publish_selected": "Publicar {{count}}",

@@ -15,7 +15,7 @@ import MarkdownNoteEditor, { type MarkdownNoteEditorHandle } from '@/components/
 import PluginTemplateField from '@/components/plugins/PluginTemplateField';
 import { chat } from '@/lib/ai/client';
 import { requestPlugin } from '@/lib/plugins/request';
-import { adaptationBatchPrompt, parseAdaptedBatch } from '@/lib/plugins/adapt-languages';
+import { generateCmsTranslations } from '@/lib/plugins/adapt-languages';
 import { ingestLocalMarkdownImages, pluginSiteImageMap, type PluginSiteImage } from '@/lib/plugins/media';
 import {
   cmsDestinationPath,
@@ -192,6 +192,8 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
     if (text.startsWith('CONFLICT:')) return t('plugins.conflict');
     if (text === 'REMOTE_NOT_FOUND') return t('plugins.pull_missing');
     if (text === 'LOCAL_MEDIA_FORBIDDEN') return t('plugins.local_media_forbidden');
+    if (text === 'ADAPT_UNTRANSLATED') return t('plugins.adapt_untranslated');
+    if (text === 'ADAPT_MEDIA_CHANGED') return t('plugins.adapt_media_changed');
     if (text === 'ADAPT_PARSE' || text === 'ADAPT_NONE') return t('plugins.adapt_error');
     return text || fallback;
   };
@@ -205,6 +207,13 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
     setError(null);
     try {
       const familyId = note.familyId || globalThis.crypto.randomUUID();
+      const expectedSiblings = siblingLanguages.map((language) => {
+        const sibling = notes.find((item) => item.id !== note.id
+          && item.familyId === familyId
+          && fieldScalar(item.fields, 'collection') === fieldScalar(values, 'collection')
+          && fieldScalar(item.fields, 'language') === language);
+        return { language, id: sibling?.id ?? null, updatedAt: sibling?.updatedAt ?? null, contentDigest: sibling?.contentDigest ?? null };
+      });
       const ingested = await ingestLocalMarkdownImages(
         pluginId,
         note.id,
@@ -212,20 +221,17 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
       );
       const sourceTitle = title.trim();
       const sourceFields = values;
-      const translations = parseAdaptedBatch(await chat([
-        { role: 'system', content: 'You return only JSON for a batch of CMS translations.' },
-        {
-          role: 'user',
-          content: adaptationBatchPrompt({
+      const translations = await generateCmsTranslations({
             sourceLanguage: fieldScalar(sourceFields, 'language'),
             targets: siblingLanguages,
             title: sourceTitle,
             description: fieldScalar(sourceFields, 'description'),
             slug: fieldScalar(sourceFields, 'slug'),
             body: ingested.markdown,
-          }),
-        },
-      ]), siblingLanguages, sourceTitle);
+      }, (prompt) => chat([
+        { role: 'system', content: 'Return only valid JSON. Translate every human-readable part of the CMS body into the requested language.' },
+        { role: 'user', content: prompt },
+      ]));
       const result = await requestPlugin<{ notes: PluginNote[] }>(pluginId, 'notes.applyTranslations', {
         sourceId: note.id,
         expectedUpdatedAt: savedRevision.current,
@@ -234,6 +240,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
         title: sourceTitle,
         body: ingested.markdown,
         fields: sourceFields,
+        expectedSiblings,
         translations,
       });
       dirtyRef.current = false;
@@ -383,7 +390,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
       <Collapsible open={propertiesOpen} onOpenChange={setPropertiesOpen} className="rounded-lg border">
         <CollapsibleTrigger render={<Button type="button" variant="ghost" className="w-full justify-between" />}>
           {t('plugins.entry_properties')}
-          <HugeiconsIcon icon={ArrowDown01Icon} />
+          <HugeiconsIcon icon={ArrowDown01Icon} className={`transition-transform duration-200 motion-reduce:transition-none ${propertiesOpen ? 'rotate-180' : ''}`} />
         </CollapsibleTrigger>
         <CollapsibleContent keepMounted>
           <fieldset disabled={pulling || adapting || deleting} className="min-w-0 p-4">
@@ -405,7 +412,6 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
       <Field>
         <FieldLabel htmlFor="cms-entry-body">{t('plugins.body')}</FieldLabel>
         <div className="min-w-0">
-          {siteImageMap ? (
             <MarkdownNoteEditor
               key={note.id}
               id="cms-entry-body"
@@ -414,16 +420,13 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
               initialMarkdown={body}
               pluginId={pluginId}
               resourceId={note.id}
-              siteImageMap={siteImageMap}
+              siteImageMap={siteImageMap ?? undefined}
               className="markdown-note-editor-host--cms"
               onChange={() => {
                 setBody(editorRef.current?.getMarkdown() ?? body);
                 markDirty();
               }}
             />
-          ) : (
-            <div className="min-h-60" aria-busy="true" />
-          )}
         </div>
         <p className="text-xs text-muted-foreground">{t('plugins.body_hint')}</p>
       </Field>

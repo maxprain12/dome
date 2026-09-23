@@ -11,6 +11,7 @@ const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.c
 const WriteMirrorSchema = z.object({
   id: z.string().min(1),
   markdown: z.string(),
+  expectedMarkdown: z.string().optional(),
 });
 
 const ReadMirrorSchema = z.object({
@@ -26,6 +27,13 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     const parsed = WriteMirrorSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { success: false, error: 'Invalid payload' };
+    }
+    if (parsed.data.expectedMarkdown !== undefined) {
+      const current = vaultStore.readNoteMarkdown({ id: parsed.data.id }, { database, fileStorage });
+      if (!current.success || typeof current.markdown !== 'string') return { success: false, error: current.error || 'Note file unavailable' };
+      if (current.markdown !== parsed.data.expectedMarkdown) {
+        return { success: false, error: 'NOTE_CONFLICT' };
+      }
     }
     const result = vaultStore.writeNoteMarkdown(parsed.data, { database, fileStorage });
     if (result.success) {

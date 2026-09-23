@@ -1434,7 +1434,7 @@ declare global {
 
       // Notes Markdown vault mirror API
       notes: {
-        writeMirror: (args: { id: string; markdown: string }) => Promise<
+        writeMirror: (args: { id: string; markdown: string; expectedMarkdown?: string }) => Promise<
           DBResponse<never> & { vaultPath?: string }
         >;
         readMirror: (args: { id: string }) => Promise<

@@ -7,6 +7,12 @@ export interface AdaptedCmsEntry {
   body: string;
 }
 
+const bodyInstructions = [
+  'Translate the entire body, including headings, paragraphs, lists, quotes and image alt text. Do not copy source-language prose into the target body.',
+  'Preserve Markdown syntax, code, URLs, dome-media: references and /media/ paths exactly; translate human-readable text around them.',
+  'If the body contains no translatable prose, preserve it unchanged.',
+];
+
 export function adaptationPrompt(input: {
   targetLanguage: string;
   title: string;
@@ -17,7 +23,7 @@ export function adaptationPrompt(input: {
   return [
     'Adapt this CMS entry into the target language.',
     'Return ONLY JSON with keys title, description, slug, body.',
-    'Keep Markdown structure, links, and image references such as ![alt](dome-media:id) or /media/... unchanged.',
+    ...bodyInstructions,
     'Generate a lowercase URL slug in the target language.',
     `Target language: ${input.targetLanguage}`,
     `Source title: ${input.title}`,
@@ -40,7 +46,7 @@ export function adaptationBatchPrompt(input: {
     'Adapt this CMS entry into every target language in one response.',
     'Return ONLY JSON: {"translations":[{"language":"en","title":"","description":"","slug":"","body":""}]}',
     'Include one object for each target language, using that language code.',
-    'Keep Markdown structure, links, and image references such as ![alt](dome-media:id) or /media/... unchanged.',
+    ...bodyInstructions,
     'Generate a lowercase URL slug in each target language.',
     `Source language: ${input.sourceLanguage}`,
     `Target languages: ${input.targets.join(', ')}`,
@@ -50,6 +56,47 @@ export function adaptationBatchPrompt(input: {
     'Source body:',
     input.body,
   ].join('\n');
+}
+
+/** A copied body is not a translation when it contains human-readable prose. */
+export function hasUntranslatedBody(sourceBody: string, translatedBody: string): boolean {
+  if (sourceBody.trim() !== translatedBody.trim()) return false;
+  const prose = sourceBody
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`]*`/g, '')
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/https?:\/\/\S+|dome-media:\S+|\/media\/\S+/g, '');
+  return /\p{L}{4,}/u.test(prose);
+}
+
+function hasChangedMediaReferences(sourceBody: string, translatedBody: string): boolean {
+  const refs = (body: string) => Array.from(body.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g), (match) => match[1]);
+  return JSON.stringify(refs(sourceBody)) !== JSON.stringify(refs(translatedBody));
+}
+
+export async function generateCmsTranslations(
+  input: Parameters<typeof adaptationBatchPrompt>[0],
+  generate: (prompt: string) => Promise<string>,
+): Promise<Array<AdaptedCmsEntry & { language: string }>> {
+  const translations = parseAdaptedBatch(
+    await generate(adaptationBatchPrompt(input)),
+    input.targets,
+    input.title,
+  );
+  for (const translation of translations) {
+    if (!hasUntranslatedBody(input.body, translation.body) && !hasChangedMediaReferences(input.body, translation.body)) continue;
+    const retry = parseAdaptedEntry(await generate(adaptationPrompt({
+      targetLanguage: translation.language,
+      title: input.title,
+      description: input.description,
+      slug: input.slug,
+      body: input.body,
+    })), input.title);
+    if (hasUntranslatedBody(input.body, retry.body)) throw new Error('ADAPT_UNTRANSLATED');
+    if (hasChangedMediaReferences(input.body, retry.body)) throw new Error('ADAPT_MEDIA_CHANGED');
+    Object.assign(translation, retry);
+  }
+  return translations;
 }
 
 export function parseAdaptedBatch(

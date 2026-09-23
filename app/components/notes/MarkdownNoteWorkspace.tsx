@@ -85,6 +85,7 @@ function getSavePillState(
   isSaving: boolean,
   isDirty: boolean,
 ): NoteSavePillState {
+  if (saveError === 'NOTE_CONFLICT') return 'conflict';
   if (saveError) return 'error';
   if (isSaving) return 'saving';
   if (isDirty) return 'dirty';
@@ -150,7 +151,7 @@ function renderEditorBlock(args: EditorBlockArgs) {
       </div>
       {args.saveError ? (
         <div role="alert" className="px-4 pb-6 text-xs text-destructive">
-          {args.saveError}
+          {args.saveError === 'NOTE_CONFLICT' ? args.t('notes.save_conflict') : args.saveError}
         </div>
       ) : null}
     </>
@@ -233,6 +234,7 @@ function NoteWorkspace({
   }, [viewMode]);
 
   const editorRef = useRef<MarkdownNoteEditorHandle | null>(null);
+  const persistedMarkdownRef = useRef('');
   const mirroredOnceRef = useRef(false);
   const ingestedMediaRef = useRef<string | null>(null);
   const saveInFlightRef = useRef(false);
@@ -287,6 +289,7 @@ function NoteWorkspace({
         const result = await window.electron.db.resources.getById(resourceId);
         if (result?.success && result.data) {
           const md = await loadNoteMarkdown(result.data);
+          persistedMarkdownRef.current = md;
           setResource(result.data);
           setTitle(result.data.title || '');
           setInitialMarkdown(md);
@@ -332,6 +335,7 @@ function NoteWorkspace({
 
     const applyExternalMarkdown = (markdown: string, updatedAt?: number) => {
       if (isDirtyRef.current) return;
+      persistedMarkdownRef.current = markdown;
       editorRef.current?.setMarkdown(markdown);
       setWordCount(countWordsFromMarkdown(markdown));
       setIsDirty(false);
@@ -391,8 +395,10 @@ function NoteWorkspace({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const saved = await saveNoteMarkdown({ id: resourceId, title, markdown, pluginId });
+      const saved = await saveNoteMarkdown({ id: resourceId, title, markdown, pluginId, expectedMarkdown: persistedMarkdownRef.current });
       const nextMarkdown = saved.markdown;
+      // Vault writes one final newline after the submitted Markdown body.
+      persistedMarkdownRef.current = `${nextMarkdown}\n`;
       const now = saved.updatedAt;
       if (nextMarkdown !== markdown && changeSeqRef.current === seqAtSave) editorRef.current?.setMarkdown(nextMarkdown);
       // Keystrokes may have landed while awaiting the writes above; only
@@ -406,7 +412,7 @@ function NoteWorkspace({
       setSavePillSavedAt(now);
       setWordCount(countWordsFromMarkdown(nextMarkdown));
       setResource((prev) => (prev ? { ...prev, title, content: nextMarkdown, vault_path: saved.vaultPath, updated_at: now } : prev));
-      await refreshBacklinkCount(resourceId);
+      void refreshBacklinkCount(resourceId).catch(() => { /* Saving succeeded; backlink counts can refresh later. */ });
     } catch (err) {
       console.error('Error saving note:', err);
       setSaveError(err instanceof Error ? err.message : 'save failed');
@@ -420,7 +426,7 @@ function NoteWorkspace({
   saveOnExit.current = () => {
     if (readOnly || !resource || !isDirtyRef.current || !editorRef.current) return;
     const markdown = editorRef.current.getMarkdown();
-    void saveNoteMarkdown({ id: resourceId, title, markdown, pluginId }).catch(() => {
+    void saveNoteMarkdown({ id: resourceId, title, markdown, pluginId, expectedMarkdown: persistedMarkdownRef.current }).catch(() => {
       showToast('error', t('notes.save_error'));
     });
   };

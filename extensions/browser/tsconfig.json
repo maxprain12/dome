@@ -3,6 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
@@ -12,9 +13,6 @@
     "paths": {
       "@/*": [
         "../../app/*"
-      ],
-      "@/lib/utils": [
-        "../../app/lib/cn.ts"
       ]
     }
   },
