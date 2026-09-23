@@ -13,4 +13,4 @@ Reported: CMS saves repeatedly conflict, landing images appear broken in vault n
 
 Confirmed timestamp-only writer: `electron/storage/blob-sync.cjs` updates resource `file_hash` and `updated_at` during ingestion.
 
-Validation: 29 plugin backend tests and 12 targeted renderer tests pass. Typecheck, lint (existing warnings), guardrails, IPC inventory, remote protocol, Sonar patterns, dependency structure and production build pass. Full renderer suite and CI pending.
+Validation: 29 plugin backend tests and 12 targeted renderer tests pass. Typecheck, lint (existing warnings), guardrails, IPC inventory, remote protocol, Sonar patterns, dependency structure and production build pass. Full renderer suite passed: 118 files, 488 tests. CI runs in PR #1705.
