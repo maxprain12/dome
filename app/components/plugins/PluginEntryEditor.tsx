@@ -59,6 +59,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
 }, ref) {
   const { t } = useTranslation();
   const editorRef = useRef<MarkdownNoteEditorHandle>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [values, setValues] = useState<PluginFieldValues>(note.fields);
@@ -67,6 +68,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   const changeSeq = useRef(0);
   const savedRevision = useRef(note.updatedAt);
   const savePromise = useRef<Promise<PluginNote | null> | null>(null);
+  const saveRef = useRef<() => Promise<PluginNote | null>>(() => Promise.resolve(null));
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const markDirty = () => {
     changeSeq.current += 1;
@@ -178,6 +180,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   };
 
   useImperativeHandle(ref, () => ({ save, isDirty: () => dirtyRef.current }));
+  saveRef.current = save;
 
   const explain = (cause: unknown, fallback: string) => {
     const text = cause instanceof Error ? cause.message : '';
@@ -273,16 +276,23 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
 
   const busy = saving || pulling || deleting || publishing || adapting;
 
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return;
+      if (!formRef.current?.contains(event.target as Node)) return;
+      event.preventDefault();
+      if (dirty && !busy) void saveRef.current();
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [busy, dirty]);
+
   return (
     <>
     <form
+      ref={formRef}
       className="mx-auto flex w-full max-w-5xl min-h-0 flex-col gap-5"
-      onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-          event.preventDefault();
-          if (dirty && !busy) void save();
-        }
-      }}
       onSubmit={(event) => {
         event.preventDefault();
         void save().catch(() => {});
