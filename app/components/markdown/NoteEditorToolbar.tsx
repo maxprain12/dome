@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import NoteAiActions from './NoteAiActions';
 
 export default function NoteEditorToolbar({ editor }: { editor: Editor }) {
   const { t } = useTranslation();
@@ -84,6 +85,7 @@ export default function NoteEditorToolbar({ editor }: { editor: Editor }) {
       ) : null}
       <Button type="button" variant="ghost" size="sm" disabled={!state.undo} onClick={() => editor.chain().focus().undo().run()}>{t('notes.editor_undo')}</Button>
       <Button type="button" variant="ghost" size="sm" disabled={!state.redo} onClick={() => editor.chain().focus().redo().run()}>{t('notes.editor_redo')}</Button>
+      <NoteAiActions editor={editor} />
     </div>
   );
 }

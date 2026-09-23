@@ -49,16 +49,28 @@ test('drafts, translations and existing root drafts follow their configured cont
   const translated = await service.request('cms', 'notes.applyTranslations', {
     sourceId: note.id, expectedUpdatedAt: note.updatedAt, expectedContentDigest: note.contentDigest,
     familyId: 'family', title: note.title, body: note.body, fields: note.fields,
+    expectedSiblings: [{ language: 'en', id: null, updatedAt: null, contentDigest: null }],
     translations: [{ language: 'en', title: 'News', body: 'My draft', description: 'News', slug: 'news' }],
   });
   const english = translated.notes.find((item) => item.fields.language === 'en');
   assertFolder(english.id, 'en');
+  const editedEnglish = await service.request('cms', 'notes.update', {
+    id: english.id, expectedUpdatedAt: english.updatedAt, expectedContentDigest: english.contentDigest,
+    body: 'Edited by another writer',
+  });
+  const currentSource = translated.notes.find((item) => item.id === note.id);
+  await assert.rejects(() => service.request('cms', 'notes.applyTranslations', {
+    sourceId: note.id, expectedUpdatedAt: currentSource.updatedAt, expectedContentDigest: currentSource.contentDigest,
+    familyId: 'family', title: currentSource.title, body: currentSource.body, fields: currentSource.fields,
+    expectedSiblings: [{ language: 'en', id: english.id, updatedAt: english.updatedAt, contentDigest: english.contentDigest }],
+    translations: [{ language: 'en', title: 'News', body: 'Stale translation', description: 'News', slug: 'news' }],
+  }), /CONFLICT: translation changed/);
   // Simulate a draft created before folder placement was supported.
   db.prepare('UPDATE resources SET folder_id = NULL WHERE id = ?').run(english.id);
   await service.request('cms', 'notes.list', {});
   assertFolder(english.id, 'en');
   const changed = await service.request('cms', 'notes.update', {
-    id: english.id, expectedUpdatedAt: english.updatedAt, expectedContentDigest: english.contentDigest,
+    id: english.id, expectedUpdatedAt: editedEnglish.updatedAt, expectedContentDigest: editedEnglish.contentDigest,
     fields: { language: 'es', slug: 'news-es' },
   });
   assertFolder(changed.id, 'es');

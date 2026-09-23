@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-22T17:51:53.883Z
+> Última generación: 2026-09-23T21:05:35.597Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -386,9 +386,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `notebook:pipList` | `electron/ipc/media/notebook.cjs:175` |
 | `notebook:runPython` | `electron/ipc/media/notebook.cjs:31` |
 | `notebook:workspace` | `electron/ipc/media/notebook.cjs:21` |
-| `notes:readMirror` | `electron/ipc/data/notes.cjs:43` |
-| `notes:vaultDir` | `electron/ipc/data/notes.cjs:55` |
-| `notes:writeMirror` | `electron/ipc/data/notes.cjs:22` |
+| `notes:readMirror` | `electron/ipc/data/notes.cjs:51` |
+| `notes:vaultDir` | `electron/ipc/data/notes.cjs:63` |
+| `notes:writeMirror` | `electron/ipc/data/notes.cjs:23` |
 | `ollama:chat` | `electron/ipc/ai/ollama.cjs:156` |
 | `ollama:check-availability` | `electron/ipc/ai/ollama.cjs:14` |
 | `ollama:generate-embedding` | `electron/ipc/ai/ollama.cjs:61` |

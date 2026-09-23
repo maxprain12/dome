@@ -78,6 +78,12 @@ const METHOD_SCHEMAS = {
     title: z.string().min(1).max(240),
     body: z.string().max(2_000_000),
     fields: fieldValuesSchema.optional(),
+    expectedSiblings: z.array(z.object({
+      language: z.string().min(1).max(32),
+      id: idSchema.nullable(),
+      updatedAt: z.number().int().nonnegative().nullable(),
+      contentDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+    })).min(1).max(12),
     translations: z.array(z.object({
       language: z.string().min(1).max(32),
       title: z.string().min(1).max(240),
@@ -764,6 +770,17 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       if (fieldText(meta.fields, 'collection') !== collection) continue;
       const language = fieldText(meta.fields, 'language');
       if (seen.has(language)) siblings.set(language, row);
+    }
+    for (const translation of params.translations) {
+      const expected = params.expectedSiblings.find((entry) => entry.language === translation.language);
+      const sibling = siblings.get(translation.language);
+      if (!expected || (sibling?.id || null) !== expected.id) throw new Error('CONFLICT: translation changed');
+      if (!sibling) continue;
+      const fields = pluginMetadata(sibling.metadata, plugin.id)?.fields || {};
+      const unchanged = expected.contentDigest
+        ? noteDigest(sibling, fields) === expected.contentDigest
+        : sibling.updated_at === expected.updatedAt;
+      if (!unchanged) throw new Error('CONFLICT: translation changed');
     }
     const now = Date.now();
     const planned = [{

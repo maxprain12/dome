@@ -24,16 +24,20 @@ vi.mock('@/components/notes/NoteQuickTagModal', () => ({ default: () => null }))
 vi.mock('@/lib/notes/loadNoteMarkdown', () => ({ loadNoteMarkdown: async () => 'Original', countWordsFromMarkdown: () => 1 }));
 
 const writeMirror = vi.fn();
+const readMirror = vi.fn();
 const update = vi.fn();
 let broadcast: (payload: unknown) => void;
+let persisted = 'Original';
 
 beforeEach(() => {
-  writeMirror.mockResolvedValue({ success: true });
+  persisted = 'Original';
+  writeMirror.mockImplementation(async ({ markdown }: { markdown: string }) => { persisted = `${markdown}\n`; return { success: true }; });
+  readMirror.mockImplementation(async () => ({ success: true, markdown: persisted }));
   update.mockResolvedValue({ success: true });
   vi.stubGlobal('electron', undefined);
   Object.defineProperty(window, 'electron', { configurable: true, value: {
     on: (_event: string, listener: typeof broadcast) => { broadcast = listener; return () => {}; },
-    notes: { writeMirror },
+    notes: { writeMirror, readMirror },
     db: {
       resources: { getById: async () => ({ success: true, data: { id: 'note', type: 'note', title: 'Title', project_id: 'default', content: 'Original', vault_path: 'Title.md', updated_at: 1 } }), update },
       projects: { getById: async () => ({ success: true, data: { name: 'Library' } }) },
@@ -50,6 +54,16 @@ async function openNote() {
 function save() { fireEvent.keyDown(window, { key: 's', ctrlKey: true }); }
 
 describe('note persistence', () => {
+  it('keeps the local draft when the vault changed elsewhere', async () => {
+    await openNote();
+    fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'My draft' } });
+    persisted = 'Another writer changed this note';
+    save();
+    expect(await screen.findByRole('alert')).toHaveTextContent('changed elsewhere');
+    expect(screen.getByLabelText('Body')).toHaveValue('My draft');
+    expect(writeMirror).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
   it('reports a rejected mirror write and retries the unsaved body', async () => {
     await openNote();
     writeMirror.mockResolvedValueOnce({ success: false, error: 'Disk full' });
@@ -59,7 +73,7 @@ describe('note persistence', () => {
     expect(update).toHaveBeenCalledOnce();
     save();
     await waitFor(() => expect(writeMirror).toHaveBeenCalledTimes(2));
-    expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Unsaved' });
+    expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Unsaved', expectedMarkdown: 'Original' });
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 
@@ -72,7 +86,7 @@ describe('note persistence', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Database unavailable');
     expect(writeMirror).not.toHaveBeenCalled();
     save();
-    await waitFor(() => expect(writeMirror).toHaveBeenCalledWith({ id: 'note', markdown: 'New body' }));
+    await waitFor(() => expect(writeMirror).toHaveBeenCalledWith({ id: 'note', markdown: 'New body', expectedMarkdown: 'Original' }));
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ title: 'New title' }));
     expect(update.mock.invocationCallOrder[1]).toBeLessThan(writeMirror.mock.invocationCallOrder[0]);
   });
@@ -91,10 +105,10 @@ describe('note persistence', () => {
     expect(writeMirror).toHaveBeenCalledOnce();
     act(() => broadcast({ id: 'note', updates: { title: 'Title' } }));
     expect(screen.getByLabelText('Title')).toHaveValue('Latest title');
-    await act(async () => resolveWrite({ success: true }));
+    await act(async () => { persisted = 'First body\n'; resolveWrite({ success: true }); });
     save();
     await waitFor(() => expect(writeMirror).toHaveBeenCalledTimes(2));
-    expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Latest body' });
+    expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Latest body', expectedMarkdown: 'First body\n' });
     expect(update).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Latest title' }));
   });
 });
@@ -110,6 +124,6 @@ it('flushes the last edit on close after an earlier save completes', async () =>
   fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'Last edit before closing' } });
   view.unmount();
   expect(writeMirror).toHaveBeenCalledOnce();
-  await act(async () => complete({ success: true }));
-  await waitFor(() => expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Last edit before closing' }));
+  await act(async () => { persisted = 'Earlier snapshot\n'; complete({ success: true }); });
+  await waitFor(() => expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Last edit before closing', expectedMarkdown: 'Earlier snapshot\n' }));
 });
