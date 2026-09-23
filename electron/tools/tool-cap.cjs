@@ -89,6 +89,7 @@ function resolveCapPriority(context = {}) {
   const names = ['task'];
   if (context.coding) names.push(...CODING_RUN_PRIORITY);
   names.push(...TOOL_CAP_PRIORITY);
+  names.push(...require('../plugins/cms-tools.cjs').getToolDefinitions().map((def) => def.function.name));
   return [...new Set(names)];
 }
 

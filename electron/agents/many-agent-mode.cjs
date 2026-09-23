@@ -52,6 +52,7 @@ const PLAN_WRITE_TOOLS = Object.freeze([
 ]);
 
 const PLAN_WRITE_SET = new Set(PLAN_WRITE_TOOLS);
+const cmsTools = require('../plugins/cms-tools.cjs');
 
 const { QUESTIONNAIRE_TOOL_DEFINITION, isQuestionnaireTool } = require('./many-plan.cjs');
 
@@ -100,7 +101,7 @@ function filterToolDefinitionsForMode(defs, mode) {
   }
   const filtered = list.filter((def) => {
     const name = toolDefName(def);
-    return !PLAN_WRITE_SET.has(name);
+    return !PLAN_WRITE_SET.has(name) && !cmsTools.isWriteTool(name);
   });
   if (!filtered.some((def) => isQuestionnaireTool(toolDefName(def)))) {
     filtered.push(QUESTIONNAIRE_TOOL_DEFINITION);
@@ -111,7 +112,7 @@ function filterToolDefinitionsForMode(defs, mode) {
 function extraHitlToolNames(mode) {
   if (mode === 'plan') return ['questionnaire'];
   if (mode !== 'draft') return [];
-  return [...PLAN_WRITE_TOOLS];
+  return [...PLAN_WRITE_TOOLS, ...cmsTools.getWriteToolNames()];
 }
 
 function promptOverlayForAgentMode(mode) {

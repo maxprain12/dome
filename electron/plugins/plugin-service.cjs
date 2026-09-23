@@ -29,6 +29,7 @@ const configurationSchema = z.object({
 const METHOD_PERMISSIONS = {
   'host.context': null,
   'notes.list': 'notes.read',
+  'notes.listReadonly': 'notes.read',
   'notes.get': 'notes.read',
   'notes.create': 'notes.write',
   'notes.update': 'notes.write',
@@ -50,6 +51,7 @@ const METHOD_PERMISSIONS = {
 const METHOD_SCHEMAS = {
   'host.context': z.object({}).passthrough(),
   'notes.list': z.object({ limit: z.number().int().min(1).max(300).optional() }).passthrough(),
+  'notes.listReadonly': z.object({ limit: z.number().int().min(1).max(300).optional() }).strict(),
   'notes.get': z.object({ id: idSchema }).strict(),
   'notes.create': z.object({
     title: z.string().min(1).max(240),
@@ -1635,8 +1637,8 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
         destination: grant.github || null,
       };
     }
-    if (method === 'notes.list') {
-      if (grant.permissions.includes('notes.write')) organizeCmsNotes(plugin, grant);
+    if (method === 'notes.list' || method === 'notes.listReadonly') {
+      if (method === 'notes.list' && grant.permissions.includes('notes.write')) organizeCmsNotes(plugin, grant);
       return queries().listPluginNotes.all(grant.projectId)
         .map((row) => serializeNote(row, plugin.id))
         .filter(Boolean)

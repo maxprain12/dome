@@ -42,6 +42,7 @@ export interface DomePluginManifest {
   contributes?: {
     view?: { id: string; title: string };
     vaultTemplate?: PluginVaultTemplate;
+    tools?: Array<'list_entries' | 'get_entry' | 'create_draft' | 'update_entry' | 'sync_entries' | 'prepare_publication' | 'get_publication' | 'publish_entry'>;
   };
   sprites?: Record<string, string | string[]>;
 }

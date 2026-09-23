@@ -74,3 +74,12 @@ test('requires options for select fields', () => {
   }, '2.8.9');
   assert.equal(result.valid, false);
 });
+
+test('CMS tools must be unique and backed by declared permissions', () => {
+  const tools = ['list_entries', 'create_draft', 'publish_entry'];
+  const withTools = { ...valid, contributes: { ...valid.contributes, tools } };
+  assert.equal(validateManifest(withTools, '2.8.9').valid, false);
+  assert.equal(validateManifest({ ...withTools, permissions: ['notes.read', 'notes.write', 'content.publish'] }, '2.8.9').valid, true);
+  assert.equal(validateManifest({ ...withTools, permissions: ['notes.read', 'notes.write', 'content.publish'], contributes: { ...withTools.contributes, tools: [...tools, 'list_entries'] } }, '2.8.9').valid, false);
+  assert.equal(validateManifest({ ...withTools, permissions: ['notes.read', 'notes.write', 'content.publish'], id: 'other-plugin' }, '2.8.9').valid, false);
+});

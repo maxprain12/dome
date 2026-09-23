@@ -28,6 +28,8 @@ const notes = await DomePlugin.request('notes.list', { limit: 100 });
 
 Solo devuelve notas que tienen metadata del plugin actual y pertenecen a su bóveda. Cada nota incluye `id`, `title`, `body`, `fields`, `updatedAt`, `publication`, `familyId` y un estado `draft`, `changed` o `published`.
 
+`notes.listReadonly` acepta el mismo `limit` y devuelve los mismos datos sin reorganizar notas antiguas en carpetas. Lo usa la herramienta de Many para consultar estados durante el modo Plan.
+
 ### `notes.get` — `notes.read`
 
 ```js

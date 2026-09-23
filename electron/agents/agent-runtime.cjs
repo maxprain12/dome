@@ -50,6 +50,7 @@ const HITL_TOOL_NAMES = new Set([
   'github_update_issue',
   'github_create_milestone',
   'social_post_publish',
+  'dome_cms_publish_entry',
   // Local git mutations. Reads (status/diff/log) stay ungated — the agent needs
   // to inspect the working copy constantly.
   'git_branch_create',

@@ -26,6 +26,7 @@ const {
 const { scopeToolPaths } = require('../coding/tool-path-scope.cjs');
 const { invokeToolHandler } = require('./tool-dispatcher-handlers.cjs');
 const logger = require('../core/logger.cjs');
+const cmsTools = require('../plugins/cms-tools.cjs');
 
 const DEFAULT_TOOL_TIMEOUT_MS = Number(process.env.DOME_TOOL_TIMEOUT_MS) || 120_000;
 const TOOL_TIMEOUT_OVERRIDES = {
@@ -66,6 +67,9 @@ function getAiToolsHandler() {
 async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
   const automationProjectId = toolContext?.automationProjectId ?? null;
   const normalizedToolName = normalizeToolName(toolName);
+  if (cmsTools.toolId(normalizedToolName)) {
+    return cmsTools.executeTool(normalizedToolName, rawArgs, toolContext);
+  }
 
   // Coding runs anchor relative tool paths to the repository root so the model
   // never has to guess absolute paths (and cannot silently drift outside it).
