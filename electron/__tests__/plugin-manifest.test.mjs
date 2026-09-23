@@ -46,6 +46,21 @@ test('invalidates plugins that require a newer Dome version', () => {
   assert.deepEqual(result, { valid: false, error: 'Requires Dome 3.0.0 or later' });
 });
 
+test('accepts a view plugin that contributes a vault template without entry', () => {
+  const { entry: _entry, ...withoutEntry } = valid;
+  const result = validateManifest(withoutEntry, '2.8.9');
+  assert.equal(result.valid, true);
+});
+
+test('rejects a view plugin without entry or vault template', () => {
+  const { entry: _entry, ...withoutEntry } = valid;
+  const result = validateManifest({
+    ...withoutEntry,
+    contributes: { view: valid.contributes.view },
+  }, '2.8.9');
+  assert.equal(result.valid, false);
+});
+
 test('requires options for select fields', () => {
   const result = validateManifest({
     ...valid,

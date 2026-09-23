@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import CitationBadge from './CitationBadge';
 import DomePdfPageInline from './DomePdfPageInline';
+import DomeMediaImage from '@/components/plugins/DomeMediaImage';
 import GithubProxyImage from '@/components/github/GithubProxyImage';
 import { isGithubHostedImageUrl } from '@/lib/github/client';
 import type { ParsedCitation } from '@/lib/utils/citations';
@@ -515,6 +516,13 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
       ol: ({ children }) => <ol>{children}</ol>,
       li: ({ children }) => <li>{withCitations(children)}</li>,
       img: ({ src, alt }) => {
+        if (typeof src === 'string' && src.startsWith('dome-media:')) {
+          return (
+            <span className="not-typeset">
+              <DomeMediaImage src={src} alt={alt || ''} />
+            </span>
+          );
+        }
         if (typeof src === 'string' && src.startsWith('dome-pdf-page:')) {
           const rest = src.slice('dome-pdf-page:'.length).trim();
           const colon = rest.indexOf(':');
@@ -593,7 +601,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   );
 
   const markdownUrlTransform = useCallback((url: string) => {
-    if (url.startsWith('dome://') || url.startsWith('dome-pdf-page:') || url.startsWith('data:')) {
+    if (url.startsWith('dome://') || url.startsWith('dome-pdf-page:') || url.startsWith('dome-media:') || url.startsWith('data:')) {
       return url;
     }
 

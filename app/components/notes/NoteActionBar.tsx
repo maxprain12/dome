@@ -3,11 +3,9 @@ import {
   ChevronRightIcon,
   EyeIcon,
   InformationCircleIcon,
-  Maximize02Icon,
   Comment01Icon,
   MoreHorizontalIcon,
   PanelRightIcon,
-  BookOpen01Icon,
   Share08Icon,
   SplitIcon,
 } from '@hugeicons/core-free-icons';
@@ -16,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -45,7 +44,6 @@ interface NoteActionBarProps {
   onOpenSplit: () => void;
   /** Sin projectId no hay recursos que elegir para split. */
   canOpenSplit?: boolean;
-  onOpenPopout: () => void;
   onOpenMetadata: () => void;
   /** enlaces dome://… para pegar/compartir (notas: resource id) */
   domeLinkToCopy?: string | null;
@@ -229,33 +227,6 @@ function EmbeddedSplitButton({
   );
 }
 
-/**
- * Popout control — only in embedded chrome; kept separate from split so
- * toolbar button order (split → focus → sources → popout → insights) is unchanged.
- */
-function EmbeddedPopoutButton({
-  hideWindowControls,
-  onOpenPopout,
-  title,
-}: {
-  hideWindowControls?: boolean;
-  onOpenPopout: () => void;
-  title: string;
-}) {
-  if (hideWindowControls) return null;
-  return (
-    <button
-      type="button"
-      className="note-icon-btn note-icon-btn-sm no-drag"
-      title={title}
-      aria-label={title}
-      onClick={onOpenPopout}
-    >
-      <HugeiconsIcon icon={Maximize02Icon} size={14} strokeWidth={2} />
-    </button>
-  );
-}
-
 export default function NoteActionBar({
   crumbs,
   saveState,
@@ -265,7 +236,6 @@ export default function NoteActionBar({
   onViewModeChange,
   onOpenSplit,
   canOpenSplit = true,
-  onOpenPopout,
   onOpenMetadata,
   domeLinkToCopy,
   onOpenBacklinksPanel,
@@ -293,39 +263,6 @@ export default function NoteActionBar({
       <NoteActionBarCrumbs crumbs={crumbs} ariaLabel={t('folder.breadcrumb', 'Ruta')} />
 
       <NoteSavePill state={saveState} lastSavedAt={lastSavedAt} onClickSave={onSave} />
-
-      <span className="note-actionbar-sep" aria-hidden />
-
-      <button
-        type="button"
-        className="note-icon-btn note-icon-btn-sm no-drag"
-        title={t('notes.toolbar_backlinks')}
-        aria-label={t('notes.toolbar_backlinks')}
-        onClick={() => onOpenBacklinksPanel?.()}
-      >
-        <HugeiconsIcon icon={Comment01Icon} size={14} strokeWidth={2} />
-      </button>
-
-      <button
-        type="button"
-        className="note-icon-btn note-icon-btn-sm no-drag"
-        title={t('notes.metadata')}
-        aria-label={t('notes.metadata')}
-        onClick={() => onOpenMetadata()}
-      >
-        <HugeiconsIcon icon={InformationCircleIcon} size={14} strokeWidth={2} />
-      </button>
-
-      <button
-        type="button"
-        className="note-icon-btn note-icon-btn-sm no-drag"
-        title={t('notes.share_copy_tooltip')}
-        aria-label={t('notes.share_copy_tooltip')}
-        disabled={!domeLinkToCopy}
-        onClick={() => copyDomeShareLink(domeLinkToCopy, t)}
-      >
-        <HugeiconsIcon icon={Share08Icon} size={14} strokeWidth={2} />
-      </button>
 
       <span className="note-actionbar-sep" aria-hidden />
 
@@ -358,23 +295,6 @@ export default function NoteActionBar({
         <HugeiconsIcon icon={PanelRightIcon} size={14} strokeWidth={2} />
       </button>
 
-      <EmbeddedPopoutButton
-        hideWindowControls={hideWindowControls}
-        onOpenPopout={onOpenPopout}
-        title={t('notes.popout_tooltip')}
-      />
-
-      <button
-        type="button"
-        className={toggleIconClass(sidePanelOpen)}
-        title={t('notes.side_insights')}
-        aria-label={t('notes.side_insights')}
-        aria-pressed={sidePanelOpen}
-        onClick={onToggleSidePanel}
-      >
-        <HugeiconsIcon icon={BookOpen01Icon} size={14} strokeWidth={2} />
-      </button>
-
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -389,13 +309,22 @@ export default function NoteActionBar({
           <HugeiconsIcon icon={MoreHorizontalIcon} size={14} strokeWidth={2} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end" className="min-w-[220px]">
+          <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => onOpenBacklinksPanel?.()}>
+            <HugeiconsIcon icon={Comment01Icon} size={14} />
+            {t('notes.toolbar_backlinks')}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!domeLinkToCopy} onClick={() => copyDomeShareLink(domeLinkToCopy, t)}>
+            <HugeiconsIcon icon={Share08Icon} size={14} />
+            {t('notes.share_copy_tooltip')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onOpenMetadata()}>
             <HugeiconsIcon icon={InformationCircleIcon} size={14} />
             {t('notes.metadata')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toggleSources()}>{sourcesLabel}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onToggleSidePanel()}>{insightsLabel}</DropdownMenuItem>
-          <DropdownMenuSeparator />
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -13,8 +13,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
     function applyTheme(resolved: 'light' | 'dark') {
       document.documentElement.setAttribute('data-theme', resolved);
-      // Mirror onto a class so libraries that gate dark-mode CSS via `.dark`
-      // (e.g., the bundled tiptap-ui pack) cascade correctly.
+      // Keep the class and attribute in sync for shared UI components.
       document.documentElement.classList.toggle('dark', resolved === 'dark');
     }
 

@@ -7,10 +7,10 @@ Esta guía describe el formato distribuible. Para el contrato de ejecución, con
 ```text
 my-plugin/
 ├── manifest.json
-└── index.html
+└── index.html   # solo si la vista no usa vaultTemplate
 ```
 
-El paquete es estático. Puede incluir imágenes, CSS y JavaScript, pero no dependencias que necesiten Node, un servidor local o acceso de red en tiempo de ejecución. Si usas un bundler, genera un `index.html` autocontenido o rutas relativas incluidas dentro del paquete.
+El paquete es estático. Puede incluir imágenes, CSS y JavaScript, pero no dependencias que necesiten Node, un servidor local o acceso de red en tiempo de ejecución. Si usas un bundler, genera un `index.html` autocontenido o rutas relativas incluidas dentro del paquete. Un plugin de contenido puede omitir `entry` cuando declara `contributes.vaultTemplate`: Dome pinta esa vista.
 
 ## Manifiesto v1
 
@@ -47,15 +47,15 @@ Reglas principales:
 
 - `id` usa minúsculas y guiones y queda estable para siempre.
 - `version` y `minDomeVersion` usan SemVer.
-- Una vista requiere `entry`.
+- Una vista requiere `entry` o `contributes.vaultTemplate`.
 - Las contribuciones requieren `apiVersion: 1`.
 - `notes.write` requiere `notes.read`.
 - Las rutas son relativas, no contienen `..` y no pueden salir del paquete.
 - Los tipos de campo disponibles son `text`, `date`, `tags`, `slug`, `sitePath` y `select`. Los campos `select` deben declarar una lista de `options`.
 
-## Vista
+## Vista HTML
 
-El host inyecta una sola función:
+El host inyecta una sola función en los paquetes con `entry`:
 
 ```js
 const notes = await DomePlugin.request('notes.list', { limit: 50 });
@@ -65,7 +65,7 @@ No dependas de `window.electron`, cookies, almacenamiento de Dome ni APIs de Nod
 
 ## Desarrollo local
 
-1. Crea `manifest.json` e `index.html`.
+1. Crea `manifest.json` y, si la vista no es nativa, `index.html`.
 2. Abre **Settings → Plugins → Instalar desde carpeta**.
 3. Configura la bóveda y los permisos.
 4. Abre el plugin y prueba crear, actualizar y volver a abrir una nota.

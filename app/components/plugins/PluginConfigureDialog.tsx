@@ -32,6 +32,8 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
   const [branch, setBranch] = useState('main');
   const [pathPrefix, setPathPrefix] = useState('src/content/posts');
   const [pathRules, setPathRules] = useState<ContentPathRule[]>(DEFAULT_CONTENT_PATHS);
+  const [siteUrl, setSiteUrl] = useState('');
+  const [sitePathPattern, setSitePathPattern] = useState('/{collection}/{slug}');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const supportsContentPaths = plugin.id === 'dome-cms'
@@ -49,6 +51,8 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
       setRepo(config?.github?.repo || '');
       setBranch(config?.github?.branch || 'main');
       setPathPrefix(config?.github?.pathPrefix || 'src/content/posts');
+      setSiteUrl(config?.github?.siteUrl || '');
+      setSitePathPattern(config?.github?.sitePathPattern || '/{collection}/{slug}');
       const configuredPaths = config?.github?.contentPaths;
       if (configuredPaths && Object.keys(configuredPaths).length > 0) {
         setPathRules(Object.entries(configuredPaths).map(([key, path]) => {
@@ -78,6 +82,8 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
               rule.path.trim(),
             ])),
           } : {}),
+          ...(siteUrl.trim() ? { siteUrl: siteUrl.trim() } : {}),
+          sitePathPattern: sitePathPattern.trim() || '/{collection}/{slug}',
         },
       } : {}),
     };
@@ -99,7 +105,11 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
             <Field>
               <FieldLabel htmlFor="plugin-vault">{t('settings.plugins.vault')}</FieldLabel>
               <Select value={projectId} onValueChange={(value) => setProjectId(value || '')}>
-                <SelectTrigger id="plugin-vault" className="w-full"><SelectValue placeholder={t('settings.plugins.vault_placeholder')} /></SelectTrigger>
+                <SelectTrigger id="plugin-vault" className="w-full">
+                  <SelectValue placeholder={t('settings.plugins.vault_placeholder')}>
+                    {projects.find((project) => project.id === projectId)?.name || t('settings.plugins.vault_placeholder')}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent><SelectGroup>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
               <FieldDescription>{t('settings.plugins.vault_description')}</FieldDescription>
@@ -134,13 +144,33 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
               ) : (
                 <Field><FieldLabel htmlFor="plugin-path">{t('settings.plugins.content_folder')}</FieldLabel><Input id="plugin-path" value={pathPrefix} onChange={(event) => setPathPrefix(event.target.value)} /><FieldDescription>{t('settings.plugins.content_folder_description')}</FieldDescription></Field>
               )}
+              <Field>
+                <FieldLabel htmlFor="plugin-site-url">{t('settings.plugins.site_url')}</FieldLabel>
+                <Input
+                  id="plugin-site-url"
+                  value={siteUrl}
+                  onChange={(event) => setSiteUrl(event.target.value)}
+                  placeholder={t('settings.plugins.site_url_placeholder')}
+                />
+                <FieldDescription>{t('settings.plugins.site_url_description')}</FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="plugin-site-pattern">{t('settings.plugins.site_path_pattern')}</FieldLabel>
+                <Input
+                  id="plugin-site-pattern"
+                  value={sitePathPattern}
+                  onChange={(event) => setSitePathPattern(event.target.value)}
+                  placeholder="/{collection}/{slug}"
+                />
+                <FieldDescription>{t('settings.plugins.site_path_pattern_description')}</FieldDescription>
+              </Field>
             </> : null}
             {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
           </FieldGroup>
         </AppModalBody>
         <AppModalFooter>
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="button" onClick={() => void save()} disabled={!projectId || saving || (needsGitHub && !repo.trim()) || (supportsContentPaths && (pathRules.length === 0 || pathRules.some((rule) => !rule.collection.trim() || !rule.language.trim() || !rule.path.trim())))}>{saving ? t('common.saving', 'Saving…') : t('settings.plugins.grant_access')}</Button>
+          <Button type="button" onClick={() => { void save().catch(() => {}); }} disabled={!projectId || saving || (needsGitHub && !repo.trim()) || (supportsContentPaths && (pathRules.length === 0 || pathRules.some((rule) => !rule.collection.trim() || !rule.language.trim() || !rule.path.trim())))}>{saving ? t('common.saving') : t('settings.plugins.grant_access')}</Button>
         </AppModalFooter>
       </AppModalContent>
     </AppModal>

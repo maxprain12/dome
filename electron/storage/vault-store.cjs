@@ -158,6 +158,40 @@ function ensureUniqueFolderRelPath(desiredRel, folder, db) {
   return dir === '.' ? suffixed : `${dir}/${suffixed}`;
 }
 
+/** Find or create each folder segment and return the deepest folder id. */
+function ensureFolderChain(projectId, segments, { database, fileStorage, windowManager }) {
+  const db = database.getDB();
+  const queries = database.getQueries();
+  const root = getProjectVaultRoot(projectId, queries, fileStorage);
+  const now = Date.now();
+  let parentId = null;
+  let currentRel = '';
+  for (const segment of segments) {
+    const safe = sanitizeSegment(segment, 'folder');
+    if (!safe || safe === '.' || safe === '..') continue;
+    currentRel = currentRel ? `${currentRel}/${safe}` : safe;
+    let folder = db
+      .prepare("SELECT id FROM resources WHERE type = 'folder' AND project_id = ? AND vault_path = ?")
+      .get(projectId, currentRel);
+    if (!folder) {
+      const id = crypto.randomUUID();
+      db.prepare(
+        'INSERT INTO resources (id, project_id, type, title, content, folder_id, vault_path, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      ).run(id, projectId, 'folder', safe, null, parentId, currentRel, null, now, now);
+      const abs = path.join(root, currentRel);
+      if (!fs.existsSync(abs)) fs.mkdirSync(abs, { recursive: true });
+      if (windowManager?.broadcast) {
+        windowManager.broadcast('resource:created', {
+          id, type: 'folder', project_id: projectId, folder_id: parentId, title: safe, vault_path: currentRel,
+        });
+      }
+      folder = { id };
+    }
+    parentId = folder.id;
+  }
+  return parentId;
+}
+
 /** Create the on-disk directory for a folder and persist vault_path. */
 function createFolderOnDisk(folderId, { database, fileStorage }) {
   try {
@@ -1206,6 +1240,7 @@ module.exports = {
   computeFolderRelPath,
   ensureUniqueFolderRelPath,
   createFolderOnDisk,
+  ensureFolderChain,
   relocateFolder,
   removeFolderFromDisk,
   backfillFolderVaultPaths,

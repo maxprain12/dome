@@ -1,6 +1,6 @@
 # Plugins de Dome
 
-Dome ejecuta plugins visuales en una pestaña aislada. El plugin aporta HTML, CSS y JavaScript estáticos; Dome conserva el control de los datos, los permisos y cualquier efecto externo.
+Dome ejecuta plugins visuales en una pestaña. El plugin declara una plantilla de campos o aporta HTML estático; Dome conserva el control de los datos, los permisos y cualquier efecto externo.
 
 ## Modelo del sistema
 
@@ -8,10 +8,10 @@ Un plugin instalado pasa por cuatro estados:
 
 1. **Instalado**: el paquete y su `manifest.json` han sido validados. Permanece desactivado.
 2. **Configurado**: el usuario elige una bóveda y revisa todos los permisos declarados.
-3. **Activo**: la vista puede solicitar operaciones mediante `DomePlugin.request`.
+3. **Activo**: la vista puede solicitar operaciones mediante `plugins.request` (o `DomePlugin.request` en un HTML aislado).
 4. **Revocado**: Dome elimina la concesión y desactiva el plugin.
 
-Las vistas se cargan en un `iframe` con `sandbox="allow-scripts"` y una política de contenido que impide red, navegación y acceso al proceso de Electron. El renderer no entrega acceso directo a la base de datos. Cada petición cruza un único canal y vuelve a validarse en el proceso principal.
+Si el plugin contribuye `vaultTemplate`, Dome pinta la lista, el alta y la publicación en la interfaz nativa. Los paquetes que solo traen `entry` HTML se cargan en un `iframe` con `sandbox="allow-scripts"` y una política de contenido que impide red, navegación y acceso al proceso de Electron. El renderer no entrega acceso directo a la base de datos. Cada petición cruza un único canal y vuelve a validarse en el proceso principal.
 
 ## Instalar y configurar
 
@@ -46,7 +46,7 @@ Declarar un permiso no lo concede. Dome guarda la concesión junto al resumen cr
 
 ## Datos y portabilidad
 
-Las notas siguen siendo recursos normales de Dome. Los campos aportados por un plugin se guardan bajo `metadata.plugins.<plugin-id>` y se reflejan en el Markdown como `domePlugins`. Esta separación evita colisiones entre plugins y permite importar de nuevo una bóveda sin perder el contenido estructurado.
+Las notas siguen siendo recursos normales de Dome. Los campos aportados por un plugin se guardan bajo `metadata.plugins.<plugin-id>` y se reflejan en el Markdown como `domePlugins`. Esta separación evita colisiones entre plugins y permite importar de nuevo una bóveda sin perder el contenido estructurado. Las imágenes de una entrada CMS se guardan como recursos de la bóveda. El editor del plugin muestra `dome-media:` y las rutas `/…` de `public/` que ya están en el vault.
 
 ```yaml
 ---
@@ -66,7 +66,7 @@ domePlugins:
 
 ## Dome CMS
 
-Dome CMS es el primer plugin incluido con la aplicación. Crea entradas con campos de Astro, abre la nota en el editor nativo y publica un Markdown mediante un único commit Git. La configuración de publicación admite carpetas por `colección/idioma` y usa el `slug` como nombre exacto del archivo. La confirmación de publicación pertenece a Dome y muestra repositorio, rama y ruta antes de escribir.
+Dome CMS es el primer plugin incluido con la aplicación. La ficha de la entrada (colección, idioma, fecha, slug, cuerpo y ruta de publicación) se edita en la vista del CMS. La portada se elige en una biblioteca visual de las imágenes de `public/`. Desde esa ficha se puede insertar una imagen en la bóveda, borrar una imagen del vault y del repositorio, adaptar el texto a los otros idiomas configurados, traer el Markdown remoto o borrar la entrada. Publicar crea un commit Git con el Markdown y, si hay imágenes, los archivos en `public/media/<slug>/`. La configuración admite carpetas por `colección/idioma`, una URL pública del sitio y un patrón de enlace.
 
 Consulta [Configurar Astro para Dome CMS](./dome-cms-astro.md) para la guía de usuario y [API de plugins](./plugins-api.md) para el contrato técnico.
 

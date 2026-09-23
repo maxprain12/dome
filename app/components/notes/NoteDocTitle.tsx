@@ -54,9 +54,13 @@ export default function NoteDocTitle({
         if (e.key === 'Enter') {
           e.preventDefault();
           // Move focus to the first editable ProseMirror node
-          const pm = document.querySelector<HTMLElement>('.ProseMirror');
+          const pm = e.currentTarget.closest('.note-doc')?.querySelector<HTMLElement>('.ProseMirror, .note-editor-source');
           if (pm) {
             pm.focus();
+            if (pm instanceof HTMLTextAreaElement) {
+              pm.setSelectionRange(0, 0);
+              return;
+            }
             // Place cursor at beginning of first node
             const selection = window.getSelection();
             const range = document.createRange();

@@ -720,14 +720,17 @@ test('usa composer avanzado, recursos, adjuntos y SSE rico', async () => {
   await page.getByRole('switch', { name: 'Memoria' }).click();
   await page.keyboard.press('Escape');
 
-  await page.locator('input[type="file"]').setInputFiles({
-    name: 'research.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nUwAAAAASUVORK5CYII=',
-      'base64',
-    ),
-  });
+  await page
+    .getByRole('complementary', { name: 'Many · Many' })
+    .locator('input[type="file"]')
+    .setInputFiles({
+      name: 'research.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nUwAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    });
   await expect(page.getByText('research.png', { exact: true })).toBeVisible();
 
   const composer = page.getByRole('textbox', {
