@@ -3,7 +3,7 @@
  */
 
 import { db } from '@/lib/db/client';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/formatting';
 import type { DomeWorkflowFolder } from '@/types';
 import type { CanvasWorkflow, WorkflowExecution } from '@/types/canvas';
 

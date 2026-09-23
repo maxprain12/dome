@@ -4,7 +4,7 @@
  */
 
 import { db } from '@/lib/db/client';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/formatting';
 import type { DomeAgentFolder, ManyAgent } from '@/types';
 
 async function getAll(projectId: string): Promise<ManyAgent[]> {
