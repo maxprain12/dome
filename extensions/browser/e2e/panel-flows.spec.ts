@@ -720,7 +720,7 @@ test('usa composer avanzado, recursos, adjuntos y SSE rico', async () => {
   await page.getByRole('switch', { name: 'Memoria' }).click();
   await page.keyboard.press('Escape');
 
-  await page.locator('input[type="file"]').setInputFiles({
+  await page.getByLabel('Adjuntar imágenes').setInputFiles({
     name: 'research.png',
     mimeType: 'image/png',
     buffer: Buffer.from(
