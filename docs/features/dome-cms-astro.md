@@ -125,3 +125,11 @@ Las notas, los planes y el CMS comparten el editor Tiptap con almacenamiento Mar
 El CMS muestra las propiedades de publicación en un panel plegable. La búsqueda filtra por título y campos. Antes de cambiar de entrada guarda el borrador actual; si falla o hay cambios durante el guardado, mantiene la entrada abierta. Guardar usa la revisión aceptada por el servidor y no sustituye texto escrito mientras la petición está pendiente. Las imágenes se insertan desde el editor y los fallos de almacenamiento se muestran sin generar referencias temporales. Eliminar del sitio remoto requiere seleccionar expresamente esa opción.
 
 Las notas mantienen su guardado automático y el modo de lectura. Sus herramientas secundarias están en el menú de acciones; la referencia se abre en una vista dividida dentro del workspace.
+
+## Control desde Many
+
+Al instalar y configurar Dome CMS, Many recibe herramientas para listar entradas y sus estados, leer una entrada, crear borradores, editar contenido y propiedades, sincronizar, preparar una publicación, consultar su estado y publicarla. La entrada se crea dentro de la colección y el idioma configurados; Many debe aportar esos campos al crearla. Las ediciones usan la revisión de la entrada para evitar sobrescribir cambios posteriores. Many solo accede a la bóveda autorizada en la configuración del plugin.
+
+Publicar requiere primero preparar la entrada y después aprobar expresamente la acción de publicación en Dome. Las herramientas desaparecen si se desactiva o revoca el plugin. En modo Plan, Many puede consultar entradas y estados, pero no ejecutar acciones que cambien contenido.
+
+Si Dome CMS ya estaba instalado con una versión anterior, pulsa **Actualizar plugin** en el Marketplace y vuelve a configurarlo en **Settings → Plugins**. La actualización cambia el manifiesto y Dome pide revisar sus permisos antes de volver a habilitarlo.

@@ -6,6 +6,7 @@ const { BrowserWindow, dialog } = require('electron');
 const { z } = require('zod');
 const pluginLoader = require('../../marketplace/plugin-loader.cjs');
 const { createPluginService } = require('../../plugins/plugin-service.cjs');
+const cmsTools = require('../../plugins/cms-tools.cjs');
 
 const pluginIdSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const repoSchema = z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/);
@@ -21,6 +22,7 @@ function serializeError(error) {
 
 function register({ ipcMain, windowManager, sanitizePath, database, fileStorage }) {
   const service = createPluginService({ database, fileStorage, windowManager, pluginLoader });
+  cmsTools.setPluginService(service);
 
   function handle(channel, handler) {
     ipcMain.handle(channel, async (event, ...args) => {

@@ -72,6 +72,10 @@ const manifestSchema = z.object({
   contributes: z.object({
     view: viewContributionSchema.optional(),
     vaultTemplate: vaultTemplateSchema.optional(),
+    tools: z.array(z.enum([
+      'list_entries', 'get_entry', 'create_draft', 'update_entry',
+      'sync_entries', 'prepare_publication', 'get_publication', 'publish_entry',
+    ])).max(8).optional(),
   }).strict().optional(),
   sprites: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 }).strict().superRefine((value, ctx) => {
@@ -83,6 +87,20 @@ const manifestSchema = z.object({
   }
   if (value.permissions?.includes('notes.write') && !value.permissions.includes('notes.read')) {
     ctx.addIssue({ code: 'custom', message: 'notes.write requires notes.read' });
+  }
+  if (value.contributes?.tools) {
+    const tools = value.contributes.tools;
+    if (value.id !== 'dome-cms') ctx.addIssue({ code: 'custom', message: 'CMS tools require the dome-cms plugin' });
+    if (new Set(tools).size !== tools.length) ctx.addIssue({ code: 'custom', message: 'Duplicate CMS tool' });
+    if (tools.some((tool) => ['list_entries', 'get_entry'].includes(tool)) && !value.permissions?.includes('notes.read')) {
+      ctx.addIssue({ code: 'custom', message: 'Read tools require notes.read' });
+    }
+    if (tools.some((tool) => ['create_draft', 'update_entry', 'sync_entries'].includes(tool)) && !value.permissions?.includes('notes.write')) {
+      ctx.addIssue({ code: 'custom', message: 'Edit tools require notes.write' });
+    }
+    if (tools.some((tool) => ['prepare_publication', 'get_publication', 'publish_entry'].includes(tool)) && !value.permissions?.includes('content.publish')) {
+      ctx.addIssue({ code: 'custom', message: 'Publication tools require content.publish' });
+    }
   }
 });
 

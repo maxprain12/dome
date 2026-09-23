@@ -67,6 +67,9 @@ test('drafts, translations and existing root drafts follow their configured cont
   }), /CONFLICT: translation changed/);
   // Simulate a draft created before folder placement was supported.
   db.prepare('UPDATE resources SET folder_id = NULL WHERE id = ?').run(english.id);
+  const readonlyEntries = await service.request('cms', 'notes.listReadonly', {});
+  assert.ok(readonlyEntries.some((item) => item.id === english.id));
+  assert.equal(queries.getResourceById.get(english.id).folder_id, null);
   await service.request('cms', 'notes.list', {});
   assertFolder(english.id, 'en');
   const changed = await service.request('cms', 'notes.update', {

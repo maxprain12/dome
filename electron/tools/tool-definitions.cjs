@@ -1,6 +1,7 @@
 /** Tool definition registry (leaf module — no handler/dispatcher imports). */
 const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('../prompts/prompt-sections.cjs');
 const { QUESTIONNAIRE_TOOL_DEFINITION } = require('../agents/many-plan.cjs');
+const cmsTools = require('../plugins/cms-tools.cjs');
 
 /** Lazy `@dome/tools` (ESM build consumed from main). */
 let _domeToolsPkg = null;
@@ -2725,7 +2726,7 @@ function getAllToolDefinitions() {
       },
     },
   ].filter((def) => !getPackageFamilyToolNames().has(def?.function?.name))
-    .concat(getPackageFamilyDefinitions());
+    .concat(getPackageFamilyDefinitions(), cmsTools.getToolDefinitions());
 }
 
 function getToolDefinitionsByIds(toolIds) {

@@ -12,6 +12,13 @@ const { fetchProviderModels } = require('../../ai/provider-models.cjs');
 const { assertChatProvider, resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs');
 const { readSettingSecret, resolveSettingSecretForApi } = require('../../core/settings-secrets.cjs');
 const { assertOllamaAuthReady, ollamaRequiresApiKey } = require('../../ai/provider-auth.cjs');
+const cmsTools = require('../../plugins/cms-tools.cjs');
+
+function withCmsTools(definitions) {
+  const tools = Array.isArray(definitions) ? definitions : [];
+  const names = new Set(tools.map((tool) => tool?.function?.name));
+  return [...tools, ...cmsTools.getToolDefinitions().filter((tool) => !names.has(tool.function.name))];
+}
 
 /** Abort controllers by streamId for ai:agent:stream (enables renderer to stop stream) */
 const agentAbortControllers = new Map();
@@ -241,6 +248,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const providerConfig = await resolveProviderConfig(database, provider, model);
       const chatModel = providerConfig.model;
       const { apiKey, baseUrl } = providerConfig;
+      const availableTools = withCmsTools(tools);
 
       const controller = new AbortController();
       setMaxListeners(64, controller.signal);
@@ -270,8 +278,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           apiKey,
           baseUrl,
           messages,
-          toolDefinitions: tools,
-          useDirectTools: (tools && tools.length > 0) || (mcpServerIds && mcpServerIds.length > 0),
+          toolDefinitions: availableTools,
+          useDirectTools: availableTools.length > 0 || (mcpServerIds && mcpServerIds.length > 0),
           mcpServerIds: mcpServerIds && mcpServerIds.length > 0 ? mcpServerIds : undefined,
           subagentIds: Array.isArray(subagentIds) ? subagentIds : undefined,
           onChunk,
@@ -295,7 +303,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
             apiKey,
             baseUrl,
             messages,
-            tools,
+            tools: availableTools,
             mcpServerIds,
             subagentIds,
             sessionId,
@@ -391,7 +399,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         apiKey: providerConfig.apiKey,
         baseUrl: providerConfig.baseUrl,
         messages: pending?.messages,
-        toolDefinitions: pending?.tools,
+        toolDefinitions: withCmsTools(pending?.tools),
         mcpServerIds: pending?.mcpServerIds,
         signal: controller.signal,
         onChunk,

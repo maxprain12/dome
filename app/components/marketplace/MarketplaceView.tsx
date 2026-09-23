@@ -778,6 +778,7 @@ export default function MarketplaceView() {
 
   const handleInstallPlugin = async (plugin: AvailablePlugin) => {
     if (installingPlugin) return;
+    const isUpdate = plugins.some((entry) => entry.id === plugin.id);
     setInstallingPlugin('installing');
     try {
       const result = plugin.bundled
@@ -787,7 +788,7 @@ export default function MarketplaceView() {
           : { success: false, error: 'Plugin source is missing' };
       if (result.success) {
         setInstalledLocalPluginIds((current) => new Set([...current, plugin.id]));
-        showToast('success', t('marketplace.plugin_installed_configure', { name: plugin.name, defaultValue: `"${plugin.name}" installed. Configure it in Settings → Plugins.` }));
+        showToast('success', t(isUpdate ? 'marketplace.plugin_updated_configure' : 'marketplace.plugin_installed_configure', { name: plugin.name }));
         await refresh();
       } else {
         showToast('error', result.error || t('marketplace.install_error', 'Could not install plugin'));
@@ -937,6 +938,14 @@ export default function MarketplaceView() {
 
     if (item.type === 'plugins') {
       const plugin = item.raw as AvailablePlugin;
+      const installed = plugins.find((entry) => entry.id === plugin.id);
+      if (plugin.bundled && installed && plugin.version && installed.version !== plugin.version) {
+        return {
+          label: installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.update_plugin'),
+          onAction: () => void handleInstallPlugin(plugin),
+          disabled: !!installingPlugin,
+        };
+      }
       if (installedPluginIds.has(plugin.id)) {
         return { label: t('marketplace.installed'), disabled: true };
       }
