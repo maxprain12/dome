@@ -50,7 +50,7 @@ function readAndValidateManifest(sourceDir) {
   const result = validateManifest(input, app.getVersion());
   if (!result.valid) throw new Error(result.error);
   const manifest = result.manifest;
-  if (manifest.type === 'view') {
+  if (manifest.type === 'view' && manifest.entry) {
     const entryPath = resolvePluginPath(sourceDir, manifest.entry);
     if (!fs.existsSync(entryPath) || !fs.statSync(entryPath).isFile()) {
       throw new Error(`Plugin entry not found: ${manifest.entry}`);

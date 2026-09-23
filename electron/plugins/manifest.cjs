@@ -75,8 +75,8 @@ const manifestSchema = z.object({
   }).strict().optional(),
   sprites: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 }).strict().superRefine((value, ctx) => {
-  if (value.type === 'view' && !value.entry) {
-    ctx.addIssue({ code: 'custom', message: 'View plugins require entry' });
+  if (value.type === 'view' && !value.entry && !value.contributes?.vaultTemplate) {
+    ctx.addIssue({ code: 'custom', message: 'View plugins require entry or a vault template' });
   }
   if (value.contributes && value.apiVersion !== PLUGIN_API_VERSION) {
     ctx.addIssue({ code: 'custom', message: 'Contributions require apiVersion 1' });

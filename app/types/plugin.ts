@@ -57,12 +57,14 @@ export interface PluginConfiguration {
   pluginId?: string;
   projectId: string;
   permissions: PluginPermission[];
-  github?: {
-    repo: string;
-    branch: string;
-    pathPrefix?: string;
-    contentPaths?: Record<string, string>;
-  };
+    github?: {
+      repo: string;
+      branch: string;
+      pathPrefix?: string;
+      contentPaths?: Record<string, string>;
+      siteUrl?: string;
+      sitePathPattern?: string;
+    };
 }
 
 export interface PluginNoteSchema {
@@ -70,4 +72,27 @@ export interface PluginNoteSchema {
   template: PluginVaultTemplate;
   values: Record<string, string | string[]>;
   updatedAt: number;
+}
+
+export type PluginNoteStatus = 'draft' | 'changed' | 'published';
+
+export type PluginFieldValues = Record<string, string | string[]>;
+
+export interface PluginHostContext {
+  apiVersion: 1;
+  plugin: { id: string; version: string };
+  vault: { id: string; name: string };
+  template: PluginVaultTemplate | null;
+  destination: PluginConfiguration['github'] | null;
+}
+
+export interface PluginNote {
+  id: string;
+  title: string;
+  body: string;
+  fields: PluginFieldValues;
+  updatedAt: number;
+  publication: { contentDigest?: string; commitSha?: string; path?: string } | null;
+  familyId: string | null;
+  status: PluginNoteStatus;
 }

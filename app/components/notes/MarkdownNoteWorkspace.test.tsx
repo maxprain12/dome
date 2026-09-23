@@ -20,7 +20,6 @@ vi.mock('@/components/workspace/SplitResourcePicker', () => ({ default: () => nu
 vi.mock('@/components/notes/NoteActionBar', () => ({ default: () => null }));
 vi.mock('@/components/notes/NoteMetaBar', () => ({ default: () => null }));
 vi.mock('@/components/notes/NoteEmptyState', () => ({ default: () => null }));
-vi.mock('@/components/notes/NoteHeroCover', () => ({ default: () => null }));
 vi.mock('@/components/notes/NoteQuickTagModal', () => ({ default: () => null }));
 vi.mock('@/lib/notes/loadNoteMarkdown', () => ({ loadNoteMarkdown: async () => 'Original', countWordsFromMarkdown: () => 1 }));
 
@@ -98,4 +97,19 @@ describe('note persistence', () => {
     expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Latest body' });
     expect(update).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Latest title' }));
   });
+});
+
+it('flushes the last edit on close after an earlier save completes', async () => {
+  const view = render(<MarkdownNoteWorkspace resourceId="note" compact />);
+  await screen.findByLabelText('Body');
+  let complete!: (value: { success: boolean }) => void;
+  writeMirror.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+  fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'Earlier snapshot' } });
+  save();
+  await waitFor(() => expect(writeMirror).toHaveBeenCalledOnce());
+  fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'Last edit before closing' } });
+  view.unmount();
+  expect(writeMirror).toHaveBeenCalledOnce();
+  await act(async () => complete({ success: true }));
+  await waitFor(() => expect(writeMirror).toHaveBeenLastCalledWith({ id: 'note', markdown: 'Last edit before closing' }));
 });

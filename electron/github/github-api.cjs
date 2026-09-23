@@ -382,12 +382,57 @@ function getReference(owner, repo, branch) {
   return get(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`);
 }
 
+async function getRepositoryFile(owner, repo, filePath, ref) {
+  const encoded = String(filePath || '').split('/').map((part) => encodeURIComponent(part)).join('/');
+  const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+  const token = requireToken();
+  try {
+    const res = await rawRequest('GET', `/repos/${owner}/${repo}/contents/${encoded}${query}`, { token });
+    const data = res.data;
+    if (!data || data.type !== 'file' || typeof data.content !== 'string') {
+      throw new Error('Remote entry is not a file');
+    }
+    return Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf8');
+  } catch (error) {
+    if (/not found/i.test(String(error.message || ''))) throw new Error('REMOTE_NOT_FOUND');
+    throw error;
+  }
+}
+
+async function repositoryFileExists(owner, repo, filePath, ref) {
+  const encoded = String(filePath || '').split('/').map((part) => encodeURIComponent(part)).join('/');
+  const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+  const token = requireToken();
+  try {
+    const res = await rawRequest('GET', `/repos/${owner}/${repo}/contents/${encoded}${query}`, { token });
+    return Boolean(res.data && res.data.type === 'file');
+  } catch (error) {
+    const message = String(error.message || '');
+    if (/not found/i.test(message)) return false;
+    if (/too large|larger than 1 mb/i.test(message)) return true;
+    throw error;
+  }
+}
+
 function getCommit(owner, repo, sha) {
   return get(`/repos/${owner}/${repo}/git/commits/${encodeURIComponent(sha)}`);
 }
 
-function createBlob(owner, repo, content) {
-  return mutate('POST', `/repos/${owner}/${repo}/git/blobs`, { content, encoding: 'utf-8' });
+function getRepositoryTree(owner, repo, sha) {
+  return get(`/repos/${owner}/${repo}/git/trees/${encodeURIComponent(sha)}?recursive=1`);
+}
+
+function getRepositoryBlob(owner, repo, sha) {
+  return get(`/repos/${owner}/${repo}/git/blobs/${encodeURIComponent(sha)}`).then((data) => {
+    if (!data || data.encoding !== 'base64' || typeof data.content !== 'string') {
+      throw new Error('Remote blob is not available');
+    }
+    return Buffer.from(data.content.replace(/\n/g, ''), 'base64');
+  });
+}
+
+function createBlob(owner, repo, content, encoding = 'utf-8') {
+  return mutate('POST', `/repos/${owner}/${repo}/git/blobs`, { content, encoding });
 }
 
 function createTree(owner, repo, baseTree, entries) {
@@ -443,7 +488,12 @@ module.exports = {
   listBranches,
   listReleases,
   getReference,
+  getRepositoryFile,
+  repositoryFileExists,
   getCommit,
+  getRepositoryTree,
+  getRepositoryBlob,
+  createBlob,
   createBlob,
   createTree,
   createCommit,

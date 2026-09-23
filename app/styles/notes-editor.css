@@ -307,45 +307,6 @@
   color: var(--muted-foreground);
 }
 
-.note-hero-cover {
-  position: relative;
-  height: 120px;
-  margin: calc(-1 * var(--doc-py)) calc(-1 * var(--doc-px)) 28px;
-  border-radius: 0;
-  overflow: visible;
-}
-
-.note-doc--with-cover .note-doc-title-editable {
-  padding-top: 6px;
-}
-
-.note-hero-cover__blur {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--muted);
-}
-
-.note-hero-cover__badge {
-  position: absolute;
-  bottom: -18px;
-  left: 0;
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  font-size: 28px;
-  line-height: 1;
-  background: var(--card, var(--card));
-  border: 1px solid var(--border-soft-note);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.08);
-  margin-left: 1px;
-}
-.note-hero-cover__badge--readonly {
-  filter: saturate(90%);
-}
-
 .note-doc-meta-stack {
   display: flex;
   flex-direction: column;
@@ -511,21 +472,6 @@
 /* Bubble type (turn-into) dropdown trigger */
 
 /* Generic icon button inside bubble menu (for stubs like Comment/More) */
-
-/* Legacy dark bubble mark buttons — overridden by .note-bubble-scope above */
-
-/* No floating mark tooltips over the bubble bar */
-
-/* Drag handle gutter */
-
-/* Block drag — no dropcursor bars or heavy selection chrome */
-
-/* ─── Prototype block styles inside note editor (.tiptap) ─── */
-.note-area .note-editor-content.tiptap-surface-padding .tiptap {
-  padding-left: calc(var(--doc-px) + 52px);
-}
-
-/* Dome AI block (NodeView — class names from ai-block.ts) */
 
 @media (prefers-reduced-motion: reduce) {
   .note-save-pill.saving .note-save-dot {

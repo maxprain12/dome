@@ -6,7 +6,7 @@ import {
   Folder01Icon,
   File02Icon,
 } from '@hugeicons/core-free-icons';
-import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { enUS, es, fr, ptBR } from 'date-fns/locale';
@@ -29,11 +29,13 @@ import type { NoteSavePillState } from '@/components/notes/NoteSavePill';
 import NoteDocTitle from '@/components/notes/NoteDocTitle';
 import NoteMetaBar from '@/components/notes/NoteMetaBar';
 import NoteEmptyState from '@/components/notes/NoteEmptyState';
-import NoteHeroCover from '@/components/notes/NoteHeroCover';
 import NoteQuickTagModal from '@/components/notes/NoteQuickTagModal';
 import { countWordsFromMarkdown, loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { HOME_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
 import PluginNoteFields from '@/components/notes/PluginNoteFields';
+import { saveNoteMarkdown } from '@/lib/notes/saveNoteMarkdown';
+import { showToast } from '@/lib/store/useToastStore';
+import { ingestLocalMarkdownImages } from '@/lib/plugins/media';
 
 interface MarkdownNoteWorkspaceProps {
   resourceId: string;
@@ -99,19 +101,13 @@ function getEditorPlaceholder(
   return emptyVisible ? '' : t('notes.editor_placeholder');
 }
 
-function getNoteHeroEmoji(resource: Resource): string | undefined {
-  const meta = resource.metadata as Record<string, unknown> | undefined;
-  return meta && typeof meta.dome_note_icon === 'string'
-    ? String(meta.dome_note_icon)
-    : undefined;
-}
-
 function getDomeShareLink(resource: Resource): string | null {
   return typeof resource.id === 'string' ? `dome://resource/${resource.id}/note` : null;
 }
 
 type EditorBlockArgs = {
   resourceId: string;
+  pluginId: string | null;
   readOnly: boolean;
   editorReady: boolean;
   wordCount: number;
@@ -146,6 +142,8 @@ function renderEditorBlock(args: EditorBlockArgs) {
           initialMarkdown={args.initialMarkdown}
           readOnly={args.readOnly}
           placeholder={placeholder}
+          pluginId={args.pluginId}
+          resourceId={args.resourceId}
           onChange={args.handleEditorChange}
           onReady={args.handleEditorReady}
         />
@@ -186,7 +184,7 @@ function renderSidePanels(args: SidePanelsArgs) {
   );
 }
 
-export default function MarkdownNoteWorkspace({
+function NoteWorkspace({
   resourceId,
   readOnly = false,
   compact = false,
@@ -205,6 +203,7 @@ export default function MarkdownNoteWorkspace({
   const [autosaveTick, setAutosaveTick] = useState(0);
   const [editorReady, setEditorReady] = useState(false);
   const [wordCount, setWordCount] = useState(0);
+  const [pluginId, setPluginId] = useState<string | null>(null);
 
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
@@ -235,6 +234,7 @@ export default function MarkdownNoteWorkspace({
 
   const editorRef = useRef<MarkdownNoteEditorHandle | null>(null);
   const mirroredOnceRef = useRef(false);
+  const ingestedMediaRef = useRef<string | null>(null);
   const saveInFlightRef = useRef(false);
   // Monotonic counter of editor changes: lets persistNote detect keystrokes
   // that arrived while a save was in flight (must stay dirty afterwards).
@@ -294,7 +294,15 @@ export default function MarkdownNoteWorkspace({
           setSavePillSavedAt(result.data.updated_at ?? Date.now());
           setEditorReady(false);
           setIsDirty(false);
+          setPluginId(null);
           mirroredOnceRef.current = false;
+          ingestedMediaRef.current = null;
+
+          if (window.electron.plugins?.getNoteSchema) {
+            void window.electron.plugins.getNoteSchema(resourceId).then((schema) => {
+              if (schema?.success && schema.data?.pluginId) setPluginId(schema.data.pluginId);
+            });
+          }
 
           void window.electron.db.projects.getById(result.data.project_id).then((p) => {
             setProjectLabel(p?.success && p.data?.name ? p.data.name : '');
@@ -383,26 +391,21 @@ export default function MarkdownNoteWorkspace({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const now = Date.now();
-      const updated = await window.electron.db.resources.update({
-        id: resourceId,
-        title,
-        updated_at: now,
-      });
-      if (!updated.success) throw new Error(updated.error || 'save failed');
-      // Persist the title first so the vault path and frontmatter use it.
-      const mirror = await window.electron.notes.writeMirror({ id: resourceId, markdown });
-      if (!mirror.success) throw new Error(mirror.error || 'save failed');
+      const saved = await saveNoteMarkdown({ id: resourceId, title, markdown, pluginId });
+      const nextMarkdown = saved.markdown;
+      const now = saved.updatedAt;
+      if (nextMarkdown !== markdown && changeSeqRef.current === seqAtSave) editorRef.current?.setMarkdown(nextMarkdown);
       // Keystrokes may have landed while awaiting the writes above; only
       // clear the dirty flag if nothing changed since we serialized.
       if (changeSeqRef.current === seqAtSave) {
+        isDirtyRef.current = false;
         setIsDirty(false);
       } else {
         setAutosaveTick((n) => n + 1);
       }
       setSavePillSavedAt(now);
-      setWordCount(countWordsFromMarkdown(markdown));
-      setResource((prev) => (prev ? { ...prev, title, content: markdown, vault_path: mirror.vaultPath, updated_at: now } : prev));
+      setWordCount(countWordsFromMarkdown(nextMarkdown));
+      setResource((prev) => (prev ? { ...prev, title, content: nextMarkdown, vault_path: saved.vaultPath, updated_at: now } : prev));
       await refreshBacklinkCount(resourceId);
     } catch (err) {
       console.error('Error saving note:', err);
@@ -411,7 +414,17 @@ export default function MarkdownNoteWorkspace({
       saveInFlightRef.current = false;
       setIsSaving(false);
     }
-  }, [readOnly, resource, resourceId, title, refreshBacklinkCount]);
+  }, [readOnly, resource, resourceId, title, pluginId, refreshBacklinkCount]);
+
+  const saveOnExit = useRef(() => {});
+  saveOnExit.current = () => {
+    if (readOnly || !resource || !isDirtyRef.current || !editorRef.current) return;
+    const markdown = editorRef.current.getMarkdown();
+    void saveNoteMarkdown({ id: resourceId, title, markdown, pluginId }).catch(() => {
+      showToast('error', t('notes.save_error'));
+    });
+  };
+  useLayoutEffect(() => () => saveOnExit.current(), []);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -470,6 +483,25 @@ export default function MarkdownNoteWorkspace({
     });
   }, [readOnly, resource, resourceId]);
 
+  useEffect(() => {
+    if (!pluginId || !editorReady || readOnly || !editorRef.current) return;
+    const key = `${resourceId}:${pluginId}`;
+    if (ingestedMediaRef.current === key) return;
+    ingestedMediaRef.current = key;
+    const sequence = changeSeqRef.current;
+    let cancelled = false;
+    void ingestLocalMarkdownImages(pluginId, resourceId, editorRef.current.getMarkdown()).then((result) => {
+      if (cancelled || sequence !== changeSeqRef.current || !result.changed || !editorRef.current) return;
+      editorRef.current.setMarkdown(result.markdown);
+      changeSeqRef.current += 1;
+      isDirtyRef.current = true;
+      setIsDirty(true);
+    }).catch((cause: unknown) => {
+      if (!cancelled) setSaveError(cause instanceof Error ? cause.message : 'Media import failed');
+    });
+    return () => { cancelled = true; };
+  }, [pluginId, editorReady, readOnly, resourceId]);
+
   const handlePickTemplate = useCallback(
     (id: string) => {
       if (readOnly || !editorRef.current) return;
@@ -484,6 +516,8 @@ export default function MarkdownNoteWorkspace({
       const md = factory({ today, weeklyLabel: t('notes.template_weekly') });
       editorRef.current.setMarkdown(md);
       setWordCount(countWordsFromMarkdown(md));
+      changeSeqRef.current += 1;
+      isDirtyRef.current = true;
       setIsDirty(true);
     },
     [i18n.language, readOnly, t],
@@ -507,26 +541,6 @@ export default function MarkdownNoteWorkspace({
     },
     [resource],
   );
-
-  const handlePopoutNote = useCallback(async () => {
-    if (!resource || !window.electron?.invoke) return;
-    try {
-      await window.electron.invoke('window:create', {
-        id: `note-focus:${resource.id}`,
-        route: `/focus/note/${encodeURIComponent(resource.id)}`,
-        options: {
-          width: 960,
-          height: 760,
-          minWidth: 560,
-          minHeight: 480,
-          title: `${resource.title} — Dome`,
-          transparent: false,
-        },
-      });
-    } catch (err) {
-      console.error('[MarkdownNoteWorkspace] popout failed:', err);
-    }
-  }, [resource]);
 
   const openFolderTab = useTabStore((s) => s.openFolderTab);
 
@@ -591,6 +605,7 @@ export default function MarkdownNoteWorkspace({
 
   const editorBlockNode = renderEditorBlock({
     resourceId,
+    pluginId,
     readOnly,
     editorReady,
     wordCount,
@@ -626,7 +641,7 @@ export default function MarkdownNoteWorkspace({
               onChange={handleTitleChange}
               onBlur={handleTitleBlur}
             />
-            <PluginNoteFields resourceId={resourceId} readOnly={readOnly} onSaved={(updatedAt) => setResource((current) => current ? { ...current, updated_at: updatedAt } : current)} />
+            <PluginNoteFields resourceId={resourceId} />
             {editorBlockNode}
           </div>
         </div>
@@ -635,7 +650,6 @@ export default function MarkdownNoteWorkspace({
     );
   }
 
-  const noteHeroEmojiRaw = getNoteHeroEmoji(resource);
   const domeShareLink = getDomeShareLink(resource);
 
   return (
@@ -653,7 +667,6 @@ export default function MarkdownNoteWorkspace({
         onViewModeChange={setViewMode}
         onOpenSplit={() => setSplitPickerOpen(true)}
         canOpenSplit={Boolean(resource.project_id)}
-        onOpenPopout={() => { void handlePopoutNote(); }}
         onOpenMetadata={() => setShowMetadata(true)}
         domeLinkToCopy={domeShareLink}
         onOpenBacklinksPanel={() => {
@@ -669,7 +682,6 @@ export default function MarkdownNoteWorkspace({
         <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
           <div className="note-scroll flex-1 overflow-y-auto min-h-0">
             <div className="note-doc">
-              <NoteHeroCover visible={false} emoji={noteHeroEmojiRaw} readOnly={readOnly} />
               <NoteDocTitle
                 value={title}
                 placeholder={t('notes.untitled_note')}
@@ -688,7 +700,7 @@ export default function MarkdownNoteWorkspace({
                 tags={resourceTags}
                 onRequestAddTag={readOnly ? undefined : () => setTagQuickModalOpen(true)}
               />
-              <PluginNoteFields resourceId={resourceId} readOnly={readOnly} onSaved={(updatedAt) => setResource((current) => current ? { ...current, updated_at: updatedAt } : current)} />
+              <PluginNoteFields resourceId={resourceId} />
               {editorBlockNode}
             </div>
           </div>
@@ -729,4 +741,8 @@ export default function MarkdownNoteWorkspace({
       />
     </div>
   );
+}
+
+export default function MarkdownNoteWorkspace(props: MarkdownNoteWorkspaceProps) {
+  return <NoteWorkspace key={props.resourceId} {...props} />;
 }
