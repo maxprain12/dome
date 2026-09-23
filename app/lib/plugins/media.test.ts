@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   editorMediaSrc,
+  resolveEditorMediaSrc,
   ingestLocalMarkdownImages,
   isLocalMediaUrl,
   parseDomeMediaId,
@@ -48,4 +49,14 @@ describe('plugin media helpers', () => {
     expect(editorMediaSrc('/missing.png', images)).toBe('/missing.png');
     expect(editorMediaSrc('https://example.com/foto.png', images)).toBe('https://example.com/foto.png');
   });
+});
+
+
+it('uses the public site for images not imported locally and keeps external URLs intact', async () => {
+  expect(await resolveEditorMediaSrc('/images/cover.png', new Map(), 'https://example.com'))
+    .toBe('https://example.com/images/cover.png');
+  expect(await resolveEditorMediaSrc('https://cdn.example.com/cover.png', new Map(), 'https://example.com'))
+    .toBe('https://cdn.example.com/cover.png');
+  expect(await resolveEditorMediaSrc('/images/cover.png', new Map(), 'javascript:alert(1)'))
+    .toBe('/images/cover.png');
 });

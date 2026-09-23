@@ -87,6 +87,7 @@ export interface PluginHostContext {
 }
 
 export interface PluginNote {
+  contentDigest?: string;
   id: string;
   title: string;
   body: string;

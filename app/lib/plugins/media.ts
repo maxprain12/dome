@@ -78,10 +78,20 @@ export async function resolveDomeMediaSrc(src: string): Promise<string> {
 export async function resolveEditorMediaSrc(
   url: string,
   siteImages?: Map<string, string>,
+  siteUrl?: string,
 ): Promise<string> {
   const resolved = editorMediaSrc(url, siteImages);
-  if (!parseDomeMediaId(resolved)) return url;
-  return resolveDomeMediaSrc(resolved);
+  const publicUrl = () => {
+    if (!siteUrl || !url.startsWith('/') || url.startsWith('//')) return url;
+    const base = new URL(siteUrl);
+    return /^https?:$/.test(base.protocol) ? new URL(url, base).href : url;
+  };
+  if (!parseDomeMediaId(resolved)) return publicUrl();
+  try { return await resolveDomeMediaSrc(resolved); }
+  catch (error) {
+    if (resolved !== url && siteUrl) return publicUrl();
+    throw error;
+  }
 }
 
 export async function attachPluginImage(

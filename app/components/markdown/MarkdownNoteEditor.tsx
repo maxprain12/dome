@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { attachPluginImage, fileToBase64, PLUGIN_IMAGE_MIME } from '@/lib/plugins/media';
+import { attachPluginImage, fileToBase64, PLUGIN_IMAGE_MIME, pluginSiteImageMap, type PluginSiteImage } from '@/lib/plugins/media';
+import { requestPlugin } from '@/lib/plugins/request';
+import type { PluginHostContext } from '@/types/plugin';
 import { cn } from '@/lib/utils';
 import { needsSourceEditor, noteExtensions } from './note-extensions';
 import NoteEditorToolbar from './NoteEditorToolbar';
@@ -32,6 +34,8 @@ interface MarkdownNoteEditorProps {
 const MarkdownNoteEditor = forwardRef<MarkdownNoteEditorHandle, MarkdownNoteEditorProps>(
   function MarkdownNoteEditor(props, ref) {
     const { t } = useTranslation();
+    const imageRefreshers = useRef(new Set<() => void>());
+    const mediaContext = useRef<{ images?: Map<string, string>; siteUrl?: string }>({});
     const latest = useRef(props);
     latest.current = props;
     // Keep the original bytes until a user edit; opening or saving a title must not rewrite the body.
@@ -49,7 +53,12 @@ const MarkdownNoteEditor = forwardRef<MarkdownNoteEditorHandle, MarkdownNoteEdit
     sourceModeRef.current = sourceMode;
 
     const editor = useEditor({
-      extensions: noteExtensions(() => latest.current.placeholder || '', () => latest.current.siteImageMap),
+      extensions: noteExtensions(
+        () => latest.current.placeholder || '',
+        () => latest.current.siteImageMap ?? mediaContext.current.images,
+        () => mediaContext.current.siteUrl,
+        imageRefreshers.current,
+      ),
       content: sourceMode ? '' : props.initialMarkdown,
       contentType: 'markdown',
       editable: !props.readOnly,
@@ -76,6 +85,28 @@ const MarkdownNoteEditor = forwardRef<MarkdownNoteEditorHandle, MarkdownNoteEdit
         latest.current.onChange?.();
       },
     });
+
+    useEffect(() => {
+      let cancelled = false;
+      mediaContext.current = {};
+      const refresh = () => imageRefreshers.current.forEach((render) => render());
+      refresh();
+      if (props.pluginId) {
+        void Promise.all([
+          requestPlugin<PluginSiteImage[]>(props.pluginId, 'media.list'),
+          requestPlugin<PluginHostContext>(props.pluginId, 'host.context'),
+        ]).then(([images, context]) => {
+          if (cancelled) return;
+          mediaContext.current = { images: pluginSiteImageMap(images), siteUrl: context.destination?.siteUrl };
+          refresh();
+        }).catch(() => { /* Existing references and alt text remain available. */ });
+      }
+      return () => { cancelled = true; };
+    }, [props.pluginId]);
+
+    useEffect(() => {
+      imageRefreshers.current.forEach((render) => render());
+    }, [props.siteImageMap]);
 
     const readMarkdown = () => {
       if (visualChanged.current && editor) {
