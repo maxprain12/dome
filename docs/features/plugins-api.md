@@ -53,12 +53,13 @@ Los campos desconocidos y los valores con un tipo incorrecto se rechazan. `famil
 const updated = await DomePlugin.request('notes.update', {
   id,
   expectedUpdatedAt: note.updatedAt,
+  expectedContentDigest: note.contentDigest,
   title: 'New title',
   fields: { ...note.fields, slug: 'new-title' }
 });
 ```
 
-`expectedUpdatedAt` evita sobrescribir una edición concurrente. Tras un conflicto, recupera de nuevo la nota y pide al usuario resolverlo.
+`expectedContentDigest` compara título, cuerpo y campos para evitar sobrescribir una edición concurrente sin bloquear por cambios de metadatos. `notes.get`, `notes.list` y las escrituras devuelven `contentDigest`. Los clientes anteriores pueden seguir usando solo `expectedUpdatedAt`. Tras un conflicto real, conserva el borrador y recupera la nota para resolver las diferencias. `notes.applyTranslations` acepta el mismo digest de la nota de origen.
 
 ### `notes.delete` — `notes.write`
 

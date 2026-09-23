@@ -5,6 +5,9 @@ import { Editor } from '@tiptap/core';
 import MarkdownNoteEditor, { type MarkdownNoteEditorHandle } from './MarkdownNoteEditor';
 import { needsSourceEditor, noteExtensions } from './note-extensions';
 import i18n from '@/lib/i18n';
+import { requestPlugin } from '@/lib/plugins/request';
+
+vi.mock('@/lib/plugins/request', () => ({ requestPlugin: vi.fn().mockResolvedValue({}) }));
 
 vi.mock('@/lib/plugins/media', async (original) => ({
   ...await original<typeof import('@/lib/plugins/media')>(),
@@ -65,6 +68,22 @@ describe('shared Tiptap Markdown editor', () => {
     });
     await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
     expect(ref.current?.getMarkdown()).toBe('Original');
+  });
+
+  it('resolves landing images after the vault note plugin context arrives without changing Markdown', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const dataUrl = 'data:image/png;base64,aW1hZ2U=';
+    vi.mocked(requestPlugin).mockResolvedValueOnce([{ id, name: 'cover.png', sitePath: '/media/cover.png' }]);
+    vi.mocked(requestPlugin).mockResolvedValueOnce({ destination: { siteUrl: 'https://example.com' } });
+    Object.assign(window.electron, { resource: { readFile: vi.fn().mockResolvedValue({ success: true, data: dataUrl }) } });
+    const ref = createRef<MarkdownNoteEditorHandle>();
+    const onChange = vi.fn();
+    const markdown = '![Cover](/media/cover.png)';
+    const view = render(<MarkdownNoteEditor ref={ref} initialMarkdown={markdown} onChange={onChange} />);
+    view.rerender(<MarkdownNoteEditor ref={ref} initialMarkdown={markdown} pluginId="cms" onChange={onChange} />);
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Cover' })).toHaveAttribute('src', dataUrl));
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('keeps code fences visual and protects legacy blocks, HTML and footnotes', () => {

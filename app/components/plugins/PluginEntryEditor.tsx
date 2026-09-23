@@ -67,6 +67,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   const dirtyRef = useRef(false);
   const changeSeq = useRef(0);
   const savedRevision = useRef(note.updatedAt);
+  const savedDigest = useRef(note.contentDigest);
   const savePromise = useRef<Promise<PluginNote | null> | null>(null);
   const saveRef = useRef<() => Promise<PluginNote | null>>(() => Promise.resolve(null));
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -104,11 +105,13 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
 
   useEffect(() => {
     if (note.updatedAt === savedRevision.current) return;
-    if (dirtyRef.current) {
+    if (dirtyRef.current && (!note.contentDigest || note.contentDigest !== savedDigest.current)) {
       setError(t('plugins.conflict'));
       return;
     }
     savedRevision.current = note.updatedAt;
+    savedDigest.current = note.contentDigest;
+    if (dirtyRef.current) return;
     const nextBody = note.body;
     setTitle(note.title);
     setBody(nextBody);
@@ -150,11 +153,13 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
         const updated = await requestPlugin<PluginNote>(pluginId, 'notes.update', {
           id: note.id,
           expectedUpdatedAt: savedRevision.current,
+          expectedContentDigest: savedDigest.current,
           title: title.trim(),
           body: ingested.markdown,
           fields: values,
         });
         savedRevision.current = updated.updatedAt;
+        savedDigest.current = updated.contentDigest;
         const unchanged = sequence === changeSeq.current;
         if (unchanged) {
           if (ingested.changed) editorRef.current?.setMarkdown(ingested.markdown);
@@ -223,7 +228,8 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
       ]), siblingLanguages, sourceTitle);
       const result = await requestPlugin<{ notes: PluginNote[] }>(pluginId, 'notes.applyTranslations', {
         sourceId: note.id,
-        expectedUpdatedAt: note.updatedAt,
+        expectedUpdatedAt: savedRevision.current,
+        expectedContentDigest: savedDigest.current,
         familyId,
         title: sourceTitle,
         body: ingested.markdown,

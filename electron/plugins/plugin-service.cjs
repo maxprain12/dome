@@ -60,6 +60,7 @@ const METHOD_SCHEMAS = {
   'notes.update': z.object({
     id: idSchema,
     expectedUpdatedAt: z.number().int().nonnegative(),
+    expectedContentDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     title: z.string().min(1).max(240).optional(),
     body: z.string().max(2_000_000).optional(),
     fields: fieldValuesSchema.optional(),
@@ -72,6 +73,7 @@ const METHOD_SCHEMAS = {
   'notes.applyTranslations': z.object({
     sourceId: idSchema,
     expectedUpdatedAt: z.number().int().nonnegative(),
+    expectedContentDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     familyId: idSchema,
     title: z.string().min(1).max(240),
     body: z.string().max(2_000_000),
@@ -513,6 +515,7 @@ function serializeNote(row, pluginId) {
     body: row.content || '',
     fields,
     updatedAt: row.updated_at,
+    contentDigest: digest,
     publication: metadata.publication || null,
     familyId: typeof metadata.familyId === 'string' ? metadata.familyId : null,
     status: !publishedDigest ? 'draft' : publishedDigest === digest ? 'published' : 'changed',
@@ -638,6 +641,19 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     return template;
   }
 
+  function assertNoteRevision(note, pluginId, params) {
+    const unchanged = params.expectedContentDigest
+      ? noteDigest(note, pluginMetadata(note.metadata, pluginId)?.fields || {}) === params.expectedContentDigest
+      : note.updated_at === params.expectedUpdatedAt;
+    if (!unchanged) throw new Error('CONFLICT: note changed');
+  }
+
+  function placeDraft(plugin, grant, resourceId) {
+    if (!grant.github) return;
+    const note = queries().getResourceById.get(resourceId);
+    placeCmsNote(grant, resourceId, entryFilePath(plugin, grant, note));
+  }
+
   function createNote(plugin, grant, params) {
     const template = templateFor(plugin);
     const now = Date.now();
@@ -655,34 +671,36 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       fields,
       ...(params.familyId ? { familyId: params.familyId } : {}),
     });
-    queries().createResource.run(
-      id,
-      grant.projectId,
-      'note',
-      params.title,
-      params.body || '',
-      null,
-      null,
-      JSON.stringify(metadata),
-      now,
-      now,
-    );
-    const mirror = vaultStore.writeNoteMarkdown(
-      { id, markdown: params.body || '' },
-      { database, fileStorage },
-    );
-    if (!mirror.success) {
-      queries().deleteResource.run(id);
-      throw new Error(mirror.error || 'Could not create note mirror');
-    }
-    const created = queries().getResourceById.get(id);
+    const created = database.getDB().transaction(() => {
+      queries().createResource.run(
+        id,
+        grant.projectId,
+        'note',
+        params.title,
+        params.body || '',
+        null,
+        null,
+        JSON.stringify(metadata),
+        now,
+        now,
+      );
+      placeDraft(plugin, grant, id);
+      const mirror = vaultStore.writeNoteMarkdown(
+        { id, markdown: params.body || '' },
+        { database, fileStorage },
+      );
+      if (!mirror.success) {
+        throw new Error(mirror.error || 'Could not create note mirror');
+      }
+      return queries().getResourceById.get(id);
+    })();
     windowManager.broadcast('resource:created', created);
     return serializeNote(created, plugin.id);
   }
 
   function updateNote(plugin, grant, params) {
     const current = noteForGrant(params.id, grant);
-    if (current.updated_at !== params.expectedUpdatedAt) throw new Error('CONFLICT: note changed');
+    assertNoteRevision(current, plugin.id, params);
     const metadata = pluginMetadata(current.metadata, plugin.id);
     if (!metadata) throw new Error('Note does not belong to this plugin');
     const fields = normalizeFields(
@@ -705,9 +723,10 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
         now,
         current.id,
         grant.projectId,
-        params.expectedUpdatedAt,
+        current.updated_at,
       );
       if (result.changes !== 1) throw new Error('CONFLICT: note changed');
+      placeDraft(plugin, grant, current.id);
       const mirror = vaultStore.writeNoteMarkdown({ id: current.id, markdown: nextBody }, { database, fileStorage });
       if (!mirror.success) throw new Error(mirror.error || 'Could not update note mirror');
       return queries().getResourceById.get(current.id);
@@ -724,7 +743,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
   function applyTranslations(plugin, grant, params) {
     const template = templateFor(plugin);
     const source = noteForGrant(params.sourceId, grant);
-    if (source.updated_at !== params.expectedUpdatedAt) throw new Error('CONFLICT: note changed');
+    assertNoteRevision(source, plugin.id, params);
     const sourceMeta = pluginMetadata(source.metadata, plugin.id);
     if (!sourceMeta) throw new Error('Note does not belong to this plugin');
     const sourceFields = normalizeFields(template, params.fields, sourceMeta.fields || {});
@@ -820,6 +839,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     })();
     const notes = [];
     for (const item of planned) {
+      placeDraft(plugin, grant, item.id);
       const mirror = vaultStore.writeNoteMarkdown({ id: item.id, markdown: item.body }, { database, fileStorage });
       if (!mirror.success) throw new Error(mirror.error || 'Could not update note mirror');
       const row = queries().getResourceById.get(item.id);
@@ -1105,13 +1125,19 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
   function organizeCmsNotes(plugin, grant) {
     for (const row of queries().listPluginNotes.all(grant.projectId)) {
       const meta = pluginMetadata(row.metadata, plugin.id);
-      const filePath = meta?.publication?.path;
-      if (typeof filePath !== 'string' || !filePath.startsWith('src/content/')) continue;
-      const before = queries().getResourceById.get(row.id);
-      placeCmsNote(grant, row.id, filePath);
-      const after = queries().getResourceById.get(row.id);
-      if (!after || before?.folder_id === after.folder_id) continue;
-      vaultStore.writeNoteMarkdown({ id: row.id, markdown: after.content || '' }, { database, fileStorage });
+      if (!meta || !grant.github) continue;
+      let filePath;
+      try { filePath = entryFilePath(plugin, grant, row); } catch { continue; }
+      const moved = database.getDB().transaction(() => {
+        const before = queries().getResourceById.get(row.id);
+        placeCmsNote(grant, row.id, filePath);
+        const after = queries().getResourceById.get(row.id);
+        if (!after || before?.folder_id === after.folder_id) return null;
+        const mirror = vaultStore.writeNoteMarkdown({ id: row.id, markdown: after.content || '' }, { database, fileStorage });
+        if (!mirror.success) throw new Error(mirror.error || 'Could not organize note mirror');
+        return queries().getResourceById.get(row.id);
+      })();
+      if (moved) windowManager.broadcast('resource:updated', { id: row.id, updates: moved });
     }
   }
 
@@ -1593,6 +1619,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       };
     }
     if (method === 'notes.list') {
+      if (grant.permissions.includes('notes.write')) organizeCmsNotes(plugin, grant);
       return queries().listPluginNotes.all(grant.projectId)
         .map((row) => serializeNote(row, plugin.id))
         .filter(Boolean)
