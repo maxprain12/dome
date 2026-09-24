@@ -7,6 +7,13 @@ packages:
 # Fresh publishes (<24h) would otherwise fail resolution in CI/dev.
 minimumReleaseAge: 0
 
+# Drag-handle pulls y-tiptap, which otherwise installs a second prosemirror-model.
+overrides:
+  prosemirror-model: 1.25.12
+  prosemirror-state: 1.4.4
+  prosemirror-transform: 1.12.0
+  prosemirror-view: 1.42.5
+
 # langfuse-langchain declares peer langchain@<0.4; Dome uses langchain@1.x
 peerDependencyRules:
   allowAny:

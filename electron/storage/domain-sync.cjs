@@ -6,6 +6,7 @@
 /* eslint-disable no-console */
 
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
+const { fullJitterBackoffMs, parseRetryAfterMs } = require('../net/backoff.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
 const { getOrCreateDeviceId } = require('./device-id.cjs');
 const syncTombstone = require('./sync-tombstone.cjs');
@@ -199,7 +200,7 @@ function applyPersonIdentityRow(db, row) {
 const DOMAIN_SPECS = {
   social: {
     tables: [
-      { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials', 'avatar_url'] },
+      { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials'] },
       // campaign_id is local-only (social_campaigns is not cloud-synced); wire keeps denormalized `campaign`.
       {
         name: 'social_posts',
@@ -693,7 +694,14 @@ async function pullDomain(deps, domain) {
 
   for (;;) {
     const url = `${base}/api/v1/data/${domain}/pull?since=${encodeURIComponent(cursor)}&limit=${DOMAIN_PULL_LIMIT}`;
-    const res = await domeOauth.fetchWithDomeAuth(deps.database, url, { method: 'GET' });
+    let res = await domeOauth.fetchWithDomeAuth(deps.database, url, { method: 'GET' });
+    let pullAttempt = 0;
+    while (!res.ok && (res.status === 429 || res.status >= 500) && pullAttempt < 3) {
+      const wait = parseRetryAfterMs(res) ?? fullJitterBackoffMs(pullAttempt);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+      pullAttempt += 1;
+      res = await domeOauth.fetchWithDomeAuth(deps.database, url, { method: 'GET' });
+    }
     if (!res.ok) {
       const t = await res.text();
       return { success: false, error: `${res.status} ${t}` };
@@ -1063,9 +1071,11 @@ async function pushDomain(deps, domain) {
  * @param {object} deps
  * @param {DomainName} domain
  */
-async function syncDomain(deps, domain) {
-  const pulled = await pullDomain(deps, domain);
-  if (!pulled.success) return pulled;
+async function syncDomain(deps, domain, options = {}) {
+  if (!options.skipPull) {
+    const pulled = await pullDomain(deps, domain);
+    if (!pulled.success) return pulled;
+  }
   return pushDomain(deps, domain);
 }
 

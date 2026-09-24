@@ -237,6 +237,7 @@ export function ManyPlanPanel() {
           <MarkdownNoteEditor
             key={sessionId}
             ref={editorRef}
+            profile="embedded"
             initialMarkdown={liveDocument.body}
             placeholder={t('many.plan_ask_placeholder')}
             onChange={schedulePersist}

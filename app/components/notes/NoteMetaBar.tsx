@@ -46,7 +46,7 @@ export default function NoteMetaBar({
             : t('notes.meta_words_other', { count: wordCount })}
         </span>
         <span className="note-meta-chip">
-          <HugeiconsIcon icon={Clock01Icon} size={11} strokeWidth={2} />~{t('notes.meta_read', { minutes: mins })}
+          <HugeiconsIcon icon={Clock01Icon} size={11} strokeWidth={2} />{t('notes.meta_read', { minutes: mins })}
         </span>
         {editedRelative ? (
           <span className="note-meta-chip">

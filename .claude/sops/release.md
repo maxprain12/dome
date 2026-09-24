@@ -1,72 +1,24 @@
 # SOP: Cutting a Release
 
-## Pre-release Checklist
+Releases are built by hand on each OS and uploaded to the update feed. Woodpecker does not package installers.
 
-- [ ] All in-progress features are merged or intentionally deferred
-- [ ] CI is green on `main` (typecheck, lint, build all pass)
-- [ ] Tested the app end-to-end locally (`pnpm run electron:dev`)
-- [ ] **Packaged build tested** with `pnpm run electron:build` and the resulting app launches without main-process `Cannot find module ...` errors (CI only runs Vite, not electron-builder — see [shared-module-from-electron.md](./shared-module-from-electron.md) and [workspace-packages-packaging.md](./workspace-packages-packaging.md))
-- [ ] **`@dome/*` workspace packages** built and materialized (`pnpm run verify:workspace-deps` passes) before tagging a release
-- [ ] Version bump is correct (semver: patch for bugfixes, minor for features, major for breaking changes)
+## Prerequisites
+
+| Machine | Needs |
+|---|---|
+| macOS | Xcode, Developer ID Application, `xcrun notarytool`, Node 24, pnpm 11.8.0 |
+| Windows | `CSC_LINK` / `CSC_KEY_PASSWORD`, Node 24, pnpm 11.8.0 |
+| Linux x64 | `flatpak-builder` and runtimes 24.08 (`Platform`, `Sdk`, `Electron2.BaseApp`), Node 24, pnpm 11.8.0 |
+
+Every machine has `.env.release.local` (from `.env.release.example`) with build credentials. Only the publish machine has the public bucket keys.
 
 ## Steps
 
-### 1. Bump version
+1. Draft notes: `pnpm run release:notes`. Curate them into `CHANGELOG.md` as `## [X.Y.Z](https://dome.dowi.es/changelog#vX.Y.Z) - YYYY-MM-DD`.
+2. Bump `package.json` `version`, commit, tag and push: `git tag vX.Y.Z && git push origin main --tags`.
+3. On each machine: `git fetch --tags && git checkout vX.Y.Z && pnpm run release:build`.
+4. On the publish machine: `pnpm run release:publish -- --channel beta --staging 10`.
+5. Smoke-test clean machines, then `pnpm run release:promote -- --channel latest --staging 10`, then 50, then 100.
+6. A broken release: `pnpm run release:promote -- --channel latest --pause`, then ship a patch. There is no downgrade.
 
-In `package.json`:
-```json
-"version": "2.1.5"
-```
-
-### 2. Commit the version bump
-
-```bash
-git add package.json
-git commit -m "chore: release v2.1.5"
-git push origin main
-```
-
-### 3. Create the GitHub Release
-
-```bash
-gh release create v2.1.5 \
-  --title "v2.1.5" \
-  --notes "## What's new\n- ..." \
-  --latest
-```
-
-Or via GitHub UI: Releases → Draft a new release → Tag: `v2.1.5`
-
-### 4. CI does the rest
-
-The `build.yml` workflow triggers automatically on release publish:
-- Builds macOS (arm64 + x64) DMG and ZIP
-- Builds Windows NSIS installer and portable EXE
-- Builds Linux AppImage and Flatpak (x64, Ubuntu runner)
-- Attaches all artifacts to the GitHub Release
-
-Manual test without publishing a release: **Actions → Build Electron App → Run workflow**. Artifacts stay in the workflow run unless you enable **Attach artifacts to the latest GitHub release**.
-
-### 5. Verify
-
-- [ ] Build workflow passes in GitHub Actions
-- [ ] Release assets appear: macOS DMG/ZIP, Windows EXE, Linux AppImage + Flatpak
-- [ ] Test DMG/EXE on a clean machine if possible
-- [ ] **Linux smoke (post-release, manual):**
-  - AppImage: `chmod +x` → launch on Ubuntu or Fedora; check DB at `~/.config/dome/`, network, PDF open
-  - Flatpak: `flatpak install --user` → app in menu with icon; same basic checks
-  - If Flatpak blocks file picker or notifications, adjust `build.flatpak.finishArgs` in `package.json`
-
-## Dependency & Electron version policy
-
-- **Electron**: stay on a major with upstream security support (Electron supports the **3 latest majors**). Check the [Electron releases timeline](https://www.electronjs.org/docs/latest/tutorial/electron-timelines) at every release; if our major is about to fall out of support, schedule the upgrade as its own PR (rebuild natives with `pnpm run rebuild:natives` + `verify:natives`, full smoke on macOS and Windows). Renovate is configured to **not** open Electron major PRs (`renovate.json`) — that upgrade is always manual and tested.
-- **Security updates**: Renovate opens vulnerability PRs immediately (any package) and groups routine minor/patch bumps into a weekly PR. Native modules (`better-sqlite3`, `sharp`, `@napi-rs/canvas`, `electron-updater`) get individual PRs and must pass a packaged-build smoke before merge.
-- **CI**: `pnpm audit --prod --audit-level=high` runs on every PR (non-blocking during triage; make blocking once the baseline is clean). Review notes for the higher-risk parsers (`pyodide`, `pptx-preview`, `linkedom`) live in `docs/auditoria/06-calidad-observabilidad/T04-auditoria-dependencias.md`.
-
-## Hotfix process
-
-For urgent fixes:
-1. Branch off `main`: `git checkout -b hotfix/description`
-2. Fix the issue
-3. Merge to `main` (no PR required for P0 hotfixes)
-4. Immediately cut a patch release (e.g., `v2.1.5` → `v2.1.6`)
+Bridge release (while GitHub Releases still serves installs older than 2.9.0): add `--github-bridge`. Later, `--bridge-only` copies an already staged version to `GITHUB_BRIDGE_REPO`.

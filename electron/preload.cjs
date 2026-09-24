@@ -356,6 +356,8 @@ const ALLOWED_CHANNELS = {
     'domeauth:disconnect',
     'domeauth:getQuota',
     'domeauth:nativeLogin',
+    'domeauth:getProfile',
+    'domeauth:uploadAvatar',
     'domeauth:sessionState',
     // Personality Loader
     'personality:get-prompt',
@@ -515,6 +517,8 @@ const ALLOWED_CHANNELS = {
     'updater:download',
     'updater:install',
     'updater:skip',
+    'updater:get-channel',
+    'updater:set-channel',
     // Sync export/import
     'sync:export',
     'sync:import',
@@ -1085,6 +1089,8 @@ const electronHandler = {
     download: () => ipcRenderer.invoke('updater:download'),
     install: () => ipcRenderer.invoke('updater:install'),
     skip: (version) => ipcRenderer.invoke('updater:skip', version),
+    getChannel: () => ipcRenderer.invoke('updater:get-channel'),
+    setChannel: (channel) => ipcRenderer.invoke('updater:set-channel', channel),
     onStatus: (callback) => {
       const subscription = (event, data) => callback(data);
       ipcRenderer.on('updater:status', subscription);
@@ -1220,6 +1226,8 @@ const electronHandler = {
     getQuota: () => ipcRenderer.invoke('domeauth:getQuota'),
     nativeLogin: (email, password, isRegister, name) =>
       ipcRenderer.invoke('domeauth:nativeLogin', { email, password, isRegister, name }),
+    getProfile: () => ipcRenderer.invoke('domeauth:getProfile'),
+    uploadAvatar: (dataUrl) => ipcRenderer.invoke('domeauth:uploadAvatar', { dataUrl }),
     onSessionState: (callback) => {
       const sub = (_event, state) => callback(state);
       ipcRenderer.on('domeauth:sessionState', sub);

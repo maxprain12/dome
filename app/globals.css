@@ -1259,6 +1259,7 @@ body {
 
 /* Slash Command Menu */
 .slash-command-menu {
+  position: fixed;
   z-index: 10001;
   animation: slash-menu-in 0.15s ease-out;
 }

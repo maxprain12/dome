@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -12,7 +14,7 @@ type Action = 'improve' | 'summarize' | 'translate';
 const languageNames = { en: 'English', es: 'Spanish', fr: 'French', pt: 'Portuguese' } as const;
 type TargetLanguage = keyof typeof languageNames;
 
-export default function NoteAiActions({ editor }: { editor: Editor }) {
+export default function NoteAiActions({ editor, compact = false }: { editor: Editor; compact?: boolean }) {
   const { t } = useTranslation();
   const [action, setAction] = useState<Action | null>(null);
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage | null>(null);
@@ -70,14 +72,16 @@ export default function NoteAiActions({ editor }: { editor: Editor }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="sm" disabled={!selected} />}>{t('notes.editor_ai')}</DropdownMenuTrigger>
+        <DropdownMenuTrigger render={<Button type="button" variant="ghost" size={compact ? 'icon-sm' : 'sm'} disabled={!selected} aria-label={t('notes.editor_ai')} />}>
+          {compact ? <HugeiconsIcon icon={SparklesIcon} /> : t('notes.editor_ai')}
+        </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuGroup>
             {(['improve', 'summarize'] as const).map((item) => (
-              <DropdownMenuItem key={item} onClick={() => { void run(item); }}>{t(`notes.editor_ai_${item}`)}</DropdownMenuItem>
+              <DropdownMenuItem key={item} onClick={() => { run(item).catch(() => {}); }}>{t(`notes.editor_ai_${item}`)}</DropdownMenuItem>
             ))}
             {(Object.keys(languageNames) as TargetLanguage[]).map((language) => (
-              <DropdownMenuItem key={language} onClick={() => { void run('translate', language); }}>{t(`notes.editor_ai_translate_${language}`)}</DropdownMenuItem>
+              <DropdownMenuItem key={language} onClick={() => { run('translate', language).catch(() => {}); }}>{t(`notes.editor_ai_translate_${language}`)}</DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
         </DropdownMenuContent>

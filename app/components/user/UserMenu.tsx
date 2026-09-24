@@ -15,7 +15,7 @@ export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
-  const { name, email, avatarData, avatarPath, resetOnboarding, updateUserProfile } = useUserStore();
+  const { name, email, avatarData, avatarPath, avatarUrl, resetOnboarding, updateUserProfile } = useUserStore();
 
   const handleOpenSettings = () => {
     setIsOpen(false);
@@ -31,7 +31,7 @@ export default function UserMenu() {
     
     try {
       await Promise.all([
-        updateUserProfile({ name: '', email: '', avatarPath: undefined, avatarData: undefined }),
+        updateUserProfile({ name: '', email: '', avatarPath: undefined, avatarData: undefined, avatarUrl: undefined }),
         resetOnboarding(),
       ]);
       
@@ -52,13 +52,13 @@ export default function UserMenu() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon" className="rounded-full" aria-label={t('userMenu.menu_aria', { name: name || t('userMenu.default_name') })} />}>
-        <UserAvatar name={name || t('userMenu.default_name')} avatarData={avatarData} avatarPath={avatarPath} size="md" />
+        <UserAvatar name={name || t('userMenu.default_name')} avatarData={avatarData} avatarPath={avatarPath} imageUrl={avatarUrl} size="md" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
           {/* User Info */}
           <div className="px-4 py-3 border-b overflow-hidden border-border">
             <div className="flex items-center gap-3 min-w-0">
-              <UserAvatar name={name || t('userMenu.default_name')} avatarData={avatarData} avatarPath={avatarPath} size="lg" className="shrink-0" />
+              <UserAvatar name={name || t('userMenu.default_name')} avatarData={avatarData} avatarPath={avatarPath} imageUrl={avatarUrl} size="lg" className="shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate text-foreground">
                   {name || t('userMenu.default_name')}

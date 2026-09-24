@@ -4,26 +4,16 @@
   position: relative;
 }
 
-.note-editor-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .25rem;
-  padding: .375rem 0;
-  margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--background);
-}
-
 .markdown-note-editor-host .tiptap {
   min-height: 18rem;
   color: var(--foreground);
+  caret-color: var(--primary);
   font-family: inherit;
   font-size: 1rem;
-  line-height: 1.75;
+  line-height: 1.7;
   overflow-wrap: anywhere;
   outline: none;
-  padding: .5rem 0 3rem;
+  padding: 0.25rem 0 3rem;
 }
 .markdown-note-editor-host .tiptap:focus-visible {
   outline: 2px solid var(--ring);
@@ -31,39 +21,109 @@
   border-radius: .25rem;
 }
 
+.markdown-note-editor-host .tiptap:focus,
+.markdown-note-editor-host .tiptap:focus-visible {
+  outline: none;
+}
+
+.markdown-note-editor-host .tiptap ::selection {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.markdown-note-editor-host .tiptap > * + * { margin-top: 0.55em; }
 .markdown-note-editor-host .tiptap > :first-child { margin-top: 0; }
-.markdown-note-editor-host .tiptap p { margin: .75em 0; }
+.markdown-note-editor-host .tiptap p { margin: 0; }
 .markdown-note-editor-host .tiptap :is(h1, h2, h3, h4, h5, h6) {
   line-height: 1.25;
-  font-weight: 650;
-  letter-spacing: -.025em;
-  margin: 1.5em 0 .6em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 1.4em 0 0.15em;
   text-wrap: pretty;
 }
-.markdown-note-editor-host .tiptap h1 { font-size: 2em; }
-.markdown-note-editor-host .tiptap h2 { font-size: 1.5em; }
-.markdown-note-editor-host .tiptap h3 { font-size: 1.25em; }
-.markdown-note-editor-host .tiptap :is(h4, h5, h6) { font-size: 1.1em; }
-.markdown-note-editor-host .tiptap :is(ul, ol) { padding-left: 1.5em; margin: .75em 0; }
+.markdown-note-editor-host .tiptap h1 { font-size: 1.875rem; }
+.markdown-note-editor-host .tiptap h2 { font-size: 1.5rem; }
+.markdown-note-editor-host .tiptap h3 { font-size: 1.25rem; }
+.markdown-note-editor-host .tiptap :is(h4, h5, h6) { font-size: 1.05rem; }
+.markdown-note-editor-host .tiptap :is(ul, ol) { padding-left: 1.4em; margin: 0.4em 0; }
 .markdown-note-editor-host .tiptap ul { list-style: disc; }
 .markdown-note-editor-host .tiptap ol { list-style: decimal; }
-.markdown-note-editor-host .tiptap li p { margin: .25em 0; }
+.markdown-note-editor-host .tiptap li::marker { color: var(--muted-foreground); }
+.markdown-note-editor-host .tiptap li p { margin: 0.15em 0; }
 .markdown-note-editor-host .tiptap ul[data-type="taskList"] { padding: 0; list-style: none; }
-.markdown-note-editor-host .tiptap li[data-type="taskItem"] { display: flex; gap: .75em; align-items: baseline; }
+.markdown-note-editor-host .tiptap li[data-type="taskItem"] { display: flex; gap: 0.6em; align-items: flex-start; }
 .markdown-note-editor-host .tiptap li[data-type="taskItem"] > div { flex: 1; min-width: 0; }
-.markdown-note-editor-host .tiptap input[type="checkbox"] { accent-color: var(--primary); }
-.markdown-note-editor-host .tiptap blockquote { border-left: 2px solid var(--border); padding-left: 1.25em; margin: 1.25em 0; color: var(--muted-foreground); }
-.markdown-note-editor-host .tiptap a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
-.markdown-note-editor-host .tiptap code { background: var(--muted); border-radius: .25rem; padding: .15em .3em; font-size: .875em; }
-.markdown-note-editor-host .tiptap pre { padding: 1rem; border-radius: .5rem; background: var(--muted); overflow: auto; }
+.markdown-note-editor-host .tiptap li[data-type="taskItem"] input[type="checkbox"] {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.28em 0 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--background);
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+}
+.markdown-note-editor-host .tiptap li[data-type="taskItem"] input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.markdown-note-editor-host .tiptap li[data-type="taskItem"] input[type="checkbox"]:checked::after {
+  content: "";
+  width: 0.28rem;
+  height: 0.5rem;
+  border: solid var(--primary-foreground);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.markdown-note-editor-host .tiptap li[data-type="taskItem"]:has(input:checked) > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.markdown-note-editor-host .tiptap blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 1em;
+  margin: 0.8em 0;
+  color: var(--muted-foreground);
+}
+.markdown-note-editor-host .tiptap a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.markdown-note-editor-host .tiptap code {
+  background: var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.12em 0.28em;
+  font-size: 0.875em;
+}
+.markdown-note-editor-host .tiptap pre {
+  padding: 0.9rem 1rem;
+  border-radius: 0.6rem;
+  background: var(--muted);
+  overflow: auto;
+}
 .markdown-note-editor-host .tiptap pre code { padding: 0; background: transparent; }
-.markdown-note-editor-host .tiptap img { max-width: 100%; height: auto; border-radius: .5rem; margin: 1rem 0; }
-.markdown-note-editor-host .tiptap hr { border-color: var(--border); margin: 2em 0; }
-.markdown-note-editor-host .tiptap table { table-layout: fixed; width: 100%; border-collapse: collapse; margin: 1rem 0; }
-.markdown-note-editor-host .tiptap :is(th, td) { border: 1px solid var(--border); padding: .5em .75em; vertical-align: top; position: relative; min-width: 2em; }
-.markdown-note-editor-host .tiptap th { background: var(--muted); font-weight: 600; }
+.markdown-note-editor-host .tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.6rem;
+  margin: 0.8rem 0;
+}
+.markdown-note-editor-host .tiptap hr { border: 0; border-top: 1px solid var(--border); margin: 1.6em 0; }
+.markdown-note-editor-host .tiptap table { table-layout: fixed; width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
+.markdown-note-editor-host .tiptap :is(th, td) {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  padding: 0.45em 0.7em;
+  vertical-align: top;
+  position: relative;
+  min-width: 2em;
+}
+.markdown-note-editor-host .tiptap th { background: color-mix(in srgb, var(--muted) 70%, transparent); font-weight: 600; }
 .markdown-note-editor-host .tiptap .selectedCell { background: var(--accent); }
 .markdown-note-editor-host .tiptap .ProseMirror-selectednode { outline: 2px solid var(--ring); outline-offset: 2px; }
+.markdown-note-editor-host .tiptap :is(p, h1, h2, h3).is-empty::before,
 .markdown-note-editor-host .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -71,11 +131,119 @@
   height: 0;
   pointer-events: none;
 }
+
+.markdown-note-editor-host .note-wikilink {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 0.3rem;
+  padding: 0.05em 0.35em;
+  font-weight: 500;
+}
+
+.markdown-note-editor-host .note-callout {
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.85rem 0.35rem;
+  margin: 0.8rem 0;
+}
+.markdown-note-editor-host .note-callout--note,
+.markdown-note-editor-host .note-callout--info {
+  background: color-mix(in srgb, var(--info) 14%, transparent);
+}
+.markdown-note-editor-host .note-callout--tip {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.markdown-note-editor-host .note-callout--warning {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+}
+.markdown-note-editor-host .note-callout--danger {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+.markdown-note-editor-host .note-callout--quote {
+  background: var(--muted);
+}
+.markdown-note-editor-host .note-callout-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+  color: var(--foreground);
+}
+.markdown-note-editor-host .note-callout-header select,
+.markdown-note-editor-host .note-callout-header input {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+}
+.markdown-note-editor-host .note-callout-header input { flex: 1; font-weight: 600; }
+.markdown-note-editor-host .note-callout-header button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  border-radius: 0.35rem;
+  padding: 0.15rem;
+}
+.markdown-note-editor-host .note-callout[data-collapsed="true"] .note-callout-body { display: none; }
+
+.markdown-note-editor-host .note-code-block { position: relative; margin: 0.8rem 0; }
+.markdown-note-editor-host .note-code-lang {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.45rem;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+}
+.markdown-note-editor-host .tiptap .hljs-comment { color: var(--muted-foreground); }
+.markdown-note-editor-host .tiptap .hljs-keyword,
+.markdown-note-editor-host .tiptap .hljs-selector-tag { color: var(--primary); }
+.markdown-note-editor-host .tiptap .hljs-string,
+.markdown-note-editor-host .tiptap .hljs-attr { color: var(--info); }
+.markdown-note-editor-host .tiptap .hljs-number,
+.markdown-note-editor-host .tiptap .hljs-literal { color: var(--warning); }
+.markdown-note-editor-host .tiptap .hljs-title,
+.markdown-note-editor-host .tiptap .hljs-function { color: var(--foreground); }
+
+.markdown-note-editor-host .tiptap [data-youtube-video],
+.markdown-note-editor-host .tiptap .tiptap-mathematics-render { margin: 1rem 0; }
+.markdown-note-editor-host .tiptap [data-youtube-video] iframe,
+.markdown-note-editor-host .tiptap iframe.note-youtube {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 0;
+  border-radius: 0.6rem;
+}
+.markdown-note-editor-host .tiptap .block-math-inner { display: flex; justify-content: center; }
+
+.note-block-handle {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+.note-block-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.note-block-btn:hover { background: var(--accent); color: var(--foreground); }
+
 .markdown-note-editor-host .note-editor-source {
   min-height: 24rem;
   resize: vertical;
   font-family: var(--font-mono, monospace);
-  font-size: .875rem;
+  font-size: 0.875rem;
   line-height: 1.7;
 }
 .markdown-note-editor-host--cms { max-width: 72ch; margin-inline: auto; }

@@ -39,6 +39,31 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
+  ipcMain.handle('updater:get-channel', async (event) => {
+    try {
+      validateSender(event, windowManager);
+      return { success: true, data: updateService.getChannel() };
+    } catch (error) {
+      console.error('[IPC] Error in updater:get-channel:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('updater:set-channel', async (event, channel) => {
+    try {
+      validateSender(event, windowManager);
+      if (channel !== 'latest' && channel !== 'beta') {
+        return { success: false, error: 'invalid_channel' };
+      }
+      updateService.setChannel(channel);
+      await updateService.checkForUpdates();
+      return { success: true, data: channel };
+    } catch (error) {
+      console.error('[IPC] Error in updater:set-channel:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('updater:skip', async (event, version) => {
     try {
       validateSender(event, windowManager);

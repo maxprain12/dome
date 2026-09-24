@@ -37,6 +37,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.test.local
 .env.production.local
 .env.local
+.env.release.local
 
 # caches
 .eslintcache
@@ -55,9 +56,10 @@ out/
 build/
 *.next
 
-# Electron
+# Electron builder output at the repo root. Do not use a bare
+# `release/` pattern: it also ignores scripts/release/.
 dist-electron/
-release/
+/release/
 
 # Agent benchmark runs (local traces)
 docs/bench/runs/

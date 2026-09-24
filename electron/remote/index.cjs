@@ -7,6 +7,7 @@ const { fetchWithDomeAuth } = require('../auth/dome-oauth.cjs');
 const { getOrCreateDeviceId } = require('../storage/device-id.cjs');
 const { readSettingSecret, writeSettingSecret } = require('../core/settings-secrets.cjs');
 const { HEARTBEAT_MS, isEnvelope } = require('./protocol.cjs');
+const { fullJitterBackoffMs, withJitter } = require('../net/backoff.cjs');
 const { generateKeyPair, deriveSharedKey, encryptEnvelope, decryptEnvelope } = require('./crypto.cjs');
 const { createExecutor } = require('./executor.cjs');
 const { buildCapabilities } = require('./many-public.cjs');
@@ -332,7 +333,7 @@ function createClient({ database, windowManager }) {
   }
 
   async function listenCommands(signal) {
-    let delay = 500;
+    let reconnectAttempt = 0;
     let registered = false;
     while (!signal.aborted && isEnabled(database)) {
       const abort = new AbortController();
@@ -361,8 +362,8 @@ function createClient({ database, windowManager }) {
         }
         signal.throwIfAborted();
         connected = true;
+        reconnectAttempt = 0;
         lastError = null;
-        delay = 500;
         broadcast();
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -399,26 +400,36 @@ function createClient({ database, windowManager }) {
       }
       if (signal.aborted || !isEnabled(database)) return;
       try {
-        await sleep(delay, undefined, { signal });
+        await sleep(fullJitterBackoffMs(reconnectAttempt, { baseMs: 500, maxMs: 30_000 }), undefined, { signal });
       } catch {
         return;
       }
-      delay = Math.min(delay * 2, 30_000);
+      reconnectAttempt += 1;
     }
   }
 
   function startHeartbeat(signal) {
     let busy = false;
     clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(() => {
-      if (!isEnabled(database) || signal.aborted || busy) return;
-      busy = true;
-      heartbeat(signal).catch((err) => {
-        if (signal.aborted) return;
-        lastError = err?.message || 'heartbeat_failed';
-        broadcast();
-      }).finally(() => { busy = false; });
-    }, HEARTBEAT_MS);
+    const beat = () => {
+      heartbeatTimer = setTimeout(() => {
+        if (!isEnabled(database) || signal.aborted) return;
+        if (busy) {
+          beat();
+          return;
+        }
+        busy = true;
+        heartbeat(signal).catch((err) => {
+          if (signal.aborted) return;
+          lastError = err?.message || 'heartbeat_failed';
+          broadcast();
+        }).finally(() => {
+          busy = false;
+          if (!signal.aborted) beat();
+        });
+      }, withJitter(HEARTBEAT_MS, 0.1));
+    };
+    beat();
   }
 
   async function startPairing() {

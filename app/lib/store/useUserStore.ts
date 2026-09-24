@@ -15,6 +15,8 @@ interface UserState {
   avatarData?: string;
   /** Relative path to avatar file (e.g., "avatars/user-avatar-123.jpg") - Read-only for display */
   avatarPath?: string;
+  /** Account photo URL from Dome Provider. Synced across devices. */
+  avatarUrl?: string;
   isOnboardingCompleted: boolean;
 
   // Actions
@@ -30,6 +32,7 @@ export const useUserStore = create<UserState>((set) => ({
   email: '',
   avatarData: undefined,
   avatarPath: undefined,
+  avatarUrl: undefined,
   isOnboardingCompleted: false,
 
   // Load user profile from database
@@ -42,8 +45,15 @@ export const useUserStore = create<UserState>((set) => ({
       email: profile.email,
       avatarData: profile.avatarData,
       avatarPath: profile.avatarPath,
+      avatarUrl: profile.avatarUrl,
       isOnboardingCompleted: onboardingComplete,
     });
+
+    const remote = await window.electron?.domeAuth?.getProfile?.();
+    if (remote?.success && remote.imageUrl) {
+      await saveUserProfile({ avatarUrl: remote.imageUrl });
+      set({ avatarUrl: remote.imageUrl });
+    }
   },
 
   // Update user profile (partial update)

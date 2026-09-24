@@ -8,6 +8,14 @@ const fs = require('fs');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const { app } = require('electron');
+const {
+  isUpdateChannel,
+  initialCheckDelayMs,
+  intervalCheckDelayMs,
+  releaseNotesText,
+} = require('./update-schedule.cjs');
+
+let checkTimer = null;
 
 let mainWindow = null;
 let broadcastUpdateStatus = () => {};
@@ -65,6 +73,28 @@ function clearSkippedVersion() {
   }
 }
 
+function getChannel() {
+  const channel = readUpdaterState().channel;
+  return isUpdateChannel(channel) ? channel : 'latest';
+}
+
+function setChannel(channel) {
+  if (!isUpdateChannel(channel)) {
+    const error = new Error('invalid_channel');
+    throw error;
+  }
+  const next = { ...readUpdaterState(), channel };
+  fs.mkdirSync(path.dirname(updaterStatePath()), { recursive: true });
+  fs.writeFileSync(updaterStatePath(), JSON.stringify(next, null, 2), 'utf8');
+  autoUpdater.channel = channel;
+  autoUpdater.allowDowngrade = false;
+}
+
+function applyChannel() {
+  autoUpdater.channel = getChannel();
+  autoUpdater.allowDowngrade = false;
+}
+
 function isSkipped(info) {
   const v = info?.version;
   if (!v) return false;
@@ -96,6 +126,7 @@ function init(window, broadcast) {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
+  applyChannel();
 
   autoUpdater.on('checking-for-update', () => {
     broadcastUpdateStatus({ status: 'checking' });
@@ -113,7 +144,8 @@ function init(window, broadcast) {
     broadcastUpdateStatus({
       status: 'available',
       version: info.version,
-      releaseNotes: info.releaseNotes,
+      releaseNotes: releaseNotesText(info.releaseNotes),
+      releaseDate: info.releaseDate,
     });
   });
 
@@ -146,13 +178,22 @@ function init(window, broadcast) {
     });
   });
 
-  // Check for updates after a delay (let app stabilize)
-  setTimeout(() => {
+  const runCheck = () => {
     autoUpdater.checkForUpdates().catch((err) => {
       console.warn('[Updater] Check failed:', err.message);
       broadcastUpdateStatus({ status: 'error', error: err.message });
     });
-  }, 5000);
+  };
+  const schedule = (delay) => {
+    checkTimer = setTimeout(() => {
+      runCheck();
+      schedule(intervalCheckDelayMs());
+    }, delay);
+  };
+  schedule(initialCheckDelayMs());
+  app.once('before-quit', () => {
+    if (checkTimer) clearTimeout(checkTimer);
+  });
 }
 
 /**
@@ -206,4 +247,6 @@ module.exports = {
   skipVersion,
   clearSkippedVersion,
   getSkippedVersion,
+  getChannel,
+  setChannel,
 };

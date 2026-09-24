@@ -17,6 +17,9 @@ const {
   isTransportFailure,
 } = require('./domain-sync-errors.cjs');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
+const { fullJitterBackoffMs, withJitter } = require('../net/backoff.cjs');
+const realtime = require('../realtime/client.cjs');
+const { getOrCreateDeviceId } = require('./device-id.cjs');
 
 const INTERVAL_MS = 60_000;
 const SSE_RETRY_MIN_MS = 5_000;
@@ -24,6 +27,7 @@ const SSE_RETRY_MAX_MS = 5 * 60_000;
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let timer = null;
+let stopRealtime = () => {};
 /** @type {{ database: object, windowManager?: object } | null} */
 let deps = null;
 /** @type {Set<string>} */
@@ -46,20 +50,42 @@ function init(nextDeps) {
 
 function start() {
   if (timer) return;
-  timer = setInterval(() => {
+  const arm = () => {
+    timer = setTimeout(() => {
+      queueTick();
+      arm();
+    }, withJitter(INTERVAL_MS));
+    if (timer.unref) timer.unref();
+  };
+  timer = setTimeout(() => {
     queueTick();
-  }, INTERVAL_MS);
+    arm();
+  }, withJitter(30_000, 1));
   if (timer.unref) timer.unref();
   sseStopped = false;
   void runSseLoop().catch((err) => {
     console.warn('[domain-sync] SSE loop stopped:', err?.message || err);
   });
+  try {
+    const db = deps?.database?.getDB?.();
+    if (db) {
+      stopRealtime = realtime.start({
+        database: deps.database,
+        deviceId: getOrCreateDeviceId(db),
+        onSyncHint: (domain) => notifyDomainChanged(domain),
+      });
+    }
+  } catch (err) {
+    console.warn('[domain-sync] realtime gateway skipped', err?.message || err);
+  }
   console.log('[domain-sync] scheduler started (60s + SSE)');
 }
 
 function stop() {
+  stopRealtime();
+  stopRealtime = () => {};
   if (timer) {
-    clearInterval(timer);
+    clearTimeout(timer);
     timer = null;
   }
   sseStopped = true;
@@ -92,7 +118,7 @@ function notifyDomainChanged(domain) {
 async function runSseLoop() {
   const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
   const domeOauth = require('../auth/dome-oauth.cjs');
-  let retryMs = SSE_RETRY_MIN_MS;
+  let sseAttempt = 0;
 
   while (!sseStopped) {
     let connectedAt = 0;
@@ -112,7 +138,7 @@ async function runSseLoop() {
       if (!res.ok || !res.body) throw new Error(`sse_status_${res.status}`);
 
       connectedAt = Date.now();
-      retryMs = SSE_RETRY_MIN_MS;
+      sseAttempt = 0;
       let buffer = '';
       const decoder = new TextDecoder();
       for await (const chunk of res.body) {
@@ -144,8 +170,8 @@ async function runSseLoop() {
       sseAbort = null;
     }
     if (sseStopped) break;
-    await sleep(retryMs);
-    retryMs = Math.min(retryMs * 2, SSE_RETRY_MAX_MS);
+    await sleep(fullJitterBackoffMs(sseAttempt, { baseMs: SSE_RETRY_MIN_MS, maxMs: SSE_RETRY_MAX_MS }));
+    sseAttempt += 1;
   }
 }
 
@@ -161,6 +187,23 @@ function queueTick() {
   void tick().catch((err) => {
     console.warn('[domain-sync] tick rejected', err?.message || err);
   });
+}
+
+async function domainsAheadOfCursor(db, domains) {
+  try {
+    const base = getDomeProviderBaseUrl().replace(/\/$/, '');
+    const domeOauth = require('../auth/dome-oauth.cjs');
+    const res = await domeOauth.fetchWithDomeAuth(deps.database, `${base}/api/v1/sync/state`, { method: 'GET' });
+    if (res.status === 404 || !res.ok) return null;
+    const data = await res.json();
+    const maxes = data?.domains && typeof data.domains === 'object' ? data.domains : {};
+    return domains.filter((domain) => {
+      const cursor = Number(domainSync.getDomainState(db, domain).lastPullCursor || 0);
+      return Number(maxes[domain] || 0) > cursor;
+    });
+  } catch {
+    return null;
+  }
 }
 
 async function tick() {
@@ -195,13 +238,16 @@ async function tick() {
             return ent.entitlements.features.includes(planGate.featureForDomain(d));
           });
 
+    const forced = pendingDomains.size > 0;
     pendingDomains.clear();
 
     const providerUrl = getDomeProviderBaseUrl();
+    const pullDomains = forced ? null : await domainsAheadOfCursor(db, domains);
     for (const domain of domains) {
       if (domainErrorTracker.shouldSkip(domain)) continue;
       try {
-        const result = await domainSync.syncDomain(deps, domain);
+        const skipPull = Array.isArray(pullDomains) && !pullDomains.includes(domain);
+        const result = await domainSync.syncDomain(deps, domain, { skipPull });
         if (result && result.success === false) {
           const message = String(result.error).slice(0, 300);
           console.warn(`[domain-sync] ${domain} sync error:`, message);

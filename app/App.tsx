@@ -1,5 +1,6 @@
 import { StrictMode, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { setDomeHrefNavigate } from '@/lib/links/openDomeHref';
 import { useTranslation } from 'react-i18next';
 import ThemeProvider from '@/components/shared/ThemeProvider';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -207,6 +208,11 @@ function MainApp() {
 
 export default function App() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    setDomeHrefNavigate(navigate);
+    return () => setDomeHrefNavigate(null);
+  }, [navigate]);
 
   // Hidden capture route — render only the bare slide container, no app UI.
   if (pathname === '/ppt-capture') {
