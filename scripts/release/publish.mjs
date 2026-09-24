@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -100,9 +101,7 @@ async function main() {
     const notesFile = path.join(dir, 'notes.md');
     writeFileSync(notesFile, notes);
     const repo = process.env.GITHUB_BRIDGE_REPO || 'maxprain12/dome';
-    if (!dryRun) {
-      run('gh', ['release', 'create', `v${version}`, ...names, '--title', `v${version}`, '--notes-file', notesFile, '--latest', '-R', repo]);
-    }
+    if (!dryRun) publishGithubBridge(repo, version, names, notesFile);
     rmSync(dir, { recursive: true, force: true });
     if (bridgeOnly) {
       console.log(`Puente GitHub publicado en ${repo}`);
@@ -170,6 +169,16 @@ async function main() {
   }
   await pingLanding(dryRun);
   console.log(`Publicado ${version} en ${channel} al ${staging}%`);
+}
+
+function publishGithubBridge(repo, version, names, notesFile) {
+  const tag = `v${version}`;
+  const view = spawnSync('gh', ['release', 'view', tag, '-R', repo], { stdio: 'ignore' });
+  if (view.status === 0) {
+    run('gh', ['release', 'upload', tag, ...names, '--clobber', '-R', repo]);
+    return;
+  }
+  run('gh', ['release', 'create', tag, ...names, '--title', tag, '--notes-file', notesFile, '--latest', '-R', repo]);
 }
 
 async function pingLanding(dryRun) {
