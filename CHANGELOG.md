@@ -2,9 +2,9 @@
 
 All notable changes to Dome are documented in this file.
 
-## [Unreleased]
+## [2.9.0](https://dome.dowi.es/changelog#v2.9.0) - 2026-09-24
 
-Cambios en `main` posteriores a la release pública [v2.8.9](https://github.com/maxprain12/dome/releases/tag/v2.8.9) (2026-07-05). Las tags `v2.8.6`–`v2.8.9` existen en GitHub; este archivo aún no las desglosa.
+Las instalaciones 2.8.x siguen actualizándose desde GitHub. Esta versión publica el feed en `https://dl.dowi.es/feed`.
 
 ### Added
 

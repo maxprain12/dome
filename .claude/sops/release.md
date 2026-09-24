@@ -15,13 +15,13 @@ Every machine has the same `.env.release.local` (from `.env.release.example`), w
 ## Steps
 
 1. Draft notes: `pnpm run release:notes`. Curate them into `CHANGELOG.md` as `## [X.Y.Z](https://dome.dowi.es/changelog#vX.Y.Z) - YYYY-MM-DD`.
-2. Bump `package.json` `version`, commit, tag and push: `git tag vX.Y.Z && git push origin main --tags`.
-3. On each machine (Mac, Windows, Linux), the same command. It builds that OS and publishes it to `dl.dowi.es`:
+2. Bump `package.json` `version` on a branch, open a PR, and squash-merge. `main` rejects a direct push. After the merge is on `origin/main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. On each machine (Mac, Windows, Linux), checkout that tag and publish. Fetch the tag by name so a stale local tag does not abort the fetch:
 
 ```bash
-git fetch --tags && git checkout vX.Y.Z && pnpm run release
+git fetch origin tag vX.Y.Z && git checkout vX.Y.Z && pnpm run release -- --github-bridge
 ```
 
 4. A broken release: `pnpm run release:promote -- --channel latest --pause`, then ship a patch. There is no downgrade.
 
-Bridge release (while GitHub Releases still serves installs older than 2.9.0): add `--github-bridge`. Later, `--bridge-only` copies an already staged version to `GITHUB_BRIDGE_REPO`.
+`--github-bridge` creates the GitHub release or uploads this OS's files if the release already exists. Installs older than 2.9.0 still update from GitHub. Later, `--bridge-only` copies an already staged version to `GITHUB_BRIDGE_REPO`.

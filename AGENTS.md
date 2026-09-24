@@ -77,6 +77,45 @@ gh pr merge --auto --squash
 
 ---
 
+## Cutting a release
+
+Woodpecker does not build installers. Each operating system publishes its own files. `main` is protected, so the version bump goes through a pull request. Do not run `pnpm run release` until the tag `vX.Y.Z` exists on `origin`.
+
+Every machine uses the same `.env.release.local` (copy of `.env.release.example`): staging keys for `https://s3.dowi.es` bucket `dome-releases-staging`, and the public R2 keys for `https://dl.dowi.es`. macOS also needs a **Developer ID Application** certificate (team `8AFY6A6T37`) plus `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`. Windows needs `CSC_LINK` and `CSC_KEY_PASSWORD`. Linux x64 needs `flatpak-builder` and the 24.08 runtimes (`Platform`, `Sdk`, `Electron2.BaseApp`).
+
+1. From `main`, branch, set `package.json` `"version"` to `X.Y.Z`, and replace `## [Unreleased]` in `CHANGELOG.md` with `## [X.Y.Z](https://dome.dowi.es/changelog#vX.Y.Z) - YYYY-MM-DD`. Open a PR, wait for Woodpecker, and squash-merge. Do not push that commit straight to `main`.
+2. After the merge is on `origin/main`:
+
+```bash
+git checkout main && git pull --ff-only
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+`git fetch --tags` stops if a local tag points at a different commit than GitHub (`would clobber existing tag`). Point that one local tag at the remote tag. Do not force-push tags.
+
+3. On each machine, for that same tag:
+
+```bash
+git fetch origin tag vX.Y.Z
+git checkout vX.Y.Z
+pnpm run release -- --github-bridge
+```
+
+The command builds only the current OS and publishes it to `https://dl.dowi.es`. `--github-bridge` creates the GitHub release or, if another machine already created it, uploads this OS's files next to the ones already there. Installs older than 2.9.0 still update from GitHub; this bridge is what points them at `https://dl.dowi.es/feed`.
+
+For 2.9.0 on Windows and Linux, after this Mac has pushed the tag:
+
+```bash
+git fetch origin tag v2.9.0
+git checkout v2.9.0
+pnpm run release -- --github-bridge
+```
+
+4. A bad release: `pnpm run release:promote -- --channel latest --pause`, then ship a patch. The updater does not downgrade.
+
+---
+
 ## Where to look
 
 
