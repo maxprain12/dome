@@ -275,6 +275,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      once:
+        specifier: 1.4.0
+        version: 1.4.0
       papaparse:
         specifier: ^5.5.3
         version: 5.5.4
@@ -365,6 +368,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      wrappy:
+        specifier: 1.0.2
+        version: 1.0.2
       yaml:
         specifier: 2.9.0
         version: 2.9.0

@@ -85,4 +85,29 @@ for (const name of WORKSPACE_PKGS) {
   }
 }
 
+// pnpm keeps transitive deps as symlinks into .pnpm. electron-builder copies the
+// package but not that store, so require('once') from inflight fails in the asar.
+const HOISTED_RUNTIME = ['once', 'wrappy'];
+
+function materializeHoisted(name) {
+  const dest = path.join(root, 'node_modules', name);
+  if (!fs.existsSync(dest)) {
+    fail(`Missing node_modules/${name} — it must be a direct dependency`);
+  }
+  const real = fs.realpathSync(dest);
+  const tmp = `${dest}.materialize.tmp`;
+  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.cpSync(real, tmp, {
+    recursive: true,
+    filter: (src) => src === real || !src.includes(`${path.sep}node_modules${path.sep}`),
+  });
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.renameSync(tmp, dest);
+  console.log(`[materialize-workspace-deps] Materialized ${name}`);
+}
+
+for (const name of HOISTED_RUNTIME) {
+  materializeHoisted(name);
+}
+
 console.log('[materialize-workspace-deps] Done');
