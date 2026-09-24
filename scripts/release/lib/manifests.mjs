@@ -76,6 +76,24 @@ export function assetArch(name) {
   return 'universal';
 }
 
+export function mergeReleaseEntry(previous, entry) {
+  if (!previous) return entry;
+  const platforms = new Set((entry.assets || []).map((asset) => asset.platform));
+  const kept = (previous.assets || []).filter((asset) => !platforms.has(asset.platform));
+  const channels = [...new Set([...(previous.channels || []), ...(entry.channels || [])])];
+  channels.sort((a, b) => a.localeCompare(b));
+  const assets = [...kept, ...(entry.assets || [])];
+  assets.sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    ...previous,
+    ...entry,
+    notesMarkdown: entry.notesMarkdown || previous.notesMarkdown,
+    channels,
+    stagingPercentage: { ...(previous.stagingPercentage || {}), ...(entry.stagingPercentage || {}) },
+    assets,
+  };
+}
+
 export function upsertIndex(index, entry) {
   const current = index && typeof index === 'object' ? index : {};
   const releases = Array.isArray(current.releases)

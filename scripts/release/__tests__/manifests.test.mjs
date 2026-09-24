@@ -6,6 +6,7 @@ import {
   assetKind,
   compareSemver,
   rewriteForFeed,
+  mergeReleaseEntry,
   upsertIndex,
   validateBuildManifests,
 } from '../lib/manifests.mjs';
@@ -105,6 +106,29 @@ describe('upsertIndex', () => {
     });
     assert.deepEqual(third.releases.map((item) => item.version), ['2.10.0', '2.9.1', '2.9.1-beta.1']);
     assert.ok(compareSemver('2.10.0', '2.9.1') > 0);
+  });
+});
+
+describe('mergeReleaseEntry', () => {
+  it('sustituye solo la plataforma que acaba de publicarse', () => {
+    const merged = mergeReleaseEntry(
+      {
+        version: '2.9.0',
+        notesMarkdown: 'notas',
+        channels: ['latest'],
+        assets: [
+          { platform: 'mac', name: 'Dome-old.dmg' },
+          { platform: 'win', name: 'Dome-Setup.exe' },
+        ],
+      },
+      {
+        version: '2.9.0',
+        notesMarkdown: 'notas',
+        channels: ['latest'],
+        assets: [{ platform: 'mac', name: 'Dome-new.dmg' }],
+      },
+    );
+    assert.deepEqual(merged.assets.map((asset) => asset.name), ['Dome-new.dmg', 'Dome-Setup.exe']);
   });
 });
 

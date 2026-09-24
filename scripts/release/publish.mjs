@@ -11,6 +11,7 @@ import {
   parseUpdateYml,
   rewriteForFeed,
   stringifyUpdateYml,
+  mergeReleaseEntry,
   upsertIndex,
   validateBuildManifests,
 } from './lib/manifests.mjs';
@@ -57,13 +58,27 @@ async function main() {
   const stagingBucket = process.env.RELEASE_S3_BUCKET_STAGING;
   const publicBucket = process.env.RELEASE_S3_BUCKET_PUBLIC;
 
+  const onlyPlatform = option('--platform', '');
+  const platforms = onlyPlatform ? [onlyPlatform] : ['mac', 'win', 'linux'];
+  if (onlyPlatform && !['mac', 'win', 'linux'].includes(onlyPlatform)) {
+    throw new Error('--platform debe ser mac, win o linux');
+  }
   const manifests = [];
-  for (const platform of ['mac', 'win', 'linux']) {
+  for (const platform of platforms) {
     const raw = await getText(stagingClient, stagingBucket, `v${version}/build-manifest-${platform}.json`);
     if (!raw) throw new Error(`No está v${version}/build-manifest-${platform}.json en staging`);
     manifests.push(JSON.parse(raw));
   }
-  validateBuildManifests(manifests, version);
+  if (platforms.length === 3) validateBuildManifests(manifests, version);
+  else {
+    for (const item of manifests) {
+      if (item.version !== version) throw new Error(`${item.platform} es ${item.version}, se esperaba ${version}.`);
+      if ((item.platform === 'mac' || item.platform === 'win') && item.signed !== true) {
+        throw new Error(`${item.platform} no está firmado.`);
+      }
+      if (item.platform === 'mac' && item.notarized !== true) throw new Error('macOS no está notarizado.');
+    }
+  }
   const changelog = readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
   const notes = extractSection(changelog, version);
   if (!notes) throw new Error(`Añade la sección [${version}] a CHANGELOG.md`);
@@ -137,14 +152,16 @@ async function main() {
   }
 
   const existing = dryRun ? null : await getText(publicClient, publicBucket, 'index.json');
-  const index = upsertIndex(existing ? JSON.parse(existing) : {}, {
+  const parsed = existing ? JSON.parse(existing) : {};
+  const previous = (parsed.releases || []).find((item) => item.version === version);
+  const index = upsertIndex(parsed, mergeReleaseEntry(previous, {
     version,
     date: new Date().toISOString().slice(0, 10),
     channels: [channel],
     stagingPercentage: { [channel]: staging },
     notesMarkdown: notes,
     assets,
-  });
+  }));
   if (!dryRun) {
     await putText(publicClient, publicBucket, 'index.json', `${JSON.stringify(index, null, 2)}\n`, {
       contentType: 'application/json',

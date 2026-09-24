@@ -28,6 +28,7 @@
     "patch:pptx-preview": "node scripts/patch-pptx-preview.mjs",
     "postinstall": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
     "bootstrap:release-deps": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
+    "release": "node scripts/release/release.mjs",
     "release:build": "node scripts/release/build.mjs",
     "release:publish": "node scripts/release/publish.mjs",
     "release:promote": "node scripts/release/promote.mjs",
