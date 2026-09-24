@@ -2,6 +2,14 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.9.1](https://dome.dowi.es/changelog#v2.9.1) - 2026-09-25
+
+La 2.9.0 se abría y se cerraba: el instalador no incluía el módulo `once`, que ExcelJS necesita al arrancar.
+
+### Fixed
+
+- El empaquetado copia `once` y `wrappy` dentro de la app, para que el proceso principal pueda cargar ExcelJS.
+
 ## [2.9.0](https://dome.dowi.es/changelog#v2.9.0) - 2026-09-24
 
 Las instalaciones 2.8.x siguen actualizándose desde GitHub. Esta versión publica el feed en `https://dl.dowi.es/feed`.
