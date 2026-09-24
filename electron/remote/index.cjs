@@ -364,7 +364,6 @@ function createClient({ database, windowManager }) {
         connected = true;
         reconnectAttempt = 0;
         lastError = null;
-        delay = 500;
         broadcast();
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
