@@ -73,7 +73,7 @@ gh pr merge --auto --squash
 
 ### Step 6 — Done
 
-- **CI** (GitHub Actions, `.github/workflows/ci.yml`): typecheck, lint, build, architecture guard, IPC inventory, dependency-cruiser, asar-unpack check
+- **CI** (Woodpecker, `.woodpecker/ci.yaml`): typecheck, lint, build, architecture guard, IPC inventory, dependency-cruiser, asar-unpack check
 
 ---
 

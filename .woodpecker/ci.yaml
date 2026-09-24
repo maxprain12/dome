@@ -62,9 +62,11 @@ steps:
   - name: electron-smoke
     image: node:24-bookworm
     commands:
-      - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 libgbm1 libxss1
+      - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libnspr4 libasound2 libgbm1 libxss1 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libpango-1.0-0 libcairo2 libx11-xcb1 libxcb-dri3-0
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile
+      - pnpm rebuild
+      - node node_modules/electron/install.js
       - pnpm run build
       - xvfb-run --auto-servernum pnpm run test:e2e:electron:run
 
@@ -79,14 +81,13 @@ steps:
     image: node:24-bookworm
     commands:
       - |
-        PATTERNS=("from 'better-sqlite3'" "require('better-sqlite3')" "from 'bun:" "require('bun:" "from 'node:fs'" "require('node:fs')")
-        FOUND=0
-        for pattern in "$${PATTERNS[@]}"; do
-          if grep -rn "$$pattern" app/ --include="*.ts" --include="*.tsx" 2>/dev/null; then
-            FOUND=1
+        found=0
+        for pattern in "from 'better-sqlite3'" "require('better-sqlite3')" "from 'bun:" "require('bun:" "from 'node:fs'" "require('node:fs')"; do
+          if grep -RIn --include='*.ts' --include='*.tsx' -- "$$pattern" app; then
+            found=1
           fi
         done
-        if [ "$$FOUND" -eq 1 ]; then
+        if [ "$$found" -eq 1 ]; then
           echo "Node.js module imports found in renderer process (app/)."
           exit 1
         fi
