@@ -738,6 +738,18 @@ declare global {
           error?: string;
           errorCode?: string;
         }>;
+        getProfile: () => Promise<{
+          success: boolean;
+          name?: string | null;
+          email?: string | null;
+          imageUrl?: string | null;
+          error?: string;
+        }>;
+        uploadAvatar: (dataUrl: string) => Promise<{
+          success: boolean;
+          imageUrl?: string;
+          error?: string;
+        }>;
         onSessionState: (
           callback: (state: {
             connected: boolean;

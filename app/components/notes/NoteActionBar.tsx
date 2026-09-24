@@ -52,6 +52,9 @@ interface NoteActionBarProps {
   sidePanelOpen: boolean;
   onToggleSidePanel: () => void;
   hideWindowControls?: boolean;
+  sourceMode?: boolean;
+  sourceLocked?: boolean;
+  onToggleSource?: () => void;
 }
 
 /** Read an Electron desktop platform flag without nesting `typeof window` checks inline. */
@@ -242,6 +245,9 @@ export default function NoteActionBar({
   sidePanelOpen,
   onToggleSidePanel,
   hideWindowControls,
+  sourceMode = false,
+  sourceLocked = false,
+  onToggleSource,
 }: NoteActionBarProps) {
   const { t } = useTranslation();
   const sourcesOpen = useAppStore((s) => s.sourcesPanelOpen);
@@ -319,6 +325,11 @@ export default function NoteActionBar({
             {t('notes.share_copy_tooltip')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
+          {onToggleSource ? (
+            <DropdownMenuItem disabled={sourceLocked && sourceMode} onClick={onToggleSource}>
+              {sourceMode ? t('notes.editor_visual') : t('notes.editor_source')}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={() => onOpenMetadata()}>
             <HugeiconsIcon icon={InformationCircleIcon} size={14} />
             {t('notes.metadata')}

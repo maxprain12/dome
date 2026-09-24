@@ -4,7 +4,7 @@ import { Editor } from '@tiptap/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chat } from '@/lib/ai/client';
 import i18n from '@/lib/i18n';
-import { noteExtensions } from './note-extensions';
+import { noteExtensions } from './extensions';
 import NoteAiActions from './NoteAiActions';
 
 vi.mock('@/lib/ai/client', () => ({ chat: vi.fn() }));

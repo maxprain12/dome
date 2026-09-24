@@ -30,6 +30,8 @@ import NoteDocTitle from '@/components/notes/NoteDocTitle';
 import NoteMetaBar from '@/components/notes/NoteMetaBar';
 import NoteEmptyState from '@/components/notes/NoteEmptyState';
 import NoteQuickTagModal from '@/components/notes/NoteQuickTagModal';
+import NoteOutline from '@/components/notes/NoteOutline';
+import type { NoteOutlineItem } from '@/components/markdown/extensions';
 import { countWordsFromMarkdown, loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 import { HOME_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
 import PluginNoteFields from '@/components/notes/PluginNoteFields';
@@ -118,6 +120,8 @@ type EditorBlockArgs = {
   handleEditorChange: () => void;
   handleEditorReady: () => void;
   handlePickTemplate: (id: string) => void;
+  onSourceModeChange: (source: boolean, locked: boolean) => void;
+  onOutlineChange: (items: NoteOutlineItem[]) => void;
   t: TFunction;
 };
 
@@ -147,6 +151,8 @@ function renderEditorBlock(args: EditorBlockArgs) {
           resourceId={args.resourceId}
           onChange={args.handleEditorChange}
           onReady={args.handleEditorReady}
+          onSourceModeChange={args.onSourceModeChange}
+          onOutlineChange={args.onOutlineChange}
         />
       </div>
       {args.saveError ? (
@@ -215,6 +221,9 @@ function NoteWorkspace({
   const [backlinkCount, setBacklinkCount] = useState(0);
   const [resourceTags, setResourceTags] = useState<Array<{ id: string; name: string }>>([]);
   const [tagQuickModalOpen, setTagQuickModalOpen] = useState(false);
+  const [sourceMode, setSourceMode] = useState(false);
+  const [sourceLocked, setSourceLocked] = useState(false);
+  const [outline, setOutline] = useState<NoteOutlineItem[]>([]);
 
   const [viewMode, setViewMode] = useState<NoteViewMode>(() => {
     try {
@@ -472,9 +481,10 @@ function NoteWorkspace({
     if (wordCountTimerRef.current) clearTimeout(wordCountTimerRef.current);
     wordCountTimerRef.current = setTimeout(() => {
       wordCountTimerRef.current = null;
-      if (editorRef.current) {
-        setWordCount(countWordsFromMarkdown(editorRef.current.getMarkdown()));
-      }
+      const handle = editorRef.current;
+      if (!handle) return;
+      const stats = handle.getStats?.();
+      setWordCount(stats ? stats.words : countWordsFromMarkdown(handle.getMarkdown()));
     }, 350);
   }, [readOnly]);
 
@@ -621,6 +631,11 @@ function NoteWorkspace({
     handleEditorChange,
     handleEditorReady,
     handlePickTemplate,
+    onSourceModeChange: (source, locked) => {
+      setSourceMode(source);
+      setSourceLocked(locked);
+    },
+    onOutlineChange: setOutline,
     t,
   });
 
@@ -638,18 +653,21 @@ function NoteWorkspace({
         className="note-area flex flex-col h-full min-h-0 overflow-hidden bg-background"
         data-note-mode="standard"
       >
-        <div className="note-scroll flex-1 overflow-y-auto min-h-0">
-          <div className="note-doc">
-            <NoteDocTitle
-              value={title}
-              placeholder={t('notes.untitled_note')}
-              disabled={readOnly}
-              onChange={handleTitleChange}
-              onBlur={handleTitleBlur}
-            />
-            <PluginNoteFields resourceId={resourceId} />
-            {editorBlockNode}
+        <div className="note-stage">
+          <div className="note-scroll flex-1 overflow-y-auto min-h-0">
+            <div className="note-doc">
+              <NoteDocTitle
+                value={title}
+                placeholder={t('notes.untitled_note')}
+                disabled={readOnly}
+                onChange={handleTitleChange}
+                onBlur={handleTitleBlur}
+              />
+              <PluginNoteFields resourceId={resourceId} />
+              {editorBlockNode}
+            </div>
           </div>
+          <NoteOutline items={outline} onJump={(pos) => editorRef.current?.scrollTo(pos)} />
         </div>
         {sidePanelsNode}
       </div>
@@ -682,11 +700,15 @@ function NoteWorkspace({
         hideWindowControls={isPopout}
         sidePanelOpen={sidePanelOpen}
         onToggleSidePanel={() => setSidePanelOpen((o) => !o)}
+        sourceMode={sourceMode}
+        sourceLocked={sourceLocked}
+        onToggleSource={() => editorRef.current?.setSourceMode(!sourceMode)}
       />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-          <div className="note-scroll flex-1 overflow-y-auto min-h-0">
+          <div className="note-stage">
+            <div className="note-scroll flex-1 overflow-y-auto min-h-0">
             <div className="note-doc">
               <NoteDocTitle
                 value={title}
@@ -709,6 +731,8 @@ function NoteWorkspace({
               <PluginNoteFields resourceId={resourceId} />
               {editorBlockNode}
             </div>
+            </div>
+            <NoteOutline items={outline} onJump={(pos) => editorRef.current?.scrollTo(pos)} />
           </div>
         </div>
 

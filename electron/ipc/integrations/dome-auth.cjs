@@ -79,6 +79,46 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
+  ipcMain.handle('domeauth:getProfile', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const profile = await domeOauth.getRemoteProfile(database);
+      return { success: true, ...profile };
+    } catch (error) {
+      return { success: false, error: error?.message || 'Failed to read profile' };
+    }
+  });
+
+  ipcMain.handle('domeauth:uploadAvatar', async (event, payload) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const dataUrl = typeof payload?.dataUrl === 'string' ? payload.dataUrl : '';
+    if (!dataUrl.startsWith('data:image/')) {
+      return { success: false, error: 'invalid_image' };
+    }
+    try {
+      const response = await domeOauth.fetchWithDomeAuth(
+        database,
+        `${domeOauth.getDomeProviderBaseUrl()}/api/v1/me/avatar`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUrl }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || typeof body.imageUrl !== 'string') {
+        return { success: false, error: body.error || `avatar_${response.status}` };
+      }
+      return { success: true, imageUrl: body.imageUrl };
+    } catch (error) {
+      return { success: false, error: error?.message || 'Failed to upload photo' };
+    }
+  });
+
   ipcMain.handle('domeauth:getQuota', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

@@ -54,6 +54,11 @@
     "saved": "Enregistré",
     "error_name": "Veuillez entrer un nom valide (minimum 2 caractères)",
     "error_email": "Veuillez entrer une adresse e-mail valide",
+    "photo_change": "Changer la photo",
+    "photo_hint": "JPEG, PNG ou WebP, jusqu'à 2 Mo. La même photo apparaît sur vos autres appareils.",
+    "photo_saved": "Photo mise à jour",
+    "photo_too_large": "Cette image dépasse 2 Mo.",
+    "photo_error": "La photo n'a pas pu être enregistrée. Vérifiez que vous êtes connecté à Dome.",
     "privacy": "Confidentialité",
     "analytics_label": "Partager des données d'utilisation anonymes",
     "analytics_description": "Aidez à améliorer Dome en comprenant comment l'application est utilisée. Les données sont complètement anonymes."

@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 import { useUserStore } from '@/lib/store/useUserStore';
+import UserAvatar from '@/components/user/UserAvatar';
+import ProfilePhotoPicker from '@/components/user/ProfilePhotoPicker';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 import { getAnalyticsEnabled, setAnalyticsEnabled } from '@/lib/settings';
 import { initPostHog, shutdownPostHog, isPostHogConfigured } from '@/lib/analytics/posthog';
@@ -15,7 +17,10 @@ import { initSentry, shutdownSentry } from '@/lib/analytics/sentry';
 
 export default function GeneralSection() {
   const { t } = useTranslation();
-  const { name, email, updateUserProfile, loadUserProfile } = useUserStore();
+  const { name, email, avatarData, avatarPath, avatarUrl, updateUserProfile, loadUserProfile } = useUserStore();
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoSaved, setPhotoSaved] = useState(false);
   const [localName, setLocalName] = useState(name);
   const [localEmail, setLocalEmail] = useState(email);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
@@ -38,6 +43,34 @@ export default function GeneralSection() {
       setAnalyticsLoading(false);
     });
   }, []);
+
+  const handlePhoto = (file: File | undefined) => {
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoSaved(false);
+    if (file.size > 2 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPhotoError(t('settings.general.photo_too_large'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      setPhotoBusy(true);
+      window.electron.domeAuth.uploadAvatar(dataUrl).then((result) => {
+        if (!result.success || !result.imageUrl) {
+          setPhotoError(t('settings.general.photo_error'));
+          return;
+        }
+        updateUserProfile({ avatarUrl: result.imageUrl, avatarPath: undefined });
+        setPhotoSaved(true);
+      }).catch(() => {
+        setPhotoError(t('settings.general.photo_error'));
+      }).finally(() => {
+        setPhotoBusy(false);
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = () => {
     const newErrors: { name?: string; email?: string } = {};
@@ -77,6 +110,27 @@ export default function GeneralSection() {
       <SettingsGroup title={t('settings.general.profile')}>
         <div className="px-4 py-4">
           <FieldGroup>
+            <div className="flex items-center gap-4">
+              <UserAvatar
+                name={localName || name || t('userMenu.default_name')}
+                avatarData={avatarData}
+                avatarPath={avatarPath}
+                imageUrl={avatarUrl}
+                size="xl"
+              />
+              <div className="min-w-0">
+                <ProfilePhotoPicker
+                  label={t('settings.general.photo_change')}
+                  busy={photoBusy}
+                  onFile={handlePhoto}
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">{t('settings.general.photo_hint')}</p>
+                {photoSaved ? (
+                  <p className="mt-1 text-xs text-primary">{t('settings.general.photo_saved')}</p>
+                ) : null}
+                {photoError ? <p className="mt-1 text-xs text-destructive">{photoError}</p> : null}
+              </div>
+            </div>
             <Field data-invalid={Boolean(errors.name) || undefined}>
               <FieldLabel htmlFor="settings-user-name">
                 {t('settings.general.full_name')}

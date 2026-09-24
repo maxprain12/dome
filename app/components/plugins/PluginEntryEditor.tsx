@@ -64,6 +64,8 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   const [body, setBody] = useState(note.body);
   const [values, setValues] = useState<PluginFieldValues>(note.fields);
   const [dirty, setDirty] = useState(false);
+  const [sourceMode, setSourceMode] = useState(false);
+  const [sourceLocked, setSourceLocked] = useState(false);
   const dirtyRef = useRef(false);
   const changeSeq = useRef(0);
   const savedRevision = useRef(note.updatedAt);
@@ -410,14 +412,27 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
         </CollapsibleContent>
       </Collapsible>
       <Field>
-        <FieldLabel htmlFor="cms-entry-body">{t('plugins.body')}</FieldLabel>
+        <div className="flex items-center justify-between gap-2">
+          <FieldLabel htmlFor="cms-entry-body">{t('plugins.body')}</FieldLabel>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={sourceLocked && sourceMode}
+            onClick={() => editorRef.current?.setSourceMode(!sourceMode)}
+          >
+            {sourceMode ? t('notes.editor_visual') : t('notes.editor_source')}
+          </Button>
+        </div>
         <div className="min-w-0">
             <MarkdownNoteEditor
               key={note.id}
               id="cms-entry-body"
+              profile="cms"
               readOnly={pulling || adapting || deleting}
               ref={editorRef}
               initialMarkdown={body}
+              onSourceModeChange={(source, locked) => { setSourceMode(source); setSourceLocked(locked); }}
               pluginId={pluginId}
               resourceId={note.id}
               siteImageMap={siteImageMap ?? undefined}

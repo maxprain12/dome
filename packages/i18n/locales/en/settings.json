@@ -54,6 +54,11 @@
     "saved": "Saved",
     "error_name": "Please enter a valid name (minimum 2 characters)",
     "error_email": "Please enter a valid email address",
+    "photo_change": "Change photo",
+    "photo_hint": "JPEG, PNG or WebP, up to 2 MB. The same photo appears on your other devices.",
+    "photo_saved": "Photo updated",
+    "photo_too_large": "That image is larger than 2 MB.",
+    "photo_error": "The photo could not be saved. Check that you are signed in to Dome.",
     "privacy": "Privacy",
     "analytics_label": "Share anonymous usage data",
     "analytics_description": "Help improve Dome by understanding how the app is used. Data is completely anonymous."

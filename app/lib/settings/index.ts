@@ -23,6 +23,7 @@ export async function getUserProfile(): Promise<UserProfile> {
       email: '',
       avatarData: undefined,
       avatarPath: undefined,
+      avatarUrl: undefined,
     };
   }
 
@@ -30,12 +31,14 @@ export async function getUserProfile(): Promise<UserProfile> {
   const emailResult = await db.getSetting('user_email');
   const avatarDataResult = await db.getSetting('user_avatar_data');
   const avatarPathResult = await db.getSetting('user_avatar_path');
+  const avatarUrlResult = await db.getSetting('user_avatar_url');
 
   return {
     name: nameResult.data || '',
     email: emailResult.data || '',
     avatarData: avatarDataResult.data || undefined,
     avatarPath: avatarPathResult.data || undefined,
+    avatarUrl: avatarUrlResult.data || undefined,
   };
 }
 
@@ -54,6 +57,10 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<vo
 
   if (profile.avatarPath !== undefined) {
     await db.setSetting('user_avatar_path', profile.avatarPath || '');
+  }
+
+  if (profile.avatarUrl !== undefined) {
+    await db.setSetting('user_avatar_url', profile.avatarUrl || '');
   }
 }
 
