@@ -461,6 +461,8 @@ export interface UserProfile {
   avatarData?: string;
   /** Relative path to avatar file (e.g., "avatars/user-avatar-123.jpg") - New system */
   avatarPath?: string;
+  /** HTTPS URL of the account photo stored on Dome Provider. */
+  avatarUrl?: string;
 }
 
 /** Acciones rápidas disponibles en el home (orden y visibilidad configurables) */

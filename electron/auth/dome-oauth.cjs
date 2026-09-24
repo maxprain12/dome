@@ -231,15 +231,16 @@ async function getRemoteProfile(database) {
   try {
     const url = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/me`;
     const res = await fetchWithDomeAuth(database, url, { method: 'GET' });
-    if (!res.ok) return { name: null, email: null };
+    if (!res.ok) return { name: null, email: null, imageUrl: null };
     const data = await res.json();
     return {
       name: data.displayName ?? data.name ?? null,
       email: data.email ?? null,
+      imageUrl: typeof data.imageUrl === 'string' ? data.imageUrl : null,
     };
   } catch (err) {
     console.warn('[Dome OAuth] getRemoteProfile failed:', err?.message);
-    return { name: null, email: null };
+    return { name: null, email: null, imageUrl: null };
   }
 }
 

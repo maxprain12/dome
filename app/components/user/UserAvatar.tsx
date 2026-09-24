@@ -8,6 +8,8 @@ interface UserAvatarProps {
   avatarData?: string;
   /** Relative path to avatar file (e.g., "avatars/user-avatar-123.jpg") - New */
   avatarPath?: string;
+  /** Account photo from Dome Provider (https). Wins over a local file. */
+  imageUrl?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }
@@ -40,9 +42,13 @@ async function resolveFromElectron(avatarPath: string): Promise<string | null> {
 }
 
 async function resolveAvatarUrl(
+  imageUrl: string | undefined,
   avatarPath: string | undefined,
   avatarData: string | undefined,
 ): Promise<string | null> {
+  if (imageUrl && (imageUrl.startsWith('https://') || imageUrl.startsWith('http://'))) {
+    return imageUrl;
+  }
   if (avatarPath) {
     if (typeof window !== 'undefined' && window.electron) {
       return resolveFromElectron(avatarPath);
@@ -57,7 +63,7 @@ async function resolveAvatarUrl(
   return null;
 }
 
-export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', className = '' }: UserAvatarProps) {
+export default function UserAvatar({ name, avatarData, avatarPath, imageUrl, size = 'md', className = '' }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -67,8 +73,9 @@ export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', 
 
     const resolveAvatar = async () => {
       if (!mounted) return;
+      setImageError(false);
       try {
-        const resolved = await resolveAvatarUrl(avatarPath, avatarData);
+        const resolved = await resolveAvatarUrl(imageUrl, avatarPath, avatarData);
         if (mounted) setAvatarUrl(resolved);
       } catch (err) {
         console.error('[UserAvatar] Error resolving avatar path:', err);
@@ -81,7 +88,7 @@ export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', 
     return () => {
       mounted = false;
     };
-  }, [avatarPath, avatarData]);
+  }, [avatarPath, avatarData, imageUrl]);
 
   const handleImageError = () => {
     setImageError(true);

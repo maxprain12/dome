@@ -211,9 +211,60 @@ span.note-save-pill { cursor: default; }
 }
 
 /* ─── Doc scroll ─── */
+.note-stage {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.note-outline {
+  display: none;
+  width: 11rem;
+  flex-shrink: 0;
+  overflow: auto;
+  padding: 3rem 1rem 3rem 0;
+}
+
+@media (min-width: 1100px) {
+  .note-outline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+}
+
+.note-outline-item {
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  text-align: left;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-outline-item[data-level="2"] { padding-left: 0.9rem; }
+.note-outline-item[data-level="3"] { padding-left: 1.5rem; }
+.note-outline-item[data-level="4"],
+.note-outline-item[data-level="5"],
+.note-outline-item[data-level="6"] { padding-left: 2.1rem; }
+
+.note-outline-item:hover {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
 .note-doc {
   width: 100%;
   max-width: calc(var(--doc-width) + var(--doc-px) * 2);
+  margin-inline: auto;
   padding: var(--doc-py) var(--doc-px) 200px;
   font-size: var(--doc-font-size);
   line-height: var(--doc-line-height);
@@ -223,6 +274,7 @@ span.note-save-pill { cursor: default; }
 .note-area[data-note-mode='focused'] .note-doc {
   font-family: var(--font-display);
   --doc-line-height: 1.75;
+  --doc-width: 680px;
 }
 
 .note-doc-title-editable {

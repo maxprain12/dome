@@ -356,6 +356,8 @@ const ALLOWED_CHANNELS = {
     'domeauth:disconnect',
     'domeauth:getQuota',
     'domeauth:nativeLogin',
+    'domeauth:getProfile',
+    'domeauth:uploadAvatar',
     'domeauth:sessionState',
     // Personality Loader
     'personality:get-prompt',
@@ -1224,6 +1226,8 @@ const electronHandler = {
     getQuota: () => ipcRenderer.invoke('domeauth:getQuota'),
     nativeLogin: (email, password, isRegister, name) =>
       ipcRenderer.invoke('domeauth:nativeLogin', { email, password, isRegister, name }),
+    getProfile: () => ipcRenderer.invoke('domeauth:getProfile'),
+    uploadAvatar: (dataUrl) => ipcRenderer.invoke('domeauth:uploadAvatar', { dataUrl }),
     onSessionState: (callback) => {
       const sub = (_event, state) => callback(state);
       ipcRenderer.on('domeauth:sessionState', sub);

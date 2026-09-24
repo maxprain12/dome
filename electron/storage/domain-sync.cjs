@@ -200,7 +200,7 @@ function applyPersonIdentityRow(db, row) {
 const DOMAIN_SPECS = {
   social: {
     tables: [
-      { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials', 'avatar_url'] },
+      { name: 'social_accounts', deltaColumn: 'updated_at', excludePush: ['credentials'] },
       // campaign_id is local-only (social_campaigns is not cloud-synced); wire keeps denormalized `campaign`.
       {
         name: 'social_posts',

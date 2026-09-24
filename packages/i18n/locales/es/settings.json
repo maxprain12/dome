@@ -54,6 +54,11 @@
     "saved": "Guardado",
     "error_name": "Introduce un nombre válido (mínimo 2 caracteres)",
     "error_email": "Introduce una dirección de email válida",
+    "photo_change": "Cambiar foto",
+    "photo_hint": "JPEG, PNG o WebP, hasta 2 MB. La misma foto aparece en tus otros dispositivos.",
+    "photo_saved": "Foto actualizada",
+    "photo_too_large": "Esa imagen pesa más de 2 MB.",
+    "photo_error": "No se ha podido guardar la foto. Comprueba que has iniciado sesión en Dome.",
     "privacy": "Privacidad",
     "analytics_label": "Compartir datos de uso anónimos",
     "analytics_description": "Ayuda a mejorar Dome entendiendo cómo se usa la app. Los datos son completamente anónimos."

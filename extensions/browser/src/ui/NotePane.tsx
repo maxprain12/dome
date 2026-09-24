@@ -66,6 +66,7 @@ export default function NotePane(props: Props) {
         <MarkdownNoteEditor
           key={`${props.note?.id || 'new'}:${props.revision}`}
           ref={editor}
+          profile="embedded"
           initialMarkdown={props.markdown}
           readOnly={props.busy}
           placeholder={t('notePlaceholder')}
