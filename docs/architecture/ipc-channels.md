@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-24T08:46:14.371Z
+> Última generación: 2026-09-24T09:15:06.432Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -276,11 +276,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:120` |
 | `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:110` |
 | `domeauth:disconnect` | `electron/ipc/integrations/dome-auth.cjs:46` |
-| `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:82` |
+| `domeauth:getProfile` | `electron/ipc/integrations/dome-auth.cjs:82` |
+| `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:122` |
 | `domeauth:getSession` | `electron/ipc/integrations/dome-auth.cjs:21` |
 | `domeauth:nativeLogin` | `electron/ipc/integrations/dome-auth.cjs:60` |
 | `domeauth:openDashboard` | `electron/ipc/integrations/dome-auth.cjs:34` |
 | `domeauth:startOAuthFlow` | `electron/ipc/integrations/dome-auth.cjs:7` |
+| `domeauth:uploadAvatar` | `electron/ipc/integrations/dome-auth.cjs:94` |
 | `email:addAccount` | `electron/ipc/integrations/email.cjs:134` |
 | `email:listAccounts` | `electron/ipc/integrations/email.cjs:123` |
 | `email:listEnvelopes` | `electron/ipc/integrations/email.cjs:197` |
