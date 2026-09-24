@@ -65,6 +65,7 @@ steps:
       - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 libgbm1 libxss1
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile
+      - node node_modules/electron/install.js
       - pnpm run build
       - xvfb-run --auto-servernum pnpm run test:e2e:electron:run
 
