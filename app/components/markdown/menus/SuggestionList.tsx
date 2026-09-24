@@ -48,6 +48,7 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(fun
     <div
       className="z-50 w-72 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
       role="listbox"
+      tabIndex={-1}
       aria-label={t('notes.slash_filter_placeholder')}
       onMouseDown={(event) => event.preventDefault()}
     >

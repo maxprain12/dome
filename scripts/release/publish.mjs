@@ -41,7 +41,7 @@ async function main() {
 
   const keys = bridgeOnly ? UPLOAD_KEYS : [...UPLOAD_KEYS, ...PUBLISH_KEYS];
   requireKeys(keys);
-  const { createClient, getText, putText, copyViaStream } = await import('./lib/s3.mjs');
+  const { createClient, getText, putText, copyViaStream, downloadFile } = await import('./lib/s3.mjs');
   const stagingClient = createClient({
     endpoint: process.env.RELEASE_S3_ENDPOINT,
     region: process.env.RELEASE_S3_REGION,
@@ -78,16 +78,7 @@ async function main() {
           : null;
         const dest = path.join(dir, file.name);
         if (text != null) writeFileSync(dest, text);
-        else {
-          const { GetObjectCommand } = await import('@aws-sdk/client-s3');
-          const { pipeline } = await import('node:stream/promises');
-          const { createWriteStream } = await import('node:fs');
-          const obj = await stagingClient.send(new GetObjectCommand({
-            Bucket: stagingBucket,
-            Key: `v${version}/${manifest.platform}/${file.name}`,
-          }));
-          await pipeline(obj.Body, createWriteStream(dest));
-        }
+        else await downloadFile(stagingClient, stagingBucket, `v${version}/${manifest.platform}/${file.name}`, dest);
         names.push(dest);
       }
     }
