@@ -5,8 +5,9 @@ import { test, expect, _electron as electron } from '@playwright/test';
 
 test('boots the isolated shell without exposing the user profile', async () => {
   const profile = await mkdtemp(path.join(tmpdir(), 'dome-e2e-'));
+  const runningAsRoot = process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() === 0;
   const app = await electron.launch({
-    args: ['.'],
+    args: runningAsRoot ? ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '.'] : ['.'],
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -14,6 +15,12 @@ test('boots the isolated shell without exposing the user profile', async () => {
       DOME_PROFILE: profile,
       DOME_DISABLE_ANALYTICS: '1',
     },
+  });
+  app.process().stdout?.on('data', (chunk) => {
+    process.stdout.write(chunk);
+  });
+  app.process().stderr?.on('data', (chunk) => {
+    process.stderr.write(chunk);
   });
 
   try {

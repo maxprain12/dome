@@ -62,9 +62,10 @@ steps:
   - name: electron-smoke
     image: node:24-bookworm
     commands:
-      - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 libgbm1 libxss1
+      - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libnspr4 libasound2 libgbm1 libxss1 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libpango-1.0-0 libcairo2 libx11-xcb1 libxcb-dri3-0
       - npm i -g pnpm@11.8.0
       - pnpm install --frozen-lockfile
+      - pnpm rebuild
       - node node_modules/electron/install.js
       - pnpm run build
       - xvfb-run --auto-servernum pnpm run test:e2e:electron:run
