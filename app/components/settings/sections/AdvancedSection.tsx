@@ -15,6 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { openExternalHref } from '@/components/people/peopleContactActions';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
@@ -34,7 +35,10 @@ interface UpdaterState {
   version?: string;
   percent?: number;
   error?: string;
+  releaseNotes?: string;
 }
+
+type UpdateChannel = 'latest' | 'beta';
 
 const CITATION_STYLES: { value: CitationStyle; label: string; description: string }[] = [
   { value: 'apa', label: 'APA', description: 'American Psychological Association' },
@@ -50,6 +54,7 @@ export default function AdvancedSection() {
   const { citationStyle, autoSave, autoBackup, updateCitationStyle, updatePreferences } =
     useAppStore();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
+  const [updateChannel, setUpdateChannel] = useState<UpdateChannel>('latest');
   const [appVersion, setAppVersion] = useState<string>('');
 
   useEffect(() => {
@@ -71,6 +76,20 @@ export default function AdvancedSection() {
       setAppVersion('0.1.0');
     });
   }, []);
+
+  useEffect(() => {
+    void window.electron?.updater?.getChannel?.().then((result) => {
+      if (result?.success && (result.data === 'latest' || result.data === 'beta')) {
+        setUpdateChannel(result.data);
+      }
+    });
+  }, []);
+
+  const handleChannel = (value: string) => {
+    if (value !== 'latest' && value !== 'beta') return;
+    setUpdateChannel(value);
+    void window.electron?.updater?.setChannel?.(value);
+  };
 
   useEffect(() => {
     if (!window.electron?.updater?.onStatus) return;
@@ -198,6 +217,32 @@ export default function AdvancedSection() {
               <Progress value={updaterState.percent ?? 0} className="h-1.5" />
             </div>
           ) : null}
+          {updaterState.status === 'available' && updaterState.releaseNotes ? (
+            <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
+              {updaterState.releaseNotes}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <ToggleGroup
+              value={[updateChannel]}
+              onValueChange={(values) => {
+                const next = values[0];
+                if (next) handleChannel(next);
+              }}
+              aria-label={t('settings.advanced.update_channel')}
+            >
+              <ToggleGroupItem value="latest">{t('settings.advanced.update_channel_stable')}</ToggleGroupItem>
+              <ToggleGroupItem value="beta">{t('settings.advanced.update_channel_beta')}</ToggleGroupItem>
+            </ToggleGroup>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={() => { openExternalHref('https://dome.dowi.es/changelog'); }}
+            >
+              {t('settings.advanced.view_full_changelog')}
+            </Button>
+          </div>
         </SettingsRow>
       </SettingsGroup>
 

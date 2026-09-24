@@ -5,7 +5,7 @@
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 /** Shown in OpenRouter dashboard (HTTP-Referer). */
-const OPENROUTER_SITE_URL = 'https://github.com/maxprain12/dome';
+const OPENROUTER_SITE_URL = 'https://dome.dowi.es';
 /** Application title (X-Title). */
 const OPENROUTER_SITE_NAME = 'Dome';
 

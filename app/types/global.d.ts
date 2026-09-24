@@ -461,6 +461,8 @@ declare global {
         download: () => Promise<unknown>;
         install: () => Promise<void>;
         skip: (version: string) => Promise<{ ok: boolean; error?: string }>;
+        getChannel: () => Promise<{ success: boolean; data?: 'latest' | 'beta' }>;
+        setChannel: (channel: 'latest' | 'beta') => Promise<{ success: boolean; error?: string }>;
         onStatus: (cb: (s: { status: string; version?: string; percent?: number; error?: string; [key: string]: unknown }) => void) => () => void;
       };
 

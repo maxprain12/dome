@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-23T21:37:16.324Z
+> Última generación: 2026-09-24T08:46:14.371Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -638,8 +638,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `transcription:set-settings` | `electron/ipc/media/transcription.cjs:290` |
 | `updater:check` | `electron/ipc/core/updater.cjs:9` |
 | `updater:download` | `electron/ipc/core/updater.cjs:20` |
+| `updater:get-channel` | `electron/ipc/core/updater.cjs:42` |
 | `updater:install` | `electron/ipc/core/updater.cjs:31` |
-| `updater:skip` | `electron/ipc/core/updater.cjs:42` |
+| `updater:set-channel` | `electron/ipc/core/updater.cjs:52` |
+| `updater:skip` | `electron/ipc/core/updater.cjs:67` |
 | `vault:openRoot` | `electron/ipc/data/resources.cjs:498` |
 | `web:get-youtube-thumbnail` | `electron/ipc/integrations/web.cjs:185` |
 | `web:process` | `electron/ipc/integrations/web.cjs:216` |

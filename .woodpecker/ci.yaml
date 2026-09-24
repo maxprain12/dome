@@ -1,0 +1,106 @@
+when:
+  - event: pull_request
+  - event: push
+    branch: main
+
+steps:
+  - name: typecheck
+    image: node:24-bookworm
+    commands:
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile --ignore-scripts
+      - pnpm run typecheck
+
+  - name: lint-and-contracts
+    image: node:24-bookworm
+    commands:
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile --ignore-scripts
+      - pnpm run lint
+      - pnpm run test:ui
+      - pnpm run check:ui-contracts
+      - pnpm run check:ipc-inventory
+      - pnpm run check:remote-protocol
+      - pnpm run test:remote-protocol
+      - pnpm run check:ipc-zod
+      - pnpm run check:tool-coverage
+      - pnpm run check:prompt-tool-parity
+      - pnpm run check:prompts-martin
+      - pnpm run check:design-system
+      - pnpm run check:i18n-keys
+      - pnpm run check:no-raw-ids
+      - pnpm run check:text-containment
+      - pnpm run test:ui-guardrails
+      - pnpm run test:sonar-patterns
+      - pnpm run check:sonar-patterns
+      - pnpm run check:asar-unpack
+      - pnpm run test:security
+      - pnpm run build:packages
+      - pnpm run test:contacts-mail
+      - pnpm --filter @dome/agent-core run test
+      - pnpm run smoke:mcp-sdk
+      - pnpm run test:many-thread-bridge
+      - pnpm run test:execution-log-display
+
+  - name: sonar-diff
+    image: node:24-bookworm
+    when:
+      - event: pull_request
+    commands:
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile --ignore-scripts
+      - git fetch origin "$$CI_COMMIT_TARGET_BRANCH" --depth=1
+      - pnpm run check:sonar-patterns -- --diff="origin/$$CI_COMMIT_TARGET_BRANCH"
+
+  - name: vite-build
+    image: node:24-bookworm
+    commands:
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile --ignore-scripts
+      - pnpm run build
+
+  - name: electron-smoke
+    image: node:24-bookworm
+    commands:
+      - apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 libgbm1 libxss1
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile
+      - pnpm run build
+      - xvfb-run --auto-servernum pnpm run test:e2e:electron:run
+
+  - name: depcruise
+    image: node:24-bookworm
+    commands:
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile --ignore-scripts
+      - pnpm run depcruise
+
+  - name: architecture
+    image: node:24-bookworm
+    commands:
+      - |
+        PATTERNS=("from 'better-sqlite3'" "require('better-sqlite3')" "from 'bun:" "require('bun:" "from 'node:fs'" "require('node:fs')")
+        FOUND=0
+        for pattern in "$${PATTERNS[@]}"; do
+          if grep -rn "$$pattern" app/ --include="*.ts" --include="*.tsx" 2>/dev/null; then
+            FOUND=1
+          fi
+        done
+        if [ "$$FOUND" -eq 1 ]; then
+          echo "Node.js module imports found in renderer process (app/)."
+          exit 1
+        fi
+        echo "Architecture check passed."
+
+  - name: browser-extension
+    image: node:24-bookworm
+    commands:
+      - apt-get update && apt-get install -y xvfb
+      - npm i -g pnpm@11.8.0
+      - pnpm install --frozen-lockfile --ignore-scripts
+      - pnpm run extension:test
+      - pnpm --filter @dome/browser-extension run typecheck
+      - pnpm run extension:build
+      - EXTENSION_REQUIRE_BUILD=1 pnpm --filter @dome/browser-extension exec vitest run src/lib/manifest-smoke.test.ts
+      - pnpm exec playwright install --with-deps chromium
+      - xvfb-run --auto-servernum pnpm run extension:smoke

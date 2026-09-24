@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const { shell } = require('electron');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const { encryptSessionField, decryptSessionField } = require('../core/settings-secrets.cjs');
+const { fullJitterBackoffMs } = require('../net/backoff.cjs');
 
 function decodeSessionRow(row) {
   if (!row) return null;
@@ -98,7 +99,7 @@ async function refreshAccessToken(database, refreshToken, attempt = 0) {
     });
   } catch (err) {
     if (!isUnreachableNetworkError(err) && attempt < REFRESH_MAX_ATTEMPTS - 1) {
-      await sleep(REFRESH_RETRY_BASE_MS * (attempt + 1));
+      await sleep(fullJitterBackoffMs(attempt, { baseMs: REFRESH_RETRY_BASE_MS, maxMs: 5000 }));
       return refreshAccessToken(database, refreshToken, attempt + 1);
     }
     throw new RefreshTokenError(networkRefreshMessage(err), { fatal: false });
@@ -108,7 +109,7 @@ async function refreshAccessToken(database, refreshToken, attempt = 0) {
     const text = await response.text();
     const fatal = isInvalidGrantResponse(response.status, text);
     if (!fatal && attempt < REFRESH_MAX_ATTEMPTS - 1) {
-      await sleep(REFRESH_RETRY_BASE_MS * (attempt + 1));
+      await sleep(fullJitterBackoffMs(attempt, { baseMs: REFRESH_RETRY_BASE_MS, maxMs: 5000 }));
       return refreshAccessToken(database, refreshToken, attempt + 1);
     }
     throw new RefreshTokenError(`Refresh failed: ${response.status} ${text}`, {

@@ -28,6 +28,11 @@
     "patch:pptx-preview": "node scripts/patch-pptx-preview.mjs",
     "postinstall": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
     "bootstrap:release-deps": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
+    "release:build": "node scripts/release/build.mjs",
+    "release:publish": "node scripts/release/publish.mjs",
+    "release:promote": "node scripts/release/promote.mjs",
+    "release:notes": "git-cliff --unreleased --strip header",
+    "test:release": "node --test scripts/release/__tests__/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/",
     "extension:dev": "pnpm --filter @dome/browser-extension run dev",
@@ -255,6 +260,8 @@
     "langsmith": "^0.6.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.940.0",
+    "@aws-sdk/lib-storage": "^3.940.0",
     "@base-ui/react": "^1.4.1",
     "@electron/rebuild": "^4.0.4",
     "@playwright/test": "^1.61.1",
@@ -283,6 +290,7 @@
     "electron-builder": "^26.9.0",
     "electron-devtools-installer": "^4.0.0",
     "eslint": "^9.39.4",
+    "git-cliff": "^2.10.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "jsdom": "^29.1.1",
@@ -348,10 +356,10 @@
       "output": "release"
     },
     "publish": {
-      "provider": "github",
-      "owner": "maxprain12",
-      "repo": "dome",
-      "private": false
+      "provider": "generic",
+      "url": "https://dl.dowi.es/feed",
+      "channel": "latest",
+      "useMultipleRangeRequest": false
     },
     "mac": {
       "category": "public.app-category.productivity",

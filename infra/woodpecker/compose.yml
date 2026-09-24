@@ -1,0 +1,48 @@
+# Woodpecker CI for Coolify (project Produccion).
+# Manual before first start (F1.1):
+# 1. GitHub OAuth App — Homepage https://ci.dowi.es, callback https://ci.dowi.es/authorize
+# 2. openssl rand -hex 32  → WP_AGENT_SECRET
+# 3. Postgres database "woodpecker" → WP_DATABASE_URL
+# 4. Coolify: Docker Compose resource, domain ci.dowi.es → woodpecker-server:8000
+#    Publish the hostname through the existing cloudflared tunnel.
+# 5. Sign in, activate dome / dome-provider / landing-page-dome / dome-companion.
+# 6. Per-repo secrets: coolify_token, coolify_url, dome_deploy_key (read-only, provider + companion).
+# Signing and release secrets stay on the build machines, not here.
+
+services:
+  woodpecker-server:
+    image: woodpeckerci/woodpecker-server:v3
+    restart: unless-stopped
+    environment:
+      WOODPECKER_HOST: https://ci.dowi.es
+      WOODPECKER_OPEN: "false"
+      WOODPECKER_ADMIN: maxprain12
+      WOODPECKER_GITHUB: "true"
+      WOODPECKER_GITHUB_CLIENT: ${WP_GITHUB_CLIENT}
+      WOODPECKER_GITHUB_SECRET: ${WP_GITHUB_SECRET}
+      WOODPECKER_AGENT_SECRET: ${WP_AGENT_SECRET}
+      WOODPECKER_DATABASE_DRIVER: postgres
+      WOODPECKER_DATABASE_DATASOURCE: ${WP_DATABASE_URL}
+    volumes:
+      - woodpecker-data:/var/lib/woodpecker
+
+  woodpecker-agent:
+    image: woodpeckerci/woodpecker-agent:v3
+    restart: unless-stopped
+    depends_on:
+      - woodpecker-server
+    environment:
+      WOODPECKER_SERVER: woodpecker-server:9000
+      WOODPECKER_AGENT_SECRET: ${WP_AGENT_SECRET}
+      WOODPECKER_MAX_WORKFLOWS: "2"
+      WOODPECKER_BACKEND: docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+
+volumes:
+  woodpecker-data:
