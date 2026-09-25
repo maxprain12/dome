@@ -1,0 +1,53 @@
+diff --git a/out/node-module-collector/pnpmNodeModulesCollector.js b/out/node-module-collector/pnpmNodeModulesCollector.js
+index 8853912e013d3769f3e763d06720a94091a7ffaa..2ed871596e1458c1848388f7bac65f482ede025f 100644
+--- a/out/node-module-collector/pnpmNodeModulesCollector.js
++++ b/out/node-module-collector/pnpmNodeModulesCollector.js
+@@ -36,6 +36,11 @@ class PnpmNodeModulesCollector extends nodeModulesCollector_1.NodeModulesCollect
+          * every shared subtree of the pnpm list output, exploding work in deep workspaces.
+          */
+         this.collectedDeps = new Set();
++        /**
++         * Full (non-deduped) entries keyed by store path. Deduped refs point at the same path, even
++         * when the full entry was printed under an npm alias (e.g. `string-width-cjs`).
++         */
++        this.dependenciesByPath = new Map();
+     }
+     /**
+      * Returns the workspace packages to iterate over, gated by detected pnpm version:
+@@ -98,9 +103,12 @@ class PnpmNodeModulesCollector extends nodeModulesCollector_1.NodeModulesCollect
+         }
+         this.productionGraph[dependencyId] = { dependencies: [] };
+         if (((_a = tree.dedupedDependenciesCount) !== null && _a !== void 0 ? _a : 0) > 0) {
+-            const realDep = this.allDependencies.get(dependencyId);
++            const realDep = this.allDependencies.get(dependencyId) || (tree.path ? this.dependenciesByPath.get(tree.path) : undefined);
+             if (realDep) {
+                 this.cache.logSummary[moduleManager_1.LogMessageByKey.PKG_DUPLICATE_REF].push(dependencyId);
++                if (!this.allDependencies.has(dependencyId)) {
++                    this.allDependencies.set(dependencyId, realDep);
++                }
+                 tree = realDep;
+             }
+             else {
+@@ -154,12 +162,19 @@ class PnpmNodeModulesCollector extends nodeModulesCollector_1.NodeModulesCollect
+             const id = `${key}@${value.version}`;
+             // The pnpm list output can include the same `name@version` thousands of times across a
+             // deep workspace; without this guard we re-resolve and re-recurse each occurrence.
+-            if (this.collectedDeps.has(id)) {
++            // Key by store path: peer-dependency variants share `name@version` but live in different
++            // store dirs, and pnpm prints the full subtree under only one of them.
++            const visitKey = value.path || id;
++            if (this.collectedDeps.has(visitKey)) {
+                 return;
+             }
+-            this.collectedDeps.add(id);
++            this.collectedDeps.add(visitKey);
+             const pkg = await this.locateFromDepOrRoot(key, value.path, value.version);
+-            this.allDependencies.set(id, { ...value, path: (_b = pkg === null || pkg === void 0 ? void 0 : pkg.packageDir) !== null && _b !== void 0 ? _b : value.path });
++            const entry = { ...value, path: (_b = pkg === null || pkg === void 0 ? void 0 : pkg.packageDir) !== null && _b !== void 0 ? _b : value.path };
++            this.allDependencies.set(id, entry);
++            if (value.path) {
++                this.dependenciesByPath.set(value.path, entry);
++            }
+             await this.collectDepsRecursively(value);
+         };
+         for (const [key, value] of Object.entries(tree.dependencies || {})) {
