@@ -34,6 +34,8 @@ steps:
       - pnpm run test:sonar-patterns
       - pnpm run check:sonar-patterns
       - pnpm run check:asar-unpack
+      - pnpm run check:packaged-deps
+      - pnpm run test:packaged-deps
       - pnpm run test:security
       - pnpm run build:packages
       - pnpm run test:contacts-mail

@@ -6,6 +6,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  archName,
+  findArchMismatches,
+  listUnpackedPackages,
+  scanAsarDependencies,
+} = require('./verify-packaged-app.cjs');
 
 /**
  * codesign --verify --deep --strict rejects symlinks whose target resolves outside the .app.
@@ -108,9 +114,10 @@ function fixSymlinksOutsideAppBundle(appBundlePath, dirsToScan) {
 
 exports.default = async function afterPack(context) {
   const { appOutDir, electronPlatformName } = context;
+  const targetArch = archName(context.arch);
 
   console.log('[AfterPack] Running after-pack hook...');
-  console.log('[AfterPack] Platform:', electronPlatformName);
+  console.log('[AfterPack] Platform:', electronPlatformName, 'Arch:', targetArch);
   console.log('[AfterPack] Output directory:', appOutDir);
 
   // Determine the resources path based on platform
@@ -166,16 +173,51 @@ exports.default = async function afterPack(context) {
 
     // The 2.6.0 crash: the ffmpeg binary must exist OUTSIDE app.asar and be
     // executable. Verify the actual platform binary is present and not in-asar.
-    const ffmpegErr = verifyFfmpegBinary(asarUnpackedPath, electronPlatformName);
+    const ffmpegErr = verifyFfmpegBinary(asarUnpackedPath, electronPlatformName, targetArch);
     if (ffmpegErr) {
       fatal.push(ffmpegErr);
       console.error(`[AfterPack] ❌ ${ffmpegErr}`);
     } else {
       console.log('[AfterPack] ✅ ffmpeg binary is unpacked and executable');
     }
+
+    // Warning only for now: the macOS x64 build is produced on arm64 and still
+    // ships arm64 prebuilts. Make this fatal once the x64 build installs its own.
+    const archMismatches = findArchMismatches(
+      listUnpackedPackages(path.join(asarUnpackedPath, 'node_modules')),
+      electronPlatformName,
+      targetArch,
+    );
+    for (const m of archMismatches) {
+      console.warn(
+        `[AfterPack] ⚠️  ${targetArch} build is missing ${m.expected} (ships ${m.found.join(', ')}) — this feature will not load on ${targetArch}`,
+      );
+    }
   } else {
     fatal.push('app.asar.unpacked does NOT exist — native modules will not work in production');
     console.error('[AfterPack] ❌ app.asar.unpacked does NOT exist!');
+  }
+
+  const asarPath = path.join(resourcesPath, 'app.asar');
+  if (fs.existsSync(asarPath)) {
+    const unresolved = scanAsarDependencies(asarPath);
+    if (unresolved.length > 0) {
+      const byDependency = new Map();
+      for (const { dependent, dependency } of unresolved) {
+        if (!byDependency.has(dependency)) byDependency.set(dependency, []);
+        byDependency.get(dependency).push(dependent);
+      }
+      for (const [dependency, dependents] of byDependency) {
+        const msg = `app.asar is missing '${dependency}' (required by ${dependents.slice(0, 3).join(', ')}${dependents.length > 3 ? `, +${dependents.length - 3}` : ''})`;
+        fatal.push(msg);
+        console.error(`[AfterPack] ❌ ${msg}`);
+      }
+    } else {
+      console.log('[AfterPack] ✅ every dependency inside app.asar resolves');
+    }
+  } else {
+    fatal.push('app.asar does NOT exist');
+    console.error('[AfterPack] ❌ app.asar does NOT exist!');
   }
 
   if (electronPlatformName === 'darwin') {
@@ -202,18 +244,19 @@ exports.default = async function afterPack(context) {
  * This is the exact regression that crashed Dome 2.6.0 (spawn ENOTDIR from
  * an app.asar ffmpeg path).
  */
-function verifyFfmpegBinary(asarUnpackedPath, electronPlatformName) {
-  const platformDir = {
-    darwin: process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64',
-    win32: process.arch === 'ia32' ? 'win32-ia32' : 'win32-x64',
-    linux: process.arch === 'arm64' ? 'linux-arm64' : 'linux-x64',
-  }[electronPlatformName];
-
-  if (!platformDir) {
+function verifyFfmpegBinary(asarUnpackedPath, electronPlatformName, targetArch) {
+  const base = path.join(asarUnpackedPath, 'node_modules', '@ffmpeg-installer');
+  if (!['darwin', 'win32', 'linux'].includes(electronPlatformName)) {
     // Unknown platform: confirm at least one ffmpeg binary is unpacked.
-    const base = path.join(asarUnpackedPath, 'node_modules', '@ffmpeg-installer');
     return fs.existsSync(base) ? null : '@ffmpeg-installer not unpacked';
   }
+
+  // Prefer the target-arch binary; a host-arch one is reported by the arch check.
+  const targetDir = `${electronPlatformName}-${targetArch}`;
+  const platformDirs = fs.existsSync(base)
+    ? fs.readdirSync(base).filter((d) => d.startsWith(`${electronPlatformName}-`))
+    : [];
+  const platformDir = platformDirs.includes(targetDir) ? targetDir : (platformDirs[0] ?? targetDir);
 
   const binName = electronPlatformName === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
   const binPath = path.join(
