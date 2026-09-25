@@ -198,12 +198,7 @@
     "provider_legend_needs_key": "Clé manquante",
     "configuration": "Configuration",
     "web_search_section": "Recherche web",
-    "recommended": "RECOMMANDÉ",
-    "no_own_key": "Pas de clé API propre requise",
-    "private": "Privé",
-    "fast": "Rapide",
     "api_key_required": "Clé API requise",
-    "local_badge": "LOCAL",
     "private_local": "100% privé, aucune donnée dans le cloud",
     "model": "Modèle",
     "use_presets": "Utiliser les préréglages",
@@ -333,9 +328,6 @@
     "saved_key": "Clé enregistrée",
     "local_models": "Modèles locaux",
     "no_models": "Aucun modèle trouvé",
-    "providers_configured": "Configurés",
-    "providers_available": "Disponibles",
-    "providers_local": "Local",
     "key_saved": "Clé API enregistrée",
     "visible_models": {
       "title": "Modèles dans le sélecteur",
@@ -351,11 +343,13 @@
       "remove": "Retirer du sélecteur",
       "reset": "Réinitialiser par défaut",
       "save": "Enregistrer",
-      "gear_label": "Configurer les modèles visibles pour {{provider}}",
       "add_by_id": "Ajouter un modèle par ID",
       "add_by_id_hint": "Pour les modèles absents du catalogue. L'ID est ajouté au sélecteur immédiatement.",
       "add_by_id_placeholder": "Id du modèle (ex. gpt-4.1)",
-      "custom_model_badge": "Modèle personnalisé"
+      "custom_model_badge": "Modèle personnalisé",
+      "row_title": "Modèles du sélecteur",
+      "row_desc": "Choisissez les modèles proposés quand vous changez de modèle dans le chat.",
+      "row_action": "Choisir les modèles"
     },
     "dome_login_email": "E-mail",
     "dome_login_password": "Mot de passe",
@@ -364,7 +358,27 @@
     "dome_login_ok": "Session Dome connectée.",
     "dome_login_failed": "Échec de la connexion.",
     "dome_login_invalid_credentials": "E-mail ou mot de passe incorrect.",
-    "dome_login_network_error": "Serveur Dome injoignable. Réessayez."
+    "dome_login_network_error": "Serveur Dome injoignable. Réessayez.",
+    "provider_search": "Rechercher un fournisseur",
+    "provider_search_empty_title": "Aucun fournisseur",
+    "provider_search_empty": "Rien ne correspond à « {{query}} ». Essayez le nom de l’entreprise ou du modèle.",
+    "provider_group": {
+      "active": "Utilisé",
+      "configured": "Configurés",
+      "subscription": "Avec votre compte",
+      "cloud": "Avec une clé API",
+      "local": "Sur cet ordinateur"
+    },
+    "provider_kind": {
+      "subscription": "Connexion avec votre compte",
+      "cloud": "Clé API",
+      "local": "Modèle local"
+    },
+    "badge_experimental": "Expérimental",
+    "in_use": "Utilisé",
+    "not_in_use": "Non utilisé",
+    "save_and_use": "Enregistrer et utiliser {{provider}}",
+    "test_unavailable": "Le test de connexion n’est pas disponible dans cette version."
   },
   "transcription": {
     "title": "Transcription vocale",
@@ -440,16 +454,11 @@
     "shortcut_opt_in_help": "Les raccourcis globaux sont optionnels. Sur macOS ils peuvent demander Accessibilité / Surveillance des entrées. Vous pouvez utiliser le micro dans la barre sans raccourcis.",
     "shortcut_enable_dictation": "Activer le raccourci global du dock de dictée",
     "section_permissions": "Autorisations",
-    "perm_mic": "Microphone",
-    "perm_screen": "Enregistrement d'écran",
-    "perm_granted": "Accordé",
-    "perm_denied": "Refusé",
-    "perm_not_determined": "Non demandé",
-    "perm_restricted": "Restreint",
-    "perm_request": "Demander l'accès",
-    "perm_open_prefs": "Ouvrir les Préférences Système",
-    "perm_screen_restart_hint": "Après avoir accordé l'Enregistrement d'écran, redémarrez Dome pour que le changement prenne effet.",
-    "perm_os_managed": "Les autorisations sont gérées par le système d'exploitation."
+    "live_engine": "Transcription en direct",
+    "live_engine_realtime": "En continu (OpenAI Realtime)",
+    "live_engine_chunks": "Toutes les quelques secondes",
+    "live_engine_help": "Le mode continu affiche les mots au fur et à mesure. À l’arrêt, Dome refait une passe complète avec les intervenants.",
+    "live_engine_openai_only": "Le mode continu nécessite OpenAI sans endpoint personnalisé. Avec d’autres fournisseurs, le texte se met à jour toutes les quelques secondes."
   },
   "domain_sync": {
     "title": "Sync par domaine",

@@ -2,6 +2,31 @@
 
 All notable changes to Dome are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Transcripción en streaming.** Con OpenAI, el texto en vivo llega palabra a palabra por OpenAI Realtime. La conexión se abre desde el proceso principal, así que la API key no pasa por la interfaz. Si el streaming se corta, Dome sigue grabando, pasa a actualizar el texto cada pocos segundos y al detener hace igualmente la transcripción completa con hablantes. Groq y los endpoints personalizados usan ese modo por fragmentos. Ajustes → IA → Transcripción → Transcripción en vivo.
+- **Permisos de macOS en un solo sitio.** El popover de transcripción, Ajustes y el onboarding muestran el estado del micrófono y de la Grabación de pantalla, con botones para pedirlos, abrir Ajustes del Sistema o reiniciar Dome cuando macOS lo necesita. IPC `permissions:*`.
+- **Onboarding nuevo.** Pasos: idioma, perfil, edición, IA, permisos y un resumen final. El paso de IA usa el mismo selector que Ajustes, con Copilot, Claude y Codex, que antes no dejaban continuar. Si falla guardar algo esencial, el onboarding no se marca como completado y ofrece reintentar.
+- **Ajustes → IA en maestro-detalle.** Lista de proveedores con buscador y grupos (en uso, configurados, con tu cuenta, con API key, locales) y un panel de detalle con credenciales, modelo y modelos del selector. Escala a los 24 proveedores sin alargar la página.
+- Guías de publicación de la extensión (Chrome Web Store, Edge Add-ons, Safari) y de Dome Companion (TestFlight, App Store).
+
+### Fixed
+
+- **Many remoto:** «Generar código» ya no falla con `desktop_unavailable` si se pulsa justo después de activar el control remoto: el Mac se registra antes de pedir el código. Los errores del emparejamiento se muestran traducidos.
+- El build firmado de macOS declara el entitlement de micrófono y los textos de uso de micrófono y pantalla. Sin ese entitlement, el runtime endurecido denegaba el micrófono sin avisar.
+- Transcripción con Groq: la API key guardada se enviaba cifrada; ahora se descifra antes de llamar a Groq.
+- El texto en vivo de una sesión ya no se duplica en la base de datos en cada actualización.
+- Los errores de transcripción (sin permiso de pantalla, sin API key, sesión activa…) salen en el idioma de la interfaz, no en inglés.
+- Los hablantes detectados se nombran en el idioma de la interfaz («Persona A», «Speaker A»).
+- Los estados «Clave guardada» / «Conectado» de Ajustes → IA cubren todos los proveedores, incluidos Dome, xAI, Groq, Mistral, Fireworks, Together, Vertex y Azure.
+- Los proveedores sin logo propio muestran su inicial en lugar del logo de otra marca.
+
+### Changed
+
+- TTS y reproducción de audio pasan a `electron/speech/`. La transcripción se divide en `session/` y `stt/` (`docs/features/transcription.md`).
+
 ## [2.9.2](https://dome.dowi.es/changelog#v2.9.2) - 2026-09-25
 
 La 2.9.1 seguía cerrándose al abrir con `Cannot find module 'once'`. Al instalador le faltaban 15 módulos, no solo `once`: entre ellos `debug`, que usa el actualizador, y `express` y `ajv`, que usa el cliente MCP.

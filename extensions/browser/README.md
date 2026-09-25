@@ -9,7 +9,11 @@ WebExtension (Manifest V3) para capturar contactos, notas y enlaces hacia la app
 3. Carga la carpeta `.output/chrome-mv3` en `chrome://extensions` (modo desarrollador).
 4. En Dome: Ajustes → Extensión de navegador → Generar código, y pégalo en el panel.
 
-Safari: `pnpm run extension:safari` genera el bundle; en Safari 26 puedes cargar la carpeta `.output/safari-mv2` (o `safari-mv3`) como extensión temporal. Empaquetado Xcode/firma queda fuera de este MVP.
+Safari: `pnpm run extension:safari` genera el bundle; en Safari 26 puedes cargar la carpeta `.output/safari-mv2` (o `safari-mv3`) como extensión temporal.
+
+## Publicar
+
+Chrome Web Store, Edge Add-ons y Safari (App Store de Mac): [`.claude/sops/release-browser-extension.md`](../../.claude/sops/release-browser-extension.md).
 
 ## Privacidad
 

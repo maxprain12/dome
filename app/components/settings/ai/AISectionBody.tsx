@@ -2,20 +2,23 @@ import type { Ref } from 'react';
 import AIEmbeddingsTab from './AIEmbeddingsTab';
 import AIWebSearchTab from './AIWebSearchTab';
 import AgentContextSettingsTab from './AgentContextSettingsTab';
-import AIProviderSelection from './AIProviderSelection';
+import AIProviderList from './AIProviderList';
+import AIProviderDetail from './AIProviderDetail';
 import ProviderModelsConfigModal from './ProviderModelsConfigModal';
 import AIChatProviderPanels from './AIChatProviderPanels';
 import AIChatSaveBar from './AIChatSaveBar';
 import TranscriptionSettingsSections, {
   type TranscriptionSettingsSectionsHandle,
-} from '../TranscriptionSettingsSections';
-import type { AIProviderType, ModelDefinition } from '@/lib/ai/models';
+} from '../transcription/TranscriptionSettingsSections';
+import { useTranslation } from 'react-i18next';
+import { PROVIDERS, type AIProviderType, type ModelDefinition } from '@/lib/ai/models';
 import type { AISettingsTab } from './useAISectionController';
 import type { TestResult } from './aiSectionHelpers';
 
 export interface AISectionBodyProps {
   activeTab: AISettingsTab;
   provider: AIProviderType;
+  activeProvider: AIProviderType | null;
   onProviderChange: (provider: AIProviderType) => void;
   providerKeyStatus: Record<string, boolean>;
   modelsConfigProvider: AIProviderType | null;
@@ -51,6 +54,7 @@ export interface AISectionBodyProps {
 export default function AISectionBody({
   activeTab,
   provider,
+  activeProvider,
   onProviderChange,
   providerKeyStatus,
   modelsConfigProvider,
@@ -81,26 +85,39 @@ export default function AISectionBody({
   onSave,
   onTest,
 }: AISectionBodyProps) {
-  const showSaveBar = activeTab === 'chat' || activeTab === 'transcription';
+  const { t } = useTranslation();
+  const saveLabel =
+    activeProvider && provider !== activeProvider
+      ? t('settings.ai.save_and_use', { provider: PROVIDERS[provider]?.name ?? provider })
+      : undefined;
 
-  return (
-    <>
-      {activeTab === 'chat' ? (
-        <>
-          <AIProviderSelection
-            provider={provider}
-            onProviderChange={onProviderChange}
-            configuredProviders={providerKeyStatus}
-            onConfigureModels={onModelsConfigProviderChange}
-          />
-
-          <ProviderModelsConfigModal
-            open={modelsConfigProvider != null}
-            provider={modelsConfigProvider}
-            onClose={() => onModelsConfigProviderChange(null)}
-            onSaved={onModelsConfigSaved}
-          />
-
+  if (activeTab === 'chat') {
+    return (
+      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] lg:items-start">
+        <AIProviderList
+          selected={provider}
+          active={activeProvider}
+          configured={providerKeyStatus}
+          onSelect={onProviderChange}
+          className="lg:sticky lg:top-0 lg:max-h-[calc(100vh-14rem)]"
+        />
+        <AIProviderDetail
+          provider={provider}
+          active={activeProvider}
+          configured={Boolean(providerKeyStatus[provider])}
+          onConfigureModels={onModelsConfigProviderChange}
+          footer={
+            <AIChatSaveBar
+              showTest
+              saved={saved}
+              testing={testing}
+              testResult={testResult}
+              onSave={onSave}
+              onTest={onTest}
+              saveLabel={saveLabel}
+            />
+          }
+        >
           <AIChatProviderPanels
             provider={provider}
             apiKey={apiKey}
@@ -122,34 +139,43 @@ export default function AISectionBody({
             onTestResult={onTestResult}
             groupTitle={configurationTitle}
           />
-        </>
-      ) : null}
+        </AIProviderDetail>
+        <ProviderModelsConfigModal
+          open={modelsConfigProvider != null}
+          provider={modelsConfigProvider}
+          onClose={() => onModelsConfigProviderChange(null)}
+          onSaved={onModelsConfigSaved}
+        />
+      </div>
+    );
+  }
 
+  return (
+    <div className="flex max-w-2xl flex-col gap-6">
       {activeTab === 'embeddings' ? <AIEmbeddingsTab /> : null}
 
       {activeTab === 'transcription' ? (
-        <TranscriptionSettingsSections
-          ref={transcriptionRef}
-          embedded
-          summaryModels={currentProviderModels}
-          summaryModelsLoading={providerModelsLoading}
-        />
+        <>
+          <TranscriptionSettingsSections
+            ref={transcriptionRef}
+            embedded
+            summaryModels={currentProviderModels}
+            summaryModelsLoading={providerModelsLoading}
+          />
+          <AIChatSaveBar
+            showTest={false}
+            saved={saved}
+            testing={testing}
+            testResult={testResult}
+            onSave={onSave}
+            onTest={onTest}
+          />
+        </>
       ) : null}
 
       {activeTab === 'tools' ? <AIWebSearchTab /> : null}
 
       {activeTab === 'context' ? <AgentContextSettingsTab /> : null}
-
-      {showSaveBar ? (
-        <AIChatSaveBar
-          showTest={activeTab === 'chat'}
-          saved={saved}
-          testing={testing}
-          testResult={testResult}
-          onSave={onSave}
-          onTest={onTest}
-        />
-      ) : null}
-    </>
+    </div>
   );
 }

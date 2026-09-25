@@ -67,6 +67,7 @@ export default function TranscriptSegmentList({
   rowRefs,
   speakerOrder,
 }: TranscriptSegmentListProps) {
+  const autoLabel = (letter: string) => t('transcriptions.speaker_auto', { letter });
   const q = searchQuery.trim().toLowerCase();
 
   const visible = q
@@ -90,7 +91,7 @@ export default function TranscriptSegmentList({
       <div className="mx-auto flex max-w-3xl flex-col gap-0.5">
         {visible.map((seg) => {
           const isActive = seg.id === activeSegmentId;
-          const speakerLabel = resolveSpeakerLabel(seg, speakersMap);
+          const speakerLabel = resolveSpeakerLabel(seg, speakersMap, autoLabel, speakerOrder.get(seg.speakerId));
           const colors = getSpeakerColor(speakerOrder.get(seg.speakerId) ?? 0);
           return (
             <button
@@ -148,7 +149,7 @@ export default function TranscriptSegmentList({
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       {groups.map((group) => {
         const colors = getSpeakerColor(speakerOrder.get(group.speakerId) ?? 0);
-        const speakerLabel = resolveSpeakerLabel(group.segs[0], speakersMap);
+        const speakerLabel = resolveSpeakerLabel(group.segs[0], speakersMap, autoLabel, speakerOrder.get(group.speakerId));
         return (
           <div key={`${group.speakerId}:${group.segs.map((s) => s.id).join('|')}`} className="flex flex-col">
             {/* Speaker header */}

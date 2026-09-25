@@ -2,9 +2,9 @@
 /**
  * Reproduce MP3 (p. ej. TTS) vía reproductor del sistema: evita BrowserWindow + HTMLAudioElement.
  */
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 

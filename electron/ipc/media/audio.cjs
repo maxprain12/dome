@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 const path = require('path');
 const { app } = require('electron');
-const audioPlayback = require('../../transcription/audio-playback.cjs');
-const streamingTts = require('../../transcription/streaming-tts.cjs');
+const audioPlayback = require('../../speech/audio-playback.cjs');
+const streamingTts = require('../../speech/streaming-tts.cjs');
 const { getOpenAIKey } = require('../../ai/openai-key.cjs');
 
 /**

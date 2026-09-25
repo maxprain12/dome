@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon, InformationCircleIcon } from '@hugeicons/core-free-icons';
@@ -8,20 +7,16 @@ import { validateEmail, validateName } from '@/lib/utils/validation';
 import AccountChoiceView, { type AccountChoice } from './account/AccountChoiceView';
 import DomeLoginView from './account/DomeLoginView';
 import DomeRegisterView from './account/DomeRegisterView';
-
+import OnboardingStep from '../OnboardingStep';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import type { OnboardingAccount } from '@/lib/onboarding/flow';
+import type { OnboardingProgress } from '@/lib/onboarding/useOnboardingFlow';
+
 type SubView = 'choice' | 'login' | 'register';
 
 interface AccountStepProps {
-  onComplete: (data: {
-    mode: 'account' | 'local';
-    email?: string;
-    name?: string;
-    hadRemoteData?: boolean;
-    alreadyOnboarded?: boolean;
-  }) => void;
-  onValidationChange?: (isValid: boolean) => void;
-  onSubViewChange?: (subView: SubView) => void;
+  progress: OnboardingProgress;
+  onComplete: (account: OnboardingAccount) => void;
 }
 
 const ERROR_CODE_TO_KEY: Record<string, string> = {
@@ -94,7 +89,7 @@ function applyNativeLoginResult(
   });
 }
 
-export default function AccountStep({ onComplete, onValidationChange, onSubViewChange }: AccountStepProps) {
+export default function AccountStep({ progress, onComplete }: AccountStepProps) {
   const { t } = useTranslation();
   const [subView, setSubView] = useState<SubView>('choice');
   const [choice, setChoice] = useState<AccountChoice | null>(null);
@@ -110,22 +105,8 @@ export default function AccountStep({ onComplete, onValidationChange, onSubViewC
   const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
   const nameValid = validateName(name);
 
-  const canProceed =
-    subView === 'choice'
-      ? choice !== null
-      : subView === 'login'
-        ? emailValid && passwordValid && !isSubmitting && !pendingConfirmation
-        : emailValid && passwordValid && nameValid && !isSubmitting && !pendingConfirmation;
-
-  useEffect(() => {
-    onValidationChange?.(canProceed);
-  }, [canProceed, onValidationChange]);
-
-  useEffect(() => {
-    onSubViewChange?.(subView);
-  }, [subView, onSubViewChange]);
-
-  const handleNextRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const formValid = emailValid && passwordValid && (subView === 'login' || nameValid);
+  const canProceed = subView === 'choice' ? choice !== null : formValid && !pendingConfirmation;
 
   const handleNext = useCallback(async () => {
     if (subView === 'choice') {
@@ -178,94 +159,98 @@ export default function AccountStep({ onComplete, onValidationChange, onSubViewC
     onComplete,
   ]);
 
-  handleNextRef.current = handleNext;
-
   const handleBackToChoice = useCallback(() => {
     setSubView('choice');
     setError(null);
     setTouched({});
   }, []);
 
-  useEffect(() => {
-    const validateHandler = () => void handleNextRef.current();
-    const backHandler = () => handleBackToChoice();
-    window.addEventListener('onboarding:account-validate', validateHandler);
-    window.addEventListener('onboarding:account-back', backHandler);
-    return () => {
-      window.removeEventListener('onboarding:account-validate', validateHandler);
-      window.removeEventListener('onboarding:account-back', backHandler);
-    };
-  }, [handleBackToChoice]);
+  const renderBody = () => {
+    if (pendingConfirmation) {
+      return (
+        <div className="flex flex-col gap-4">
+          <Alert role="note"><HugeiconsIcon icon={InformationCircleIcon} aria-hidden /><AlertDescription className="text-xs">{t('onboarding.account_pending_confirmation')}</AlertDescription></Alert>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setPendingConfirmation(false);
+              setSubView('choice');
+              setChoice('local');
+            }}
+            className="w-fit text-xs text-muted-foreground"
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} className="size-3.5" />
+            {t('onboarding.account_back_to_choice')}
+          </Button>
+        </div>
+      );
+    }
 
-  if (pendingConfirmation) {
-    return (
-      <div className="flex flex-col gap-4">
-        <Alert role="note"><HugeiconsIcon icon={InformationCircleIcon} aria-hidden /><AlertDescription className="text-xs">{t('onboarding.account_pending_confirmation')}</AlertDescription></Alert>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setPendingConfirmation(false);
-            setSubView('choice');
-            setChoice('local');
+    if (subView === 'choice') {
+      return <AccountChoiceView choice={choice} onChoiceChange={setChoice} />;
+    }
+
+    if (subView === 'login') {
+      return (
+        <DomeLoginView
+          email={email}
+          password={password}
+          touched={touched}
+          emailValid={emailValid}
+          passwordValid={passwordValid}
+          error={error}
+          isSubmitting={isSubmitting}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onEmailBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+          onPasswordBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+          onSwitchToRegister={() => {
+            setSubView('register');
+            setError(null);
           }}
-          className="w-fit text-xs text-muted-foreground"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} className="size-3.5" />
-          {t('onboarding.account_back_to_choice')}
-        </Button>
-      </div>
-    );
-  }
+        />
+      );
+    }
 
-  if (subView === 'choice') {
-    return <AccountChoiceView choice={choice} onChoiceChange={setChoice} />;
-  }
-
-  if (subView === 'login') {
     return (
-      <DomeLoginView
+      <DomeRegisterView
+        name={name}
         email={email}
         password={password}
         touched={touched}
+        nameValid={nameValid}
         emailValid={emailValid}
         passwordValid={passwordValid}
         error={error}
         isSubmitting={isSubmitting}
+        onNameChange={setName}
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
+        onNameBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
         onEmailBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
         onPasswordBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
-        onSwitchToRegister={() => {
-          setSubView('register');
+        onSwitchToLogin={() => {
+          setSubView('login');
           setError(null);
         }}
       />
     );
-  }
+  };
 
   return (
-    <DomeRegisterView
-      name={name}
-      email={email}
-      password={password}
-      touched={touched}
-      nameValid={nameValid}
-      emailValid={emailValid}
-      passwordValid={passwordValid}
-      error={error}
-      isSubmitting={isSubmitting}
-      onNameChange={setName}
-      onEmailChange={setEmail}
-      onPasswordChange={setPassword}
-      onNameBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
-      onEmailBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
-      onPasswordBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
-      onSwitchToLogin={() => {
-        setSubView('login');
-        setError(null);
+    <OnboardingStep
+      message={t('onboarding.account_message')}
+      progress={progress}
+      onNext={() => {
+        handleNext().catch(() => undefined);
       }}
-    />
+      onBack={subView === 'choice' ? undefined : handleBackToChoice}
+      canProceed={canProceed}
+      busy={isSubmitting}
+    >
+      {renderBody()}
+    </OnboardingStep>
   );
 }

@@ -25,5 +25,16 @@
   "device_online": "Paired with this Many",
   "device_offline": "Paired · currently away",
   "revoke": "Revoke",
-  "error_generic": "Could not update Remote Many."
+  "error_generic": "Could not update Remote Many.",
+  "pair_requires_enable": "Turn on remote control first to generate a code.",
+  "generating_code": "Generating…",
+  "errors": {
+    "desktop_unavailable": "This Mac is not registered with Dome yet. Check that you are signed in to your Dome account and try again.",
+    "companion_unavailable": "That iPhone is no longer available. Open Companion and pair again.",
+    "pairing_code_invalid": "The code is invalid or has expired. Generate a new one.",
+    "pairing_inactive": "This pairing is no longer active. Generate a new code.",
+    "device_kind_conflict": "This device is already registered with a different role. Revoke it and try again.",
+    "unauthorized": "Your Dome session expired. Sign in again under Settings → Dome Sync.",
+    "network": "Could not reach Dome. Check your connection and try again."
+  }
 }

@@ -1,8 +1,10 @@
 import { create } from 'zustand';
-import type { CaptureController } from './captureController';
+import { CaptureController } from './captureController';
+import type { TranscriptionErrorCode } from './errors';
 
 export type TranscriptionSource = 'mic' | 'system';
 export type TranscriptionPhase = 'idle' | 'recording' | 'paused' | 'transcribing' | 'error';
+export type TranscriptionLiveEngine = 'realtime' | 'chunks';
 
 export interface TranscriptionStateBroadcast {
   sessionId: string | null;
@@ -10,7 +12,10 @@ export interface TranscriptionStateBroadcast {
   sources: TranscriptionSource[];
   seconds: number;
   livePreview: boolean;
+  liveEngine: TranscriptionLiveEngine | null;
   partialText: string;
+  /** Non-fatal warning code, e.g. realtime fell back to chunks. */
+  notice: string | null;
   error: string | null;
 }
 
@@ -30,6 +35,7 @@ export interface TranscriptionSettings {
   autoSummary: boolean;
   chunkSec: number;
   summaryModel: string;
+  liveEngine: TranscriptionLiveEngine;
 }
 
 export interface StartOptions {
@@ -48,7 +54,9 @@ interface State {
   sources: TranscriptionSource[];
   seconds: number;
   livePreview: boolean;
+  liveEngine: TranscriptionLiveEngine | null;
   partialText: string;
+  notice: string | null;
   error: string | null;
 
   // UI-only flags
@@ -64,7 +72,7 @@ interface State {
   // actions
   loadSettings: () => Promise<void>;
   saveSettings: (patch: Partial<TranscriptionSettings>) => Promise<void>;
-  start: (opts: StartOptions) => Promise<{ ok: boolean; error?: string }>;
+  start: (opts: StartOptions) => Promise<{ ok: boolean; error?: TranscriptionErrorCode }>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<{ ok: boolean; resourceId?: string; error?: string }>;
@@ -86,7 +94,9 @@ const idleState = {
   sources: [] as TranscriptionSource[],
   seconds: 0,
   livePreview: false,
+  liveEngine: null,
   partialText: '',
+  notice: null,
   error: null,
 };
 
@@ -121,9 +131,8 @@ export const useTranscriptionStore = create<State>((set, get) => ({
 
   async start(opts) {
     if (get().phase !== 'idle') {
-      return { ok: false, error: 'A session is already in progress' };
+      return { ok: false, error: 'session_already_active' };
     }
-    const { CaptureController } = await import('./captureController');
     const controller = new CaptureController();
     set({ _controller: controller });
     try {
@@ -136,9 +145,9 @@ export const useTranscriptionStore = create<State>((set, get) => ({
       set({ isStartPopoverOpen: false });
       return { ok: true };
     } catch (err) {
+      console.warn('[transcription] start:', err);
       set({ _controller: null });
-      const msg = err instanceof Error ? err.message : String(err);
-      return { ok: false, error: msg };
+      return { ok: false, error: 'transcription_failed' };
     }
   },
 
@@ -158,7 +167,7 @@ export const useTranscriptionStore = create<State>((set, get) => ({
 
   async stop() {
     const { sessionId, _controller } = get();
-    if (!sessionId) return { ok: false, error: 'No active session' };
+    if (!sessionId) return { ok: false, error: 'session_not_found' };
     try {
       await _controller?.flushAndStop();
     } catch (e) {
@@ -200,7 +209,9 @@ export const useTranscriptionStore = create<State>((set, get) => ({
       sources: payload.sources || [],
       seconds: payload.seconds || 0,
       livePreview: Boolean(payload.livePreview),
+      liveEngine: payload.liveEngine ?? null,
       partialText: payload.partialText || '',
+      notice: payload.notice ?? null,
       error: payload.error ?? null,
       // Auto-collapse the live panel when we drop back to idle.
       isLivePanelOpen: payload.phase === 'idle' ? false : get().isLivePanelOpen,

@@ -75,14 +75,32 @@ export function getTranscriptionSegmentsForDisplay(meta: ResourceMetadata): Tran
   return [];
 }
 
-/** Resuelve etiqueta de hablante para un segmento */
+/** A, B, … Z, AA, AB … for auto-detected speakers. */
+export function speakerLetter(ordinal: number): string {
+  let n = Math.max(0, Math.floor(ordinal));
+  let out = '';
+  do {
+    out = String.fromCodePoint(65 + (n % 26)) + out;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return out;
+}
+
+/**
+ * Speaker label for a segment: manual rename > stored label > auto name from
+ * `ordinal` (or `fallbackOrdinal`) via `autoLabel` > raw id.
+ */
 export function resolveSpeakerLabel(
   segment: TranscriptionSegment,
   speakers: StructuredTranscriptPayload['speakers'] | undefined,
+  autoLabel?: (letter: string) => string,
+  fallbackOrdinal?: number,
 ): string {
   if (segment.speakerLabel?.trim()) return segment.speakerLabel.trim();
-  const fromMap = speakers?.[segment.speakerId]?.label;
-  if (fromMap?.trim()) return fromMap.trim();
+  const profile = speakers?.[segment.speakerId];
+  if (profile?.label?.trim()) return profile.label.trim();
+  const ordinal = profile?.ordinal ?? fallbackOrdinal;
+  if (autoLabel && ordinal != null) return autoLabel(speakerLetter(ordinal));
   return segment.speakerId;
 }
 

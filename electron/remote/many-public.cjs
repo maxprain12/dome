@@ -69,12 +69,19 @@ async function listPublicSessions() {
     .filter((meta) => bridge.isRootSessionMeta(meta) && !String(meta.id || '').startsWith('workflow-'))
     .slice(0, MAX_SESSIONS);
   const titles = await Promise.all(metas.map((meta) => titleFromJsonl(meta.path)));
-  const sessions = metas.map((meta, index) => ({
-    id: meta.id,
-    title: titles[index] || 'Many',
-    updatedAt: meta.updatedAt || meta.createdAt || null,
-    createdAt: meta.createdAt || null,
-  }));
+  const seen = new Set();
+  const sessions = [];
+  for (let index = 0; index < metas.length; index += 1) {
+    const id = String(metas[index].id || '');
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    sessions.push({
+      id,
+      title: titles[index] || 'Many',
+      updatedAt: metas[index].updatedAt || metas[index].createdAt || null,
+      createdAt: metas[index].createdAt || null,
+    });
+  }
   sessions.sort((a, b) => epoch(b.updatedAt || b.createdAt) - epoch(a.updatedAt || a.createdAt));
   return { sessions };
 }

@@ -19,6 +19,7 @@ import {
 import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
 import { HubHeader, HubPageHeader } from '@/components/hub';
+import { cn } from '@/lib/utils';
 
 interface SettingsShellProps {
   children: ReactNode;
@@ -77,7 +78,14 @@ export default function SettingsShell({ children }: SettingsShellProps) {
       ) : null}
 
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
-        <div className="mx-auto w-full max-w-2xl p-5 pb-24 md:p-8 md:pb-24">{children}</div>
+        <div
+          className={cn(
+            'mx-auto w-full p-5 pb-24 md:p-8 md:pb-24',
+            activeEntry.layout === 'wide' ? 'max-w-6xl' : 'max-w-2xl',
+          )}
+        >
+          {children}
+        </div>
       </main>
     </div>
   );

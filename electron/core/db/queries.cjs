@@ -1059,9 +1059,9 @@ function buildQueries(db) {
       SET status = ?, updated_at = ?, error_message = ?
       WHERE id = ?
     `),
-    appendTranscriptionPartial: db.prepare(`
+    setTranscriptionPartial: db.prepare(`
       UPDATE transcription_sessions
-      SET partial_text = partial_text || ?, updated_at = ?
+      SET partial_text = ?, updated_at = ?
       WHERE id = ?
     `),
     finalizeTranscriptionSession: db.prepare(`

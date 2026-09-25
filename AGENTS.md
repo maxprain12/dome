@@ -114,6 +114,11 @@ pnpm run release -- --github-bridge
 
 4. A bad release: `pnpm run release:promote -- --channel latest --pause`, then ship a patch. The updater does not downgrade.
 
+The browser extension and the iOS app ship through their stores, on their own cadence:
+
+- Browser extension (Chrome Web Store, Edge Add-ons, Safari): [.claude/sops/release-browser-extension.md](.claude/sops/release-browser-extension.md)
+- Dome Companion (TestFlight, App Store): [dome-companion/docs/release.md](https://github.com/maxprain12/dome-companion/blob/main/docs/release.md)
+
 ---
 
 ## Where to look

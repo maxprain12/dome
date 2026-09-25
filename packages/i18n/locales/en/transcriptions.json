@@ -25,9 +25,7 @@
   "start_save_audio": "Save audio file",
   "start_button": "Start",
   "start_pick_screen": "Pick a window or screen",
-  "start_pick_screen_error": "Could not load capture sources",
   "starting": "Starting…",
-  "start_failed": "Failed to start",
   "no_capture_sources": "No sources detected",
   "refresh_sources": "Refresh",
   "control_pause": "Pause",
@@ -38,8 +36,22 @@
   "state_no_partial": "Live transcript will appear here…",
   "detail_convert_to_note": "Convert to note",
   "detail_summary_generate": "Generate summary",
-  "permission_mic_denied": "Microphone access denied. Open System Settings to grant access.",
-  "permission_screen_denied": "Screen recording permission required for system audio.",
   "recovery_finalized": "Recovered transcription from previous session",
-  "recovery_failed": "Could not finalize a previous recording"
+  "recovery_failed": "Could not finalize a previous recording",
+  "errors": {
+    "screen_capture_permission": "Dome can’t see your windows or screens yet. Allow Screen Recording to capture system audio.",
+    "capture_sources_failed": "Couldn’t load windows and screens. Try refreshing.",
+    "mic_permission_denied": "Microphone access is blocked. Allow it to record your voice.",
+    "system_audio_unavailable": "The selected window or screen isn’t sharing audio. Pick another source.",
+    "no_audio_track": "The selected source has no audio track.",
+    "missing_api_key": "Add a transcription API key in Settings → AI → Transcription.",
+    "missing_groq_key": "Add your Groq API key in Settings → AI → Transcription.",
+    "session_already_active": "A transcription is already running.",
+    "session_not_found": "That transcription session no longer exists.",
+    "realtime_connection_failed": "Live transcription disconnected. Dome keeps recording and will transcribe when you stop.",
+    "transcription_failed": "The transcription couldn’t be completed. Try again."
+  },
+  "live_engine_realtime": "Streaming",
+  "live_engine_chunks": "Every few seconds",
+  "speaker_auto": "Speaker {{letter}}"
 }

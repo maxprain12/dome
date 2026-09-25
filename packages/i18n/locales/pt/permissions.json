@@ -1,0 +1,16 @@
+{
+  "microphone_title": "Microfone",
+  "microphone_why": "Para transcrever o que você diz e ditar para o Many.",
+  "screen_title": "Gravação de tela e áudio do sistema",
+  "screen_why": "Para transcrever reuniões e vídeos tocando neste Mac. O Dome grava apenas a janela ou tela que você escolher.",
+  "status_granted": "Concedido",
+  "status_denied": "Negado — ative em Ajustes do Sistema",
+  "status_restricted": "Restrito pela política deste Mac",
+  "status_not_determined": "Ainda não solicitado",
+  "status_unknown": "Verificando…",
+  "request": "Permitir",
+  "open_settings": "Abrir Ajustes do Sistema",
+  "relaunch": "Reiniciar o Dome",
+  "screen_relaunch_hint": "O macOS aplica a Gravação de tela depois que o Dome reinicia.",
+  "os_managed": "Seu sistema operacional gerencia essas permissões."
+}

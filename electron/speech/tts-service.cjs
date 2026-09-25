@@ -7,10 +7,10 @@
  * for multi-speaker podcast-style audio.
  */
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const https = require('node:https');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { app } = require('electron');
 
 // Default voice assignments for podcast hosts

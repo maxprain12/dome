@@ -13,6 +13,8 @@ export interface AIChatSaveBarProps {
   testResult: TestResult | null;
   onSave: () => void;
   onTest: () => void;
+  /** Overrides the default save label (e.g. "Save and use Anthropic"). */
+  saveLabel?: string;
 }
 
 /** Save / test-connection footer for chat and transcription tabs. */
@@ -23,6 +25,7 @@ export default function AIChatSaveBar({
   testResult,
   onSave,
   onTest,
+  saveLabel,
 }: AIChatSaveBarProps) {
   const { t } = useTranslation();
 
@@ -35,7 +38,7 @@ export default function AIChatSaveBar({
             onSave();
           }}
         >
-          {saved ? t('settings.ai.saved_config') : t('settings.ai.save_all')}
+          {saved ? t('settings.ai.saved_config') : (saveLabel ?? t('settings.ai.save_all'))}
         </Button>
         {showTest ? (
           <Button

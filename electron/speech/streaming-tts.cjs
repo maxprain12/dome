@@ -14,9 +14,9 @@
  * start almost instantly after the previous one ends.
  */
 
-const crypto = require('crypto');
-const { spawn } = require('child_process');
-const fs = require('fs');
+const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 
 // ─── Voice mapping by language ───────────────────────────────────────────────
 // OpenAI voices: alloy, echo, fable, onyx, nova, shimmer

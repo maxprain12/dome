@@ -25,5 +25,16 @@
   "device_online": "Appairé avec ce Many",
   "device_offline": "Appairé · actuellement absent",
   "revoke": "Révoquer",
-  "error_generic": "Impossible de mettre à jour Many distant."
+  "error_generic": "Impossible de mettre à jour Many distant.",
+  "pair_requires_enable": "Activez d’abord le contrôle à distance pour générer un code.",
+  "generating_code": "Génération…",
+  "errors": {
+    "desktop_unavailable": "Ce Mac n’est pas encore enregistré auprès de Dome. Vérifiez que vous êtes connecté à votre compte Dome et réessayez.",
+    "companion_unavailable": "Cet iPhone n’est plus disponible. Ouvrez Companion et appairez-le à nouveau.",
+    "pairing_code_invalid": "Le code est invalide ou a expiré. Générez-en un nouveau.",
+    "pairing_inactive": "Cet appairage n’est plus actif. Générez un nouveau code.",
+    "device_kind_conflict": "Cet appareil est déjà enregistré avec un autre rôle. Révoquez-le et réessayez.",
+    "unauthorized": "Votre session Dome a expiré. Reconnectez-vous dans Réglages → Dome Sync.",
+    "network": "Impossible de joindre Dome. Vérifiez votre connexion et réessayez."
+  }
 }

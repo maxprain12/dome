@@ -8,7 +8,7 @@ import { PROVIDERS } from '@/lib/ai/models';
 export type ProviderOptionBadgeColor = 'green' | 'purple';
 export const DOME_PROVIDER_ENABLED = import.meta.env.VITE_ENABLE_DOME_PROVIDER === 'true';
 
-/** Brand logo paths under public/brandlogo/. */
+/** Brand logo paths under public/brandlogo/; `null` renders a monogram (never another brand's mark). */
 const PROVIDER_LOGO_PATHS = {
   dome: '/many.png',
   openai: '/brandlogo/OpenAI-black-monoblossom.svg',
@@ -27,14 +27,14 @@ const PROVIDER_LOGO_PATHS = {
   'opencode-go': '/brandlogo/opencode-go.svg',
   vllm: '/brandlogo/vllm.svg',
   lmstudio: '/brandlogo/lmstudio.svg',
-  xai: '/brandlogo/OpenAI-black-monoblossom.svg',
-  groq: '/brandlogo/ollama.svg',
-  mistral: '/brandlogo/deepseek.svg',
-  fireworks: '/brandlogo/openrouter.svg',
-  together: '/brandlogo/openrouter.svg',
+  xai: null,
+  groq: null,
+  mistral: null,
+  fireworks: null,
+  together: null,
   'google-vertex': '/brandlogo/googlegemini.svg',
   'azure-openai-responses': '/brandlogo/OpenAI-black-monoblossom.svg',
-} as const;
+} as const satisfies Record<string, string | null>;
 
 export type ProviderWithBrandLogo = keyof typeof PROVIDER_LOGO_PATHS;
 
@@ -46,12 +46,10 @@ const PROVIDER_LOGO_LIGHT_PATHS: Partial<Record<ProviderWithBrandLogo, string>> 
   'opencode-go': '/brandlogo/opencode-go-light.svg',
 };
 
-export const DOME_BRAND_LOGO_SRC = PROVIDER_LOGO_PATHS.dome;
-
 export function getProviderLogoSrc(
   provider: ProviderWithBrandLogo,
   resolvedTheme: ResolvedTheme = 'dark',
-): string {
+): string | null {
   if (resolvedTheme === 'light') {
     const light = PROVIDER_LOGO_LIGHT_PATHS[provider];
     if (light) return light;
@@ -80,7 +78,6 @@ export interface ProviderOption {
   value: ProviderWithBrandLogo;
   label: string;
   description: string;
-  logoSrc: string;
   badge?: string;
   badgeColor?: ProviderOptionBadgeColor;
   recommended?: boolean;
@@ -93,37 +90,31 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'openai',
     label: PROVIDERS.openai.name,
     description: PROVIDERS.openai.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.openai,
   },
   {
     value: 'anthropic',
     label: PROVIDERS.anthropic.name,
     description: PROVIDERS.anthropic.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.anthropic,
   },
   {
     value: 'google',
     label: PROVIDERS.google.name,
     description: PROVIDERS.google.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.google,
   },
   {
     value: 'openrouter',
     label: PROVIDERS.openrouter.name,
     description: PROVIDERS.openrouter.description + '. Requires OpenRouter API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.openrouter,
   },
   {
     value: 'opencode',
     label: PROVIDERS.opencode.name,
     description: PROVIDERS.opencode.description + '. Requires OpenCode API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.opencode,
   },
   {
     value: 'opencode-go',
     label: PROVIDERS['opencode-go'].name,
     description: PROVIDERS['opencode-go'].description + '. Requires OpenCode API key.',
-    logoSrc: PROVIDER_LOGO_PATHS['opencode-go'],
   },
   {
     value: 'dome',
@@ -131,7 +122,6 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     description: DOME_PROVIDER_ENABLED
       ? PROVIDERS.dome.description + '. Connect with OAuth.'
       : 'Próximamente',
-    logoSrc: PROVIDER_LOGO_PATHS.dome,
     recommended: DOME_PROVIDER_ENABLED,
     badge: DOME_PROVIDER_ENABLED ? 'NEW' : 'PRÓXIMAMENTE',
     badgeColor: 'green',
@@ -141,37 +131,31 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'minimax',
     label: PROVIDERS.minimax.name,
     description: 'MiniMax M-series via Anthropic-compatible API. M3 supports image & video. Requires sk-cp-... key.',
-    logoSrc: PROVIDER_LOGO_PATHS.minimax,
   },
   {
     value: 'deepseek',
     label: PROVIDERS.deepseek.name,
     description: PROVIDERS.deepseek.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.deepseek,
   },
   {
     value: 'moonshot',
     label: PROVIDERS.moonshot.name,
     description: PROVIDERS.moonshot.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.moonshot,
   },
   {
     value: 'qwen',
     label: PROVIDERS.qwen.name,
     description: PROVIDERS.qwen.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.qwen,
   },
   {
     value: 'copilot',
     label: PROVIDERS.copilot.name,
     description: PROVIDERS.copilot.description + '. Connect with GitHub.',
-    logoSrc: PROVIDER_LOGO_PATHS.copilot,
   },
   {
     value: 'claude-oauth',
     label: PROVIDERS['claude-oauth'].name,
     description: PROVIDERS['claude-oauth'].description + '. Experimental — not an official integration.',
-    logoSrc: PROVIDER_LOGO_PATHS['claude-oauth'],
     badge: 'EXPERIMENTAL',
     badgeColor: 'purple',
   },
@@ -179,7 +163,6 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'openai-codex',
     label: PROVIDERS['openai-codex'].name,
     description: PROVIDERS['openai-codex'].description + '. Experimental — not an official integration.',
-    logoSrc: PROVIDER_LOGO_PATHS['openai-codex'],
     badge: 'EXPERIMENTAL',
     badgeColor: 'purple',
   },
@@ -187,60 +170,50 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'ollama',
     label: PROVIDERS.ollama.name,
     description: PROVIDERS.ollama.description + '. Requires Ollama installed.',
-    logoSrc: PROVIDER_LOGO_PATHS.ollama,
   },
   {
     value: 'lmstudio',
     label: PROVIDERS.lmstudio.name,
     description: PROVIDERS.lmstudio.description + '. Requires LM Studio running.',
-    logoSrc: PROVIDER_LOGO_PATHS.lmstudio,
   },
   {
     value: 'vllm',
     label: PROVIDERS.vllm.name,
     description: PROVIDERS.vllm.description + '. Requires a vLLM server.',
-    logoSrc: PROVIDER_LOGO_PATHS.vllm,
   },
   {
     value: 'xai',
     label: PROVIDERS.xai.name,
     description: PROVIDERS.xai.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.xai,
   },
   {
     value: 'groq',
     label: PROVIDERS.groq.name,
     description: PROVIDERS.groq.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.groq,
   },
   {
     value: 'mistral',
     label: PROVIDERS.mistral.name,
     description: PROVIDERS.mistral.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.mistral,
   },
   {
     value: 'fireworks',
     label: PROVIDERS.fireworks.name,
     description: PROVIDERS.fireworks.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.fireworks,
   },
   {
     value: 'together',
     label: PROVIDERS.together.name,
     description: PROVIDERS.together.description + '. Requires API key.',
-    logoSrc: PROVIDER_LOGO_PATHS.together,
   },
   {
     value: 'google-vertex',
     label: PROVIDERS['google-vertex'].name,
     description: PROVIDERS['google-vertex'].description + '. Requires Google Cloud credentials.',
-    logoSrc: PROVIDER_LOGO_PATHS['google-vertex'],
   },
   {
     value: 'azure-openai-responses',
     label: PROVIDERS['azure-openai-responses'].name,
     description: PROVIDERS['azure-openai-responses'].description + '. Requires Azure API key.',
-    logoSrc: PROVIDER_LOGO_PATHS['azure-openai-responses'],
   },
 ];

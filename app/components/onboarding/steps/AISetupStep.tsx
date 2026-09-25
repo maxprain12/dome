@@ -1,10 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { AlertCircleIcon, ArrowRight01Icon, CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
+import { AlertCircleIcon, CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import AIProviderList from '@/components/settings/ai/AIProviderList';
+import AIProviderDetail from '@/components/settings/ai/AIProviderDetail';
+import AIChatProviderPanels from '@/components/settings/ai/AIChatProviderPanels';
+import {
+  buildAISaveConfig,
+  loadCloudApiKey,
+  loadLocalCompatBaseUrl,
+  loadProviderSlotApiKey,
+  parseLoadedAIConfig,
+} from '@/components/settings/ai/aiSectionHelpers';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
-import type { AISettings } from '@/types';
 import {
   LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
   getDefaultModelId,
@@ -13,269 +23,219 @@ import {
 } from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
-import AIProviderSelection from '@/components/settings/ai/AIProviderSelection';
-import AICloudProviderConfig from '@/components/settings/ai/AICloudProviderConfig';
-import AIOllamaProviderConfig from '@/components/settings/ai/AIOllamaProviderConfig';
-import AILocalOpenAICompatConfig from '@/components/settings/ai/AILocalOpenAICompatConfig';
-import AIDomeOnboardingCallout from '@/components/settings/ai/AIDomeOnboardingCallout';
+import { providerKind, type ProviderKind } from '@/lib/ai/provider-groups';
+import { useProviderModels } from '@/lib/ai/useProviderModels';
+import type { OnboardingProgress } from '@/lib/onboarding/useOnboardingFlow';
+import OnboardingStep from '../OnboardingStep';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
 interface AISetupStepProps {
-  onComplete: () => void;
-  onValidationChange?: (isValid: boolean) => void;
-  /** Onboarding-only: user chose "local mode" at the account gate — never offer/default to Dome here. */
-  localModeOnly?: boolean;
+  progress: OnboardingProgress;
+  /** User chose "local mode" at the account gate: never offer Dome here. */
+  localModeOnly: boolean;
   /** Account login pulled AI preferences from cloud sync. */
-  syncedFromCloud?: boolean;
+  syncedFromCloud: boolean;
+  onNext: (provider: AIProviderType | null) => void;
+  onBack?: () => void;
 }
 
-type OnboardingProviderType = AIProviderType | 'skip';
+const STATUS_POLL_MS = 2500;
 
-/**
- * Build the AI provider config to persist for non-Dome, non-skip providers.
- * Returns `null` when a cloud provider is selected without an API key, so the
- * caller can abort without saving. Extracted from `handleNext` for S3776.
- */
-function buildAIConfig(input: {
-  provider: AIProviderType;
-  apiKey: string;
-  model: string;
-  ollamaBaseURL: string;
-  ollamaModel: string;
-  localCompatBaseURL: string;
-}): Partial<AISettings> | null {
-  const config: Partial<AISettings> = {
-    provider: input.provider,
-  };
-
-  if (isCloudAIProvider(input.provider)) {
-    if (!input.apiKey.trim()) return null;
-    config.api_key = input.apiKey;
-    config.model = input.model;
+/** Dome can connect later; other accounts must be signed in; local servers must answer; API keys must exist. */
+function isReady(
+  kind: ProviderKind,
+  s: { provider: AIProviderType; connected: boolean; localAvailable: boolean | null; hasModel: boolean; hasKey: boolean },
+): boolean {
+  switch (kind) {
+    case 'subscription':
+      return s.provider === 'dome' || s.connected;
+    case 'local':
+      return s.localAvailable === true && (s.provider === 'ollama' || s.hasModel);
+    case 'cloud':
+      return s.hasKey || s.connected;
+    default: {
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
   }
-
-  if (input.provider === 'ollama') {
-    config.ollama_base_url = input.ollamaBaseURL;
-    config.ollama_model = input.ollamaModel;
-  }
-
-  if (isLocalOpenAICompatProvider(input.provider)) {
-    config.base_url = input.localCompatBaseURL;
-    config.model = input.model;
-    if (input.apiKey.trim()) config.api_key = input.apiKey;
-  }
-
-  return config;
 }
 
-export default function AISetupStep({
-  onComplete,
-  onValidationChange,
-  localModeOnly = false,
-  syncedFromCloud = false,
-}: AISetupStepProps) {
+async function fetchProviderStatus(): Promise<Record<string, boolean>> {
+  const res = await globalThis.window?.electron?.invoke('db:settings:aiProviderKeyStatus');
+  return res?.success && res.data ? (res.data as Record<string, boolean>) : {};
+}
+
+/** Same provider list + detail as Settings → AI, compact, with "set up later". */
+export default function AISetupStep({ progress, localModeOnly, syncedFromCloud, onNext, onBack }: AISetupStepProps) {
   const { t } = useTranslation();
-  const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
-
   const domeAvailable = DOME_PROVIDER_ENABLED && !localModeOnly;
-
-  const [provider, setProvider] = useState<OnboardingProviderType>(
-    domeAvailable ? 'dome' : 'openai',
-  );
-  const [lastProvider, setLastProvider] = useState<AIProviderType>(
-    domeAvailable ? 'dome' : 'openai',
-  );
+  const [provider, setProvider] = useState<AIProviderType>(domeAvailable ? 'dome' : 'openai');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState(() => getDefaultModelId('openai'));
+  const [model, setModel] = useState(() => getDefaultModelId(domeAvailable ? 'dome' : 'openai'));
   const [customModel, setCustomModel] = useState(false);
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
-  const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
-  const [localCompatBaseURL, setLocalCompatBaseURL] = useState(
-    LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
-  );
-  const [localCompatAvailable, setLocalCompatAvailable] = useState<boolean | null>(null);
+  const [ollamaApiKey, setOllamaApiKey] = useState('');
+  const [localCompatBaseURL, setLocalCompatBaseURL] = useState<string>(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio);
+  const [localAvailable, setLocalAvailable] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const canProceed =
-    provider === 'skip' ||
-    provider === 'dome' ||
-    (provider === 'ollama' && ollamaAvailable === true) ||
-    (isLocalOpenAICompatProvider(provider) && localCompatAvailable === true && model.trim().length > 0) ||
-    (isCloudAIProvider(provider) && apiKey.trim().length > 0);
+  const { models, loading: modelsLoading } = useProviderModels({
+    provider,
+    apiKey,
+    baseUrl: isLocalOpenAICompatProvider(provider) ? localCompatBaseURL : undefined,
+  });
 
-  useEffect(() => {
-    onValidationChange?.(canProceed);
-  }, [canProceed, onValidationChange]);
-
-  const handleNext = useCallback(async () => {
-    setSaveError(null);
-
-    if (provider === 'skip') {
-      onCompleteRef.current();
-      return;
-    }
-
-    if (provider === 'dome') {
-      try {
-        await saveAIConfig({ provider: 'dome' });
-        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
-        onCompleteRef.current();
-      } catch (error) {
-        setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
-      }
-      return;
-    }
-
-    const config = buildAIConfig({
-      provider: provider as AIProviderType,
-      apiKey,
-      model,
-      ollamaBaseURL,
-      ollamaModel,
-      localCompatBaseURL,
-    });
-    if (!config) return;
-
-    try {
-      await saveAIConfig(config);
-      window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
-      onCompleteRef.current();
-    } catch (error) {
-      console.error('[AISetupStep] Error al guardar:', error);
-      setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
-    }
-  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, localCompatBaseURL, t]);
-
-  useEffect(() => {
-    const handleFinalize = () => void handleNext();
-    window.addEventListener('onboarding:finalize', handleFinalize);
-    return () => window.removeEventListener('onboarding:finalize', handleFinalize);
-  }, [handleNext]);
-
-  useEffect(() => {
-    const loadConfig = async () => {
-      const config = await getAIConfig();
-      if (config?.provider) {
-        const loadedProvider = (config.provider as string) === 'local' ? 'ollama' : config.provider;
-        setProvider(loadedProvider as OnboardingProviderType);
-        setApiKey(config.api_key || '');
-        setModel(config.model || getDefaultModelId(loadedProvider as AIProviderType));
-        setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
-        setOllamaModel(config.ollama_model || 'llama3.2');
-        if (isLocalOpenAICompatProvider(loadedProvider as AIProviderType)) {
-          setLocalCompatBaseURL(
-            config.base_url ||
-              LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[loadedProvider as 'vllm' | 'lmstudio'],
-          );
-        }
-      }
-    };
-    void loadConfig();
+  const refreshStatus = useCallback(() => {
+    fetchProviderStatus().then(setStatus).catch(() => undefined);
   }, []);
 
-  const handleProviderSelect = (newProvider: OnboardingProviderType) => {
-    setProvider(newProvider);
-    if (newProvider !== 'skip' && newProvider !== 'ollama' && newProvider !== 'dome') {
-      setCustomModel(false);
-      setModel(getDefaultModelId(newProvider));
-      setLastProvider(newProvider);
-      if (isLocalOpenAICompatProvider(newProvider)) {
-        setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[newProvider]);
-        setLocalCompatAvailable(null);
-      }
-    } else if (newProvider === 'ollama' || newProvider === 'dome') {
-      setLastProvider(newProvider);
+  useEffect(() => {
+    getAIConfig()
+      .then((config) => {
+        if (!config?.provider) return;
+        const loaded = parseLoadedAIConfig(config);
+        if (loaded.provider === 'dome' && !domeAvailable) return;
+        setProvider(loaded.provider);
+        setApiKey(loaded.apiKey);
+        setModel(loaded.model);
+        setCustomModel(loaded.customModel);
+        setOllamaBaseURL(loaded.ollamaBaseURL);
+        setOllamaModel(loaded.ollamaModel);
+        setOllamaApiKey(loaded.ollamaApiKey);
+        setLocalCompatBaseURL(loaded.localCompatBaseURL);
+      })
+      .catch(() => undefined);
+    refreshStatus();
+  }, [domeAvailable, refreshStatus]);
+
+  // OAuth sign-in happens in the browser: poll until the provider reports connected.
+  const waitingForOAuth = providerKind(provider) === 'subscription' && provider !== 'dome' && !status[provider];
+  useEffect(() => {
+    if (!waitingForOAuth) return undefined;
+    const timer = globalThis.setInterval(refreshStatus, STATUS_POLL_MS);
+    globalThis.addEventListener('focus', refreshStatus);
+    return () => {
+      globalThis.clearInterval(timer);
+      globalThis.removeEventListener('focus', refreshStatus);
+    };
+  }, [waitingForOAuth, refreshStatus]);
+
+  const selectProvider = (next: AIProviderType) => {
+    setProvider(next);
+    setCustomModel(false);
+    setModel(getDefaultModelId(next));
+    setLocalAvailable(null);
+    setSaveError(null);
+    if (isCloudAIProvider(next)) {
+      loadCloudApiKey(next).then(setApiKey).catch(() => setApiKey(''));
+    } else if (isLocalOpenAICompatProvider(next)) {
+      setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[next]);
+      loadProviderSlotApiKey(next).then(setApiKey).catch(() => setApiKey(''));
+      loadLocalCompatBaseUrl(next).then(setLocalCompatBaseURL).catch(() => undefined);
+    } else {
+      setApiKey('');
     }
   };
 
-  const handleCloudProviderChange = (newProvider: AIProviderType) => {
-    handleProviderSelect(newProvider);
+  const canProceed = isReady(providerKind(provider), {
+    provider,
+    connected: Boolean(status[provider]),
+    localAvailable,
+    hasModel: model.trim().length > 0,
+    hasKey: apiKey.trim().length > 0,
+  });
+
+  const save = () => {
+    setSaving(true);
+    setSaveError(null);
+    const config = buildAISaveConfig({
+      provider,
+      model,
+      apiKey,
+      ollamaBaseURL,
+      ollamaModel,
+      ollamaApiKey,
+      localCompatBaseURL,
+    });
+    saveAIConfig(config)
+      .then(() => {
+        globalThis.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+        onNext(provider);
+      })
+      .catch((error: unknown) => {
+        console.error('[AISetupStep] save failed:', error);
+        setSaveError(t('onboarding.error_saving_config'));
+      })
+      .finally(() => setSaving(false));
   };
 
-  const displayProvider = provider === 'skip' ? lastProvider : provider;
-
   return (
-    <div className="flex flex-col gap-y-4">
-      {saveError ? (
-        <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertDescription className="text-xs">{saveError}</AlertDescription></Alert>
-      ) : null}
+    <OnboardingStep
+      message={t('onboarding.ai_message')}
+      progress={progress}
+      onNext={save}
+      onBack={onBack}
+      canProceed={canProceed}
+      busy={saving}
+      width="wide"
+      secondaryAction={
+        <Button type="button" variant="ghost" size="sm" onClick={() => onNext(null)} disabled={saving}>
+          {t('onboarding.configure_later')}
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {saveError ? (
+          <Alert variant="destructive" role="note">
+            <HugeiconsIcon icon={AlertCircleIcon} aria-hidden />
+            <AlertDescription className="text-xs">{saveError}</AlertDescription>
+          </Alert>
+        ) : null}
+        {syncedFromCloud ? (
+          <Alert role="note">
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden />
+            <AlertDescription className="text-xs">{t('onboarding.ai_synced_from_cloud')}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      {syncedFromCloud && provider !== 'skip' ? (
-        <Alert role="note"><HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden /><AlertDescription className="text-xs">{t('onboarding.ai_synced_from_cloud')}</AlertDescription></Alert>
-      ) : null}
-
-      <AIProviderSelection
-        provider={displayProvider}
-        onProviderChange={handleCloudProviderChange}
-        showSectionLabel={false}
-        highlightSelection={provider !== 'skip'}
-        hideDomeProvider={localModeOnly}
-      />
-
-      <Button
-        type="button"
-        variant={provider === 'skip' ? 'secondary' : 'ghost'}
-        onClick={() => handleProviderSelect('skip')}
-        className="w-full text-xs"
-      >
-        {t('onboarding.configure_later')} <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
-      </Button>
-
-      {provider !== 'skip' && isCloudAIProvider(provider) && (
-        <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
-            {t('settings.ai.configuration')}
-          </p>
-          <AICloudProviderConfig
-            provider={provider}
-            apiKey={apiKey}
-            onApiKeyChange={setApiKey}
-            model={model}
-            onModelChange={setModel}
-            customModel={customModel}
-            onCustomModelChange={setCustomModel}
-            compact
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(200px,240px)_minmax(0,1fr)] md:items-start">
+          <AIProviderList
+            selected={provider}
+            active={null}
+            configured={status}
+            onSelect={selectProvider}
+            hideDome={!domeAvailable}
+            className="md:max-h-[55vh]"
           />
+          <AIProviderDetail provider={provider} active={null} configured={Boolean(status[provider])}>
+            <AIChatProviderPanels
+              provider={provider}
+              apiKey={apiKey}
+              onApiKeyChange={setApiKey}
+              model={model}
+              onModelChange={setModel}
+              customModel={customModel}
+              onCustomModelChange={setCustomModel}
+              ollamaBaseURL={ollamaBaseURL}
+              onOllamaBaseURLChange={setOllamaBaseURL}
+              ollamaModel={ollamaModel}
+              onOllamaModelChange={setOllamaModel}
+              ollamaApiKey={ollamaApiKey}
+              onOllamaApiKeyChange={setOllamaApiKey}
+              localCompatBaseURL={localCompatBaseURL}
+              onLocalCompatBaseURLChange={setLocalCompatBaseURL}
+              currentProviderModels={models}
+              providerModelsLoading={modelsLoading}
+              onTestResult={() => refreshStatus()}
+              groupTitle={t('settings.ai.configuration')}
+              onLocalAvailabilityChange={setLocalAvailable}
+              compact
+            />
+          </AIProviderDetail>
         </div>
-      )}
-
-      {provider === 'ollama' && (
-        <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
-            {t('settings.ai.configuration')}
-          </p>
-          <AIOllamaProviderConfig
-            ollamaBaseURL={ollamaBaseURL}
-            onOllamaBaseURLChange={setOllamaBaseURL}
-            ollamaModel={ollamaModel}
-            onOllamaModelChange={setOllamaModel}
-            showApiKeyField={false}
-            showOcrHint={false}
-            onAvailabilityChange={setOllamaAvailable}
-          />
-        </div>
-      )}
-
-      {isLocalOpenAICompatProvider(provider) && (
-        <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest opacity-60 text-muted-foreground">
-            {t('settings.ai.configuration')}
-          </p>
-          <AILocalOpenAICompatConfig
-            provider={provider}
-            baseURL={localCompatBaseURL}
-            onBaseURLChange={setLocalCompatBaseURL}
-            model={model}
-            onModelChange={setModel}
-            showApiKeyField={false}
-            onAvailabilityChange={setLocalCompatAvailable}
-          />
-        </div>
-      )}
-
-      {provider === 'dome' && <AIDomeOnboardingCallout />}
-    </div>
+      </div>
+    </OnboardingStep>
   );
 }

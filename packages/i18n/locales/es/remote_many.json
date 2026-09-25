@@ -25,5 +25,16 @@
   "device_online": "Emparejado con este Many",
   "device_offline": "Emparejado · ahora ausente",
   "revoke": "Revocar",
-  "error_generic": "No se pudo actualizar Many remoto."
+  "error_generic": "No se pudo actualizar Many remoto.",
+  "pair_requires_enable": "Activa primero el control remoto para generar un código.",
+  "generating_code": "Generando…",
+  "errors": {
+    "desktop_unavailable": "Este Mac aún no está registrado en Dome. Comprueba que has iniciado sesión con tu cuenta de Dome y vuelve a intentarlo.",
+    "companion_unavailable": "Ese iPhone ya no está disponible. Abre Companion y vuelve a emparejarlo.",
+    "pairing_code_invalid": "El código no es válido o ha caducado. Genera uno nuevo.",
+    "pairing_inactive": "Este emparejamiento ya no está activo. Genera un código nuevo.",
+    "device_kind_conflict": "Este dispositivo ya está registrado con otro rol. Revócalo y vuelve a intentarlo.",
+    "unauthorized": "Tu sesión de Dome ha caducado. Vuelve a iniciar sesión en Ajustes → Dome Sync.",
+    "network": "No se pudo conectar con Dome. Revisa tu conexión y vuelve a intentarlo."
+  }
 }

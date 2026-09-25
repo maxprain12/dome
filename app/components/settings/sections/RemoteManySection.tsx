@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   AlertCircleIcon,
@@ -11,6 +12,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 
@@ -38,18 +40,47 @@ interface RemoteStatus {
 
 const EMPTY: RemoteStatus = { enabled: false, connected: false, pairing: null, lastError: null };
 
+const KNOWN_ERROR_CODES = new Set([
+  'desktop_unavailable',
+  'companion_unavailable',
+  'pairing_code_invalid',
+  'pairing_inactive',
+  'device_kind_conflict',
+  'unauthorized',
+  'network',
+]);
+
+function normalizeErrorCode(raw: string): string {
+  const code = raw.trim();
+  if (/^remote_http_401$|unauthori[sz]ed|not_connected|no_session/i.test(code)) return 'unauthorized';
+  if (/fetch failed|network|ECONN|ENOTFOUND|timeout|aborted/i.test(code)) return 'network';
+  return code;
+}
+
+function remoteErrorMessage(t: TFunction, raw: unknown): string {
+  let text = '';
+  if (raw instanceof Error) text = raw.message;
+  else if (typeof raw === 'string') text = raw;
+  const code = normalizeErrorCode(text);
+  if (KNOWN_ERROR_CODES.has(code)) return t(`remote_many.errors.${code}`);
+  return t('remote_many.error_generic');
+}
+
 export default function RemoteManySection() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<RemoteStatus>(EMPTY);
   const [devices, setDevices] = useState<PresenceDevice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pairing, setPairing] = useState(false);
+
+  const fail = useCallback((raw: unknown) => setError(remoteErrorMessage(t, raw)), [t]);
 
   const load = useCallback(async () => {
     try {
       const result = await window.electron.remoteMany.status();
       if (!result?.success) {
-        setError(result?.error ?? t('remote_many.error_generic'));
+        fail(result?.error);
         return;
       }
       setStatus(result.data ?? EMPTY);
@@ -64,51 +95,50 @@ export default function RemoteManySection() {
         setDevices(rows.filter((row) => row.kind === 'companion' && !row.revoked));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('remote_many.error_generic'));
+      fail(err);
     }
-  }, [t]);
+  }, [fail]);
+
+  const refresh = useCallback(() => {
+    load().catch(fail);
+  }, [load, fail]);
 
   useEffect(() => {
-    void load();
-    const unsubscribe = window.electron.remoteMany.onStatus(() => {
-      void load();
-    });
+    refresh();
+    const unsubscribe = window.electron.remoteMany.onStatus(refresh);
     return () => {
       unsubscribe?.();
     };
-  }, [load]);
+  }, [refresh]);
 
   const onToggle = (checked: boolean) => {
     window.electron.remoteMany
       .setEnabled({ enabled: checked })
       .then((result) => {
-        if (!result?.success) setError(result?.error ?? t('remote_many.error_generic'));
-        else void load();
+        if (result?.success) refresh();
+        else fail(result?.error);
       })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : t('remote_many.error_generic'));
-      });
+      .catch(fail);
   };
 
   const onPair = () => {
+    setPairing(true);
+    setError(null);
     window.electron.remoteMany
       .pairStart()
       .then((result) => {
-        if (!result?.success) setError(result?.error ?? t('remote_many.error_generic'));
-        else void load();
+        if (result?.success) refresh();
+        else fail(result?.error);
       })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : t('remote_many.error_generic'));
-      });
+      .catch(fail)
+      .finally(() => setPairing(false));
   };
 
   const onCancel = () => {
     window.electron.remoteMany
       .pairCancel()
-      .then(() => load())
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : t('remote_many.error_generic'));
-      });
+      .then(refresh)
+      .catch(fail);
   };
 
   const onCopy = () => {
@@ -116,22 +146,18 @@ export default function RemoteManySection() {
     if (!code) return;
     navigator.clipboard.writeText(code).then(() => {
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {
-      setError(t('remote_many.error_generic'));
-    });
+      globalThis.setTimeout(() => setCopied(false), 1500);
+    }).catch(fail);
   };
 
   const onRevoke = (deviceId: string) => {
     window.electron.remoteMany
       .revoke({ deviceId })
       .then((result) => {
-        if (!result?.success) setError(result?.error ?? t('remote_many.error_generic'));
-        else void load();
+        if (result?.success) refresh();
+        else fail(result?.error);
       })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : t('remote_many.error_generic'));
-      });
+      .catch(fail);
   };
 
   return (
@@ -172,7 +198,7 @@ export default function RemoteManySection() {
           }
         />
         <SettingsRow title={t('remote_many.refresh_row')} description={t('remote_many.refresh_desc')}>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+          <Button type="button" variant="outline" size="sm" onClick={refresh}>
             <HugeiconsIcon icon={RefreshIcon} className="size-4" />
             {t('remote_many.refresh')}
           </Button>
@@ -180,7 +206,10 @@ export default function RemoteManySection() {
       </SettingsGroup>
 
       <SettingsGroup title={t('remote_many.pair_label')}>
-        <SettingsRow title={t('remote_many.pair_code')} description={t('remote_many.pair_desc')}>
+        <SettingsRow
+          title={t('remote_many.pair_code')}
+          description={status.enabled ? t('remote_many.pair_desc') : t('remote_many.pair_requires_enable')}
+        >
           <div className="flex flex-wrap items-center gap-2">
             {status.pairing?.code ? (
               <>
@@ -196,8 +225,9 @@ export default function RemoteManySection() {
                 </Button>
               </>
             ) : (
-              <Button type="button" size="sm" onClick={onPair} disabled={!status.enabled}>
-                {t('remote_many.generate_code')}
+              <Button type="button" size="sm" onClick={onPair} disabled={!status.enabled || pairing}>
+                {pairing ? <Spinner className="size-4" /> : null}
+                {pairing ? t('remote_many.generating_code') : t('remote_many.generate_code')}
               </Button>
             )}
           </div>

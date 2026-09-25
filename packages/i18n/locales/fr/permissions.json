@@ -1,0 +1,16 @@
+{
+  "microphone_title": "Microphone",
+  "microphone_why": "Pour transcrire ce que vous dites et dicter à Many.",
+  "screen_title": "Enregistrement de l’écran et de l’audio système",
+  "screen_why": "Pour transcrire les réunions et vidéos lues sur ce Mac. Dome n’enregistre que la fenêtre ou l’écran choisi.",
+  "status_granted": "Autorisé",
+  "status_denied": "Refusé — activez-le dans Réglages Système",
+  "status_restricted": "Restreint par la politique de ce Mac",
+  "status_not_determined": "Pas encore demandé",
+  "status_unknown": "Vérification…",
+  "request": "Autoriser",
+  "open_settings": "Ouvrir Réglages Système",
+  "relaunch": "Redémarrer Dome",
+  "screen_relaunch_hint": "macOS applique l’enregistrement de l’écran après le redémarrage de Dome.",
+  "os_managed": "Votre système d’exploitation gère ces autorisations."
+}
