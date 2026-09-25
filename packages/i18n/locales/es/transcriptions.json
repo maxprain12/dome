@@ -25,9 +25,7 @@
   "start_save_audio": "Guardar archivo de audio",
   "start_button": "Iniciar",
   "start_pick_screen": "Elige una ventana o pantalla",
-  "start_pick_screen_error": "No se pudieron cargar las fuentes de captura",
   "starting": "Iniciando…",
-  "start_failed": "No se pudo iniciar",
   "no_capture_sources": "No se detectaron fuentes",
   "refresh_sources": "Actualizar",
   "control_pause": "Pausar",
@@ -38,8 +36,22 @@
   "state_no_partial": "La transcripción aparecerá aquí…",
   "detail_convert_to_note": "Convertir a nota",
   "detail_summary_generate": "Generar resumen",
-  "permission_mic_denied": "Permiso de micrófono denegado. Ábrelo en Preferencias del Sistema.",
-  "permission_screen_denied": "Se requiere permiso de grabación de pantalla para audio del sistema.",
   "recovery_finalized": "Se recuperó una transcripción de la sesión anterior",
-  "recovery_failed": "No se pudo finalizar una grabación previa"
+  "recovery_failed": "No se pudo finalizar una grabación previa",
+  "errors": {
+    "screen_capture_permission": "Dome todavía no puede ver tus ventanas ni pantallas. Permite la Grabación de pantalla para capturar el audio del sistema.",
+    "capture_sources_failed": "No se pudieron cargar las ventanas y pantallas. Prueba a actualizar.",
+    "mic_permission_denied": "El acceso al micrófono está bloqueado. Permítelo para grabar tu voz.",
+    "system_audio_unavailable": "La ventana o pantalla elegida no comparte audio. Elige otra fuente.",
+    "no_audio_track": "La fuente elegida no tiene pista de audio.",
+    "missing_api_key": "Añade una API key de transcripción en Ajustes → IA → Transcripción.",
+    "missing_groq_key": "Añade tu API key de Groq en Ajustes → IA → Transcripción.",
+    "session_already_active": "Ya hay una transcripción en curso.",
+    "session_not_found": "Esa sesión de transcripción ya no existe.",
+    "realtime_connection_failed": "La transcripción en vivo se ha desconectado. Dome sigue grabando y transcribirá al detener.",
+    "transcription_failed": "No se pudo completar la transcripción. Inténtalo de nuevo."
+  },
+  "live_engine_realtime": "En streaming",
+  "live_engine_chunks": "Cada pocos segundos",
+  "speaker_auto": "Persona {{letter}}"
 }

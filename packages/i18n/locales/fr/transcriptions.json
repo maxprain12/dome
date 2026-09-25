@@ -25,9 +25,7 @@
   "start_save_audio": "Enregistrer le fichier audio",
   "start_button": "Démarrer",
   "start_pick_screen": "Choisir une fenêtre ou un écran",
-  "start_pick_screen_error": "Impossible de charger les sources de capture",
   "starting": "Démarrage…",
-  "start_failed": "Échec du démarrage",
   "no_capture_sources": "Aucune source détectée",
   "refresh_sources": "Actualiser",
   "control_pause": "Pause",
@@ -38,8 +36,22 @@
   "state_no_partial": "La transcription apparaîtra ici…",
   "detail_convert_to_note": "Convertir en note",
   "detail_summary_generate": "Générer un résumé",
-  "permission_mic_denied": "Accès au microphone refusé. Ouvrez les Réglages Système.",
-  "permission_screen_denied": "Permission d’enregistrement d’écran requise pour l’audio système.",
   "recovery_finalized": "Transcription récupérée d’une session précédente",
-  "recovery_failed": "Impossible de finaliser un enregistrement précédent"
+  "recovery_failed": "Impossible de finaliser un enregistrement précédent",
+  "errors": {
+    "screen_capture_permission": "Dome ne voit pas encore vos fenêtres ni vos écrans. Autorisez l’enregistrement de l’écran pour capter l’audio système.",
+    "capture_sources_failed": "Impossible de charger les fenêtres et écrans. Essayez d’actualiser.",
+    "mic_permission_denied": "L’accès au micro est bloqué. Autorisez-le pour enregistrer votre voix.",
+    "system_audio_unavailable": "La fenêtre ou l’écran choisi ne partage pas d’audio. Choisissez une autre source.",
+    "no_audio_track": "La source choisie n’a pas de piste audio.",
+    "missing_api_key": "Ajoutez une clé API de transcription dans Réglages → IA → Transcription.",
+    "missing_groq_key": "Ajoutez votre clé API Groq dans Réglages → IA → Transcription.",
+    "session_already_active": "Une transcription est déjà en cours.",
+    "session_not_found": "Cette session de transcription n’existe plus.",
+    "realtime_connection_failed": "La transcription en direct s’est déconnectée. Dome continue d’enregistrer et transcrira à l’arrêt.",
+    "transcription_failed": "La transcription n’a pas pu aboutir. Réessayez."
+  },
+  "live_engine_realtime": "En continu",
+  "live_engine_chunks": "Toutes les quelques secondes",
+  "speaker_auto": "Personne {{letter}}"
 }

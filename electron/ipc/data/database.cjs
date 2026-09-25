@@ -643,26 +643,25 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const { hasProviderApiKey } = require('../../ai/provider-keys.cjs');
-      const providers = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', 'deepseek', 'moonshot', 'qwen', 'opencode', 'opencode-go'];
+      const { API_KEY_CHAT_PROVIDERS } = require('../../ai/provider-auth.cjs');
       const status = {};
-      for (const p of providers) status[p] = hasProviderApiKey(queries, p);
-      try {
-        const copilotOAuth = require('../../auth/github-copilot-oauth.cjs');
-        status.copilot = !!copilotOAuth.getStatus(database)?.connected;
-      } catch {
-        status.copilot = false;
+      for (const p of API_KEY_CHAT_PROVIDERS) status[p] = hasProviderApiKey(queries, p);
+      const oauthModules = {
+        copilot: '../../auth/github-copilot-oauth.cjs',
+        'claude-oauth': '../../auth/claude-oauth.cjs',
+        'openai-codex': '../../auth/openai-codex-oauth.cjs',
+      };
+      for (const [provider, modulePath] of Object.entries(oauthModules)) {
+        try {
+          status[provider] = !!require(modulePath).getStatus(database)?.connected;
+        } catch {
+          status[provider] = false;
+        }
       }
       try {
-        const claudeOAuth = require('../../auth/claude-oauth.cjs');
-        status['claude-oauth'] = !!claudeOAuth.getStatus(database)?.connected;
+        status.dome = !!queries.getDomeProviderSessionWithRefresh.get();
       } catch {
-        status['claude-oauth'] = false;
-      }
-      try {
-        const openaiCodexOAuth = require('../../auth/openai-codex-oauth.cjs');
-        status['openai-codex'] = !!openaiCodexOAuth.getStatus(database)?.connected;
-      } catch {
-        status['openai-codex'] = false;
+        status.dome = false;
       }
       return { success: true, data: status };
     } catch (error) {

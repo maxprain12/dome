@@ -31,6 +31,10 @@ function useResolvedTheme(): ResolvedTheme {
   return theme;
 }
 
+function providerMonogram(provider: string): string {
+  return provider.replaceAll(/[^a-z0-9]/gi, '').slice(0, 1);
+}
+
 export interface ProviderBrandIconProps {
   provider: ProviderWithBrandLogo;
   /** Fixed pixel size. Ignored when `fill` is true. */
@@ -47,10 +51,27 @@ export default function ProviderBrandIcon({
   className,
 }: ProviderBrandIconProps) {
   const resolvedTheme = useResolvedTheme();
+  const src = getProviderLogoSrc(provider, resolvedTheme);
+
+  if (!src) {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        width={fill ? undefined : size}
+        height={fill ? undefined : size}
+        className={cn('shrink-0 text-foreground', fill && 'size-[78%]', className)}
+      >
+        <text x="12" y="17" textAnchor="middle" fontSize="15" fontWeight="600" fill="currentColor">
+          {providerMonogram(provider).toUpperCase()}
+        </text>
+      </svg>
+    );
+  }
 
   return (
     <img
-      src={getProviderLogoSrc(provider, resolvedTheme)}
+      src={src}
       alt=""
       aria-hidden
       width={fill ? undefined : size}

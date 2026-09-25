@@ -251,7 +251,7 @@ const docxConverter = require('./documents/docx-converter.cjs');
 const authManager = require('./auth/auth-manager.cjs');
 const personalityLoader = require('./personality/personality-loader.cjs');
 const updateService = require('./core/update-service.cjs');
-const ttsService = require('./transcription/tts-service.cjs');
+const ttsService = require('./speech/tts-service.cjs');
 const notebookPython = require('./documents/notebook-python.cjs');
 const mcpOauth = require('./mcp/mcp-oauth.cjs');
 const { handleDomeUrl } = require('./core/deep-link-handler.cjs');
@@ -272,7 +272,7 @@ const domainSyncScheduler = require('./storage/domain-sync-scheduler.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
-const transcriptionShortcut = require('./transcription/transcription-shortcut.cjs');
+const transcriptionShortcut = require('./transcription/shortcut.cjs');
 const { useViteDevServer } = require('./core/runtime-env.cjs');
 
 // Modo desarrollo (Vite): nunca en app empaquetada

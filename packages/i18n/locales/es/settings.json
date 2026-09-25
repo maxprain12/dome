@@ -198,12 +198,7 @@
     "provider_legend_needs_key": "Falta clave",
     "configuration": "Configuración",
     "web_search_section": "Búsqueda web",
-    "recommended": "RECOMENDADO",
-    "no_own_key": "Sin API key propia",
-    "private": "Privado",
-    "fast": "Rápido",
     "api_key_required": "API key requerida",
-    "local_badge": "LOCAL",
     "private_local": "100% privado, sin datos en la nube",
     "model": "Modelo",
     "use_presets": "Usar presets",
@@ -333,9 +328,6 @@
     "saved_key": "Key guardada",
     "local_models": "Modelos locales",
     "no_models": "No se encontraron modelos",
-    "providers_configured": "Configurados",
-    "providers_available": "Disponibles",
-    "providers_local": "Local",
     "key_saved": "Clave guardada",
     "visible_models": {
       "title": "Modelos en el selector",
@@ -351,11 +343,13 @@
       "remove": "Quitar del selector",
       "reset": "Restaurar valores por defecto",
       "save": "Guardar",
-      "gear_label": "Configurar modelos visibles de {{provider}}",
       "add_by_id": "Añadir modelo por ID",
       "add_by_id_hint": "Para modelos que no aparecen en el catálogo. El ID se añade al selector al instante.",
       "add_by_id_placeholder": "Id del modelo (ej. gpt-4.1)",
-      "custom_model_badge": "Modelo personalizado"
+      "custom_model_badge": "Modelo personalizado",
+      "row_title": "Modelos en el selector",
+      "row_desc": "Elige qué modelos aparecen al cambiar de modelo en el chat.",
+      "row_action": "Elegir modelos"
     },
     "dome_login_email": "Correo electrónico",
     "dome_login_password": "Contraseña",
@@ -364,7 +358,27 @@
     "dome_login_ok": "Sesión de Dome conectada.",
     "dome_login_failed": "No se pudo iniciar sesión.",
     "dome_login_invalid_credentials": "Correo o contraseña incorrectos.",
-    "dome_login_network_error": "Sin conexión con el servidor de Dome. Inténtalo de nuevo."
+    "dome_login_network_error": "Sin conexión con el servidor de Dome. Inténtalo de nuevo.",
+    "provider_search": "Buscar proveedores",
+    "provider_search_empty_title": "Sin proveedores",
+    "provider_search_empty": "Nada coincide con «{{query}}». Prueba con el nombre de la empresa o del modelo.",
+    "provider_group": {
+      "active": "En uso",
+      "configured": "Configurados",
+      "subscription": "Con tu cuenta",
+      "cloud": "Con API key",
+      "local": "En este ordenador"
+    },
+    "provider_kind": {
+      "subscription": "Inicia sesión con tu cuenta",
+      "cloud": "API key",
+      "local": "Modelo local"
+    },
+    "badge_experimental": "Experimental",
+    "in_use": "En uso",
+    "not_in_use": "Sin usar",
+    "save_and_use": "Guardar y usar {{provider}}",
+    "test_unavailable": "La prueba de conexión no está disponible en esta versión."
   },
   "transcription": {
     "title": "Transcripción de voz",
@@ -440,16 +454,11 @@
     "shortcut_opt_in_help": "Los atajos globales son opcionales. En macOS pueden pedir Accesibilidad / Monitorización de entrada. Puedes usar el micrófono en la barra superior sin atajos.",
     "shortcut_enable_dictation": "Activar atajo global del dock de dictado",
     "section_permissions": "Permisos",
-    "perm_mic": "Micrófono",
-    "perm_screen": "Grabación de pantalla",
-    "perm_granted": "Concedido",
-    "perm_denied": "Denegado",
-    "perm_not_determined": "Sin solicitar",
-    "perm_restricted": "Restringido",
-    "perm_request": "Solicitar acceso",
-    "perm_open_prefs": "Abrir Preferencias del Sistema",
-    "perm_screen_restart_hint": "Tras conceder Grabación de pantalla, reinicia Dome para que el cambio surta efecto.",
-    "perm_os_managed": "Los permisos son gestionados por el sistema operativo."
+    "live_engine": "Transcripción en vivo",
+    "live_engine_realtime": "En streaming (OpenAI Realtime)",
+    "live_engine_chunks": "Cada pocos segundos",
+    "live_engine_help": "El streaming muestra las palabras mientras se dicen. Al detener, Dome hace una pasada completa con hablantes.",
+    "live_engine_openai_only": "El streaming requiere OpenAI sin endpoint personalizado. Con otros proveedores el texto en vivo se actualiza cada pocos segundos."
   },
   "domain_sync": {
     "title": "Sincronización por dominio",

@@ -198,12 +198,7 @@
     "provider_legend_needs_key": "Needs key",
     "configuration": "Configuration",
     "web_search_section": "Web search",
-    "recommended": "RECOMMENDED",
-    "no_own_key": "No own API key required",
-    "private": "Private",
-    "fast": "Fast",
     "api_key_required": "API key required",
-    "local_badge": "LOCAL",
     "private_local": "100% private, no cloud data",
     "model": "Model",
     "use_presets": "Use presets",
@@ -333,9 +328,6 @@
     "saved_key": "Key saved",
     "local_models": "Local models",
     "no_models": "No models found",
-    "providers_configured": "Configured",
-    "providers_available": "Available",
-    "providers_local": "Local",
     "key_saved": "API key saved",
     "visible_models": {
       "title": "Models in selector",
@@ -351,11 +343,13 @@
       "remove": "Remove from selector",
       "reset": "Reset to defaults",
       "save": "Save",
-      "gear_label": "Configure visible models for {{provider}}",
       "add_by_id": "Add model by ID",
       "add_by_id_hint": "For models not listed in the catalog. The ID is added to the selector immediately.",
       "add_by_id_placeholder": "Model id (e.g. gpt-4.1)",
-      "custom_model_badge": "Custom model"
+      "custom_model_badge": "Custom model",
+      "row_title": "Models in the selector",
+      "row_desc": "Choose which models appear when you switch models in chat.",
+      "row_action": "Choose models"
     },
     "dome_login_email": "Email",
     "dome_login_password": "Password",
@@ -364,7 +358,27 @@
     "dome_login_ok": "Dome session connected.",
     "dome_login_failed": "Sign-in failed.",
     "dome_login_invalid_credentials": "Incorrect email or password.",
-    "dome_login_network_error": "Could not reach the Dome server. Try again."
+    "dome_login_network_error": "Could not reach the Dome server. Try again.",
+    "provider_search": "Search providers",
+    "provider_search_empty_title": "No providers found",
+    "provider_search_empty": "Nothing matches “{{query}}”. Try the company or model name.",
+    "provider_group": {
+      "active": "In use",
+      "configured": "Set up",
+      "subscription": "With your account",
+      "cloud": "With an API key",
+      "local": "On this computer"
+    },
+    "provider_kind": {
+      "subscription": "Sign in with your account",
+      "cloud": "API key",
+      "local": "Local model"
+    },
+    "badge_experimental": "Experimental",
+    "in_use": "In use",
+    "not_in_use": "Not in use",
+    "save_and_use": "Save and use {{provider}}",
+    "test_unavailable": "Connection test isn’t available in this version."
   },
   "transcription": {
     "title": "Voice transcription",
@@ -440,16 +454,11 @@
     "shortcut_opt_in_help": "Global shortcuts are optional. On macOS they can trigger Accessibility / Input Monitoring prompts. You can use the top-bar microphone without shortcuts.",
     "shortcut_enable_dictation": "Enable global shortcut for dictation dock",
     "section_permissions": "Permissions",
-    "perm_mic": "Microphone",
-    "perm_screen": "Screen Recording",
-    "perm_granted": "Granted",
-    "perm_denied": "Denied",
-    "perm_not_determined": "Not requested",
-    "perm_restricted": "Restricted",
-    "perm_request": "Request access",
-    "perm_open_prefs": "Open System Preferences",
-    "perm_screen_restart_hint": "After granting Screen Recording, restart Dome for the change to take effect.",
-    "perm_os_managed": "Permissions are managed by the operating system."
+    "live_engine": "Live transcript",
+    "live_engine_realtime": "Streaming (OpenAI Realtime)",
+    "live_engine_chunks": "Every few seconds",
+    "live_engine_help": "Streaming shows words as they are spoken. Dome still runs a full pass when you stop, with speakers.",
+    "live_engine_openai_only": "Streaming needs OpenAI without a custom endpoint. Other providers refresh the live text every few seconds."
   },
   "domain_sync": {
     "title": "Domain sync",

@@ -25,9 +25,7 @@
   "start_save_audio": "Salvar arquivo de áudio",
   "start_button": "Iniciar",
   "start_pick_screen": "Escolha uma janela ou tela",
-  "start_pick_screen_error": "Não foi possível carregar as fontes de captura",
   "starting": "Iniciando…",
-  "start_failed": "Falha ao iniciar",
   "no_capture_sources": "Nenhuma fonte detectada",
   "refresh_sources": "Atualizar",
   "control_pause": "Pausar",
@@ -38,8 +36,22 @@
   "state_no_partial": "A transcrição aparecerá aqui…",
   "detail_convert_to_note": "Converter em nota",
   "detail_summary_generate": "Gerar resumo",
-  "permission_mic_denied": "Acesso ao microfone negado. Abra as Preferências do Sistema.",
-  "permission_screen_denied": "Permissão de gravação de tela necessária para áudio do sistema.",
   "recovery_finalized": "Transcrição recuperada de uma sessão anterior",
-  "recovery_failed": "Não foi possível finalizar uma gravação anterior"
+  "recovery_failed": "Não foi possível finalizar uma gravação anterior",
+  "errors": {
+    "screen_capture_permission": "O Dome ainda não consegue ver suas janelas nem telas. Permita a Gravação de tela para capturar o áudio do sistema.",
+    "capture_sources_failed": "Não foi possível carregar as janelas e telas. Tente atualizar.",
+    "mic_permission_denied": "O acesso ao microfone está bloqueado. Permita para gravar sua voz.",
+    "system_audio_unavailable": "A janela ou tela escolhida não compartilha áudio. Escolha outra fonte.",
+    "no_audio_track": "A fonte escolhida não tem faixa de áudio.",
+    "missing_api_key": "Adicione uma chave de API de transcrição em Ajustes → IA → Transcrição.",
+    "missing_groq_key": "Adicione sua chave de API do Groq em Ajustes → IA → Transcrição.",
+    "session_already_active": "Já há uma transcrição em andamento.",
+    "session_not_found": "Essa sessão de transcrição não existe mais.",
+    "realtime_connection_failed": "A transcrição ao vivo desconectou. O Dome continua gravando e transcreverá ao parar.",
+    "transcription_failed": "Não foi possível concluir a transcrição. Tente novamente."
+  },
+  "live_engine_realtime": "Em streaming",
+  "live_engine_chunks": "A cada poucos segundos",
+  "speaker_auto": "Pessoa {{letter}}"
 }

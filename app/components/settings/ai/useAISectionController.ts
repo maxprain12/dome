@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TranscriptionSettingsSectionsHandle } from '../TranscriptionSettingsSections';
+import type { TranscriptionSettingsSectionsHandle } from '../transcription/TranscriptionSettingsSections';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import {
   LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS,
@@ -29,6 +29,7 @@ export type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools' | 
 export function useAISectionController() {
   const { t } = useTranslation();
   const [provider, setProvider] = useState<AIProviderType>('openai');
+  const [activeProvider, setActiveProvider] = useState<AIProviderType | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({});
   const [model, setModel] = useState('gpt-5.6-sol');
@@ -58,6 +59,7 @@ export function useAISectionController() {
       if (!config) return;
       const loaded = parseLoadedAIConfig(config);
       setProvider(loaded.provider);
+      setActiveProvider(loaded.provider);
       setApiKey(loaded.apiKey);
       setModel(loaded.model);
       setCustomModel(loaded.customModel);
@@ -148,6 +150,7 @@ export function useAISectionController() {
     });
     try {
       await saveAIConfig(config);
+      setActiveProvider(provider);
       refreshProviderKeyStatus();
       await transcriptionRef.current?.save();
       setSaved(true);
@@ -178,12 +181,12 @@ export function useAISectionController() {
             : { success: false, message: result.error || t('settings.ai.connection_failed') },
         );
       } else {
-        setTestResult({ success: false, message: 'Test no disponible en esta versión' });
+        setTestResult({ success: false, message: t('settings.ai.test_unavailable') });
       }
     } catch (error) {
       setTestResult({
         success: false,
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : t('settings.ai.connection_failed'),
       });
     } finally {
       setTesting(false);
@@ -202,6 +205,7 @@ export function useAISectionController() {
   return {
     t,
     provider,
+    activeProvider,
     apiKey,
     setApiKey,
     providerKeyStatus,

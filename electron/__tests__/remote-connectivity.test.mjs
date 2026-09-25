@@ -102,6 +102,18 @@ test('continuous token arrival cannot defer a text batch beyond 220 ms', async (
   assert.equal(f.events[0].envelope.payload.text, 'abc');
 });
 
+test('pairing registers the desktop device before requesting a code', async (t) => {
+  const f = clientFixture(t);
+  await f.api.start({ database: f.database });
+  await settle();
+  f.requests.length = 0;
+  await f.api.getRuntime().startPairing();
+  const devicesAt = f.requests.findIndex((url) => url.endsWith('/api/v1/remote/devices'));
+  const pairingAt = f.requests.findIndex((url) => url.endsWith('/api/v1/remote/pairing'));
+  assert.ok(devicesAt >= 0, 'device registration request sent');
+  assert.ok(devicesAt < pairingAt, 'registration precedes pairing');
+});
+
 function oauthFixture(fetch) {
   let row = { user_id: 'user', access_token: 'old', refresh_token: 'refresh-old', expires_at: Date.now() + 60000 };
   const queries = {

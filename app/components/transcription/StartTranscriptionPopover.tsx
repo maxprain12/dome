@@ -12,6 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import PermissionCallout from '@/components/shared/PermissionCallout';
+import type { MediaPermissionKind } from '@/lib/permissions/types';
+import { transcriptionErrorMessage } from '@/lib/transcription/errors';
 
 interface Props {
   anchorRef: React.RefObject<HTMLElement>;
@@ -66,14 +69,20 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       if (res?.success && Array.isArray(res.sources)) {
         setCaptureSources(res.sources);
       } else {
-        setError(res?.error || t('transcriptions.start_pick_screen_error', 'Could not load capture sources'));
+        setCaptureSources([]);
+        setError(transcriptionErrorMessage(t, res?.errorCode ?? 'capture_sources_failed'));
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+    } catch {
+      setError(transcriptionErrorMessage(t, 'capture_sources_failed'));
     } finally {
       setLoadingSources(false);
     }
   }, [t]);
+
+  const permissionKinds: MediaPermissionKind[] = [
+    ...(sources.includes('mic') ? (['microphone'] as const) : []),
+    ...(sources.includes('system') ? (['screen'] as const) : []),
+  ];
 
   const toggleSource = (s: TranscriptionSource) => {
     const adding = !sources.includes(s);
@@ -81,7 +90,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       if (prev.includes(s)) return prev.filter((x) => x !== s);
       return [...prev, s];
     });
-    if (adding && s === 'system') void loadSources();
+    if (adding && s === 'system') loadSources().catch(() => undefined);
   };
 
   const canStart = sources.length > 0 && (!wantsSystem || !!systemSourceId) && !submitting;
@@ -99,7 +108,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
     });
     setSubmitting(false);
     if (!result.ok) {
-      setError(result.error || t('transcriptions.start_failed', 'Failed to start'));
+      setError(transcriptionErrorMessage(t, result.error));
       return;
     }
     onClose();
@@ -144,7 +153,9 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
               type="button"
               variant="ghost"
               size="icon-sm"
-              onClick={() => void loadSources()}
+              onClick={() => {
+                loadSources().catch(() => undefined);
+              }}
               disabled={loadingSources}
               aria-label={t('transcriptions.refresh_sources', 'Refresh')}
             >
@@ -198,6 +209,8 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
         />
         </div>
       </Field>
+
+      {permissionKinds.length > 0 ? <PermissionCallout kinds={permissionKinds} hideGranted /> : null}
 
       {error && (
         <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>

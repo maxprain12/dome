@@ -473,16 +473,19 @@ const ALLOWED_CHANNELS = {
     'audio:generate-podcast',
     'audio:get-status',
     'audio:list',
-    // Transcription (unified session engine — 12 channels)
+    // OS permissions (microphone, screen recording)
+    'permissions:get',
+    'permissions:request',
+    'permissions:open-settings',
+    'permissions:relaunch',
+    // Transcription (unified session engine)
     'transcription:get-settings',
     'transcription:set-settings',
-    'transcription:get-permissions',
-    'transcription:request-mic',
-    'transcription:request-screen',
     'transcription:list-capture-sources',
     'transcription:set-display-media-source',
     'transcription:session-start',
     'transcription:session-append',
+    'transcription:session-audio',
     'transcription:session-control',
     'transcription:get-active',
     'transcription:resource-to-note',
@@ -2082,16 +2085,22 @@ const electronHandler = {
   },
 
   // ============================================
+  // OS PERMISSIONS API
+  // ============================================
+  permissions: {
+    get: () => ipcRenderer.invoke('permissions:get'),
+    request: (kind) => ipcRenderer.invoke('permissions:request', { kind }),
+    openSettings: (kind) => ipcRenderer.invoke('permissions:open-settings', { kind }),
+    relaunch: () => ipcRenderer.invoke('permissions:relaunch'),
+  },
+
+  // ============================================
   // TRANSCRIPTION API (unified session engine)
   // ============================================
   transcription: {
     // Settings
     getSettings: () => ipcRenderer.invoke('transcription:get-settings'),
     setSettings: (args) => ipcRenderer.invoke('transcription:set-settings', args),
-    // Permissions
-    getPermissions: () => ipcRenderer.invoke('transcription:get-permissions'),
-    requestMic: () => ipcRenderer.invoke('transcription:request-mic'),
-    requestScreen: () => ipcRenderer.invoke('transcription:request-screen'),
     // Capture sources (system audio)
     listCaptureSources: () => ipcRenderer.invoke('transcription:list-capture-sources'),
     setDisplayMediaSource: (sourceId) =>
@@ -2099,6 +2108,7 @@ const electronHandler = {
     // Session lifecycle
     sessionStart: (args) => ipcRenderer.invoke('transcription:session-start', args),
     sessionAppend: (args) => ipcRenderer.invoke('transcription:session-append', args),
+    sessionAudio: (args) => ipcRenderer.invoke('transcription:session-audio', args),
     sessionControl: (args) => ipcRenderer.invoke('transcription:session-control', args),
     getActive: () => ipcRenderer.invoke('transcription:get-active'),
     // Manual conversion

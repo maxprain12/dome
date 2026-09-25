@@ -8,6 +8,11 @@ declare module '*.txt?raw' {
 
 // Tiptap custom commands declaration
 import type { MCPServerConfig, MCPToolConfig, Resource } from '@/types';
+import type {
+  MediaPermissionKind,
+  MediaPermissionRequestResult,
+  MediaPermissionsSnapshot,
+} from '@/lib/permissions/types';
 
 type ThemeChangeCallback = (theme: 'light' | 'dark') => void;
 type RemoveListenerFn = () => void;
@@ -2255,6 +2260,13 @@ declare global {
         onTtsError: (callback: (data: { runId: string; error: string }) => void) => RemoveListenerFn;
       };
 
+      permissions: {
+        get: () => Promise<DBResponse<MediaPermissionsSnapshot>>;
+        request: (kind: MediaPermissionKind) => Promise<DBResponse<MediaPermissionRequestResult>>;
+        openSettings: (kind: MediaPermissionKind) => Promise<DBResponse<{ opened: boolean }>>;
+        relaunch: () => Promise<DBResponse<{ relaunching: boolean }>>;
+      };
+
       transcription: {
         // Settings
         getSettings: () => Promise<{
@@ -2275,6 +2287,7 @@ declare global {
             autoSummary: boolean;
             chunkSec: number;
             summaryModel: string;
+            liveEngine: 'realtime' | 'chunks';
           };
           error?: string;
         }>;
@@ -2294,21 +2307,8 @@ declare global {
           autoSummary?: boolean;
           chunkSec?: number;
           summaryModel?: string;
+          liveEngine?: 'realtime' | 'chunks';
         }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        // Permissions
-        getPermissions: () => Promise<{
-          success: boolean;
-          mic?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-          error?: string;
-        }>;
-        requestMic: () => Promise<{ success: boolean; granted?: boolean; error?: string }>;
-        requestScreen: () => Promise<{
-          success: boolean;
-          granted?: boolean;
-          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-          error?: string;
-        }>;
         // Capture sources
         listCaptureSources: () => Promise<{
           success: boolean;
@@ -2320,7 +2320,7 @@ declare global {
             iconDataUrl?: string;
           }>;
           error?: string;
-          errorCode?: 'screen_capture_permission';
+          errorCode?: 'screen_capture_permission' | 'capture_sources_failed';
         }>;
         setDisplayMediaSource: (sourceId: string) => Promise<{ success: boolean; error?: string }>;
         // Session lifecycle
@@ -2331,7 +2331,7 @@ declare global {
           folderId?: string | null;
           livePreview?: boolean;
           saveAudio?: boolean;
-        }) => Promise<{ success: boolean; sessionId?: string; error?: string }>;
+        }) => Promise<{ success: boolean; sessionId?: string; liveEngine?: 'realtime' | 'chunks' | null; error?: string }>;
         sessionAppend: (args: {
           sessionId: string;
           track: 'mic' | 'system';
@@ -2340,6 +2340,7 @@ declare global {
           buffer: ArrayBuffer;
           extension?: string;
         }) => Promise<{ success: boolean; error?: string }>;
+        sessionAudio: (args: { sessionId: string; buffer: ArrayBuffer }) => Promise<{ success: boolean; error?: string }>;
         sessionControl: (args: {
           sessionId: string;
           action: 'pause' | 'resume' | 'cancel' | 'stop';
@@ -2352,7 +2353,9 @@ declare global {
             sources: Array<'mic' | 'system'>;
             seconds: number;
             livePreview: boolean;
+            liveEngine: 'realtime' | 'chunks' | null;
             partialText: string;
+            notice: string | null;
             error: string | null;
           };
           error?: string;
@@ -2371,7 +2374,9 @@ declare global {
             sources: Array<'mic' | 'system'>;
             seconds: number;
             livePreview: boolean;
+            liveEngine: 'realtime' | 'chunks' | null;
             partialText: string;
+            notice: string | null;
             error: string | null;
           }) => void,
         ) => RemoveListenerFn;

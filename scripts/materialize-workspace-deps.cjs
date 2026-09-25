@@ -50,8 +50,36 @@ function copyPackage(realPkgDir, destDir) {
   }
 }
 
+function restorePackage(name) {
+  const linkPath = path.join(scopeDir, name);
+  const sourcePkgDir = path.join(root, 'packages', name);
+  const expected = path.join('..', '..', 'packages', name);
+
+  if (!fs.existsSync(sourcePkgDir)) {
+    fail(`Missing packages/${name} — workspace package not checked out`);
+  }
+
+  if (fs.existsSync(linkPath) && fs.lstatSync(linkPath).isSymbolicLink()) {
+    if (fs.readlinkSync(linkPath) === expected) {
+      console.log(`[materialize-workspace-deps] @dome/${name} already linked`);
+      return;
+    }
+  }
+
+  fs.rmSync(linkPath, { recursive: true, force: true });
+  fs.symlinkSync(expected, linkPath);
+  fs.rmSync(path.join(scopeDir, `.ignored_${name}`), { recursive: true, force: true });
+  console.log(`[materialize-workspace-deps] Restored symlink @dome/${name} -> ${expected}`);
+}
+
 if (!fs.existsSync(scopeDir)) {
   fail(`Missing ${scopeDir} — run pnpm install`);
+}
+
+if (process.argv.includes('--restore')) {
+  for (const name of WORKSPACE_PKGS) restorePackage(name);
+  console.log('[materialize-workspace-deps] Symlinks restored');
+  process.exit(0);
 }
 
 for (const name of WORKSPACE_PKGS) {

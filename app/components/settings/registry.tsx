@@ -59,12 +59,16 @@ export interface SettingsEntry {
   titleKey: string;
   keywords: string[];
   legacyAliases: string[];
+  /** `wide` for catalogue-style sections (master-detail); forms stay in the narrow column. */
+  layout: SettingsLayout;
   component: LazyExoticComponent<ComponentType>;
 }
 
+export type SettingsLayout = 'narrow' | 'wide';
+
 interface GroupDef {
   labelKey: string;
-  sections: Array<{ id: NavSection; icon: IconSvgElement; legacyAliases?: string[] }>;
+  sections: Array<{ id: NavSection; icon: IconSvgElement; legacyAliases?: string[]; layout?: SettingsLayout }>;
 }
 
 const GROUP_DEFS: GroupDef[] = [
@@ -81,7 +85,7 @@ const GROUP_DEFS: GroupDef[] = [
   },
   {
     labelKey: 'settings.groups.ai',
-    sections: [{ id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'] }],
+    sections: [{ id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'], layout: 'wide' }],
   },
   {
     labelKey: 'settings.groups.integrations',
@@ -154,6 +158,7 @@ export const SETTINGS_GROUPS: SettingsGroupEntry[] = GROUP_DEFS.map((group) => (
     titleKey: `settings.tabs.${section.id}`,
     keywords: [section.id, group.labelKey],
     legacyAliases: section.legacyAliases ?? [],
+    layout: section.layout ?? 'narrow',
     component: SECTION_COMPONENTS[section.id],
   })),
 }));

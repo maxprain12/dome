@@ -197,12 +197,7 @@
     "provider_legend_needs_key": "Falta chave",
     "configuration": "Configuração",
     "web_search_section": "Pesquisa na web",
-    "recommended": "RECOMENDADO",
-    "no_own_key": "Sem chave API própria necessária",
-    "private": "Privado",
-    "fast": "Rápido",
     "api_key_required": "Chave API necessária",
-    "local_badge": "LOCAL",
     "private_local": "100% privado, sem dados na nuvem",
     "model": "Modelo",
     "use_presets": "Usar predefinições",
@@ -332,9 +327,6 @@
     "saved_key": "Chave salva",
     "local_models": "Modelos locais",
     "no_models": "Nenhum modelo encontrado",
-    "providers_configured": "Configurados",
-    "providers_available": "Disponíveis",
-    "providers_local": "Local",
     "key_saved": "Chave salva",
     "visible_models": {
       "title": "Modelos no seletor",
@@ -350,11 +342,13 @@
       "remove": "Remover do seletor",
       "reset": "Restaurar predefinições",
       "save": "Guardar",
-      "gear_label": "Configurar modelos visíveis de {{provider}}",
       "add_by_id": "Adicionar modelo por ID",
       "add_by_id_hint": "Para modelos que não aparecem no catálogo. O ID é adicionado ao seletor de imediato.",
       "add_by_id_placeholder": "Id do modelo (ex. gpt-4.1)",
-      "custom_model_badge": "Modelo personalizado"
+      "custom_model_badge": "Modelo personalizado",
+      "row_title": "Modelos no seletor",
+      "row_desc": "Escolha quais modelos aparecem ao trocar de modelo no chat.",
+      "row_action": "Escolher modelos"
     },
     "dome_login_email": "E-mail",
     "dome_login_password": "Senha",
@@ -363,7 +357,27 @@
     "dome_login_ok": "Sessão do Dome conectada.",
     "dome_login_failed": "Falha ao iniciar sessão.",
     "dome_login_invalid_credentials": "E-mail ou senha incorretos.",
-    "dome_login_network_error": "Não foi possível contactar o servidor do Dome. Tente novamente."
+    "dome_login_network_error": "Não foi possível contactar o servidor do Dome. Tente novamente.",
+    "provider_search": "Buscar provedores",
+    "provider_search_empty_title": "Nenhum provedor",
+    "provider_search_empty": "Nada corresponde a “{{query}}”. Tente o nome da empresa ou do modelo.",
+    "provider_group": {
+      "active": "Em uso",
+      "configured": "Configurados",
+      "subscription": "Com sua conta",
+      "cloud": "Com chave de API",
+      "local": "Neste computador"
+    },
+    "provider_kind": {
+      "subscription": "Entre com sua conta",
+      "cloud": "Chave de API",
+      "local": "Modelo local"
+    },
+    "badge_experimental": "Experimental",
+    "in_use": "Em uso",
+    "not_in_use": "Não usado",
+    "save_and_use": "Salvar e usar {{provider}}",
+    "test_unavailable": "O teste de conexão não está disponível nesta versão."
   },
   "transcription": {
     "title": "Transcrição de voz",
@@ -439,16 +453,11 @@
     "shortcut_opt_in_help": "Atalhos globais são opcionais. No macOS podem pedir Acessibilidade / Monitoramento de entrada. Pode usar o micro na barra sem atalhos.",
     "shortcut_enable_dictation": "Ativar atalho global do dock de ditado",
     "section_permissions": "Permissões",
-    "perm_mic": "Microfone",
-    "perm_screen": "Gravação de tela",
-    "perm_granted": "Concedido",
-    "perm_denied": "Negado",
-    "perm_not_determined": "Não solicitado",
-    "perm_restricted": "Restrito",
-    "perm_request": "Solicitar acesso",
-    "perm_open_prefs": "Abrir Preferências do Sistema",
-    "perm_screen_restart_hint": "Após conceder Gravação de tela, reinicie o Dome para que a mudança tenha efeito.",
-    "perm_os_managed": "As permissões são gerenciadas pelo sistema operacional."
+    "live_engine": "Transcrição ao vivo",
+    "live_engine_realtime": "Em streaming (OpenAI Realtime)",
+    "live_engine_chunks": "A cada poucos segundos",
+    "live_engine_help": "O streaming mostra as palavras enquanto são ditas. Ao parar, o Dome faz uma passada completa com falantes.",
+    "live_engine_openai_only": "O streaming requer OpenAI sem endpoint personalizado. Com outros provedores o texto ao vivo é atualizado a cada poucos segundos."
   },
   "domain_sync": {
     "title": "Sincronização por domínio",

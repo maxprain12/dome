@@ -1,0 +1,16 @@
+{
+  "microphone_title": "Microphone",
+  "microphone_why": "To transcribe what you say and dictate to Many.",
+  "screen_title": "Screen & system audio recording",
+  "screen_why": "To transcribe meetings and videos playing on this Mac. Dome only records the window or screen you pick.",
+  "status_granted": "Granted",
+  "status_denied": "Denied — enable it in System Settings",
+  "status_restricted": "Restricted by this Mac’s policy",
+  "status_not_determined": "Not requested yet",
+  "status_unknown": "Checking…",
+  "request": "Allow",
+  "open_settings": "Open System Settings",
+  "relaunch": "Restart Dome",
+  "screen_relaunch_hint": "macOS applies Screen Recording after Dome restarts.",
+  "os_managed": "Your operating system manages these permissions."
+}

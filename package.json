@@ -17,9 +17,9 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "pnpm run build:packages && pnpm run build:prompt-assembler && concurrently \"pnpm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=4096 electron .\"",
-    "electron:build": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder",
-    "electron:build:verbose": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder",
-    "electron:pack": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run verify:workspace-deps && cross-env DEBUG= electron-builder",
+    "electron:build": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder; status=$?; pnpm run restore:workspace-deps; exit $status",
+    "electron:build:verbose": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder; status=$?; pnpm run restore:workspace-deps; exit $status",
+    "electron:pack": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run verify:workspace-deps && cross-env DEBUG= electron-builder; status=$?; pnpm run restore:workspace-deps; exit $status",
     "electron:pack:verbose": "cross-env DEBUG=electron-builder electron-builder",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas,@lancedb/lancedb",
     "verify:natives": "node scripts/verify-natives.cjs",
@@ -129,6 +129,7 @@
     "build:prompt-assembler": "node scripts/build-prompt-assembler.mjs",
     "build:packages": "pnpm --filter @dome/ai --filter @dome/agent-core --filter @dome/tools --filter @dome/db run build",
     "materialize:workspace-deps": "node scripts/materialize-workspace-deps.cjs",
+    "restore:workspace-deps": "node scripts/materialize-workspace-deps.cjs --restore",
     "verify:workspace-deps": "node scripts/verify-workspace-deps.cjs",
     "bench:rescore": "node scripts/bench/rescore-run.mjs",
     "bench:smoke": "node scripts/bench/run.mjs -- --case web_search.basic --mode direct",
@@ -405,7 +406,12 @@
       "gatekeeperAssess": false,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
-      "notarize": true
+      "notarize": true,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Dome uses the microphone to transcribe your voice and meetings, and to talk to Many.",
+        "NSScreenCaptureUsageDescription": "Dome records the window or screen you choose to capture system audio for meeting transcription.",
+        "NSAudioCaptureUsageDescription": "Dome captures system audio from the source you choose to transcribe meetings and videos."
+      }
     },
     "win": {
       "target": [

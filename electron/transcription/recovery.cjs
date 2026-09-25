@@ -9,8 +9,8 @@
  * something explicit instead of silent data loss.
  */
 
-const fs = require('fs');
-const transcriptionSession = require('./transcription-session.cjs');
+const fs = require('node:fs');
+const transcriptionSession = require('./session/index.cjs');
 
 /**
  * @param {Object} deps - { database, fileStorage, windowManager, thumbnail, initModule, ollamaService }

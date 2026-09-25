@@ -1,68 +1,58 @@
 # Onboarding Feature
 
-Documentation for Dome's first-run onboarding: account gate (when `VITE_ENABLE_DOME_PROVIDER=true`), profile, **edition** (`pro` | `study` | `dev`), AI setup, completion flag, and init check. Lives in `app/components/onboarding/`, `app/lib/editions/catalog.ts`, `app/lib/settings/index.ts`, and `electron/core/init.cjs`. Product contract: [docs/product/editions.md](../product/editions.md).
+Dome's first-run wizard: account gate (when `VITE_ENABLE_DOME_PROVIDER=true`), language, profile, **edition** (`pro` | `study` | `dev`), AI provider, macOS permissions and a summary that applies everything. Lives in `app/components/onboarding/` and `app/lib/onboarding/`. Product contract for editions: [docs/product/editions.md](../product/editions.md).
 
 ---
 
-## Interfaces
+## Flow
 
-### MartinOnboarding (`app/components/onboarding/MartinOnboarding.tsx`)
-
-```ts
-interface MartinOnboardingProps {
-  initialName?: string;
-  initialEmail?: string;
-  onComplete: (data: { name: string; email: string; roleId: EditionId; freeText: string }) => void;
-  onSkip: () => void;
-}
-
-type Step = 'account' | 'welcome' | 'profile' | 'role' | 'ai';
+```mermaid
+flowchart LR
+  account[account] --> language[language]
+  language --> profile[profile]
+  profile --> edition[edition]
+  edition --> ai[ai]
+  ai --> permissions[permissions]
+  permissions --> summary[summary]
 ```
 
-### OnboardingStep
+`computeSteps(data, env)` (`app/lib/onboarding/flow.ts`) builds the visible list from what is already known:
 
-- Full-screen two-column layout: brand panel (Many + message + progress dots) on the left; form content + footer on the right.
-- On narrow viewports the brand panel collapses; message appears in a mobile header.
-- Reusable step wrapper with `DomeButton` footer (back / continue).
-- Props: `stepIndex`, `totalSteps` for progress indicators.
+| Step | Shown when | Notes |
+|------|------------|-------|
+| `account` | `DOME_PROVIDER_ENABLED` | Log in, create account or continue locally. A returning user with `alreadyOnboarded` skips the wizard (`onSkip`). |
+| `language` | always | Welcome + language (`changeLanguage`, persisted in `dome:language`); the rest of the wizard renders in that language. |
+| `profile` | the account did not bring a name | Name + email. |
+| `edition` | always | Pro / Study / Dev + free text for Many's memory. |
+| `ai` | always | Same `AIProviderList` + `AIProviderDetail` as Settings → AI (compact), including OAuth panels. "Set up later" continues without a provider. |
+| `permissions` | macOS (`window.electron.isMac`) | `PermissionCallout` for microphone and screen recording. Optional. |
+| `summary` | always | Review, then `applyOnboardingConfig`. |
 
-### Completion
+`useOnboardingFlow` keeps `{ step, data }` in one state object; `next(patch)` merges data and recomputes the list, so answers change which steps follow (e.g. a Dome account with a name removes `profile`).
 
-- **Flag**: settings key `onboarding_completed` = 'true' | 'false'. Persisted via `db.setSetting` (`app/lib/settings`: `setOnboardingCompleted(true)`).
-- **Check**: `init:check-onboarding` (IPC) returns whether onboarding is completed; app shows onboarding fullscreen overlay on Home when not completed.
-- **Skip path**: when a returning Dome user logs in and remote `onboarding_completed` was synced (`alreadyOnboarded` from `domeauth:nativeLogin`), the wizard ends immediately via `onSkip()` without re-running profile/role/AI steps.
-
----
-
-## Design patterns
-
-- **Linear flow** (with Dome provider enabled): account → welcome → profile → role → ai. Without `VITE_ENABLE_DOME_PROVIDER`, account step is omitted.
-- **Account gate** (only when `DOME_PROVIDER_ENABLED`): three explicit choices — log in, create account, or continue locally. Login and register are separate screens (`steps/account/`).
-- **Profile data**: Collected in profile step; passed to `onComplete` after AI step saves.
-- **AI step**: Optional skip; Dome provider saved without OAuth (connect later in Settings → AI).
-- **Shared AI UI**: Provider picker and config blocks live in `app/components/settings/ai/` and match `AISettingsPanel`.
+Each step renders its own `OnboardingStep` frame and footer handlers — no window `CustomEvent`s.
 
 ---
 
-## Data flow
+## AI step
 
-1. App start → `init:initialize` → if `needsOnboarding` → show fullscreen `Onboarding` on Home.
-2. With Dome provider: account (login/register/local) → welcome → profile → role → AI (configure or skip) → `onComplete` → `applyOnboardingConfig`, close overlay.
-3. Returning user login with synced `onboarding_completed=true` → `onSkip` → `completeOnboarding` only, close overlay.
-
----
-
-## Environment gating
-
-All Dome account / native login UI is shown only when `VITE_ENABLE_DOME_PROVIDER=true` (`DOME_PROVIDER_ENABLED` in `app/lib/ai/provider-options.ts`). When disabled, the wizard starts at welcome and never offers Dome account options (consistent with AI provider selection).
+- Reuses `AIChatProviderPanels` (`compact`): API key + model for cloud providers, Ollama / LM Studio / vLLM availability, Dome / Copilot / Claude / Codex sign-in.
+- "Continue" is enabled when the provider is usable: Dome (connects later if needed), a connected account (polled via `db:settings:aiProviderKeyStatus` while signing in), a reachable local server, or an API key.
+- Saves with `buildAISaveConfig` (`app/components/settings/ai/aiSectionHelpers.ts`), the same builder Settings uses.
+- `localModeOnly` (continue without account) hides Dome.
 
 ---
 
-## Related onboarding wizards
+## Completion
 
-| Wizard | Path | Notes |
-|--------|------|-------|
-| Agent create/edit | `app/components/agents/AgentOnboarding.tsx` | Dome* shell, step progress circles |
+`applyOnboardingConfig` (`app/lib/onboarding/applyOnboardingConfig.ts`):
+
+1. Profile (`updateUserProfile`), identity (`USER.md`, `SOUL.md`, memory seed), edition modules — **essential**.
+2. Recommended skills (`skills:installBundled`) — reported, not blocking.
+3. If an essential part failed it throws `OnboardingApplyError(failed)` and does **not** set `onboarding_completed`; the summary shows which parts failed and offers "Retry".
+4. Otherwise `completeOnboarding()` sets `onboarding_completed = 'true'` and the overlay closes.
+
+`init:check-onboarding` returns whether onboarding is completed; Home shows the fullscreen overlay when it is not.
 
 ---
 
@@ -70,17 +60,12 @@ All Dome account / native login UI is shown only when `VITE_ENABLE_DOME_PROVIDER
 
 | Path | Role |
 |------|------|
-| `app/components/onboarding/Onboarding.tsx` | Fullscreen portal host, `onComplete` / `onSkip` |
-| `app/components/onboarding/MartinOnboarding.tsx` | Step state machine, Dome gating |
-| `app/components/onboarding/OnboardingStep.tsx` | Full-screen step layout |
-| `app/components/onboarding/steps/AccountStep.tsx` | Account gate orchestrator |
-| `app/components/onboarding/steps/account/AccountChoiceView.tsx` | Login / register / local choice |
-| `app/components/onboarding/steps/account/DomeLoginView.tsx` | Dome login form |
-| `app/components/onboarding/steps/account/DomeRegisterView.tsx` | Dome registration form |
-| `app/components/onboarding/steps/ProfileStep.tsx` | Profile form |
-| `app/components/onboarding/steps/RoleStep.tsx` | Role preset picker |
-| `app/components/onboarding/steps/AISetupStep.tsx` | AI config (shared components) |
-| `app/lib/onboarding/applyOnboardingConfig.ts` | Post-wizard orchestrator |
+| `app/components/onboarding/Onboarding.tsx` | Fullscreen portal host, closes on finish / skip |
+| `app/components/onboarding/OnboardingWizard.tsx` | Renders the current step from `useOnboardingFlow` |
+| `app/components/onboarding/OnboardingStep.tsx` | Step frame: Many + message + progress, content (`narrow` / `wide`), footer |
+| `app/components/onboarding/steps/*` | `AccountStep`, `LanguageStep`, `ProfileStep`, `EditionStep`, `AISetupStep`, `PermissionsStep`, `SummaryStep` |
+| `app/lib/onboarding/flow.ts` | Step list + navigation (unit-tested in `flow.test.ts`) |
+| `app/lib/onboarding/useOnboardingFlow.ts` | Wizard state |
+| `app/lib/onboarding/applyOnboardingConfig.ts` | Applies the choices; atomic on essential parts |
 | `electron/auth/dome-native-login.cjs` | Native login + `alreadyOnboarded` |
-| `app/lib/settings/index.ts` | `isOnboardingCompleted()`, `setOnboardingCompleted()` |
 | `electron/core/init.cjs` | `init:check-onboarding` |

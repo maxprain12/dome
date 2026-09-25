@@ -30,6 +30,10 @@ export interface AIChatProviderPanelsProps {
   providerModelsLoading: boolean;
   onTestResult: (result: TestResult | null) => void;
   groupTitle: string;
+  /** Local endpoints (Ollama, LM Studio, vLLM) report whether they answered. */
+  onLocalAvailabilityChange?: (available: boolean | null) => void;
+  /** Onboarding: compact model pickers, no API key field for local servers. */
+  compact?: boolean;
 }
 
 /** Renders the provider-specific config panel for Settings → AI → Chat. */
@@ -53,6 +57,8 @@ export default function AIChatProviderPanels({
   providerModelsLoading,
   onTestResult,
   groupTitle,
+  onLocalAvailabilityChange,
+  compact = false,
 }: AIChatProviderPanelsProps) {
   return (
     <SettingsGroup title={groupTitle} bare>
@@ -65,6 +71,7 @@ export default function AIChatProviderPanels({
           onModelChange={onModelChange}
           customModel={customModel}
           onCustomModelChange={onCustomModelChange}
+          compact={compact}
         />
       ) : null}
 
@@ -76,6 +83,9 @@ export default function AIChatProviderPanels({
           onOllamaModelChange={onOllamaModelChange}
           ollamaApiKey={ollamaApiKey}
           onOllamaApiKeyChange={onOllamaApiKeyChange}
+          showApiKeyField={!compact}
+          showOcrHint={!compact}
+          onAvailabilityChange={onLocalAvailabilityChange}
         />
       ) : null}
 
@@ -88,6 +98,8 @@ export default function AIChatProviderPanels({
           onModelChange={onModelChange}
           apiKey={apiKey}
           onApiKeyChange={onApiKeyChange}
+          showApiKeyField={!compact}
+          onAvailabilityChange={onLocalAvailabilityChange}
         />
       ) : null}
 

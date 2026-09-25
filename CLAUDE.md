@@ -145,7 +145,9 @@ dome/
 │   ├── tools/                  # ai-tools-handler(+extra), tool-dispatcher/selector/cap, docx/excel/ppt tool handlers, file-tree, crop-image, browser-context-service, tool-result-*
 │   ├── prompts/                # core-prompt-loader, prompts-loader, prompt-sections, prompt-budget, system-prompt
 │   ├── documents/              # document-extractor/generator/staging, pdf-extractor, ppt-slide-extractor, ppt-spec-pptxgen, pptx-normalize/validate, docx-converter, notebook-python, thumbnail
-│   ├── transcription/          # transcription-service/session/recovery/structured/shortcut/note-helper, tts-service, streaming-tts, audio-playback
+│   ├── transcription/          # session/ (store, audio, finalize), stt/ (config, batch, realtime, structured), stt-engine, recovery, shortcut — see docs/features/transcription.md
+│   ├── speech/                 # tts-service, streaming-tts, audio-playback
+│   ├── permissions/            # media-permissions (mic / screen recording, macOS TCC)
 │   ├── calendar/               # calendar-service, calendar-import/notification, calendar-sync-scheduler, google-calendar-service
 │   ├── mcp/                    # dome-mcp-server, mcp-client, mcp-oauth, mcp-tool-policy (bridge stays an anchor in root)
 │   ├── artifacts/              # artifact-sink, artifact-serialize, artifact-index-sync, artifact-link-sync, artifact-design-layout

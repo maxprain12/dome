@@ -2,16 +2,14 @@
 /**
  * Transcription IPC — single namespace for the redesigned engine.
  *
- * 12 channels total (vs 36 across transcription:* / calls:* / overlay:*):
+ * OS permissions live in `permissions:*` (electron/ipc/core/permissions.cjs).
  *   transcription:get-settings
  *   transcription:set-settings
- *   transcription:get-permissions
- *   transcription:request-mic
- *   transcription:request-screen
  *   transcription:list-capture-sources
  *   transcription:set-display-media-source   (internal — primes the request handler)
  *   transcription:session-start
- *   transcription:session-append
+ *   transcription:session-append             (WebM chunk, archived for the final pass)
+ *   transcription:session-audio              (PCM16 frame for the realtime engine)
  *   transcription:session-control            (pause | resume | cancel | stop)
  *   transcription:get-active                 (renderer reconnect after reload)
  *   transcription:resource-to-note           (manual conversion from detail page)
@@ -19,25 +17,16 @@
  * Broadcast: transcription:state (main -> renderer)
  */
 
-const transcriptionService = require('../../transcription/transcription-service.cjs');
-const { readSettingSecret, writeSettingSecret, isSecretSettingKey, maskSettingForRenderer } = require('../../core/settings-secrets.cjs');
-const transcriptionSession = require('../../transcription/transcription-session.cjs');
+const { writeSettingSecret } = require('../../core/settings-secrets.cjs');
 const { secureTimestampId } = require('../../core/secure-id.cjs');
+const sttConfig = require('../../transcription/stt/stt-config.cjs');
+const transcriptionSession = require('../../transcription/session/index.cjs');
+const transcriptionShortcut = require('../../transcription/shortcut.cjs');
+const { toErrorCode } = require('../../transcription/errors.cjs');
+const { parseMetadata, deriveTitle } = require('../../transcription/resource-text.cjs');
 
 function generateResourceId() {
   return secureTimestampId('res');
-}
-
-function parseMetadata(raw) {
-  if (!raw || typeof raw !== 'string') return {};
-  try { return JSON.parse(raw); } catch { return {}; }
-}
-
-function deriveTitle(text) {
-  const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
-  if (!cleaned) return `Transcription — ${new Date().toLocaleString()}`;
-  const slice = cleaned.slice(0, 60);
-  return slice + (cleaned.length > 60 ? '…' : '');
 }
 
 function readDefaultSources(database) {
@@ -71,10 +60,7 @@ function readBoolSetting(database, key, fallback) {
 function getSettingsPayload(database) {
   const queries = database.getQueries();
 
-  let sttProvider = transcriptionService.getTranscriptionSttProvider(database);
-  if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
-    sttProvider = 'openai';
-  }
+  const sttProvider = sttConfig.getTranscriptionSttProvider(database);
 
   const modelRow = queries.getSetting.get('transcription_model');
   const langRow = queries.getSetting.get('transcription_language');
@@ -89,7 +75,7 @@ function getSettingsPayload(database) {
   const summaryModelRow = queries.getSetting.get('transcription_summary_model');
 
   const model = (modelRow?.value && String(modelRow.value).trim())
-    || (sttProvider === 'groq' ? transcriptionService.DEFAULT_GROQ_MODEL : 'whisper-1');
+    || (sttProvider === 'groq' ? sttConfig.DEFAULT_GROQ_MODEL : sttConfig.DEFAULT_OPENAI_MODEL);
   const language = (langRow?.value && String(langRow.value).trim()) || null;
   const apiBaseUrl = (baseRow?.value && String(baseRow.value).trim()) || '';
   const prompt = (promptRow?.value && String(promptRow.value).trim()) || '';
@@ -123,6 +109,7 @@ function getSettingsPayload(database) {
     autoSummary: readBoolSetting(database, 'transcription_auto_summary', false),
     chunkSec,
     summaryModel: (summaryModelRow?.value && String(summaryModelRow.value).trim()) || 'gpt-4o-mini',
+    liveEngine: sttConfig.getLiveEnginePreference(database),
   };
 }
 
@@ -239,7 +226,13 @@ function applySummaryModel(queries, payload, now) {
   queries.setSetting.run('transcription_summary_model', m || DEFAULT_SUMMARY_MODEL, now);
 }
 
+function applyLiveEngine(queries, payload, now) {
+  const engine = String(payload.liveEngine).trim().toLowerCase();
+  if (sttConfig.LIVE_ENGINES.has(engine)) queries.setSetting.run('transcription_live_engine', engine, now);
+}
+
 const SETTINGS_SPECS = [
+  { field: 'liveEngine', present: (p) => p.liveEngine != null, apply: applyLiveEngine },
   { field: 'sttProvider', present: (p) => p.sttProvider != null, apply: applySttProvider },
   { field: 'model', present: (p) => p.model != null, apply: applyModel },
   { field: 'language', present: (p) => p.language !== undefined, apply: applyLanguage },
@@ -273,7 +266,6 @@ function register({
   ollamaService,
   pendingDisplayMediaSources,
 }) {
-  const transcriptionShortcut = require('../../transcription/transcription-shortcut.cjs');
   const sessionDeps = { database, fileStorage, windowManager, thumbnail, initModule, ollamaService };
 
   // -- Settings -----------------------------------------------------------
@@ -299,54 +291,6 @@ function register({
         console.warn('[Transcription] shortcut refresh:', regErr?.message);
       }
       return { success: true, data: getSettingsPayload(database) };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  // -- Permissions --------------------------------------------------------
-
-  ipcMain.handle('transcription:get-permissions', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
-    try {
-      if (process.platform === 'darwin') {
-        const { systemPreferences } = require('electron');
-        return {
-          success: true,
-          mic: systemPreferences.getMediaAccessStatus('microphone'),
-          screen: systemPreferences.getMediaAccessStatus('screen'),
-        };
-      }
-      return { success: true, mic: 'granted', screen: 'granted' };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:request-mic', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
-    try {
-      if (process.platform === 'darwin') {
-        const { systemPreferences } = require('electron');
-        const granted = await systemPreferences.askForMediaAccess('microphone');
-        return { success: true, granted };
-      }
-      return { success: true, granted: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:request-screen', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
-    try {
-      if (process.platform === 'darwin') {
-        const { desktopCapturer, systemPreferences } = require('electron');
-        await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
-        const screen = systemPreferences.getMediaAccessStatus('screen');
-        return { success: true, granted: screen === 'granted', screen };
-      }
-      return { success: true, granted: true, screen: 'granted' };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -392,15 +336,8 @@ function register({
       };
     } catch (err) {
       console.error('[Transcription] list-capture-sources:', err);
-      const base = err instanceof Error ? err.message : String(err);
-      const error = process.platform === 'darwin'
-        ? `${base} If this persists, grant Dome the "Screen Recording" permission in System Settings → Privacy & Security.`
-        : base;
-      return {
-        success: false,
-        error,
-        ...(process.platform === 'darwin' ? { errorCode: 'screen_capture_permission' } : {}),
-      };
+      const errorCode = process.platform === 'darwin' ? 'screen_capture_permission' : 'capture_sources_failed';
+      return { success: false, error: errorCode, errorCode };
     }
   });
 
@@ -418,17 +355,7 @@ function register({
   ipcMain.handle('transcription:session-start', async (event, payload = {}) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      const apiKey = transcriptionService.getTranscriptionApiKey(database);
-      if (!apiKey) {
-        const prov = transcriptionService.getTranscriptionSttProvider(database);
-        return {
-          success: false,
-          error: prov === 'groq'
-            ? 'Configure your Groq API key in Settings → Transcription.'
-            : 'Configure an API key in Settings → Transcription.',
-        };
-      }
-      const { sessionId } = transcriptionSession.startSession(sessionDeps, {
+      const { sessionId, liveEngine } = transcriptionSession.startSession(sessionDeps, {
         sources: payload.sources,
         systemSourceId: payload.systemSourceId,
         projectId: payload.projectId,
@@ -436,10 +363,10 @@ function register({
         livePreview: payload.livePreview,
         saveAudio: payload.saveAudio,
       });
-      return { success: true, sessionId };
+      return { success: true, sessionId, liveEngine };
     } catch (err) {
-      console.error('[Transcription] session-start:', err);
-      return { success: false, error: err.message };
+      console.error('[Transcription] session-start:', err?.detail || err?.message);
+      return { success: false, error: toErrorCode(err) };
     }
   });
 
@@ -449,9 +376,21 @@ function register({
       await transcriptionSession.appendChunk(sessionDeps, payload);
       return { success: true };
     } catch (err) {
-      console.error('[Transcription] session-append:', err);
-      return { success: false, error: err.message };
+      console.error('[Transcription] session-append:', err?.message);
+      return { success: false, error: toErrorCode(err) };
     }
+  });
+
+  // PCM16 frames (~100 ms) for the realtime engine.
+  ipcMain.handle('transcription:session-audio', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    const { sessionId, buffer } = payload;
+    if (typeof sessionId !== 'string' || !(buffer instanceof ArrayBuffer || ArrayBuffer.isView(buffer))) {
+      return { success: false, error: 'invalid_audio_frame' };
+    }
+    return transcriptionSession.appendAudio(payload)
+      ? { success: true }
+      : { success: false, error: 'realtime_inactive' };
   });
 
   ipcMain.handle('transcription:session-control', async (event, payload = {}) => {
@@ -460,8 +399,8 @@ function register({
       const result = await transcriptionSession.controlSession(sessionDeps, payload.sessionId, payload.action);
       return { success: true, ...result };
     } catch (err) {
-      console.error('[Transcription] session-control:', err);
-      return { success: false, error: err.message };
+      console.error('[Transcription] session-control:', err?.detail || err?.message);
+      return { success: false, error: toErrorCode(err) };
     }
   });
 

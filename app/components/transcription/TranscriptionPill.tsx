@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { transcriptionErrorMessage } from '@/lib/transcription/errors';
 
 function formatSeconds(s: number): string {
   const total = Math.max(0, Math.floor(s));
@@ -51,7 +52,7 @@ export default function TranscriptionPill() {
     return window.electron.transcription.onToggleRecording(() => {
       const state = useTranscriptionStore.getState();
       if (state.phase === 'idle') state.openStartPopover();
-      else if (state.phase === 'recording' || state.phase === 'paused') void state.stop();
+      else if (state.phase === 'recording' || state.phase === 'paused') state.stop().catch(() => undefined);
     });
   }, []);
 
@@ -146,14 +147,14 @@ export default function TranscriptionPill() {
               <PillIconButton
                 icon={Cancel01Icon}
                 label={t('transcriptions.control_cancel', 'Cancel')}
-                onClick={() => void cancel()}
+                onClick={cancel}
               />
             )}
           </Badge>
         )}
 
         {showError && (
-          <Badge variant="destructive" className="h-7 gap-1.5 px-2" title={error || ''}>
+          <Badge variant="destructive" className="h-7 gap-1.5 px-2" title={transcriptionErrorMessage(t, error)}>
             <HugeiconsIcon icon={Alert02Icon} />
             <span>{t('transcriptions.pill_error', 'Error')}</span>
             <PillIconButton
@@ -186,7 +187,9 @@ function PillIconButton({
       type="button"
       variant="ghost"
       size="icon-xs"
-      onClick={() => void onClick()}
+      onClick={() => {
+        Promise.resolve(onClick()).catch(() => undefined);
+      }}
       aria-label={label}
       title={label}
       className="text-current hover:text-current"

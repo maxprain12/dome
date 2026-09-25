@@ -19,6 +19,7 @@ export default function AISection() {
       <AISectionBody
         activeTab={ctrl.activeTab}
         provider={ctrl.provider}
+        activeProvider={ctrl.activeProvider}
         onProviderChange={ctrl.handleProviderChange}
         providerKeyStatus={ctrl.providerKeyStatus}
         modelsConfigProvider={ctrl.modelsConfigProvider}

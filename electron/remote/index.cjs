@@ -301,8 +301,6 @@ function createClient({ database, windowManager }) {
   async function handleFrame(frame) {
     if (!frame || frame.type === 'hello') return;
     if (frame.type !== 'command' || !isEnvelope(frame.envelope)) return;
-    commandCursor = Math.max(commandCursor, Number(frame.seq) || 0);
-    setSetting(database, CURSOR_SETTING, String(commandCursor));
     const peer = findMapValue(pairKeys, frame.pairingId)
       || [...pairKeys.values()].find((row) => sameId(row.pairingId, frame.envelope.kid));
     if (!peer) {
@@ -311,7 +309,18 @@ function createClient({ database, windowManager }) {
     const resolved = findMapValue(pairKeys, frame.pairingId)
       || findMapValue(pairKeys, frame.envelope.kid)
       || [...pairKeys.values()].find((row) => sameId(row.pairingId, frame.envelope?.kid));
-    if (!resolved) return;
+    if (!resolved) {
+      // No active pairing can decrypt it. Ack so it stops coming back on every pull.
+      if (frame.commandId) {
+        await api(database, '/api/v1/remote/commands/ack', {
+          method: 'POST',
+          body: { deviceId, commandIds: [frame.commandId] },
+        });
+      }
+      commandCursor = Math.max(commandCursor, Number(frame.seq) || 0);
+      setSetting(database, CURSOR_SETTING, String(commandCursor));
+      return;
+    }
     const command = decryptEnvelope(resolved.aesKey, frame.envelope);
     const result = await executor.handleCommand(command, {
       pairingId: resolved.pairingId,
@@ -330,6 +339,8 @@ function createClient({ database, windowManager }) {
         body: { deviceId, commandIds: [frame.commandId] },
       });
     }
+    commandCursor = Math.max(commandCursor, Number(frame.seq) || 0);
+    setSetting(database, CURSOR_SETTING, String(commandCursor));
   }
 
   async function listenCommands(signal) {
@@ -433,6 +444,9 @@ function createClient({ database, windowManager }) {
   }
 
   async function startPairing() {
+    // Provider rejects pairing (409 desktop_unavailable) until this device row exists;
+    // the SSE loop may not have registered yet right after enabling.
+    await register();
     const started = await api(database, '/api/v1/remote/pairing', {
       method: 'POST',
       body: { desktopDeviceId: deviceId },

@@ -91,12 +91,13 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
         openNoteTab(res.note.id, res.note.title || '');
         void load();
       } else {
-        notifications.show({ title: t('common.error'), message: res?.error || '', color: 'red' });
+        notifications.show({ title: t('common.error'), message: t('transcriptions.errors.transcription_failed'), color: 'red' });
       }
     } catch (e) {
+      console.warn('[TranscriptionDetail] convert to note:', e);
       notifications.show({
         title: t('common.error'),
-        message: e instanceof Error ? e.message : '',
+        message: t('transcriptions.errors.transcription_failed'),
         color: 'red',
       });
     } finally {
@@ -125,8 +126,9 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
     );
   }
 
-  const md = structured ? structuredToMarkdown(structured) : transcriptText;
-  const srt = structured ? structuredToSrt(structured) : '';
+  const autoLabel = (letter: string) => t('transcriptions.speaker_auto', { letter });
+  const md = structured ? structuredToMarkdown(structured, autoLabel) : transcriptText;
+  const srt = structured ? structuredToSrt(structured, autoLabel) : '';
 
   return (
     <ViewerShell

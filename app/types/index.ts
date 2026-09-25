@@ -211,7 +211,9 @@ export interface TranscriptionSegment {
 
 /** Perfil de hablante para una transcripción concreta */
 export interface TranscriptionSpeakerProfile {
+  /** Empty for auto-detected speakers; the UI names them from `ordinal`. */
   label: string;
+  ordinal?: number;
   /** Si true, marca al usuario local (p. ej. micrófono) */
   isSelf?: boolean;
   colorIndex?: number;
