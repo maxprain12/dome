@@ -2,6 +2,16 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.9.2](https://dome.dowi.es/changelog#v2.9.2) - 2026-09-25
+
+La 2.9.1 seguía cerrándose al abrir con `Cannot find module 'once'`. Al instalador le faltaban 15 módulos, no solo `once`: entre ellos `debug`, que usa el actualizador, y `express` y `ajv`, que usa el cliente MCP.
+
+### Fixed
+
+- El empaquetado vuelve a incluir todas las dependencias de producción. electron-builder descartaba los paquetes que pnpm instala en dos variantes o con un alias npm. (#1712)
+- Se retira el arreglo de la 2.9.1, que dejaba la carpeta de `once` vacía. (#1712)
+- El build falla si un módulo del paquete no encuentra alguna de sus dependencias, y CI hace la misma comprobación en cada PR. (#1712)
+
 ## [2.9.1](https://dome.dowi.es/changelog#v2.9.1) - 2026-09-25
 
 La 2.9.0 se abría y se cerraba: el instalador no incluía el módulo `once`, que ExcelJS necesita al arrancar.
