@@ -99,6 +99,9 @@ ds-bundle/
 supabase/
 test-results/
 
+# Verification skill evidence and scratch (proof PNGs stay local)
+.verify-evidence/
+
 # Local marketing studio builds and exports
 /dist-visual-studio/
 /visual-studio-exports/
