@@ -9,6 +9,7 @@ import type { TestResult } from './aiSectionHelpers';
 export interface AIChatSaveBarProps {
   showTest: boolean;
   saved: boolean;
+  saving: boolean;
   testing: boolean;
   testResult: TestResult | null;
   onSave: () => void;
@@ -21,6 +22,7 @@ export interface AIChatSaveBarProps {
 export default function AIChatSaveBar({
   showTest,
   saved,
+  saving,
   testing,
   testResult,
   onSave,
@@ -34,11 +36,12 @@ export default function AIChatSaveBar({
       <div className="flex flex-wrap items-center gap-3">
         <Button
           type="button"
+          disabled={saving || testing}
           onClick={() => {
             onSave();
           }}
         >
-          {saved ? t('settings.ai.saved_config') : (saveLabel ?? t('settings.ai.save_all'))}
+          {saving && <Spinner data-icon="inline-start" />}{saved ? t('settings.ai.saved_config') : (saveLabel ?? t('settingsGuide.ai.save'))}
         </Button>
         {showTest ? (
           <Button
@@ -47,14 +50,15 @@ export default function AIChatSaveBar({
             onClick={() => {
               onTest();
             }}
-            disabled={testing}
+            disabled={testing || saving}
           >
             {testing ? <Spinner data-icon="inline-start" /> : null}
-            {t('settings.ai.test_connection')}
+            {t('settingsGuide.ai.save_test')}
           </Button>
         ) : null}
       </div>
-      {testResult && showTest ? (
+      {showTest && <p className="text-xs leading-relaxed text-muted-foreground">{t('settingsGuide.ai.test_hint')}</p>}
+      {testResult ? (
         <Alert variant={testResult.success ? 'default' : 'destructive'} role="note">
           <HugeiconsIcon
             icon={testResult.success ? CheckmarkCircle02Icon : AlertCircleIcon}

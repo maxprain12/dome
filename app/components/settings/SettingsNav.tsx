@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft02Icon } from '@hugeicons/core-free-icons';
@@ -12,10 +12,9 @@ import {
 } from './registry';
 import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
 import { SETTINGS_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
-import { ShellSidebar, ShellNavItem, ShellNavSection } from '@/components/shared/ShellSidebar';
+import { ShellSidebar } from '@/components/shared/ShellSidebar';
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 
-import { defaultSettingsGroups } from './settingsDisclosure';
 
 interface SettingsNavProps {
   collapsed: boolean;
@@ -29,15 +28,6 @@ interface SettingsNavProps {
 export default function SettingsNav({ collapsed }: SettingsNavProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
-  const navRef = useRef<HTMLDivElement>(null);
-  const [navHeight, setNavHeight] = useState(0);
-  useEffect(() => {
-    const element = navRef.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setNavHeight(Math.round(entry.contentRect.height)));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
   const activeSection = useSettingsUiStore((s) => s.activeSection);
   const hiddenSections = useSettingsUiStore((s) => s.hiddenSections);
   const setActiveSection = useSettingsUiStore((s) => s.setActiveSection);
@@ -57,6 +47,8 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
           const haystack = [
             t(entry.titleKey),
             t(entry.groupLabelKey),
+            t(`settingsGuide.sections.${entry.id}.description`),
+            t(`settingsGuide.sections.${entry.id}.start`),
             ...entry.keywords,
             ...entry.legacyAliases,
           ]
@@ -69,7 +61,6 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
   }, [groups, query, t]);
 
   const normalizedActive = resolveSettingsSection(activeSection);
-  const defaultExpanded = defaultSettingsGroups(groups, normalizedActive, navHeight);
   const firstMatch = visibleGroups.flatMap((group) => group.entries).find(
     (entry) => t(entry.titleKey).toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
   ) ?? visibleGroups[0]?.entries[0];
@@ -108,7 +99,7 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
         </div>
       </div>
 
-      <div ref={navRef} className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1">
       <ScrollArea className="h-full">
         <nav className="pb-5" aria-label={t('settings.nav.sidebar')}>
           {visibleGroups.length === 0 ? (
@@ -116,18 +107,18 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
               {t('settings.search_empty')}
             </p>
           ) : (
-            <SidebarGroup>
-              <SidebarGroupLabel>{t('settings.title')}</SidebarGroupLabel>
-              {visibleGroups.map((group) => {
-                if (group.entries.length === 1) {
-                  const entry = group.entries[0];
-                  return <SidebarMenu key={group.labelKey}><ShellNavItem icon={entry.icon} label={t(entry.titleKey)} active={normalizedActive === entry.id} onClick={() => selectSection(entry.id)} /></SidebarMenu>;
-                }
-                return <ShellNavSection key={group.labelKey} label={t(group.labelKey)} icon={group.entries[0].icon} activeId={group.entries.find((entry) => normalizedActive === entry.id)?.id} forceOpen={Boolean(query.trim())} defaultOpen={defaultExpanded.has(group.labelKey)}>
-                  {group.entries.map((entry) => <ShellNavItem key={entry.id} nested icon={entry.icon} label={t(entry.titleKey)} active={normalizedActive === entry.id} onClick={() => selectSection(entry.id)} />)}
-                </ShellNavSection>;
-              })}
-            </SidebarGroup>
+            <div className="flex flex-col gap-3">
+              {visibleGroups.map((group) => (
+                <SidebarGroup key={group.labelKey}>
+                  <SidebarGroupLabel className="h-auto px-2 pb-2 text-xs font-medium">{t(group.labelKey)}</SidebarGroupLabel>
+                  <SidebarMenu>
+                    {group.entries.map((entry) => <SidebarMenuItem key={entry.id}><SidebarMenuButton type="button" isActive={normalizedActive === entry.id} aria-current={normalizedActive === entry.id ? 'page' : undefined} onClick={() => selectSection(entry.id)} className="h-auto min-h-9 items-start py-2">
+                      <HugeiconsIcon icon={entry.icon} className="mt-0.5" aria-hidden /><span className="min-w-0 flex-1 whitespace-normal leading-snug">{t(entry.titleKey)}</span>
+                    </SidebarMenuButton></SidebarMenuItem>)}
+                  </SidebarMenu>
+                </SidebarGroup>
+              ))}
+            </div>
           )}
         </nav>
       </ScrollArea>

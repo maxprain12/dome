@@ -17,7 +17,6 @@ import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 import { isOllamaCloudMissingApiKey } from '@/lib/ai/providerAuth';
 import {
   buildAISaveConfig,
-  loadCloudApiKey,
   loadLocalCompatBaseUrl,
   loadProviderSlotApiKey,
   parseLoadedAIConfig,
@@ -41,6 +40,12 @@ export function useAISectionController() {
     LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio,
   );
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const selectionGeneration = useRef(0);
+  const operation = useRef(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const transcriptionRef = useRef<TranscriptionSettingsSectionsHandle>(null);
@@ -54,9 +59,10 @@ export function useAISectionController() {
   });
 
   useEffect(() => {
+    const request = ++selectionGeneration.current;
     const loadConfig = async () => {
       const config = await getAIConfig();
-      if (!config) return;
+      if (request !== selectionGeneration.current || !config) return;
       const loaded = parseLoadedAIConfig(config);
       setProvider(loaded.provider);
       setActiveProvider(loaded.provider);
@@ -68,7 +74,9 @@ export function useAISectionController() {
       setOllamaApiKey(loaded.ollamaApiKey);
       setLocalCompatBaseURL(loaded.localCompatBaseURL);
     };
-    loadConfig();
+    loadConfig().catch(() => { if (request === selectionGeneration.current) setLoadError(true); })
+      .finally(() => { setInitialLoading(false); if (request === selectionGeneration.current) setLoading(false); });
+    return () => { selectionGeneration.current += 1; };
   }, []);
 
   const refreshProviderKeyStatus = useCallback(async () => {
@@ -84,114 +92,91 @@ export function useAISectionController() {
     refreshProviderKeyStatus();
   }, [refreshProviderKeyStatus]);
 
-  // Deep link from the model switcher: jump to a provider (and optionally its models modal).
+  const handleProviderChange = useCallback((newProvider: AIProviderType) => {
+    const request = ++selectionGeneration.current;
+    setProvider(newProvider);
+    setApiKey('');
+    setSaved(false);
+    setTestResult(null);
+    setCustomModel(false);
+    setModel(getDefaultModelId(newProvider));
+    setLoading(true);
+    setLoadError(false);
+    const local = isLocalOpenAICompatProvider(newProvider);
+    Promise.all([
+      isCloudAIProvider(newProvider) || local ? loadProviderSlotApiKey(newProvider) : Promise.resolve(''),
+      local ? loadLocalCompatBaseUrl(newProvider) : Promise.resolve(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio),
+    ]).then(([key, baseUrl]) => {
+      if (request !== selectionGeneration.current) return;
+      setApiKey(key);
+      setLocalCompatBaseURL(baseUrl);
+    }).catch(() => { if (request === selectionGeneration.current) setLoadError(true); })
+      .finally(() => { if (request === selectionGeneration.current) setLoading(false); });
+  }, []);
+
+  // Model-switcher deep links use the same guarded loading path as the provider list.
   useEffect(() => {
     const onOpenProviderSettings = (e: Event) => {
       const detail = (e as CustomEvent<OpenAIProviderSettingsDetail>).detail;
-      if (!detail?.provider) return;
+      if (!detail?.provider || operation.current) return;
       setActiveTab('chat');
-      setProvider(detail.provider);
-      if (isCloudAIProvider(detail.provider)) {
-        loadCloudApiKey(detail.provider)
-          .then(setApiKey)
-          .catch(() => setApiKey(''));
-      } else if (isLocalOpenAICompatProvider(detail.provider)) {
-        loadProviderSlotApiKey(detail.provider)
-          .then(setApiKey)
-          .catch(() => setApiKey(''));
-        loadLocalCompatBaseUrl(detail.provider)
-          .then(setLocalCompatBaseURL)
-          .catch(() => {});
-      }
-      if (detail.openModelsModal && isVisibleModelsConfigurable(detail.provider)) {
-        setModelsConfigProvider(detail.provider);
-      }
+      handleProviderChange(detail.provider);
+      if (detail.openModelsModal && isVisibleModelsConfigurable(detail.provider)) setModelsConfigProvider(detail.provider);
     };
     window.addEventListener('dome:open-ai-provider-settings', onOpenProviderSettings);
     return () => window.removeEventListener('dome:open-ai-provider-settings', onOpenProviderSettings);
-  }, []);
+  }, [handleProviderChange]);
 
-  const handleProviderChange = (newProvider: AIProviderType) => {
-    setProvider(newProvider);
-    setCustomModel(false);
-    setModel(getDefaultModelId(newProvider));
-    // Cada provider tiene su propia clave en DB: al cambiar, carga la suya
-    // (enmascarada) en vez de arrastrar la del provider anterior.
-    if (isCloudAIProvider(newProvider)) {
-      loadCloudApiKey(newProvider)
-        .then(setApiKey)
-        .catch(() => setApiKey(''));
-    } else if (isLocalOpenAICompatProvider(newProvider)) {
-      setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[newProvider]);
-      loadProviderSlotApiKey(newProvider)
-        .then(setApiKey)
-        .catch(() => setApiKey(''));
-      loadLocalCompatBaseUrl(newProvider)
-        .then(setLocalCompatBaseURL)
-        .catch(() => setLocalCompatBaseURL(LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[newProvider]));
-    } else {
-      setApiKey('');
+  const persist = async (): Promise<boolean> => {
+    if (activeTab === 'transcription') return await transcriptionRef.current?.save() ?? false;
+    if (isCloudAIProvider(provider) && !apiKey.trim()) {
+      setTestResult({ success: false, message: t('settings.ai.api_key_required') });
+      return false;
     }
+    if (provider === 'ollama' && isOllamaCloudMissingApiKey(ollamaBaseURL, ollamaApiKey)) {
+      setTestResult({ success: false, message: t('settings.ai.ollama_cloud_api_key_required') });
+      return false;
+    }
+    await saveAIConfig(buildAISaveConfig({ provider, model, apiKey, ollamaBaseURL, ollamaModel, ollamaApiKey, localCompatBaseURL }));
+    setActiveProvider(provider);
+    await refreshProviderKeyStatus();
+    window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+    return true;
   };
 
   const handleSave = async () => {
-    if (provider === 'ollama' && isOllamaCloudMissingApiKey(ollamaBaseURL, ollamaApiKey)) {
-      setTestResult({ success: false, message: t('settings.ai.ollama_cloud_api_key_required') });
-      return;
-    }
-    const config = buildAISaveConfig({
-      provider,
-      model,
-      apiKey,
-      ollamaBaseURL,
-      ollamaModel,
-      ollamaApiKey,
-      localCompatBaseURL,
-    });
-    try {
-      await saveAIConfig(config);
-      setActiveProvider(provider);
-      refreshProviderKeyStatus();
-      await transcriptionRef.current?.save();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
-    } catch (error) {
-      console.error('[AISettings] Error saving config:', error);
-      showToast('error', error instanceof Error ? error.message : t('common.error'));
-    }
+    if (operation.current || loading || loadError) return;
+    operation.current = true;
+    setSaving(true); setSaved(false); setTestResult(null);
+    try { setSaved(await persist()); }
+    catch (error) {
+      setTestResult({ success: false, message: t('settingsGuide.ai.save_error') });
+      showToast('error', error instanceof Error ? error.message : t('settingsGuide.ai.save_error'));
+    } finally { operation.current = false; setSaving(false); }
   };
 
   const handleTestConnection = async () => {
-    await handleSave();
-    setTesting(true);
-    setTestResult(null);
+    if (operation.current || loading || loadError) return;
+    operation.current = true;
+    setTesting(true); setSaved(false); setTestResult(null);
     try {
-      if (window.electron?.ai?.testConnection) {
-        const result = await window.electron.ai.testConnection();
-        setTestResult(
-          result.success
-            ? {
-                success: true,
-                message: t('settings.ai.connected_to', {
-                  provider: result.provider ?? '',
-                  model: result.model ?? '',
-                }),
-              }
-            : { success: false, message: result.error || t('settings.ai.connection_failed') },
-        );
-      } else {
+      if (!await persist()) return;
+      setSaved(true);
+      if (!window.electron?.ai?.testConnection) {
         setTestResult({ success: false, message: t('settings.ai.test_unavailable') });
+        return;
       }
+      const result = await window.electron.ai.testConnection();
+      setTestResult(result.success
+        ? { success: true, message: t('settings.ai.connected_to', { provider: result.provider ?? '', model: result.model ?? '' }) }
+        : { success: false, message: result.error || t('settings.ai.connection_failed') });
     } catch (error) {
-      setTestResult({
-        success: false,
-        message: error instanceof Error ? error.message : t('settings.ai.connection_failed'),
-      });
-    } finally {
-      setTesting(false);
-    }
+      setTestResult({ success: false, message: error instanceof Error ? error.message : t('settings.ai.connection_failed') });
+    } finally { operation.current = false; setTesting(false); }
   };
+
+  // Editing any input clears stale feedback from a different configuration.
+  useEffect(() => { setSaved(false); setTestResult(null); }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, ollamaApiKey, localCompatBaseURL, activeTab]);
 
   const handleModelsConfigSaved = (savedProvider: AIProviderType, visibleIds: string[]) => {
     if (savedProvider !== provider || customModel) return;
@@ -222,6 +207,10 @@ export function useAISectionController() {
     localCompatBaseURL,
     setLocalCompatBaseURL,
     saved,
+    saving,
+    loading,
+    initialLoading,
+    loadError,
     testing,
     testResult,
     setTestResult,

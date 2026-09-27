@@ -57,7 +57,7 @@ export default function DomeSyncSection() {
   }
   const rows = DOMAIN_ROWS.filter((row) => access.features.includes(row.feature));
   const lastSync = Math.max(0, ...Object.values(domains).map((domain) => domain.lastPushAt ?? 0));
-  return <SettingsSurface icon={CloudCogIcon} title="Dome Sync" description={t('settings.domain_sync.subtitle')}>
+  return <SettingsSurface section="dome_sync" icon={CloudCogIcon} title="Dome Sync" description={t('settings.domain_sync.subtitle')}>
     {!access.showCloudUi ? <FeatureAccessNotice feature="cloud_sync" /> : <>
       {error && <Alert variant="destructive"><AlertDescription>{t('settings.domain_sync.sync_error')}<Button variant="outline" size="sm" disabled={busy} onClick={() => { void run(async () => { await load(); return { success: true }; }); }}>{t('access.retry')}</Button></AlertDescription></Alert>}
       {loading ? <div role="status" className="flex items-center gap-2"><Spinner />{t('common.loading')}</div> : <>

@@ -96,7 +96,7 @@ export default function PluginsSection() {
   };
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="plugins"
       icon={PuzzleIcon}
       title={t('settings.plugins.title', 'Plugins')}
       description={t('settings.plugins.subtitle')}

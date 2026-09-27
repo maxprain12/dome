@@ -109,7 +109,7 @@ export default function BrowserExtensionSection() {
   };
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="browser_extension"
       title={t('browser_extension.title')}
       description={t('browser_extension.subtitle')}
     >

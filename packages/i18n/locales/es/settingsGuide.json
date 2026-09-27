@@ -1,0 +1,112 @@
+{
+  "start": "Para empezar.",
+  "groups": {
+    "workspace": "Tu espacio",
+    "intelligence": "IA y conocimiento",
+    "connections": "Cuentas y dispositivos",
+    "extensions": "Herramientas y extensiones"
+  },
+  "sections": {
+    "general": {
+      "description": "Gestiona tu cuenta Dome, tu plan y el perfil de este dispositivo.",
+      "start": "Puedes trabajar sin cuenta. Conéctala cuando necesites servicios cloud."
+    },
+    "appearance": {
+      "description": "Elige el aspecto de Dome y recupera la distribución de tus paneles.",
+      "start": "Selecciona un tema; se aplica al momento."
+    },
+    "language": {
+      "description": "Cambia el idioma de los menús, las ayudas y los ajustes de Dome.",
+      "start": "Elige un idioma. No cambia el contenido de tus documentos."
+    },
+    "features": {
+      "description": "Decide qué secciones aparecen en Dome según tu forma de trabajar.",
+      "start": "Elige un modo o activa cada sección. Los modos no son planes de pago."
+    },
+    "ai": {
+      "description": "Conecta la IA que usará Many y configura la búsqueda, la voz y su contexto.",
+      "start": "Empieza por Conversación. Las demás pestañas son opcionales y se configuran por separado."
+    },
+    "kb_llm": {
+      "description": "Elige cómo organiza Many su conocimiento y cuándo lo actualiza.",
+      "start": "Revisa primero las fuentes y la política de actualización."
+    },
+    "indexing": {
+      "description": "Prepara tus documentos para encontrarlos por su significado.",
+      "start": "Configura un modelo en IA → Búsqueda en documentos y después revisa el estado del índice."
+    },
+    "cloud": {
+      "description": "Conecta Google Drive para acceder a tus archivos desde Dome.",
+      "start": "Añade una cuenta de Google. Esta conexión es distinta de sincronizar Dome entre dispositivos."
+    },
+    "calendar": {
+      "description": "Conecta tus calendarios y decide cómo recibir recordatorios.",
+      "start": "Conecta Google Calendar; después ajusta la sincronización y las notificaciones."
+    },
+    "email": {
+      "description": "Añade tus cuentas para leer y trabajar con correo desde Dome.",
+      "start": "Elige tu proveedor. Usa la configuración manual solo si necesitas IMAP y SMTP."
+    },
+    "social": {
+      "description": "Conecta tus perfiles y gestiona las herramientas de publicación.",
+      "start": "Añade una cuenta; revisa el acceso cloud si quieres sincronizarla."
+    },
+    "dome_sync": {
+      "description": "Lleva los datos compatibles de Dome a tus otros dispositivos.",
+      "start": "Conecta tu cuenta y comprueba que tu plan incluye la sincronización que necesitas."
+    },
+    "remote_many": {
+      "description": "Vincula otro dispositivo para usar Many mientras este equipo está disponible.",
+      "start": "Activa el acceso y vincula únicamente tus dispositivos."
+    },
+    "browser_extension": {
+      "description": "Guarda páginas y contenido del navegador en tu biblioteca de Dome.",
+      "start": "Instala la extensión y comprueba que puede conectarse a esta aplicación."
+    },
+    "skills": {
+      "description": "Añade skills: instrucciones reutilizables para tareas concretas de Many.",
+      "start": "Instala una skill de la tienda o importa una que ya tengas."
+    },
+    "plugins": {
+      "description": "Amplía Dome con herramientas y secciones adicionales.",
+      "start": "Revisa lo que hace cada plugin antes de instalarlo o activarlo."
+    },
+    "mcp": {
+      "description": "Conecta herramientas externas que Many puede utilizar.",
+      "start": "Añade un servidor MCP. Solo necesitas los datos de conexión de esa herramienta."
+    },
+    "dome_mcp": {
+      "description": "Permite que otras aplicaciones de IA consulten Dome mediante MCP.",
+      "start": "Activa el servidor y copia su configuración a la aplicación que quieras conectar."
+    },
+    "advanced": {
+      "description": "Actualiza Dome, configura el guardado y exporta o importa tus datos.",
+      "start": "Usa una exportación para conservar una copia antes de importar datos."
+    }
+  },
+  "ai": {
+    "chat": "El proveedor es el servicio que responde a Many. Seleccionarlo aquí no lo activa hasta que guardes.",
+    "embeddings": "Este modelo convierte tus documentos en representaciones para buscarlos por significado. Se configura por separado de la conversación.",
+    "transcription": "Elige cómo convertir audio en texto y si quieres un resumen. Los permisos se solicitan cuando los necesitas.",
+    "tools": "Configura las fuentes de búsqueda en internet que Many puede consultar.",
+    "context": "Decide qué información recibe Many y cómo gestiona conversaciones largas.",
+    "cloud": "Necesitas una clave API de {{provider}}. Su uso se factura con ese proveedor, por separado de tu cuenta Dome.",
+    "subscription": "Conecta la cuenta de este proveedor y elige un modelo disponible. Esta conexión es independiente de tu cuenta Dome.",
+    "local": "Ejecuta el servidor de modelos y comprueba su dirección. No necesitas una cuenta Dome para usarlo.",
+    "key": "Clave API",
+    "key_hint": "Pega la clave de este proveedor. Nunca uses aquí tu contraseña.",
+    "get_key": "Obtener una clave en {{provider}}",
+    "show_key": "Mostrar clave",
+    "hide_key": "Ocultar clave",
+    "optional": "Opciones de modelos",
+    "save_test": "Guardar y comprobar",
+    "test_hint": "La comprobación guarda y activa este proveedor. Puede consumir una pequeña cantidad de uso.",
+    "save": "Guardar configuración",
+    "saving": "Guardando…",
+    "loading": "Cargando configuración…",
+    "load_error": "No se pudo cargar la configuración. Vuelve a abrir este apartado.",
+    "profile_hint": "Este perfil se guarda en este dispositivo. Cambiar el email aquí no cambia el email de acceso a tu cuenta.",
+    "save_error": "No se pudieron guardar los cambios. Inténtalo de nuevo."
+  },
+  "access_details": "Qué incluye cada nivel de acceso"
+}

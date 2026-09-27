@@ -1,0 +1,112 @@
+{
+  "start": "Start here.",
+  "groups": {
+    "workspace": "Your workspace",
+    "intelligence": "AI and knowledge",
+    "connections": "Accounts and devices",
+    "extensions": "Tools and extensions"
+  },
+  "sections": {
+    "general": {
+      "description": "Manage your Dome account, plan and profile on this device.",
+      "start": "Work locally without an account. Connect one when you need cloud services."
+    },
+    "appearance": {
+      "description": "Choose how Dome looks and restore your panel layout.",
+      "start": "Select a theme; it applies immediately."
+    },
+    "language": {
+      "description": "Change the language of menus, guides and settings.",
+      "start": "Choose a language. Your document content stays unchanged."
+    },
+    "features": {
+      "description": "Choose which sections appear in Dome for the way you work.",
+      "start": "Choose a mode or enable individual sections. Modes are not paid plans."
+    },
+    "ai": {
+      "description": "Connect the AI Many will use and configure search, voice and context.",
+      "start": "Start with Conversation. The other tabs are optional and configured separately."
+    },
+    "kb_llm": {
+      "description": "Choose how Many organizes knowledge and when it updates it.",
+      "start": "Review the sources and update policy first."
+    },
+    "indexing": {
+      "description": "Prepare your documents so they can be found by meaning.",
+      "start": "Set up a model in AI → Document search, then check the index status."
+    },
+    "cloud": {
+      "description": "Connect Google Drive to access your files from Dome.",
+      "start": "Add a Google account. This is separate from syncing Dome between devices."
+    },
+    "calendar": {
+      "description": "Connect your calendars and choose how to receive reminders.",
+      "start": "Connect Google Calendar, then adjust synchronization and notifications."
+    },
+    "email": {
+      "description": "Add accounts to read and work with email in Dome.",
+      "start": "Choose your provider. Use manual setup only when you need IMAP and SMTP."
+    },
+    "social": {
+      "description": "Connect your profiles and manage publishing tools.",
+      "start": "Add an account; check cloud access if you want to sync it."
+    },
+    "dome_sync": {
+      "description": "Bring supported Dome data to your other devices.",
+      "start": "Connect your account and check that your plan includes the sync you need."
+    },
+    "remote_many": {
+      "description": "Link another device to use Many while this computer is available.",
+      "start": "Enable access and pair only your own devices."
+    },
+    "browser_extension": {
+      "description": "Save pages and browser content to your Dome library.",
+      "start": "Install the extension and check that it can connect to this app."
+    },
+    "skills": {
+      "description": "Add skills: reusable instructions for specific tasks.",
+      "start": "Install a skill from the store or import one you already have."
+    },
+    "plugins": {
+      "description": "Extend Dome with additional tools and sections.",
+      "start": "Review what each plugin does before installing or enabling it."
+    },
+    "mcp": {
+      "description": "Connect external tools that Many can use.",
+      "start": "Add an MCP server using the connection details supplied by the tool."
+    },
+    "dome_mcp": {
+      "description": "Let other AI apps access Dome through MCP.",
+      "start": "Enable the server and copy its configuration into the app you want to connect."
+    },
+    "advanced": {
+      "description": "Update Dome, configure saving and export or import your data.",
+      "start": "Export a copy before importing data."
+    }
+  },
+  "ai": {
+    "chat": "The provider is the service that answers Many. Selecting it here does not activate it until you save.",
+    "embeddings": "This model prepares document representations for search by meaning. It is configured separately from conversation.",
+    "transcription": "Choose how to turn audio into text and whether to add a summary. Permissions are requested when needed.",
+    "tools": "Set up the web search sources that Many can consult.",
+    "context": "Choose the information Many receives and how it handles long conversations.",
+    "cloud": "You need an API key from {{provider}}. Usage is billed by that provider, separately from your Dome account.",
+    "subscription": "Connect this provider’s account and choose an available model. This connection is separate from your Dome account.",
+    "local": "Run the model server and check its address. A Dome account is not required.",
+    "key": "API key",
+    "key_hint": "Paste this provider’s key. Never use your password here.",
+    "get_key": "Get a key from {{provider}}",
+    "show_key": "Show key",
+    "hide_key": "Hide key",
+    "optional": "Model options",
+    "save_test": "Save and check",
+    "test_hint": "Checking saves and activates this provider. It may consume a small amount of usage.",
+    "save": "Save configuration",
+    "saving": "Saving…",
+    "loading": "Loading configuration…",
+    "load_error": "Could not load the configuration. Reopen this section to try again.",
+    "profile_hint": "This profile is saved on this device. Changing this email does not change your account sign-in email.",
+    "save_error": "Could not save changes. Please try again."
+  },
+  "access_details": "What each access level includes"
+}

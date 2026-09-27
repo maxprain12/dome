@@ -463,7 +463,7 @@ export default function EmailSection() {
   );
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="email"
       icon={Mail01Icon}
       title={t('email.settings.title')}
       description={t('email.settings.description')}

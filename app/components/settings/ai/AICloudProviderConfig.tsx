@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Alert02Icon, EyeIcon, EyeOffIcon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -57,10 +57,13 @@ export default function AICloudProviderConfig({
       )}
     >
       <Field>
-        <FieldLabel htmlFor="ai-api-key">API Key</FieldLabel>
+        <FieldLabel htmlFor="ai-api-key">{t('settingsGuide.ai.key')}</FieldLabel>
         <InputGroup>
           <InputGroupInput
             id="ai-api-key"
+            autoComplete="off"
+            spellCheck={false}
+            aria-describedby="ai-api-key-hint"
             type={showApiKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
@@ -73,22 +76,22 @@ export default function AICloudProviderConfig({
               size="icon-xs"
               className="text-muted-foreground"
               onClick={() => setShowApiKey((v) => !v)}
-              aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+              aria-label={t(showApiKey ? 'settingsGuide.ai.hide_key' : 'settingsGuide.ai.show_key')}
             >
               <HugeiconsIcon icon={showApiKey ? EyeOffIcon : EyeIcon} />
             </Button>
           </InputGroupAddon>
         </InputGroup>
+        <FieldDescription id="ai-api-key-hint">{t('settingsGuide.ai.key_hint')}</FieldDescription>
         {PROVIDERS[provider]?.docsUrl ? (
           <p className="text-[11px] text-muted-foreground">
-            {t('settings.ai.free_key_at')}{' '}
             <a
               href={PROVIDERS[provider].docsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary underline hover:opacity-80"
             >
-              {PROVIDERS[provider].docsUrl.replace('https://', '')}
+              {t('settingsGuide.ai.get_key', { provider: PROVIDERS[provider].name })}
             </a>
           </p>
         ) : null}

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { CheckmarkCircle02Icon, Search01Icon } from '@hugeicons/core-free-icons';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -69,11 +68,11 @@ export default function AIProviderList({
             <section key={group.key} className="flex flex-col gap-1" aria-labelledby={`ai-provider-group-${group.key}`}>
               <h3
                 id={`ai-provider-group-${group.key}`}
-                className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                className="px-2 text-xs font-medium text-muted-foreground"
               >
                 {t(`settings.ai.provider_group.${group.key}`)}
               </h3>
-              <div role="listbox" aria-labelledby={`ai-provider-group-${group.key}`} className="flex flex-col gap-0.5">
+              <div role="group" aria-labelledby={`ai-provider-group-${group.key}`} className="flex flex-col gap-0.5">
                 {group.options.map((option) => (
                   <ProviderRow
                     key={option.value}
@@ -111,28 +110,23 @@ function ProviderRow({
     <Button
       type="button"
       variant="ghost"
-      role="option"
-      aria-selected={selected}
+      aria-pressed={selected}
       onClick={() => onSelect(option.value)}
       className={cn(
-        'h-auto w-full min-w-0 justify-start gap-2.5 px-2 py-1.5 text-left font-normal',
+        'h-auto w-full min-w-0 justify-start gap-2.5 px-2 py-2.5 text-left font-normal',
         selectionSurfaceClass(selected),
       )}
     >
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
-        <ProviderBrandIcon provider={option.value} size={15} />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+        <ProviderBrandIcon provider={option.value} size={23} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">{option.label}</span>
-        <span className="truncate text-[11px] text-muted-foreground">
+        <span className="truncate text-xs text-muted-foreground">
           {providerStatusLabel(t, option.value, configured)}
         </span>
+        {option.badge === 'EXPERIMENTAL' && <span className="text-xs text-muted-foreground">{t('settings.ai.badge_experimental')}</span>}
       </span>
-      {option.badge ? (
-        <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">
-          {option.badge === 'EXPERIMENTAL' ? t('settings.ai.badge_experimental') : option.badge}
-        </Badge>
-      ) : null}
       {active ? (
         <HugeiconsIcon
           icon={CheckmarkCircle02Icon}

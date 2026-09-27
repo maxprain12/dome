@@ -1,0 +1,112 @@
+{
+  "start": "Para começar.",
+  "groups": {
+    "workspace": "O teu espaço",
+    "intelligence": "IA e conhecimento",
+    "connections": "Contas e dispositivos",
+    "extensions": "Ferramentas e extensões"
+  },
+  "sections": {
+    "general": {
+      "description": "Gere a tua conta Dome, o plano e o perfil neste dispositivo.",
+      "start": "Trabalha sem conta. Liga uma quando precisares dos serviços cloud."
+    },
+    "appearance": {
+      "description": "Escolhe o aspeto do Dome e repõe a disposição dos painéis.",
+      "start": "Seleciona um tema; é aplicado de imediato."
+    },
+    "language": {
+      "description": "Altera o idioma dos menus, guias e definições.",
+      "start": "Escolhe um idioma. O conteúdo dos documentos não muda."
+    },
+    "features": {
+      "description": "Escolhe as secções do Dome para a tua forma de trabalhar.",
+      "start": "Escolhe um modo ou ativa cada secção. Os modos não são planos pagos."
+    },
+    "ai": {
+      "description": "Liga a IA do Many e configura a pesquisa, a voz e o contexto.",
+      "start": "Começa por Conversa. Os outros separadores são opcionais e independentes."
+    },
+    "kb_llm": {
+      "description": "Escolhe como o Many organiza o conhecimento e quando o atualiza.",
+      "start": "Revê primeiro as fontes e a política de atualização."
+    },
+    "indexing": {
+      "description": "Prepara os documentos para os encontrar pelo significado.",
+      "start": "Configura um modelo em IA → Pesquisa nos documentos e verifica o índice."
+    },
+    "cloud": {
+      "description": "Liga o Google Drive para aceder aos teus ficheiros no Dome.",
+      "start": "Adiciona uma conta Google. Esta ligação é diferente da sincronização do Dome."
+    },
+    "calendar": {
+      "description": "Liga os teus calendários e escolhe os lembretes.",
+      "start": "Liga o Google Calendar e ajusta a sincronização e as notificações."
+    },
+    "email": {
+      "description": "Adiciona contas para trabalhar com correio no Dome.",
+      "start": "Escolhe o fornecedor. Usa a configuração manual apenas para IMAP e SMTP."
+    },
+    "social": {
+      "description": "Liga os teus perfis e gere as ferramentas de publicação.",
+      "start": "Adiciona uma conta; verifica o acesso cloud se a quiseres sincronizar."
+    },
+    "dome_sync": {
+      "description": "Leva os dados compatíveis do Dome para outros dispositivos.",
+      "start": "Liga a tua conta e verifica se o plano inclui a sincronização necessária."
+    },
+    "remote_many": {
+      "description": "Usa o Many noutro dispositivo enquanto este computador está disponível.",
+      "start": "Ativa o acesso e associa apenas os teus dispositivos."
+    },
+    "browser_extension": {
+      "description": "Guarda páginas e conteúdo do navegador na biblioteca do Dome.",
+      "start": "Instala a extensão e verifica a ligação à aplicação."
+    },
+    "skills": {
+      "description": "Adiciona skills: instruções reutilizáveis para tarefas específicas.",
+      "start": "Instala uma skill da loja ou importa uma que já tenhas."
+    },
+    "plugins": {
+      "description": "Adiciona ferramentas e secções ao Dome.",
+      "start": "Revê o que faz cada plugin antes de o instalar ou ativar."
+    },
+    "mcp": {
+      "description": "Liga ferramentas externas que o Many pode utilizar.",
+      "start": "Adiciona um servidor MCP com os dados de ligação da ferramenta."
+    },
+    "dome_mcp": {
+      "description": "Permite que outras aplicações de IA consultem o Dome por MCP.",
+      "start": "Ativa o servidor e copia a configuração para a aplicação a ligar."
+    },
+    "advanced": {
+      "description": "Atualiza o Dome e gere a gravação, a exportação e a importação.",
+      "start": "Exporta uma cópia antes de importar dados."
+    }
+  },
+  "ai": {
+    "chat": "O fornecedor é o serviço que responde ao Many. Só fica ativo depois de guardares.",
+    "embeddings": "Este modelo prepara os documentos para pesquisa por significado. É configurado separadamente da conversa.",
+    "transcription": "Escolhe como converter áudio em texto e se queres um resumo. As permissões são pedidas quando necessárias.",
+    "tools": "Configura as fontes de pesquisa na internet que o Many pode consultar.",
+    "context": "Escolhe a informação que o Many recebe e como gere conversas longas.",
+    "cloud": "Precisas de uma chave API de {{provider}}. O fornecedor cobra a utilização separadamente da tua conta Dome.",
+    "subscription": "Liga a conta deste fornecedor e escolhe um modelo. Esta ligação é independente da tua conta Dome.",
+    "local": "Inicia o servidor de modelos e verifica o endereço. Não precisas de uma conta Dome.",
+    "key": "Chave API",
+    "key_hint": "Cola a chave deste fornecedor. Nunca uses a tua palavra-passe aqui.",
+    "get_key": "Obter uma chave em {{provider}}",
+    "show_key": "Mostrar chave",
+    "hide_key": "Ocultar chave",
+    "optional": "Opções dos modelos",
+    "save_test": "Guardar e verificar",
+    "test_hint": "A verificação guarda e ativa este fornecedor. Pode consumir uma pequena quantidade de utilização.",
+    "save": "Guardar configuração",
+    "saving": "A guardar…",
+    "loading": "A carregar configuração…",
+    "load_error": "Não foi possível carregar a configuração. Volta a abrir esta secção.",
+    "profile_hint": "Este perfil é guardado neste dispositivo. Alterar este email não muda o email de acesso à conta.",
+    "save_error": "Não foi possível guardar. Tenta novamente."
+  },
+  "access_details": "O que inclui cada nível de acesso"
+}

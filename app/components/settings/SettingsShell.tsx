@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Select,
@@ -32,6 +32,7 @@ interface SettingsShellProps {
  */
 export default function SettingsShell({ children }: SettingsShellProps) {
   const { t } = useTranslation();
+  const scrollPane = useRef<HTMLElement>(null);
   const activeSection = useSettingsUiStore((s) => s.activeSection);
   const setActiveSection = useSettingsUiStore((s) => s.setActiveSection);
   const hiddenSections = useSettingsUiStore((s) => s.hiddenSections);
@@ -44,6 +45,8 @@ export default function SettingsShell({ children }: SettingsShellProps) {
 
   const normalizedActive = resolveSettingsSection(activeSection);
   const activeEntry = getSettingsEntry(normalizedActive);
+
+  useEffect(() => { scrollPane.current?.scrollTo?.({ top: 0 }); }, [normalizedActive]);
 
   const selectSection = (section: SettingsSection) => {
     setActiveSection(section);
@@ -77,11 +80,11 @@ export default function SettingsShell({ children }: SettingsShellProps) {
         </HubPageHeader>
       ) : null}
 
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
+      <main ref={scrollPane} className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
         <div
           className={cn(
             'mx-auto w-full p-5 pb-24 md:p-8 md:pb-24',
-            activeEntry.layout === 'wide' ? 'max-w-6xl' : 'max-w-2xl',
+            activeEntry.layout === 'wide' ? 'max-w-6xl' : 'max-w-3xl',
           )}
         >
           {children}

@@ -190,7 +190,7 @@ export default function AdvancedSection() {
   })();
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="advanced"
       icon={Settings01Icon}
       title={t('settings.advanced.title')}
       description={t('settings.advanced.subtitle')}

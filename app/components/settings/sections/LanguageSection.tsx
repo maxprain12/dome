@@ -13,7 +13,7 @@ export default function LanguageSection() {
     ) ?? 'es';
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="language"
       icon={GlobeIcon}
       title={t('settings.language.title')}
       description={t('settings.language.subtitle')}
