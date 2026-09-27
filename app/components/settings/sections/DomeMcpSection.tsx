@@ -126,7 +126,7 @@ export default function DomeMcpSection() {
     : null;
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="dome_mcp"
       icon={ServerStack01Icon}
       title={t('dome_mcp.title')}
       description={t('dome_mcp.subtitle')}

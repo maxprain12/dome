@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { CheckmarkCircle02Icon, UserIcon } from '@hugeicons/core-free-icons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,8 @@ export default function GeneralSection() {
   const [localEmail, setLocalEmail] = useState(email);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const [isSaved, setIsSaved] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [analyticsEnabled, setAnalyticsEnabledState] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
@@ -59,12 +62,12 @@ export default function GeneralSection() {
     reader.onload = () => {
       const dataUrl = typeof reader.result === 'string' ? reader.result : '';
       setPhotoBusy(true);
-      window.electron.domeAuth.uploadAvatar(dataUrl).then((result) => {
+      window.electron.domeAuth.uploadAvatar(dataUrl).then(async (result) => {
         if (!result.success || !result.imageUrl) {
           setPhotoError(t('settings.general.photo_error'));
           return;
         }
-        updateUserProfile({ avatarUrl: result.imageUrl, avatarPath: undefined });
+        await updateUserProfile({ avatarUrl: result.imageUrl, avatarPath: undefined });
         setPhotoSaved(true);
       }).catch(() => {
         setPhotoError(t('settings.general.photo_error'));
@@ -75,7 +78,9 @@ export default function GeneralSection() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (profileSaving) return;
+    setIsSaved(false); setSaveFailed(false);
     const newErrors: { name?: string; email?: string } = {};
     if (!validateName(localName)) newErrors.name = t('settings.general.error_name');
     if (localEmail.trim() && !validateEmail(localEmail)) newErrors.email = t('settings.general.error_email');
@@ -84,9 +89,10 @@ export default function GeneralSection() {
       return;
     }
     setErrors({});
-    updateUserProfile({ name: localName.trim(), email: localEmail.trim() });
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
+    setProfileSaving(true);
+    try { await updateUserProfile({ name: localName.trim(), email: localEmail.trim() }); setIsSaved(true); }
+    catch { setSaveFailed(true); }
+    finally { setProfileSaving(false); }
   };
 
   const handleAnalyticsToggle = async (enabled: boolean) => {
@@ -105,15 +111,16 @@ export default function GeneralSection() {
   };
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="general"
       icon={UserIcon}
       title={t('settings.general.title')}
       description={t('settings.general.subtitle')}
     >
       <AccountAccessPanel />
-      <SettingsGroup title={t('settings.general.profile')}>
+      <SettingsGroup title={t('settings.general.profile')} description={t('settingsGuide.ai.profile_hint')}>
         <div className="px-4 py-4">
           <FieldGroup>
+            {saveFailed && <Alert variant="destructive"><AlertDescription>{t('settingsGuide.ai.save_error')}</AlertDescription></Alert>}
             <div className="flex items-center gap-4">
               <UserAvatar
                 name={localName || name || t('userMenu.default_name')}
@@ -143,10 +150,11 @@ export default function GeneralSection() {
                 id="settings-user-name"
                 value={localName}
                 autoComplete="name"
+                disabled={profileSaving}
                 placeholder={t('settings.general.name_placeholder')}
                 aria-invalid={Boolean(errors.name) || undefined}
                 onChange={(e) => {
-                  setLocalName(e.target.value);
+                  setIsSaved(false); setLocalName(e.target.value);
                   if (errors.name && validateName(e.target.value)) {
                     setErrors((p) => ({ ...p, name: undefined }));
                   }
@@ -160,14 +168,15 @@ export default function GeneralSection() {
               </FieldLabel>
               <Input
                 id="settings-user-email"
-                type="text"
+                type="email"
                 inputMode="email"
                 value={localEmail}
                 autoComplete="email"
+                disabled={profileSaving}
                 placeholder={t('settings.general.email_placeholder')}
                 aria-invalid={Boolean(errors.email) || undefined}
                 onChange={(e) => {
-                  setLocalEmail(e.target.value);
+                  setIsSaved(false); setLocalEmail(e.target.value);
                   if (errors.email && validateEmail(e.target.value)) {
                     setErrors((p) => ({ ...p, email: undefined }));
                   }
@@ -176,8 +185,8 @@ export default function GeneralSection() {
               <FieldError>{errors.email}</FieldError>
             </Field>
             <div className="flex items-center gap-2.5">
-              <Button type="button" size="sm" onClick={handleSave}>
-                {t('settings.general.save_changes')}
+              <Button type="button" size="sm" disabled={profileSaving} onClick={() => { void handleSave(); }}>
+                {t(profileSaving ? 'settingsGuide.ai.saving' : 'settings.general.save_changes')}
               </Button>
               {isSaved ? (
                 <span className="flex items-center gap-1.5 text-xs text-primary">

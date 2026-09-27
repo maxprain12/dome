@@ -3,15 +3,15 @@
  * Single source of truth for order, labels, descriptions, badges, and brand logos.
  */
 
-import { PROVIDERS } from '@/lib/ai/models';
+import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 
 export type ProviderOptionBadgeColor = 'green' | 'purple';
 export const DOME_PROVIDER_ENABLED = import.meta.env.VITE_ENABLE_DOME_PROVIDER === 'true';
 
-/** Brand logo paths under public/brandlogo/; `null` renders a monogram (never another brand's mark). */
+/** Every supported provider has a bundled brand asset; no runtime CDN or monograms. */
 const PROVIDER_LOGO_PATHS = {
   dome: '/many.png',
-  openai: '/brandlogo/OpenAI-black-monoblossom.svg',
+  openai: '/brandlogo/openai.svg',
   anthropic: '/brandlogo/anthropic.svg',
   google: '/brandlogo/googlegemini.svg',
   openrouter: '/brandlogo/openrouter.svg',
@@ -20,21 +20,21 @@ const PROVIDER_LOGO_PATHS = {
   deepseek: '/brandlogo/deepseek.svg',
   moonshot: '/brandlogo/moonshot.svg',
   qwen: '/brandlogo/qwen.svg',
-  copilot: '/brandlogo/github.svg',
-  'claude-oauth': '/brandlogo/anthropic.svg',
-  'openai-codex': '/brandlogo/OpenAI-black-monoblossom.svg',
+  copilot: '/brandlogo/githubcopilot.svg',
+  'claude-oauth': '/brandlogo/claude-color.svg',
+  'openai-codex': '/brandlogo/openai.svg',
   opencode: '/brandlogo/opencode.svg',
   'opencode-go': '/brandlogo/opencode-go.svg',
   vllm: '/brandlogo/vllm.svg',
   lmstudio: '/brandlogo/lmstudio.svg',
-  xai: null,
-  groq: null,
-  mistral: null,
-  fireworks: null,
-  together: null,
-  'google-vertex': '/brandlogo/googlegemini.svg',
-  'azure-openai-responses': '/brandlogo/OpenAI-black-monoblossom.svg',
-} as const satisfies Record<string, string | null>;
+  xai: '/brandlogo/xai.svg',
+  groq: '/brandlogo/groq.svg',
+  mistral: '/brandlogo/mistral-color.svg',
+  fireworks: '/brandlogo/fireworks-color.svg',
+  together: '/brandlogo/together-color.svg',
+  'google-vertex': '/brandlogo/vertexai-color.svg',
+  'azure-openai-responses': '/brandlogo/azure-color.svg',
+} as const satisfies Record<AIProviderType, string>;
 
 export type ProviderWithBrandLogo = keyof typeof PROVIDER_LOGO_PATHS;
 
@@ -49,7 +49,7 @@ const PROVIDER_LOGO_LIGHT_PATHS: Partial<Record<ProviderWithBrandLogo, string>> 
 export function getProviderLogoSrc(
   provider: ProviderWithBrandLogo,
   resolvedTheme: ResolvedTheme = 'dark',
-): string | null {
+): string {
   if (resolvedTheme === 'light') {
     const light = PROVIDER_LOGO_LIGHT_PATHS[provider];
     if (light) return light;
@@ -59,6 +59,11 @@ export function getProviderLogoSrc(
 
 /** Monochrome logos (Simple Icons) need --dome-logo-filter in dark theme. */
 const PROVIDER_LOGO_DARK_INVERT = new Set<ProviderWithBrandLogo>([
+  'openai',
+  'openai-codex',
+  'anthropic',
+  'xai',
+  'groq',
   'copilot',
   'deepseek',
   'moonshot',

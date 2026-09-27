@@ -63,7 +63,7 @@ export default function SkillsSection() {
   }, [loadData]);
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="skills"
       icon={MagicWand01Icon}
       title={t('settings.skills.title', 'Skills')}
       description={t(

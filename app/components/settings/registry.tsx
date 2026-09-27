@@ -72,54 +72,26 @@ interface GroupDef {
 }
 
 const GROUP_DEFS: GroupDef[] = [
-  {
-    labelKey: 'settings.groups.account',
-    sections: [{ id: 'general', icon: UserIcon }],
-  },
-  {
-    labelKey: 'settings.groups.appearance_language',
-    sections: [
-      { id: 'appearance', icon: PaintBoardIcon },
-      { id: 'language', icon: GlobeIcon },
-    ],
-  },
-  {
-    labelKey: 'settings.groups.ai',
-    sections: [{ id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'], layout: 'wide' }],
-  },
-  {
-    labelKey: 'settings.groups.integrations',
-    sections: [
-      { id: 'cloud', icon: CloudIcon },
-      { id: 'dome_sync', icon: CloudCogIcon },
-      { id: 'calendar', icon: Calendar03Icon },
-      { id: 'email', icon: Mail01Icon },
-      { id: 'social', icon: Share08Icon },
-    ],
-  },
-  {
-    labelKey: 'settings.groups.automation_extensions',
-    sections: [
-      { id: 'browser_extension', icon: Link01Icon },
-      { id: 'remote_many', icon: ComputerIcon },
-      { id: 'mcp', icon: Plug02Icon },
-      { id: 'dome_mcp', icon: ServerStack01Icon },
-      { id: 'skills', icon: MagicWand01Icon },
-      { id: 'plugins', icon: PuzzleIcon },
-    ],
-  },
-  {
-    labelKey: 'settings.groups.data_privacy',
-    sections: [
-      { id: 'features', icon: LayoutGridIcon },
-      { id: 'indexing', icon: DatabaseIcon },
-      { id: 'kb_llm', icon: BookMarkedIcon },
-    ],
-  },
-  {
-    labelKey: 'settings.groups.system',
-    sections: [{ id: 'advanced', icon: Settings01Icon }],
-  },
+  { labelKey: 'settings.groups.account', sections: [{ id: 'general', icon: UserIcon }] },
+  { labelKey: 'settingsGuide.groups.workspace', sections: [
+    { id: 'appearance', icon: PaintBoardIcon }, { id: 'language', icon: GlobeIcon },
+    { id: 'features', icon: LayoutGridIcon },
+  ] },
+  { labelKey: 'settingsGuide.groups.intelligence', sections: [
+    { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'], layout: 'wide' },
+    { id: 'kb_llm', icon: BookMarkedIcon }, { id: 'indexing', icon: DatabaseIcon },
+  ] },
+  { labelKey: 'settingsGuide.groups.connections', sections: [
+    { id: 'cloud', icon: CloudIcon }, { id: 'calendar', icon: Calendar03Icon },
+    { id: 'email', icon: Mail01Icon }, { id: 'social', icon: Share08Icon },
+    { id: 'dome_sync', icon: CloudCogIcon }, { id: 'remote_many', icon: ComputerIcon },
+  ] },
+  { labelKey: 'settingsGuide.groups.extensions', sections: [
+    { id: 'browser_extension', icon: Link01Icon }, { id: 'skills', icon: MagicWand01Icon },
+    { id: 'plugins', icon: PuzzleIcon }, { id: 'mcp', icon: Plug02Icon },
+    { id: 'dome_mcp', icon: ServerStack01Icon },
+  ] },
+  { labelKey: 'settings.groups.system', sections: [{ id: 'advanced', icon: Settings01Icon }] },
 ];
 
 const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>> = {

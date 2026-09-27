@@ -35,7 +35,7 @@ export default function AppearanceSection() {
   const handleResetLayout = useCallback(() => resetLayoutPreferences(), []);
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="appearance"
       icon={PaintBoardIcon}
       title={t('settings.appearance.title')}
       description={t('settings.appearance.subtitle')}

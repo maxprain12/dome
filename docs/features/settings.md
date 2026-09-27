@@ -1,6 +1,6 @@
 # Settings Feature
 
-Documentation for Dome's settings: Codex-style shell, typed registry (7 groups), lazy sections, persistence via SQLite, and renderer API. Lives in `app/pages/SettingsPage.tsx`, `app/components/settings/`, `app/lib/settings/`, and the SQLite `settings` table.
+Documentation for Dome's settings: Codex-style shell, typed registry (6 task groups), lazy sections, persistence via SQLite, and renderer API. Lives in `app/pages/SettingsPage.tsx`, `app/components/settings/`, `app/lib/settings/`, and the SQLite `settings` table.
 
 ---
 
@@ -11,27 +11,36 @@ Documentation for Dome's settings: Codex-style shell, typed registry (7 groups),
 Settings is a **shell mode**, not a nested rail inside the workspace:
 
 - While the `settings` tab is active, [`AppShell`](../../app/components/shell/AppShell.tsx) swaps [`UnifiedSidebar`](../../app/components/workspace/UnifiedSidebar.tsx) for [`SettingsNav`](../../app/components/settings/SettingsNav.tsx) (back to app + search + section groups). Many is unavailable (panel collapsed, TitleBar toggle hidden); the user’s Many-open preference is left untouched.
-- **`SettingsPage`** (`app/pages/SettingsPage.tsx`): resolves `?section=`, listens to IPC `settings:navigate-to-section` and `dome:goto-settings-section`, syncs `hiddenSections` / `activeSection` into [`useSettingsUiStore`](../../app/lib/store/useSettingsUiStore.ts), hides `dome_sync` without cloud entitlements, lazy-loads the active section inside `SettingsShell`.
+- **`SettingsPage`** (`app/pages/SettingsPage.tsx`): resolves `?section=`, listens to IPC `settings:navigate-to-section` and `dome:goto-settings-section`, syncs `hiddenSections` / `activeSection` into [`useSettingsUiStore`](../../app/lib/store/useSettingsUiStore.ts), keeps cloud destinations visible with account/access explanations, lazy-loads the active section inside `SettingsShell`.
 - **`SettingsNav`**: left-shell navigation (`w-62`, same slot as UnifiedSidebar). «Back to application» closes the settings tab.
-- **`SettingsShell`** (`app/components/settings/SettingsShell.tsx`): content-only frame (`max-w-2xl`); Select fallback when the left sidebar is collapsed.
+- **`SettingsShell`** (`app/components/settings/SettingsShell.tsx`): content-only frame (`max-w-3xl`, `max-w-6xl` for AI); Select fallback when the left sidebar is collapsed.
 - **`registry.tsx`**: single source of truth for section ids, groups, icons (Hugeicons), keywords, legacy aliases, and lazy components under `sections/`.
-- **Blocks**: `SettingsSurface` / `SettingsGroup` / `SettingsRow` are aliases of `HubSurface` / `HubGroup` / `HubRow` from `@/components/hub` (see plan 001).
+- **Blocks**: `SettingsSurface` / `SettingsGroup` / `SettingsRow` are settings-specific components with compatible Hub props. They provide readable headings, explanatory descriptions, first steps, sentence-case group labels and wrapping controls without changing other hubs. Copy lives in `settingsGuide.json` in all four locales.
 
 ### Section ids (public contract)
 
 Deep links and events address these ids (legacy alias `transcription` → `ai`):
 
-`general` · `appearance` · `language` · `ai` · `cloud` · `dome_sync` · `calendar` · `email` · `social` · `mcp` · `dome_mcp` · `skills` · `plugins` · `features` · `indexing` · `kb_llm` · `advanced`
+`general` · `appearance` · `language` · `ai` · `cloud` · `dome_sync` · `calendar` · `email` · `social` · `mcp` · `dome_mcp` · `skills` · `plugins` · `features` · `indexing` · `kb_llm` · `advanced` · `browser_extension` · `remote_many`
 
-### Nav groups (7)
+### Nav groups (6)
 
-1. Account — general  
-2. Appearance & language — appearance, language  
-3. AI — ai (includes transcription UI inside AI section)  
-4. Integrations — cloud, dome_sync, calendar, email, social  
-5. Automation & extensions — mcp, dome_mcp, skills, plugins  
-6. Data & privacy — features, indexing, kb_llm  
-7. System — advanced  
+1. Account — general
+2. Your workspace — appearance, language, features
+3. AI and knowledge — ai, kb_llm, indexing
+4. Accounts and devices — cloud, calendar, email, social, dome_sync, remote_many
+5. Tools and extensions — browser_extension, skills, plugins, mcp, dome_mcp
+6. System — advanced
+
+Groups remain visible in a scrollable rail; their contents no longer collapse according to window height. Search matches localized titles, descriptions and first steps, so “IMAP” finds Email. Section IDs and legacy deep links are unchanged.
+
+### AI setup
+
+Conversation, document search, voice/transcription, web search and context are separate accessible tabs with an explanation of their purpose. Provider details explain the credential/account/local-server requirement. Optional model curation is collapsed; the main form keeps credentials, model and save/check actions together. “Save and check” explicitly saves and activates the provider before testing (which may consume provider usage).
+
+Provider switches clear the previous credentials immediately and reject stale asynchronous responses. Storage failures are surfaced; testing stops after an unsuccessful save. Transcription saves only its own settings. The profile form similarly waits for persistence before reporting success.
+
+Every provider has a bundled brand image. Claude, GitHub Copilot, Vertex AI and Azure use their own product identities; monochrome marks adapt to dark mode. Download provenance and license are in `public/brandlogo/SOURCES.md`.
 
 ### User profile (`app/types/index.ts`, `app/lib/settings/index.ts`)
 
@@ -71,7 +80,7 @@ Stored in settings table: `ai_provider`, `ai_api_key`, `ai_model`, `ai_embedding
 ### Layout
 
 - Shell composition in settings mode: `TitleBar` + `SettingsNav` + settings content (no Many column).
-- Sections live in `app/components/settings/sections/*Section.tsx` and compose hub blocks + shadcn Field/Switch/Select.
+- Sections live in `app/components/settings/sections/*Section.tsx` and compose settings blocks + shadcn Field/Switch/Select.
 - AI sub-areas (providers, embeddings, web search, agent context, transcription) stay under the `ai` section — not separate nav ids (except legacy alias `transcription`).
 
 ### Persistence

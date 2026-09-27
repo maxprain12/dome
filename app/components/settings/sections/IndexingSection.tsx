@@ -489,7 +489,7 @@ export default function IndexingSection() {
   const fullSyncPercent = computeFullSyncPercent(fullSyncProgress);
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="indexing"
       icon={DatabaseIcon}
       title={t('settings.indexing.title')}
       description={t('settings.indexing.subtitle')}

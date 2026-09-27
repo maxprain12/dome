@@ -44,6 +44,7 @@ export interface AISectionBodyProps {
   configurationTitle: string;
   transcriptionRef: Ref<TranscriptionSettingsSectionsHandle>;
   saved: boolean;
+  saving: boolean;
   testing: boolean;
   testResult: TestResult | null;
   onSave: () => void;
@@ -80,6 +81,7 @@ export default function AISectionBody({
   configurationTitle,
   transcriptionRef,
   saved,
+  saving,
   testing,
   testResult,
   onSave,
@@ -93,13 +95,13 @@ export default function AISectionBody({
 
   if (activeTab === 'chat') {
     return (
-      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] lg:items-start">
+      <div className="@container/ai"><div data-ai-provider-grid className="grid min-w-0 grid-cols-1 gap-5 @min-[780px]/ai:grid-cols-[minmax(220px,260px)_minmax(0,1fr)] items-start">
         <AIProviderList
           selected={provider}
           active={activeProvider}
           configured={providerKeyStatus}
           onSelect={onProviderChange}
-          className="lg:sticky lg:top-0 lg:max-h-[calc(100vh-14rem)]"
+          className="max-h-72 @min-[780px]/ai:max-h-[calc(100dvh-20rem)] @min-[780px]/ai:sticky @min-[780px]/ai:top-0"
         />
         <AIProviderDetail
           provider={provider}
@@ -110,6 +112,7 @@ export default function AISectionBody({
             <AIChatSaveBar
               showTest
               saved={saved}
+              saving={saving}
               testing={testing}
               testResult={testResult}
               onSave={onSave}
@@ -146,7 +149,7 @@ export default function AISectionBody({
           onClose={() => onModelsConfigProviderChange(null)}
           onSaved={onModelsConfigSaved}
         />
-      </div>
+      </div></div>
     );
   }
 
@@ -165,6 +168,7 @@ export default function AISectionBody({
           <AIChatSaveBar
             showTest={false}
             saved={saved}
+            saving={saving}
             testing={testing}
             testResult={testResult}
             onSave={onSave}

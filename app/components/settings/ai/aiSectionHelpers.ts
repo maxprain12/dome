@@ -7,7 +7,6 @@ import {
   type AIProviderType,
 } from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
-import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 
 export type DomeQuota = {
   planId?: string;
@@ -122,30 +121,18 @@ export function buildAISaveConfig(input: AISaveInput): Partial<AISettings> {
 
 /** Load a per-provider API key slot from settings (masked), or empty string. */
 export async function loadProviderSlotApiKey(provider: AIProviderType): Promise<string> {
-  try {
-    const { db } = await import('@/lib/db/client');
-    const res = await db.getSetting(`ai_api_key_${provider}`);
-    return res.data || '';
-  } catch {
-    return '';
-  }
-}
-
-/** Load a cloud provider API key from settings (masked), or empty string. */
-export async function loadCloudApiKey(provider: AIProviderType): Promise<string> {
-  if (!isCloudAIProvider(provider)) return '';
-  return loadProviderSlotApiKey(provider);
+  const { db } = await import('@/lib/db/client');
+  const res = await db.getSetting(`ai_api_key_${provider}`);
+  if (!res.success) throw new Error('Could not load provider credentials');
+  return res.data || '';
 }
 
 export async function loadLocalCompatBaseUrl(provider: AIProviderType): Promise<string> {
   if (!isLocalOpenAICompatProvider(provider)) {
     return LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS.lmstudio;
   }
-  try {
-    const { db } = await import('@/lib/db/client');
-    const res = await db.getSetting(`ai_base_url_${provider}`);
-    return res.data?.trim() || LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider];
-  } catch {
-    return LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider];
-  }
+  const { db } = await import('@/lib/db/client');
+  const res = await db.getSetting(`ai_base_url_${provider}`);
+  if (!res.success) throw new Error('Could not load provider address');
+  return res.data?.trim() || LOCAL_OPENAI_COMPAT_DEFAULT_BASE_URLS[provider];
 }

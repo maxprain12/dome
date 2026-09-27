@@ -72,6 +72,7 @@ export default function AIChatProviderPanels({
           customModel={customModel}
           onCustomModelChange={onCustomModelChange}
           compact={compact}
+          wrapInCard={false}
         />
       ) : null}
 

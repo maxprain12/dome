@@ -58,7 +58,7 @@ export default function FeaturesSection() {
   const editionLabel = preset ? t(preset.labelKey) : t('features.no_role');
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="features"
       icon={LayoutGridIcon}
       title={t('features.title')}
       description={t('features.subtitle')}

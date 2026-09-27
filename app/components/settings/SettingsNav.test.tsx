@@ -28,3 +28,10 @@ it('keeps unavailable sections out of navigation and search', async () => {
   await userEvent.type(screen.getByRole('textbox'), i18n.t('settings.tabs.browser_extension'));
   expect(screen.getByText(i18n.t('settings.search_empty'))).toBeVisible();
 });
+
+it('finds settings by the task description, not only technical titles', async () => {
+  render(<SettingsNav collapsed={false} />);
+  await userEvent.type(screen.getByRole('textbox'), 'IMAP');
+  await userEvent.keyboard('{Enter}');
+  expect(useSettingsUiStore.getState().activeSection).toBe('email');
+});

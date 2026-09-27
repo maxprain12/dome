@@ -2,16 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { SETTINGS_ENTRIES, SETTINGS_GROUPS, resolveSettingsSection } from './registry';
 
 describe('settings registry', () => {
-  it('keeps the seven agreed information-architecture groups', () => {
-    expect(SETTINGS_GROUPS.map((group) => group.labelKey)).toEqual([
-      'settings.groups.account',
-      'settings.groups.appearance_language',
-      'settings.groups.ai',
-      'settings.groups.integrations',
-      'settings.groups.automation_extensions',
-      'settings.groups.data_privacy',
-      'settings.groups.system',
-    ]);
+  it('keeps every destination in exactly one task group', () => {
+    const ids = SETTINGS_GROUPS.flatMap((group) => group.entries.map((entry) => entry.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toHaveLength(19);
+    expect(SETTINGS_GROUPS.find((group) => group.labelKey === 'settingsGuide.groups.intelligence')?.entries.map((entry) => entry.id)).toEqual(['ai', 'kb_llm', 'indexing']);
   });
 
   it('resolves legacy aliases without duplicating a visible section', () => {
@@ -21,4 +16,14 @@ describe('settings registry', () => {
     expect(SETTINGS_ENTRIES.map((entry) => entry.id)).toContain('browser_extension');
     expect(SETTINGS_ENTRIES.map((entry) => entry.id)).toContain('remote_many');
   });
+});
+
+it('provides a readable explanation and first step for every section in every language', async () => {
+  const { default: i18n } = await import('@/lib/i18n');
+  for (const entry of SETTINGS_ENTRIES) {
+    for (const lng of ['en', 'es', 'fr', 'pt']) {
+      expect(i18n.exists(`settingsGuide.sections.${entry.id}.description`, { lng })).toBe(true);
+      expect(i18n.exists(`settingsGuide.sections.${entry.id}.start`, { lng })).toBe(true);
+    }
+  }
 });

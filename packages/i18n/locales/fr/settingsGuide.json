@@ -1,0 +1,112 @@
+{
+  "start": "Pour commencer.",
+  "groups": {
+    "workspace": "Votre espace",
+    "intelligence": "IA et connaissances",
+    "connections": "Comptes et appareils",
+    "extensions": "Outils et extensions"
+  },
+  "sections": {
+    "general": {
+      "description": "Gérez votre compte Dome, votre offre et votre profil sur cet appareil.",
+      "start": "Travaillez sans compte. Connectez-en un pour utiliser les services cloud."
+    },
+    "appearance": {
+      "description": "Choisissez l’apparence de Dome et restaurez la disposition des panneaux.",
+      "start": "Sélectionnez un thème ; il s’applique immédiatement."
+    },
+    "language": {
+      "description": "Changez la langue des menus, des guides et des réglages.",
+      "start": "Choisissez une langue. Le contenu de vos documents reste inchangé."
+    },
+    "features": {
+      "description": "Choisissez les sections de Dome adaptées à votre travail.",
+      "start": "Choisissez un mode ou activez les sections. Les modes ne sont pas des offres payantes."
+    },
+    "ai": {
+      "description": "Connectez l’IA de Many et configurez la recherche, la voix et le contexte.",
+      "start": "Commencez par Conversation. Les autres onglets sont facultatifs et indépendants."
+    },
+    "kb_llm": {
+      "description": "Choisissez comment Many organise ses connaissances et les actualise.",
+      "start": "Vérifiez d’abord les sources et la politique de mise à jour."
+    },
+    "indexing": {
+      "description": "Préparez vos documents pour les retrouver par leur sens.",
+      "start": "Configurez un modèle dans IA → Recherche documentaire, puis vérifiez l’index."
+    },
+    "cloud": {
+      "description": "Connectez Google Drive pour accéder à vos fichiers depuis Dome.",
+      "start": "Ajoutez un compte Google. Cette connexion est distincte de la synchronisation de Dome."
+    },
+    "calendar": {
+      "description": "Connectez vos calendriers et choisissez vos rappels.",
+      "start": "Connectez Google Calendar, puis réglez la synchronisation et les notifications."
+    },
+    "email": {
+      "description": "Ajoutez vos comptes pour travailler avec vos e-mails dans Dome.",
+      "start": "Choisissez le fournisseur. La configuration manuelle sert aux connexions IMAP et SMTP."
+    },
+    "social": {
+      "description": "Connectez vos profils et gérez les outils de publication.",
+      "start": "Ajoutez un compte ; vérifiez l’accès cloud pour le synchroniser."
+    },
+    "dome_sync": {
+      "description": "Retrouvez les données compatibles de Dome sur vos autres appareils.",
+      "start": "Connectez votre compte et vérifiez les fonctions incluses dans votre offre."
+    },
+    "remote_many": {
+      "description": "Utilisez Many depuis un autre appareil lorsque cet ordinateur est disponible.",
+      "start": "Activez l’accès et associez uniquement vos propres appareils."
+    },
+    "browser_extension": {
+      "description": "Enregistrez des pages dans votre bibliothèque Dome.",
+      "start": "Installez l’extension et vérifiez sa connexion à l’application."
+    },
+    "skills": {
+      "description": "Ajoutez des skills : des instructions réutilisables pour des tâches précises.",
+      "start": "Installez une skill depuis la boutique ou importez-en une."
+    },
+    "plugins": {
+      "description": "Ajoutez des outils et des sections à Dome.",
+      "start": "Vérifiez le rôle de chaque plugin avant de l’installer ou de l’activer."
+    },
+    "mcp": {
+      "description": "Connectez des outils externes utilisables par Many.",
+      "start": "Ajoutez un serveur MCP avec les informations de connexion de l’outil."
+    },
+    "dome_mcp": {
+      "description": "Autorisez d’autres applications d’IA à consulter Dome via MCP.",
+      "start": "Activez le serveur et copiez sa configuration dans l’application à connecter."
+    },
+    "advanced": {
+      "description": "Mettez Dome à jour et gérez l’enregistrement, l’export et l’import.",
+      "start": "Exportez une copie avant d’importer des données."
+    }
+  },
+  "ai": {
+    "chat": "Le fournisseur est le service qui répond à Many. Il devient actif uniquement après l’enregistrement.",
+    "embeddings": "Ce modèle prépare vos documents pour une recherche par sens. Il se configure séparément de la conversation.",
+    "transcription": "Choisissez comment convertir l’audio en texte et ajouter un résumé. Les autorisations sont demandées au besoin.",
+    "tools": "Configurez les sources de recherche web que Many peut consulter.",
+    "context": "Choisissez les informations transmises à Many et la gestion des longues conversations.",
+    "cloud": "Une clé API de {{provider}} est nécessaire. Ce fournisseur facture son utilisation séparément de votre compte Dome.",
+    "subscription": "Connectez votre compte chez ce fournisseur et choisissez un modèle. Cette connexion est distincte de votre compte Dome.",
+    "local": "Lancez le serveur de modèles et vérifiez son adresse. Aucun compte Dome n’est requis.",
+    "key": "Clé API",
+    "key_hint": "Collez la clé de ce fournisseur, jamais votre mot de passe.",
+    "get_key": "Obtenir une clé chez {{provider}}",
+    "show_key": "Afficher la clé",
+    "hide_key": "Masquer la clé",
+    "optional": "Options des modèles",
+    "save_test": "Enregistrer et vérifier",
+    "test_hint": "La vérification enregistre et active ce fournisseur. Elle peut consommer un peu de votre quota.",
+    "save": "Enregistrer la configuration",
+    "saving": "Enregistrement…",
+    "loading": "Chargement de la configuration…",
+    "load_error": "Impossible de charger la configuration. Rouvrez cette section.",
+    "profile_hint": "Ce profil est enregistré sur cet appareil. Cet e-mail ne modifie pas celui de connexion à votre compte.",
+    "save_error": "Impossible d’enregistrer. Réessayez."
+  },
+  "access_details": "Ce que comprend chaque niveau d’accès"
+}

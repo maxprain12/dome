@@ -106,7 +106,7 @@ export default function CloudStorageSection() {
   };
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="cloud"
       icon={CloudIcon}
       title={t('settings.cloud.title', 'Cloud Storage')}
       description={t(

@@ -167,7 +167,7 @@ export default function KbLlmSection() {
   }
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="kb_llm"
       icon={BookMarkedIcon}
       title={t('settings.kb_llm.title')}
       description={t('settings.kb_llm.subtitle')}

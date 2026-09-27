@@ -116,7 +116,7 @@ export default function CalendarSection() {
   }
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="calendar"
       icon={Calendar03Icon}
       title={t('settings.calendar.title')}
       description={t('settings.calendar.subtitle')}

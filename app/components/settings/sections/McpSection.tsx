@@ -260,7 +260,7 @@ export default function McpSection() {
   }
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="mcp"
       icon={Plug02Icon}
       title={t('settings.tabs.mcp')}
       description={t('settings.mcp.subtitle')}

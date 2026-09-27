@@ -307,12 +307,18 @@ export async function getAIConfig(): Promise<AISettings> {
   };
 }
 
+/** Propagate storage failures so settings never report a failed write as saved. */
+async function writeAISetting(key: string, value: string): Promise<void> {
+  const result = await db.setSetting(key, value);
+  if (!result.success) throw new Error('Could not save AI settings');
+}
+
 export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   if (config.provider !== undefined) {
-    await db.setSetting('ai_provider', config.provider);
+    await writeAISetting('ai_provider', config.provider);
     // Keep billing mode aligned with the provider picker. Default dome_cloud
     // otherwise hijacks Codex/Claude OAuth/API-key providers into Dome Cloud.
-    await db.setSetting(
+    await writeAISetting(
       'ai_billing_mode',
       config.provider === 'dome' ? 'dome_cloud' : 'custom_api_key',
     );
@@ -350,19 +356,19 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
 async function writeStringSetting(key: string, value: string | undefined): Promise<void> {
   if (value !== undefined) {
-    await db.setSetting(key, value);
+    await writeAISetting(key, value);
   }
 }
 
 async function writeNumberSetting(key: string, value: number | undefined): Promise<void> {
   if (value !== undefined) {
-    await db.setSetting(key, value.toString());
+    await writeAISetting(key, value.toString());
   }
 }
 
 async function writeBoolSetting(key: string, value: boolean | undefined): Promise<void> {
   if (value !== undefined) {
-    await db.setSetting(key, value ? 'true' : 'false');
+    await writeAISetting(key, value ? 'true' : 'false');
   }
 }
 
@@ -376,9 +382,9 @@ async function writeProviderScopedSetting(
   value: string,
 ): Promise<void> {
   if (provider !== undefined) {
-    await db.setSetting(`ai_${prefix}_${provider}`, value);
+    await writeAISetting(`ai_${prefix}_${provider}`, value);
   }
-  await db.setSetting(`ai_${prefix}`, value);
+  await writeAISetting(`ai_${prefix}`, value);
 }
 
 /** Subscribe to cloud-pulled settings updates (main → renderer). */

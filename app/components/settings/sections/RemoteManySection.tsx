@@ -161,7 +161,7 @@ export default function RemoteManySection() {
   };
 
   return (
-    <SettingsSurface
+    <SettingsSurface section="remote_many"
       title={t('remote_many.title')}
       description={t('remote_many.subtitle')}
     >
