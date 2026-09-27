@@ -1,112 +1,54 @@
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { HelpCircleIcon } from '@hugeicons/core-free-icons';
 import { getSectionGuide } from '@/lib/onboarding/sectionGuides';
+import { guideAction, reviewedStepKey, runGuideAction } from '@/lib/onboarding/sectionActions';
 import { useSectionTourStore } from '@/lib/store/useSectionTourStore';
-import {
-  AppModal,
-  AppModalBody,
-  AppModalContent,
-  AppModalFooter,
-  AppModalHeader,
-} from '@/components/shared/AppModal';
-interface SectionGuideProps {
-  sectionKey: string;
-  className?: string;
-}
+import { useUserStore } from '@/lib/store/useUserStore';
+import SectionSetup from './SectionSetup';
 
-function SectionGuideSteps({ sectionKey }: { sectionKey: string }) {
+/** A section's setup destination. Existing work stays mounted while the guide is open. */
+export default function SectionOnboardingCard({ sectionKey, children, active = true, autoOpen = true }: { sectionKey: string; children?: ReactNode; active?: boolean; autoOpen?: boolean }) {
   const { t } = useTranslation();
+  const completed = useUserStore((s) => s.isOnboardingCompleted);
+  const name = useUserStore((s) => s.name);
+  const { seen, loaded, load, dismiss } = useSectionTourStore();
+  const [expanded, setExpanded] = useState(false);
+  const [selected, setSelected] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
   const guide = getSectionGuide(sectionKey);
-  if (!guide) return null;
-
-  return (
-    <ol className="flex flex-col gap-2.5">
-      {guide.stepKeys.map((stepKey, i) => (
-        <li
-          key={stepKey}
-          className="flex items-start gap-2.5 text-sm text-muted-foreground"
-        >
-          <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground tabular-nums">
-            {i + 1}
-          </span>
-          <span className="leading-snug pt-0.5">{t(stepKey)}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function SectionGuideModal({
-  sectionKey,
-  open,
-  onClose,
-}: {
-  sectionKey: string;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const dismiss = useSectionTourStore((s) => s.dismiss);
-  const guide = getSectionGuide(sectionKey);
-  if (!guide) return null;
-
-  const handleGotIt = () => {
-    void dismiss(sectionKey);
-    onClose();
-  };
-
-  return (
-    <AppModal
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-    >
-      <AppModalContent size="sm">
-        <AppModalHeader title={t(guide.titleKey)} />
-        <AppModalBody>
-          <SectionGuideSteps sectionKey={sectionKey} />
-        </AppModalBody>
-        <AppModalFooter>
-          <Button type="button" onClick={handleGotIt} size="sm">
-            {t('sectionGuide.got_it')}
-          </Button>
-        </AppModalFooter>
-      </AppModalContent>
-    </AppModal>
-  );
-}
-
-/** `?` button beside a section title; opens the guide in a modal. */
-export function SectionGuideHelp({ sectionKey, className }: SectionGuideProps) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const load = useSectionTourStore((s) => s.load);
-  const loaded = useSectionTourStore((s) => s.loaded);
-
+  const helpButton = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => { if (completed && !loaded) void load(); }, [completed, loaded, load]);
+  const available = guide && loaded && completed && active;
+  const open = Boolean(available && (expanded || (autoOpen && !seen[sectionKey])));
   useEffect(() => {
-    if (!loaded) void load();
-  }, [loaded, load]);
-
-  if (!getSectionGuide(sectionKey)) return null;
-
-  return (
-    <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => setOpen(true)}
-        aria-label={t('sectionGuide.help_aria')}
-        title={t('sectionGuide.help_aria')}
-        className={className}
-      >
-        <HugeiconsIcon icon={HelpCircleIcon} className="size-4" />
-      </Button>
-      <SectionGuideModal sectionKey={sectionKey} open={open} onClose={() => setOpen(false)} />
-    </>
-  );
+    if (wasOpen.current && !open && active) helpButton.current?.focus();
+    wasOpen.current = open;
+  }, [open, active]);
+  async function close(action?: () => void) {
+    setSaving(true); setFailed(false);
+    try { await dismiss(sectionKey); setExpanded(false); action?.(); }
+    catch { setFailed(true); }
+    finally { setSaving(false); }
+  }
+  async function read(openAction = false) {
+    setSaving(true); setFailed(false);
+    try {
+      await dismiss(reviewedStepKey(sectionKey, selected));
+      if (openAction) await close(() => runGuideAction(guideAction(sectionKey, selected)));
+      else setSelected((selected + 1) % 3);
+    } catch { setFailed(true); }
+    finally { setSaving(false); }
+  }
+  return <>
+    {available && (open ? <SectionSetup guide={guide} name={name} selected={selected} seen={seen} busy={saving} error={failed}
+      onSelect={setSelected} onRead={() => { void read(); }} onAction={() => { void read(true); }}
+      onClose={() => { void close(); }} onAccount={() => { void close(() => runGuideAction('sync')); }} /> :
+      <div className="flex shrink-0 justify-end border-b px-4 py-1"><Button ref={helpButton} size="sm" variant="ghost" onClick={() => setExpanded(true)}><HugeiconsIcon icon={HelpCircleIcon} data-icon="inline-start" />{t('sectionGuide.setup.reopen')}</Button></div>)}
+    <div hidden={open} className={open ? 'hidden' : 'relative flex min-h-0 flex-1 flex-col overflow-hidden'} aria-hidden={open || undefined}>{children}</div>
+  </>;
 }

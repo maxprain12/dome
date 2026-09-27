@@ -1,16 +1,14 @@
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SettingsShell from '@/components/settings/SettingsShell';
 import {
   getSettingsEntry,
   resolveSettingsSection,
-  type SettingsSection,
 } from '@/components/settings/registry';
 import { Spinner } from '@/components/ui/spinner';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
-import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 
 export const normalizeSection = resolveSettingsSection;
 
@@ -22,7 +20,6 @@ export default function SettingsPage() {
   const setHiddenSections = useSettingsUiStore((s) => s.setHiddenSections);
   const { loadUserProfile } = useUserStore();
   const { loadPreferences } = useAppStore();
-  const cloudEntitlements = useCloudEntitlements();
 
   useEffect(() => {
     if (sectionParam) {
@@ -48,24 +45,7 @@ export default function SettingsPage() {
     };
   }, [setActiveSection]);
 
-  const hiddenSections = useMemo(() => {
-    const hidden = new Set<SettingsSection>();
-    if (!cloudEntitlements.loading && !cloudEntitlements.showCloudUi) {
-      hidden.add('dome_sync');
-    }
-    return hidden;
-  }, [cloudEntitlements.loading, cloudEntitlements.showCloudUi]);
-
-  useEffect(() => {
-    setHiddenSections(hiddenSections);
-  }, [hiddenSections, setHiddenSections]);
-
-  useEffect(() => {
-    if (cloudEntitlements.loading) return;
-    if (activeSection === 'dome_sync' && !cloudEntitlements.showCloudUi) {
-      setActiveSection('general');
-    }
-  }, [activeSection, cloudEntitlements.loading, cloudEntitlements.showCloudUi, setActiveSection]);
+  useEffect(() => { setHiddenSections(new Set()); }, [setHiddenSections]);
 
   useEffect(() => {
     loadUserProfile();

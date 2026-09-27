@@ -23,7 +23,6 @@ import CardDetailModal from './CardDetailModal';
 import StageConfigModal from './StageConfigModal';
 import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
-import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { askStudioMany } from '@/components/studio-hub';
 import { HubToolbar } from '@/components/hub';
 import ListState from '@/components/shared/ListState';
@@ -679,7 +678,7 @@ export default function PipelinesBoard() {
     <div className="@container/pipelines flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <HubToolbar className="flex-col items-stretch gap-2">
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <SectionGuideHelp sectionKey="pipelines" />
+
           <Button
             type="button"
             size="sm"

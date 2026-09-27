@@ -44,11 +44,13 @@ export async function getUserProfile(): Promise<UserProfile> {
 
 export async function saveUserProfile(profile: Partial<UserProfile>): Promise<void> {
   if (profile.name !== undefined) {
-    await db.setSetting('user_name', profile.name);
+    const result = await db.setSetting('user_name', profile.name);
+    if (!result.success) throw new Error(result.error || 'profile_save_failed');
   }
 
   if (profile.email !== undefined) {
-    await db.setSetting('user_email', profile.email);
+    const result = await db.setSetting('user_email', profile.email);
+    if (!result.success) throw new Error(result.error || 'profile_save_failed');
   }
 
   if (profile.avatarData !== undefined) {
@@ -80,7 +82,8 @@ export async function isOnboardingCompleted(): Promise<boolean> {
 }
 
 export async function setOnboardingCompleted(completed: boolean): Promise<void> {
-  await db.setSetting('onboarding_completed', completed ? 'true' : 'false');
+  const result = await db.setSetting('onboarding_completed', completed ? 'true' : 'false');
+  if (!result.success) throw new Error(result.error || 'onboarding_save_failed');
 }
 
 // ===========================
@@ -127,7 +130,8 @@ export async function getDismissedTours(): Promise<Record<string, boolean>> {
 }
 
 export async function setDismissedTours(map: Record<string, boolean>): Promise<void> {
-  await db.setSetting('section_tours_dismissed', JSON.stringify(map));
+  const result = await db.setSetting('section_tours_dismissed', JSON.stringify(map));
+  if (!result.success) throw new Error(result.error || 'guide_save_failed');
 }
 
 // ===========================

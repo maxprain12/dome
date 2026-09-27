@@ -1,7 +1,6 @@
 import { MagicWand01Icon, SlidersHorizontalIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useTranslation } from 'react-i18next';
-import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { HubToolbar } from '@/components/hub';
 import { Button } from '@/components/ui/button';
 import { useLearnStore } from '@/lib/store/useLearnStore';
@@ -17,7 +16,7 @@ export default function LearnHeader() {
 
   return (
     <HubToolbar className="-mx-4 -mt-4 mb-0 @[36rem]/learn:-mx-5 sm:px-5">
-      <SectionGuideHelp sectionKey="learn" />
+
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <Button
           type="button"

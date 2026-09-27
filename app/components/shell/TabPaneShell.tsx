@@ -54,7 +54,7 @@ export function TabContentReadyNotifier() {
       if (cancelled || signaledRef.current) return;
       attempts += 1;
       const pane = document.querySelector(`[data-tab-pane="${CSS.escape(ctx.tabId)}"]`);
-      const loading = pane?.querySelector('[data-tab-loading]');
+      const loading = !pane?.querySelector('[data-section-onboarding]') && pane?.querySelector('[data-tab-loading]');
       if (!loading || attempts >= maxAttempts) {
         signaledRef.current = true;
         runAfterDoubleFrame(() => {

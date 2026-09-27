@@ -1,51 +1,35 @@
-/**
- * Per-section "How to use" guides.
- *
- * Each entry drives the section guide modal (opened via `SectionGuideHelp` next
- * to the section title). `titleKey` and
- * each `stepKeys` entry are i18n keys (namespace `sectionGuide`).
- */
+import type { TabType } from '@/lib/store/useTabStore';
 
 export interface SectionGuide {
-  /** Stable section key; also the persistence key in `section_tours_dismissed`. */
   key: string;
   titleKey: string;
   stepKeys: string[];
 }
 
-export const SECTION_GUIDES: Record<string, SectionGuide> = {
-  learn: {
-    key: 'learn',
-    titleKey: 'sectionGuide.learn.title',
-    stepKeys: ['sectionGuide.learn.step1', 'sectionGuide.learn.step2', 'sectionGuide.learn.step3'],
-  },
-  agents: {
-    key: 'agents',
-    titleKey: 'sectionGuide.agents.title',
-    stepKeys: ['sectionGuide.agents.step1', 'sectionGuide.agents.step2', 'sectionGuide.agents.step3'],
-  },
-  automations: {
-    key: 'automations',
-    titleKey: 'sectionGuide.automations.title',
-    stepKeys: ['sectionGuide.automations.step1', 'sectionGuide.automations.step2', 'sectionGuide.automations.step3'],
-  },
-  github: {
-    key: 'github',
-    titleKey: 'sectionGuide.github.title',
-    stepKeys: ['sectionGuide.github.step1', 'sectionGuide.github.step2', 'sectionGuide.github.step3'],
-  },
-  calendar: {
-    key: 'calendar',
-    titleKey: 'sectionGuide.calendar.title',
-    stepKeys: ['sectionGuide.calendar.step1', 'sectionGuide.calendar.step2', 'sectionGuide.calendar.step3'],
-  },
-  pipelines: {
-    key: 'pipelines',
-    titleKey: 'sectionGuide.pipelines.title',
-    stepKeys: ['sectionGuide.pipelines.step1', 'sectionGuide.pipelines.step2', 'sectionGuide.pipelines.step3'],
-  },
+/** One guide per user-facing destination, shared by first visit and contextual help. */
+export const SECTION_KEYS = [
+  'home', 'library', 'projects', 'people', 'email', 'social', 'calendar', 'github',
+  'agents', 'pipelines', 'workflows', 'automations', 'runs', 'learn', 'marketplace',
+  'chat', 'transcriptions', 'graph', 'settings', 'tags', 'editor',
+] as const;
+
+export const SECTION_GUIDES: Record<string, SectionGuide> = Object.fromEntries(
+  SECTION_KEYS.map((key) => [key, {
+    key, titleKey: `sectionGuide.${key}.title`,
+    stepKeys: [1, 2, 3].map((n) => `sectionGuide.${key}.step${n}`),
+  }]),
+);
+
+const TAB_GUIDE: Partial<Record<TabType, string>> = {
+  home: 'home', folder: 'library', projects: 'projects', people: 'people',
+  email: 'email', social: 'social', calendar: 'calendar', github: 'github',
+  agents: 'agents', pipelines: 'pipelines', workflows: 'workflows', automations: 'automations',
+  runs: 'runs', learn: 'learn', studio: 'learn', flashcards: 'learn', marketplace: 'marketplace',
+  chat: 'chat', transcriptions: 'transcriptions', 'transcription-detail': 'transcriptions',
+  'semantic-graph': 'graph', settings: 'settings', tags: 'tags',
+  note: 'editor', notebook: 'editor', resource: 'library', url: 'library', youtube: 'library',
+  docx: 'library', ppt: 'library', artifact: 'library',
 };
 
-export function getSectionGuide(key: string): SectionGuide | undefined {
-  return SECTION_GUIDES[key];
-}
+export function sectionForTab(type: TabType): string | undefined { return TAB_GUIDE[type]; }
+export function getSectionGuide(key: string): SectionGuide | undefined { return SECTION_GUIDES[key]; }

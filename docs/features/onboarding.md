@@ -1,71 +1,27 @@
-# Onboarding Feature
+# Welcome and section onboarding
 
-Dome's first-run wizard: account gate (when `VITE_ENABLE_DOME_PROVIDER=true`), language, profile, **edition** (`pro` | `study` | `dev`), AI provider, macOS permissions and a summary that applies everything. Lives in `app/components/onboarding/` and `app/lib/onboarding/`. Product contract for editions: [docs/product/editions.md](../product/editions.md).
+First run opens a standalone welcome screen with account creation, sign-in, language selection and a local entry option. It does not require AI credentials, an edition choice, OS permissions, personality files or bundled skills. Those are configured where they are used.
 
----
+## Account and completion
 
-## Flow
+`AccountForm` is shared by first run and Settings → General → Account and access. It submits through the existing native authentication IPC. Registration validates name, email and an eight-character password; login accepts an existing nonempty password. Pending email confirmation stays on screen with a route back to sign-in. Passwords stay in component memory and are cleared after authentication or changing form mode.
 
-```mermaid
-flowchart LR
-  account[account] --> language[language]
-  language --> profile[profile]
-  profile --> edition[edition]
-  edition --> ai[ai]
-  ai --> permissions[permissions]
-  permissions --> summary[summary]
-```
+`completeWelcome` saves explicit account identity, then marks onboarding complete. Failed persistence leaves the screen open and offers a retry without repeating authentication. Local entry saves only the completion flag. Restored editions, AI settings, skills, memory and personality files are untouched. Existing completed profiles do not repeat onboarding.
 
-`computeSteps(data, env)` (`app/lib/onboarding/flow.ts`) builds the visible list from what is already known:
+`Onboarding` hosts the screen outside the app root and makes the underlying shell inert while it is visible. `HomePage` does not mount its dashboard until completion.
 
-| Step | Shown when | Notes |
-|------|------------|-------|
-| `account` | `DOME_PROVIDER_ENABLED` | Log in, create account or continue locally. A returning user with `alreadyOnboarded` skips the wizard (`onSkip`). |
-| `language` | always | Welcome + language (`changeLanguage`, persisted in `dome:language`); the rest of the wizard renders in that language. |
-| `profile` | the account did not bring a name | Name + email. |
-| `edition` | always | Pro / Study / Dev + free text for Many's memory. |
-| `ai` | always | Same `AIProviderList` + `AIProviderDetail` as Settings → AI (compact), including OAuth panels. "Set up later" continues without a provider. |
-| `permissions` | macOS (`window.electron.isMac`) | `PermissionCallout` for microphone and screen recording. Optional. |
-| `summary` | always | Review, then `applyOnboardingConfig`. |
+## Section introductions
 
-`useOnboardingFlow` keeps `{ step, data }` in one state object; `next(patch)` merges data and recomputes the list, so answers change which steps follow (e.g. a Dome account with a name removes `profile`).
+`sectionGuides.ts` maps the main tab destinations to 21 short guides. Related reader tabs share the library guide; learning tabs share the learning guide. Plugin content supplies its own onboarding.
 
-Each step renders its own `OnboardingStep` frame and footer handlers — no window `CustomEvent`s.
+`ContentRouter` provides a getting-started screen inside each section, following the supplied visual reference: one illustrated primary card with a three-step checklist, two secondary explanation cards and a cloud-access card. Each step explains a concrete action and links to an existing section or settings destination. The account card reflects verified server permissions; local explanations are never artificially locked.
 
----
+Users can mark explanations as read, act on a step, or immediately explore the section. Read progress and dismissal persist in `section_tours_dismissed`; a compact “Getting started” button reopens the screen. Read progress never claims that a real task was completed. The underlying section remains mounted and hidden while the guide is open, preserving unsaved work. Failed persistence keeps the guide visible with an error. There are no timed popups. Settings keeps the guide available on demand so deep links to account, AI and integrations open directly.
 
-## AI step
+## Access model
 
-- Reuses `AIChatProviderPanels` (`compact`): API key + model for cloud providers, Ollama / LM Studio / vLLM availability, Dome / Copilot / Claude / Codex sign-in.
-- "Continue" is enabled when the provider is usable: Dome (connects later if needed), a connected account (polled via `db:settings:aiProviderKeyStatus` while signing in), a reachable local server, or an API key.
-- Saves with `buildAISaveConfig` (`app/components/settings/ai/aiSectionHelpers.ts`), the same builder Settings uses.
-- `localModeOnly` (continue without account) hides Dome.
+See [account-access.md](../product/account-access.md). Workspace editions organize tools; account tiers control cloud access. The account screen is independent of the optional Dome AI provider flag.
 
----
+## Verification
 
-## Completion
-
-`applyOnboardingConfig` (`app/lib/onboarding/applyOnboardingConfig.ts`):
-
-1. Profile (`updateUserProfile`), identity (`USER.md`, `SOUL.md`, memory seed), edition modules — **essential**.
-2. Recommended skills (`skills:installBundled`) — reported, not blocking.
-3. If an essential part failed it throws `OnboardingApplyError(failed)` and does **not** set `onboarding_completed`; the summary shows which parts failed and offers "Retry".
-4. Otherwise `completeOnboarding()` sets `onboarding_completed = 'true'` and the overlay closes.
-
-`init:check-onboarding` returns whether onboarding is completed; Home shows the fullscreen overlay when it is not.
-
----
-
-## Key files
-
-| Path | Role |
-|------|------|
-| `app/components/onboarding/Onboarding.tsx` | Fullscreen portal host, closes on finish / skip |
-| `app/components/onboarding/OnboardingWizard.tsx` | Renders the current step from `useOnboardingFlow` |
-| `app/components/onboarding/OnboardingStep.tsx` | Step frame: Many + message + progress, content (`narrow` / `wide`), footer |
-| `app/components/onboarding/steps/*` | `AccountStep`, `LanguageStep`, `ProfileStep`, `EditionStep`, `AISetupStep`, `PermissionsStep`, `SummaryStep` |
-| `app/lib/onboarding/flow.ts` | Step list + navigation (unit-tested in `flow.test.ts`) |
-| `app/lib/onboarding/useOnboardingFlow.ts` | Wizard state |
-| `app/lib/onboarding/applyOnboardingConfig.ts` | Applies the choices; atomic on essential parts |
-| `electron/auth/dome-native-login.cjs` | Native login + `alreadyOnboarded` |
-| `electron/core/init.cjs` | `init:check-onboarding` |
+Renderer tests cover registration, email confirmation, local entry, save retry, legacy login passwords, guide dismissal/reopen and all sidebar destinations in en/es/fr/pt. Main-process tests cover capability decisions, explicit feature denials, account cache isolation, logout during fetch, and network recovery.

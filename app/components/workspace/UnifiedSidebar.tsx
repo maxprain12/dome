@@ -1,3 +1,4 @@
+import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 const CreateMiniappDialog = lazy(() => import('@/components/artifacts/CreateMiniappDialog'));
 import { openMiniappDraft } from '@/lib/chat/miniappHandoff';
@@ -144,26 +145,12 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
   const loadFeatures = useFeaturesStore((s) => s.loadFeatures);
   const hiddenFeatureCount = useHiddenFeatureCount();
   const domeSession = useDomeSession();
-  const [connectingAccount, setConnectingAccount] = useState(false);
   const showSignInCta = !domeSession.loading && !domeSession.connected;
 
-  const handleSignIn = useCallback(async () => {
-    if (!window.electron?.domeAuth?.startOAuthFlow) return;
-    setConnectingAccount(true);
-    try {
-      const result = await window.electron.domeAuth.startOAuthFlow();
-      if (result.success) {
-        showToast('success', t('sidebar.sign_in_success'));
-        await domeSession.refresh();
-      } else if (result.error) {
-        showToast('error', result.error);
-      }
-    } catch {
-      showToast('error', t('sidebar.sign_in_error'));
-    } finally {
-      setConnectingAccount(false);
-    }
-  }, [domeSession, t]);
+  const handleSignIn = () => {
+    useSettingsUiStore.getState().setActiveSection('general');
+    openSettingsTab();
+  };
 
   useEffect(() => {
     if (!featuresLoaded) void loadFeatures();
@@ -784,7 +771,7 @@ export default function UnifiedSidebar({ collapsed }: UnifiedSidebarProps) {
             {showSignInCta ? (
               <SidebarNavButton
                 icon={Login01Icon}
-                label={connectingAccount ? t('sidebar.sign_in_connecting') : t('sidebar.sign_in')}
+                label={t('sidebar.sign_in')}
                 onClick={() => handleSignIn()}
               />
             ) : null}

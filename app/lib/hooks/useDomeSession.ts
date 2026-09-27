@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type DomeSessionState = {
   loading: boolean;
@@ -17,12 +17,15 @@ const DEFAULT: DomeSessionState = {
 export function useDomeSession(): DomeSessionState & { refresh: () => Promise<void> } {
   const [state, setState] = useState<DomeSessionState>(DEFAULT);
 
+  const generation = useRef(0);
   const refresh = useCallback(async () => {
+    const request = ++generation.current;
     if (!window.electron?.domeAuth?.getSession) {
       setState({ ...DEFAULT, loading: false });
       return;
     }
-    const res = await window.electron.domeAuth.getSession();
+    const res = await window.electron.domeAuth.getSession().catch(() => null);
+    if (request !== generation.current) return;
     setState({
       loading: false,
       connected: Boolean(res?.connected),
@@ -34,6 +37,7 @@ export function useDomeSession(): DomeSessionState & { refresh: () => Promise<vo
   useEffect(() => {
     void refresh();
     const unsub = window.electron?.domeAuth?.onSessionState?.((sessionState) => {
+      generation.current += 1;
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -43,7 +47,7 @@ export function useDomeSession(): DomeSessionState & { refresh: () => Promise<vo
           typeof sessionState?.expiresAt === 'number' ? sessionState.expiresAt : null,
       }));
     });
-    return () => unsub?.();
+    return () => { generation.current += 1; unsub?.(); };
   }, [refresh]);
 
   return { ...state, refresh };

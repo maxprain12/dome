@@ -1110,7 +1110,7 @@ const electronHandler = {
   },
 
   domainSync: {
-    getEntitlements: () => ipcRenderer.invoke('domainSync:getEntitlements'),
+    getEntitlements: (options) => ipcRenderer.invoke('domainSync:getEntitlements', options),
     getStatus: () => ipcRenderer.invoke('domainSync:getStatus'),
     setDomainEnabled: (args) => ipcRenderer.invoke('domainSync:setDomainEnabled', args),
     syncNow: (args) => ipcRenderer.invoke('domainSync:syncNow', args),

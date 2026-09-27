@@ -1,0 +1,38 @@
+{
+  "title": "Account and access",
+  "editions_separate": "Workspace modes Pro, Study and Dev organize your tools. They do not change your subscription.",
+  "checking": "Checking access…",
+  "account_required": "An account is required",
+  "subscription_required": "An active subscription is required",
+  "feature_required": "Your plan does not include this feature",
+  "unavailable": "We could not verify your access",
+  "requirement": "{{feature}} requires the corresponding cloud access.",
+  "local_unaffected": "Your local workspace stays available.",
+  "retry": "Try again",
+  "connect": "Connect an account",
+  "manage": "Manage plan",
+  "disconnect": "Disconnect account",
+  "close": "Close",
+  "retry_hint": "Try again when you are connected.",
+  "action_error": "We could not open or update your account. Try again.",
+  "photo_account": "Connect an account to update your account photo.",
+  "tiers": {
+    "local": {
+      "title": "Local",
+      "description": "Notes, files and your own AI provider on this device."
+    },
+    "account": {
+      "title": "Account",
+      "description": "Your Dome identity, account settings and access to plan management."
+    },
+    "subscription": {
+      "title": "Subscription",
+      "description": "Cloud services enabled by your current plan."
+    }
+  },
+  "features": {
+    "cloud_sync": "Cloud sync",
+    "social_cloud": "Cloud publishing",
+    "pipelines_cloud": "Cloud pipelines"
+  }
+}

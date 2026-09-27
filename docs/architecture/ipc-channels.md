@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-25T10:25:27.386Z
+> Última generación: 2026-09-26T16:03:07.030Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -268,21 +268,21 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:workflows:list` | `electron/ipc/data/database.cjs:1035` |
 | `db:workflows:update` | `electron/ipc/data/database.cjs:1086` |
 | `domainSync:getEntitlements` | `electron/ipc/sync/domain-sync.cjs:29` |
-| `domainSync:getStatus` | `electron/ipc/sync/domain-sync.cjs:41` |
-| `domainSync:setDomainEnabled` | `electron/ipc/sync/domain-sync.cjs:60` |
-| `domainSync:syncNow` | `electron/ipc/sync/domain-sync.cjs:75` |
+| `domainSync:getStatus` | `electron/ipc/sync/domain-sync.cjs:43` |
+| `domainSync:setDomainEnabled` | `electron/ipc/sync/domain-sync.cjs:62` |
+| `domainSync:syncNow` | `electron/ipc/sync/domain-sync.cjs:77` |
 | `dome-mcp:bridge-path` | `electron/ipc/integrations/dome-mcp.cjs:128` |
 | `dome-mcp:start` | `electron/ipc/integrations/dome-mcp.cjs:94` |
 | `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:120` |
 | `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:110` |
 | `domeauth:disconnect` | `electron/ipc/integrations/dome-auth.cjs:46` |
-| `domeauth:getProfile` | `electron/ipc/integrations/dome-auth.cjs:82` |
-| `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:122` |
+| `domeauth:getProfile` | `electron/ipc/integrations/dome-auth.cjs:86` |
+| `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:126` |
 | `domeauth:getSession` | `electron/ipc/integrations/dome-auth.cjs:21` |
-| `domeauth:nativeLogin` | `electron/ipc/integrations/dome-auth.cjs:60` |
+| `domeauth:nativeLogin` | `electron/ipc/integrations/dome-auth.cjs:61` |
 | `domeauth:openDashboard` | `electron/ipc/integrations/dome-auth.cjs:34` |
 | `domeauth:startOAuthFlow` | `electron/ipc/integrations/dome-auth.cjs:7` |
-| `domeauth:uploadAvatar` | `electron/ipc/integrations/dome-auth.cjs:94` |
+| `domeauth:uploadAvatar` | `electron/ipc/integrations/dome-auth.cjs:98` |
 | `email:addAccount` | `electron/ipc/integrations/email.cjs:134` |
 | `email:listAccounts` | `electron/ipc/integrations/email.cjs:123` |
 | `email:listEnvelopes` | `electron/ipc/integrations/email.cjs:197` |
@@ -596,7 +596,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `social:reports:generate` | `electron/ipc/integrations/social.cjs:569` |
 | `social:reports:get` | `electron/ipc/integrations/social.cjs:564` |
 | `social:reports:list` | `electron/ipc/integrations/social.cjs:560` |
-| `social:setCloudPublishing` | `electron/ipc/sync/domain-sync.cjs:95` |
+| `social:setCloudPublishing` | `electron/ipc/sync/domain-sync.cjs:97` |
 | `social:suggestions:accept` | `electron/ipc/integrations/social.cjs:816` |
 | `social:suggestions:dismiss` | `electron/ipc/integrations/social.cjs:822` |
 | `social:suggestions:list` | `electron/ipc/integrations/social.cjs:812` |

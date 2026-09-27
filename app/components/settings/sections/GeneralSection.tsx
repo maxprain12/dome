@@ -1,3 +1,5 @@
+import AccountAccessPanel from '@/components/account/AccountAccessPanel';
+import { useDomeSession } from '@/lib/hooks/useDomeSession';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -17,6 +19,7 @@ import { initSentry, shutdownSentry } from '@/lib/analytics/sentry';
 
 export default function GeneralSection() {
   const { t } = useTranslation();
+  const session = useDomeSession();
   const { name, email, avatarData, avatarPath, avatarUrl, updateUserProfile, loadUserProfile } = useUserStore();
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -75,7 +78,7 @@ export default function GeneralSection() {
   const handleSave = () => {
     const newErrors: { name?: string; email?: string } = {};
     if (!validateName(localName)) newErrors.name = t('settings.general.error_name');
-    if (!validateEmail(localEmail)) newErrors.email = t('settings.general.error_email');
+    if (localEmail.trim() && !validateEmail(localEmail)) newErrors.email = t('settings.general.error_email');
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -107,6 +110,7 @@ export default function GeneralSection() {
       title={t('settings.general.title')}
       description={t('settings.general.subtitle')}
     >
+      <AccountAccessPanel />
       <SettingsGroup title={t('settings.general.profile')}>
         <div className="px-4 py-4">
           <FieldGroup>
@@ -119,11 +123,11 @@ export default function GeneralSection() {
                 size="xl"
               />
               <div className="min-w-0">
-                <ProfilePhotoPicker
+                {session.connected ? <ProfilePhotoPicker
                   label={t('settings.general.photo_change')}
                   busy={photoBusy}
                   onFile={handlePhoto}
-                />
+                /> : <p className="text-sm text-muted-foreground">{t('access.photo_account')}</p>}
                 <p className="mt-1.5 text-xs text-muted-foreground">{t('settings.general.photo_hint')}</p>
                 {photoSaved ? (
                   <p className="mt-1 text-xs text-primary">{t('settings.general.photo_saved')}</p>

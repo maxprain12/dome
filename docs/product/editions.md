@@ -6,7 +6,7 @@ domain: product
 
 # Ediciones Dome
 
-Un runtime, tres ediciones. El catálogo en código (`app/lib/editions/catalog.ts`) es la fuente de verdad de nav, módulos y soul de Many. Este documento es el contrato de control: dueño, DoD y freeze.
+Un runtime, tres ediciones. El catálogo en código (`app/lib/editions/catalog.ts`) es la fuente de verdad de navegación y visibilidad de módulos. Este documento es el contrato de control: dueño, DoD y freeze.
 
 Default: **`pro`**. Persistencia: setting `user_role` (id de edición). Roles legacy `developer` → `dev`, `research` / `generalist` → `pro`.
 
@@ -44,7 +44,7 @@ Pipelines, workflows, automations, runs, calendar (Pro), github (Pro), people (S
 
 Cada PR que toque un módulo de edición debe pasar el smoke de nav: `app/lib/editions/catalog.test.ts` (visibilidad por edición). Manual: arrancar, elegir la edición, Many abre, la nav coincide con la tabla.
 
-Cambiar de edición en Ajustes reaplica nav y soul; **no borra** biblioteca ni personas.
+Las ediciones son modos de trabajo, no tiers de suscripción; ver [cuenta y acceso](account-access.md). Cambiar de edición en Ajustes reaplica la navegación; **no borra** biblioteca ni personas.
 
 ## Freeze windows
 
@@ -65,4 +65,4 @@ Hoy: un Electron. Mañana (solo si se vende sola): `VITE_DOME_EDITION=pro|study|
 | `study` | study |
 | `dev` / `developer` | dev |
 | `research` / `generalist` | pro |
-| (vacío) | no se fuerza; default de onboarding = pro |
+| (vacío) | no se fuerza; el onboarding no elige edición |
