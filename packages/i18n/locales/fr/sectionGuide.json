@@ -6,36 +6,221 @@
     "title": "Apprendre · Comment faire",
     "step1": "Créez un paquet à partir d'une ressource ou d'une note.",
     "step2": "Étudiez avec la répétition espacée pour mémoriser durablement.",
-    "step3": "Suivez votre progression avec les KPI en haut."
+    "step3": "Suivez votre progression avec les KPI en haut.",
+    "task1": "Créez un paquet",
+    "task2": "Prenez l’habitude de réviser",
+    "task3": "Suivez vos progrès"
   },
   "agents": {
     "title": "Agents · Comment faire",
     "step1": "Créez un agent et décrivez ce qu'il doit faire.",
     "step2": "Donnez-lui accès à vos ressources et compétences.",
-    "step3": "Discutez avec lui ou déclenchez-le depuis une automatisation."
+    "step3": "Discutez avec lui ou déclenchez-le depuis une automatisation.",
+    "task1": "Créez votre agent",
+    "task2": "Donnez-lui du contexte",
+    "task3": "Lancez une conversation"
   },
   "automations": {
     "title": "Automatisations · Comment faire",
     "step1": "Choisissez un déclencheur : programmé, événement ou manuel.",
     "step2": "Choisissez l'agent ou l'action à exécuter.",
-    "step3": "Consultez la section Exécutions pour voir les résultats."
+    "step3": "Consultez la section Exécutions pour voir les résultats.",
+    "task1": "Choisissez un déclencheur",
+    "task2": "Choisissez une action",
+    "task3": "Vérifiez les résultats"
   },
   "github": {
     "title": "GitHub · Comment faire",
     "step1": "Connectez un dépôt pour synchroniser issues et jalons.",
     "step2": "Suivez le travail dans les vues Kanban et Gantt.",
-    "step3": "Les changements se resynchronisent vers GitHub automatiquement."
+    "step3": "Les changements se resynchronisent vers GitHub automatiquement.",
+    "task1": "Connectez un dépôt",
+    "task2": "Planifiez le travail",
+    "task3": "Gardez tout à jour"
   },
   "calendar": {
     "title": "Calendrier · Comment faire",
     "step1": "Connectez un calendrier ou créez des événements directement.",
     "step2": "Liez les événements aux projets et ressources.",
-    "step3": "Recevez des rappels pour ce qui arrive."
+    "step3": "Recevez des rappels pour ce qui arrive.",
+    "task1": "Connectez un calendrier",
+    "task2": "Reliez votre travail",
+    "task3": "Gardez le bon rythme"
   },
   "pipelines": {
     "title": "Pipelines · Comment faire",
     "step1": "Créez un pipeline et ajoutez une étape pour chaque phase de votre flux.",
     "step2": "Un agent est une IA dotée d'instructions qui traite chaque carte. Assignez-en un à une étape, ou utilisez Many — et créez un nouvel agent directement depuis les réglages de l'étape.",
-    "step3": "Déposez des cartes ; les agents s'exécutent automatiquement ou à la demande, et vous suivez l'activité et les exécutions."
+    "step3": "Déposez des cartes ; les agents s'exécutent automatiquement ou à la demande, et vous suivez l'activité et les exécutions.",
+    "task1": "Définissez les étapes",
+    "task2": "Attribuez les agents",
+    "task3": "Faites avancer le travail"
+  },
+  "home": {
+    "title": "Votre espace de travail",
+    "step1": "Créez une note ou importez un fichier pour commencer.",
+    "step2": "Ouvrez un projet pour regrouper les travaux liés.",
+    "step3": "Configurez votre fournisseur d’IA dans les paramètres pour travailler avec Many.",
+    "task1": "Votre première note",
+    "task2": "Organisez un projet",
+    "task3": "Découvrez Many"
+  },
+  "library": {
+    "title": "Votre bibliothèque",
+    "step1": "Importez documents, liens ou médias.",
+    "step2": "Regroupez vos sources dans des dossiers et projets.",
+    "step3": "Ouvrez une source pour lire, annoter ou interroger Many.",
+    "task1": "Ajoutez vos sources",
+    "task2": "Rangez-les",
+    "task3": "Interrogez vos sources"
+  },
+  "projects": {
+    "title": "Donnez du contexte à votre travail",
+    "step1": "Créez un projet pour un sujet ou un objectif.",
+    "step2": "Ajoutez les fichiers et notes nécessaires.",
+    "step3": "Changez de projet pour retrouver le bon contexte.",
+    "task1": "Créez un projet",
+    "task2": "Rassemblez vos documents",
+    "task3": "Choisissez votre contexte"
+  },
+  "people": {
+    "title": "Vos relations en contexte",
+    "step1": "Ajoutez un contact et ses coordonnées.",
+    "step2": "Reliez notes et conversations à cette personne.",
+    "step3": "Notez la prochaine action pendant que le contexte est frais.",
+    "task1": "Ajoutez une personne",
+    "task2": "Reliez son histoire",
+    "task3": "Prévoyez la suite"
+  },
+  "email": {
+    "title": "Vos conversations connectées",
+    "step1": "Connectez votre messagerie dans les paramètres.",
+    "step2": "Ouvrez une conversation pour lire et préparer une réponse.",
+    "step3": "Vérifiez les destinataires et le contenu avant l’envoi.",
+    "task1": "Connectez votre messagerie",
+    "task2": "Lisez et répondez",
+    "task3": "Envoyez sereinement"
+  },
+  "social": {
+    "title": "Planifiez vos publications",
+    "step1": "Connectez les comptes sociaux souhaités.",
+    "step2": "Rédigez une publication et relisez-la avant de publier.",
+    "step3": "La publication cloud nécessite une offre compatible ; vérifiez vos accès dans les paramètres.",
+    "task1": "Connectez vos canaux",
+    "task2": "Préparez une publication",
+    "task3": "Publiez depuis le cloud"
+  },
+  "workflows": {
+    "title": "Construisez un processus reproductible",
+    "step1": "Créez un workflow avec un résultat précis.",
+    "step2": "Reliez les étapes et choisissez leurs outils.",
+    "step3": "Exécutez-le et vérifiez le résultat avant de le programmer.",
+    "task1": "Définissez le résultat",
+    "task2": "Reliez les étapes",
+    "task3": "Testez votre processus"
+  },
+  "runs": {
+    "title": "Comprenez ce qui s’est passé",
+    "step1": "Ouvrez une exécution pour voir sa progression et son résultat.",
+    "step2": "Inspectez les outils si un point demande votre attention.",
+    "step3": "Utilisez le résultat pour améliorer votre agent ou workflow.",
+    "task1": "Suivez une exécution",
+    "task2": "Inspectez les détails",
+    "task3": "Améliorez la prochaine exécution"
+  },
+  "marketplace": {
+    "title": "Enrichissez votre espace",
+    "step1": "Parcourez les agents, skills et extensions disponibles.",
+    "step2": "Lisez la description avant toute installation.",
+    "step3": "Gérez les éléments installés dans les paramètres.",
+    "task1": "Trouvez vos outils",
+    "task2": "Découvrez chaque extension",
+    "task3": "Adaptez votre espace"
+  },
+  "chat": {
+    "title": "Travaillez avec Many",
+    "step1": "Choisissez un fournisseur d’IA dans les paramètres.",
+    "step2": "Décrivez une tâche et joignez les sources utiles.",
+    "step3": "Vérifiez la réponse et les actions nécessitant une approbation.",
+    "task1": "Choisissez votre IA",
+    "task2": "Donnez du contexte à Many",
+    "task3": "Vérifiez le résultat"
+  },
+  "transcriptions": {
+    "title": "Transformez l’audio en notes",
+    "step1": "Choisissez un moteur de transcription dans les paramètres.",
+    "step2": "Lancez un enregistrement et autorisez le microphone à la demande.",
+    "step3": "Relisez la transcription puis enregistrez ou exportez le résultat.",
+    "task1": "Choisissez un moteur",
+    "task2": "Enregistrez votre audio",
+    "task3": "Gardez l’essentiel"
+  },
+  "graph": {
+    "title": "Explorez les liens",
+    "step1": "Ajoutez d’abord des sources à votre bibliothèque.",
+    "step2": "Ouvrez un nœud pour explorer les ressources associées.",
+    "step3": "Suivez les liens pour retrouver la source d’une idée.",
+    "task1": "Construisez votre bibliothèque",
+    "task2": "Explorez un lien",
+    "task3": "Revenez à la source"
+  },
+  "settings": {
+    "title": "Adaptez Dome à vos besoins",
+    "step1": "Gérez ici votre compte et vos accès.",
+    "step2": "Choisissez vos fournisseurs d’IA et connectez vos services au besoin.",
+    "step3": "Les modes de travail organisent les outils indépendamment de votre offre.",
+    "task1": "Connectez votre compte",
+    "task2": "Choisissez vos services",
+    "task3": "Organisez votre espace"
+  },
+  "tags": {
+    "title": "Retrouvez votre travail par thème",
+    "step1": "Créez des étiquettes pour vos thèmes récurrents.",
+    "step2": "Appliquez-les aux ressources associées.",
+    "step3": "Retrouvez des sources entre projets grâce aux étiquettes.",
+    "task1": "Créez un thème",
+    "task2": "Étiquetez vos sources",
+    "task3": "Retrouvez les liens"
+  },
+  "editor": {
+    "title": "Un espace pour réfléchir",
+    "step1": "Rédigez une note ou ajoutez du contenu.",
+    "step2": "Reliez les sources qui soutiennent vos idées.",
+    "step3": "Faites appel à Many pour développer votre contenu.",
+    "task1": "Écrivez votre première idée",
+    "task2": "Appuyez-la sur des sources",
+    "task3": "Développez-la avec Many"
+  },
+  "save_error": "Impossible d’enregistrer cette préférence. Réessayez.",
+  "setup": {
+    "hello": "Bonjour, {{name}}",
+    "welcome": "Bienvenue dans Dome",
+    "subtitle": "Commençons ensemble",
+    "skip": "Explorer cette section",
+    "reviewed": "Consulté",
+    "progress": "{{count}} étapes consultées sur {{total}}",
+    "mark_read": "Marquer comme lu",
+    "to_discover": "À découvrir",
+    "view_step": "Voir comment",
+    "cloud_description": "Retrouvez votre travail sur vos appareils grâce à l’accès cloud inclus dans votre offre.",
+    "included": "Inclus dans votre offre",
+    "plan_required": "Offre compatible requise",
+    "view_access": "Voir les accès",
+    "progress_hint": "Votre progression de lecture est enregistrée. Revenez quand vous le souhaitez.",
+    "reopen": "Premiers pas",
+    "actions": {
+      "explore": "Ouvrir cette section",
+      "ai": "Configurer l’IA",
+      "account": "Ouvrir le compte",
+      "sync": "Ouvrir les paramètres cloud",
+      "email": "Connecter la messagerie",
+      "calendar": "Configurer le calendrier",
+      "social": "Connecter les canaux",
+      "modes": "Choisir les outils",
+      "projects": "Ouvrir les projets",
+      "agents": "Ouvrir les agents",
+      "learn": "Ouvrir l’apprentissage",
+      "runs": "Voir les exécutions"
+    }
   }
 }

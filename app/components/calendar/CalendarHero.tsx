@@ -10,7 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +50,7 @@ export function CalendarHero({
           <Badge variant="outline" className="tabular-nums font-normal">
             {t('calendarPage.upcoming')}: {upcomingCount}
           </Badge>
-          <SectionGuideHelp sectionKey="calendar" />
+
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" onClick={onNewEvent}>
               <HugeiconsIcon icon={Add01Icon} />

@@ -26,12 +26,14 @@ const CloudPublishingSchema = z.object({
 function register({ ipcMain, windowManager, database }) {
   const deps = { database, windowManager };
 
-  ipcMain.handle('domainSync:getEntitlements', async (event) => {
+  ipcMain.handle('domainSync:getEntitlements', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const result = await planGate.getEntitlements(database);
+      const parsed = z.object({ forceRefresh: z.boolean().optional() }).safeParse(raw ?? {});
+      if (!parsed.success) return { success: false, error: 'Invalid payload' };
+      const result = await planGate.getEntitlements(database, parsed.data);
       return { success: true, ...result.entitlements, fetchOk: result.ok, fetchError: result.error };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };

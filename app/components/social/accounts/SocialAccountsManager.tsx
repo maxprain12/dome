@@ -1,3 +1,4 @@
+import { FeatureAccessNotice } from '@/components/account/FeatureAccessNotice';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -203,6 +204,7 @@ export function SocialAccountsManager({ embedded = false }: { embedded?: boolean
               : t('social.settings.cloud_publishing_plan')
           }
         >
+          <FeatureAccessNotice feature="social_cloud" />
           {accounts.map((account) => {
             const canEnable = cloudEntitlements.hasSocialCloud && account.status === 'active';
             const label = socialAccountLabel(account);

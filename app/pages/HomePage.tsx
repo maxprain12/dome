@@ -162,8 +162,7 @@ export default function HomePage() {
           <AlertDescription>{initError}</AlertDescription>
         </Alert>
       )}
-      <Home />
-      {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
+      {showOnboarding ? <Onboarding onComplete={handleOnboardingComplete} /> : <Home />}
     </>
   );
 }

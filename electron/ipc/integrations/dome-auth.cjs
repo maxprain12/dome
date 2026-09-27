@@ -51,6 +51,7 @@ function register({ ipcMain, windowManager, database }) {
     try {
       await domeOauth.disconnect(database);
       planGate.invalidateEntitlementsCache();
+      windowManager.broadcast?.('domeauth:sessionState', { connected: false });
       return { success: true };
     } catch (error) {
       return { success: false, error: error?.message || 'Failed to disconnect' };
@@ -72,7 +73,10 @@ function register({ ipcMain, windowManager, database }) {
         name: typeof payload.name === 'string' ? payload.name.trim() : undefined,
         windowManager,
       });
-      if (result.connected) planGate.invalidateEntitlementsCache();
+      if (result.connected) {
+        planGate.invalidateEntitlementsCache();
+        windowManager.broadcast?.('domeauth:sessionState', { connected: true, userId: result.userId });
+      }
       return result;
     } catch (error) {
       return { success: false, error: error?.message || 'login_failed', errorCode: error?.code };

@@ -17,7 +17,6 @@ import GitHubConnect from './GitHubConnect';
 import IssueDetailPanel from './IssueDetailPanel';
 import MilestoneDetailModal from './MilestoneDetailModal';
 import GitHubSettings from './GitHubSettings';
-import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { HubSearch } from '@/components/hub';
 import { HubSectionShell } from '@/components/shared/HubSectionShell';
 import { Badge } from '@/components/ui/badge';
@@ -231,7 +230,7 @@ export default function GitHubView() {
           ) : null}
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <GitHubSyncBadge syncStatus={syncStatus} isSyncing={isSyncing} t={t} />
-            <SectionGuideHelp sectionKey="github" />
+
             <Button
               type="button"
               variant="outline"

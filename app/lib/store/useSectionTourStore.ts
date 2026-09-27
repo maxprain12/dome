@@ -2,10 +2,10 @@ import { create } from 'zustand';
 import { getDismissedTours, setDismissedTours } from '@/lib/settings';
 
 /**
- * Persisted acknowledgment for per-section "How to use" guides (modal).
+ * Persisted dismissal and read progress for section setup screens.
  *
- * `seen` is stored under settings key `section_tours_dismissed` when the user
- * clicks "Entendido" in the guide modal.
+ * Section keys acknowledge dismissal; `<section>:reviewed:<step>` records
+ * explanations the user explicitly marked as read. Never infer task completion.
  */
 interface SectionTourState {
   seen: Record<string, boolean>;
@@ -22,13 +22,13 @@ export const useSectionTourStore = create<SectionTourState>((set, get) => ({
 
   load: async () => {
     if (get().loaded) return;
-    const seen = await getDismissedTours();
+    const seen = await getDismissedTours().catch(() => ({}));
     set({ seen: seen || {}, loaded: true });
   },
 
   dismiss: async (key) => {
     const next = { ...get().seen, [key]: true };
-    set({ seen: next });
     await setDismissedTours(next);
+    set({ seen: { ...get().seen, [key]: true } });
   },
 }));

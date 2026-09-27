@@ -1,0 +1,38 @@
+{
+  "title": "Compte et accès",
+  "editions_separate": "Les modes Pro, Study et Dev organisent vos outils. Ils ne changent pas votre abonnement.",
+  "checking": "Vérification de l’accès…",
+  "account_required": "Un compte est nécessaire",
+  "subscription_required": "Un abonnement actif est nécessaire",
+  "feature_required": "Votre offre n’inclut pas cette fonction",
+  "unavailable": "Impossible de vérifier votre accès",
+  "requirement": "{{feature}} nécessite l’accès cloud correspondant.",
+  "local_unaffected": "Votre espace local reste disponible.",
+  "retry": "Réessayer",
+  "connect": "Connecter un compte",
+  "manage": "Gérer l’offre",
+  "disconnect": "Déconnecter le compte",
+  "close": "Fermer",
+  "retry_hint": "Réessayez lorsque vous êtes connecté.",
+  "action_error": "Impossible d’ouvrir ou de mettre à jour votre compte. Réessayez.",
+  "photo_account": "Connectez un compte pour modifier votre photo de compte.",
+  "tiers": {
+    "local": {
+      "title": "Local",
+      "description": "Notes, fichiers et votre propre fournisseur d’IA sur cet appareil."
+    },
+    "account": {
+      "title": "Compte",
+      "description": "Votre identité Dome, vos paramètres de compte et la gestion des offres."
+    },
+    "subscription": {
+      "title": "Abonnement",
+      "description": "Services cloud activés par votre offre actuelle."
+    }
+  },
+  "features": {
+    "cloud_sync": "Synchronisation cloud",
+    "social_cloud": "Publication cloud",
+    "pipelines_cloud": "Pipelines cloud"
+  }
+}

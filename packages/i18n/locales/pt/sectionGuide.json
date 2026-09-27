@@ -6,36 +6,221 @@
     "title": "Aprender · Como usar",
     "step1": "Crie um baralho a partir de qualquer recurso ou nota.",
     "step2": "Estude com repetição espaçada para lembrar a longo prazo.",
-    "step3": "Acompanhe seu progresso com os KPIs no topo."
+    "step3": "Acompanhe seu progresso com os KPIs no topo.",
+    "task1": "Cria um baralho",
+    "task2": "Cria o hábito de rever",
+    "task3": "Segue o progresso"
   },
   "agents": {
     "title": "Agentes · Como usar",
     "step1": "Crie um agente e descreva o que ele deve fazer.",
     "step2": "Dê a ele acesso aos seus recursos e habilidades.",
-    "step3": "Converse com ele ou acione-o por uma automação."
+    "step3": "Converse com ele ou acione-o por uma automação.",
+    "task1": "Cria o teu agente",
+    "task2": "Dá-lhe contexto",
+    "task3": "Inicia uma conversa"
   },
   "automations": {
     "title": "Automações · Como usar",
     "step1": "Escolha um gatilho: agendado, evento ou manual.",
     "step2": "Escolha o agente ou a ação a executar.",
-    "step3": "Veja a seção Execuções para conferir os resultados."
+    "step3": "Veja a seção Execuções para conferir os resultados.",
+    "task1": "Escolhe um disparador",
+    "task2": "Escolhe a ação",
+    "task3": "Revê os resultados"
   },
   "github": {
     "title": "GitHub · Como usar",
     "step1": "Conecte um repositório para sincronizar issues e marcos.",
     "step2": "Acompanhe o trabalho nas visões Kanban e Gantt.",
-    "step3": "As mudanças sincronizam de volta ao GitHub automaticamente."
+    "step3": "As mudanças sincronizam de volta ao GitHub automaticamente.",
+    "task1": "Liga um repositório",
+    "task2": "Planeia o trabalho",
+    "task3": "Mantém tudo atualizado"
   },
   "calendar": {
     "title": "Calendário · Como usar",
     "step1": "Conecte um calendário ou crie eventos diretamente.",
     "step2": "Vincule eventos a projetos e recursos.",
-    "step3": "Receba lembretes do que está por vir."
+    "step3": "Receba lembretes do que está por vir.",
+    "task1": "Liga um calendário",
+    "task2": "Relaciona o teu trabalho",
+    "task3": "Chega a tempo"
   },
   "pipelines": {
     "title": "Pipelines · Como usar",
     "step1": "Crie um pipeline e adicione uma fase para cada passo do seu fluxo.",
     "step2": "Um agente é uma IA com instruções que processa cada cartão. Atribua um à fase ou use Many — e crie um novo agente direto nas configurações da fase.",
-    "step3": "Arraste cartões para dentro; os agentes executam automaticamente ou sob demanda, e você acompanha a atividade e as execuções."
+    "step3": "Arraste cartões para dentro; os agentes executam automaticamente ou sob demanda, e você acompanha a atividade e as execuções.",
+    "task1": "Desenha as fases",
+    "task2": "Atribui os agentes",
+    "task3": "Faz avançar o trabalho"
+  },
+  "home": {
+    "title": "O teu espaço de trabalho",
+    "step1": "Cria uma nota ou importa um ficheiro para começar.",
+    "step2": "Abre um projeto para reunir trabalho relacionado.",
+    "step3": "Configura o fornecedor de IA nas Definições para trabalhar com o Many.",
+    "task1": "A tua primeira nota",
+    "task2": "Organiza um projeto",
+    "task3": "Conhece o Many"
+  },
+  "library": {
+    "title": "A tua biblioteca",
+    "step1": "Importa documentos, links ou multimédia.",
+    "step2": "Agrupa as fontes em pastas e projetos.",
+    "step3": "Abre uma fonte para ler, anotar ou perguntar ao Many.",
+    "task1": "Adiciona as tuas fontes",
+    "task2": "Dá-lhes um lugar",
+    "task3": "Pergunta às tuas fontes"
+  },
+  "projects": {
+    "title": "Dá contexto ao teu trabalho",
+    "step1": "Cria um projeto para um tema ou objetivo.",
+    "step2": "Adiciona os ficheiros e notas necessários.",
+    "step3": "Muda de projeto para te concentrares no contexto certo.",
+    "task1": "Cria um projeto",
+    "task2": "Reúne o teu material",
+    "task3": "Escolhe o contexto"
+  },
+  "people": {
+    "title": "As tuas relações, com contexto",
+    "step1": "Adiciona um contacto e os seus dados.",
+    "step2": "Relaciona notas e conversas com essa pessoa.",
+    "step3": "Regista a próxima ação enquanto tens o contexto presente.",
+    "task1": "Adiciona uma pessoa",
+    "task2": "Liga a sua história",
+    "task3": "Prepara a próxima ação"
+  },
+  "email": {
+    "title": "As tuas conversas, ligadas",
+    "step1": "Liga a tua conta de email nas Definições.",
+    "step2": "Abre uma conversa para ler e preparar uma resposta.",
+    "step3": "Revê os destinatários e o conteúdo antes de enviar.",
+    "task1": "Liga a tua caixa de entrada",
+    "task2": "Lê e responde",
+    "task3": "Envia com confiança"
+  },
+  "social": {
+    "title": "Planeia as tuas publicações",
+    "step1": "Liga as contas sociais que queres utilizar.",
+    "step2": "Prepara uma publicação e revê-a antes de publicar.",
+    "step3": "A publicação cloud requer um plano compatível; verifica o acesso nas Definições.",
+    "task1": "Liga os teus canais",
+    "task2": "Prepara uma publicação",
+    "task3": "Publica a partir da nuvem"
+  },
+  "workflows": {
+    "title": "Constrói um processo repetível",
+    "step1": "Cria um fluxo com um resultado concreto.",
+    "step2": "Liga os passos e seleciona as ferramentas.",
+    "step3": "Executa e revê o resultado antes de o agendar.",
+    "task1": "Define o resultado",
+    "task2": "Liga os passos",
+    "task3": "Testa o processo"
+  },
+  "runs": {
+    "title": "Entende o que aconteceu",
+    "step1": "Abre uma execução para ver o progresso e o resultado.",
+    "step2": "Inspeciona as ferramentas se algo precisar de atenção.",
+    "step3": "Usa o resultado para melhorar o agente ou fluxo.",
+    "task1": "Segue uma execução",
+    "task2": "Inspeciona os detalhes",
+    "task3": "Melhora a próxima execução"
+  },
+  "marketplace": {
+    "title": "Expande o teu espaço",
+    "step1": "Explora agentes, skills e extensões disponíveis.",
+    "step2": "Lê o que cada elemento faz antes de o instalar.",
+    "step3": "Gere os elementos instalados nas Definições.",
+    "task1": "Encontra as ferramentas",
+    "task2": "Conhece cada extensão",
+    "task3": "Adapta o teu espaço"
+  },
+  "chat": {
+    "title": "Trabalha com o Many",
+    "step1": "Escolhe um fornecedor de IA nas Definições.",
+    "step2": "Descreve uma tarefa e anexa as fontes relevantes.",
+    "step3": "Revê a resposta e as ações que precisam de aprovação.",
+    "task1": "Escolhe a tua IA",
+    "task2": "Dá contexto ao Many",
+    "task3": "Revê o resultado"
+  },
+  "transcriptions": {
+    "title": "Transforma áudio em notas",
+    "step1": "Escolhe um motor de transcrição nas Definições.",
+    "step2": "Inicia uma gravação e concede acesso ao microfone quando solicitado.",
+    "step3": "Revê a transcrição e guarda ou exporta o resultado.",
+    "task1": "Escolhe um motor",
+    "task2": "Grava o áudio",
+    "task3": "Guarda o que importa"
+  },
+  "graph": {
+    "title": "Explora as ligações",
+    "step1": "Adiciona primeiro fontes à biblioteca.",
+    "step2": "Abre um nó para explorar os recursos relacionados.",
+    "step3": "Segue as ligações para voltar à fonte de uma ideia.",
+    "task1": "Constrói a biblioteca",
+    "task2": "Explora uma ligação",
+    "task3": "Volta à fonte"
+  },
+  "settings": {
+    "title": "Adapta o Dome a ti",
+    "step1": "Gere aqui a tua conta e os teus acessos.",
+    "step2": "Escolhe fornecedores de IA e liga serviços quando precisares.",
+    "step3": "Os modos de trabalho organizam ferramentas independentemente do plano.",
+    "task1": "Liga a tua conta",
+    "task2": "Escolhe os serviços",
+    "task3": "Organiza o espaço"
+  },
+  "tags": {
+    "title": "Encontra o trabalho por temas",
+    "step1": "Cria etiquetas para temas que consultas frequentemente.",
+    "step2": "Aplica-as aos recursos relacionados.",
+    "step3": "Usa etiquetas para encontrar fontes entre projetos.",
+    "task1": "Cria um tema",
+    "task2": "Etiqueta as fontes",
+    "task3": "Encontra trabalho relacionado"
+  },
+  "editor": {
+    "title": "Um lugar para pensar",
+    "step1": "Escreve uma nota ou adiciona conteúdo.",
+    "step2": "Liga as fontes que apoiam as tuas ideias.",
+    "step3": "Recorre ao Many para desenvolver o material.",
+    "task1": "Escreve a primeira ideia",
+    "task2": "Apoia-a com fontes",
+    "task3": "Desenvolve-a com o Many"
+  },
+  "save_error": "Não foi possível guardar esta preferência. Tenta novamente.",
+  "setup": {
+    "hello": "Olá, {{name}}",
+    "welcome": "Bem-vindo ao Dome",
+    "subtitle": "Vamos começar",
+    "skip": "Explorar esta secção",
+    "reviewed": "Revisto",
+    "progress": "{{count}} de {{total}} passos revistos",
+    "mark_read": "Marcar como lido",
+    "to_discover": "Por descobrir",
+    "view_step": "Ver como",
+    "cloud_description": "Leva o trabalho para outros dispositivos com o acesso cloud incluído no plano.",
+    "included": "Incluído no plano",
+    "plan_required": "Requer um plano compatível",
+    "view_access": "Ver acesso",
+    "progress_hint": "O teu progresso de leitura fica guardado. Volta quando quiseres.",
+    "reopen": "Primeiros passos",
+    "actions": {
+      "explore": "Abrir esta secção",
+      "ai": "Configurar IA",
+      "account": "Abrir conta",
+      "sync": "Abrir definições cloud",
+      "email": "Ligar email",
+      "calendar": "Configurar calendário",
+      "social": "Ligar canais",
+      "modes": "Escolher ferramentas",
+      "projects": "Abrir projetos",
+      "agents": "Abrir agentes",
+      "learn": "Abrir aprendizagem",
+      "runs": "Ver execuções"
+    }
   }
 }

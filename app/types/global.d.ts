@@ -478,8 +478,13 @@ declare global {
       };
 
       domainSync: {
-        getEntitlements: () => Promise<{
+        getEntitlements: (options?: { forceRefresh?: boolean }) => Promise<{
           success: boolean;
+          connected?: boolean;
+          tier?: 'local' | 'account' | 'subscription';
+          planName?: string | null;
+          fetchOk?: boolean;
+          fetchError?: string;
           subscribed?: boolean;
           showCloudUi?: boolean;
           hasCloudSync?: boolean;
