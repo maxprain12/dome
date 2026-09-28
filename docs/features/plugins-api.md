@@ -8,12 +8,12 @@ Si el plugin contribuye `vaultTemplate`, el host renderiza la vista. Un paquete 
 
 ### `host.context`
 
-No requiere un permiso adicional. Devuelve la identidad del plugin, la bóveda configurada, su plantilla y el destino de publicación.
+No requiere un permiso adicional. Devuelve la identidad del plugin, la bóveda configurada, su plantilla y el destino de publicación. En Dome CMS, `sites` lista cada web (nombre, bóveda, destino e icono) y `vault` / `destination` corresponden a la web activa. `siteId` elige esa web; si hay varias y no se indica, Dome usa la primera. Las notas se resuelven por la bóveda en la que viven.
 
 ```js
 const context = await DomePlugin.request('host.context');
-// o, desde una vista nativa: window.electron.plugins.request(pluginId, 'host.context')
-// { apiVersion, plugin, vault, template, destination }
+// o, desde una vista nativa: window.electron.plugins.request(pluginId, 'host.context', { siteId })
+// { apiVersion, plugin, vault, template, destination, siteId, sites }
 // destination.contentPaths: { "blog/es": "src/content/blog/es", ... }
 // destination.siteUrl / sitePathPattern: public link for a published entry
 ```
@@ -26,7 +26,7 @@ const context = await DomePlugin.request('host.context');
 const notes = await DomePlugin.request('notes.list', { limit: 100 });
 ```
 
-Solo devuelve notas que tienen metadata del plugin actual y pertenecen a su bóveda. Cada nota incluye `id`, `title`, `body`, `fields`, `updatedAt`, `publication`, `familyId` y un estado `draft`, `changed` o `published`.
+Solo devuelve notas que tienen metadata del plugin actual y pertenecen a la bóveda de la web indicada con `siteId`. Con una sola web, `siteId` es opcional. Cada nota incluye `id`, `title`, `body`, `fields`, `updatedAt`, `publication`, `familyId` y un estado `draft`, `changed` o `published`.
 
 `notes.listReadonly` acepta el mismo `limit` y devuelve los mismos datos sin reorganizar notas antiguas en carpetas. Lo usa la herramienta de Many para consultar estados durante el modo Plan.
 
@@ -86,7 +86,7 @@ const result = await DomePlugin.request('notes.sync');
 // { imported, skipped, truncated, notes }
 ```
 
-Exige también `content.publish`. Recorre las carpetas de contenido del repositorio y crea en Dome cada Markdown que todavía no existe. También copia las imágenes de `public/` al vault, conservando esa carpeta, y coloca cada post en la carpeta de su ruta (`src/content/...`). Las entradas ya presentes no se sustituyen.
+Exige también `content.publish`. Recorre las carpetas de contenido del repositorio y crea en Dome cada Markdown o MDX que todavía no existe. Si la entrada ya está, vuelve a bajar el archivo y actualiza título, cuerpo y ruta. También copia las imágenes de `public/` al vault, conservando esa carpeta, y coloca cada post en la carpeta de su ruta (`src/content/...`).
 
 ### `media.attach` — `notes.write`
 

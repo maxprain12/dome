@@ -54,6 +54,7 @@ export default function PluginImageField({
   label,
   value,
   required,
+  siteId,
   disabled,
   onChange,
   onMediaChange,
@@ -63,6 +64,7 @@ export default function PluginImageField({
   label: string;
   value: string;
   required?: boolean;
+  siteId?: string;
   disabled?: boolean;
   onChange: (value: string) => void;
   onMediaChange?: () => void;
@@ -76,7 +78,7 @@ export default function PluginImageField({
   const selected = images.find((image) => image.sitePath === value);
   const selectedName = pluginSiteImageName(value, selected?.name);
 
-  const loadImages = () => requestPlugin<PluginSiteImage[]>(pluginId, 'media.list')
+  const loadImages = () => requestPlugin<PluginSiteImage[]>(pluginId, 'media.list', siteId ? { siteId } : undefined)
     .then((next) => {
       setImages(next);
     })
@@ -86,13 +88,13 @@ export default function PluginImageField({
 
   useEffect(() => {
     let active = true;
-    void requestPlugin<PluginSiteImage[]>(pluginId, 'media.list').then((next) => {
+    void requestPlugin<PluginSiteImage[]>(pluginId, 'media.list', siteId ? { siteId } : undefined).then((next) => {
       if (active) setImages(next);
     }).catch(() => {
       if (active) setImages([]);
     });
     return () => { active = false; };
-  }, [pluginId]);
+  }, [pluginId, siteId]);
 
   const choose = (image: PluginSiteImage) => {
     onChange(image.sitePath);

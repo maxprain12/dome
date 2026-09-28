@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { pluginSelectOptionLabel } from '@/lib/plugins/fields';
 import PluginImageField from '@/components/plugins/PluginImageField';
+import PluginTagField from '@/components/plugins/PluginTagField';
 import type { PluginFieldDefinition } from '@/types/plugin';
 
 export default function PluginTemplateField({
@@ -13,6 +14,7 @@ export default function PluginTemplateField({
   field,
   value,
   disabled,
+  siteId,
   onChange,
   onMediaChange,
 }: {
@@ -20,10 +22,11 @@ export default function PluginTemplateField({
   field: PluginFieldDefinition;
   value: string | string[] | undefined;
   disabled?: boolean;
+  siteId?: string;
   onChange: (id: string, value: string | string[]) => void;
   onMediaChange?: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const instanceId = useId();
   const label = `${field.label}${field.required ? ' *' : ''}`;
   const textValue = Array.isArray(value) ? value.join(', ') : value || '';
@@ -72,6 +75,18 @@ export default function PluginTemplateField({
     );
   }
 
+  if (field.type === 'tags') {
+    return (
+      <PluginTagField
+        id={fieldId}
+        label={label}
+        value={Array.isArray(value) ? value : textValue.split(',').map((item) => item.trim()).filter(Boolean)}
+        disabled={disabled}
+        onChange={(tags) => onChange(field.id, tags)}
+      />
+    );
+  }
+
   if (field.type === 'sitePath' && pluginId) {
     return (
       <PluginImageField
@@ -80,6 +95,7 @@ export default function PluginTemplateField({
         label={label}
         value={textValue}
         required={field.required}
+        siteId={siteId}
         disabled={disabled}
         onChange={(next) => onChange(field.id, next)}
         onMediaChange={onMediaChange}
@@ -94,15 +110,8 @@ export default function PluginTemplateField({
         id={fieldId}
         type="text"
         value={textValue}
-        placeholder={field.type === 'tags' ? t('plugins.tags_placeholder') : undefined}
         disabled={disabled}
-        onChange={(event) => {
-          const next = event.target.value;
-          onChange(
-            field.id,
-            field.type === 'tags' ? next.split(',').map((item) => item.trim()).filter(Boolean) : next,
-          );
-        }}
+        onChange={(event) => onChange(field.id, event.target.value)}
       />
     </Field>
   );

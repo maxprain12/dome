@@ -52,9 +52,9 @@ const { Content } = await render(post);
 1. En Dome, abre **Marketplace → Plugins**.
 2. Instala **Dome CMS**.
 3. Abre **Settings → Plugins** y configura el plugin.
-4. Elige la bóveda que guardará tus borradores.
+4. Añade una web por cada sitio. Elige una bóveda o créala con **Crear bóveda**. Si la dejas vacía, Dome crea una con el nombre de la web al guardar. Cada web usa una bóveda distinta.
 5. Indica el repositorio como `owner/repository`, normalmente la rama `main`, y configura las carpetas por colección e idioma.
-6. Añade la URL pública del sitio y, si hace falta, el patrón del enlace (`/{collection}/{slug}` o `/{language}/{collection}/{slug}`).
+6. Añade la URL pública del sitio y, si hace falta, el patrón del enlace (`/{collection}/{slug}` o `/{language}/{collection}/{slug}`). Dome intenta leer el favicon de esa URL; también puedes elegir una imagen propia.
 
 Para el plugin **Dome CMS**, cada regla usa `colección/idioma` como clave. La configuración inicial propone:
 
@@ -78,7 +78,7 @@ Desde la pestaña **Dome CMS**:
 3. Inserta las imágenes desde la ficha. Quedan en la bóveda como `dome-media:` y, al publicar, viajan a `public/media/<slug>/`. La portada se elige viendo las fotos de `public/` ya bajadas al vault.
 4. **Actualizar traducciones** reescribe la entrada abierta y sus hermanas en un solo lote. La primera vez, **Adaptar idiomas** crea esos borradores con la misma operación. No publica sola.
 5. La ruta de destino (`colección/idioma` + slug) aparece en la ficha. Si hay URL del sitio y la entrada está publicada, **Ver publicación** abre ese enlace.
-6. **Sincronizar posts** trae los Markdown que ya están en esas carpetas del repositorio y las imágenes de `public/` que aún no están en Dome. Las entradas locales no se sustituyen. En la biblioteca visual puedes borrar una imagen del vault y del repositorio.
+6. **Sincronizar posts** trae los Markdown y MDX de esas carpetas. Si la entrada ya está en Dome, vuelve a bajar el archivo y actualiza el texto. Las imágenes de `public/` que aún no están en Dome también se copian. En la biblioteca visual puedes borrar una imagen del vault y del repositorio.
 7. Pulsa **Publicar** y confirma el commit. Si marcas varias entradas en la lista, **Publicar N** las manda juntas en ese mismo commit: las dos traducciones, por ejemplo. El archivo no incluye campos vacíos ni saltos HTML del editor de notas.
 
 Si abres la nota desde la bóveda, ves el archivo guardado y un enlace para volver al CMS. La colección, el idioma y la publicación se editan en el CMS, no en la nota.
@@ -128,7 +128,7 @@ Las notas mantienen su guardado automático y el modo de lectura. Sus herramient
 
 ## Control desde Many
 
-Al instalar y configurar Dome CMS, Many recibe herramientas para listar entradas y sus estados, leer una entrada, crear borradores, editar contenido y propiedades, sincronizar, preparar una publicación, consultar su estado y publicarla. La entrada se crea dentro de la colección y el idioma configurados; Many debe aportar esos campos al crearla. Las ediciones usan la revisión de la entrada para evitar sobrescribir cambios posteriores. Many solo accede a la bóveda autorizada en la configuración del plugin.
+Al instalar y configurar Dome CMS, Many recibe herramientas para listar entradas y sus estados, leer una entrada, crear borradores, editar contenido y propiedades, sincronizar, preparar una publicación, consultar su estado y publicarla. La entrada se crea dentro de la colección y el idioma configurados; Many debe aportar esos campos al crearla. Si hay varias webs, Many indica el nombre de la web al listar, crear o sincronizar. Las ediciones usan la revisión de la entrada para evitar sobrescribir cambios posteriores. Many solo accede a las bóvedas autorizadas en la configuración del plugin.
 
 Publicar requiere primero preparar la entrada y después aprobar expresamente la acción de publicación en Dome. Las herramientas desaparecen si se desactiva o revoca el plugin. En modo Plan, Many puede consultar entradas y estados, pero no ejecutar acciones que cambien contenido.
 

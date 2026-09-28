@@ -38,6 +38,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   note: PluginNote;
   notes?: PluginNote[];
   destination: PluginHostContext['destination'];
+  siteId?: string;
   publishing: boolean;
   onNote: (note: PluginNote) => void;
   onNotes?: (notes: PluginNote[]) => void;
@@ -50,6 +51,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   note,
   notes = [],
   destination,
+  siteId,
   publishing,
   onNote,
   onNotes,
@@ -88,17 +90,18 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   const [pulling, setPulling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [adapting, setAdapting] = useState(false);
+  const [matchingSlug, setMatchingSlug] = useState(false);
   const [siteImageMap, setSiteImageMap] = useState<Map<string, string> | null>(null);
 
   const refreshSiteImages = useCallback(() => {
-    return requestPlugin<PluginSiteImage[]>(pluginId, 'media.list')
+    return requestPlugin<PluginSiteImage[]>(pluginId, 'media.list', siteId ? { siteId } : undefined)
       .then((next) => {
         setSiteImageMap(pluginSiteImageMap(next));
       })
       .catch(() => {
         setSiteImageMap(new Map());
       });
-  }, [pluginId]);
+  }, [pluginId, siteId]);
 
   useEffect(() => {
     setSiteImageMap(null);
@@ -121,7 +124,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
     editorRef.current?.setMarkdown(nextBody);
   }, [note, t]);
 
-  const path = cmsDestinationPath(destination, values);
+  const path = note.publication?.path || cmsDestinationPath(destination, values);
   const published = note.status === 'published';
   const entryUrl = published ? publicEntryUrl(destination, values) : null;
   const siblingLanguages = useMemo(
@@ -135,6 +138,15 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
   const hasTranslations = notes.some((item) => (
     item.id !== note.id && Boolean(item.familyId) && item.familyId === note.familyId
   ));
+  const slug = fieldScalar(values, 'slug').trim();
+  const slugSiblings = notes.filter((item) => (
+    item.id !== note.id
+    && Boolean(note.familyId)
+    && item.familyId === note.familyId
+    && fieldScalar(item.fields, 'collection') === fieldScalar(values, 'collection')
+    && fieldScalar(item.fields, 'language') !== fieldScalar(values, 'language')
+  ));
+  const slugAlreadyShared = slugSiblings.length > 0 && slugSiblings.every((item) => fieldScalar(item.fields, 'slug') === slug);
   const localMedia = hasLocalMedia(body, values);
 
   const updateField = (id: string, value: string | string[]) => {
@@ -256,6 +268,43 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
     }
   };
 
+  const matchSlug = async () => {
+    if (!slug) return;
+    if (slugSiblings.length === 0) {
+      setError(t('plugins.match_slug_none'));
+      return;
+    }
+    if (slugAlreadyShared) {
+      setMessage(t('plugins.match_slug_same'));
+      return;
+    }
+    setMatchingSlug(true);
+    setError(null);
+    try {
+      if (dirty) {
+        const saved = await save();
+        if (!saved) return;
+      }
+      const updated: PluginNote[] = [];
+      for (const sibling of slugSiblings) {
+        if (fieldScalar(sibling.fields, 'slug') === slug) continue;
+        const next = await requestPlugin<PluginNote>(pluginId, 'notes.update', {
+          id: sibling.id,
+          expectedUpdatedAt: sibling.updatedAt,
+          ...(sibling.contentDigest ? { expectedContentDigest: sibling.contentDigest } : {}),
+          fields: { ...sibling.fields, slug },
+        });
+        updated.push(next);
+      }
+      if (updated.length > 0) onNotes?.(updated);
+      setMessage(t('plugins.match_slug_done'));
+    } catch (cause) {
+      setError(explain(cause, t('plugins.save_error')));
+    } finally {
+      setMatchingSlug(false);
+    }
+  };
+
   const pullEntry = async () => {
     setPulling(true);
     setError(null);
@@ -289,7 +338,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
     }
   };
 
-  const busy = saving || pulling || deleting || publishing || adapting;
+  const busy = saving || pulling || deleting || publishing || adapting || matchingSlug;
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -353,6 +402,14 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
             ? (hasTranslations ? t('plugins.updating_translations') : t('plugins.adapting_languages'))
             : (hasTranslations ? t('plugins.update_translations') : t('plugins.adapt_languages'))}
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy || !slug || slugSiblings.length === 0}
+          onClick={() => { void matchSlug().catch(() => {}); }}
+        >
+          {matchingSlug ? t('plugins.matching_slug') : t('plugins.match_slug')}
+        </Button>
         {entryUrl ? (
           <Button
             type="button"
@@ -404,6 +461,7 @@ const PluginEntryEditor = forwardRef<PluginEntryEditorHandle, {
             field={field}
             value={values[field.id]}
             onChange={updateField}
+            siteId={siteId}
             onMediaChange={() => { void refreshSiteImages(); }}
           />
         ))}

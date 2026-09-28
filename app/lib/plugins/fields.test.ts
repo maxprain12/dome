@@ -31,6 +31,36 @@ describe('plugin field helpers', () => {
       siteUrl: 'https://example.com',
       sitePathPattern: '/{language}/{collection}/{slug}',
     }, { collection: 'blog', language: 'es', slug: 'prueba' })).toBe('https://example.com/es/blog/prueba');
+    const paths = {
+      'entries/es': 'src/content/entries/es',
+      'entries/en': 'src/content/entries/en',
+    };
+    const advo = {
+      repo: 'maxprain12/portfolio-advo',
+      branch: 'main',
+      siteUrl: 'https://advo.dowi.es',
+      contentPaths: paths,
+    };
+    expect(publicEntryUrl({ ...advo, sitePathPattern: '/{collection}/{slug}' }, {
+      collection: 'entries',
+      language: 'en',
+      slug: 'how-i-built-dome-native-ai-harness',
+    })).toBe('https://advo.dowi.es/entries/how-i-built-dome-native-ai-harness');
+    expect(publicEntryUrl({ ...advo, sitePathPattern: '{/language}/{collection}/{slug}' }, {
+      collection: 'entries',
+      language: 'es',
+      slug: 'how-i-built-dome-native-ai-harness',
+    })).toBe('https://advo.dowi.es/entries/how-i-built-dome-native-ai-harness');
+    expect(publicEntryUrl({ ...advo, sitePathPattern: '{/language}/{collection}/{slug}' }, {
+      collection: 'entries',
+      language: 'en',
+      slug: 'how-i-built-dome-native-ai-harness',
+    })).toBe('https://advo.dowi.es/en/entries/how-i-built-dome-native-ai-harness');
+    expect(publicEntryUrl({ ...advo, sitePathPattern: '/{language}/{collection}/{slug}' }, {
+      collection: 'entries',
+      language: 'en',
+      slug: 'how-i-built-dome-native-ai-harness',
+    })).toBe('https://advo.dowi.es/en/entries/how-i-built-dome-native-ai-harness');
   });
 
   it('lists sibling languages from the same collection mapping', () => {

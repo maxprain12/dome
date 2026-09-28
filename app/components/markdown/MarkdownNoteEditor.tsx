@@ -129,9 +129,10 @@ const MarkdownNoteEditor = forwardRef<MarkdownNoteEditorHandle, MarkdownNoteEdit
       const refresh = () => imageRefreshers.current.forEach((render) => render());
       refresh();
       if (props.pluginId) {
+        const scope = props.resourceId ? { resourceId: props.resourceId } : undefined;
         void Promise.all([
-          requestPlugin<PluginSiteImage[]>(props.pluginId, 'media.list'),
-          requestPlugin<PluginHostContext>(props.pluginId, 'host.context'),
+          requestPlugin<PluginSiteImage[]>(props.pluginId, 'media.list', scope),
+          requestPlugin<PluginHostContext>(props.pluginId, 'host.context', scope),
         ]).then(([images, context]) => {
           if (cancelled) return;
           mediaContext.current = { images: pluginSiteImageMap(images), siteUrl: context.destination?.siteUrl };
@@ -139,7 +140,7 @@ const MarkdownNoteEditor = forwardRef<MarkdownNoteEditorHandle, MarkdownNoteEdit
         }).catch(() => { /* Existing references and alt text remain available. */ });
       }
       return () => { cancelled = true; };
-    }, [props.pluginId]);
+    }, [props.pluginId, props.resourceId]);
 
     useEffect(() => {
       imageRefreshers.current.forEach((render) => render());

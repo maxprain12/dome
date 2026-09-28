@@ -7,6 +7,7 @@ const { z } = require('zod');
 const pluginLoader = require('../../marketplace/plugin-loader.cjs');
 const { createPluginService } = require('../../plugins/plugin-service.cjs');
 const cmsTools = require('../../plugins/cms-tools.cjs');
+const { detectSiteFavicon } = require('../../plugins/site-favicon.cjs');
 
 const pluginIdSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const repoSchema = z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/);
@@ -87,6 +88,10 @@ function register({ ipcMain, windowManager, sanitizePath, database, fileStorage 
 
   handle('plugin:get-configuration', (_event, pluginId) => (
     service.getConfiguration(pluginIdSchema.parse(pluginId))
+  ));
+
+  handle('plugin:detect-favicon', (_event, siteUrl) => (
+    detectSiteFavicon(z.string().min(1).max(500).parse(siteUrl))
   ));
 
   handle('plugin:revoke', (_event, pluginId) => service.revoke(pluginIdSchema.parse(pluginId)));

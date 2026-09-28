@@ -66,13 +66,13 @@ domePlugins:
 
 ## Dome CMS
 
-Dome CMS es el primer plugin incluido con la aplicación. La ficha de la entrada (colección, idioma, fecha, slug, cuerpo y ruta de publicación) se edita en la vista del CMS. La portada se elige en una biblioteca visual de las imágenes de `public/`. Desde esa ficha se puede insertar una imagen en la bóveda, borrar una imagen del vault y del repositorio, adaptar el texto a los otros idiomas configurados, traer el Markdown remoto o borrar la entrada. Publicar crea un commit Git con el Markdown y, si hay imágenes, los archivos en `public/media/<slug>/`. La configuración admite carpetas por `colección/idioma`, una URL pública del sitio y un patrón de enlace.
+Dome CMS es el primer plugin incluido con la aplicación. Puede publicar en varias webs: cada una tiene su nombre, su bóveda, su repositorio y, si quieres, un icono (el favicon de la URL o una imagen propia). Si no eliges bóveda, Dome crea una al guardar; también puedes crear una con el nombre que quieras. La ficha de la entrada (colección, idioma, fecha, slug, cuerpo y ruta de publicación) se edita en la vista del CMS de la web elegida. La portada se elige en una biblioteca visual de las imágenes de `public/`. Desde esa ficha se puede insertar una imagen en la bóveda, borrar una imagen del vault y del repositorio, adaptar el texto a los otros idiomas configurados, traer el Markdown remoto o borrar la entrada. Publicar crea un commit Git con el Markdown y, si hay imágenes, los archivos en `public/media/<slug>/`. La configuración admite carpetas por `colección/idioma`, una URL pública del sitio y un patrón de enlace.
 
 Consulta [Configurar Astro para Dome CMS](./dome-cms-astro.md) para la guía de usuario y [API de plugins](./plugins-api.md) para el contrato técnico.
 
 ## Límites deliberados de v1
 
-- Un plugin se vincula a una única bóveda.
+- Un plugin se vincula a una única bóveda. Dome CMS es la excepción: cada web usa una bóveda distinta.
 - La instalación remota usa releases de GitHub; no ejecuta scripts de instalación.
 - No existe código Node dentro del plugin.
 - La publicación Git no fuerza la rama. Si cambia entre la preparación y el commit, Dome informa de conflicto y obliga a preparar de nuevo.

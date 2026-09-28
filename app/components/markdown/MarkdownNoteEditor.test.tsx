@@ -120,7 +120,7 @@ describe('shared Tiptap Markdown editor', () => {
 
   it('keeps code fences, math, callouts and details visual and protects legacy blocks', () => {
     expect(needsSourceEditor('```html\n<div>Example</div>\n```')).toBe(false);
-    for (const source of ['$x^2$', '$$\nx^2\n$$', '==hl==', '> [!warning] Title\n> Body', '<details><summary>More</summary>\n\nBody\n</details>']) {
+    for (const source of ['$x^2$', '$$\nx^2\n$$', '==hl==', '> [!warning] Title\n> Body', '<details><summary>More</summary>\n\nBody\n</details>', 'Intro\n\n---\n\n## Next']) {
       expect(needsSourceEditor(source)).toBe(false);
     }
     for (const source of [':::callout\nKeep me\n:::', '[^1]: Footnote', '<br>', '---\ntitle: Hello\n---']) {
