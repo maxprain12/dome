@@ -544,7 +544,15 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
                             <Button type="button" variant="outline" size="sm" disabled={!site.siteUrl.trim() || site.detecting} onClick={() => { void detectIcon(site, true).catch(() => {}); }}>
                               {site.detecting ? t('settings.plugins.detecting_favicon') : t('settings.plugins.detect_favicon')}
                             </Button>
-                            <Button type="button" variant="outline" size="sm" render={<label htmlFor={`plugin-site-icon-${site.id}`} />}>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const input = globalThis.document.getElementById(`plugin-site-icon-${site.id}`);
+                                if (input instanceof HTMLInputElement) input.click();
+                              }}
+                            >
                               {t('settings.plugins.choose_icon')}
                             </Button>
                             <input
