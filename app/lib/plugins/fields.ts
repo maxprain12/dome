@@ -42,6 +42,21 @@ export function fieldScalar(fields: PluginFieldValues, id: string): string {
   return Array.isArray(value) ? value[0] || '' : value || '';
 }
 
+export function defaultContentLanguage(contentPaths: Record<string, string> | undefined): string {
+  if (!contentPaths) return '';
+  for (const key of Object.keys(contentPaths)) {
+    const language = key.split('/')[1];
+    if (language) return language;
+  }
+  return '';
+}
+
+export const SITE_PATH_FORMATS = [
+  { id: 'plain', pattern: '/{collection}/{slug}' },
+  { id: 'prefix', pattern: '{/language}/{collection}/{slug}' },
+  { id: 'always', pattern: '/{language}/{collection}/{slug}' },
+] as const;
+
 export function publicEntryUrl(
   destination: PluginHostContext['destination'],
   fields: PluginFieldValues,
@@ -51,10 +66,15 @@ export function publicEntryUrl(
   const slug = fieldScalar(fields, 'slug');
   if (!slug || !siteUrl) return null;
   const pattern = destination.sitePathPattern || '/{collection}/{slug}';
+  const language = fieldScalar(fields, 'language');
+  const primary = defaultContentLanguage(destination.contentPaths);
+  const optionalLanguage = !language || (primary && language === primary) ? '' : `/${language}`;
   const resolved = pattern
+    .replace(/\{\/language\}/g, optionalLanguage)
     .replace(/\{collection\}/g, fieldScalar(fields, 'collection'))
-    .replace(/\{language\}/g, fieldScalar(fields, 'language'))
-    .replace(/\{slug\}/g, slug);
+    .replace(/\{language\}/g, language)
+    .replace(/\{slug\}/g, slug)
+    .replace(/\/{2,}/g, '/');
   if (!resolved.startsWith('/') || resolved.includes('..')) return null;
   return `${siteUrl}${resolved}`;
 }

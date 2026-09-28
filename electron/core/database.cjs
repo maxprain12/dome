@@ -15,6 +15,7 @@ const { applyMigrations } = require('./db/migrations.cjs');
 const { runDrizzleMigrations, invalidateDrizzle } = require('./db/drizzle-bridge.cjs');
 const { invalidateDrizzleRepos } = require('./db/drizzle-repos.cjs');
 const { createBaseSchema } = require('./db/schema.cjs');
+const { pruneCmsGrantForVault } = require('../plugins/cms-sites.cjs');
 const { reclaimSpaceIfBloated, repairBloatedCalendarReminders } = require('./db-maintenance.cjs');
 const {
   removeWalSidecars,
@@ -718,6 +719,24 @@ function deleteProjectWithContent(projectId) {
         /* ignore */
       }
       del('DELETE FROM resources WHERE project_id = ?', projectId);
+      const grantsTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'plugin_grants'").get();
+      if (grantsTable) {
+        const grants = db.prepare('SELECT plugin_id, project_id, config_json FROM plugin_grants').all();
+        for (const row of grants) {
+          const next = pruneCmsGrantForVault(row, projectId);
+          if (!next) continue;
+          if (next.action === 'delete') del('DELETE FROM plugin_grants WHERE plugin_id = ?', row.plugin_id);
+          else {
+            del(
+              'UPDATE plugin_grants SET project_id = ?, config_json = ?, updated_at = ? WHERE plugin_id = ?',
+              next.projectId,
+              next.configJson,
+              Date.now(),
+              row.plugin_id,
+            );
+          }
+        }
+      }
       del('DELETE FROM projects WHERE id = ?', projectId);
     });
     tx();

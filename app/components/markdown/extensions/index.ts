@@ -93,14 +93,21 @@ export function noteExtensions(profile: NoteEditorProfile = 'note', overrides?: 
   ];
 }
 
+function hasYamlFrontmatter(markdown: string): boolean {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/.exec(markdown);
+  if (!match) return false;
+  return /^[A-Za-z_][\w-]*\s*:/m.test(match[1]);
+}
+
 /** Syntax outside the visual schema remains editable verbatim in source mode. */
 export function needsSourceEditor(markdown: string): boolean {
+  if (hasYamlFrontmatter(markdown)) return true;
   const prose = markdown
     .replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\s*$/gm, '')
     .replace(/<details[\s\S]*?<\/details>/gi, '')
     .replace(/\$\$[\s\S]+?\$\$/g, '')
     .replace(/(?<!\$)\$[^$\n]+\$(?!\$)/g, '');
-  return /<\/?[A-Za-z][^>]*>|<!--|^:::|^\[\^|^---\s*\n|^(?:import|export)\s|\{[^}\n]+\}/m.test(prose);
+  return /<\/?[A-Za-z][^>]*>|<!--|^:::|^\[\^|^(?:import|export)\s|\{[^}\n]+\}/m.test(prose);
 }
 
 export type { NoteEditorProfile, NoteExtensionContext, NoteOutlineItem };

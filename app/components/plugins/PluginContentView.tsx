@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,7 @@ import type {
   DomePluginInfo,
   PluginFieldValues,
   PluginHostContext,
+  PluginHostSite,
   PluginNote,
   PluginNoteStatus,
   PluginVaultTemplate,
@@ -60,6 +62,27 @@ function actionError(cause: unknown, conflict: string, localMedia: string, fallb
   return message || fallback;
 }
 
+function siteStorageKey(pluginId: string): string {
+  return `dome-cms:site:${pluginId}`;
+}
+
+function readStoredSite(pluginId: string): string | null {
+  try {
+    return localStorage.getItem(siteStorageKey(pluginId));
+  } catch {
+    return null;
+  }
+}
+
+function SiteOption({ site }: { site: PluginHostSite }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {site.icon ? <img src={site.icon.dataUrl} alt="" className="size-4 shrink-0 rounded-sm object-contain" /> : null}
+      <span className="truncate">{site.name}</span>
+    </span>
+  );
+}
+
 function matchesFilter(note: PluginNote, filter: EntryFilter): boolean {
   if (filter === 'published') return note.status === 'published';
   if (filter === 'draft') return note.status !== 'published';
@@ -68,8 +91,8 @@ function matchesFilter(note: PluginNote, filter: EntryFilter): boolean {
 
 export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }) {
   const { t, i18n } = useTranslation();
-  const template = plugin.contributes?.vaultTemplate;
   const [context, setContext] = useState<PluginHostContext | null>(null);
+  const template = context?.template || plugin.contributes?.vaultTemplate;
   const [notes, setNotes] = useState<PluginNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,16 +121,39 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
   const [confirmingPublish, setConfirmingPublish] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [siteId, setSiteId] = useState<string | null>(() => readStoredSite(plugin.id));
   const titleRef = useRef<HTMLInputElement>(null);
+
+  const rememberSite = (id: string | null) => {
+    setSiteId(id);
+    try {
+      if (id) localStorage.setItem(siteStorageKey(plugin.id), id);
+      else localStorage.removeItem(siteStorageKey(plugin.id));
+    } catch {
+      /* the current view still follows the selected website */
+    }
+  };
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const [nextContext, nextNotes] = await Promise.all([
-        requestPlugin<PluginHostContext>(plugin.id, 'host.context'),
-        requestPlugin<PluginNote[]>(plugin.id, 'notes.list', { limit: 200 }),
-      ]);
+      let nextContext: PluginHostContext;
+      try {
+        nextContext = await requestPlugin<PluginHostContext>(plugin.id, 'host.context', siteId ? { siteId } : {});
+      } catch (cause) {
+        if (!siteId || !(cause instanceof Error) || !/website/i.test(cause.message)) throw cause;
+        rememberSite(null);
+        nextContext = await requestPlugin<PluginHostContext>(plugin.id, 'host.context', {});
+      }
+      const resolved = nextContext.sites?.some((site) => site.id === nextContext.siteId)
+        ? nextContext.siteId || null
+        : nextContext.sites?.[0]?.id || nextContext.siteId || null;
+      if (resolved !== siteId) rememberSite(resolved);
+      const nextNotes = await requestPlugin<PluginNote[]>(plugin.id, 'notes.list', {
+        limit: 200,
+        ...(resolved ? { siteId: resolved } : {}),
+      });
       setContext(nextContext);
       setNotes(nextNotes);
     } catch (cause) {
@@ -115,7 +161,7 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [plugin.id, t]);
+  }, [plugin.id, siteId, t]);
 
   useEffect(() => {
     void load(false).catch(() => {});
@@ -182,6 +228,7 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
         title: trimmed,
         body: '',
         fields: values,
+        ...(siteId ? { siteId } : {}),
       });
       setDialogOpen(false);
       setSelectedId(note.id);
@@ -285,17 +332,23 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
     setSyncing(true);
     setNotice(null);
     try {
-      const result = await requestPlugin<{ imported: number; images: number; truncated: boolean; notes: PluginNote[] }>(
+      const result = await requestPlugin<{ imported: number; refreshed?: number; images: number; found?: number; truncated: boolean; notes: PluginNote[] }>(
         plugin.id,
         'notes.sync',
+        siteId ? { siteId } : {},
       );
       if (result.notes?.length) upsertNotes(result.notes);
       const count = result.imported || 0;
+      const refreshed = result.refreshed || 0;
       const images = result.images || 0;
       if (result.truncated) {
         setNotice({ text: t('plugins.sync_truncated', { count, images }), error: false });
       } else if (count > 0 || images > 0) {
         setNotice({ text: t('plugins.sync_imported', { count, images }), error: false });
+      } else if (refreshed > 0) {
+        setNotice({ text: t('plugins.sync_refreshed', { count: refreshed }), error: false });
+      } else if (!result.found) {
+        setNotice({ text: t('plugins.sync_empty'), error: true });
       } else {
         setNotice({ text: t('plugins.sync_none'), error: false });
       }
@@ -313,6 +366,16 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
     setCheckedIds((current) => (
       on ? [...current.filter((item) => item !== id), id] : current.filter((item) => item !== id)
     ));
+  };
+  const sites = context?.sites ?? [];
+  const activeSite = sites.find((site) => site.id === siteId) ?? sites[0] ?? null;
+  const changeSite = async (id: string | null) => {
+    if (!id || id === siteId) return;
+    if (!(await leaveEntry())) return;
+    setEntryDirty(false);
+    setSelectedId(null);
+    setCheckedIds([]);
+    rememberSite(id);
   };
   const heading = plugin.contributes?.view?.title || plugin.name;
   const description = context
@@ -343,7 +406,32 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
       <div className="flex shrink-0 flex-col gap-3 border-b px-4 py-4 sm:px-6">
         <PageHeader
           className="flex-col sm:flex-row"
-          title={heading}
+          eyebrow={sites.length > 1 ? heading : undefined}
+          title={
+            <span className="flex min-w-0 items-center gap-2">
+              {activeSite?.icon ? <img src={activeSite.icon.dataUrl} alt="" className="size-5 shrink-0 rounded-sm object-contain" /> : null}
+              {sites.length > 1 ? (
+                <Select value={activeSite?.id || ''} onValueChange={(value) => { void changeSite(value || null).catch(() => {}); }}>
+                  <SelectTrigger className="h-8 w-auto max-w-full min-w-0 font-heading text-xl font-semibold" aria-label={t('plugins.website_switcher')}>
+                    <SelectValue placeholder={t('plugins.choose_website')}>
+                      {activeSite?.name || t('plugins.choose_website')}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {sites.map((site) => (
+                        <SelectItem key={site.id} value={site.id}>
+                          <SiteOption site={site} />
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="truncate">{heading}</span>
+              )}
+            </span>
+          }
           description={description}
           actions={
             <>
@@ -431,6 +519,7 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
                 note={selected}
                 notes={notes}
                 destination={context?.destination ?? null}
+                siteId={activeSite?.id}
                 publishing={publishingMany || publishingId === selected.id}
                 onNote={replaceNote}
                 onNotes={upsertNotes}

@@ -54,18 +54,34 @@ export interface DomePluginInfo extends DomePluginManifest {
   manifestDigest: string;
 }
 
+export interface PluginGitHubDestination {
+  repo: string;
+  branch: string;
+  pathPrefix?: string;
+  contentPaths?: Record<string, string>;
+  siteUrl?: string;
+  sitePathPattern?: string;
+}
+
+export interface PluginSiteIcon {
+  source: 'favicon' | 'custom';
+  dataUrl: string;
+}
+
+export interface PluginSite {
+  id: string;
+  name: string;
+  projectId: string;
+  github: PluginGitHubDestination;
+  icon?: PluginSiteIcon;
+}
+
 export interface PluginConfiguration {
   pluginId?: string;
   projectId: string;
   permissions: PluginPermission[];
-    github?: {
-      repo: string;
-      branch: string;
-      pathPrefix?: string;
-      contentPaths?: Record<string, string>;
-      siteUrl?: string;
-      sitePathPattern?: string;
-    };
+  github?: PluginGitHubDestination;
+  sites?: PluginSite[];
 }
 
 export interface PluginNoteSchema {
@@ -79,12 +95,22 @@ export type PluginNoteStatus = 'draft' | 'changed' | 'published';
 
 export type PluginFieldValues = Record<string, string | string[]>;
 
+export interface PluginHostSite {
+  id: string;
+  name: string;
+  icon: PluginSiteIcon | null;
+  vault: { id: string; name: string };
+  destination: PluginConfiguration['github'] | null;
+}
+
 export interface PluginHostContext {
   apiVersion: 1;
   plugin: { id: string; version: string };
   vault: { id: string; name: string };
   template: PluginVaultTemplate | null;
   destination: PluginConfiguration['github'] | null;
+  siteId?: string;
+  sites?: PluginHostSite[];
 }
 
 export interface PluginNote {

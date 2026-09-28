@@ -9,10 +9,12 @@ const object = (properties, required = []) => ({ type: 'object', properties, req
 const string = { type: 'string' };
 const id = { type: 'string', description: 'Identifier returned by a CMS tool' };
 
+const site = { type: 'string', description: 'Website name. Required when more than one website is configured.' };
+
 const CATALOG = Object.freeze({
   list_entries: {
-    method: 'notes.listReadonly', description: 'List CMS entries in the configured vault, including status, language and revision.',
-    parameters: object({ limit: { type: 'integer', minimum: 1, maximum: 300 } }),
+    method: 'notes.listReadonly', description: 'List CMS entries for one website, including status, language and revision.',
+    parameters: object({ limit: { type: 'integer', minimum: 1, maximum: 300 }, site }),
   },
   get_entry: {
     method: 'notes.get', description: 'Read one CMS entry, including its Markdown body and current revision.',
@@ -20,8 +22,8 @@ const CATALOG = Object.freeze({
   },
   create_draft: {
     method: 'notes.create', write: true,
-    description: 'Create an unpublished CMS draft in its configured collection and language folder. Supply collection, language, date, description and slug in fields.',
-    parameters: object({ title: string, body: string, fields, familyId: id }, ['title']),
+    description: 'Create an unpublished CMS draft in its configured collection and language folder. Supply collection, language, date, description and slug in fields. Pass site when more than one website is configured.',
+    parameters: object({ title: string, body: string, fields, familyId: id, site }, ['title']),
   },
   update_entry: {
     method: 'notes.update', write: true,
@@ -30,8 +32,8 @@ const CATALOG = Object.freeze({
   },
   sync_entries: {
     method: 'notes.sync', write: true,
-    description: 'Synchronize CMS entries with the configured repository.',
-    parameters: object({}),
+    description: 'Synchronize CMS entries with one configured repository. Pass site when more than one website is configured.',
+    parameters: object({ site }),
   },
   prepare_publication: {
     method: 'publication.prepare', write: true,
@@ -87,7 +89,23 @@ async function executeTool(name, args, context) {
     return { status: 'error', error: 'This publication requires explicit in-app approval' };
   }
   try {
-    return await service.request('dome-cms', CATALOG[tool].method, args || {});
+    const params = { ...(args || {}) };
+    if (typeof params.site === 'string') {
+      const wanted = params.site.trim();
+      delete params.site;
+      if (wanted) {
+        const config = typeof service.getConfiguration === 'function' ? service.getConfiguration('dome-cms') : null;
+        const sites = Array.isArray(config?.sites) ? config.sites : [];
+        const match = sites.find((item) => item.name.localeCompare(wanted, undefined, { sensitivity: 'accent' }) === 0)
+          || sites.find((item) => item.id === wanted);
+        if (!match) {
+          const names = sites.map((item) => item.name).filter(Boolean);
+          return { status: 'error', error: names.length ? `Choose a website: ${names.join(', ')}` : 'Website not found' };
+        }
+        params.siteId = match.id;
+      }
+    }
+    return await service.request('dome-cms', CATALOG[tool].method, params);
   } catch (error) {
     return { status: 'error', error: error instanceof Error ? error.message : 'CMS tool failed' };
   }

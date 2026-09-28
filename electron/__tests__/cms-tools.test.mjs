@@ -43,3 +43,27 @@ test('configured CMS contributes Many tools; disabling it removes them', async (
     cmsTools.setPluginService(null);
   }
 });
+
+test('Many resolves a website by its name before calling the CMS', async () => {
+  const calls = [];
+  cmsTools.setPluginService({
+    listPlugins: () => [{
+      id: 'dome-cms', enabled: true, configured: true,
+      contributes: { tools: ['list_entries'] },
+    }],
+    getConfiguration: () => ({ sites: [
+      { id: 'site-a', name: 'Alpha' },
+      { id: 'site-b', name: 'Beta' },
+    ] }),
+    request: async (...args) => { calls.push(args); return { ok: true }; },
+  });
+  try {
+    assert.deepEqual(await cmsTools.executeTool('dome_cms_list_entries', { site: 'Beta', limit: 5 }), { ok: true });
+    assert.deepEqual(calls[0], ['dome-cms', 'notes.listReadonly', { siteId: 'site-b', limit: 5 }]);
+    const missing = await cmsTools.executeTool('dome_cms_list_entries', { site: 'Missing' });
+    assert.equal(missing.status, 'error');
+    assert.match(missing.error, /Alpha, Beta/);
+  } finally {
+    cmsTools.setPluginService(null);
+  }
+});

@@ -15,6 +15,7 @@ const github = {
 test('lists markdown posts inside the configured collection folders', () => {
   const entries = remoteMarkdownEntries([
     { type: 'blob', path: 'src/content/blog/es/prueba.md' },
+    { type: 'blob', path: 'src/content/blog/es/otro.mdx' },
     { type: 'blob', path: 'src/content/blog/en/test.md' },
     { type: 'blob', path: 'src/content/blog/es/assets/cover.png' },
     { type: 'blob', path: 'README.md' },
@@ -22,8 +23,21 @@ test('lists markdown posts inside the configured collection folders', () => {
   ], github);
   assert.deepEqual(entries, [
     { path: 'src/content/blog/en/test.md', collection: 'blog', language: 'en', slug: 'test' },
+    { path: 'src/content/blog/es/otro.mdx', collection: 'blog', language: 'es', slug: 'otro' },
     { path: 'src/content/blog/es/prueba.md', collection: 'blog', language: 'es', slug: 'prueba' },
   ]);
+});
+
+test('falls back from a missing mdx path to markdown', () => {
+  const { contentPathFallback } = require('../plugins/plugin-service.cjs');
+  assert.equal(
+    contentPathFallback('src/content/entries/es/programador.mdx'),
+    'src/content/entries/es/programador.md',
+  );
+  assert.equal(
+    contentPathFallback('src/content/entries/es/programador.md'),
+    'src/content/entries/es/programador.mdx',
+  );
 });
 
 test('lists public images with their site path', () => {

@@ -9,21 +9,36 @@ const YAML = require('yaml');
 const { z } = require('zod');
 const githubApi = require('../github/github-api.cjs');
 const vaultStore = require('../storage/vault-store.cjs');
+const { applyContentPathOptions, cmsSitesFromGrant } = require('./cms-sites.cjs');
+const { assertIconDataUrl } = require('./site-favicon.cjs');
 
 const idSchema = z.string().min(1).max(128);
 const fieldValueSchema = z.union([z.string().max(20_000), z.array(z.string().max(200)).max(100)]);
 const fieldValuesSchema = z.record(z.string(), fieldValueSchema);
+const githubConfigSchema = z.object({
+  repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
+  branch: z.string().min(1).max(200).regex(/^[A-Za-z0-9._/-]+$/),
+  pathPrefix: z.string().max(240).optional(),
+  contentPaths: z.record(z.string(), z.string().min(1).max(240)).optional(),
+  siteUrl: z.string().max(500).optional(),
+  sitePathPattern: z.string().max(240).optional(),
+}).strict();
+const siteIconSchema = z.object({
+  source: z.enum(['favicon', 'custom']),
+  dataUrl: z.string().min(1).max(200_000),
+}).strict();
+const siteConfigSchema = z.object({
+  id: z.string().min(1).max(128),
+  name: z.string().min(1).max(80),
+  projectId: idSchema,
+  github: githubConfigSchema,
+  icon: siteIconSchema.optional(),
+}).strict();
 const configurationSchema = z.object({
   projectId: idSchema,
   permissions: z.array(z.string()).max(12),
-  github: z.object({
-    repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
-    branch: z.string().min(1).max(200).regex(/^[A-Za-z0-9._/-]+$/),
-    pathPrefix: z.string().max(240).optional(),
-    contentPaths: z.record(z.string(), z.string().min(1).max(240)).optional(),
-    siteUrl: z.string().max(500).optional(),
-    sitePathPattern: z.string().max(240).optional(),
-  }).optional(),
+  github: githubConfigSchema.optional(),
+  sites: z.array(siteConfigSchema).min(1).max(12).optional(),
 }).strict();
 
 const METHOD_PERMISSIONS = {
@@ -50,14 +65,21 @@ const METHOD_PERMISSIONS = {
 
 const METHOD_SCHEMAS = {
   'host.context': z.object({}).passthrough(),
-  'notes.list': z.object({ limit: z.number().int().min(1).max(300).optional() }).passthrough(),
-  'notes.listReadonly': z.object({ limit: z.number().int().min(1).max(300).optional() }).strict(),
+  'notes.list': z.object({
+    limit: z.number().int().min(1).max(300).optional(),
+    siteId: idSchema.optional(),
+  }).passthrough(),
+  'notes.listReadonly': z.object({
+    limit: z.number().int().min(1).max(300).optional(),
+    siteId: idSchema.optional(),
+  }).strict(),
   'notes.get': z.object({ id: idSchema }).strict(),
   'notes.create': z.object({
     title: z.string().min(1).max(240),
     body: z.string().max(2_000_000).optional(),
     fields: fieldValuesSchema.optional(),
     familyId: idSchema.optional(),
+    siteId: idSchema.optional(),
   }).strict(),
   'notes.update': z.object({
     id: idSchema,
@@ -71,7 +93,7 @@ const METHOD_SCHEMAS = {
   'notes.open': z.object({ id: idSchema }).strict(),
   'notes.delete': z.object({ id: idSchema, remote: z.boolean().optional() }).strict(),
   'notes.pull': z.object({ id: idSchema }).strict(),
-  'notes.sync': z.object({}).strict(),
+  'notes.sync': z.object({ siteId: idSchema.optional() }).strict(),
   'notes.applyTranslations': z.object({
     sourceId: idSchema,
     expectedUpdatedAt: z.number().int().nonnegative(),
@@ -100,7 +122,10 @@ const METHOD_SCHEMAS = {
     mime: z.enum(['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
     content: z.string().min(1).max(12_000_000),
   }).strict(),
-  'media.list': z.object({}).strict(),
+  'media.list': z.object({
+    siteId: idSchema.optional(),
+    resourceId: idSchema.optional(),
+  }).strict(),
   'media.delete': z.object({ id: idSchema }).strict(),
   'publication.prepare': z.object({ resourceId: idSchema }).strict(),
   'publication.prepareMany': z.object({
@@ -201,6 +226,13 @@ function parseCmsDocument(markdown) {
   };
 }
 
+function contentPathFallback(filePath) {
+  const value = String(filePath || '');
+  if (value.toLowerCase().endsWith('.mdx')) return `${value.slice(0, -4)}.md`;
+  if (value.toLowerCase().endsWith('.md')) return `${value.slice(0, -3)}.mdx`;
+  return '';
+}
+
 function safeEntryPath(filePath) {
   const normalized = path.posix.normalize(String(filePath || '')).replace(/^\/+/, '');
   if (!normalized.startsWith('src/content/') || normalized.includes('..')) {
@@ -236,7 +268,7 @@ function safeSiteUrl(input) {
 
 function safeSitePathPattern(input) {
   const trimmed = String(input || '').trim() || '/{collection}/{slug}';
-  if (!trimmed.startsWith('/') || trimmed.includes('..') || trimmed.includes('\\')) {
+  if ((!trimmed.startsWith('/') && !trimmed.startsWith('{')) || trimmed.includes('..') || trimmed.includes('\\')) {
     throw new Error('Site path pattern must start with /');
   }
   return trimmed;
@@ -363,16 +395,30 @@ function rewritePublishedMedia(markdown, fields, publicPaths) {
   return { markdown: nextMarkdown, fields: nextFields };
 }
 
+function defaultContentLanguage(contentPaths) {
+  if (!contentPaths || typeof contentPaths !== 'object') return '';
+  for (const key of Object.keys(contentPaths)) {
+    const language = String(key).split('/')[1];
+    if (language) return language;
+  }
+  return '';
+}
+
 function publicEntryUrl(github, fields) {
   const siteUrl = safeSiteUrl(github?.siteUrl);
   if (!siteUrl) return null;
   const slug = String(fields?.slug || '').trim();
   if (!slug) return null;
   const pattern = safeSitePathPattern(github?.sitePathPattern);
+  const language = String(fields?.language || '').trim();
+  const primary = defaultContentLanguage(github?.contentPaths);
+  const optionalLanguage = !language || (primary && language === primary) ? '' : `/${language}`;
   const resolved = pattern
+    .replace(/\{\/language\}/g, optionalLanguage)
     .replace(/\{collection\}/g, String(fields?.collection || '').trim())
-    .replace(/\{language\}/g, String(fields?.language || '').trim())
-    .replace(/\{slug\}/g, slug);
+    .replace(/\{language\}/g, language)
+    .replace(/\{slug\}/g, slug)
+    .replace(/\/{2,}/g, '/');
   if (!resolved.startsWith('/') || resolved.includes('..')) return null;
   return `${siteUrl}${resolved}`;
 }
@@ -399,14 +445,19 @@ function remoteMarkdownEntries(tree, github) {
   const entries = [];
   for (const item of tree || []) {
     if (!item || item.type !== 'blob' || typeof item.path !== 'string') continue;
-    if (!item.path.toLowerCase().endsWith('.md')) continue;
+    const extension = item.path.toLowerCase().endsWith('.mdx')
+      ? '.mdx'
+      : item.path.toLowerCase().endsWith('.md')
+        ? '.md'
+        : '';
+    if (!extension) continue;
     const folder = folders
       .filter((entry) => entry.folder && item.path.startsWith(`${entry.folder}/`))
       .sort((left, right) => right.folder.length - left.folder.length)[0];
     if (!folder) continue;
     const relative = item.path.slice(folder.folder.length + 1);
     if (!relative || relative.includes('/')) continue;
-    const rawSlug = relative.slice(0, -3);
+    const rawSlug = relative.slice(0, -extension.length);
     const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(rawSlug) ? rawSlug : slugify(rawSlug);
     if (!slug) continue;
     entries.push({
@@ -541,6 +592,37 @@ function parseGrant(row) {
   };
 }
 
+function normalizeGithub(input) {
+  if (!input) return undefined;
+  const siteUrl = safeSiteUrl(input.siteUrl);
+  return {
+    repo: input.repo,
+    branch: input.branch,
+    ...(input.pathPrefix && !input.contentPaths
+      ? { pathPrefix: safePrefix(input.pathPrefix) }
+      : {}),
+    ...(input.contentPaths
+      ? {
+        contentPaths: Object.fromEntries(Object.entries(input.contentPaths).map(([key, value]) => [
+          contentPathKey(key),
+          safeContentPath(value),
+        ])),
+      }
+      : {}),
+    ...(siteUrl ? { siteUrl } : {}),
+    sitePathPattern: safeSitePathPattern(input.sitePathPattern),
+  };
+}
+
+function githubReady(github) {
+  return Boolean(github && (github.pathPrefix || Object.keys(github.contentPaths || {}).length));
+}
+
+function normalizeStoredIcon(icon) {
+  if (!icon) return undefined;
+  return { source: icon.source, dataUrl: assertIconDataUrl(icon.dataUrl) };
+}
+
 function createPluginService({ database, fileStorage, windowManager, pluginLoader }) {
   const queries = () => database.getQueries();
 
@@ -559,11 +641,42 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     return grant;
   }
 
+  function prepareSites(plugin, parsed) {
+    if (plugin.id !== 'dome-cms') throw new Error('Only Dome CMS can configure multiple websites');
+    const vaults = new Set();
+    const ids = new Set();
+    const names = new Set();
+    const sites = parsed.sites.map((site) => {
+      if (ids.has(site.id)) throw new Error('Website identifiers must be unique');
+      ids.add(site.id);
+      if (vaults.has(site.projectId)) throw new Error('Each website needs its own vault');
+      vaults.add(site.projectId);
+      const nameKey = site.name.trim().toLocaleLowerCase();
+      if (names.has(nameKey)) throw new Error('Website names must be unique');
+      names.add(nameKey);
+      if (!queries().getProjectById.get(site.projectId)) throw new Error('Vault not found');
+      const siteGithub = normalizeGithub(site.github);
+      if (parsed.permissions.includes('content.publish') && !githubReady(siteGithub)) {
+        throw new Error('GitHub destination is required for publishing');
+      }
+      const icon = normalizeStoredIcon(site.icon);
+      return {
+        id: site.id,
+        name: site.name.trim(),
+        projectId: site.projectId,
+        ...(siteGithub ? { github: siteGithub } : {}),
+        ...(icon ? { icon } : {}),
+      };
+    });
+    return { projectId: sites[0].projectId, github: sites[0].github, sites };
+  }
+
   function configure(pluginId, input) {
     const plugin = getPlugin(pluginId);
     const parsed = configurationSchema.parse(input);
-    const project = queries().getProjectById.get(parsed.projectId);
-    if (!project) throw new Error('Vault not found');
+    if (!parsed.sites && !queries().getProjectById.get(parsed.projectId)) {
+      throw new Error('Vault not found');
+    }
     const declared = new Set(plugin.permissions || []);
     for (const permission of parsed.permissions) {
       if (!declared.has(permission)) throw new Error(`Plugin did not declare ${permission}`);
@@ -571,30 +684,17 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     if ((plugin.permissions || []).some((permission) => !parsed.permissions.includes(permission))) {
       throw new Error('All declared permissions must be reviewed before activation');
     }
-    let github;
-    if (parsed.github) {
-      const siteUrl = safeSiteUrl(parsed.github.siteUrl);
-      github = {
-        repo: parsed.github.repo,
-        branch: parsed.github.branch,
-        ...(parsed.github.pathPrefix && !parsed.github.contentPaths
-          ? { pathPrefix: safePrefix(parsed.github.pathPrefix) }
-          : {}),
-        ...(parsed.github.contentPaths
-          ? {
-            contentPaths: Object.fromEntries(Object.entries(parsed.github.contentPaths).map(([key, value]) => [
-              contentPathKey(key),
-              safeContentPath(value),
-            ])),
-          }
-          : {}),
-        ...(siteUrl ? { siteUrl } : {}),
-        sitePathPattern: safeSitePathPattern(parsed.github.sitePathPattern),
-      };
-    }
-    if (
+    let projectId = parsed.projectId;
+    let github = normalizeGithub(parsed.github);
+    let sites;
+    if (parsed.sites) {
+      const prepared = prepareSites(plugin, parsed);
+      projectId = prepared.projectId;
+      github = prepared.github;
+      sites = prepared.sites;
+    } else if (
       parsed.permissions.includes('content.publish')
-      && (!github || (!github.pathPrefix && !Object.keys(github.contentPaths || {}).length))
+      && !githubReady(github)
     ) {
       throw new Error('GitHub destination is required for publishing');
     }
@@ -602,9 +702,9 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     queries().upsertPluginGrant.run(
       plugin.id,
       plugin.manifestDigest,
-      parsed.projectId,
+      projectId,
       JSON.stringify(parsed.permissions),
-      JSON.stringify({ github }),
+      JSON.stringify(sites ? { sites, github } : { github }),
       now,
       now,
     );
@@ -616,7 +716,14 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const plugin = getPlugin(pluginId);
     const grant = parseGrant(queries().getPluginGrant.get(pluginId));
     if (!grant || grant.manifestDigest !== plugin.manifestDigest) return null;
-    return grant;
+    const sites = cmsSitesFromGrant(grant);
+    if (!sites?.length) return grant;
+    return {
+      ...grant,
+      sites,
+      projectId: sites[0].projectId,
+      github: sites[0].github || grant.github,
+    };
   }
 
   function revoke(pluginId) {
@@ -643,10 +750,10 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     return note;
   }
 
-  function templateFor(plugin) {
+  function templateFor(plugin, grant) {
     const template = plugin.contributes?.vaultTemplate;
     if (!template) throw new Error('Plugin does not contribute a vault template');
-    return template;
+    return applyContentPathOptions(template, grant?.github);
   }
 
   function assertNoteRevision(note, pluginId, params) {
@@ -663,7 +770,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
   }
 
   function createNote(plugin, grant, params) {
-    const template = templateFor(plugin);
+    const template = templateFor(plugin, grant);
     const now = Date.now();
     const id = crypto.randomUUID();
     const requestedFields = params.fields || {};
@@ -712,7 +819,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const metadata = pluginMetadata(current.metadata, plugin.id);
     if (!metadata) throw new Error('Note does not belong to this plugin');
     const fields = normalizeFields(
-      templateFor(plugin),
+      templateFor(plugin, grant),
       params.fields,
       metadata.fields || {},
     );
@@ -749,7 +856,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
   }
 
   function applyTranslations(plugin, grant, params) {
-    const template = templateFor(plugin);
+    const template = templateFor(plugin, grant);
     const source = noteForGrant(params.sourceId, grant);
     assertNoteRevision(source, plugin.id, params);
     const sourceMeta = pluginMetadata(source.metadata, plugin.id);
@@ -897,7 +1004,24 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     return commit.sha;
   }
 
-  async function deleteRemoteFile(grant, filePath, title) {
+  async function readRemoteContentFile(owner, repo, filePath, branch) {
+  try {
+    return {
+      filePath,
+      markdown: await githubApi.getRepositoryFile(owner, repo, filePath, branch),
+    };
+  } catch (error) {
+    if (String(error.message || '') !== 'REMOTE_NOT_FOUND') throw error;
+    const alternate = contentPathFallback(filePath);
+    if (!alternate) throw error;
+    return {
+      filePath: alternate,
+      markdown: await githubApi.getRepositoryFile(owner, repo, alternate, branch),
+    };
+  }
+}
+
+async function deleteRemoteFile(grant, filePath, title) {
     const [owner, repo] = grant.github.repo.split('/');
     const exists = await githubApi.repositoryFileExists(owner, repo, filePath, grant.github.branch);
     if (!exists) return { removed: false };
@@ -960,11 +1084,13 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const note = noteForGrant(params.id, grant);
     const metadata = pluginMetadata(note.metadata, plugin.id);
     if (!metadata) throw new Error('Note does not belong to this plugin');
-    const filePath = entryFilePath(plugin, grant, note);
+    const requestedPath = entryFilePath(plugin, grant, note);
     const [owner, repo] = grant.github.repo.split('/');
-    const markdown = await githubApi.getRepositoryFile(owner, repo, filePath, grant.github.branch);
+    const remote = await readRemoteContentFile(owner, repo, requestedPath, grant.github.branch);
+    const filePath = remote.filePath;
+    const markdown = remote.markdown;
     const parsed = parseCmsDocument(markdown);
-    const template = templateFor(plugin);
+    const template = templateFor(plugin, grant);
     const incoming = {};
     for (const definition of template.fields) {
       if (!Object.hasOwn(parsed.fields, definition.id)) continue;
@@ -1017,6 +1143,55 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     return normalizeFields(template, incoming, {});
   }
 
+  function localEntryForRemote(plugin, local, file, identity) {
+    return local.find((candidate) => {
+      const meta = pluginMetadata(candidate.metadata, plugin.id);
+      if (!meta) return false;
+      if (meta.publication?.path === file.path) return true;
+      const fields = meta.fields || {};
+      const fallback = contentPathFallback(meta.publication?.path || '');
+      if (fallback && fallback === file.path) return true;
+      return `${fields.collection || ''}/${fields.language || ''}/${fields.slug || ''}` === identity;
+    });
+  }
+
+  function refreshExistingEntry(plugin, grant, row, file, parsed, fields, reference) {
+    const title = parsed.title.trim() || file.slug;
+    const body = parsed.body;
+    const meta = pluginMetadata(row.metadata, plugin.id) || {};
+    const now = Math.max(Date.now(), Number(row.updated_at) + 1);
+    const metadata = mergePluginMetadata(row.metadata, plugin.id, {
+      fields,
+      ...(meta.familyId ? { familyId: meta.familyId } : {}),
+      publication: {
+        contentDigest: noteDigest({ title, content: body }, fields),
+        commitSha: reference.object.sha,
+        path: file.path,
+        publishedAt: now,
+      },
+    });
+    const result = queries().updatePluginNoteIfCurrent.run(
+      title,
+      body,
+      JSON.stringify(metadata),
+      now,
+      row.id,
+      row.project_id,
+      row.updated_at,
+    );
+    if (result.changes !== 1) return null;
+    placeCmsNote(grant, row.id, file.path);
+    const mirror = vaultStore.writeNoteMarkdown({ id: row.id, markdown: body }, { database, fileStorage });
+    if (!mirror.success) throw new Error(mirror.error || 'Could not update note mirror');
+    const updated = queries().getResourceById.get(row.id);
+    windowManager.broadcast('resource:updated', { id: row.id, updates: updated });
+    row.updated_at = updated.updated_at;
+    row.metadata = updated.metadata;
+    row.title = updated.title;
+    row.content = updated.content;
+    return serializeNote(updated, plugin.id);
+  }
+
   async function syncRemoteNotes(plugin, grant) {
     if (!grant.permissions.includes('content.publish')) throw new Error('Permission content.publish required');
     if (!grant.github) throw new Error('GitHub destination is not configured');
@@ -1038,25 +1213,25 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
         families.set(`${fields.collection}/${fields.slug}`, meta.familyId);
       }
     }
-    const template = templateFor(plugin);
+    const template = templateFor(plugin, grant);
     const notes = [];
     let imported = 0;
+    let refreshed = 0;
     let skipped = 0;
     let truncatedPosts = false;
     const limit = 40;
     for (const file of remote) {
       const identity = `${file.collection}/${file.language}/${file.slug}`;
-      if (known.has(file.path) || known.has(identity)) {
-        skipped += 1;
-        continue;
-      }
-      if (imported >= limit) {
+      const existing = (known.has(file.path) || known.has(identity))
+        ? localEntryForRemote(plugin, local, file, identity)
+        : null;
+      if (!existing && imported >= limit) {
         truncatedPosts = true;
         break;
       }
-      let markdown;
+      let remoteFile;
       try {
-        markdown = await githubApi.getRepositoryFile(owner, repo, file.path, grant.github.branch);
+        remoteFile = await readRemoteContentFile(owner, repo, file.path, grant.github.branch);
       } catch (error) {
         if (String(error.message || '') === 'REMOTE_NOT_FOUND') {
           skipped += 1;
@@ -1064,6 +1239,8 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
         }
         throw error;
       }
+      file.path = remoteFile.filePath;
+      const markdown = remoteFile.markdown;
       const parsed = parseCmsDocument(markdown);
       const overrides = { slug: file.slug };
       if (file.collection) overrides.collection = file.collection;
@@ -1083,6 +1260,18 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       }
       const title = parsed.title.trim() || file.slug;
       const body = parsed.body;
+      if (existing) {
+        const refreshedNote = refreshExistingEntry(plugin, grant, existing, file, parsed, fields, reference);
+        if (refreshedNote) {
+          notes.push(refreshedNote);
+          refreshed += 1;
+        } else {
+          skipped += 1;
+        }
+        known.add(file.path);
+        known.add(identity);
+        continue;
+      }
       const familyKey = file.collection && file.slug ? `${file.collection}/${file.slug}` : '';
       let familyId = familyKey ? families.get(familyKey) : '';
       if (familyKey && !familyId) {
@@ -1124,7 +1313,9 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const images = await importPublicImages(plugin, grant, owner, repo, tree.tree);
     return {
       imported,
+      refreshed,
       images: images.imported,
+      found: remote.length,
       skipped,
       truncated: Boolean(tree.truncated) || truncatedPosts || images.truncated,
       notes,
@@ -1234,7 +1425,12 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       const metadata = pluginMetadata(note.metadata, plugin.id);
       if (!metadata) continue;
       const grant = parseGrant(queries().getPluginGrant.get(plugin.id));
-      if (!grant || grant.projectId !== note.project_id || grant.manifestDigest !== plugin.manifestDigest) continue;
+      if (!grant || grant.manifestDigest !== plugin.manifestDigest) continue;
+      const sites = cmsSitesFromGrant(grant);
+      const allowed = sites
+        ? sites.some((site) => site.projectId === note.project_id)
+        : grant.projectId === note.project_id;
+      if (!allowed) continue;
       const template = plugin.contributes?.vaultTemplate;
       if (!template) continue;
       return {
@@ -1251,7 +1447,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const schema = getNoteSchema(resourceId);
     if (!schema) throw new Error('No plugin fields for this note');
     const plugin = getPlugin(schema.pluginId);
-    const grant = getGrant(plugin);
+    const grant = scopeGrant(getGrant(plugin), resourceId);
     if (!grant.permissions.includes('notes.write')) throw new Error('Permission notes.write required');
     const note = noteForGrant(resourceId, grant);
     if (note.updated_at !== expectedUpdatedAt) throw new Error('CONFLICT: note changed');
@@ -1317,10 +1513,10 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     };
   }
 
-  function buildAstroDocument(plugin, note) {
+  function buildAstroDocument(plugin, grant, note) {
     const metadata = pluginMetadata(note.metadata, plugin.id);
     if (!metadata) throw new Error('Note does not belong to this plugin');
-    const template = templateFor(plugin);
+    const template = templateFor(plugin, grant);
     const fields = normalizeFields(template, {}, metadata.fields || {});
     for (const definition of template.fields) {
       const value = fields[definition.id];
@@ -1353,7 +1549,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
       });
     }
     const rewritten = rewritePublishedMedia(body, document.fields, publicPaths);
-    const frontmatter = publicationFrontmatter(note.title, rewritten.fields, templateFor(plugin));
+    const frontmatter = publicationFrontmatter(note.title, rewritten.fields, templateFor(plugin, grant));
     const content = `---\n${YAML.stringify(frontmatter).trimEnd()}\n---\n\n${rewritten.markdown}\n`;
     return {
       content,
@@ -1365,7 +1561,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
   async function preparePublication(plugin, grant, resourceId) {
     if (!grant.github) throw new Error('GitHub destination is not configured');
     const note = noteForGrant(resourceId, grant);
-    const document = buildAstroDocument(plugin, note);
+    const document = buildAstroDocument(plugin, grant, note);
     const duplicate = queries().listPluginNotes.all(grant.projectId).find((candidate) => {
       if (candidate.id === note.id) return false;
       const candidateMetadata = pluginMetadata(candidate.metadata, plugin.id);
@@ -1377,9 +1573,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     if (duplicate) throw new Error(`Another CMS note already uses the slug ${document.slug}`);
     const [owner, repo] = grant.github.repo.split('/');
     const reference = await githubApi.getReference(owner, repo, grant.github.branch);
-    const prefix = resolveContentPath(grant.github, document.fields);
-    const filePath = path.posix.join(prefix, `${document.slug}.md`);
-    if (!filePath.startsWith(`${prefix}/`)) throw new Error('Publication path escaped its destination');
+    const filePath = entryFilePath(plugin, grant, note);
     const published = materializePublication(plugin, grant, note, document, filePath);
     const id = crypto.randomUUID();
     const now = Date.now();
@@ -1418,7 +1612,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const markdownPaths = new Set();
     for (const resourceId of unique) {
       const note = noteForGrant(resourceId, grant);
-      const document = buildAstroDocument(plugin, note);
+      const document = buildAstroDocument(plugin, grant, note);
       const duplicate = rows.find((candidate) => {
         if (candidate.id === note.id || unique.includes(candidate.id)) return false;
         const candidateMetadata = pluginMetadata(candidate.metadata, plugin.id);
@@ -1428,9 +1622,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
           && String(candidateFields.language || '') === String(document.fields.language || '');
       });
       if (duplicate) throw new Error(`Another CMS note already uses the slug ${document.slug}`);
-      const prefix = resolveContentPath(grant.github, document.fields);
-      const filePath = path.posix.join(prefix, `${document.slug}.md`);
-      if (!filePath.startsWith(`${prefix}/`)) throw new Error('Publication path escaped its destination');
+      const filePath = entryFilePath(plugin, grant, note);
       if (markdownPaths.has(filePath)) throw new Error('Two selected entries publish to the same file');
       markdownPaths.add(filePath);
       built.push({
@@ -1504,7 +1696,7 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     const notes = [];
     for (const target of targets) {
       const note = noteForGrant(target.resourceId, grant);
-      const document = buildAstroDocument(plugin, note);
+      const document = buildAstroDocument(plugin, grant, note);
       const rebuilt = materializePublication(plugin, grant, note, document, target.path);
       if (rebuilt.content !== target.content || JSON.stringify(rebuilt.files) !== JSON.stringify(target.files)) {
         throw new Error('CONFLICT: note changed after review');
@@ -1620,23 +1812,135 @@ function createPluginService({ database, fileStorage, windowManager, pluginLoade
     };
   }
 
+  function siteForProject(sites, projectId) {
+    const site = sites.find((item) => item.projectId === projectId);
+    if (!site) throw new Error('Note is outside the authorized vault');
+    return site;
+  }
+
+  function siteForResource(sites, resourceId) {
+    const resource = queries().getResourceById.get(resourceId);
+    if (!resource) throw new Error('Note is outside the authorized vault');
+    return siteForProject(sites, resource.project_id);
+  }
+
+  function withSite(grant, site) {
+    if (!site) return grant;
+    return {
+      ...grant,
+      projectId: site.projectId,
+      github: site.github,
+      siteId: site.id,
+      siteName: site.name,
+      icon: site.icon || null,
+    };
+  }
+
+  function siteByHint(sites, siteId) {
+    if (!siteId) return null;
+    const hint = String(siteId);
+    return sites.find((item) => item.id === hint)
+      || sites.find((item) => item.projectId === hint)
+      || sites.find((item) => item.name.localeCompare(hint, undefined, { sensitivity: 'accent' }) === 0)
+      || null;
+  }
+
+  function explicitSite(sites, params) {
+    if (params.siteId) {
+      const site = siteByHint(sites, params.siteId) || (sites.length === 1 ? sites[0] : null);
+      if (!site) throw new Error('Website not found');
+      return site;
+    }
+    if (params.resourceId) return siteForResource(sites, params.resourceId);
+    if (sites.length === 1) return sites[0];
+    throw new Error(`Choose a website: ${sites.map((site) => site.name).join(', ')}`);
+  }
+
+  function scopeGrant(grant, resourceId) {
+    const sites = cmsSitesFromGrant(grant);
+    if (!sites) return grant;
+    return withSite(grant, siteForResource(sites, resourceId));
+  }
+
+  function grantForRequest(grant, method, params) {
+    const sites = cmsSitesFromGrant(grant);
+    if (!sites) return grant;
+    if (method === 'host.context') {
+      if (params.siteId) {
+        const site = siteByHint(sites, params.siteId) || (sites.length === 1 ? sites[0] : null);
+        if (!site) throw new Error('Website not found');
+        return withSite(grant, site);
+      }
+      if (params.resourceId) return withSite(grant, siteForResource(sites, params.resourceId));
+      return withSite(grant, sites[0]);
+    }
+    if (method === 'notes.list' || method === 'notes.listReadonly' || method === 'notes.create' || method === 'notes.sync' || method === 'media.list') {
+      return withSite(grant, explicitSite(sites, params));
+    }
+    if (method === 'publication.prepareMany') {
+      let site = null;
+      for (const resourceId of params.resourceIds) {
+        const next = siteForResource(sites, resourceId);
+        if (site && site.id !== next.id) throw new Error('Selected entries must belong to the same website');
+        site = next;
+      }
+      return withSite(grant, site);
+    }
+    if (method === 'publication.prepare' || method === 'media.attach') {
+      return withSite(grant, siteForResource(sites, params.resourceId));
+    }
+    if (method === 'notes.applyTranslations') {
+      return withSite(grant, siteForResource(sites, params.sourceId));
+    }
+    if (method === 'notes.get' || method === 'notes.update' || method === 'notes.open' || method === 'notes.delete' || method === 'notes.pull' || method === 'media.delete') {
+      return withSite(grant, siteForResource(sites, params.id));
+    }
+    if (method === 'publication.requestApproval' || method === 'publication.cancel' || method === 'publication.get') {
+      const row = queries().getPluginPublication.get(params.id, pluginIdOf(grant));
+      if (!row) return grant;
+      return withSite(grant, siteForProject(sites, row.project_id));
+    }
+    return grant;
+  }
+
+  function pluginIdOf(grant) {
+    return grant.pluginId;
+  }
+
+  function hostContext(plugin, grant) {
+    const project = queries().getProjectById.get(grant.projectId);
+    const sites = cmsSitesFromGrant(grant);
+    return {
+      apiVersion: 1,
+      plugin: { id: plugin.id, version: plugin.version },
+      vault: { id: grant.projectId, name: project?.name || '' },
+      template: applyContentPathOptions(plugin.contributes?.vaultTemplate || null, grant.github),
+      destination: grant.github || null,
+      ...(sites?.length ? {
+        siteId: grant.siteId,
+        sites: sites.map((site) => {
+          const siteProject = queries().getProjectById.get(site.projectId);
+          return {
+            id: site.id,
+            name: site.name,
+            icon: site.icon || null,
+            vault: { id: site.projectId, name: siteProject?.name || '' },
+            destination: site.github || null,
+          };
+        }),
+      } : {}),
+    };
+  }
+
   async function request(pluginId, method, input, parentWindow) {
     const plugin = getPlugin(pluginId);
-    const grant = getGrant(plugin);
+    const storedGrant = getGrant(plugin);
     if (!Object.hasOwn(METHOD_PERMISSIONS, method)) throw new Error('Unsupported plugin method');
     const required = METHOD_PERMISSIONS[method];
-    if (required && !grant.permissions.includes(required)) throw new Error(`Permission ${required} required`);
+    if (required && !storedGrant.permissions.includes(required)) throw new Error(`Permission ${required} required`);
     const params = METHOD_SCHEMAS[method].parse(input || {});
-    if (method === 'host.context') {
-      const project = queries().getProjectById.get(grant.projectId);
-      return {
-        apiVersion: 1,
-        plugin: { id: plugin.id, version: plugin.version },
-        vault: { id: grant.projectId, name: project?.name || '' },
-        template: plugin.contributes?.vaultTemplate || null,
-        destination: grant.github || null,
-      };
-    }
+    const grant = grantForRequest(storedGrant, method, params);
+    if (method === 'host.context') return hostContext(plugin, grant);
     if (method === 'notes.list' || method === 'notes.listReadonly') {
       if (method === 'notes.list' && grant.permissions.includes('notes.write')) organizeCmsNotes(plugin, grant);
       return queries().listPluginNotes.all(grant.projectId)
@@ -1705,6 +2009,7 @@ module.exports = {
   remoteMarkdownEntries,
   remotePublicImages,
   rewritePublishedMedia,
+  contentPathFallback,
   safeEntryPath,
   safePublicMediaPath,
   safeSitePathPattern,
