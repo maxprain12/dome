@@ -78,6 +78,16 @@ describe('SocialWorkspaceShell', () => {
     expect(screen.queryByRole('tab', { name: /tarjetas/i })).not.toBeInTheDocument();
   });
 
+  it('keeps all destinations reachable from the compact section selector', async () => {
+    const user = userEvent.setup();
+    render(<SocialWorkspaceShell />);
+    await user.click(await screen.findByRole('combobox', { name: 'Secciones de Social' }));
+    expect(screen.getAllByRole('option')).toHaveLength(10);
+    await user.click(screen.getByRole('option', { name: 'Insights' }));
+    expect(await screen.findByRole('heading', { name: 'Insights' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Secciones de Social' })).toHaveTextContent('Insights');
+  });
+
   it('creates campaigns through an accessible form instead of browser prompts', async () => {
     const user = userEvent.setup();
     render(<SocialWorkspaceShell />);
@@ -158,6 +168,24 @@ describe('SocialWorkspaceShell', () => {
     workspaceData.posts = [];
   });
 
+  it('opens the complete draft queue and lets recent publications reset the filter', async () => {
+    const user = userEvent.setup();
+    workspaceData.posts = Array.from({ length: 6 }, (_, index) => ({
+      id: `draft-${index}`, status: 'draft', body: `Pending story ${index}`, scheduledAt: null,
+      provider: 'linkedin', accountId: null, media: [], linkUrl: null, topics: [],
+      campaign: null, publishedAt: null, externalPostId: null, externalUrl: null,
+      error: null, createdBy: 'user', groupId: null, createdAt: index, updatedAt: index,
+    }));
+    render(<SocialWorkspaceShell />);
+    await user.click(await screen.findByRole('button', { name: /Borradores/ }));
+    await user.click(screen.getByRole('button', { name: 'Ver todas (6)' }));
+    expect(screen.getByRole('heading', { name: 'Contenido' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Pending story 0/ })).toBeVisible();
+    await user.click(screen.getByRole('tab', { name: 'Inicio' }));
+    await user.click(screen.getByRole('button', { name: 'Ver todo' }));
+    expect(screen.getByRole('button', { name: /Pending story 0/ })).toBeVisible();
+  });
+
   it('opens the dedicated composer workspace', async () => {
     const user = userEvent.setup();
     render(<SocialWorkspaceShell />);
@@ -171,9 +199,12 @@ describe('SocialWorkspaceShell', () => {
     const user = userEvent.setup();
     render(<SocialWorkspaceShell />);
 
-    await user.click(await screen.findByRole('tab', { name: 'Insights' }));
+    await user.click(await screen.findByRole('button', { name: 'Herramientas' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Insights' }));
 
     expect(screen.getByRole('heading', { name: 'Insights' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Insights' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Inicio' })).toHaveAttribute('aria-selected', 'false');
     expect(await screen.findByText('Aún no hay informes')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Ver leads' })).toBeVisible();
     expect(window.electron.invoke).toHaveBeenCalledWith('social:reports:list');

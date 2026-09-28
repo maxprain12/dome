@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dome · UX cognitiva"
+  short_description: "Revisar flujos con siete principios de UX"
+  default_prompt: "Usa $dome-cognitive-ux para revisar el área indicada de Dome, conservar lo que funciona y corregir fricción demostrable."

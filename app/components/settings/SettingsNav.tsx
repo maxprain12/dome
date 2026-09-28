@@ -16,6 +16,10 @@ import { ShellSidebar } from '@/components/shared/ShellSidebar';
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 
 
+function normalizeSearch(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim();
+}
+
 interface SettingsNavProps {
   collapsed: boolean;
 }
@@ -38,13 +42,13 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
   );
 
   const visibleGroups = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeSearch(query);
     if (!q) return groups;
     return groups
       .map((group) => ({
         ...group,
         entries: group.entries.filter((entry) => {
-          const haystack = [
+          const haystack = normalizeSearch([
             t(entry.titleKey),
             t(entry.groupLabelKey),
             t(`settingsGuide.sections.${entry.id}.description`),
@@ -52,9 +56,8 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
             ...entry.keywords,
             ...entry.legacyAliases,
           ]
-            .join(' ')
-            .toLowerCase();
-          return haystack.includes(q);
+            .join(' '));
+          return q.split(/\s+/).every((word) => haystack.includes(word));
         }),
       }))
       .filter((group) => group.entries.length > 0);
@@ -62,7 +65,7 @@ export default function SettingsNav({ collapsed }: SettingsNavProps) {
 
   const normalizedActive = resolveSettingsSection(activeSection);
   const firstMatch = visibleGroups.flatMap((group) => group.entries).find(
-    (entry) => t(entry.titleKey).toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
+    (entry) => normalizeSearch(t(entry.titleKey)) === normalizeSearch(query),
   ) ?? visibleGroups[0]?.entries[0];
 
   const selectSection = (section: SettingsSection) => {

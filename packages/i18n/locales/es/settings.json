@@ -61,7 +61,8 @@
     "photo_error": "No se ha podido guardar la foto. Comprueba que has iniciado sesión en Dome.",
     "privacy": "Privacidad",
     "analytics_label": "Compartir datos de uso anónimos",
-    "analytics_description": "Ayuda a mejorar Dome entendiendo cómo se usa la app. Los datos son completamente anónimos."
+    "analytics_description": "Ayuda a mejorar Dome entendiendo cómo se usa la app. Los datos son completamente anónimos.",
+    "unsaved_changes": "Cambios sin guardar"
   },
   "appearance": {
     "title": "Apariencia",

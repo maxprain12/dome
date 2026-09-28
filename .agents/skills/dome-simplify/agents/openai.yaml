@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dome · Simplificar"
+  short_description: "Eliminar complejidad desde primeros principios"
+  default_prompt: "Usa $dome-simplify para cuestionar esta implementación de Dome y aplicar únicamente simplificaciones justificadas."
