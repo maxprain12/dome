@@ -154,7 +154,7 @@ function cacheSet(database, card) {
     database.getQueries().upsertSocialPublicSnapshot.run(
       `sps-${crypto.randomBytes(8).toString('hex')}`,
       card.url,
-      JSON.stringify(card).slice(0, 80000),
+      JSON.stringify(card),
       card.fetchMethod,
       now + SNAPSHOT_TTL_MS,
       now,
@@ -233,13 +233,13 @@ async function enrichInstagramRecentPosts(posts) {
  * @param {{ store: object, database?: object }} deps
  * @param {{ url: string }} input
  */
-async function resolvePublicSocial(deps, { url }) {
+async function resolvePublicSocial(deps, { url, forceRefresh = false }) {
   const parsed = parseSocialUrl(url);
   if (!parsed) {
     return { success: false, error: 'URL is not a supported Instagram, X or LinkedIn profile or post.' };
   }
 
-  const cached = cacheGet(deps.database, parsed.canonicalUrl);
+  const cached = forceRefresh ? null : cacheGet(deps.database, parsed.canonicalUrl);
   if (cached) return { success: true, source: 'social_public', card: cached, cached: true };
 
   const localPost = findLocalPost(deps.store, parsed);
@@ -281,7 +281,9 @@ async function resolvePublicSocial(deps, { url }) {
     };
     const avatarUrl = jsonProfile.avatarUrl || og.image || null;
     let recentPosts = parsed.kind === 'profile'
-      ? extractPublicPostsFromHtml(og.html, parsed.provider).map((post) => ({
+      ? extractPublicPostsFromHtml(og.html, parsed.provider)
+        .filter((post) => !post.author?.handle || !parsed.handle || post.author.handle.replace(/^@/, '').toLowerCase() === parsed.handle.replace(/^@/, '').toLowerCase())
+        .map((post) => ({
           ...post,
           author: {
             name: post.author.name || jsonProfile.name || cleanProfileName(og.title, parsed.handle),

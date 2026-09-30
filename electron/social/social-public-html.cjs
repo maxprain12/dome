@@ -191,7 +191,7 @@ function asPublicPost(node, provider) {
 }
 
 function walkPosts(node, provider, acc, seen) {
-  if (!node || acc.length >= 12) return;
+  if (!node || acc.length >= 400) return;
   if (typeof node !== 'object') return;
   if (seen.has(node)) return;
   seen.add(node);
@@ -232,9 +232,9 @@ function extractPublicPostsFromHtml(html, provider) {
     } catch {
       /* ignore malformed page JSON */
     }
-    if (posts.length >= 12) break;
+    if (posts.length >= 400) break;
   }
-  return posts.slice(0, 12);
+  return posts.slice(0, 400);
 }
 
 function looksLikeProfileNode(node) {

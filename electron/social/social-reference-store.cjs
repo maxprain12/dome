@@ -15,6 +15,7 @@ function parseJson(raw, fallback) {
 
 function serializeReference(row) {
   if (!row) return null;
+  const source = parseJson(row.source_json, {}) || {};
   return {
     id: row.id,
     projectId: row.project_id,
@@ -37,7 +38,7 @@ function serializeReference(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     author: {
-      name: row.title || row.display_name || row.provider,
+      name: source.authorName || row.title || row.display_name || row.provider,
       handle: parseJson(row.source_json, {})?.authorHandle || null,
       avatarUrl: parseJson(row.source_json, {})?.avatarUrl || null,
     },
@@ -67,10 +68,10 @@ function avatarFromEvidence(member, references) {
   const handle = String(member?.handle || '').replace(/^@/, '').toLowerCase();
   const url = String(member?.profileUrl || '');
   const matches = (references || []).filter((item) => {
-    if (!item?.author?.avatarUrl) return false;
+    if (!item?.author?.avatarUrl || item.provider !== member.provider) return false;
     const itemHandle = String(item.author.handle || '').replace(/^@/, '').toLowerCase();
     if (handle && itemHandle && handle === itemHandle) return true;
-    if (url && item.url && (item.url === url || String(item.url).startsWith(url))) return true;
+    if (url && item.url && String(item.url).replace(/\/$/, '') === url.replace(/\/$/, '')) return true;
     return false;
   });
   const profile = matches.find((item) => item.kind === 'profile' || item.format === 'profile');
@@ -79,9 +80,9 @@ function avatarFromEvidence(member, references) {
 
 function createSocialReferenceStore(database, { radarStore } = {}) {
   const q = () => database.getQueries();
-  const snapshotMetrics = (referenceId, metrics) => {
+  const snapshotMetrics = (referenceId, metrics, capturedAt) => {
     try {
-      radarStore?.snapshotReferenceMetrics?.(referenceId, metrics);
+      radarStore?.snapshotReferenceMetrics?.(referenceId, metrics, capturedAt);
     } catch {
       // snapshots are best-effort; capture must still succeed
     }
@@ -104,9 +105,11 @@ function createSocialReferenceStore(database, { radarStore } = {}) {
     if (!provider) throw new Error('Unsupported social URL.');
     const existing = q().getSocialReferenceByUrl.get(projectId, canonical);
     const now = Date.now();
+    const previous = existing ? serializeReference(existing) : null;
     const rawTitle =
       card?.author?.name ||
       card?.title ||
+      previous?.title ||
       parsed?.handle ||
       provider;
     const title = cleanProfileName(decodeEntities(String(rawTitle || '')), parsed?.handle || card?.author?.handle)
@@ -118,24 +121,24 @@ function createSocialReferenceStore(database, { radarStore } = {}) {
       title,
       body: card?.body || existing?.body || null,
       format: card?.kind === 'profile' ? 'profile' : card?.format || parsed?.kind || null,
-      topics: card?.topics || [],
-      media: card?.media || [],
-      metrics: card?.metrics || null,
+      topics: card?.topics?.length ? card.topics : previous?.topics || [],
+      media: card?.media?.length ? card.media : previous?.media || [],
+      metrics: card?.metrics ? { ...previous?.metrics, ...Object.fromEntries(Object.entries(card.metrics).filter(([, value]) => value != null)) } : previous?.metrics || null,
       source: {
-        authorName: card?.author?.name,
-        authorHandle: card?.author?.handle,
-        avatarUrl: card?.author?.avatarUrl,
-        followers: card?.followers ?? null,
-        following: card?.following ?? null,
-        postsCount: card?.postsCount ?? null,
-        publishedAt: card?.publishedAt ?? null,
+        authorName: card?.author?.name || previous?.author?.name,
+        authorHandle: card?.author?.handle || previous?.author?.handle || parsed?.handle,
+        avatarUrl: card?.author?.avatarUrl || previous?.author?.avatarUrl,
+        followers: card?.followers ?? previous?.followers ?? null,
+        following: card?.following ?? previous?.following ?? null,
+        postsCount: card?.postsCount ?? previous?.postsCount ?? null,
+        publishedAt: card?.publishedAt ?? previous?.publishedAt ?? null,
       },
       sourceKind: card?.fetchMethod || sourceKind,
       limitations: card?.limitations || [],
       notes: notes ?? existing?.notes ?? null,
     };
     if (existing) {
-      snapshotMetrics(existing.id, parseJson(existing.metrics_json, null));
+      snapshotMetrics(existing.id, parseJson(existing.metrics_json, null), existing.captured_at);
       q().updateSocialReference.run(
         payload.personId, payload.resourceId, payload.title, payload.body, payload.format,
         JSON.stringify(payload.topics), JSON.stringify(payload.media),
@@ -161,7 +164,8 @@ function createSocialReferenceStore(database, { radarStore } = {}) {
     return { reference: serializeReference(q().getSocialReferenceById.get(id)), created: true };
   }
 
-  function listReferences({ projectId = 'default', limit = 80 } = {}) {
+  function listReferences({ projectId = 'default', personId = null, limit = 80, offset = 0 } = {}) {
+    if (personId) return q().listSocialCreatorReferences.all(projectId, personId, limit, offset).map(serializeReference);
     return q().listSocialReferences.all(projectId, limit).map(serializeReference);
   }
 

@@ -115,3 +115,37 @@ describe('radar clustering and MMR', () => {
     assert.equal(ranked[1].id, '3');
   });
 });
+
+it('does not manufacture evolution from independent post metrics or duplicate hashtag aliases', () => {
+  const now = Date.now();
+  const items = [1, 2, 3].map((id) => ({
+    id: String(id), url: `https://x.com/ada/status/${id}`, provider: 'x',
+    topics: ['ai', '#ai'], body: `#ai post ${id}`, author: { handle: 'ada' },
+    publishedAt: now - id * score.DAY_MS, metrics: { likes: id * 100 },
+  }));
+  const [cluster] = clusterItems(items, { now });
+  assert.equal(cluster.postCount, 3);
+  assert.equal(cluster.phase, 'observed');
+  assert.equal(cluster.velocity, 0);
+  assert.equal(cluster.evidenceStats.trackedPostCount, 0);
+  assert.equal(cluster.evidenceStats.measuredPostCount, 3);
+  assert.ok(cluster.limitations.includes('insufficient_temporal_evidence'));
+  assert.equal(cluster.evidence[0].body, '#ai post 1');
+});
+
+it('compares measurements within each post and distinguishes authors on different networks', () => {
+  const now = Date.now();
+  const items = ['x', 'instagram'].map((provider, index) => ({
+    id: provider, url: `https://example.com/${provider}`, provider, topics: ['design'], author: { handle: 'ada' },
+    metrics: { likes: 10 + index * 10000 },
+    metricSeries: [
+      { t: now - 2 * score.DAY_MS, metrics: { likes: 10 + index * 10000 } },
+      { t: now, metrics: { likes: 10 + index * 10000 } },
+    ],
+  }));
+  const [cluster] = clusterItems(items, { now });
+  assert.equal(cluster.authorCount, 2);
+  assert.equal(cluster.evidenceStats.trackedPostCount, 2);
+  assert.equal(cluster.velocity, 0);
+  assert.equal(asEvidence({ capturedAt: now }).publishedAt, null);
+});

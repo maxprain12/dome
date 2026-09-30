@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SocialProvider } from '@/components/social/socialTypes';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -19,7 +19,9 @@ export function useSocialTrendsRadar() {
   const [exploringTheme, setExploringTheme] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const requestId = useRef(0);
   const refresh = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     setLoading(true);
     try {
       const res = await window.electron.invoke('social:trends:snapshot', {
@@ -27,18 +29,21 @@ export function useSocialTrendsRadar() {
         windowDays,
         language: i18n.language?.slice(0, 2),
       });
+      if (currentRequest !== requestId.current) return;
       if (!res?.success) throw new Error(res?.error || 'Error');
       setSnapshot(res.data as RadarSnapshot);
       setError(null);
     } catch (reason) {
+      if (currentRequest !== requestId.current) return;
       setError(reason instanceof Error ? reason.message : 'Error');
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) setLoading(false);
     }
   }, [i18n.language, projectId, windowDays]);
 
   useEffect(() => {
     refresh().catch(() => {});
+    return () => { requestId.current += 1; };
   }, [refresh]);
 
   const clusters = useMemo(() => {

@@ -891,7 +891,19 @@
     "empty_emerging_title": "Nothing emerging with several authors",
     "empty_emerging_description": "Emerging needs recent velocity and more than one author. Your radar still shows the local benchmark.",
     "empty_popular_title": "Nothing popular with enough evidence",
-    "empty_popular_description": "Popular needs volume, a peak phase and at least three authors. Explore is never invented."
+    "empty_popular_description": "Popular needs volume, a peak phase and at least three authors. Explore is never invented.",
+    "phase_observed": "Observed topic",
+    "phase_why_observed": "The sample does not establish a growing trend.",
+    "posts_count": "{{count}} posts",
+    "measurement_basis": "Last {{days}} days · {{measured}} posts with metrics · {{tracked}} tracked over time",
+    "shared_sample": "Shared sample; it does not represent the whole platform.",
+    "local_scope": "Based on your posts and saved references, not the entire network.",
+    "view_evidence": "View data and sources",
+    "evidence_sample": "{{shown}} examples from {{total}} posts in the sample.",
+    "sample_likes": "Examples: {{likes}} likes across {{posts}} posts with data.",
+    "local_phase_explanation": "Estimated classification based on changes in interactions on sampled posts.",
+    "authors_count_one": "{{count}} author",
+    "authors_count_other": "{{count}} authors"
   },
   "prompts": {
     "add_competitor": "Add competitor",
@@ -988,6 +1000,17 @@
     "format_all": "All",
     "views_count": "{{count}} views",
     "likes_count": "{{count}} likes",
-    "comments_count": "{{count}} comments"
+    "comments_count": "{{count}} comments",
+    "refresh_history": "Refresh posts",
+    "refreshing_history": "Refreshing…",
+    "loading_history": "Loading saved history…",
+    "history_coverage": "{{count}} saved posts available for analysis",
+    "history_period": "Available publication dates: {{from}} – {{to}}.",
+    "history_undated": "No verified publication dates available.",
+    "history_partial": "Partial history: refreshing retrieves publicly exposed content, without guaranteeing older posts. You can add older URLs. Above 120 posts, analysis uses a sample spread across the entire period.",
+    "profile_following": "following",
+    "profile_postsCount": "posts on profile",
+    "no_matching_posts": "No posts match these filters.",
+    "back_to_creators": "Back to creators"
   }
 }

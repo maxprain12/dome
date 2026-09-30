@@ -891,7 +891,19 @@
     "empty_emerging_title": "Nada emergente con varios autores",
     "empty_emerging_description": "Hace falta velocidad reciente y más de un autor. Tu radar sigue mostrando el benchmark local.",
     "empty_popular_title": "Nada popular con evidencia suficiente",
-    "empty_popular_description": "Populares exige volumen, cima y al menos tres autores. No se rellena con Explore inventado."
+    "empty_popular_description": "Populares exige volumen, cima y al menos tres autores. No se rellena con Explore inventado.",
+    "phase_observed": "Tema observado",
+    "phase_why_observed": "La muestra no demuestra una tendencia de crecimiento.",
+    "posts_count": "{{count}} publicaciones",
+    "measurement_basis": "Últimos {{days}} días · {{measured}} publicaciones con métricas · {{tracked}} con seguimiento temporal",
+    "shared_sample": "Muestra compartida; no representa toda la plataforma.",
+    "local_scope": "Basado en tus publicaciones y referencias guardadas, no en toda la red.",
+    "view_evidence": "Ver datos y fuentes",
+    "evidence_sample": "{{shown}} ejemplos de {{total}} publicaciones de la muestra.",
+    "sample_likes": "Ejemplos: {{likes}} Me gusta en {{posts}} publicaciones con datos.",
+    "local_phase_explanation": "Clasificación estimada a partir de la evolución de interacciones en las publicaciones de la muestra.",
+    "authors_count_one": "{{count}} autor",
+    "authors_count_other": "{{count}} autores"
   },
   "prompts": {
     "add_competitor": "Añadir competidor",
@@ -988,6 +1000,17 @@
     "format_all": "Todos",
     "views_count": "{{count}} vistas",
     "likes_count": "{{count}} likes",
-    "comments_count": "{{count}} comentarios"
+    "comments_count": "{{count}} comentarios",
+    "refresh_history": "Actualizar publicaciones",
+    "refreshing_history": "Actualizando…",
+    "loading_history": "Cargando el historial guardado…",
+    "history_coverage": "{{count}} publicaciones guardadas para el análisis",
+    "history_period": "Fechas de publicación disponibles: {{from}} – {{to}}.",
+    "history_undated": "No hay fechas de publicación verificadas.",
+    "history_partial": "Historial parcial: actualizar recupera lo que la red expone públicamente, sin garantizar publicaciones anteriores. Puedes añadir URLs antiguas. Con más de 120 publicaciones, el análisis usa una muestra repartida por todo el periodo.",
+    "profile_following": "seguidos",
+    "profile_postsCount": "publicaciones en el perfil",
+    "no_matching_posts": "Ninguna publicación coincide con estos filtros.",
+    "back_to_creators": "Volver a creadores"
   }
 }

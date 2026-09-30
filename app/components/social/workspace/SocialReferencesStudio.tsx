@@ -28,10 +28,13 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { askStudioMany } from '@/components/studio-hub/askStudioMany';
 import { looksLikeOpaqueId } from '@/lib/social/socialQueues';
 import { formatSocialProfilePinLabel } from '@/lib/chat/pinLabels';
+import { useSocialCreatorHistory } from '@/lib/social/useSocialCreatorHistory';
+import { cn } from '@/lib/utils';
 import { showToast } from '@/lib/store/useToastStore';
 
 export type SocialReferenceRecord = {
   id: string;
+  personId?: string | null;
   provider: 'linkedin' | 'instagram' | 'x';
   url: string;
   title: string;
@@ -130,10 +133,12 @@ function creatorLabel(
 }
 
 function matchesCreator(item: SocialReferenceRecord, member: SocialWatchlistRecord['members'][number]): boolean {
+  if (item.provider !== member.provider) return false;
+  if (item.personId === member.personId) return true;
   const handle = String(member.handle || '').replace(/^@/, '').toLowerCase();
   const itemHandle = String(item.author?.handle || '').replace(/^@/, '').toLowerCase();
   if (handle && itemHandle && handle === itemHandle) return true;
-  if (member.profileUrl && item.url && (item.url === member.profileUrl || item.url.startsWith(member.profileUrl))) {
+  if (member.profileUrl && item.url && item.url.replace(/\/$/, '') === member.profileUrl.replace(/\/$/, '')) {
     return true;
   }
   return false;
@@ -182,6 +187,7 @@ export function SocialReferencesStudio({
   const [saving, setSaving] = useState(false);
   const [exploring, setExploring] = useState(false);
   const [viewKind, setViewKind] = useState<'inspiration' | 'competitor' | 'following'>('inspiration');
+  const [showDirectory, setShowDirectory] = useState(true);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
 
   const activeList = watchlists.find((list) => list.kind === viewKind) || null;
@@ -235,6 +241,7 @@ export function SocialReferencesStudio({
         setViewKind(list.kind);
       }
       setSelectedPersonId(member.personId);
+      setShowDirectory(false);
       return;
     }
   }, [focusCreator, watchlists]);
@@ -264,17 +271,33 @@ export function SocialReferencesStudio({
       setExplorations([]);
       return;
     }
+    let cancelled = false;
+    setExplorations([]);
     window.electron.invoke('social:explorations:list', { projectId, personId: selected.personId, limit: 12 })
       .then((res) => {
-        if (res?.success) setExplorations(Array.isArray(res.data) ? res.data : []);
+        if (!cancelled && res?.success) setExplorations(Array.isArray(res.data) ? res.data : []);
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [projectId, selected?.personId]);
 
-  const evidence = useMemo(() => {
-    if (!selected) return [];
-    return references.filter((item) => matchesCreator(item, selected));
-  }, [references, selected]);
+  const history = useSocialCreatorHistory(projectId, selected?.personId);
+  const evidence = history.records;
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshProfile = async () => {
+    if (!selected?.profileUrl) return;
+    setRefreshing(true);
+    try {
+      const response = await window.electron.invoke('social:references:capture', {
+        projectId, personId: selected.personId, url: selected.profileUrl, forceRefresh: true,
+      });
+      if (!response?.success) throw new Error(response?.error || 'Error');
+      history.reload();
+      await load();
+    } catch (reason) {
+      showToast('error', reason instanceof Error ? reason.message : t('common.error'));
+    } finally { setRefreshing(false); }
+  };
 
   const profileEvidence = evidence.find((item) => item.kind === 'profile') || null;
   const postEvidence = evidence.filter((item) => item.kind !== 'profile');
@@ -325,13 +348,14 @@ export function SocialReferencesStudio({
         const nextMember = members.find((item) => {
           const handle = String(captured.author?.handle || '').replace(/^@/, '').toLowerCase();
           const itemHandle = String(item.handle || '').replace(/^@/, '').toLowerCase();
-          if (handle && itemHandle && handle === itemHandle) return true;
+          if (handle && itemHandle && handle === itemHandle && item.provider === captured.provider) return true;
           return Boolean(captured.url && item.profileUrl === captured.url);
         }) || members[0];
-        if (nextMember?.personId) setSelectedPersonId(nextMember.personId);
+        if (nextMember?.personId) { setSelectedPersonId(nextMember.personId); setShowDirectory(false); }
       }
       setUrl('');
       await load();
+      history.reload();
       const extra = data?.recentPosts?.length ?? 0;
       if (extra > 0) showToast('success', t('social.insights.public_posts', { count: extra }));
     } catch (reason) {
@@ -415,6 +439,7 @@ export function SocialReferencesStudio({
             if (next === 'inspiration' || next === 'competitor' || next === 'following') {
               setViewKind(next);
               setSelectedPersonId(null);
+              setShowDirectory(true);
             }
           }}
         >
@@ -429,7 +454,7 @@ export function SocialReferencesStudio({
           })}
         </ToggleGroup>
         <form
-          className="flex min-w-0 flex-1 items-center gap-2"
+          className="flex min-w-[min(100%,18rem)] flex-1 items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             capture().catch(() => {});
@@ -486,7 +511,7 @@ export function SocialReferencesStudio({
       {error ? <p className="px-6 py-2 text-sm text-destructive">{error}</p> : null}
 
       <SocialHubSplit>
-        <div className="flex h-full min-h-0 w-[21rem] shrink-0 flex-col border-r">
+        <div className={cn("h-full min-h-0 w-full shrink-0 flex-col border-r @48rem/social-row:flex @48rem/social-row:w-[21rem]", showDirectory || !selected ? "flex" : "hidden")}>
         <SocialDirectoryColumn
           query={members.length > 0 ? query : undefined}
           onQueryChange={members.length > 0 ? setQuery : undefined}
@@ -574,13 +599,13 @@ export function SocialReferencesStudio({
                   <SocialCreatorPick
                     key={member.personId}
                     selected={selected?.personId === member.personId}
-                    onClick={() => setSelectedPersonId(member.personId)}
+                    onClick={() => { setSelectedPersonId(member.personId); setShowDirectory(false); }}
                     name={name}
                     handle={member.handle ? `@${String(member.handle).replace(/^@/, '')}` : null}
                     provider={member.provider ? PROVIDER_LABELS[member.provider as keyof typeof PROVIDER_LABELS] : null}
                     avatarUrl={creatorAvatarSrc(member, references)}
                     covers={coversFromPosts(posts)}
-                    meta={posts.length > 0 ? t('social.creators.posts_count', { count: posts.length }) : null}
+                    meta={null}
                   />
                 );
               })}
@@ -589,7 +614,15 @@ export function SocialReferencesStudio({
         </SocialDirectoryColumn>
         </div>
         {selected ? (
+          <div className={cn("min-h-0 min-w-0 flex-1 flex-col @48rem/social-row:flex", showDirectory ? "hidden" : "flex")}>
+          <Button type="button" variant="ghost" className="m-2 self-start @48rem/social-row:hidden" onClick={() => setShowDirectory(true)}>{t('social.creators.back_to_creators')}</Button>
           <SocialCreatorProfilePane
+            key={`${projectId}:${selected.personId}`}
+            loading={history.loading}
+            error={history.error}
+            refreshing={refreshing}
+            onRefresh={() => { refreshProfile().catch(() => {}); }}
+            onRetry={history.reload}
             member={{
               ...selected,
               avatarUrl: creatorAvatarSrc(selected, references),
@@ -603,6 +636,7 @@ export function SocialReferencesStudio({
             onRemove={() => { removeMember(selected.personId).catch(() => {}); }}
             onPlanPost={planFromEvidence}
           />
+          </div>
         ) : (
           <SocialFichaEmpty
             title={t('social.creators.empty_title')}

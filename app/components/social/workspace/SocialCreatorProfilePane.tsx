@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -96,7 +97,17 @@ export function SocialCreatorProfilePane({
   onUseInMany,
   onRemove,
   onPlanPost,
+  loading = false,
+  error = null,
+  refreshing = false,
+  onRefresh,
+  onRetry,
 }: {
+  loading?: boolean;
+  error?: string | null;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+  onRetry?: () => void;
   member: CreatorMember;
   listLabel: string;
   profile: CreatorProfile | null;
@@ -130,6 +141,11 @@ export function SocialCreatorProfilePane({
       .map((item) => item.metrics?.impressions)
       .filter((value): value is number => typeof value === 'number' && Number.isFinite(value)),
   );
+  const dates = posts.map((item) => item.publishedAt).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const period = dates.length ? {
+    from: new Date(Math.min(...dates)).toLocaleDateString(i18n.language),
+    to: new Date(Math.max(...dates)).toLocaleDateString(i18n.language),
+  } : null;
   const compact = (value: number) =>
     Intl.NumberFormat(i18n.language, { notation: 'compact' }).format(value);
 
@@ -176,9 +192,12 @@ export function SocialCreatorProfilePane({
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="secondary">{t('social.creators.in_list', { list: listLabel })}</Badge>
-                    <Button type="button" size="xs" onClick={onExplore} disabled={exploring}>
+                    <Button type="button" size="xs" onClick={onExplore} disabled={exploring || loading || refreshing || posts.length === 0}>
                       {exploring ? t('social.creators.exploring') : t('social.creators.explore_now')}
                     </Button>
+                    {onRefresh ? <Button type="button" size="sm" variant="outline" onClick={onRefresh} disabled={refreshing || loading || !profileUrl}>
+                      {refreshing ? t('social.creators.refreshing_history') : t('social.creators.refresh_history')}
+                    </Button> : null}
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={<Button type="button" variant="ghost" size="icon-xs" />}
@@ -187,6 +206,7 @@ export function SocialCreatorProfilePane({
                         <HugeiconsIcon icon={MoreHorizontalIcon} />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
                         {profileUrl ? (
                           <DropdownMenuItem
                             onClick={() => {
@@ -204,12 +224,13 @@ export function SocialCreatorProfilePane({
                           <HugeiconsIcon icon={Delete02Icon} />
                           {t('common.delete')}
                         </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
                 {bio ? (
-                  <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground line-clamp-3">
+                  <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap break-words">
                     {bio}
                   </p>
                 ) : null}
@@ -224,6 +245,12 @@ export function SocialCreatorProfilePane({
                     <dd className="font-medium tabular-nums">{posts.length}</dd>
                     <dt className="text-muted-foreground">{t('social.creators.posts_cached')}</dt>
                   </div>
+                  {(['following', 'postsCount'] as const).map((field) => profile?.[field] != null ? (
+                    <div key={field} className="flex items-baseline gap-1.5">
+                      <dd className="font-medium tabular-nums">{compact(profile[field])}</dd>
+                      <dt className="text-muted-foreground">{t(`social.creators.profile_${field}`)}</dt>
+                    </div>
+                  ) : null)}
                   {likes != null ? (
                     <div className="flex items-baseline gap-1.5">
                       <dd className="font-medium tabular-nums">{compact(likes)}</dd>
@@ -241,6 +268,18 @@ export function SocialCreatorProfilePane({
             </div>
           </section>
 
+          <div className="rounded-xl border p-3 text-sm text-muted-foreground" aria-live="polite">
+            {loading ? <p>{t('social.creators.loading_history')}</p> : error ? (
+              <><p role="alert">{error}</p><Button type="button" variant="outline" size="sm" onClick={onRetry}>{t('common.retry')}</Button></>
+            ) : <>
+              <p className="font-medium text-foreground">{t('social.creators.history_coverage', { count: posts.length })}</p>
+              <p>{period ? t('social.creators.history_period', period) : t('social.creators.history_undated')}</p>
+              <p className="mt-1">{t('social.creators.history_partial')}</p>
+              {(profile?.limitations || []).filter((code) => ['og_only', 'login_wall', 'requires_browser'].includes(code)).map((code) => (
+                <p key={code} className="mt-1">{t(`social.cards.limitation_${code}`)}</p>
+              ))}
+            </>}
+          </div>
           <div className="flex flex-col gap-3">
             <HubSearch
               value={query}
@@ -289,9 +328,9 @@ export function SocialCreatorProfilePane({
           </div>
 
           {filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('social.creators.library_empty')}</p>
+            <p className="text-sm text-muted-foreground">{loading ? t('social.creators.loading_history') : t(query || format !== 'all' ? 'social.creators.no_matching_posts' : 'social.creators.library_empty')}</p>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-5">
               {filtered.map((item) => {
                 const model = publicCardToModelSafe(item);
                 if (!model) return null;

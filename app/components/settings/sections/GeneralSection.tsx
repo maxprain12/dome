@@ -209,7 +209,7 @@ export default function GeneralSection() {
           control={
             <Switch
               checked={analyticsEnabled}
-              onCheckedChange={(v) => void handleAnalyticsToggle(v)}
+              onCheckedChange={handleAnalyticsToggle}
               disabled={analyticsLoading || !isPostHogConfigured()}
               aria-label={t('settings.general.analytics_label')}
             />

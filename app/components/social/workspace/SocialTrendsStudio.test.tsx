@@ -8,7 +8,7 @@ const cluster = {
   id: 'radar:local:ai',
   topicKey: 'ai',
   title: '#ai',
-  phase: 'emerging',
+  phase: 'observed',
   confidence: 0.4,
   saturation: 0.2,
   trendScore: 0.55,
@@ -21,6 +21,7 @@ const cluster = {
   networks: ['instagram'],
   authorCount: 2,
   postCount: 3,
+  evidenceStats: { windowDays: 30, measuredPostCount: 2, trackedPostCount: 0, observationCount: 0 },
   evidence: [{ id: 'sr-1', title: 'Reel de lanzamiento', provider: 'instagram', origin: 'reference' }],
   source: 'local',
   nativeTrend: false,
@@ -68,6 +69,9 @@ describe('SocialTrendsStudio', () => {
     expect(screen.getByRole('button', { name: 'Emergentes' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Populares' })).toBeVisible();
     expect(screen.getByText('#ai')).toBeVisible();
+    expect(screen.getByText('Tema observado')).toBeVisible();
+    expect(screen.getByText(/2 publicaciones con métricas · 0 con seguimiento temporal/)).toBeVisible();
+    expect(screen.getByText('La muestra no demuestra una tendencia de crecimiento.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Crear' })).toBeVisible();
     expect(screen.queryByText('radar:local:ai')).not.toBeInTheDocument();
     expect(screen.queryByText('Matches topics you already publish or save.')).not.toBeInTheDocument();

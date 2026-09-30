@@ -199,7 +199,12 @@ const ProjectQuerySchema = z.object({
   projectId: z.string().min(1).max(80).optional(),
   limit: z.number().int().positive().max(400).optional(),
 });
+const ReferenceQuerySchema = ProjectQuerySchema.extend({
+  personId: z.string().min(1).max(200).optional(),
+  offset: z.number().int().nonnegative().optional(),
+});
 const ReferenceCaptureSchema = z.object({
+  forceRefresh: z.boolean().optional(),
   projectId: z.string().min(1).max(80).optional(),
   url: z.string().url().max(2000),
   notes: z.string().max(4000).nullable().optional(),
@@ -689,15 +694,15 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('social:dm-rules:delete', wrap(z.object({ ruleId: z.string().uuid() }), ({ ruleId }) => eventCardsClient.deleteDmRule(database, ruleId)));
 
   ipcMain.handle('social:public:resolve', wrap(PublicResolveSchema, ({ url }) => service.resolvePublic(url)));
-  ipcMain.handle('social:references:list', wrap(ProjectQuerySchema, ({ projectId, limit }) =>
-    service.references.listReferences({ projectId: projectId || 'default', limit: limit || 80 })));
+  ipcMain.handle('social:references:list', wrap(ReferenceQuerySchema, ({ projectId, personId, limit, offset }) =>
+    service.references.listReferences({ projectId: projectId || 'default', personId, limit: limit || 80, offset })));
   ipcMain.handle('social:references:get', wrap(ReferenceIdSchema, ({ referenceId }) => {
     const reference = service.references.getReference(referenceId);
     if (!reference) throw new Error('Reference not found');
     return reference;
   }));
   ipcMain.handle('social:references:capture', wrap(ReferenceCaptureSchema, async (input) => {
-    const resolved = await service.resolvePublic(input.url);
+    const resolved = await service.resolvePublic(input.url, { forceRefresh: input.forceRefresh });
     const card = resolved?.card || null;
     const projectId = input.projectId || 'default';
     const main = service.references.capture({
@@ -711,11 +716,12 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       sourceKind: input.sourceKind || card?.fetchMethod || 'manual',
     });
     const recent = [];
-    for (const post of (card?.recentPosts || []).slice(0, 8)) {
+    for (const post of (card?.recentPosts || [])) {
       if (!post?.url) continue;
       recent.push(service.references.capture({
         projectId,
         url: post.url,
+        personId: input.personId,
         card: post,
         sourceKind: post.fetchMethod || 'open_graph',
       }).reference);

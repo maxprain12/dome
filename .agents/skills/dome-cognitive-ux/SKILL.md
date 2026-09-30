@@ -27,6 +27,12 @@ Para cada hallazgo indicar tarea, evidencia concreta (ruta/estado observado), co
 
 Estas heurísticas generan hipótesis de diseño, no garantizan resultados. Referencia: [Laws of UX](https://lawsofux.com/); consultar cada ley si una decisión depende de sus detalles.
 
+## Evidencia social e historial
+
+Un hashtag repetido es un tema observado, no una tendencia demostrada. Mostrar muestra, periodo, fuentes y métricas disponibles; calcular evolución solo entre mediciones de la misma publicación. No confundir puntuación interna con porcentaje de crecimiento ni fecha de captura con fecha de publicación.
+
+En perfiles, filtrar por creador, red y proyecto antes de paginar. Separar total declarado por la red, publicaciones guardadas y muestra analizada; conservar la información conocida cuando una captura parcial omite campos. Indicar el periodo real, fechas desconocidas y límites del acceso público. Un botón «Actualizar» no debe prometer recuperar todo el historial.
+
 ## Entrega y comprobación
 
 Preferir eliminar → simplificar → optimizar → automatizar. Conservar lo que ya funciona, incluso si ninguna modificación queda justificada. No añadir dependencias, checklists permanentes, estilos nuevos ni una abstracción general para una corrección local.

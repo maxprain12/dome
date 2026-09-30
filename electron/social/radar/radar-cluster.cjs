@@ -72,9 +72,8 @@ function itemTopics(item) {
 
 function authorKey(item) {
   const handle = String(item.author?.handle || item.handle || '').replace(/^@/, '').toLowerCase();
-  if (handle) return handle;
-  const name = String(item.author?.name || item.title || '').trim().toLowerCase();
-  return name || item.provider || 'unknown';
+  const identity = handle || item.accountId || item.author?.name;
+  return identity ? `${item.provider || 'unknown'}:${String(identity).toLowerCase()}` : null;
 }
 
 function asEvidence(item) {
@@ -84,6 +83,7 @@ function asEvidence(item) {
     origin: item.origin || item.kind || 'reference',
     provider: item.provider || null,
     title: humanClusterTitle(item.title || item.body || item.text, item.author?.name || item.provider || 'Untitled'),
+    body: item.body || item.text || null,
     url: item.url || item.externalUrl || null,
     author: {
       name: item.author?.name || item.title || item.provider || null,
@@ -93,7 +93,8 @@ function asEvidence(item) {
     format: item.format || null,
     media,
     metrics: item.metrics || null,
-    publishedAt: item.publishedAt || item.capturedAt || null,
+    publishedAt: item.publishedAt || null,
+    capturedAt: item.capturedAt || null,
   };
 }
 
@@ -114,7 +115,7 @@ function clusterItems(items, { now = Date.now(), windowDays = 30, source = 'loca
   const groups = new Map();
   for (const item of dedupeItems(items)) {
     const topics = itemTopics(item);
-    const keys = topics.length > 0 ? topics.map((topic) => topicKey(topic)) : ['untagged'];
+    const keys = topics.length > 0 ? uniqueSorted(topics.map((topic) => topicKey(topic))) : ['untagged'];
     for (const key of keys) {
       const group = groups.get(key) || [];
       group.push(item);
@@ -128,16 +129,20 @@ function clusterItems(items, { now = Date.now(), windowDays = 30, source = 'loca
 
   const clusters = [];
   for (const [key, group] of groups) {
-    const authors = new Set(group.map((item) => authorKey(item)));
+    const authors = new Set(group.map((item) => authorKey(item)).filter(Boolean));
     const networks = new Set(group.map((item) => item.provider).filter(Boolean));
-    const series = group.flatMap((item) => metricSeries(item)).sort((a, b) => a.t - b.t);
+    const timelines = group.map((item) => metricSeries(item)
+      .filter((point) => point.t >= now - windowDays * 86400000 && point.t <= now)
+      .sort((a, b) => a.t - b.t))
+      .filter((points) => points.length >= 2 && points.at(-1).t > points[0].t);
+    const series = timelines.flat();
     const lastSeen = Math.max(...group.map((item) => item.publishedAt || item.capturedAt || 0), 0);
     const rel = relativePerformance(
       medianOrZero(group.map((item) => engagementValue(item.metrics))),
       allEngagement,
     );
-    const vel = velocityFromSeries(series, now);
-    const burst = burstFromSeries(series, now);
+    const vel = medianOrZero(timelines.map((points) => velocityFromSeries(points, now)));
+    const burst = medianOrZero(timelines.map((points) => burstFromSeries(points, now)));
     const breadthScore = breadth({ uniqueAuthors: authors.size, uniqueNetworks: networks.size });
     const sat = saturationFromVolume({
       itemCount: group.length,
@@ -165,7 +170,7 @@ function clusterItems(items, { now = Date.now(), windowDays = 30, source = 'loca
       summary: null,
       whyNow: null,
       whyForYou: null,
-      phase: phase({ burst, velocity: vel, saturation: sat, freshness: fresh }),
+      phase: timelines.length && (vel > 0.25 || vel < -0.15) ? phase({ burst, velocity: vel, saturation: sat, freshness: fresh }) : 'observed',
       confidence: confidence({
         sampleSize: group.length,
         seriesLength: series.length,
@@ -184,6 +189,12 @@ function clusterItems(items, { now = Date.now(), windowDays = 30, source = 'loca
       networks: [...networks].sort((a, b) => a.localeCompare(b)),
       authorCount: authors.size,
       postCount: group.length,
+      evidenceStats: {
+        windowDays,
+        measuredPostCount: group.filter((item) => engagementValue(item.metrics) != null).length,
+        trackedPostCount: timelines.length,
+        observationCount: series.length,
+      },
       evidence: group.slice(0, 6).map(asEvidence),
       contentPatterns: uniqueSorted(group.map((item) => item.format).filter(Boolean)).slice(0, 4),
       source,
@@ -191,7 +202,7 @@ function clusterItems(items, { now = Date.now(), windowDays = 30, source = 'loca
       topics: uniqueSorted(group.flatMap((item) => itemTopics(item))).slice(0, 8),
       limitations: [
         source === 'local' ? 'own_and_references_only' : null,
-        series.length < 2 ? 'insufficient_temporal_evidence' : null,
+        timelines.length === 0 ? 'insufficient_temporal_evidence' : null,
         authors.size < 3 ? 'insufficient_breadth' : null,
         !nativeTrend ? 'no_platform_explore' : null,
       ].filter(Boolean),
@@ -228,7 +239,8 @@ function mergeClusters(localClusters, cloudClusters) {
         : existing.velocity,
       breadth: Math.max(existing.breadth || 0, cluster.breadth || 0),
       authorCount: Math.max(existing.authorCount || 0, cluster.authorCount || 0),
-      postCount: (existing.postCount || 0) + (cluster.postCount || 0),
+      postCount: Math.max(existing.postCount || 0, cluster.postCount || 0),
+      evidenceStats: undefined,
       evidence: [...(existing.evidence || []), ...(cluster.evidence || [])]
         .filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
         .slice(0, 8),
