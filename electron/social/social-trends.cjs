@@ -133,7 +133,7 @@ function buildTrendSignals({ ownPosts, references, windowDays }) {
     const at = post.publishedAt || post.createdAt || 0;
     return at >= cutoff && ['published', 'imported'].includes(post.status);
   });
-  const recentRefs = references.filter((ref) => (ref.capturedAt || 0) >= cutoff);
+  const recentRefs = references.filter((ref) => (ref.publishedAt || ref.capturedAt || 0) >= cutoff);
 
   const themeCounts = new Map();
   const addTheme = (theme, kind, provider) => {

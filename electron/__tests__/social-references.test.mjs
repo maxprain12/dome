@@ -27,6 +27,7 @@ function buildQueries(db) {
     `),
     getSocialReferenceById: db.prepare('SELECT * FROM social_references WHERE id = ?'),
     getSocialReferenceByUrl: db.prepare('SELECT * FROM social_references WHERE project_id = ? AND external_url = ?'),
+    listSocialCreatorReferences: db.prepare(require('../social/social-reference-query.cjs').CREATOR_REFERENCES_SQL),
     listSocialReferences: db.prepare('SELECT * FROM social_references WHERE project_id = ? ORDER BY captured_at DESC LIMIT ?'),
     deleteSocialReference: db.prepare('DELETE FROM social_references WHERE id = ?'),
     insertSocialCollection: db.prepare(`
@@ -212,4 +213,46 @@ describe('social reference store', () => {
     const listed = store.listWatchlists({ projectId: 'default' }).find((item) => item.id === watchlist.id);
     assert.equal(listed.members[0].avatarUrl, 'https://scontent.cdninstagram.com/v/t51.2885-19/logo.jpg');
   });
+  it('retrieves the complete creator archive before pagination, isolated by project and network', () => {
+    const projectId = 'archive-test';
+    const list = store.createWatchlist({ projectId, name: 'Archive', kind: 'inspiration' });
+    store.addWatchlistMember(list.id, { personId: 'creator-archive', provider: 'instagram', handle: 'ada', profileUrl: 'https://www.instagram.com/ada/' });
+    const capture = (provider, handle, index, project = projectId) => store.capture({
+      projectId: project,
+      url: provider === 'instagram' ? `https://www.instagram.com/p/${handle}${index}/` : `https://x.com/${handle}/status/${index}`,
+      card: { provider, kind: 'post', author: { handle }, body: String(index), publishedAt: 1700000000000 + index },
+    });
+    for (let index = 0; index < 145; index += 1) capture('instagram', 'ada', index);
+    for (let index = 0; index < 130; index += 1) capture('instagram', 'anabel', index);
+    capture('x', 'ada', 1);
+    capture('instagram', 'ada', 1000, 'other-project');
+    const first = store.listReferences({ projectId, personId: 'creator-archive', limit: 100 });
+    const second = store.listReferences({ projectId, personId: 'creator-archive', limit: 100, offset: 100 });
+    assert.equal(first.length, 100);
+    assert.equal(second.length, 45);
+    assert.equal(first[0].body, '144');
+    assert.equal(second.at(-1).body, '0');
+    assert.equal(new Set([...first, ...second].map((post) => post.id)).size, 145);
+    assert.equal(store.listReferences({ projectId: 'other-project', personId: 'creator-archive' }).length, 0);
+  });
+
+  it('preserves known profile information after an incomplete refresh', () => {
+    const url = 'https://www.instagram.com/complete_profile/';
+    store.capture({ url, card: {
+      provider: 'instagram', kind: 'profile', author: { name: 'Complete', handle: 'complete_profile', avatarUrl: 'https://example.com/avatar.jpg' },
+      body: 'Full biography', followers: 900, following: 30, postsCount: 200,
+    } });
+    const { reference } = store.capture({ url, card: {
+      provider: 'instagram', kind: 'profile', author: {}, followers: null, following: null,
+      limitations: ['login_wall'],
+    } });
+    assert.equal(reference.followers, 900);
+    assert.equal(reference.following, 30);
+    assert.equal(reference.postsCount, 200);
+    assert.equal(reference.body, 'Full biography');
+    assert.equal(reference.author.name, 'Complete');
+    assert.equal(reference.author.avatarUrl, 'https://example.com/avatar.jpg');
+    assert.ok(reference.limitations.includes('login_wall'));
+  });
+
 });

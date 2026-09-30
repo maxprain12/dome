@@ -35,11 +35,16 @@ export function SocialTrendEvidenceSheet({
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>
-            {cluster ? t(`social.trends.phase_why_${cluster.phase}`) : t('social.trends.evidence_hint')}
+            {cluster ? t(cluster.source === 'local' && cluster.phase !== 'observed' ? 'social.trends.local_phase_explanation' : `social.trends.phase_why_${cluster.phase}`) : t('social.trends.evidence_hint')}
           </SheetDescription>
         </SheetHeader>
         {cluster ? (
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
+            <p className="text-sm text-muted-foreground">
+              {t('social.trends.evidence_sample', { shown: cluster.evidence?.length ?? 0, total: cluster.postCount ?? cluster.evidence?.length ?? 0 })}
+              {' '}{cluster.source === 'local' ? t('social.trends.local_scope') : t('social.trends.shared_sample')}
+            </p>
+            {cluster.evidenceStats ? <p className="text-sm text-muted-foreground">{t('social.trends.measurement_basis', { days: cluster.evidenceStats.windowDays, measured: cluster.evidenceStats.measuredPostCount, tracked: cluster.evidenceStats.trackedPostCount })}</p> : null}
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="secondary">{t(`social.trends.phase_${cluster.phase}`)}</Badge>
               {(cluster.topics || []).slice(0, 6).map((topic) => (
@@ -63,7 +68,7 @@ export function SocialTrendEvidenceSheet({
                   format: item.format,
                   url: item.url,
                   title: item.title,
-                  body: item.title,
+                  body: item.body || item.title,
                   author: item.author,
                   media: item.media,
                   metrics: item.metrics,
@@ -76,7 +81,7 @@ export function SocialTrendEvidenceSheet({
                     </p>
                   );
                 }
-                return <SocialEvidenceCard key={item.id} model={model} variant="tile" />;
+                return <SocialEvidenceCard key={item.id} model={model} />;
               })}
             </div>
           </div>

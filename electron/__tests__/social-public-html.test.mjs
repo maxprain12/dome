@@ -121,3 +121,14 @@ describe('social public html', () => {
     assert.equal(reel.impressions, 1200000);
   });
 });
+
+it('extracts older embedded posts beyond the old twelve-post cutoff', () => {
+  const nodes = Array.from({ length: 60 }, (_, index) => ({
+    code: `Archive${index}`, caption: { text: `Older post ${index}` },
+    taken_at: 1700000000 - index * 86400, owner: { username: 'ada' },
+  }));
+  const posts = extractPublicPostsFromHtml(`<script>${JSON.stringify(nodes)}</script>`, 'instagram');
+  assert.equal(posts.length, 60);
+  assert.equal(posts.at(-1).body, 'Older post 59');
+  assert.ok(posts.at(-1).publishedAt < posts[0].publishedAt - 7 * 86400000);
+});

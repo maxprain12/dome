@@ -3,6 +3,7 @@
 const { humanClusterTitle } = require('./radar-score.cjs');
 
 const PHASE_WHY = {
+  observed: 'A topic found in saved posts; the sample does not establish a growing trend.',
   emerging: 'The topic is gaining authors and velocity in this window.',
   accelerating: 'Velocity is rising faster than the recent baseline.',
   peak: 'Volume is high; the window looks saturated.',
@@ -24,7 +25,9 @@ function evidenceTitles(cluster) {
 
 function enrichCluster(cluster, { affinity = 0, language = 'en' } = {}) {
   const titles = evidenceTitles(cluster);
-  const whyNow = PHASE_WHY[cluster.phase] || PHASE_WHY.emerging;
+  const whyNow = cluster.source === 'local' && cluster.phase !== 'observed'
+    ? 'Estimated from changes in interactions on measured posts in this sample.'
+    : PHASE_WHY[cluster.phase] || PHASE_WHY.observed;
   const whyForYou = affinity >= 0.45
     ? 'Matches topics you already publish or save.'
     : affinity >= 0.2

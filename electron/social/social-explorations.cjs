@@ -1,5 +1,7 @@
 'use strict';
 
+const { creatorEvidencePack } = require('./social-creator-evidence.cjs');
+
 /* eslint-disable no-console */
 
 const { parseSocialUrl } = require('./social-url-parse.cjs');
@@ -63,14 +65,7 @@ function findMember(references, personId, projectId = 'default') {
 }
 
 function evidenceForMember(references, member, projectId) {
-  const handle = String(member.handle || '').replace(/^@/, '').toLowerCase();
-  const url = member.profileUrl || '';
-  return references.listReferences({ projectId, limit: 120 }).filter((item) => {
-    const itemHandle = String(item.author?.handle || '').replace(/^@/, '').toLowerCase();
-    if (handle && itemHandle && handle === itemHandle) return true;
-    if (url && item.url && (item.url === url || item.url.startsWith(url))) return true;
-    return false;
-  });
+  return references.listReferences({ projectId, personId: member.personId, limit: -1 });
 }
 
 function structuredSummary(recipeId, member, pack) {
@@ -88,7 +83,8 @@ function structuredSummary(recipeId, member, pack) {
     formats.length ? `Formats: ${formats.join(', ')}` : 'No public formats captured.',
     topics.length ? `Topics: ${topics.join(', ')}` : null,
     hooks.length ? `Hooks: ${hooks.map((hook) => `“${hook.slice(0, 80)}”`).join(' · ')}` : null,
-    `${posts.length} public posts saved as evidence.`,
+    `Analyzed ${posts.length} of ${pack.coverage?.savedPosts ?? posts.length} saved posts; partial archive.`,
+    pack.coverage?.oldestPublishedAt ? `Publication dates: ${new Date(pack.coverage.oldestPublishedAt).toISOString().slice(0, 10)} – ${new Date(pack.coverage.newestPublishedAt).toISOString().slice(0, 10)}.` : 'Publication dates unavailable.',
   ].filter(Boolean);
   return lines.join('\n');
 }
@@ -96,14 +92,14 @@ function structuredSummary(recipeId, member, pack) {
 async function refreshPublicEvidence(service, member, projectId = 'default') {
   const url = member.profileUrl;
   if (!url) return { card: null, captured: 0, limitations: ['requires_browser'] };
-  const resolved = await service.resolvePublic(url);
+  const resolved = await service.resolvePublic(url, { forceRefresh: true });
   const card = resolved?.card || null;
   if (!card) return { card: null, captured: 0, limitations: ['requires_browser'] };
-  service.references.capture({ projectId, url: card.url || url, card, sourceKind: card.fetchMethod || 'open_graph' });
+  service.references.capture({ projectId, personId: member.personId, url: card.url || url, card, sourceKind: card.fetchMethod || 'open_graph' });
   let captured = 0;
-  for (const post of (card.recentPosts || []).slice(0, 8)) {
+  for (const post of (card.recentPosts || [])) {
     if (!post?.url) continue;
-    service.references.capture({ projectId, url: post.url, card: post, sourceKind: post.fetchMethod || 'open_graph' });
+    service.references.capture({ projectId, personId: member.personId, url: post.url, card: post, sourceKind: post.fetchMethod || 'open_graph' });
     captured += 1;
   }
   const remoteAvatar = card.author?.avatarUrl || null;
@@ -155,6 +151,7 @@ async function maybeLlmSummary({ recipeId, member, pack, language = 'es' }) {
           content: [
             'You write a short social exploration note for a saved public creator.',
             'Use only the JSON evidence. Never invent metrics, followers, or views.',
+            'State the saved and analyzed post counts and the publication date range from coverage. This is a partial archive, never a complete profile analysis. Unknown dates are not recent posts.',
             'If posts exist, describe their formats, captions and URLs. Omit likes/views when metrics are missing.',
             'If limitations include login_wall or requires_browser AND posts is empty, say the capture is incomplete.',
             'Do not claim the page failed to load when followers, postsCount, or posts[] are present.',
@@ -205,33 +202,14 @@ async function runExploration(service, {
   try {
     const refreshed = await refreshPublicEvidence(service, member, projectId);
     const evidence = evidenceForMember(service.references, member, projectId);
-    const pack = {
-      handle: member.handle,
-      url: member.profileUrl,
-      theme: focusTheme,
-      followers: evidence.find((item) => item.kind === 'profile')?.followers ?? null,
-      postsCount: evidence.find((item) => item.kind === 'profile')?.postsCount ?? null,
-      limitations: refreshed.limitations,
-      posts: evidence.filter((item) => item.kind !== 'profile').slice(0, 8).map((item) => ({
-        title: item.title,
-        url: item.url,
-        format: item.format,
-        topics: item.topics,
-        body: item.body,
-        metrics: item.metrics,
-        limitations: item.limitations,
-      })),
-    };
+    const pack = creatorEvidencePack(evidence, { member, theme: focusTheme, limitations: refreshed.limitations });
     const llm = await maybeLlmSummary({ recipeId, member, pack });
     const summary = llm || structuredSummary(recipeId, member, pack);
-    const limited = (refreshed.limitations || []).some(
-      (item) => item === 'login_wall' || item === 'requires_browser',
-    ) && pack.posts.length === 0;
     return service.references.updateExploration(exploration.id, {
-      status: limited ? 'limited' : 'ready',
+      status: 'limited',
       summary,
       payload: pack,
-      limitations: refreshed.limitations,
+      limitations: pack.limitations,
       completedAt: Date.now(),
     });
   } catch (err) {

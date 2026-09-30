@@ -1478,6 +1478,7 @@ function buildQueries(db) {
     `),
     getSocialReferenceById: db.prepare('SELECT * FROM social_references WHERE id = ?'),
     getSocialReferenceByUrl: db.prepare('SELECT * FROM social_references WHERE project_id = ? AND external_url = ?'),
+    listSocialCreatorReferences: db.prepare(require('../../social/social-reference-query.cjs').CREATOR_REFERENCES_SQL),
     listSocialReferences: db.prepare('SELECT * FROM social_references WHERE project_id = ? ORDER BY captured_at DESC LIMIT ?'),
     deleteSocialReference: db.prepare('DELETE FROM social_references WHERE id = ?'),
 

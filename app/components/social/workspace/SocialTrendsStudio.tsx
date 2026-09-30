@@ -220,7 +220,7 @@ export function SocialTrendsStudio({
                 description={t(empty.description)}
               />
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
                 {radar.clusters.map((cluster) => (
                   <SocialTrendClusterCard
                     key={cluster.id}
@@ -231,7 +231,6 @@ export function SocialTrendsStudio({
                       radar.recordEvent(cluster, 'open').catch(() => {});
                     }}
                     onCreate={() => { createFrom(cluster).catch(() => {}); }}
-                    onDismiss={() => { radar.recordEvent(cluster, 'dismiss').catch(() => {}); }}
                   />
                 ))}
               </div>

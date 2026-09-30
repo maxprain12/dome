@@ -17,7 +17,8 @@ const { fetchCloudCapabilities, fetchCloudTrends } = require('./radar-cloud.cjs'
 const WINDOW_DAYS = new Set([7, 30, 90]);
 const MIN_BREADTH_GLOBAL = 3;
 
-function splitFeeds(clusters) {
+function splitFeeds(candidates) {
+  const clusters = candidates.filter((cluster) => cluster.evidence?.length > 0);
   const radar = clusters
     .filter((cluster) => cluster.source === 'local' || cluster.source === 'hybrid')
     .slice()
@@ -112,7 +113,7 @@ async function buildRadarFeeds({
     themes: Array.isArray(row.topics) ? row.topics : [],
     text: row.body,
     metricSeries: radarStore.listReferenceMetricSeries(row.id),
-  })).filter((row) => (row.capturedAt || 0) >= cutoff);
+  })).filter((row) => (row.publishedAt || row.capturedAt || 0) >= cutoff);
 
   const localItems = [
     ...ownPosts.filter((post) => ['published', 'imported'].includes(post.status)),

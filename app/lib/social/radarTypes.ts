@@ -1,7 +1,7 @@
 import type { SocialProvider } from '@/components/social/socialTypes';
 
 export type RadarFeedId = 'forYou' | 'emerging' | 'popular' | 'radar';
-export type RadarPhase = 'emerging' | 'accelerating' | 'peak' | 'cooling';
+export type RadarPhase = 'observed' | 'emerging' | 'accelerating' | 'peak' | 'cooling';
 export type RadarSource = 'local' | 'cloud' | 'hybrid';
 
 export type RadarAffinityBand = 'high' | 'mid' | 'low';
@@ -17,6 +17,8 @@ export type RadarEvidence = {
   media?: Array<{ type?: 'image' | 'video' | 'reel'; url?: string; thumbnailUrl?: string }>;
   metrics?: Record<string, number | null> | null;
   publishedAt?: number | null;
+  capturedAt?: number | null;
+  body?: string | null;
 };
 
 export type RadarCluster = {
@@ -41,6 +43,12 @@ export type RadarCluster = {
   networks: string[];
   authorCount: number;
   postCount: number;
+  evidenceStats?: {
+    windowDays: number;
+    measuredPostCount: number;
+    trackedPostCount: number;
+    observationCount: number;
+  };
   evidence: RadarEvidence[];
   contentPatterns?: string[];
   source: RadarSource;
