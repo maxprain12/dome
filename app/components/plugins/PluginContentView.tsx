@@ -121,6 +121,7 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
   const [confirmingPublish, setConfirmingPublish] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [normalizing, setNormalizing] = useState(false);
   const [siteId, setSiteId] = useState<string | null>(() => readStoredSite(plugin.id));
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -328,6 +329,38 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
     void requestPlugin(plugin.id, 'publication.cancel', { id }).catch(() => {});
   };
 
+  const normalizeEntries = async () => {
+    setNormalizing(true);
+    setNotice(null);
+    try {
+      const result = await requestPlugin<{ updated: number; unchanged: number; unmatched: number; notes: PluginNote[] }>(
+        plugin.id,
+        'notes.normalize',
+        siteId ? { siteId } : {},
+      );
+      if (result.notes?.length) upsertNotes(result.notes);
+      setNotice({
+        text: t('plugins.normalize_result', {
+          updated: result.updated || 0,
+          unchanged: result.unchanged || 0,
+          unmatched: result.unmatched || 0,
+        }),
+        error: false,
+      });
+      await load(true);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : '';
+      setNotice({
+        text: message.includes('STRUCTURE_TRUNCATED')
+          ? t('plugins.normalize_truncated')
+          : actionError(cause, t('plugins.conflict'), t('plugins.local_media_forbidden'), t('plugins.normalize_error')),
+        error: true,
+      });
+    } finally {
+      setNormalizing(false);
+    }
+  };
+
   const syncRemote = async () => {
     setSyncing(true);
     setNotice(null);
@@ -435,8 +468,11 @@ export default function PluginContentView({ plugin }: { plugin: DomePluginInfo }
           description={description}
           actions={
             <>
-              <Button type="button" variant="outline" disabled={syncing || entryDirty || navigating || !context?.destination?.repo} onClick={() => setSyncOpen(true)}>
+              <Button type="button" variant="outline" disabled={syncing || normalizing || entryDirty || navigating || !context?.destination?.repo} onClick={() => setSyncOpen(true)}>
                 {syncing ? t('plugins.syncing') : t('plugins.sync')}
+              </Button>
+              <Button type="button" variant="outline" disabled={syncing || normalizing || entryDirty || navigating || !context?.destination?.repo} onClick={() => { void normalizeEntries().catch(() => {}); }}>
+                {normalizing ? t('plugins.normalizing') : t('plugins.normalize')}
               </Button>
               <Button type="button" variant="outline" disabled={entryDirty || navigating} onClick={() => { void load(true); }}>
                 <HugeiconsIcon icon={RefreshIcon} data-icon="inline-start" />

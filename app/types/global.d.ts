@@ -1096,6 +1096,7 @@ declare global {
         configure: (pluginId: string, configuration: import('@/types/plugin').PluginConfiguration) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginConfiguration; error?: string }>;
         getConfiguration: (pluginId: string) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginConfiguration | null; error?: string }>;
         detectFavicon: (siteUrl: string) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginSiteIcon; error?: string }>;
+        detectStructure: (repo: string, branch: string) => Promise<{ success: boolean; data?: { contentPaths: Record<string, string>; sitePathPattern: string }; error?: string }>;
         revoke: (pluginId: string) => Promise<{ success: boolean; error?: string }>;
         request: (pluginId: string, method: string, params?: unknown) => Promise<{ success: boolean; data?: unknown; error?: string }>;
         getNoteSchema: (resourceId: string) => Promise<{ success: boolean; data?: import('@/types/plugin').PluginNoteSchema | null; error?: string }>;

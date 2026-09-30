@@ -53,8 +53,8 @@ const { Content } = await render(post);
 2. Instala **Dome CMS**.
 3. Abre **Settings → Plugins** y configura el plugin.
 4. Añade una web por cada sitio. Elige una bóveda o créala con **Crear bóveda**. Si la dejas vacía, Dome crea una con el nombre de la web al guardar. Cada web usa una bóveda distinta.
-5. Indica el repositorio como `owner/repository`, normalmente la rama `main`, y configura las carpetas por colección e idioma.
-6. Añade la URL pública del sitio y, si hace falta, el patrón del enlace (`/{collection}/{slug}` o `/{language}/{collection}/{slug}`). Dome intenta leer el favicon de esa URL; también puedes elegir una imagen propia.
+5. Indica el repositorio como `owner/repository`, normalmente la rama `main`. **Detectar estructura** lee `src/content` y el idioma por defecto, y rellena las carpetas y el formato del enlace. Revísalos antes de guardar.
+6. Añade la URL pública del sitio. El formato **Prefijo solo en los otros idiomas** deja el primer idioma sin prefijo (`/blog/slug`) y el resto con él (`/en/blog/slug`). Dome intenta leer el favicon de esa URL; también puedes elegir una imagen propia.
 
 Para el plugin **Dome CMS**, cada regla usa `colección/idioma` como clave. La configuración inicial propone:
 
@@ -79,7 +79,8 @@ Desde la pestaña **Dome CMS**:
 4. **Actualizar traducciones** reescribe la entrada abierta y sus hermanas en un solo lote. La primera vez, **Adaptar idiomas** crea esos borradores con la misma operación. No publica sola.
 5. La ruta de destino (`colección/idioma` + slug) aparece en la ficha. Si hay URL del sitio y la entrada está publicada, **Ver publicación** abre ese enlace.
 6. **Sincronizar posts** trae los Markdown y MDX de esas carpetas. Si la entrada ya está en Dome, vuelve a bajar el archivo y actualiza el texto. Las imágenes de `public/` que aún no están en Dome también se copian. En la biblioteca visual puedes borrar una imagen del vault y del repositorio.
-7. Pulsa **Publicar** y confirma el commit. Si marcas varias entradas en la lista, **Publicar N** las manda juntas en ese mismo commit: las dos traducciones, por ejemplo. El archivo no incluye campos vacíos ni saltos HTML del editor de notas.
+7. **Normalizar entradas** alinea la colección, el idioma y la ruta de cada nota con el archivo del mismo slug que ya está en las carpetas configuradas. Úsalo cuando una entrada se quedó en una ruta antigua después de cambiar la configuración.
+8. Pulsa **Publicar** y confirma el commit. Si marcas varias entradas en la lista, **Publicar N** las manda juntas en ese mismo commit: las dos traducciones, por ejemplo. El archivo no incluye campos vacíos ni saltos HTML del editor de notas.
 
 Si abres la nota desde la bóveda, ves el archivo guardado y un enlace para volver al CMS. La colección, el idioma y la publicación se editan en el CMS, no en la nota.
 

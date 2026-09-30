@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppModal, AppModalBody, AppModalContent, AppModalFooter, AppModalHeader } from '@/components/shared/AppModal';
 import { db } from '@/lib/db/client';
-import { SITE_PATH_FORMATS } from '@/lib/plugins/fields';
+import { SITE_PATH_FORMATS, publicEntryUrl } from '@/lib/plugins/fields';
 import type { DomePluginInfo, PluginConfiguration, PluginSite, PluginSiteIcon } from '@/types/plugin';
 
 interface ProjectOption { id: string; name: string }
@@ -25,6 +25,8 @@ interface SiteDraft {
   icon: PluginSiteIcon | null;
   iconError: string | null;
   detecting: boolean;
+  detectingStructure: boolean;
+  structureError: string | null;
 }
 
 const DEFAULT_CONTENT_PATHS: ContentPathRule[] = [
@@ -61,6 +63,8 @@ function blankSite(projectId = ''): SiteDraft {
     icon: null,
     iconError: null,
     detecting: false,
+    detectingStructure: false,
+    structureError: null,
   };
 }
 
@@ -77,17 +81,50 @@ function draftFromSite(site: PluginSite): SiteDraft {
     icon: site.icon || null,
     iconError: null,
     detecting: false,
+    detectingStructure: false,
+    structureError: null,
   };
 }
 
-function SitePathFormatField({ id, value, onChange }: {
+const REPO_NAME = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+function examplePublicationUrls(siteUrl: string, pattern: string, rules: ContentPathRule[]): string[] {
+  const filled = rules.filter((rule) => rule.collection.trim() && rule.language.trim());
+  const collection = filled[0]?.collection.trim();
+  if (!siteUrl.trim() || !collection) return [];
+  const contentPaths: Record<string, string> = {};
+  const languages: string[] = [];
+  for (const rule of filled) {
+    const ruleCollection = rule.collection.trim();
+    const language = rule.language.trim();
+    contentPaths[`${ruleCollection}/${language}`] = rule.path.trim() || 'src/content';
+    if (ruleCollection === collection && !languages.includes(language)) languages.push(language);
+  }
+  const urls: string[] = [];
+  for (const language of languages) {
+    const url = publicEntryUrl({
+      repo: 'owner/site',
+      branch: 'main',
+      siteUrl: siteUrl.trim(),
+      sitePathPattern: pattern.trim() || '/{collection}/{slug}',
+      contentPaths,
+    }, { collection, language, slug: 'slug' });
+    if (url && !urls.includes(url)) urls.push(url);
+  }
+  return urls;
+}
+
+function SitePathFormatField({ id, value, siteUrl = '', rules = [], onChange }: {
   id: string;
   value: string;
+  siteUrl?: string;
+  rules?: ContentPathRule[];
   onChange: (pattern: string) => void;
 }) {
   const { t } = useTranslation();
   const selected = SITE_PATH_FORMATS.find((item) => item.pattern === value);
   const formatLabel = (formatId: string) => t(`settings.plugins.site_path_format_${formatId}`);
+  const examples = examplePublicationUrls(siteUrl, value, rules);
   return (
     <Field>
       <FieldLabel htmlFor={id}>{t('settings.plugins.site_path_pattern')}</FieldLabel>
@@ -114,6 +151,11 @@ function SitePathFormatField({ id, value, onChange }: {
         onChange={(event) => onChange(event.target.value)}
       />
       <FieldDescription>{t('settings.plugins.site_path_pattern_description')}</FieldDescription>
+      {examples.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 font-mono text-xs text-muted-foreground" aria-label={t('settings.plugins.site_path_examples')}>
+          {examples.map((url) => <li key={url} className="truncate" title={url}>{url}</li>)}
+        </ul>
+      ) : null}
     </Field>
   );
 }
@@ -223,6 +265,32 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
 
   const updateSite = (id: string, patch: Partial<SiteDraft>) => {
     setSites((current) => current.map((site) => site.id === id ? { ...site, ...patch } : site));
+  };
+
+  const structureErrorText = (message: string) => {
+    if (message.includes('STRUCTURE_NOT_FOUND')) return t('settings.plugins.detect_structure_empty');
+    if (message.includes('STRUCTURE_TRUNCATED')) return t('settings.plugins.detect_structure_truncated');
+    return message || t('settings.plugins.detect_structure_error');
+  };
+
+  const detectStructure = async (site: SiteDraft) => {
+    updateSite(site.id, { detectingStructure: true, structureError: null });
+    try {
+      const result = await window.electron.plugins.detectStructure(site.repo.trim(), site.branch.trim() || 'main');
+      if (!result.success || !result.data?.contentPaths) {
+        updateSite(site.id, { detectingStructure: false, structureError: structureErrorText(result.error || '') });
+        return;
+      }
+      updateSite(site.id, {
+        detectingStructure: false,
+        structureError: null,
+        pathRules: rulesFromPaths(result.data.contentPaths),
+        sitePathPattern: result.data.sitePathPattern || site.sitePathPattern,
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : '';
+      updateSite(site.id, { detectingStructure: false, structureError: structureErrorText(message) });
+    }
   };
 
   const detectIcon = async (site: SiteDraft, force = false) => {
@@ -486,7 +554,20 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
                         </Field>
                         <Field>
                           <FieldLabel htmlFor={`plugin-site-repo-${site.id}`}>{t('settings.plugins.repository')}</FieldLabel>
-                          <Input id={`plugin-site-repo-${site.id}`} value={site.repo} placeholder="owner/astro-site" onChange={(event) => updateSite(site.id, { repo: event.target.value })} />
+                          <div className="flex gap-2">
+                            <Input id={`plugin-site-repo-${site.id}`} className="min-w-0 flex-1" value={site.repo} placeholder="owner/astro-site" onChange={(event) => updateSite(site.id, { repo: event.target.value })} />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="shrink-0"
+                              disabled={!REPO_NAME.test(site.repo.trim()) || site.detectingStructure}
+                              onClick={() => { void detectStructure(site).catch(() => {}); }}
+                            >
+                              {site.detectingStructure ? t('settings.plugins.detecting_structure') : t('settings.plugins.detect_structure')}
+                            </Button>
+                          </div>
+                          <FieldDescription>{t('settings.plugins.detect_structure_hint')}</FieldDescription>
+                          {site.structureError ? <p className="text-xs text-destructive">{site.structureError}</p> : null}
                         </Field>
                         <Field>
                           <FieldLabel htmlFor={`plugin-site-branch-${site.id}`}>{t('settings.plugins.branch')}</FieldLabel>
@@ -534,6 +615,8 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
                         <SitePathFormatField
                           id={`plugin-site-pattern-${site.id}`}
                           value={site.sitePathPattern}
+                          siteUrl={site.siteUrl}
+                          rules={site.pathRules}
                           onChange={(pattern) => updateSite(site.id, { sitePathPattern: pattern })}
                         />
                         <Field>
@@ -610,7 +693,13 @@ export default function PluginConfigureDialog({ plugin, onClose, onSaved }: {
                 />
                 <FieldDescription>{t('settings.plugins.site_url_description')}</FieldDescription>
               </Field>
-              <SitePathFormatField id="plugin-site-pattern" value={sitePathPattern} onChange={setSitePathPattern} />
+              <SitePathFormatField
+                id="plugin-site-pattern"
+                value={sitePathPattern}
+                siteUrl={siteUrl}
+                rules={supportsContentPaths ? pathRules : []}
+                onChange={setSitePathPattern}
+              />
             </> : null}
             {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
           </FieldGroup>
