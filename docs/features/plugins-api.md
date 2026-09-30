@@ -79,6 +79,15 @@ const note = await DomePlugin.request('notes.pull', { id });
 
 Exige también `content.publish`. Lee el Markdown de esa entrada en la rama configurada y sustituye título, campos y cuerpo. La entrada queda marcada como publicada con el contenido remoto. Las rutas `/media/…` se conservan.
 
+### `notes.normalize` — `notes.write`
+
+```js
+const result = await DomePlugin.request('notes.normalize');
+// { updated, unchanged, unmatched, notes }
+```
+
+Exige también `content.publish`. Compara cada entrada de la bóveda con los Markdown del repositorio y, si el slug coincide con un solo archivo de las carpetas configuradas, actualiza colección, idioma y ruta. No reescribe el cuerpo.
+
 ### `notes.sync` — `notes.write`
 
 ```js

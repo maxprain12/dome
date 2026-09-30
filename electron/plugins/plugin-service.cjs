@@ -10,6 +10,7 @@ const { z } = require('zod');
 const githubApi = require('../github/github-api.cjs');
 const vaultStore = require('../storage/vault-store.cjs');
 const { applyContentPathOptions, cmsSitesFromGrant } = require('./cms-sites.cjs');
+const { planEntryNormalization } = require('./cms-structure.cjs');
 const { assertIconDataUrl } = require('./site-favicon.cjs');
 
 const idSchema = z.string().min(1).max(128);
@@ -52,6 +53,7 @@ const METHOD_PERMISSIONS = {
   'notes.delete': 'notes.write',
   'notes.pull': 'notes.write',
   'notes.sync': 'notes.write',
+  'notes.normalize': 'notes.write',
   'notes.applyTranslations': 'notes.write',
   'media.attach': 'notes.write',
   'media.list': 'notes.read',
@@ -94,6 +96,7 @@ const METHOD_SCHEMAS = {
   'notes.delete': z.object({ id: idSchema, remote: z.boolean().optional() }).strict(),
   'notes.pull': z.object({ id: idSchema }).strict(),
   'notes.sync': z.object({ siteId: idSchema.optional() }).strict(),
+  'notes.normalize': z.object({ siteId: idSchema.optional() }).strict(),
   'notes.applyTranslations': z.object({
     sourceId: idSchema,
     expectedUpdatedAt: z.number().int().nonnegative(),
@@ -1192,6 +1195,55 @@ async function deleteRemoteFile(grant, filePath, title) {
     return serializeNote(updated, plugin.id);
   }
 
+  async function normalizeNotes(plugin, grant) {
+    if (!grant.permissions.includes('content.publish')) throw new Error('Permission content.publish required');
+    if (!grant.github) throw new Error('GitHub destination is not configured');
+    const [owner, repo] = grant.github.repo.split('/');
+    const reference = await githubApi.getReference(owner, repo, grant.github.branch);
+    const commit = await githubApi.getCommit(owner, repo, reference.object.sha);
+    const tree = await githubApi.getRepositoryTree(owner, repo, commit.tree.sha);
+    if (tree?.truncated) throw new Error('STRUCTURE_TRUNCATED');
+    const remote = remoteMarkdownEntries(tree.tree, grant.github);
+    const rows = queries().listPluginNotes.all(grant.projectId);
+    const serialized = rows.map((row) => serializeNote(row, plugin.id)).filter(Boolean);
+    const plan = planEntryNormalization(serialized, remote);
+    const template = templateFor(plugin, grant);
+    const notes = [];
+    for (const change of plan.updates) {
+      const row = queries().getResourceById.get(change.id);
+      const meta = pluginMetadata(row?.metadata, plugin.id);
+      if (!row || !meta) continue;
+      const fields = normalizeFields(template, {
+        collection: change.collection,
+        language: change.language,
+      }, meta.fields || {});
+      const publication = {
+        ...(meta.publication && typeof meta.publication === 'object' ? meta.publication : {}),
+        path: change.path,
+      };
+      const metadata = mergePluginMetadata(row.metadata, plugin.id, { fields, publication });
+      const now = Math.max(Date.now(), Number(row.updated_at) + 1);
+      const result = queries().updatePluginNoteIfCurrent.run(
+        row.title,
+        row.content,
+        JSON.stringify(metadata),
+        now,
+        row.id,
+        row.project_id,
+        row.updated_at,
+      );
+      if (result.changes !== 1) throw new Error('CONFLICT: note changed');
+      placeCmsNote(grant, row.id, change.path);
+      const mirror = vaultStore.writeNoteMarkdown({ id: row.id, markdown: row.content || '' }, { database, fileStorage });
+      if (!mirror.success) throw new Error(mirror.error || 'Could not update note mirror');
+      const updated = queries().getResourceById.get(row.id);
+      windowManager.broadcast('resource:updated', { id: row.id, updates: updated });
+      const next = serializeNote(updated, plugin.id);
+      if (next) notes.push(next);
+    }
+    return { updated: notes.length, unchanged: plan.unchanged, unmatched: plan.unmatched, notes };
+  }
+
   async function syncRemoteNotes(plugin, grant) {
     if (!grant.permissions.includes('content.publish')) throw new Error('Permission content.publish required');
     if (!grant.github) throw new Error('GitHub destination is not configured');
@@ -1874,7 +1926,7 @@ async function deleteRemoteFile(grant, filePath, title) {
       if (params.resourceId) return withSite(grant, siteForResource(sites, params.resourceId));
       return withSite(grant, sites[0]);
     }
-    if (method === 'notes.list' || method === 'notes.listReadonly' || method === 'notes.create' || method === 'notes.sync' || method === 'media.list') {
+    if (method === 'notes.list' || method === 'notes.listReadonly' || method === 'notes.create' || method === 'notes.sync' || method === 'notes.normalize' || method === 'media.list') {
       return withSite(grant, explicitSite(sites, params));
     }
     if (method === 'publication.prepareMany') {
@@ -1955,6 +2007,7 @@ async function deleteRemoteFile(grant, filePath, title) {
     if (method === 'notes.delete') return deleteNote(plugin, grant, params);
     if (method === 'notes.pull') return pullNote(plugin, grant, params);
     if (method === 'notes.sync') return syncRemoteNotes(plugin, grant);
+    if (method === 'notes.normalize') return normalizeNotes(plugin, grant);
     if (method === 'media.attach') return attachMedia(plugin, grant, params);
     if (method === 'media.list') return listSiteImages(grant);
     if (method === 'media.delete') return deleteMedia(plugin, grant, params);
