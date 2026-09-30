@@ -5,6 +5,7 @@
  * OAuth dome://mcp-auth/... is delegated to mcpOauth
  * OAuth dome://calendar-oauth/... is delegated to googleCalendarOAuth
  */
+const { enqueueComplementLink } = require('./complement-links.cjs');
 const mcpOauth = require('../mcp/mcp-oauth.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
 const googleCalendarOAuth = require('../calendar/google-calendar-service.cjs');
@@ -182,6 +183,12 @@ async function handleStudioDomeUrl(url, deps) {
 async function handleDomeUrl(url, deps) {
   if (!url || typeof url !== 'string' || !url.startsWith('dome://')) {
     return false;
+  }
+
+  if (url.startsWith('dome://complements/')) {
+    const handled = enqueueComplementLink(url, deps.windowManager);
+    if (handled) focusFirstAvailableWindow(deps.windowManager);
+    return handled;
   }
 
   // OAuth callback - delegate to MCP OAuth

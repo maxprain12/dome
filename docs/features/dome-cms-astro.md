@@ -49,7 +49,7 @@ const { Content } = await render(post);
 
 ## 2. Instala Dome CMS
 
-1. En Dome, abre **Marketplace → Plugins**.
+1. En Dome, abre **Complementos → Plugins**.
 2. Instala **Dome CMS**.
 3. Abre **Settings → Plugins** y configura el plugin.
 4. Añade una web por cada sitio. Elige una bóveda o créala con **Crear bóveda**. Si la dejas vacía, Dome crea una con el nombre de la web al guardar. Cada web usa una bóveda distinta.
@@ -133,4 +133,4 @@ Al instalar y configurar Dome CMS, Many recibe herramientas para listar entradas
 
 Publicar requiere primero preparar la entrada y después aprobar expresamente la acción de publicación en Dome. Las herramientas desaparecen si se desactiva o revoca el plugin. En modo Plan, Many puede consultar entradas y estados, pero no ejecutar acciones que cambien contenido.
 
-Si Dome CMS ya estaba instalado con una versión anterior, pulsa **Actualizar plugin** en el Marketplace y vuelve a configurarlo en **Settings → Plugins**. La actualización cambia el manifiesto y Dome pide revisar sus permisos antes de volver a habilitarlo.
+Si Dome CMS ya estaba instalado con una versión anterior, pulsa **Actualizar plugin** en el Complementos y vuelve a configurarlo en **Settings → Plugins**. La actualización cambia el manifiesto y Dome pide revisar sus permisos antes de volver a habilitarlo.

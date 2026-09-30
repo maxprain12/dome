@@ -1,5 +1,9 @@
 'use client';
 
+import { complementEditorial } from '@/lib/marketplace/editorial';
+import { useComplementIntentStore } from '@/lib/store/useComplementIntentStore';
+import { DetailModal } from '@/components/shared/DetailModal';
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { BotIcon, GitBranchIcon, Plug02Icon, PuzzleIcon, RefreshIcon, SparklesIcon, Store01Icon } from '@hugeicons/core-free-icons';
@@ -78,13 +82,13 @@ const TYPE_CONFIG = {
   plugins: { icon: Plug02Icon, label: 'Plugin' },
 } satisfies Record<FilterType, { icon: IconSvgElement; label: string }>;
 
-const COMPLEMENT_TYPES: Exclude<FilterType, 'all' | 'skills'>[] = ['agents', 'workflows', 'mcp', 'plugins'];
+const COMPLEMENT_TYPES: Exclude<FilterType, 'all'>[] = ['plugins', 'agents', 'workflows', 'skills', 'mcp'];
 
 function buildComplementTypeOptions(
   t: (key: string) => string,
   totalByType: Record<string, number>,
 ): { value: FilterType; label: string }[] {
-  const types: FilterType[] = ['all', 'agents', 'workflows', 'mcp', 'plugins'];
+  const types: FilterType[] = ['all', 'plugins', 'agents', 'workflows', 'skills', 'mcp'];
   const labels: Record<FilterType, string> = {
     all: t('marketplace.type_all'),
     agents: t('marketplace.type_agents'),
@@ -198,7 +202,7 @@ function InstalledStripSection({
       <HubSectionLabel>{t('marketplace.installed_row')}</HubSectionLabel>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => {
-          const clickable = item.type === 'agents' || item.type === 'workflows';
+          const clickable = true;
           return (
             <Button
               key={`installed-${item.type}-${item.id}`}
@@ -311,11 +315,15 @@ function FeaturedItemsSection({
               role="button"
               tabIndex={0}
               onClick={(e) => {
-                if ((e.target as HTMLElement).closest('button')) return;
+                if ((e.target as HTMLElement).closest('button, a')) return;
                 openItemDetail(item);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') openItemDetail(item);
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openItemDetail(item);
+                }
               }}
               className="cursor-pointer"
             >
@@ -358,18 +366,22 @@ function RegularItemsSection({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => {
           const meta = getActionMeta(item);
-          const clickable = item.type === 'agents' || item.type === 'workflows';
+          const clickable = true;
           return (
             <div
               key={`${item.type}-${item.id}`}
               role={clickable ? 'button' : undefined}
               tabIndex={clickable ? 0 : undefined}
               onClick={(e) => {
-                if ((e.target as HTMLElement).closest('button')) return;
+                if ((e.target as HTMLElement).closest('button, a')) return;
                 openItemDetail(item);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') openItemDetail(item);
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openItemDetail(item);
+                }
               }}
               className={cn(clickable && 'cursor-pointer')}
             >
@@ -501,7 +513,7 @@ function WorkflowDetailModal({
 // ─── MarketplaceView ──────────────────────────────────────────────────────────
 
 export default function MarketplaceView() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const categoryLabel = useCallback(
     (cat: string) => {
@@ -517,6 +529,8 @@ export default function MarketplaceView() {
   const [installedIds, setInstalledIds] = useState<string[]>([]);
   const [installedAgentRecords, setInstalledAgentRecords] = useState<Record<string, { version: string }>>({});
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [selectedComplement, setSelectedComplement] = useState<UnifiedItem | null>(null);
+  const intent = useComplementIntentStore((state) => state.intent);
   const [selectedAgent, setSelectedAgent] = useState<MarketplaceAgent | null>(null);
 
   // ── Workflows ─────────────────────────────────────────
@@ -818,11 +832,18 @@ export default function MarketplaceView() {
       id: s.id, name: s.name, description: s.description, author: s.author,
       tags: s.tags ?? [], type: 'skills' as const, raw: s,
     })),
+    ...plugins.filter((plugin) => !availablePlugins.some((available) => available.id === plugin.id)).map((plugin) => ({
+      id: plugin.id, name: plugin.name, description: plugin.description, author: plugin.author,
+      tags: [], version: plugin.version, type: 'plugins' as const, raw: plugin,
+    })),
     ...availablePlugins.map((p) => ({
       id: p.id, name: p.name, description: p.description, author: p.author,
       tags: [], version: p.version, type: 'plugins' as const, raw: p,
     })),
-  ], [agents, workflows, mcpServers, catalogSkills, availablePlugins]);
+  ].map((item) => {
+    const editorial = complementEditorial(item.type, item.id, i18n.language);
+    return editorial ? { ...item, description: editorial.copy.description, featured: editorial.featured || ('featured' in item && item.featured) } : item;
+  }), [agents, workflows, mcpServers, catalogSkills, availablePlugins, plugins, i18n.language]);
 
   const filteredItems = useMemo(() => {
     let result = allItems;
@@ -849,6 +870,8 @@ export default function MarketplaceView() {
       );
     }
     return [...result].sort((a, b) => {
+      if (a.id === 'dome-cms') return -1;
+      if (b.id === 'dome-cms') return 1;
       if (a.featured && !b.featured) return -1;
       if (!a.featured && b.featured) return 1;
       return 0;
@@ -858,7 +881,7 @@ export default function MarketplaceView() {
   const featuredItems = useMemo(
     () =>
       mainTab === 'complements' && scopeFilter === 'public' && filterType === 'all' && !searchQuery.trim() && filterCategory === 'all'
-        ? filteredItems.filter((i) => i.featured && (i.type === 'agents' || i.type === 'workflows')).slice(0, 4)
+        ? filteredItems.filter((i) => i.featured).slice(0, 4)
         : [],
     [filteredItems, mainTab, scopeFilter, filterType, searchQuery, filterCategory],
   );
@@ -986,9 +1009,31 @@ export default function MarketplaceView() {
   }
 
   const openItemDetail = (item: UnifiedItem) => {
+    if (complementEditorial(item.type, item.id, i18n.language) || !['agents', 'workflows'].includes(item.type)) {
+      setSelectedComplement(item);
+      return;
+    }
     if (item.type === 'agents') setSelectedAgent(item.raw as MarketplaceAgent);
     else if (item.type === 'workflows') setSelectedWorkflow(item.raw as WorkflowTemplate);
   };
+
+  useEffect(() => {
+    if (!intent || initialLoading) return;
+    useComplementIntentStore.getState().setIntent(null);
+    setMainTab('complements');
+    setScopeFilter('public');
+    setFilterType(intent.category);
+    setFilterCategory('all');
+    setSearchQuery('');
+    const item = allItems.find((entry) => entry.type === intent.category && entry.id === intent.id);
+    if (item) setSelectedComplement(item);
+    else showToast('info', t('marketplace.link_unknown'));
+  }, [intent, initialLoading, allItems, t]);
+
+  const detailEditorial = selectedComplement
+    ? complementEditorial(selectedComplement.type, selectedComplement.id, i18n.language)
+    : null;
+  const detailAction = selectedComplement ? getActionMeta(selectedComplement) : null;
 
   return (
     <>
@@ -1035,6 +1080,23 @@ export default function MarketplaceView() {
         </div>
       </div>
 
+      {selectedComplement && detailAction && (
+        <DetailModal
+          title={selectedComplement.name}
+          description={[selectedComplement.author, detailEditorial?.version ?? selectedComplement.version].filter(Boolean).join(' · ')}
+          onClose={() => setSelectedComplement(null)}
+          footer={<Button disabled={detailAction.disabled} onClick={detailAction.onAction}>{detailAction.label}</Button>}
+        >
+          <p className="text-sm leading-relaxed">{detailEditorial?.copy.body ?? selectedComplement.description}</p>
+          {detailEditorial && <>
+            <section><h3 className="mb-2 font-medium">{t('marketplace.use_cases')}</h3><ul className="flex list-disc flex-col gap-1 pl-5 text-sm">{detailEditorial.copy.useCases.map((text) => <li key={text}>{text}</li>)}</ul></section>
+            <section><h3 className="mb-2 font-medium">{t('marketplace.requirements')}</h3><ul className="flex list-disc flex-col gap-1 pl-5 text-sm">{detailEditorial.copy.requirements.map((text) => <li key={text}>{text}</li>)}</ul></section>
+            {detailEditorial.permissions.length > 0 && <section><h3 className="mb-2 font-medium">{t('marketplace.permissions')}</h3><ul className="flex list-disc flex-col gap-1 pl-5 text-sm">{detailEditorial.permissions.map((permission, index) => <li key={permission}>{detailEditorial.copy.permissionDescriptions[index]} <code className="text-xs text-muted-foreground">({permission})</code></li>)}</ul></section>}
+            <a className="text-sm text-primary underline" href={`https://dome.dowi.es${i18n.language.startsWith('es') ? '' : '/en'}/complementos/${detailEditorial.slug}`} target="_blank" rel="noreferrer">{t('marketplace.website_detail')}</a>
+            <a className="text-sm text-primary underline" href={`https://dome.dowi.es${i18n.language.startsWith('es') ? '' : '/en'}/manual/${detailEditorial.manual}`} target="_blank" rel="noreferrer">{t('marketplace.manual')}</a>
+          </>}
+        </DetailModal>
+      )}
       {selectedAgent && (
         <MarketplaceAgentDetailModal
           agent={selectedAgent}

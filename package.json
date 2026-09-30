@@ -58,7 +58,7 @@
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:no-raw-ids": "node scripts/check-no-raw-ids.mjs",
     "check:text-containment": "node scripts/check-text-containment.mjs",
-    "check:guardrails": "pnpm run check:design-system && pnpm run check:ui-contracts && pnpm run check:i18n-keys && pnpm run check:no-raw-ids && pnpm run check:text-containment && pnpm run check:sonar-patterns",
+    "check:guardrails": "pnpm run check:design-system && pnpm run check:ui-contracts && pnpm run check:i18n-keys && pnpm run check:no-raw-ids && pnpm run check:text-containment && pnpm run check:sonar-patterns && pnpm run check:complements-catalog",
     "test:ui-guardrails": "node --test scripts/__tests__/check-ui-guardrails.test.mjs",
     "check:asar-unpack": "node scripts/check-asar-unpack.cjs",
     "check:packaged-deps": "node scripts/check-packaged-deps.cjs",
@@ -148,7 +148,8 @@
     "test:artifacts": "node --test electron/__tests__/artifact-service.test.mjs electron/__tests__/artifact-vault-mirror.test.mjs",
     "visual-studio": "vite --config vite.visual-studio.config.ts",
     "visual-studio:build": "vite build --config vite.visual-studio.config.ts",
-    "visual-studio:export": "node scripts/visual-studio/export-pack.mjs"
+    "visual-studio:export": "node scripts/visual-studio/export-pack.mjs",
+    "check:complements-catalog": "node scripts/export-complements-catalog.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

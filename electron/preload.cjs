@@ -100,6 +100,7 @@ const ALLOWED_CHANNELS = {
     'window:open-workspace',
     'window:open-folder',
     'window:open-settings',
+    'window:take-complement-links',
     // Initialization
     'init:initialize',
     'init:check-onboarding',
@@ -888,6 +889,7 @@ const ALLOWED_CHANNELS = {
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
     'dome:open-singleton-tab',
+    'dome:complement-link-pending',
     // UI cursor actions (dispatched from main process when Many uses agent ui_* tools)
     'dome:ui-action',
     // Artifact events

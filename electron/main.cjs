@@ -884,6 +884,18 @@ function installPermissionHandlers() {
   });
 }
 
+// Register complement delivery before ready so macOS cold-start URLs are retained.
+app.on('open-url', (event, url) => {
+  if (!url.startsWith('dome://complements/')) return;
+  event.preventDefault();
+  const { enqueueComplementLink } = require('./core/complement-links.cjs');
+  if (enqueueComplementLink(url, windowManager)) {
+    const win = windowManager.getAll().find((candidate) => !candidate.isDestroyed());
+    if (win?.isMinimized()) win.restore();
+    win?.focus();
+  }
+});
+
 // --- Deep-link + dome:// protocol-client registration ------------------------
 
 // Register dome:// for OAuth callbacks (MCP backlinks)
@@ -902,6 +914,7 @@ function registerMacOsDeepLinkHandler() {
   if (process.platform !== 'darwin') return;
   app.on('open-url', async (event, url) => {
     event.preventDefault();
+    if (url.startsWith('dome://complements/')) return;
     if (mcpOauth.handleOAuthCallback(url)) {
       console.log('[MCP OAuth] Callback received and processed');
       return;

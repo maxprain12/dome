@@ -1,0 +1,745 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "dome-cms",
+      "category": "plugins",
+      "slug": "dome-cms",
+      "name": "Dome CMS",
+      "author": "Dome",
+      "version": "1.2.0",
+      "featured": true,
+      "permissions": [
+        "notes.read",
+        "notes.write",
+        "content.publish"
+      ],
+      "manual": "cms",
+      "locales": {
+        "es": {
+          "description": "Escribe, traduce y publica contenido Markdown en tu sitio Astro desde Dome.",
+          "body": "Redacta en el editor compartido, organiza colecciones e idiomas y administra imágenes. Sincroniza con GitHub y prepara publicaciones individuales o en lote; publicar requiere aprobación. Many puede ayudarte con borradores y traducciones.",
+          "useCases": [
+            "Publicar manuales y artículos en Astro"
+          ],
+          "requirements": [
+            "Dome 2.8.9 o posterior",
+            "Repositorio Astro con colecciones Markdown",
+            "Conexión GitHub con permiso de escritura"
+          ],
+          "permissionDescriptions": [
+            "Leer notas de la bóveda autorizada",
+            "Crear y editar notas de la bóveda autorizada",
+            "Publicar contenido en el repositorio configurado tras aprobación"
+          ]
+        },
+        "en": {
+          "description": "Write, translate and publish Markdown to your Astro site from Dome.",
+          "body": "Use the shared editor, organize collections and languages, and manage images. Sync with GitHub and prepare individual or batch publications; publishing requires approval. Many can help with drafts and translations.",
+          "useCases": [
+            "Publish manuals and articles to Astro"
+          ],
+          "requirements": [
+            "Dome 2.8.9 or later",
+            "Astro repository with Markdown collections",
+            "GitHub connection with write access"
+          ],
+          "permissionDescriptions": [
+            "Read notes in the authorized vault",
+            "Create and edit notes in the authorized vault",
+            "Publish content to the configured repository after approval"
+          ]
+        },
+        "fr": {
+          "description": "Rédigez et publiez du Markdown sur votre site Astro depuis Dome.",
+          "body": "Organisez collections, langues, images et traductions. Synchronisez avec GitHub et approuvez chaque publication.",
+          "useCases": [
+            "Dome CMS"
+          ],
+          "requirements": [
+            "Dome 2.8.9 ou ultérieur",
+            "Dépôt Astro avec collections Markdown",
+            "Connexion GitHub avec accès en écriture"
+          ],
+          "permissionDescriptions": [
+            "Lire les notes du coffre autorisé",
+            "Créer et modifier les notes du coffre autorisé",
+            "Publier dans le dépôt configuré après approbation"
+          ]
+        },
+        "pt": {
+          "description": "Escreva e publique Markdown no seu site Astro a partir do Dome.",
+          "body": "Organize coleções, idiomas, imagens e traduções. Sincronize com GitHub e aprove cada publicação.",
+          "useCases": [
+            "Dome CMS"
+          ],
+          "requirements": [
+            "Dome 2.8.9 ou posterior",
+            "Repositório Astro com coleções Markdown",
+            "Ligação GitHub com acesso de escrita"
+          ],
+          "permissionDescriptions": [
+            "Ler notas na pasta autorizada",
+            "Criar e editar notas na pasta autorizada",
+            "Publicar no repositório configurado após aprovação"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lead-follow-up",
+      "category": "agents",
+      "slug": "lead-follow-up",
+      "name": "Lead → ficha → follow-up",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "agents",
+      "locales": {
+        "es": {
+          "description": "Convierte un comentario social en una ficha de contacto y un borrador de seguimiento.",
+          "body": "Trabaja con el comentario y el contexto que seleccionas. Prepara una ficha en Contactos y un mensaje revisable; verifica los datos antes de guardar o enviar.",
+          "useCases": [
+            "Preparar el seguimiento de una consulta"
+          ],
+          "requirements": [
+            "Many configurado y recursos accesibles",
+            "Cuentas conectadas para acciones externas"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Turn a social comment into a contact record and a follow-up draft.",
+          "body": "Work with the selected comment and context. Prepare a People record and a reviewable message; check the details before saving or sending.",
+          "useCases": [
+            "Prepare a follow-up to an inquiry"
+          ],
+          "requirements": [
+            "Configured Many and accessible resources",
+            "Connected accounts for external actions"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Un agent pour Lead → ficha → follow-up.",
+          "body": "Préparez un résultat avec Many et vos ressources. Vérifiez les faits et approuvez les actions externes.",
+          "useCases": [
+            "Lead → ficha → follow-up"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Um agente para Lead → ficha → follow-up.",
+          "body": "Prepare um resultado com Many e os seus recursos. Verifique os factos e aprove as ações externas.",
+          "useCases": [
+            "Lead → ficha → follow-up"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "doc-brief-post",
+      "category": "agents",
+      "slug": "doc-brief-post",
+      "name": "Doc → brief → post",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "agents",
+      "locales": {
+        "es": {
+          "description": "Prepara un brief y un borrador de publicación a partir de una nota o PDF.",
+          "body": "Lee el recurso elegido de tu biblioteca y prepara dos piezas para revisar. Comprueba las citas y los hechos antes de usar el borrador en un canal conectado.",
+          "useCases": [
+            "Convertir un informe en un borrador social"
+          ],
+          "requirements": [
+            "Many configurado y recursos accesibles",
+            "Cuentas conectadas para acciones externas"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Prepare a brief and a post draft from a note or PDF.",
+          "body": "Read the chosen library resource and prepare two pieces for review. Check quotations and facts before using the draft in a connected channel.",
+          "useCases": [
+            "Turn a report into a social draft"
+          ],
+          "requirements": [
+            "Configured Many and accessible resources",
+            "Connected accounts for external actions"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Un agent pour Doc → brief → post.",
+          "body": "Préparez un résultat avec Many et vos ressources. Vérifiez les faits et approuvez les actions externes.",
+          "useCases": [
+            "Doc → brief → post"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Um agente para Doc → brief → post.",
+          "body": "Prepare um resultado com Many e os seus recursos. Verifique os factos e aprove as ações externas.",
+          "useCases": [
+            "Doc → brief → post"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "research-digest",
+      "category": "agents",
+      "slug": "research-digest",
+      "name": "Research digest semanal",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "agents",
+      "locales": {
+        "es": {
+          "description": "Resume los nuevos recursos de la biblioteca en una nota de investigación.",
+          "body": "Reúne el material disponible y redacta una síntesis con referencias. Revisa el alcance y las fuentes; el agente no programa una ejecución por sí solo.",
+          "useCases": [
+            "Revisar las novedades de un proyecto"
+          ],
+          "requirements": [
+            "Many configurado y recursos accesibles",
+            "Cuentas conectadas para acciones externas"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Summarize new library resources in a research note.",
+          "body": "Gather available material and write a synthesis with references. Review scope and sources; the agent alone does not schedule execution.",
+          "useCases": [
+            "Review new material in a project"
+          ],
+          "requirements": [
+            "Configured Many and accessible resources",
+            "Connected accounts for external actions"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Un agent pour Research digest semanal.",
+          "body": "Préparez un résultat avec Many et vos ressources. Vérifiez les faits et approuvez les actions externes.",
+          "useCases": [
+            "Research digest semanal"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Um agente para Research digest semanal.",
+          "body": "Prepare um resultado com Many e os seus recursos. Verifique os factos e aprove as ações externas.",
+          "useCases": [
+            "Research digest semanal"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "outreach-email",
+      "category": "agents",
+      "slug": "outreach-email",
+      "name": "Outreach email",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "agents",
+      "locales": {
+        "es": {
+          "description": "Redacta un correo con el contexto de un contacto y un recurso.",
+          "body": "Prepara un mensaje personalizado para revisar. Comprueba destinatario, datos y adjuntos; enviar es una acción separada que requiere una cuenta conectada y aprobación.",
+          "useCases": [
+            "Preparar un correo de presentación"
+          ],
+          "requirements": [
+            "Many configurado y recursos accesibles",
+            "Cuentas conectadas para acciones externas"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Draft an email using a contact and a resource as context.",
+          "body": "Prepare a personalized message for review. Check recipient, details and attachments; sending is a separate action requiring a connected account and approval.",
+          "useCases": [
+            "Prepare an introductory email"
+          ],
+          "requirements": [
+            "Configured Many and accessible resources",
+            "Connected accounts for external actions"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Un agent pour Outreach email.",
+          "body": "Préparez un résultat avec Many et vos ressources. Vérifiez les faits et approuvez les actions externes.",
+          "useCases": [
+            "Outreach email"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Um agente para Outreach email.",
+          "body": "Prepare um resultado com Many e os seus recursos. Verifique os factos e aprove as ações externas.",
+          "useCases": [
+            "Outreach email"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "inbox-triage",
+      "category": "agents",
+      "slug": "inbox-triage",
+      "name": "Social inbox triage",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "agents",
+      "locales": {
+        "es": {
+          "description": "Revisa borradores de respuesta a comentarios de Instagram.",
+          "body": "Organiza comentarios y propone acciones sobre los borradores disponibles. Revisa cada respuesta y el contacto asociado antes de aprobar una acción externa.",
+          "useCases": [
+            "Ordenar respuestas pendientes"
+          ],
+          "requirements": [
+            "Many configurado y recursos accesibles",
+            "Cuentas conectadas para acciones externas"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Review reply drafts for Instagram comments.",
+          "body": "Organize comments and propose actions on available drafts. Review each reply and associated contact before approving an external action.",
+          "useCases": [
+            "Organize pending replies"
+          ],
+          "requirements": [
+            "Configured Many and accessible resources",
+            "Connected accounts for external actions"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Un agent pour Social inbox triage.",
+          "body": "Préparez un résultat avec Many et vos ressources. Vérifiez les faits et approuvez les actions externes.",
+          "useCases": [
+            "Social inbox triage"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Um agente para Social inbox triage.",
+          "body": "Prepare um resultado com Many e os seus recursos. Verifique os factos e aprove as ações externas.",
+          "useCases": [
+            "Social inbox triage"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "lead-follow-up-flow",
+      "category": "workflows",
+      "slug": "lead-follow-up-flow",
+      "name": "Lead follow-up",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "workflows",
+      "locales": {
+        "es": {
+          "description": "Plantilla inicial para Lead follow-up.",
+          "body": "Esta plantilla abre un canvas sin nodos preconfigurados. Añade las entradas, agentes y conexiones necesarios para este proceso, configura sus herramientas y prueba la ejecución. La programación se configura por separado en Automatizaciones.",
+          "useCases": [
+            "Repetir un proceso de seguimiento"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Añadir y configurar nodos y conexiones antes de ejecutar"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Starter template for Lead follow-up.",
+          "body": "This template opens a canvas without preconfigured nodes. Add the inputs, agents and connections needed for this process, configure their tools and test the execution. Scheduling is configured separately in Automations.",
+          "useCases": [
+            "Repeat a follow-up process"
+          ],
+          "requirements": [
+            "Configured Many",
+            "Add and configure nodes and connections before running"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Modèle initial pour Lead follow-up.",
+          "body": "Ce modèle ouvre un canevas sans nœuds préconfigurés. Ajoutez les entrées, agents et connexions nécessaires, configurez les outils et testez l’exécution. La planification se configure séparément dans Automatisations.",
+          "useCases": [
+            "Lead follow-up"
+          ],
+          "requirements": [
+            "Many configuré",
+            "Ajouter et configurer les nœuds et connexions avant exécution"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Modelo inicial para Lead follow-up.",
+          "body": "Este modelo abre um canvas sem nós pré-configurados. Adicione entradas, agentes e ligações, configure as ferramentas e teste a execução. A programação é configurada separadamente em Automações.",
+          "useCases": [
+            "Lead follow-up"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Adicionar e configurar nós e ligações antes de executar"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "doc-brief-post-flow",
+      "category": "workflows",
+      "slug": "doc-brief-post-flow",
+      "name": "Doc to post",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "workflows",
+      "locales": {
+        "es": {
+          "description": "Plantilla inicial para Doc to post.",
+          "body": "Esta plantilla abre un canvas sin nodos preconfigurados. Añade las entradas, agentes y conexiones necesarios para este proceso, configura sus herramientas y prueba la ejecución. La programación se configura por separado en Automatizaciones.",
+          "useCases": [
+            "Reutilizar un flujo de creación de contenido"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Añadir y configurar nodos y conexiones antes de ejecutar"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Starter template for Doc to post.",
+          "body": "This template opens a canvas without preconfigured nodes. Add the inputs, agents and connections needed for this process, configure their tools and test the execution. Scheduling is configured separately in Automations.",
+          "useCases": [
+            "Reuse a content creation flow"
+          ],
+          "requirements": [
+            "Configured Many",
+            "Add and configure nodes and connections before running"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Modèle initial pour Doc to post.",
+          "body": "Ce modèle ouvre un canevas sans nœuds préconfigurés. Ajoutez les entrées, agents et connexions nécessaires, configurez les outils et testez l’exécution. La planification se configure séparément dans Automatisations.",
+          "useCases": [
+            "Doc to post"
+          ],
+          "requirements": [
+            "Many configuré",
+            "Ajouter et configurer les nœuds et connexions avant exécution"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Modelo inicial para Doc to post.",
+          "body": "Este modelo abre um canvas sem nós pré-configurados. Adicione entradas, agentes e ligações, configure as ferramentas e teste a execução. A programação é configurada separadamente em Automações.",
+          "useCases": [
+            "Doc to post"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Adicionar e configurar nós e ligações antes de executar"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "weekly-digest-flow",
+      "category": "workflows",
+      "slug": "weekly-digest-flow",
+      "name": "Weekly research digest",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "workflows",
+      "locales": {
+        "es": {
+          "description": "Plantilla inicial para Weekly research digest.",
+          "body": "Esta plantilla abre un canvas sin nodos preconfigurados. Añade las entradas, agentes y conexiones necesarios para este proceso, configura sus herramientas y prueba la ejecución. La programación se configura por separado en Automatizaciones.",
+          "useCases": [
+            "Mantener una revisión semanal"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Añadir y configurar nodos y conexiones antes de ejecutar"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Starter template for Weekly research digest.",
+          "body": "This template opens a canvas without preconfigured nodes. Add the inputs, agents and connections needed for this process, configure their tools and test the execution. Scheduling is configured separately in Automations.",
+          "useCases": [
+            "Maintain a weekly review"
+          ],
+          "requirements": [
+            "Configured Many",
+            "Add and configure nodes and connections before running"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Modèle initial pour Weekly research digest.",
+          "body": "Ce modèle ouvre un canevas sans nœuds préconfigurés. Ajoutez les entrées, agents et connexions nécessaires, configurez les outils et testez l’exécution. La planification se configure séparément dans Automatisations.",
+          "useCases": [
+            "Weekly research digest"
+          ],
+          "requirements": [
+            "Many configuré",
+            "Ajouter et configurer les nœuds et connexions avant exécution"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Modelo inicial para Weekly research digest.",
+          "body": "Este modelo abre um canvas sem nós pré-configurados. Adicione entradas, agentes e ligações, configure as ferramentas e teste a execução. A programação é configurada separadamente em Automações.",
+          "useCases": [
+            "Weekly research digest"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Adicionar e configurar nós e ligações antes de executar"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "dome-social-insights",
+      "category": "skills",
+      "slug": "dome-social-insights",
+      "name": "Social Insights",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "complements",
+      "locales": {
+        "es": {
+          "description": "Guía a Many para analizar perfiles con evidencias guardadas.",
+          "body": "Esta skill aporta instrucciones para explorar perfiles y comparar referencias. No conecta cuentas por sí sola: necesita las herramientas y los recursos disponibles en Dome.",
+          "useCases": [
+            "Comparar referencias de un sector"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Herramientas y cuentas necesarias para la tarea"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Guide Many through profile analysis using saved evidence.",
+          "body": "This skill provides instructions for exploring profiles and comparing references. It does not connect accounts itself: it needs tools and resources available in Dome.",
+          "useCases": [
+            "Compare references in an industry"
+          ],
+          "requirements": [
+            "Configured Many",
+            "Tools and accounts needed for the task"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Des instructions pour Social Insights.",
+          "body": "Guide Many dans cette tâche avec les outils disponibles. Les comptes doivent être connectés séparément.",
+          "useCases": [
+            "Social Insights"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Instruções para Social Insights.",
+          "body": "Orienta Many nesta tarefa com as ferramentas disponíveis. As contas precisam de ligação separada.",
+          "useCases": [
+            "Social Insights"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "dome-social-operations",
+      "category": "skills",
+      "slug": "dome-social-operations",
+      "name": "Social Operations",
+      "author": "Dome",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "complements",
+      "locales": {
+        "es": {
+          "description": "Guía a Many para idear, redactar y preparar publicaciones.",
+          "body": "Esta skill organiza el trabajo editorial con cuentas conectadas. Verifica los borradores y aprueba expresamente las acciones de programación y publicación que lo requieran.",
+          "useCases": [
+            "Preparar un calendario de contenido"
+          ],
+          "requirements": [
+            "Many configurado",
+            "Herramientas y cuentas necesarias para la tarea"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Guide Many through ideation, writing and publication preparation.",
+          "body": "This skill organizes editorial work with connected accounts. Check drafts and explicitly approve scheduling and publication actions when required.",
+          "useCases": [
+            "Prepare a content calendar"
+          ],
+          "requirements": [
+            "Configured Many",
+            "Tools and accounts needed for the task"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Des instructions pour Social Operations.",
+          "body": "Guide Many dans cette tâche avec les outils disponibles. Les comptes doivent être connectés séparément.",
+          "useCases": [
+            "Social Operations"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Instruções para Social Operations.",
+          "body": "Orienta Many nesta tarefa com as ferramentas disponíveis. As contas precisam de ligação separada.",
+          "useCases": [
+            "Social Operations"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    },
+    {
+      "id": "filesystem-mcp",
+      "category": "mcp",
+      "slug": "filesystem-mcp",
+      "name": "Filesystem MCP",
+      "author": "Anthropic",
+      "version": "1.0.0",
+      "featured": false,
+      "permissions": [],
+      "manual": "integrations",
+      "locales": {
+        "es": {
+          "description": "Conecta un servidor MCP para trabajar con carpetas autorizadas.",
+          "body": "Configura las rutas permitidas y revisa el servidor antes de añadirlo. Las operaciones disponibles dependen de su configuración; no concede acceso a todo el disco automáticamente.",
+          "useCases": [
+            "Trabajar con archivos de una carpeta elegida"
+          ],
+          "requirements": [
+            "Node.js y npx disponibles para el servidor configurado",
+            "Configurar explícitamente las carpetas permitidas en Ajustes → MCP"
+          ],
+          "permissionDescriptions": []
+        },
+        "en": {
+          "description": "Connect an MCP server to work with authorized folders.",
+          "body": "Configure allowed paths and review the server before adding it. Available operations depend on its configuration; it does not automatically grant access to the whole disk.",
+          "useCases": [
+            "Work with files in a chosen folder"
+          ],
+          "requirements": [
+            "Node.js and npx available for the configured server",
+            "Explicitly configure allowed folders in Settings → MCP"
+          ],
+          "permissionDescriptions": []
+        },
+        "fr": {
+          "description": "Travaillez avec des dossiers autorisés via MCP.",
+          "body": "Configurez les dossiers accessibles avant de connecter le serveur. Vérifiez les opérations autorisées.",
+          "useCases": [
+            "Filesystem MCP"
+          ],
+          "requirements": [
+            "Dome et Many configurés"
+          ],
+          "permissionDescriptions": []
+        },
+        "pt": {
+          "description": "Trabalhe com pastas autorizadas através de MCP.",
+          "body": "Configure as pastas acessíveis antes de ligar o servidor. Reveja as operações permitidas.",
+          "useCases": [
+            "Filesystem MCP"
+          ],
+          "requirements": [
+            "Dome e Many configurados"
+          ],
+          "permissionDescriptions": []
+        }
+      }
+    }
+  ]
+}
