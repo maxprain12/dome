@@ -1,3 +1,4 @@
+import { useComplementIntentStore } from '@/lib/store/useComplementIntentStore';
 import { StrictMode, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { setDomeHrefNavigate } from '@/lib/links/openDomeHref';
@@ -82,6 +83,23 @@ function MainApp() {
     });
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const bridge = globalThis.window?.electron;
+    if (!bridge?.on) return;
+    const deliver = async () => {
+      const links = await bridge.invoke('window:take-complement-links') as Array<{ category: 'plugins' | 'agents' | 'workflows' | 'skills' | 'mcp'; id: string }>;
+      const intent = links.at(-1);
+      if (!intent) return;
+      useComplementIntentStore.getState().setIntent(intent);
+      useTabStore.getState().openMarketplaceTab();
+    };
+    const unsub = bridge.on('dome:complement-link-pending', () => {
+      deliver().catch(() => showToast('error', t('marketplace.link_error')));
+    });
+    deliver().catch(() => showToast('error', t('marketplace.link_error')));
+    return () => unsub?.();
+  }, [t]);
 
   // Handle dome://studio/ID deep links
   useEffect(() => {

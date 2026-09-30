@@ -15,9 +15,9 @@ Si el plugin contribuye `vaultTemplate`, Dome pinta la lista, el alta y la publi
 
 ## Instalar y configurar
 
-### Desde Marketplace
+### Desde Complementos
 
-1. Abre **Marketplace → Plugins**.
+1. Abre **Complementos → Plugins**.
 2. Instala el plugin.
 3. Abre **Settings → Plugins** y pulsa **Configurar**.
 4. Selecciona una bóveda y revisa los permisos.

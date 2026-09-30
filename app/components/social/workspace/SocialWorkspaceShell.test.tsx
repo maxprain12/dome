@@ -82,7 +82,7 @@ describe('SocialWorkspaceShell', () => {
     const user = userEvent.setup();
     render(<SocialWorkspaceShell />);
     await user.click(await screen.findByRole('combobox', { name: 'Secciones de Social' }));
-    expect(screen.getAllByRole('option')).toHaveLength(10);
+    expect(await screen.findAllByRole('option')).toHaveLength(10);
     await user.click(screen.getByRole('option', { name: 'Insights' }));
     expect(await screen.findByRole('heading', { name: 'Insights' })).toBeVisible();
     expect(screen.getByRole('combobox', { name: 'Secciones de Social' })).toHaveTextContent('Insights');

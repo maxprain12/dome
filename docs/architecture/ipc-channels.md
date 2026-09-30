@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-09-30T12:44:20.157Z
+> Última generación: 2026-09-30T18:03:25.617Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -651,14 +651,15 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `web:process` | `electron/ipc/integrations/web.cjs:216` |
 | `web:save-screenshot` | `electron/ipc/integrations/web.cjs:202` |
 | `web:scrape` | `electron/ipc/integrations/web.cjs:166` |
-| `window:broadcast` | `electron/ipc/core/window.cjs:319` |
-| `window:close` | `electron/ipc/core/window.cjs:233` |
-| `window:close-current` | `electron/ipc/core/window.cjs:284` |
-| `window:create` | `electron/ipc/core/window.cjs:176` |
-| `window:create-modal` | `electron/ipc/core/window.cjs:203` |
-| `window:list` | `electron/ipc/core/window.cjs:300` |
-| `window:maximize-toggle` | `electron/ipc/core/window.cjs:267` |
-| `window:minimize-current` | `electron/ipc/core/window.cjs:251` |
-| `window:open-folder` | `electron/ipc/core/window.cjs:349` |
-| `window:open-settings` | `electron/ipc/core/window.cjs:400` |
-| `window:open-workspace` | `electron/ipc/core/window.cjs:371` |
+| `window:broadcast` | `electron/ipc/core/window.cjs:321` |
+| `window:close` | `electron/ipc/core/window.cjs:235` |
+| `window:close-current` | `electron/ipc/core/window.cjs:286` |
+| `window:create` | `electron/ipc/core/window.cjs:178` |
+| `window:create-modal` | `electron/ipc/core/window.cjs:205` |
+| `window:list` | `electron/ipc/core/window.cjs:302` |
+| `window:maximize-toggle` | `electron/ipc/core/window.cjs:269` |
+| `window:minimize-current` | `electron/ipc/core/window.cjs:253` |
+| `window:open-folder` | `electron/ipc/core/window.cjs:351` |
+| `window:open-settings` | `electron/ipc/core/window.cjs:408` |
+| `window:open-workspace` | `electron/ipc/core/window.cjs:373` |
+| `window:take-complement-links` | `electron/ipc/core/window.cjs:400` |

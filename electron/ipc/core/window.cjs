@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+const { z } = require('zod');
+const { takeComplementLinks } = require('../../core/complement-links.cjs');
 const { BrowserWindow } = require('electron');
 
 /**
@@ -393,6 +395,12 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
       console.error('[Workspace] Error opening workspace:', error);
       return { success: false, error: error.message };
     }
+  });
+
+  ipcMain.handle('window:take-complement-links', (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return [];
+    z.undefined().parse(args);
+    return takeComplementLinks();
   });
 
   // Open settings window

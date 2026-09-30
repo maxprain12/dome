@@ -619,7 +619,7 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     openMarketplaceTab: () => {
-      get().openTab({ id: MARKETPLACE_TAB_ID, type: 'marketplace', title: 'Marketplace', pinned: false });
+      get().openTab({ id: MARKETPLACE_TAB_ID, type: 'marketplace', title: i18n.t('tabs.marketplace'), pinned: false });
     },
 
     openPipelinesTab: () => {
