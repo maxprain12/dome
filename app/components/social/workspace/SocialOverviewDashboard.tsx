@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { SocialGrowthAccount, SocialPost } from '@/components/social/socialTypes';
@@ -28,6 +27,7 @@ import { DashboardAreaChart, type DashboardChartRange } from '@/components/share
 import { DashboardSectionCards } from '@/components/shared/dashboard/DashboardSectionCards';
 import { DashboardWorkspace, type DashboardPanel } from '@/components/shared/dashboard/DashboardWorkspace';
 import { SocialEditorialQueue, SocialRecentPublications } from './SocialEditorialPanels';
+import type { SocialContentFilter } from './socialWorkspaceTypes';
 import { MixBar } from './SocialOverviewCharts';
 
 function metricTrend(current: number | null, previous: number | null, locale: string) {
@@ -61,7 +61,7 @@ export function SocialOverviewDashboard({
   growth: SocialGrowthAccount[];
   accountId: string | null;
   onOpenPost: (post: SocialPost) => void;
-  onOpenContent: () => void;
+  onOpenContent: (filter?: SocialContentFilter) => void;
   onCompose: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -140,7 +140,7 @@ export function SocialOverviewDashboard({
             },
           ]}
         /> },
-    { id: 'editorial', label: t('dashboardPanels.editorial'), content: <SocialEditorialQueue posts={posts} onOpenPost={onOpenPost} onCompose={onCompose} /> },
+    { id: 'editorial', label: t('dashboardPanels.editorial'), content: <SocialEditorialQueue posts={posts} onOpenPost={onOpenPost} onCompose={onCompose} onOpenContent={onOpenContent} /> },
     { id: 'audience', label: chartTitle, content: <DashboardAreaChart
             title={chartTitle}
             description={t('social.studio.overview.metrics_scope')}
@@ -157,7 +157,7 @@ export function SocialOverviewDashboard({
             }}
             emptyTitle={t('social.studio.insights.audience_empty_title')}
           /> },
-    { id: 'recent', label: t('social.studio.overview.recent_title'), wide: true, content: <SocialRecentPublications posts={recent} onOpenPost={onOpenPost} onOpenContent={onOpenContent} /> },
+    { id: 'recent', label: t('social.studio.overview.recent_title'), wide: true, content: <SocialRecentPublications posts={recent} onOpenPost={onOpenPost} onOpenContent={() => onOpenContent()} /> },
     { id: 'mix', label: t('social.studio.overview.mix_title'), content: <Card>
             <CardHeader>
               <CardTitle>{t('social.studio.overview.mix_title')}</CardTitle>
@@ -175,10 +175,6 @@ export function SocialOverviewDashboard({
               </> : <p className="py-6 text-sm text-muted-foreground">{t('dashboardPanels.metrics_empty')}</p>}
             </CardContent>
           </Card> },
-    { id: 'studio', label: t('dashboardPanels.studio'), content: <Card variant="lavender">
-      <CardHeader><CardTitle>{t('dashboardPanels.studio')}</CardTitle><CardDescription>{t('dashboardPanels.studio_hint')}</CardDescription></CardHeader>
-      <CardContent className="flex flex-col gap-4"><p className="text-4xl font-semibold tabular-nums">{posts.filter((post) => post.status === 'draft').length}<span className="ml-2 text-sm font-normal text-muted-foreground">{t('dashboardPanels.draft')}</span></p><Button variant="outline" onClick={onCompose}>{t('dashboardPanels.create_post')}</Button><Button variant="ghost" onClick={onOpenContent}>{t('dashboardPanels.view_all')}</Button></CardContent>
-    </Card> },
   ];
   return <ScrollArea className="@container/dashboard min-h-0 flex-1 bg-muted/30">
     <DashboardWorkspace scope="social" eyebrow={t('dashboardPanels.social_eyebrow')} title={t('dashboardPanels.social_title')} description={t('dashboardPanels.social_hint')} panels={panels} actions={<ToggleGroup value={[String(period)]} aria-label={t('dashboardPanels.period')} onValueChange={(values) => { const next = Number(values[0]); if (next === 7 || next === 30 || next === 90) setPeriod(next); }} variant="outline" size="sm">{([7, 30, 90] as const).map((days) => <ToggleGroupItem key={days} value={String(days)}>{t(`dashboard.chart_range_${days}d`)}</ToggleGroupItem>)}</ToggleGroup>} />

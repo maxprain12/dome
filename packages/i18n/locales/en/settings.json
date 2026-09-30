@@ -61,7 +61,8 @@
     "photo_error": "The photo could not be saved. Check that you are signed in to Dome.",
     "privacy": "Privacy",
     "analytics_label": "Share anonymous usage data",
-    "analytics_description": "Help improve Dome by understanding how the app is used. Data is completely anonymous."
+    "analytics_description": "Help improve Dome by understanding how the app is used. Data is completely anonymous.",
+    "unsaved_changes": "Unsaved changes"
   },
   "appearance": {
     "title": "Appearance",

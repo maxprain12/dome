@@ -78,8 +78,10 @@ export default function GeneralSection() {
     reader.readAsDataURL(file);
   };
 
+  const hasChanges = localName.trim() !== name || localEmail.trim() !== email;
+
   const handleSave = async () => {
-    if (profileSaving) return;
+    if (profileSaving || !hasChanges) return;
     setIsSaved(false); setSaveFailed(false);
     const newErrors: { name?: string; email?: string } = {};
     if (!validateName(localName)) newErrors.name = t('settings.general.error_name');
@@ -118,7 +120,7 @@ export default function GeneralSection() {
     >
       <AccountAccessPanel />
       <SettingsGroup title={t('settings.general.profile')} description={t('settingsGuide.ai.profile_hint')}>
-        <div className="px-4 py-4">
+        <form className="px-4 py-4" onSubmit={(event) => { event.preventDefault(); void handleSave(); }}>
           <FieldGroup>
             {saveFailed && <Alert variant="destructive"><AlertDescription>{t('settingsGuide.ai.save_error')}</AlertDescription></Alert>}
             <div className="flex items-center gap-4">
@@ -185,18 +187,19 @@ export default function GeneralSection() {
               <FieldError>{errors.email}</FieldError>
             </Field>
             <div className="flex items-center gap-2.5">
-              <Button type="button" size="sm" disabled={profileSaving} onClick={() => { void handleSave(); }}>
+              <Button type="submit" className="min-h-9" disabled={profileSaving || !hasChanges}>
                 {t(profileSaving ? 'settingsGuide.ai.saving' : 'settings.general.save_changes')}
               </Button>
+              {hasChanges && !isSaved && !profileSaving ? <span role="status" className="text-xs text-muted-foreground">{t('settings.general.unsaved_changes')}</span> : null}
               {isSaved ? (
-                <span className="flex items-center gap-1.5 text-xs text-primary">
+                <span role="status" className="flex items-center gap-1.5 text-xs text-primary">
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden />
                   {t('settings.general.saved')}
                 </span>
               ) : null}
             </div>
           </FieldGroup>
-        </div>
+        </form>
       </SettingsGroup>
 
       <SettingsGroup title={t('settings.general.privacy')}>

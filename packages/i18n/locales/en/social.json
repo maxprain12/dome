@@ -324,7 +324,8 @@
       "inbox": "Inbox",
       "accounts": "Accounts",
       "references": "References",
-      "trends": "Trends"
+      "trends": "Trends",
+      "tools": "Tools"
     },
     "inbox": {
       "empty_title": "No pending comments",
@@ -393,7 +394,8 @@
       "series_followers": "Followers",
       "series_impressions": "Impressions",
       "series_engagements": "Engagements",
-      "metrics_scope": "Posts imported or created in Dome and published in this period. Interactions are lifetime totals; — means data is unavailable."
+      "metrics_scope": "Posts imported or created in Dome and published in this period. Interactions are lifetime totals; — means data is unavailable.",
+      "view_queue": "View all ({{count}})"
     },
     "content": {
       "eyebrow": "Editorial library",

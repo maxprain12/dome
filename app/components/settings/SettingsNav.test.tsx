@@ -35,3 +35,11 @@ it('finds settings by the task description, not only technical titles', async ()
   await userEvent.keyboard('{Enter}');
   expect(useSettingsUiStore.getState().activeSection).toBe('email');
 });
+
+it('finds a section without accents and with words in a different order', async () => {
+  useSettingsUiStore.setState({ activeSection: 'general' });
+  render(<SettingsNav collapsed={false} />);
+  await userEvent.type(screen.getByRole('textbox'), 'extension navegador');
+  await userEvent.keyboard('{Enter}');
+  expect(useSettingsUiStore.getState().activeSection).toBe('browser_extension');
+});

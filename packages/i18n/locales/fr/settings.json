@@ -61,7 +61,8 @@
     "photo_error": "La photo n'a pas pu être enregistrée. Vérifiez que vous êtes connecté à Dome.",
     "privacy": "Confidentialité",
     "analytics_label": "Partager des données d'utilisation anonymes",
-    "analytics_description": "Aidez à améliorer Dome en comprenant comment l'application est utilisée. Les données sont complètement anonymes."
+    "analytics_description": "Aidez à améliorer Dome en comprenant comment l'application est utilisée. Les données sont complètement anonymes.",
+    "unsaved_changes": "Modifications non enregistrées"
   },
   "appearance": {
     "title": "Apparence",

@@ -12,7 +12,7 @@ it('sorts scheduled work chronologically and opens the selected draft or compose
   const onOpenPost = vi.fn();
   const onCompose = vi.fn();
   const posts = [post('Later', 'scheduled', Date.now() + 20000), post('Sooner', 'scheduled', Date.now() + 10000), post('My draft', 'draft')];
-  render(<SocialEditorialQueue posts={posts} onOpenPost={onOpenPost} onCompose={onCompose} />);
+  render(<SocialEditorialQueue posts={posts} onOpenPost={onOpenPost} onCompose={onCompose} onOpenContent={() => {}} />);
   expect(screen.getAllByRole('button').filter((button) => /Sooner|Later/.test(button.textContent ?? '')).map((button) => button.textContent?.split('LinkedIn')[0])).toEqual(['Sooner', 'Later']);
   await userEvent.click(screen.getByRole('button', { name: /Drafts/ }));
   await userEvent.click(screen.getByRole('button', { name: /My draft/ }));
@@ -24,4 +24,13 @@ it('sorts scheduled work chronologically and opens the selected draft or compose
 it('distinguishes unavailable metrics from measured zero', () => {
   render(<SocialRecentPublications posts={[post('Published story', 'published')]} onOpenPost={() => {}} onOpenContent={() => {}} />);
   expect(screen.getAllByText('—')).toHaveLength(2);
+});
+
+it('opens the whole queue with the selected status when the preview is truncated', async () => {
+  const onOpenContent = vi.fn();
+  render(<SocialEditorialQueue posts={Array.from({ length: 6 }, (_, index) => post(`Draft ${index}`, 'draft'))} onOpenPost={() => {}} onCompose={() => {}} onOpenContent={onOpenContent} />);
+  await userEvent.click(screen.getByRole('button', { name: /Drafts/ }));
+  expect(screen.queryByText('Draft 4')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'View all (6)' }));
+  expect(onOpenContent).toHaveBeenCalledWith('draft');
 });

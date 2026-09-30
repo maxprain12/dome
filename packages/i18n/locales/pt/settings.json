@@ -61,7 +61,8 @@
     "photo_error": "Não foi possível guardar a foto. Confirme que iniciou sessão no Dome.",
     "privacy": "Privacidade",
     "analytics_label": "Compartilhar dados de uso anônimos",
-    "analytics_description": "Ajude a melhorar o Dome entendendo como o aplicativo é usado. Os dados são completamente anônimos."
+    "analytics_description": "Ajude a melhorar o Dome entendendo como o aplicativo é usado. Os dados são completamente anônimos.",
+    "unsaved_changes": "Alterações por guardar"
   },
   "appearance": {
     "title": "Aparência",

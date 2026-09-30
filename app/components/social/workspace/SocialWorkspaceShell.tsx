@@ -251,7 +251,11 @@ function SectionBody({
           growth={growth}
           accountId={accountId}
           onOpenPost={(post) => onNavigate('content', { kind: 'post', post })}
-          onOpenContent={() => onNavigate('content')}
+          onOpenContent={(filter = 'all') => {
+            onQueryChange('');
+            onContentFilter(filter);
+            onNavigate('content');
+          }}
           onCompose={onCompose}
         />
       );

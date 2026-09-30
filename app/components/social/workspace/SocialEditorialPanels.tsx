@@ -17,7 +17,7 @@ import type { SocialPost } from '@/components/social/socialTypes';
 
 type EditorialStatus = 'scheduled' | 'draft' | 'failed';
 
-export function SocialEditorialQueue({ posts, onOpenPost, onCompose }: { posts: SocialPost[]; onOpenPost: (post: SocialPost) => void; onCompose: () => void }) {
+export function SocialEditorialQueue({ posts, onOpenPost, onCompose, onOpenContent }: { posts: SocialPost[]; onOpenPost: (post: SocialPost) => void; onCompose: () => void; onOpenContent: (status: EditorialStatus) => void }) {
   const { t, i18n } = useTranslation();
   const [status, setStatus] = useState<EditorialStatus>('scheduled');
   const queued = posts.filter((post) => post.status === status).sort((a, b) => status === 'scheduled' ? (a.scheduledAt ?? 0) - (b.scheduledAt ?? 0) : b.updatedAt - a.updatedAt);
@@ -29,6 +29,7 @@ export function SocialEditorialQueue({ posts, onOpenPost, onCompose }: { posts: 
       </ToggleGroup>
       {queued.slice(0, 4).map((post) => <DashboardRow key={post.id} title={formatSocialBody(socialPostLabel(post))} detail={`${PROVIDER_LABELS[post.provider]} · ${formatSocialWhen(post.scheduledAt ?? post.updatedAt, i18n.language)}`} marker={<HugeiconsIcon icon={status === 'scheduled' ? Calendar03Icon : File01Icon} className="size-5" />} onClick={() => onOpenPost(post)} />)}
       {queued.length === 0 && <Empty><EmptyHeader><EmptyTitle>{t('dashboardPanels.queue_empty')}</EmptyTitle></EmptyHeader></Empty>}
+      {queued.length > 0 && <Button variant="ghost" onClick={() => onOpenContent(status)}>{t('social.studio.overview.view_queue', { count: queued.length })}</Button>}
       <Button variant="outline" onClick={onCompose}><HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />{t('dashboardPanels.create_post')}</Button>
     </CardContent>
   </Card>;
