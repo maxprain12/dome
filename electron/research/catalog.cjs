@@ -2,7 +2,7 @@
 'use strict';
 
 const CHANNELS = [
-  ['web', ['read'], 'local', null],
+  ['web', ['search', 'read'], 'local', null],
   ['exa_search', ['search'], 'byok', null],
   ['rss', ['read'], 'local', null],
   ['github', ['search', 'read', 'profile'], 'public_api', null],

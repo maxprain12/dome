@@ -19,6 +19,11 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
   };
   const keyNames = { brave: 'web_search_brave_key', tavily: 'web_search_tavily_key', exa: 'web_search_exa_api_key' };
   const providerKey = (name) => readSettingSecret(queries, keyNames[name]);
+  function safeError(error) {
+    let message = String(error.message || 'research_failed');
+    for (const name of Object.keys(keyNames)) { const key = providerKey(name); if (key) message = message.split(key).join('[redacted]'); }
+    return message.replace(/Bearer\s+[A-Za-z0-9._~+\/=-]+/gi, 'Bearer [redacted]').slice(0, 500);
+  }
   function status() {
     return { success: true, channels: capabilities({ browser: browser?.status() || null,
       enabledProviders: budget.policy(queries).enabledProviders,
@@ -142,11 +147,13 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
           if (result.success === false) { job.failures.push({ url, error: result.status || result.error }); continue; }
           for (const item of result.evidence) {
             const index = job.evidence.findIndex((saved) => saved.id === item.id);
-            if (index < 0) job.evidence.push(item); else job.evidence[index] = item;
+            if (index >= 0) job.evidence[index] = item;
+            else if (job.evidence.length < 30) job.evidence.push(item);
+            else job.limitations = ['evidence_limit_30'];
           }
         } catch (error) {
           controller.signal.throwIfAborted();
-          job.failures.push({ url, error: error.message });
+          job.failures.push({ url, error: safeError(error) });
         }
       }
       controller.signal.throwIfAborted();
@@ -159,7 +166,7 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
       }
     } catch (error) {
       job.status = controller.signal.aborted ? 'cancelled' : 'failed';
-      job.error = controller.signal.aborted ? 'cancelled' : error.message;
+      job.error = controller.signal.aborted ? 'cancelled' : safeError(error);
     } finally {
       job.finishedAt = Date.now();
       queries.setSetting.run('research_last_job_v1', JSON.stringify({ id, status: job.status, projectId: job.projectId, resourceId: job.resourceId || null, savedEvidence: job.evidence.length, failures: job.failures.length, finishedAt: job.finishedAt }), Date.now());
@@ -178,7 +185,7 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
       if (name === 'research_profile' && !['github', 'instagram', 'x'].includes(input.platform)) throw new Error('profile_pending_enablement');
       if (!['research_read', 'research_profile'].includes(name)) throw new Error('unknown_research_tool');
       return await read(input, ctx);
-    } catch (error) { return { success: false, error: error.message }; }
+    } catch (error) { return { success: false, error: safeError(error) }; }
   }
   function cancel(id) { const entry = jobs.get(id); entry?.controller.abort(); return { success: Boolean(entry) }; }
   return { execute, status, cancel, jobs };

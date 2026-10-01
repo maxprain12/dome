@@ -7,4 +7,4 @@ Implement a native 16-channel research catalog, bounded evidence collection, per
 
 ## Delivered
 
-Native tools, explicit tab bridge, Exa BYOK, web/RSS/GitHub and existing public social snapshots, evidence notes, acquisition budgets and shipped MIT notices. Remaining connectors/media stay gated pending access authorization and live validation. Validation: 547 UI tests, 12 research tests, 41 extension unit tests, 36 bridge tests, 16 Chromium flows; builds for Chrome/Edge/Firefox/Safari. No paid acquisition or authenticated platform session was certified.
+Native tools, explicit tab bridge, Exa BYOK, web/RSS/GitHub and existing public social snapshots, evidence notes, acquisition budgets and shipped MIT notices. Remaining connectors/media stay gated pending access authorization and live validation. Validation: 547 UI tests, 13 research tests, 41 extension unit tests, 36 bridge tests, 16 Chromium flows; builds for Chrome/Edge/Firefox/Safari. No paid acquisition or authenticated platform session was certified.

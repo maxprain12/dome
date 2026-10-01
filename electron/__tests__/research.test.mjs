@@ -138,3 +138,12 @@ test('renderer IPC cancellation propagates the signal and rejects invalid or for
     assert.equal((await handlers.get('research:execute')(event, { name: 'arbitrary', input: {} })).success, false);
   } finally { require.cache[modulePath].exports = original; delete require.cache[ipcPath]; }
 });
+test('capabilities advertise web search and collections bound multi-item sources', async () => {
+  assert.ok(capabilities().find((item) => item.platform === 'web').operations.includes('search'));
+  const service = createResearchService({ queries: queries(), validateUrl: async () => {}, resolveSocial: async () => ({ card: {
+    provider: 'x', kind: 'profile', url: 'https://x.com/test', body: 'Profile', recentPosts: Array.from({ length: 50 }, (_, i) => ({ url: `https://x.com/test/status/${i}`, body: 'Post' })),
+  } }) });
+  const result = await service.execute('research_collect', { platform: 'x', url: 'https://x.com/test' });
+  assert.equal(result.evidence.length, 30); assert.deepEqual(result.limitations, ['evidence_limit_30']);
+  assert.equal(result.evidence[0].metrics.followers, null);
+});
