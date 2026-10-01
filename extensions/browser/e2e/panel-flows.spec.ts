@@ -451,6 +451,13 @@ test.beforeEach(async () => {
       if (url.endsWith('/ai/stream')) {
         const requestMode = state.mode;
         state.streamRequestCount += 1;
+        if (requestMode === 'plan-result') {
+          return sse([
+            { type: 'start', streamId: body.streamId, protocolVersion: 2 },
+            { type: 'delta', text: 'Plan:\n1. Revisar fuentes\n2. Comparar evidencias' },
+            { type: 'done' },
+          ]);
+        }
         if (state.streamDelay) {
           await new Promise((resolve) =>
             setTimeout(resolve, state.streamDelay),
@@ -1281,4 +1288,23 @@ test('habilita y revoca la lectura de investigación de la pestaña elegida', as
   await stop.click();
   await expect(enable).toBeVisible();
   await expect.poll(async () => (await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll') && request.body.enabled === false)).toBe(true);
+});
+
+test('solo crea un plan tras elegir Plan y Ejecutar envía modo Agent', async () => {
+  await setStreamMode('plan-result');
+  const submit = async (text: string) => {
+    await page.getByRole('textbox', { name: /Pregunta a Many/ }).fill(text);
+    await page.getByRole('button', { name: 'Preguntar a Many', exact: true }).click();
+  };
+  await submit('Analiza la página');
+  await expect(page.getByText('Comparar evidencias', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ejecutar', exact: true })).toHaveCount(0);
+  await submit('/plan');
+  // Switching mode must not reinterpret the earlier Agent answer as a plan.
+  await expect(page.getByRole('button', { name: 'Ejecutar', exact: true })).toHaveCount(0);
+  await submit('Prepara un plan de investigación');
+  await page.getByRole('button', { name: 'Ejecutar', exact: true }).click();
+  await expect.poll(async () => (await recordedRequests()).filter(request => String(request.url).endsWith('/ai/stream')).length).toBe(3);
+  const streams = (await recordedRequests()).filter(request => String(request.url).endsWith('/ai/stream'));
+  expect(streams.map(request => request.body.agentMode)).toEqual(['agent', 'plan', 'agent']);
 });

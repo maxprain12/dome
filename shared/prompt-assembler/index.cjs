@@ -35,7 +35,7 @@ __export(prompt_assembler_exports, {
   todayEnLong: () => todayEnLong
 });
 module.exports = __toCommonJS(prompt_assembler_exports);
-const PROMPT_VERSION = "minimax-v4";
+const PROMPT_VERSION = "minimax-v5";
 const DOME_LOAD_DOC_IDS = [
   "entity_rules",
   "artifacts",

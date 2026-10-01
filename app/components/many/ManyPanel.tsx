@@ -100,7 +100,9 @@ export default function ManyPanel({
     currentSessionId ? s.activeRunBySessionId[currentSessionId] : undefined,
   );
   const planPanelOpen = useManyStore((s) =>
-    currentSessionId ? s.planPanelOpenBySession[currentSessionId] === true : false,
+    currentSessionId ? s.planPanelOpenBySession[currentSessionId] === true
+      && Boolean(s.planDocumentBySession[currentSessionId])
+      && (s.planDocumentBySession[currentSessionId]?.originMode === 'plan' || s.agentModeBySession[currentSessionId] === 'plan') : false,
   );
 
   const [input, setInput] = useState('');

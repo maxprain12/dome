@@ -10,6 +10,7 @@ export interface PlanTodo {
 }
 
 export interface PlanDocument {
+  originMode?: 'plan';
   title: string;
   body: string;
   excerpt: string;
@@ -253,6 +254,13 @@ export function extractPlanDocument(text: string): PlanDocument | null {
   };
 }
 
+/** Mode comes from the immutable run metadata, never from answer wording. */
+export function planDocumentForRun(text: string, mode: unknown): PlanDocument | null {
+  if (mode !== 'plan') return null;
+  const document = extractPlanDocument(text);
+  return document ? { ...document, originMode: 'plan' } : null;
+}
+
 export function parsePlanDocument(raw: unknown): PlanDocument | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
@@ -261,6 +269,7 @@ export function parsePlanDocument(raw: unknown): PlanDocument | null {
   const title = String(row.title || '').trim().slice(0, 80);
   if (todos.length === 0 && !body) return null;
   return {
+    ...(row.originMode === 'plan' ? { originMode: 'plan' as const } : {}),
     title: title || extractPlanTitle(body) || 'Plan',
     body,
     excerpt: extractPlanExcerpt(String(row.excerpt || body), todos),

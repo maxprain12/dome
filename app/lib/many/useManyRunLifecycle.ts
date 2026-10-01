@@ -20,7 +20,7 @@ import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerg
 import { streamingLabelForToolCall, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
 import { parseManyAgentMode } from '@/lib/many/agentMode';
 import {
-  extractPlanDocument,
+  planDocumentForRun,
   markCompletedSteps,
   questionnaireFromActionRequests,
 } from '@/lib/many/planDocument';
@@ -302,25 +302,27 @@ export function useManyRunLifecycle({
       requestAnimationFrame(() => scrollToBottomRef.current(true));
       if (run.status === 'completed') {
         window.dispatchEvent(new Event('dome:resources-changed'));
-        const sid = currentSessionIdRef.current;
+        const sid = runSid;
         if (sid && finalContent) {
           const store = useManyStore.getState();
-          const mode = parseManyAgentMode(store.agentModeBySession[sid]);
+          const mode = parseManyAgentMode(run.metadata?.agentMode);
           const executing = store.planExecutingBySession[sid] === true;
           if (mode === 'plan') {
-            const document = extractPlanDocument(finalContent);
+            const document = planDocumentForRun(finalContent, mode);
             if (document) {
-              store.setPlanDocumentForSession(sid, { ...document, messageId: undefined });
+              store.setPlanDocumentForSession(sid, { ...document, originMode: 'plan' });
               store.setPlanChoiceOpenForSession(sid, true);
             }
           } else if (executing) {
             const current = store.planTodosBySession[sid] ?? [];
-            store.setPlanTodosForSession(sid, markCompletedSteps(finalContent, current));
+            const next = markCompletedSteps(finalContent, current);
+            store.setPlanTodosForSession(sid, next);
+            if (next.length > 0 && next.every((step) => step.completed)) store.setPlanExecutingForSession(sid, false);
           }
         }
       }
     },
-    [addMessage, currentSessionIdRef, refreshSessionFromThreadRef, scrollToBottomRef, setActiveRunId, setIsLoading, setSessionRunState, setStatus, t],
+    [addMessage, refreshSessionFromThreadRef, scrollToBottomRef, setActiveRunId, setIsLoading, setSessionRunState, setStatus, t],
   );
 
   const handleManyPendingApproval = useCallback(

@@ -60,6 +60,7 @@ function clearThread(threadId) {
   const id = normalizeThreadId(threadId);
   if (!id) return;
   allowByThread.delete(id);
+  allowByThread.delete(`${id}:draft`);
 }
 
 function clearAll() {

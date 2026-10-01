@@ -41,7 +41,7 @@ steps:
       - pnpm run build:packages
       - pnpm run test:research
       - pnpm run test:tool-cap
-      - node --test electron/__tests__/tool-stubs.test.mjs electron/__tests__/social-explorations.test.mjs
+      - node --test electron/__tests__/tool-stubs.test.mjs electron/__tests__/social-explorations.test.mjs electron/__tests__/many-agent-mode.test.mjs electron/__tests__/many-plan.test.mjs electron/__tests__/agent-runtime-caps.test.mjs electron/__tests__/hitl-allowlist.test.mjs
       - pnpm run test:contacts-mail
       - pnpm --filter @dome/agent-core run test
       - pnpm run smoke:mcp-sdk

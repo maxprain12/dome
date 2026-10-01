@@ -19,6 +19,7 @@
 // Pure-CJS leaf (imports nothing) — safe to require at load without violating
 // the "never pull the ESM runtime at load time" guarantee documented above.
 const { safeStringify } = require('../tools/tool-result-cap.cjs');
+const manyMode = require('./many-agent-mode.cjs');
 
 const DEFAULT_RECURSION_LIMIT = 25;
 
@@ -517,14 +518,18 @@ function globalToolCallLimit() {
  * configured) human-in-the-loop approval. Returns `{ block, reason }` to deny.
  */
 function buildBeforeToolCall(opts, caps) {
+  const mode = manyMode.parseManyAgentMode(opts.agentMode);
+  const externalNames = new Set(opts.modeExternalToolNames || []);
   const limits = { ...CREATION_TOOL_CAPS, ...(opts.caps || {}) };
-  const requiresApproval = opts.skipHitl ? null : opts.requiresApproval;
-  const requestApproval = opts.skipHitl ? null : opts.requestApproval;
-  const hitlInterrupt = !opts.skipHitl && opts.hitlInterrupt === true;
+  const skipHitl = mode === 'draft' ? false : opts.skipHitl;
+  const requiresApproval = skipHitl ? null : opts.requiresApproval;
+  const requestApproval = skipHitl ? null : opts.requestApproval;
+  const hitlInterrupt = mode === 'draft' || (!skipHitl && opts.hitlInterrupt === true);
   const threadId = opts.threadId || opts.effectiveThreadId || null;
   const hitlAllowlist = require('./hitl-allowlist.cjs');
 
   const needsApproval = (name) => {
+    if (mode === 'draft' && (manyMode.isModeWriteTool(name) || externalNames.has(name))) return true;
     if (!requiresApproval) return false;
     if (typeof requiresApproval === 'function') return requiresApproval({ name });
     if (requiresApproval instanceof Set) return requiresApproval.has(name);
@@ -535,6 +540,9 @@ function buildBeforeToolCall(opts, caps) {
   return async function beforeToolCall(ctx) {
     const name = ctx?.toolCall?.name;
     if (!name) return undefined;
+    if (mode === 'plan' && (manyMode.isModeWriteTool(name) || externalNames.has(name))) {
+      return { block: true, reason: 'Plan mode is read-only. Select Agent or Draft explicitly before executing changes.' };
+    }
 
     const messages = ctx.context?.messages;
 
@@ -562,7 +570,7 @@ function buildBeforeToolCall(opts, caps) {
     if (threshold.block) return { block: true, reason: threshold.reason };
 
     // Thread-scoped "approve all" — skip HITL for the rest of this chat.
-    if (hitlAllowlist.isToolAutoApproved(threadId, name)) {
+    if (hitlAllowlist.isToolAutoApproved(mode === 'draft' ? `${threadId}:draft` : threadId, name)) {
       return undefined;
     }
 
@@ -776,6 +784,8 @@ function buildInterruptPayload(toolCall, reviewConfigs, threadId) {
 }
 
 async function setupHarness(surface, opts) {
+  const mode = manyMode.parseManyAgentMode(opts.agentMode);
+  opts = { ...opts, messages: manyMode.applyAgentModeToMessages(opts.messages, mode) };
   const core = await import('@dome/agent-core');
   const ai = await import('@dome/ai');
   const { NodeExecutionEnv } = await import('@dome/agent-core/node');
@@ -878,6 +888,7 @@ async function setupHarness(surface, opts) {
       // Long-running tools (shell) need the run's abort signal to be killable.
       signal: opts.signal ?? null,
       ...(contextOverride || {}),
+      agentMode: mode,
     });
   const mcpToolsList = await bridge.buildMcpAgentTools(database, opts.mcpServerIds);
   const mcpToolNames = mcpToolsList.map((t) => t.name);
@@ -939,8 +950,10 @@ async function setupHarness(surface, opts) {
   }
 
   const nativeWeb = ai.resolveNativeWebActivation(resolvedModel, tools);
-  const registeredTools =
-    nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools;
+  const registeredTools = manyMode.filterRuntimeToolsForMode(
+    nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools,
+    mode, mcpToolNames,
+  );
 
   // Many / agent-chat: send one-line stubs for the catalog and keep full
   // schemas only for the core set. `get_tool_definition` expands a stub.
@@ -1041,7 +1054,7 @@ async function setupHarness(surface, opts) {
 
   const unsubTool = harness.on(
     'tool_call',
-    buildHarnessToolCallHook(session, { ...opts, threadId }, harness, fullByName),
+    buildHarnessToolCallHook(session, { ...opts, threadId, modeExternalToolNames: mcpToolNames }, harness, fullByName),
   );
   const unsubEvents = harness.subscribe((event) => {
     if (!event || typeof event.type !== 'string') return;
@@ -1300,8 +1313,8 @@ async function resumeDomeAgent(surface, opts) {
     baseUrl,
     messages: messages || [{ role: 'user', content: 'Continue after approval.' }],
     threadId,
-    hitlInterrupt: isQuestionnaireResume ? true : false,
-    skipHitl: isQuestionnaireResume ? false : true,
+    hitlInterrupt: isQuestionnaireResume || opts.agentMode === 'draft',
+    skipHitl: !isQuestionnaireResume && opts.agentMode !== 'draft',
   });
 
   const { harness, session, resolvedModel, cleanup, executeToolInMain } = setup;
@@ -1341,7 +1354,7 @@ async function resumeDomeAgent(surface, opts) {
     || opts.autoApproveRemaining === true;
   if (approveAll && threadId) {
     const hitlAllowlist = require('./hitl-allowlist.cjs');
-    hitlAllowlist.approveAllForThread(threadId, '*');
+    hitlAllowlist.approveAllForThread(opts.agentMode === 'draft' ? `${threadId}:draft` : threadId, '*');
   }
   const approved =
     approveAll

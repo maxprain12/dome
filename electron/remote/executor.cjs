@@ -34,7 +34,7 @@ let blockerCount = 0;
 function publishPlanProgress(publishEvent, meta) {
   const text = meta?.text || '';
   const mode = parseManyAgentMode(meta?.agentMode);
-  const document = extractPlanDocument(text);
+  const document = mode === 'plan' ? extractPlanDocument(text) : null;
   let todos = planByThread.get(meta.threadId) || [];
   let phase = 'choose';
   if (mode === 'plan') {
