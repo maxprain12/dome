@@ -25,7 +25,7 @@ export default function MemorySection() {
     <SettingsSurface section="memory" icon={BrainIcon} title={t('settings.tabs.memory')} description={t('settings.memory.subtitle')}>
       <SettingsGroup title={t('settings.memory.policy')}>
         <SettingsRow title={t('settings.memory.enabled')} description={t('settings.memory.policy_hint')}
-          control={<Switch checked={enabled} disabled={loading} onCheckedChange={(value) => void save(value)} aria-label={t('settings.memory.enabled')} />} />
+          control={<Switch checked={enabled} disabled={loading} onCheckedChange={(value) => { save(value); }} aria-label={t('settings.memory.enabled')} />} />
       </SettingsGroup>
       <AgentContextSettingsTab mode="memory" />
     </SettingsSurface>
