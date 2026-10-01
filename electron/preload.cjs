@@ -786,6 +786,10 @@ const ALLOWED_CHANNELS = {
     'people:enrich',
     // Browser extension local bridge
     'research:status',
+    'research:configure',
+    'research:test',
+    'research:import',
+    'research:report',
     'research:execute',
     'research:policy',
     'research:cancel',

@@ -82,6 +82,10 @@
     "advanced": {
       "description": "Atualiza o Dome e gere a gravação, a exportação e a importação.",
       "start": "Exporta uma cópia antes de importar dados."
+    },
+    "research": {
+      "description": "Configure as fontes do Many, verifique o acesso e controle os custos. Capacidades do Agent-Reach adaptadas ao Dome.",
+      "start": "Escolha uma fonte e teste uma operação. Provedores pagos exigem chave e permissão explícita."
     }
   },
   "ai": {

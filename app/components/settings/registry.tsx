@@ -19,6 +19,7 @@ import {
   ServerStack01Icon,
   Settings01Icon,
   Share08Icon,
+  Search01Icon,
   UserIcon,
 } from '@hugeicons/core-free-icons';
 
@@ -32,6 +33,7 @@ export type SettingsSection =
   | 'appearance'
   | 'features'
   | 'ai'
+  | 'research'
   | 'transcription'
   | 'mcp'
   | 'dome_mcp'
@@ -79,6 +81,7 @@ const GROUP_DEFS: GroupDef[] = [
   ] },
   { labelKey: 'settingsGuide.groups.intelligence', sections: [
     { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'], layout: 'wide' },
+    { id: 'research', icon: Search01Icon, layout: 'wide', legacyAliases: ['agent-reach'] },
     { id: 'kb_llm', icon: BookMarkedIcon }, { id: 'indexing', icon: DatabaseIcon },
   ] },
   { labelKey: 'settingsGuide.groups.connections', sections: [
@@ -100,6 +103,7 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   language: lazy(() => import('./sections/LanguageSection')),
   features: lazy(() => import('./sections/FeaturesSection')),
   ai: lazy(() => import('./sections/AISection')),
+  research: lazy(() => import('./sections/ResearchSection')),
   browser_extension: lazy(() => import('./sections/BrowserExtensionSection')),
   remote_many: lazy(() => import('./sections/RemoteManySection')),
   mcp: lazy(() => import('./sections/McpSection')),

@@ -82,6 +82,10 @@
     "advanced": {
       "description": "Update Dome, configure saving and export or import your data.",
       "start": "Export a copy before importing data."
+    },
+    "research": {
+      "description": "Configure Many’s sources, check their access and control acquisition costs. Agent-Reach capabilities adapted to Dome.",
+      "start": "Choose a source, review its route and test an operation. Paid providers need a key and explicit permission."
     }
   },
   "ai": {

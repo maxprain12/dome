@@ -9,9 +9,16 @@ const { parseFeed } = require('./rss.cjs');
 const { assertPublicUrl, fetchPublicWithTimeout } = require('../services/web/url-guard.cjs');
 const { normalizeFetchRequest, normalizeSearchRequest } = require('../services/web/http-utils.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
+const settings = require('./settings.cjs');
+const { GUIDES, UPSTREAM } = require('./source-guides.cjs');
+const Import = require('zod').z.object({ platform: require('./schemas.cjs').Platform,
+  url: require('./schemas.cjs').Url, title: require('zod').z.string().trim().min(1).max(200),
+  text: require('zod').z.string().trim().min(1).max(20000), project_id: require('zod').z.string().min(1).max(120).default('default'),
+}).strict();
 
 function createResearchService({ queries, browser, resolveSocial, saveResource, fetchPage, searchProviders, githubFetch, validateUrl = assertPublicUrl, freeSearch = require('../services/web/free-search.cjs').search }) {
   const jobs = new Map();
+  const checks = new Map();
   const restrictedHosts = ['linkedin.com','reddit.com','facebook.com','youtube.com','youtu.be','bilibili.com','xiaohongshu.com','zhipin.com','xueqiu.com','xiaoyuzhoufm.com'];
   const validateTarget = (url) => {
     const host = new URL(url).hostname;
@@ -25,15 +32,31 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
     return message.replace(/Bearer\s+[A-Za-z0-9._~+\/=-]+/gi, 'Bearer [redacted]').slice(0, 500);
   }
   function status() {
-    return { success: true, channels: capabilities({ browser: browser?.status() || null,
+    const routes = settings.routing(queries);
+    const config = budget.policy(queries);
+    const configured = settings.configuredProviders(queries);
+    let browserStatus;
+    try { browserStatus = browser?.status() || null; }
+    catch { browserStatus = { state: 'requires_connection' }; }
+    return { success: true, channels: capabilities({ browser: browserStatus,
       enabledProviders: budget.policy(queries).enabledProviders,
-      configuredProviders: Object.keys(keyNames).filter((name) => providerKey(name)),
-    }), policy: budget.policy(queries), usage: budget.ledger(queries), pricingAsOf: '2026-10-01',
+      configuredProviders: configured,
+    }).map((item) => ({ ...item, ...GUIDES[item.platform],
+      accessStatus: routes.disabledPlatforms.includes(item.platform) ? 'disabled' : item.accessStatus,
+      operations: routes.disabledPlatforms.includes(item.platform) ? [] : item.operations,
+      readiness: routes.disabledPlatforms.includes(item.platform) ? 'disabled' : item.accessStatus === 'pending_enablement' ? 'pending_enablement'
+        : item.platform === 'exa_search' ? (!configured.includes('exa') ? 'requires_key' : !config.enabledProviders.includes('exa') ? 'requires_permission' : 'configured')
+        : item.platform === 'web' && routes.webSource === 'browser' && browserStatus?.state !== 'connected' ? 'requires_connection' : 'configured',
+      lastCheck: checks.get(item.platform) || null,
+    })), providers: Object.keys(keyNames).map((name) => ({ name, configured: configured.includes(name), enabled: config.enabledProviders.includes(name), estimatedUsdPerSearch: budget.PRICES[name] })),
+    routing: routes, upstream: UPSTREAM, browser: { state: browserStatus?.state || 'requires_connection', selectedTabs: browserStatus?.sessions?.length || 0 },
+    policy: config, usage: budget.ledger(queries), pricingAsOf: '2026-10-01',
     jobs: [...jobs.values()].map(({ job }) => ({ id: job.id, status: job.status, projectId: job.projectId, evidenceCount: job.evidence.length })),
     lastJob: queries.getSetting.get('research_last_job_v1')?.value ? JSON.parse(queries.getSetting.get('research_last_job_v1').value) : null,
     excludes: ['llm', 'embeddings'], estimationOnly: true };
   }
   async function search(input, ctx) {
+    if (settings.routing(queries).disabledPlatforms.includes(input.platform)) throw new Error('source_disabled');
     if (!input.query) throw new Error('query_required');
     if (!['web', 'exa_search', 'github'].includes(input.platform)) throw new Error('search_pending_enablement');
     if (input.platform === 'github') {
@@ -41,7 +64,9 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
       return { success: true, evidence: (data.items || []).map((item) => evidence({ platform: 'github', url: item.html_url,
         title: item.full_name, text: item.description, method: 'github_api', limitations: ['search_excerpt'] })) };
     }
-    const provider = input.platform === 'exa_search' ? 'exa' : budget.policy(queries).enabledProviders.find((name) => providerKey(name));
+    const preference = settings.routing(queries).searchProvider;
+    const provider = input.platform === 'exa_search' ? 'exa' : preference === 'free' ? null
+      : preference === 'auto' ? budget.policy(queries).enabledProviders.find((name) => providerKey(name)) : preference;
     if (!provider && input.platform === 'web') {
       const request = { ...normalizeSearchRequest(input), signal: ctx.signal };
       const result = await freeSearch(request);
@@ -56,6 +81,7 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
       title: item.title, text: item.description, method: provider, limitations: ['search_excerpt'] })) };
   }
   async function read(input, ctx) {
+    if (settings.routing(queries).disabledPlatforms.includes(input.platform)) throw new Error('source_disabled');
     if (!input.url) throw new Error('url_required');
     const target = new URL(input.url);
     if (target.username || target.password) throw new Error('credential_url_not_allowed');
@@ -176,19 +202,50 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
     try {
       if (name === 'research_capabilities') return status();
       const input = Input.parse(raw || {});
+      if (settings.routing(queries).disabledPlatforms.includes(input.platform)) throw new Error('source_disabled');
+      if (input.platform === 'web' && raw?.source === undefined) input.source = settings.routing(queries).webSource;
       const ctx = { signal: context.signal ? AbortSignal.any([context.signal, AbortSignal.timeout(120000)]) : AbortSignal.timeout(120000), runId: context.threadId || context.runId || 'desktop',
         projectId: context.automationProjectId || context.projectId || input.project_id || 'default' };
+      ctx.signal.throwIfAborted();
       if (name === 'research_search') return await search(input, ctx);
       if (name === 'research_collect') return await collect(input, ctx);
       if (name === 'research_profile' && !['github', 'instagram', 'x'].includes(input.platform)) throw new Error('profile_pending_enablement');
       if (!['research_read', 'research_profile'].includes(name)) throw new Error('unknown_research_tool');
       return await read(input, ctx);
-    } catch (error) { return { success: false, error: safeError(error),
+    } catch (error) { return { success: false, error: context.signal?.aborted ? 'cancelled' : safeError(error),
       ...(error.code === 'search_unavailable' ? { code: error.code, retryable: false, retryAfterMs: error.retryAfterMs, evidence: [] } : {}),
     }; }
   }
   function cancel(id) { const entry = jobs.get(id); entry?.controller.abort(); return { success: Boolean(entry) }; }
-  return { execute, status, cancel, jobs };
+  async function probe(name, input, context) {
+    if (!['research_read', 'research_search', 'research_profile'].includes(name)) return { success: false, error: 'invalid_probe' };
+    const result = await execute(name, { ...input, count: 1, save: false }, { ...context, runId: crypto.randomUUID() });
+    if (result.evidence) result.evidence = result.evidence.slice(0, 1);
+    const check = { operation: name.replace('research_', ''), checkedAt: Date.now(),
+      outcome: result.success ? 'passed' : 'failed', evidenceCount: result.evidence?.length || 0 };
+    if (channel(input.platform || 'web')) checks.set(input.platform || 'web', check);
+    return { ...result, check };
+  }
+  async function importEvidence(raw) {
+    const parsed = Import.safeParse(raw);
+    if (!parsed.success) return { success: false, error: 'invalid_evidence' };
+    try {
+      const input = parsed.data;
+      const item = evidence({ ...input, method: 'user_import', limitations: ['user_supplied', 'partial_document'] });
+      const saved = await saveResource({ project_id: input.project_id, type: 'note', title: input.title,
+        content: markdown([item]), metadata: { evidence: [item], researchPlatform: input.platform, coverage: 'partial' } });
+      if (!saved.success) return { success: false, error: 'evidence_save_failed' };
+      return { success: true, resourceId: saved.resource.id, evidence: [item] };
+    } catch { return { success: false, error: 'evidence_save_failed' }; }
+  }
+  function report() {
+    const snapshot = status();
+    return { version: 1, generatedAt: Date.now(), upstream: UPSTREAM, policy: snapshot.policy, routing: snapshot.routing,
+      estimatedMonthlyUsd: snapshot.usage.spent, providers: snapshot.providers,
+      browser: snapshot.browser, channels: snapshot.channels.map(({ platform, operations, backends, accessStatus, readiness, lastCheck }) => ({ platform, operations, backends, accessStatus, readiness, lastCheck })),
+    };
+  }
+  return { execute, status, cancel, jobs, probe, importEvidence, report };
 }
 
 let singleton;
@@ -215,4 +272,15 @@ function getResearchService() {
   }
   return singleton;
 }
-module.exports = { createResearchService, getResearchService };
+// Once the user saves research settings, Many's older search tool must honor the
+// same routing, permissions and budget, including before its legacy cache lookup.
+async function configuredWebSearch(queries, input, context, service) {
+  if (!context || !queries.getSetting.get(settings.CONFIG_KEY)?.value) return null;
+  const result = await (service || getResearchService()).execute('research_search', { platform: 'web', ...input }, context);
+  if (!result.success) return { status: 'error', error: result.error,
+    ...(result.code ? { code: result.code, retryable: result.retryable, retryAfterMs: result.retryAfterMs } : {}), results: [] };
+  const results = result.evidence.map((item) => ({ title: item.title, url: item.url, description: item.text }));
+  return { query: input.query, provider: result.evidence[0]?.provenance.method || settings.routing(queries).searchProvider,
+    engine: 'research', count: results.length, results, cost: result.cost };
+}
+module.exports = { createResearchService, getResearchService, configuredWebSearch, Import };

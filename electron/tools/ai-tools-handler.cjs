@@ -2264,6 +2264,10 @@ async function webSearch(args, toolContext = null) {
   });
 
   try {
+    if (toolContext) {
+      const configured = await require('../research/service.cjs').configuredWebSearch(database.getQueries(), { query, count }, toolContext);
+      if (configured) return configured;
+    }
     const cached = getCachedWebSearchResult(cacheKey);
     if (cached) {
       return { ...cached, cached: true };

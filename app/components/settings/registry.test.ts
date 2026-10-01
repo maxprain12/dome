@@ -5,8 +5,9 @@ describe('settings registry', () => {
   it('keeps every destination in exactly one task group', () => {
     const ids = SETTINGS_GROUPS.flatMap((group) => group.entries.map((entry) => entry.id));
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(19);
-    expect(SETTINGS_GROUPS.find((group) => group.labelKey === 'settingsGuide.groups.intelligence')?.entries.map((entry) => entry.id)).toEqual(['ai', 'kb_llm', 'indexing']);
+    expect(ids).toHaveLength(20);
+    expect(SETTINGS_GROUPS.find((group) => group.labelKey === 'settingsGuide.groups.intelligence')?.entries.map((entry) => entry.id)).toEqual(['ai', 'research', 'kb_llm', 'indexing']);
+    expect(resolveSettingsSection('agent-reach')).toBe('research');
   });
 
   it('resolves legacy aliases without duplicating a visible section', () => {

@@ -82,6 +82,10 @@
     "advanced": {
       "description": "Mettez Dome à jour et gérez l’enregistrement, l’export et l’import.",
       "start": "Exportez une copie avant d’importer des données."
+    },
+    "research": {
+      "description": "Configurez les sources de Many, vérifiez leur accès et maîtrisez les coûts. Capacités Agent-Reach adaptées à Dome.",
+      "start": "Choisissez une source et testez une opération. Les fournisseurs payants nécessitent une clé et une autorisation explicite."
     }
   },
   "ai": {

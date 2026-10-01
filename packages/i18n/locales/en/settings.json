@@ -23,7 +23,8 @@
     "dome_mcp": "Share Dome · MCP",
     "social": "Social accounts",
     "browser_extension": "Browser extension",
-    "remote_many": "Remote access to Many"
+    "remote_many": "Remote access to Many",
+    "research": "Internet research"
   },
   "groups": {
     "account": "Account",
