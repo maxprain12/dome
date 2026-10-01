@@ -267,3 +267,14 @@ describe('collectWorkCards', () => {
     expect(JSON.stringify(cards)).not.toContain('evt-1');
   });
 });
+
+it('promotes pending-access cards even when resolution is marked as a tool error', () => {
+  const cards = collectSocialReferenceCards([call({ name: 'social_public_resolve', status: 'error', error: 'source_pending_enablement',
+    result: { success: false, accessStatus: 'pending_enablement', card: {
+      provider: 'linkedin', kind: 'profile', url: 'https://www.linkedin.com/in/maria-sugasaga/',
+      author: { handle: 'maria-sugasaga' }, limitations: ['access_pending_enablement'], body: null, followers: null,
+    } },
+  })]);
+  expect(cards).toHaveLength(1); expect(cards[0].model.limitations).toContain('access_pending_enablement');
+  expect(collectSocialReferenceCards([call({ name: 'social_public_resolve', status: 'error', result: { success: false, error: 'network_error' } })])).toHaveLength(0);
+});

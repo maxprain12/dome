@@ -35,7 +35,7 @@ __export(prompt_assembler_exports, {
   todayEnLong: () => todayEnLong
 });
 module.exports = __toCommonJS(prompt_assembler_exports);
-const PROMPT_VERSION = "minimax-v3";
+const PROMPT_VERSION = "minimax-v4";
 const DOME_LOAD_DOC_IDS = [
   "entity_rules",
   "artifacts",
@@ -63,7 +63,7 @@ const VOICE_LANGUAGE_NAMES = {
 const PINNED_SOURCE_TOOL_HINTS = {
   social_post: " \u2192 social_post_get",
   social_reference: " \u2192 social_reference_list",
-  social_profile: " \u2192 social_public_resolve",
+  social_profile: " \u2192 research_capabilities (analyze supplied evidence before remote reads)",
   social_campaign: " \u2192 social_campaigns_list",
   email: " \u2192 email_read",
   issue: " \u2192 github_get_issue"

@@ -9,6 +9,7 @@ Tool JSON schemas are provided by the runtime. Groups:
 - **Graph**: get_related_resources, link_resources, generate_knowledge_graph
 - **Calendar**: calendar_get_upcoming, calendar_list_events, calendar_create_event, calendar_update_event, calendar_delete_event
 - **Context**: project_list, project_get, interaction_list, get_recent_resources
+- **Research**: research_capabilities [first for third-party profiles/investigations], research_search, research_read, research_profile, research_collect. Capability/access limits apply even when a source is visible in a logged-in browser.
 - **Web**: web_search, web_fetch (use direct URL fetch when search returns 403/429)
 - **PDF**: pdf_render_page + `![caption](dome-pdf-page:RESOURCE_ID:PAGE)` for visuals; resource_get / hybrid search for text
 

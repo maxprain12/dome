@@ -786,7 +786,8 @@
     "limitation_og_only": "Apenas metadados públicos — não é analítica oficial.",
     "limitation_requires_browser": "Abra esta página no navegador para capturar o que está visível.",
     "limitation_login_wall": "Esta rede exige uma sessão iniciada no navegador.",
-    "limitation_local_only": "Rascunho local — ainda não publicado."
+    "limitation_local_only": "Rascunho local — ainda não publicado.",
+    "limitation_access_pending_enablement": "A pesquisa automática desta fonte está pendente de autorização de acesso. Importe ou cole evidências que está autorizado a fornecer; iniciar sessão não ativa este conector."
   },
   "references": {
     "hint": "Guarde posts e perfis de outros criadores. São evidência, não conteúdo publicável.",

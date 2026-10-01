@@ -34,3 +34,7 @@ La licencia de Dome sigue siendo la de `LICENSE`, con sus restricciones comercia
 ## Validación y alcance
 
 Pruebas automatizadas cubren presupuestos, cancelación, fallos parciales, persistencia, RSS/Atom, métricas ausentes y puente de pestañas (propietario, URL, revocación, concurrencia y esquemas sin cookies). Se han compilado las variantes Chrome/Edge/Firefox/Safari. Las sesiones reales de las plataformas y las llamadas pagadas no se han certificado; `verifiedAt` permanece vacío. Vídeo/podcast y conectores pendientes requieren una entrega posterior con acceso autorizado y comprobaciones reales antes de habilitarse.
+
+## Routing and pending profiles
+
+Third-party profile analysis starts with `research_capabilities`, which keeps its full schema and survives provider tool caps. Social publication/own-account requests keep their existing tools. The legacy `social_public_resolve` no longer requests remote LinkedIn pages; connected, cached or supplied evidence can still be analyzed. Pending cards explicitly offer authorized evidence import instead of suggesting browser login. `browser_get_active_tab` returns URL/title metadata only and cannot extract profiles. Restart the dev app after updating prompts; use a new chat to validate routing without older assistant instructions.

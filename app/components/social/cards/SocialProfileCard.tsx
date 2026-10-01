@@ -11,6 +11,7 @@ const LIMITATION_KEYS: Record<SocialEvidenceCardModel['limitations'][number], st
   og_only: 'social.cards.limitation_og_only',
   metrics_unavailable: 'social.native.metrics_unavailable',
   requires_browser: 'social.cards.limitation_requires_browser',
+  access_pending_enablement: 'social.cards.limitation_access_pending_enablement',
   login_wall: 'social.cards.limitation_login_wall',
   local_only: 'social.cards.limitation_local_only',
 };

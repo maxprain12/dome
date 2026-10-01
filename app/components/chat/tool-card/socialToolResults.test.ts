@@ -38,3 +38,17 @@ describe('parseSocialToolResult', () => {
     expect(view.model.limitations).toContain('og_only');
   });
 });
+
+it('renders explicit pending-access evidence while preserving ordinary tool failures', () => {
+  const view = parseSocialToolResult('social_public_resolve', {
+    success: false, error: 'source_pending_enablement', accessStatus: 'pending_enablement',
+    card: { provider: 'linkedin', kind: 'profile', url: 'https://www.linkedin.com/in/maria-sugasaga/',
+      author: { handle: 'maria-sugasaga' }, body: null, followers: null,
+      limitations: ['access_pending_enablement'], fetchMethod: 'manual' },
+  });
+  expect(view?.type).toBe('profile');
+  if (view?.type !== 'profile') throw new Error('expected pending profile');
+  expect(view.model.limitations).toContain('access_pending_enablement');
+  expect(view.model.body).toBeNull();
+  expect(parseSocialToolResult('social_public_resolve', { success: false, error: 'network_error' })).toBeNull();
+});

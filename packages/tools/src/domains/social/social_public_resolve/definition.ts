@@ -5,8 +5,9 @@ export const socialPublicResolveDefinition: ToolDefinition = {
   function: {
     name: 'social_public_resolve',
     description:
-      'Resolve a public Instagram, X or LinkedIn profile/post URL into a structured card. ' +
-      'Uses local matches, Open Graph, or an explicit requires_browser limitation. Never invent metrics. Source: Social hub.',
+      'Resolve existing social evidence; third-party profile research starts with research_capabilities. ' +
+      'Uses local matches and public Instagram/X snapshots. LinkedIn remote access is pending even with browser login; ' +
+      'analyze imported/local evidence instead. Never invent metrics. Source: Social hub.',
     parameters: {
       type: 'object',
       properties: {

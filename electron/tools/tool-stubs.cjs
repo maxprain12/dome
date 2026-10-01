@@ -13,6 +13,7 @@ const EMPTY_PARAMETERS = Object.freeze({ type: 'object', properties: {}, additio
 const CORE_FULL_SCHEMA_TOOLS = [
   'artifact_create', 'artifact_get', 'artifact_update_state', 'artifact_merge_data',
   'get_tool_definition',
+  'research_capabilities',
   'dome_load_doc',
   'skill_read',
   'remember_fact',

@@ -93,6 +93,7 @@ async function refreshPublicEvidence(service, member, projectId = 'default') {
   const url = member.profileUrl;
   if (!url) return { card: null, captured: 0, limitations: ['requires_browser'] };
   const resolved = await service.resolvePublic(url, { forceRefresh: true });
+  if (resolved?.success === false) return { card: null, captured: 0, limitations: resolved.card?.limitations || ['requires_browser'] };
   const card = resolved?.card || null;
   if (!card) return { card: null, captured: 0, limitations: ['requires_browser'] };
   service.references.capture({ projectId, personId: member.personId, url: card.url || url, card, sourceKind: card.fetchMethod || 'open_graph' });
@@ -154,6 +155,7 @@ async function maybeLlmSummary({ recipeId, member, pack, language = 'es' }) {
             'State the saved and analyzed post counts and the publication date range from coverage. This is a partial archive, never a complete profile analysis. Unknown dates are not recent posts.',
             'If posts exist, describe their formats, captions and URLs. Omit likes/views when metrics are missing.',
             'If limitations include login_wall or requires_browser AND posts is empty, say the capture is incomplete.',
+            'If limitations include access_pending_enablement, remote research is not enabled regardless of login. Analyze only saved evidence; do not suggest authenticated scraping.',
             'Do not claim the page failed to load when followers, postsCount, or posts[] are present.',
             RECIPE_FOCUS[recipeId] || RECIPE_FOCUS.hooks,
             'Max 120 words. Cite handles and post titles/URLs from the JSON.',

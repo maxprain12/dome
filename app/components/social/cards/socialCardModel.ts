@@ -10,6 +10,7 @@ export type SocialCardLimitation =
   | 'og_only'
   | 'metrics_unavailable'
   | 'requires_browser'
+  | 'access_pending_enablement'
   | 'login_wall'
   | 'local_only';
 
@@ -88,6 +89,7 @@ function asLimitation(value: unknown): SocialCardLimitation | null {
     value === 'og_only' ||
     value === 'metrics_unavailable' ||
     value === 'requires_browser' ||
+    value === 'access_pending_enablement' ||
     value === 'login_wall' ||
     value === 'local_only'
   ) {

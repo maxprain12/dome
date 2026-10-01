@@ -25,7 +25,6 @@ steps:
       - pnpm run check:ipc-zod
       - pnpm run check:tool-coverage
       - pnpm run check:research-licenses
-      - pnpm run test:research
       - pnpm run check:prompt-tool-parity
       - pnpm run check:prompts-martin
       - pnpm run check:design-system
@@ -40,6 +39,9 @@ steps:
       - pnpm run test:packaged-deps
       - pnpm run test:security
       - pnpm run build:packages
+      - pnpm run test:research
+      - pnpm run test:tool-cap
+      - node --test electron/__tests__/tool-stubs.test.mjs electron/__tests__/social-explorations.test.mjs
       - pnpm run test:contacts-mail
       - pnpm --filter @dome/agent-core run test
       - pnpm run smoke:mcp-sdk
