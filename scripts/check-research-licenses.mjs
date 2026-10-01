@@ -6,6 +6,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const inventory = JSON.parse(fs.readFileSync(path.join(root, 'docs/legal/research/dependencies.json'), 'utf8'));
 const notices = fs.readFileSync(path.join(root, 'electron/research/THIRD-PARTY-NOTICES.txt'), 'utf8');
 const visited = new Set();
+for (const entry of inventory.copiedAdapterCode || []) {
+  if (!inventory.policy.includes(entry.license) || !/^[a-f0-9]{40}$/.test(entry.commit)) throw new Error('Unreviewed research source adaptation');
+  if (!notices.includes(entry.commit) || !notices.includes(entry.copyright)) throw new Error('Missing adapted source attribution');
+  for (const file of entry.adaptedFiles) if (!fs.existsSync(path.join(root, file))) throw new Error(`Missing adapted artifact: ${file}`);
+}
 function visit(name, from) {
   const resolver = createRequire(path.join(from, 'package.json'));
   const manifest = resolver.resolve.paths(name).map((folder) => path.join(folder, name, 'package.json')).find((file) => fs.existsSync(file));

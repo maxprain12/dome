@@ -1,4 +1,4 @@
-import ResearchSettings from './ResearchSettings';
+import { useSettingsUiStore } from '@/lib/store/useSettingsUiStore';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -272,7 +272,7 @@ export default function AIWebSearchTab() {
           ) : null}
         </div>
       </SettingsGroup>
-      <ResearchSettings />
+      <Button variant="outline" onClick={() => useSettingsUiStore.getState().setActiveSection('research')}>{t('research.open_settings')}</Button>
     </div>
   );
 }

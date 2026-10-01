@@ -82,6 +82,10 @@
     "advanced": {
       "description": "Actualiza Dome, configura el guardado y exporta o importa tus datos.",
       "start": "Usa una exportación para conservar una copia antes de importar datos."
+    },
+    "research": {
+      "description": "Configura las fuentes de Many, comprueba su acceso y controla los costes. Capacidades de Agent-Reach adaptadas a Dome.",
+      "start": "Elige una fuente, revisa su ruta y prueba una operación. Los proveedores de pago necesitan clave y permiso explícito."
     }
   },
   "ai": {

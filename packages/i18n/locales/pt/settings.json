@@ -23,7 +23,8 @@
     "social": "Redes sociais",
     "browser_extension": "Extensão do navegador",
     "remote_many": "Acesso remoto ao Many",
-    "dome_sync": "Sincronização do Dome"
+    "dome_sync": "Sincronização do Dome",
+    "research": "Pesquisa na internet"
   },
   "groups": {
     "account": "Conta",

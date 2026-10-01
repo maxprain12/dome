@@ -20,4 +20,4 @@ const Policy = z.object({
   perRunUsd: z.number().finite().min(0).max(100),
   monthlyUsd: z.number().finite().min(0).max(1000),
 }).strict();
-module.exports = { Input, Policy };
+module.exports = { Input, Policy, Platform, Url };

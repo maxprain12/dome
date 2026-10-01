@@ -152,7 +152,7 @@
     "visual-studio:build": "vite build --config vite.visual-studio.config.ts",
     "visual-studio:export": "node scripts/visual-studio/export-pack.mjs",
     "check:complements-catalog": "node scripts/export-complements-catalog.mjs",
-    "test:research": "node --test electron/__tests__/research.test.mjs electron/__tests__/research-routing.test.mjs electron/__tests__/social-public-resolver.test.mjs",
+    "test:research": "node --test electron/__tests__/research.test.mjs electron/__tests__/research-routing.test.mjs electron/__tests__/research-settings.test.mjs electron/__tests__/social-public-resolver.test.mjs",
     "check:research-licenses": "node scripts/check-research-licenses.mjs"
   },
   "dependencies": {

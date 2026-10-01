@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-01T12:51:13.341Z
+> Última generación: 2026-10-01T20:01:11.674Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -473,10 +473,14 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `remote-many:revoke` | `electron/ipc/sync/remote-many.cjs:50` |
 | `remote-many:set-enabled` | `electron/ipc/sync/remote-many.cjs:23` |
 | `remote-many:status` | `electron/ipc/sync/remote-many.cjs:17` |
-| `research:cancel` | `electron/ipc/ai/research.cjs:34` |
-| `research:execute` | `electron/ipc/ai/research.cjs:16` |
-| `research:policy` | `electron/ipc/ai/research.cjs:27` |
-| `research:status` | `electron/ipc/ai/research.cjs:12` |
+| `research:cancel` | `electron/ipc/ai/research.cjs:57` |
+| `research:configure` | `electron/ipc/ai/research.cjs:34` |
+| `research:execute` | `electron/ipc/ai/research.cjs:32` |
+| `research:import` | `electron/ipc/ai/research.cjs:40` |
+| `research:policy` | `electron/ipc/ai/research.cjs:50` |
+| `research:report` | `electron/ipc/ai/research.cjs:46` |
+| `research:status` | `electron/ipc/ai/research.cjs:14` |
+| `research:test` | `electron/ipc/ai/research.cjs:33` |
 | `resource:delete` | `electron/ipc/data/resources.cjs:519` |
 | `resource:duplicate` | `electron/ipc/data/resources.cjs:479` |
 | `resource:export` | `electron/ipc/data/resources.cjs:433` |

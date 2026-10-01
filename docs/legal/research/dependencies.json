@@ -7,7 +7,23 @@
     "BSD-3-Clause",
     "ISC"
   ],
-  "copiedAdapterCode": [],
+  "copiedAdapterCode": [
+    {
+      "repository": "https://github.com/Panniantong/Agent-Reach",
+      "commit": "a19a171fa980a0785849596492e0af4db800c82f",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2025 Agent Eyes",
+      "sourceFiles": [
+        "agent_reach/channels",
+        "agent_reach/doctor.py",
+        "agent_reach/config.py"
+      ],
+      "adaptedFiles": [
+        "electron/research/source-guides.cjs"
+      ],
+      "modifications": "Platform/backend inventory adapted to native Dome routes; no upstream runtime or installer distributed."
+    }
+  ],
   "dependencies": [
     {
       "name": "fast-xml-parser",
