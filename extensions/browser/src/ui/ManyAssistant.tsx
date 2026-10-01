@@ -106,6 +106,8 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   );
   const [sessionTitle, setSessionTitle] = useState<string>();
   const [sessions, setSessions] = useState<api.ManySessionSummary[]>([]);
+  const [sessionListError, setSessionListError] = useState('');
+  const [unavailableSessions, setUnavailableSessions] = useState(0);
   const [historyQuery, setHistoryQuery] = useState('');
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [deletingSession, setDeletingSession] = useState(false);
@@ -146,8 +148,11 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
 
   const refreshSessions = useCallback(async () => {
     const result = await api.listManySessions(token);
-    if (result.success) setSessions(result.data.sessions);
-    else setError(t('sessionsUnavailable'));
+    if (result.success) {
+      setSessions(result.data.sessions);
+      setUnavailableSessions(result.data.unavailableCount ?? 0);
+      setSessionListError('');
+    } else setSessionListError(t('sessionsUnavailable'));
   }, [t, token]);
 
   const {
@@ -184,6 +189,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   const clearChat = useCallback(() => {
     if (interactionLocked) return;
     lastRunMode.current = 'agent';
+    setError('');
     setMessages([]);
     setPrompt('');
     setUsage(null);
@@ -313,7 +319,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       try {
         const result = await api.readManySession(token, id);
         if (!result.success) {
-          if (navigate) setError(t('sessionsUnavailable'));
+          if (navigate) setError(t('sessionUnavailable'));
           else browser.storage.local.remove('dome.manyThread').catch(() => undefined);
           return;
         }
@@ -379,7 +385,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
 
   useEffect(() => {
     if (view !== 'history') return;
-    refreshSessions().catch(() => setError(t('sessionsUnavailable')));
+    refreshSessions().catch(() => setSessionListError(t('sessionsUnavailable')));
   }, [refreshSessions, t, view]);
 
   useEffect(() => {
@@ -771,7 +777,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           query={historyQuery}
           onQueryChange={setHistoryQuery}
           onSelectSession={(id) => {
-            openSession(id).catch(() => setError(t('sessionsUnavailable')));
+            openSession(id).catch(() => setError(t('sessionUnavailable')));
           }}
           onNewChat={startNewChat}
           onPinSession={(id, pinned) => {
@@ -783,6 +789,19 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           disabled={interactionLocked || loading}
           className="many-history"
         />
+        {unavailableSessions > 0 ? (
+          <p className="mx-3 text-xs text-muted-foreground" role="status">
+            {t('sessionsPartial', { count: unavailableSessions })}
+          </p>
+        ) : null}
+        {sessionListError ? (
+          <div className="mx-3 flex items-center gap-2" role="alert">
+            <p className="status error">{sessionListError}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => {
+              refreshSessions().catch(() => setSessionListError(t('sessionsUnavailable')));
+            }}>{t('retryHistory')}</Button>
+          </div>
+        ) : null}
         {error ? (
           <p className="status error mx-3" role="alert">
             {error}

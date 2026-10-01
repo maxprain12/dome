@@ -1,4 +1,5 @@
 import { cancelMany, request, streamManyHttp } from '../src/lib/http';
+import { createContextMenuSetup } from '../src/lib/context-menu';
 import type { ManyResumeBody, ManyStreamBody } from '../src/lib/http';
 import {
   CONTENT_PING_MESSAGE,
@@ -181,21 +182,20 @@ async function captureActiveTab(tabId: number, windowId: number, url: string) {
   return dataUrl;
 }
 
-function setupContextMenu() {
-  browser.contextMenus.removeAll().then(() => {
-    browser.contextMenus.create({
-      id: 'dome-add-selection',
-      title:
-        browser.i18n.getMessage('addSelection') || 'Add selection to Dome note',
-      contexts: ['selection'],
-    });
-  });
+const setupContextMenu = createContextMenuSetup(
+  browser.contextMenus,
+  () => browser.i18n.getMessage('addSelection') || 'Add selection to Dome note',
+  () => browser.runtime.lastError,
+);
+
+function refreshContextMenu() {
+  setupContextMenu().catch(() => console.warn('[Dome] Could not initialize the context menu'));
 }
 
 export default defineBackground(() => {
-  setupContextMenu();
+  refreshContextMenu();
   browser.runtime.onInstalled.addListener(() => {
-    setupContextMenu();
+    refreshContextMenu();
   });
 
   browser.action.onClicked.addListener((tab) => {

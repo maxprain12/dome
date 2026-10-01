@@ -188,6 +188,15 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
         const message = err instanceof Error ? err.message : String(err);
         throw new Error(`Tool "${name}" failed: ${message}`);
       }
+      // Legacy main handlers return structured failures instead of throwing.
+      // Keep their payload for the model while marking the persisted result as
+      // an error through the AgentTool contract.
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        const result = raw as Record<string, unknown>;
+        if (result.success === false || result.status === 'error') {
+          throw new Error(capModelFacingText(name, stringifyToolOutput(raw)));
+        }
+      }
       return {
         content: [{ type: 'text', text: capModelFacingText(name, stringifyToolOutput(raw)) }],
         details: boundToolDetails(raw),

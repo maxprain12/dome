@@ -10,7 +10,7 @@ const { assertPublicUrl, fetchPublicWithTimeout } = require('../services/web/url
 const { normalizeFetchRequest, normalizeSearchRequest } = require('../services/web/http-utils.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
 
-function createResearchService({ queries, browser, resolveSocial, saveResource, fetchPage, searchProviders, githubFetch, validateUrl = assertPublicUrl }) {
+function createResearchService({ queries, browser, resolveSocial, saveResource, fetchPage, searchProviders, githubFetch, validateUrl = assertPublicUrl, freeSearch = require('../services/web/free-search.cjs').search }) {
   const jobs = new Map();
   const restrictedHosts = ['linkedin.com','reddit.com','facebook.com','youtube.com','youtu.be','bilibili.com','xiaohongshu.com','zhipin.com','xueqiu.com','xiaoyuzhoufm.com'];
   const validateTarget = (url) => {
@@ -44,9 +44,7 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
     const provider = input.platform === 'exa_search' ? 'exa' : budget.policy(queries).enabledProviders.find((name) => providerKey(name));
     if (!provider && input.platform === 'web') {
       const request = { ...normalizeSearchRequest(input), signal: ctx.signal };
-      let result;
-      try { result = await require('../services/web/providers/searxng.cjs').search(request); }
-      catch { ctx.signal?.throwIfAborted(); result = await require('../services/web/providers/ddg-html.cjs').search(request); }
+      const result = await freeSearch(request);
       return { success: true, cost: { estimatedUsd: 0 }, evidence: result.results.map((item) => evidence({ platform: 'web', url: item.url, title: item.title, text: item.description, method: result.provider, limitations: ['search_excerpt'] })) };
     }
     if (!provider || !providerKey(provider)) throw new Error('configure_and_enable_search_provider');
@@ -185,7 +183,9 @@ function createResearchService({ queries, browser, resolveSocial, saveResource, 
       if (name === 'research_profile' && !['github', 'instagram', 'x'].includes(input.platform)) throw new Error('profile_pending_enablement');
       if (!['research_read', 'research_profile'].includes(name)) throw new Error('unknown_research_tool');
       return await read(input, ctx);
-    } catch (error) { return { success: false, error: safeError(error) }; }
+    } catch (error) { return { success: false, error: safeError(error),
+      ...(error.code === 'search_unavailable' ? { code: error.code, retryable: false, retryAfterMs: error.retryAfterMs, evidence: [] } : {}),
+    }; }
   }
   function cancel(id) { const entry = jobs.get(id); entry?.controller.abort(); return { success: Boolean(entry) }; }
   return { execute, status, cancel, jobs };

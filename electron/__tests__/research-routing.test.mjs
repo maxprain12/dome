@@ -28,6 +28,9 @@ test('minimal production prompt routes profile investigations and states the rea
   assert.match(prompt, /browser_get_active_tab is macOS URL\/title metadata only/);
   assert.match(prompt, /Never ask the user to execute tool names/);
   assert.match(prompt, /research other public sources with research_search/);
+  assert.match(prompt, /must cite retrieved source URLs/);
+  assert.match(prompt, /search_unavailable or retryable:false/);
+  assert.match(prompt, /absence from recent resources does not prove the active note is orphaned/);
   assert.match(getCoreSectionsForAssembler().roleMany, /third-party profile URL.*research_capabilities/);
 });
 

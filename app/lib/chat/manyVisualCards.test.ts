@@ -189,6 +189,16 @@ describe('parseAssistantVisualSegments', () => {
     expect(data.labels[0]).toBe('Chongqing');
   });
 
+  it('preserves post dates and missing metrics instead of inventing chart values', () => {
+    for (const value of ['2023-07-08T04:17:06.200Z', '—']) {
+      const segments = parseAssistantVisualSegments(`| Post | Fecha | Likes |\n| --- | --- | --- |\n| CIC | ${value} | — |\n| IAS | 2025-08-01 | — |`);
+      const artifact = segments.find((segment) => segment.kind === 'artifact');
+      if (artifact?.kind !== 'artifact') throw new Error('expected table');
+      expect(artifact.value.type).toBe('table');
+      expect(artifact.value.rows).toEqual([['CIC', value, '—'], ['IAS', '2025-08-01', '—']]);
+    }
+  });
+
   it('lifts labeled metric lists into a dashboard and bar chart', () => {
     const segments = parseAssistantVisualSegments(
       [

@@ -904,10 +904,15 @@ function createManyService(deps = {}) {
     const bridge = getBridge();
     const meta = await bridge.findSessionMetadata(threadId);
     if (!meta || !bridge.isRootSessionMeta(meta))
-      throw new Error('Conversation not available');
+      throw Object.assign(new Error('Conversation not available'), { statusCode: 404 });
     const repo = await bridge.getSessionRepo();
-    const session = await repo.open(meta);
-    const context = await session.buildContext();
+    let context;
+    try {
+      const session = await repo.open(meta);
+      context = await session.buildContext();
+    } catch {
+      throw Object.assign(new Error('Conversation could not be recovered'), { statusCode: 422 });
+    }
     return {
       id: meta.id,
       title:
@@ -932,7 +937,7 @@ function createManyService(deps = {}) {
       )
       .slice(0, 50);
     const pinned = pinnedSessionIds();
-    const sessions = await Promise.all(
+    const results = await Promise.allSettled(
       metas.map(async (meta) => {
         const session = await repo.open(meta);
         const context = await session.buildContext();
@@ -950,7 +955,8 @@ function createManyService(deps = {}) {
         };
       }),
     );
-    return { sessions };
+    const sessions = results.filter((result) => result.status === 'fulfilled').map((result) => result.value);
+    return { sessions, unavailableCount: results.length - sessions.length };
   }
 
   async function deleteSession(threadId) {

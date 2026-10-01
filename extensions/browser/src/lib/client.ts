@@ -295,7 +295,7 @@ export function cancelMany(token: string, streamId: string) {
 }
 
 export function listManySessions(token: string) {
-  return send<{ sessions: ManySessionSummary[] }>({
+  return send<{ sessions: ManySessionSummary[]; unavailableCount?: number }>({
     type: 'DOME_HTTP',
     path: '/v1/ai/sessions',
     token,

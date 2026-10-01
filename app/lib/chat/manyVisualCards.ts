@@ -629,12 +629,6 @@ function isSeparatorRow(line: string): boolean {
   return /^\s*\|?[\s:|-]+\|?\s*$/.test(line) && /---/.test(line);
 }
 
-function looksNumeric(value: string): boolean {
-  const trimmed = value.replace(/[%—–\s,]/g, '');
-  if (!trimmed || trimmed === '-') return false;
-  return /^[0-9]+([.][0-9]+)?$/.test(trimmed) || /^[0-9]+[kmb]?$/i.test(trimmed);
-}
-
 function parseGfmTable(block: string): { headers: string[]; rows: string[][] } | null {
   const lines = block.trim().split('\n').filter((line) => line.includes('|'));
   if (lines.length < 3) return null;
@@ -663,10 +657,12 @@ function tableToArtifact(table: { headers: string[]; rows: string[][] }): Record
     };
   }
   if (comparisonLike) {
-    const numericCol = headers.findIndex(
-      (_header, idx) => idx > 0 && rows.some((row) => looksNumeric(row[idx] ?? '')),
+    const col = headers.findIndex(
+      (header, idx) => idx > 0 && !/date|fecha|publicad|año|year|timestamp/i.test(header)
+        && rows.every((row) => parseHumanNumber(row[idx] ?? '') != null),
     );
-    const col = numericCol > 0 ? numericCol : 1;
+    // Dates and missing metrics must remain text, never synthetic magnitudes/zero.
+    if (col < 1) return { type: 'table', title: headers[0] || '', headers, rows };
     return {
       type: 'chart',
       chart_type: 'bar',
@@ -676,7 +672,7 @@ function tableToArtifact(table: { headers: string[]; rows: string[][] }): Record
         datasets: [
           {
             label: headers[col] || '',
-            data: rows.map((row) => Number.parseFloat((row[col] ?? '0').replace(/[^\d.]/g, '')) || 0),
+            data: rows.map((row) => parseHumanNumber(row[col]!)!),
             color: 'var(--foreground)',
           },
         ],

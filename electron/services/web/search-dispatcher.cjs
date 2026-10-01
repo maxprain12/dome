@@ -6,8 +6,7 @@ const { getWebSettings } = require('./web-settings.cjs');
 const { normalizeSearchRequest } = require('./http-utils.cjs');
 const tavilySearch = require('./providers/tavily-search.cjs');
 const braveSearch = require('./providers/brave-search.cjs');
-const searxngSearch = require('./providers/searxng.cjs');
-const ddgSearch = require('./providers/ddg-html.cjs');
+const freeSearch = require('./free-search.cjs');
 
 function buildProviderChain(settings) {
   const chain = [];
@@ -55,9 +54,8 @@ async function runProvider(providerId, request, settings) {
     case 'brave':
       return braveSearch.search(request, settings.braveKey);
     case 'searxng':
-      return searxngSearch.search(request);
     case 'ddg':
-      return ddgSearch.search(request);
+      return freeSearch.searchProvider(providerId, request);
     default:
       throw new Error(`Unknown search provider: ${providerId}`);
   }
@@ -94,11 +92,14 @@ async function searchWeb(input) {
   const settings = getWebSettings();
   const chain = buildProviderChain(settings);
   const errors = [];
+  let retryAfterMs = 0;
 
   for (const providerId of chain) {
     try {
       return await runProvider(providerId, request, settings);
     } catch (error) {
+      request.signal?.throwIfAborted();
+      retryAfterMs = Math.max(retryAfterMs, error.retryAfterMs || 0);
       errors.push(`${providerId}: ${error?.message || String(error)}`);
     }
   }
@@ -111,6 +112,7 @@ async function searchWeb(input) {
     count: 0,
     results: [],
     error: errors.join('; ') || 'All search providers failed',
+    ...(retryAfterMs ? { code: 'search_unavailable', retryAfterMs, retryable: false } : {}),
   };
 }
 
