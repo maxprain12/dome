@@ -962,8 +962,8 @@ function createSocialService(database, windowManager) {
     return providerModule('instagram').searchLocations(store, account, { query });
   }
 
-  async function resolvePublic(url, { forceRefresh = false } = {}) {
-    return resolvePublicSocial({ store, database }, { url, forceRefresh });
+  async function resolvePublic(url, { forceRefresh = false, signal } = {}) {
+    return resolvePublicSocial({ store, database }, { url, forceRefresh, signal });
   }
 
   async function snapshotTrends({ projectId = 'default', windowDays = 30, language = 'es' } = {}) {

@@ -17,6 +17,9 @@ function buildProviderChain(settings) {
   };
 
   switch (settings.searchProvider) {
+    case 'exa':
+      pushUnique('exa');
+      break;
     case 'tavily':
       pushUnique('tavily');
       break;
@@ -43,6 +46,10 @@ function buildProviderChain(settings) {
 
 async function runProvider(providerId, request, settings) {
   switch (providerId) {
+    case 'exa':
+      if (!settings.exaKey) throw new Error('Exa API key is not configured');
+      require('../../research/budget.cjs').reserve(require('../../core/database.cjs').getQueries(), 'web-search', 'exa');
+      return require('./providers/exa-search.cjs').search(request, settings.exaKey);
     case 'tavily':
       return tavilySearch.search(request, settings.tavilyKey);
     case 'brave':

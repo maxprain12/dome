@@ -1,3 +1,4 @@
+import ResearchSettings from './ResearchSettings';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -271,6 +272,7 @@ export default function AIWebSearchTab() {
           ) : null}
         </div>
       </SettingsGroup>
+      <ResearchSettings />
     </div>
   );
 }

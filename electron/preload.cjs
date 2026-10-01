@@ -785,6 +785,10 @@ const ALLOWED_CHANNELS = {
     'people:delete',
     'people:enrich',
     // Browser extension local bridge
+    'research:status',
+    'research:execute',
+    'research:policy',
+    'research:cancel',
     'browser-extension:status',
     'browser-extension:pair-start',
     'browser-extension:pair-cancel',

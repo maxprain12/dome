@@ -49,6 +49,7 @@ function register({ ipcMain, windowManager }) {
     if (!parsed.success) return { success: false, error: 'Invalid payload' };
     const pairing = bridge.getPairing();
     if (!pairing) return { success: false, error: 'Browser extension bridge is not running' };
+    require('../../browser-extension/research-control.cjs').revoke(parsed.data.clientId);
     return { success: true, data: pairing.revoke(parsed.data.clientId) };
   });
 }

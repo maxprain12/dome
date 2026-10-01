@@ -4799,6 +4799,12 @@ async function artifactLinkResource(args) {
 }
 
 module.exports = {
+  research_capabilities: (args) => require('../research/service.cjs').getResearchService().execute('research_capabilities', args),
+  research_search: (args) => require('../research/service.cjs').getResearchService().execute('research_search', args),
+  research_read: (args) => require('../research/service.cjs').getResearchService().execute('research_read', args),
+  research_profile: (args) => require('../research/service.cjs').getResearchService().execute('research_profile', args),
+  research_collect: (args) => require('../research/service.cjs').getResearchService().execute('research_collect', args),
+
   // Window manager (for broadcast when tools modify resources in main)
   setWindowManager,
 

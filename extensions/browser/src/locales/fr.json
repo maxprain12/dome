@@ -244,5 +244,9 @@
   "browserAlwaysAccept": "Toujours accepter sur ce site",
   "browserAlwaysActive": "Actions autorisées automatiquement sur {{origin}}",
   "browserAskAgain": "Redemander la permission",
-  "browserPermissionSaveFailed": "Impossible d’enregistrer cette autorisation. Réessayez."
+  "browserPermissionSaveFailed": "Impossible d’enregistrer cette autorisation. Réessayez.",
+  "researchTabHint": "Autorisez Many Desktop à lire cet onglet jusqu’à votre arrêt. Les permissions du site restent applicables.",
+  "researchTabEnable": "Activer la recherche sur cet onglet",
+  "researchTabStop": "Arrêter l’accès de recherche",
+  "researchDisconnected": "La recherche Desktop est déconnectée."
 }

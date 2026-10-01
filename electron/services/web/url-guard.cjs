@@ -92,7 +92,8 @@ async function assertPublicUrl(urlString) {
   return parsed.toString();
 }
 
-async function fetchPublicWithTimeout(url, options = {}, timeoutMs = 15000) {
+async function fetchPublicWithTimeout(url, options = {}, timeoutMs = 15000, validateTarget) {
+  await validateTarget?.(url);
   let current = await assertPublicUrl(url);
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -106,6 +107,7 @@ async function fetchPublicWithTimeout(url, options = {}, timeoutMs = 15000) {
       const location = response.headers.get('location');
       if (!location) return response;
       current = new URL(location, current).toString();
+      await validateTarget?.(current);
       await assertPublicUrl(current);
       continue;
     }

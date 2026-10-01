@@ -1,3 +1,4 @@
+import { createResearchTools } from './research-tools';
 /**
  * AI Tools Index
  * 
@@ -492,6 +493,7 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
 
   // Social hub (LinkedIn / Instagram / X)
   tools.push(...createSocialTools());
+  tools.push(...createResearchTools());
 
   // Pipelines (Kanban)
   tools.push(...createPipelineTools());
@@ -607,6 +609,7 @@ export function createManyToolsForContext(
 
   // Social hub (LinkedIn / Instagram / X)
   tools.push(...createSocialTools());
+  tools.push(...createResearchTools());
 
   // Pipelines (Kanban)
   tools.push(...createPipelineTools());

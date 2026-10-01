@@ -71,6 +71,10 @@ async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
     return cmsTools.executeTool(normalizedToolName, rawArgs, toolContext);
   }
 
+  if (normalizedToolName.startsWith('research_')) {
+    return require('../research/service.cjs').getResearchService().execute(normalizedToolName, rawArgs, toolContext);
+  }
+
   // Coding runs anchor relative tool paths to the repository root so the model
   // never has to guess absolute paths (and cannot silently drift outside it).
   const { args } = scopeToolPaths(
