@@ -2,8 +2,8 @@
  * SSRF guard — blocks fetches to private/local/metadata hosts.
  */
 
-const dns = require('dns').promises;
-const net = require('net');
+const dns = require('node:dns').promises;
+const net = require('node:net');
 const { fetchWithTimeout } = require('./http-utils.cjs');
 
 const BLOCKED_HOSTNAMES = new Set([
