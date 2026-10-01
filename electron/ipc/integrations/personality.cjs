@@ -1,7 +1,9 @@
 /* eslint-disable no-console */
 const { shell } = require('electron');
+const { z } = require('zod');
+const memoryPolicy = require('../../personality/memory-policy.cjs');
 
-function register({ ipcMain, windowManager, personalityLoader }) {
+function register({ ipcMain, windowManager, personalityLoader, database }) {
   const ALLOWED_CONTEXT_FILES = new Set([
     'SOUL.md',
     'USER.md',
@@ -15,6 +17,24 @@ function register({ ipcMain, windowManager, personalityLoader }) {
       throw new Error('Invalid context filename');
     }
   }
+
+  ipcMain.handle('personality:memory-policy', (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const parsed = z.object({ mode: z.enum(['get', 'set']), conversationId: z.string().min(1).max(200).optional(), enabled: z.boolean().optional() }).parse(params);
+      if (parsed.mode === 'set' && parsed.enabled === undefined) throw new Error('enabled is required');
+      const data = parsed.mode === 'set' ? memoryPolicy.setMemoryPolicy(parsed, database.getQueries()) : memoryPolicy.getMemoryPolicy(parsed, database.getQueries());
+      return { success: true, data };
+    } catch (error) { return { success: false, error: error.message }; }
+  });
+  ipcMain.handle('personality:read-document', (event, filename) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      z.string().parse(filename);
+      if (!/^memory\/\d{4}-\d{2}-\d{2}\.md$/.test(filename)) assertAllowedFilename(filename);
+      return { success: true, data: personalityLoader.readContextDocument(filename) };
+    } catch (error) { return { success: false, error: error.message }; }
+  });
 
   ipcMain.handle('personality:get-context-files', (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -36,6 +56,7 @@ function register({ ipcMain, windowManager, personalityLoader }) {
       const contextFiles = require('../../personality/context-files.cjs');
       const data = contextFiles.loadAgentMemoryContext({
         memoryEnabled: params?.memoryEnabled !== false,
+        conversationId: params?.conversationId,
         projectId: params?.projectId ?? null,
         projectPath: params?.projectPath ?? null,
         includeProject: params?.includeProject !== false,
@@ -75,15 +96,15 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     }
   });
 
-  ipcMain.handle('personality:write-file', (event, { filename, content }) => {
+  ipcMain.handle('personality:write-file', (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
+      const { filename, content, expectedRevision } = z.object({ filename: z.string(), content: z.string().max(1_000_000), expectedRevision: z.string().optional() }).parse(params);
       assertAllowedFilename(filename);
-      personalityLoader.writeContextFile(filename, content);
-      return { success: true };
+      return { success: true, ...personalityLoader.writeContextFile(filename, content, expectedRevision) };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -115,12 +136,13 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     }
   });
 
-  ipcMain.handle('personality:remember-fact', (event, { key, value, domain }) => {
+  ipcMain.handle('personality:remember-fact', (event, { key, value, domain, conversationId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
+      memoryPolicy.assertMemoryWriteAllowed({ conversationId });
       const normalizedDomain = String(domain || 'general').toLowerCase();
       if (normalizedDomain === 'social' || normalizedDomain === 'email') {
         personalityLoader.updateDomainMemory(normalizedDomain, key, value);
@@ -159,13 +181,13 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     }
   });
 
-  ipcMain.handle('personality:write-daily-memory', (event, { date, content }) => {
+  ipcMain.handle('personality:write-daily-memory', (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      personalityLoader.writeDailyMemory(date, content);
-      return { success: true };
+      const { date, content, expectedRevision } = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), content: z.string().max(1_000_000), expectedRevision: z.string().optional() }).parse(params);
+      return { success: true, ...personalityLoader.writeDailyMemory(date, content, expectedRevision) };
     } catch (error) {
       return { success: false, error: error.message };
     }

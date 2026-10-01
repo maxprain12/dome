@@ -24,7 +24,8 @@
     "social": "Redes sociales",
     "browser_extension": "Extensión del navegador",
     "remote_many": "Acceso remoto a Many",
-    "research": "Investigación en internet"
+    "research": "Investigación en internet",
+    "memory": "Memoria"
   },
   "groups": {
     "account": "Cuenta",
@@ -166,7 +167,7 @@
     "context_unsaved_confirm": "Hay cambios sin guardar. ¿Descartarlos?",
     "context_agent_view_hint": "Vista recortada con los mismos límites de caracteres que usa el harness al inyectar contexto.",
     "context_over_limit": "Este archivo supera el límite de inyección (~{{limit}} caracteres). Actual: {{count}}. Se truncará en runtime.",
-    "context_memory_toggle_hint": "El toggle «Memoria» del compositor solo controla la escritura automática (remember_fact), no la edición manual de estos archivos.",
+    "context_memory_toggle_hint": "Desactivar memoria excluye recuerdos personales del contexto nuevo y bloquea la escritura automática en todas las superficies. SOUL, las instrucciones del proyecto y el historial de conversación se conservan. La edición manual sigue disponible.",
     "embeddings": {
       "description": "Configura el proveedor de embeddings para la búsqueda semántica y el grafo. Independiente de las credenciales del chat.",
       "provider": "Proveedor",
@@ -816,5 +817,12 @@
     "toast_error": "Error de conexión",
     "toast_disconnected": "Cuenta desconectada",
     "toast_disconnect_error": "Error al desconectar"
+  },
+  "memory": {
+    "subtitle": "Revisa recuerdos personales, contexto por dominio y logs recientes.",
+    "policy": "Política de memoria",
+    "enabled": "Usar memoria personal",
+    "policy_hint": "Desactivar memoria excluye recuerdos personales del contexto nuevo y bloquea la escritura automática en todas las superficies. SOUL, las instrucciones del proyecto y el historial de conversación se conservan. La edición manual sigue disponible.",
+    "effective": "Contexto efectivo"
   }
 }

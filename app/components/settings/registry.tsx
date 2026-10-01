@@ -33,6 +33,7 @@ export type SettingsSection =
   | 'appearance'
   | 'features'
   | 'ai'
+  | 'memory'
   | 'research'
   | 'transcription'
   | 'mcp'
@@ -81,6 +82,7 @@ const GROUP_DEFS: GroupDef[] = [
   ] },
   { labelKey: 'settingsGuide.groups.intelligence', sections: [
     { id: 'ai', icon: BrainIcon, legacyAliases: ['transcription'], layout: 'wide' },
+    { id: 'memory', icon: BrainIcon },
     { id: 'research', icon: Search01Icon, layout: 'wide', legacyAliases: ['agent-reach'] },
     { id: 'kb_llm', icon: BookMarkedIcon }, { id: 'indexing', icon: DatabaseIcon },
   ] },
@@ -103,6 +105,7 @@ const SECTION_COMPONENTS: Record<NavSection, LazyExoticComponent<ComponentType>>
   language: lazy(() => import('./sections/LanguageSection')),
   features: lazy(() => import('./sections/FeaturesSection')),
   ai: lazy(() => import('./sections/AISection')),
+  memory: lazy(() => import('./sections/MemorySection')),
   research: lazy(() => import('./sections/ResearchSection')),
   browser_extension: lazy(() => import('./sections/BrowserExtensionSection')),
   remote_many: lazy(() => import('./sections/RemoteManySection')),

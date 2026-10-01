@@ -54,3 +54,19 @@ Se instala el lockfile sin scripts para habilitar validación en este worktree.
   UI 564/564. Los nueve controles ejecutados: typecheck, lint (118 advertencias
   previas, 0 errores), guardrails, Sonar diff, IPC, protocolo remoto, build y
   depcruise pasaron, además de test:ui. Sin llamadas a APIs de pago.
+
+### Bloque 2 — Memoria
+
+- Política en main, global activada inicialmente y override persistente por
+  conversación; el global desactivado y un padre desactivado prevalecen.
+  Aplicada a ejecución, reanudación, subagentes, automatizaciones y navegador.
+- El constructor compartido conserva SOUL/instrucciones de proyecto y excluye
+  USER/MEMORY/dominos/logs cuando está desactivada. Ajustes → Memoria usa este
+  constructor para el contexto efectivo; la edición manual sigue disponible.
+- Escrituras síncronas serializadas en main, reemplazo atómico con fsync,
+  claves literales, errores de disco visibles y revisión optimista del editor.
+- Pruebas: memoria 9/9, navegador 26/26, UI 564/564. Se estabilizó el reloj del
+  fixture de Social: su orden variaba al cruzar un milisegundo entre borradores.
+- Los nueve controles pasaron (lint: 118 advertencias existentes, cero errores).
+  No se ha realizado una sesión real con proveedores externos en cada superficie.
+- PR 1730 (MCP/imágenes/skills) fusionada con CI correcto.

@@ -363,6 +363,8 @@ const ALLOWED_CHANNELS = {
     // Personality Loader
     'personality:get-prompt',
     'personality:get-context-files',
+    'personality:memory-policy',
+    'personality:read-document',
     'personality:get-agent-memory-context',
     'personality:read-file',
     'personality:write-file',
@@ -2225,7 +2227,7 @@ const electronHandler = {
     readFile: (filename) => ipcRenderer.invoke('personality:read-file', filename),
 
     // Write context file
-    writeFile: (filename, content) => ipcRenderer.invoke('personality:write-file', { filename, content }),
+    writeFile: (filename, content, expectedRevision) => ipcRenderer.invoke('personality:write-file', { filename, content, expectedRevision }),
 
     // Add memory entry
     addMemory: (entry) => ipcRenderer.invoke('personality:add-memory', entry),
@@ -2234,15 +2236,15 @@ const electronHandler = {
     listFiles: () => ipcRenderer.invoke('personality:list-files'),
 
     // Remember a fact about the user in long-term memory
-    rememberFact: (key, value, domain) =>
-      ipcRenderer.invoke('personality:remember-fact', { key, value, domain }),
+    rememberFact: (key, value, domain, conversationId) =>
+      ipcRenderer.invoke('personality:remember-fact', { key, value, domain, conversationId }),
 
     openFolder: () => ipcRenderer.invoke('personality:open-folder'),
 
     listDailyMemory: (days) => ipcRenderer.invoke('personality:list-daily-memory', days),
 
-    writeDailyMemory: (date, content) =>
-      ipcRenderer.invoke('personality:write-daily-memory', { date, content }),
+    writeDailyMemory: (date, content, expectedRevision) =>
+      ipcRenderer.invoke('personality:write-daily-memory', { date, content, expectedRevision }),
   },
 
   // ============================================

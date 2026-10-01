@@ -603,7 +603,9 @@ async function dispatchManyAgentRun(args: {
     voiceLanguage: args.sendOptions?.autoSpeak ? args.voiceLanguage : undefined,
     pinnedResourceIds:
       args.pinnedDocs.length > 0 ? args.pinnedDocs.map((r) => r.id) : undefined,
-    userMemory: args.memoryEnabled && args.userMemory ? args.userMemory : undefined,
+    userMemory: args.userMemory || undefined,
+    memoryEnabled: args.memoryEnabled,
+    conversationId: args.currentSessionId || args.threadId,
     workspacePath: args.workspacePath,
     thinkingLevel: args.currentSessionId
       ? useManyStore.getState().thinkingLevelBySession[args.currentSessionId] ?? 'off'
@@ -781,7 +783,7 @@ async function executeManyRunLaunch(args: ExecuteLaunchArgs): Promise<void> {
     threadId,
     pinnedDocs: hydrated.docs,
     memoryEnabled: args.memoryEnabled,
-    userMemory: args.userMemory,
+    userMemory: memoryForPrompt || '',
     workspacePath,
     voiceLanguage,
     agentMode,

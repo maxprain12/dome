@@ -24,7 +24,8 @@
     "browser_extension": "Extensão do navegador",
     "remote_many": "Acesso remoto ao Many",
     "dome_sync": "Sincronização do Dome",
-    "research": "Pesquisa na internet"
+    "research": "Pesquisa na internet",
+    "memory": "Memória"
   },
   "groups": {
     "account": "Conta",
@@ -166,7 +167,7 @@
     "context_unsaved_confirm": "Há alterações por guardar. Descartar?",
     "context_agent_view_hint": "Pré-visualização truncada com os mesmos limites de caracteres do harness na injeção.",
     "context_over_limit": "Este ficheiro excede o limite de injeção (~{{limit}} car.). Atual: {{count}}. Será truncado em runtime.",
-    "context_memory_toggle_hint": "O toggle «Memória» do compositor controla apenas escrita automática (remember_fact), não a edição manual destes ficheiros.",
+    "context_memory_toggle_hint": "Desativar a memória exclui lembranças pessoais do novo contexto e impede gravações automáticas em todas as superfícies. SOUL, instruções do projeto e histórico da conversa são preservados. A edição manual continua disponível.",
     "embeddings": {
       "description": "Configure o provedor de embeddings para busca semântica e o grafo. Independente das credenciais do chat.",
       "provider": "Provedor",
@@ -816,5 +817,12 @@
     "toast_error": "Erro de conexão",
     "toast_disconnected": "Conta desconectada",
     "toast_disconnect_error": "Erro ao desconectar"
+  },
+  "memory": {
+    "subtitle": "Revise memórias pessoais, contexto por domínio e registros recentes.",
+    "policy": "Política de memória",
+    "enabled": "Usar memória pessoal",
+    "policy_hint": "Desativar a memória exclui lembranças pessoais do novo contexto e impede gravações automáticas em todas as superfícies. SOUL, instruções do projeto e histórico da conversa são preservados. A edição manual continua disponível.",
+    "effective": "Contexto efetivo"
   }
 }

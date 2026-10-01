@@ -50,10 +50,6 @@ import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentT
 import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
-import {
-  formatPersonalityMemoryBlock,
-  loadPersonalityContextFiles,
-} from '@/lib/personality/contextFiles';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
@@ -454,17 +450,16 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
   const buildSystemPrompt = useCallback(async () => {
     if (!agent) return '';
-    const files = await loadPersonalityContextFiles();
+    const response = await window.electron.personality.getAgentMemoryContext({ memoryEnabled: false, includeProject: false });
+    const files = response.data || { soul: '' };
     const agentBody =
       agent.systemInstructions?.trim() || agent.description || `You are ${agent.name}.`;
     const persona = files.soul.trim()
       ? `${files.soul.trim()}\n\n## Agent role\n${agentBody}`
       : agentBody;
-    const volatile = formatPersonalityMemoryBlock(files);
 
     return buildDomeSystemPrompt({
       staticPersona: persona,
-      volatileContext: volatile || undefined,
       coreToolsMode: 'minimal',
     });
   }, [agent]);

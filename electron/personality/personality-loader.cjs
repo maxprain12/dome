@@ -10,9 +10,11 @@
  * - memory/YYYY-MM-DD.md: Logs diarios
  */
 
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const { app } = require('electron');
+const { randomUUID, createHash } = require('node:crypto');
+const memoryPolicy = require('./memory-policy.cjs');
 
 // Ruta base para los archivos de personalidad
 function getMartinDir() {
@@ -211,7 +213,7 @@ function readContextFile(filename) {
     return null;
   } catch (error) {
     console.error(`[Personality] Error reading ${filename}:`, error.message);
-    return null;
+    throw error;
   }
 }
 
@@ -220,17 +222,42 @@ function readContextFile(filename) {
  * @param {string} filename - Nombre del archivo
  * @param {string} content - Contenido a escribir
  */
-function writeContextFile(filename, content) {
-  try {
-    const filePath = path.join(getMartinDir(), filename);
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(filePath, content, 'utf8');
-  } catch (error) {
-    console.error(`[Personality] Error writing ${filename}:`, error.message);
+function revision(content) { return createHash('sha256').update(String(content ?? '')).digest('hex'); }
+function readContextDocument(filename) {
+  const content = readContextFile(filename) || '';
+  return { content, revision: revision(content) };
+}
+// All read/modify/replace operations are synchronous in main, serializing each file.
+function writeContextFile(filename, content, expectedRevision) {
+  const filePath = path.join(getMartinDir(), filename);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (expectedRevision !== undefined && readContextDocument(filename).revision !== expectedRevision) {
+    throw new Error('Context file changed since it was opened. Reload before saving.');
   }
+  const temporary = `${filePath}.${randomUUID()}.tmp`;
+  let descriptor;
+  try {
+    descriptor = fs.openSync(temporary, 'wx', 0o600);
+    fs.writeFileSync(descriptor, String(content ?? ''), 'utf8');
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor); descriptor = undefined;
+    fs.renameSync(temporary, filePath);
+    return { revision: revision(content) };
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
+    fs.rmSync(temporary, { force: true });
+  }
+}
+function updateSection(content, key, value) {
+  if (typeof key !== 'string' || !key.trim() || /[\r\n]/.test(key)) throw new Error('Invalid memory key');
+  const heading = `### ${key}`;
+  const lines = content.split('\n');
+  const start = lines.findIndex((line) => line.replace(/\r$/, '') === heading);
+  if (start < 0) return `${content}\n${heading}\n${value}\n`;
+  let end = start + 1;
+  while (end < lines.length && !/^#{1,3} /.test(lines[end])) end += 1;
+  lines.splice(start, end - start, heading, String(value), '');
+  return lines.join('\n');
 }
 
 const MAX_DOMAIN_CHARS = 8_000;
@@ -261,16 +288,12 @@ function writeDomainMemory(domainId, content) {
  * Update a ### key section inside a domain file (same shape as MEMORY.md).
  */
 function updateDomainMemory(domainId, key, value) {
+  memoryPolicy.assertMemoryWriteAllowed();
   const id = normalizeDomainId(domainId);
   if (!id) throw new Error(`Invalid domain: ${domainId}`);
   ensureDefaultFiles();
   let content = readContextFile(`domains/${id}.md`) || DOMAIN_DEFAULTS[id] || '';
-  const keyRegex = new RegExp(`### ${key}\\n[\\s\\S]*?(?=###|$)`, 'g');
-  if (keyRegex.test(content)) {
-    content = content.replace(keyRegex, `### ${key}\n${value}\n\n`);
-  } else {
-    content += `\n### ${key}\n${value}\n`;
-  }
+  content = updateSection(content, key, value);
   writeContextFile(`domains/${id}.md`, content);
 }
 
@@ -314,6 +337,7 @@ function getTodayMemory() {
  * @param {string} entry - Entrada a añadir
  */
 function addMemoryEntry(entry) {
+  memoryPolicy.assertMemoryWriteAllowed();
   const today = new Date().toISOString().split('T')[0];
   const time = new Date().toISOString().split('T')[1].split('.')[0];
   const memoryPath = path.join(getMartinDir(), 'memory', `${today}.md`);
@@ -328,7 +352,7 @@ function addMemoryEntry(entry) {
   }
 
   content += `## ${time}\n${entry}\n\n`;
-  fs.writeFileSync(memoryPath, content, 'utf8');
+  writeContextFile(`memory/${today}.md`, content);
 }
 
 /**
@@ -364,7 +388,7 @@ function getRecentMemory(days = 7) {
  * @param {string} date - YYYY-MM-DD
  * @param {string} content
  */
-function writeDailyMemory(date, content) {
+function writeDailyMemory(date, content, expectedRevision) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
     throw new Error('Invalid date format (expected YYYY-MM-DD)');
   }
@@ -372,7 +396,7 @@ function writeDailyMemory(date, content) {
   if (!fs.existsSync(memoryDir)) {
     fs.mkdirSync(memoryDir, { recursive: true });
   }
-  fs.writeFileSync(path.join(memoryDir, `${date}.md`), String(content ?? ''), 'utf8');
+  return writeContextFile(`memory/${date}.md`, String(content ?? ''), expectedRevision);
 }
 
 /**
@@ -384,7 +408,8 @@ function writeDailyMemory(date, content) {
  * @returns {string}
  */
 function buildSystemPrompt(params = {}) {
-  const { resourceContext, includeMemory = true, userTimezone } = params;
+  const { resourceContext, userTimezone } = params;
+  const includeMemory = memoryPolicy.isMemoryEnabled({ ...params, memoryEnabled: params.memoryEnabled !== false && params.includeMemory !== false });
 
   ensureDefaultFiles();
 
@@ -397,7 +422,7 @@ function buildSystemPrompt(params = {}) {
   }
 
   // Sección: Información del usuario (USER.md)
-  const user = readContextFile('USER.md');
+  const user = includeMemory ? readContextFile('USER.md') : '';
   if (user) {
     sections.push('## User Information\n' + user);
   }
@@ -504,16 +529,10 @@ function updateUserInfo(userInfo) {
  * @param {string} value - Valor a recordar
  */
 function updateLongTermMemory(key, value) {
+  memoryPolicy.assertMemoryWriteAllowed();
   let content = readContextFile('MEMORY.md') || DEFAULT_MEMORY;
 
-  // Buscar si la clave ya existe
-  const keyRegex = new RegExp(`### ${key}\\n[\\s\\S]*?(?=###|$)`, 'g');
-
-  if (keyRegex.test(content)) {
-    content = content.replace(keyRegex, `### ${key}\n${value}\n\n`);
-  } else {
-    content += `\n### ${key}\n${value}\n`;
-  }
+  content = updateSection(content, key, value);
 
   writeContextFile('MEMORY.md', content);
 }
@@ -554,6 +573,8 @@ module.exports = {
   // Lectura/escritura de archivos
   readContextFile,
   writeContextFile,
+  readContextDocument,
+  revision,
 
   // Memoria
   getTodayMemory,

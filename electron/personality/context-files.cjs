@@ -12,6 +12,7 @@
  */
 
 const personalityLoader = require('./personality-loader.cjs');
+const { isMemoryEnabled } = require('./memory-policy.cjs');
 const projectMemory = require('./project-memory.cjs');
 
 const MAX_SOUL_CHARS = 24_000;
@@ -29,9 +30,10 @@ function trimBlock(text, maxChars, label) {
 /**
  * @returns {{ soul: string; user: string; memory: string; recentMemory: string }}
  */
-function loadContextFiles() {
+function loadContextFiles(opts = {}) {
   personalityLoader.ensureDefaultFiles();
   const soul = trimBlock(personalityLoader.readContextFile('SOUL.md'), MAX_SOUL_CHARS, 'SOUL.md');
+  if (!isMemoryEnabled(opts)) return { soul, user: '', memory: '', recentMemory: '' };
   const user = trimBlock(personalityLoader.readContextFile('USER.md'), MAX_USER_CHARS, 'USER.md');
   const memory = trimBlock(personalityLoader.readContextFile('MEMORY.md'), MAX_MEMORY_CHARS, 'MEMORY.md');
 
@@ -86,22 +88,9 @@ function resolveProjectVaultRoot(projectId) {
  * }} [opts]
  */
 function loadAgentMemoryContext(opts = {}) {
-  const memoryEnabled = opts.memoryEnabled !== false;
+  const memoryEnabled = isMemoryEnabled(opts);
   const includeProject = opts.includeProject !== false;
-  const files = loadContextFiles();
-
-  if (!memoryEnabled) {
-    return {
-      soul: files.soul,
-      user: '',
-      memory: '',
-      recentMemory: '',
-      memoryBlock: '',
-      projectMemory: '',
-      domainMemory: '',
-      volatileMemory: '',
-    };
-  }
+  const files = loadContextFiles(opts);
 
   const memoryBlock = formatMemoryContextBlock(files);
   let projectBlock = '';
@@ -115,11 +104,12 @@ function loadAgentMemoryContext(opts = {}) {
   }
 
   const domainMemory =
-    typeof personalityLoader.formatDomainMemoryBlock === 'function'
+    memoryEnabled && typeof personalityLoader.formatDomainMemoryBlock === 'function'
       ? personalityLoader.formatDomainMemoryBlock(opts.includeDomains || [])
       : '';
   const volatileMemory = [memoryBlock, projectBlock, domainMemory].filter(Boolean).join('\n\n');
   return {
+    memoryEnabled,
     soul: files.soul,
     user: files.user,
     memory: files.memory,

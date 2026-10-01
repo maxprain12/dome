@@ -3,10 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { getAIConfig, findModelById, providerSupportsTools, type AIProviderType } from '@/lib/ai';
 import { fallbackContextWindow, parseContextWindow, readPersistedContextWindow } from '@/lib/ai/context-window';
 import { db } from '@/lib/db/client';
-import {
-  formatPersonalityMemoryBlock,
-  loadPersonalityContextFiles,
-} from '@/lib/personality/contextFiles';
+import { memoryPolicy } from '@/lib/personality/memory-policy';
+import { useManyStore } from '@/lib/store/useManyStore';
+import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 
 /**
@@ -38,10 +37,11 @@ export interface ManyConversationSettings {
 export function useManyConversationSettings(): ManyConversationSettings {
   const { t } = useTranslation();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  const conversationId = useManyStore((s) => s.currentSessionId);
 
   const [toolsEnabled, setToolsEnabled] = useState(true);
   const [resourceToolsEnabled, setResourceToolsEnabled] = useState(true);
-  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoryEnabled, setMemoryEnabledState] = useState(true);
   const [mcpEnabled, setMcpEnabledState] = useState(true);
   const [supportsTools, setSupportsTools] = useState(false);
   const [soulContent, setSoulContent] = useState<string>('');
@@ -98,38 +98,29 @@ export function useManyConversationSettings(): ManyConversationSettings {
     loadMcpEnabled();
   }, []);
 
+  const setMemoryEnabled = (enabled: boolean) => {
+    void memoryPolicy(conversationId || undefined, enabled).then((policy) => setMemoryEnabledState(policy.enabled))
+      .catch((error) => showToast('error', error.message));
+  };
   useEffect(() => {
+    let cancelled = false;
     const loadMemory = async () => {
-      const files = await loadPersonalityContextFiles();
-      setSoulContent(files.soul.trim());
-
-      if (!memoryEnabled) {
-        setUserMemory('');
-        return;
-      }
-
-      const invoke = window.electron?.personality?.getAgentMemoryContext;
-      if (invoke) {
-        try {
-          const res = await invoke({
-            memoryEnabled: true,
-            projectId,
-            includeProject: true,
-            includeDomains: [],
-          });
-          if (res?.success && res.data?.volatileMemory) {
-            setUserMemory(res.data.volatileMemory);
-            return;
-          }
-        } catch {
-          /* fall through to local format */
-        }
-      }
-
-      setUserMemory(formatPersonalityMemoryBlock(files));
+      const policy = await memoryPolicy(conversationId || undefined);
+      const response = await window.electron.personality.getAgentMemoryContext({ conversationId: conversationId || undefined,
+        projectId, includeProject: true, includeDomains: [] });
+      if (!response.success) throw new Error(response.error);
+      if (cancelled) return;
+      setMemoryEnabledState(policy.enabled);
+      setSoulContent(response.data?.soul || '');
+      setUserMemory(response.data?.volatileMemory || '');
     };
-    void loadMemory();
-  }, [memoryEnabled, projectId]);
+    const refresh = () => { void loadMemory().catch((error) => {
+      if (!cancelled) { setUserMemory(''); showToast('error', error.message); }
+    }); };
+    refresh();
+    window.addEventListener('dome:memory-policy-changed', refresh);
+    return () => { cancelled = true; window.removeEventListener('dome:memory-policy-changed', refresh); };
+  }, [conversationId, projectId]);
 
   return {
     toolsEnabled,

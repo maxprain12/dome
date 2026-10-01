@@ -826,12 +826,23 @@ async function setupHarness(surface, opts) {
   const workspaceSession = codingWorkspace.resolveWorkspaceSession(opts);
 
   const sysMsg = Array.isArray(messages) ? messages.find((m) => m && m.role === 'system') : null;
-  const rawSystemPrompt =
+  const providedSystemPrompt =
     typeof sysMsg?.content === 'string'
       ? sysMsg.content
       : sysMsg
         ? JSON.stringify(sysMsg.content ?? '')
         : '';
+  const memoryPolicy = require('../personality/memory-policy.cjs');
+  const memoryContext = require('../personality/context-files.cjs').loadAgentMemoryContext({
+    ...opts, projectId: opts.automationProjectId || opts.projectId,
+    includeProject: !workspaceSession,
+    includeDomains: ['social', 'email'],
+  });
+  const withoutStaleMemory = typeof opts.userMemory === 'string' && opts.userMemory
+    ? providedSystemPrompt.replaceAll(opts.userMemory, '') : providedSystemPrompt;
+  const identity = memoryContext.soul && !withoutStaleMemory.includes(memoryContext.soul) ? memoryContext.soul : '';
+  const rawSystemPrompt = [identity, withoutStaleMemory, memoryContext.volatileMemory].filter(Boolean).join('\n\n');
+  opts.userMemory = memoryContext.volatileMemory;
   const baseSystemPrompt = workspaceSession
     ? [
         rawSystemPrompt,
@@ -880,7 +891,7 @@ async function setupHarness(surface, opts) {
   await bridge.seedSessionIfEmpty(session, contextMessages);
 
   const executeToolInMain = (name, args, contextOverride) =>
-    dispatcher.executeToolInMain(name, args, {
+    memoryPolicy.withMemoryPolicy(opts, () => dispatcher.executeToolInMain(name, args, {
       runtimeContext: opts.runtimeContext ?? null,
       ownerType: opts.ownerType ?? null,
       surface,
@@ -894,12 +905,12 @@ async function setupHarness(surface, opts) {
       signal: opts.signal ?? null,
       ...(contextOverride || {}),
       agentMode: mode,
-    });
+    }));
   const mcpToolsList = await bridge.buildMcpAgentTools(database, opts.mcpServerIds);
   const mcpToolNames = mcpToolsList.map((t) => t.name);
   // Coding tools are hidden — not merely denied — outside a trusted workspace.
   const tools = codingWorkspace.filterToolsForWorkspace(
-    await bridge.buildAllTools(database, opts, executeToolInMain),
+    (await bridge.buildAllTools(database, opts, executeToolInMain)).filter((tool) => memoryContext.memoryEnabled || tool.name !== 'remember_fact'),
     workspaceSession,
   );
   // Native capabilities supplied by trusted main-process callers (never serialized IPC definitions).
@@ -1082,12 +1093,12 @@ async function setupHarness(surface, opts) {
     if (event.type === 'tool_execution_end') {
       try {
         const actionMemory = require('../personality/action-memory.cjs');
-        actionMemory.maybePersistFromToolResult(
+        memoryPolicy.withMemoryPolicy(opts, () => actionMemory.maybePersistFromToolResult(
           event.toolName,
           event.args,
           event.result,
           event.isError === true,
-        );
+        ));
       } catch (err) {
         console.warn('[AgentRuntime] action-memory hook failed:', err?.message || err);
       }
@@ -1301,6 +1312,10 @@ function forwardResumeInterrupt(err, setup, onChunk) {
  * Resume a HITL-interrupted run: apply user decisions, append tool results, continue loop.
  */
 async function resumeDomeAgent(surface, opts) {
+  return require('../personality/memory-policy.cjs').withMemoryPolicy(opts, () => executeResumeDomeAgent(surface, opts));
+}
+
+async function executeResumeDomeAgent(surface, opts) {
   const { threadId, decisions, onChunk, provider, model, apiKey, baseUrl, messages } = opts;
 
   const pendingToolCall = resolvePendingToolCall(opts);
@@ -1568,7 +1583,7 @@ async function steerLiveHarness(threadId, text) {
   return { success: true };
 }
 
-async function runDomeAgent(surface, opts) {
+async function executeDomeAgent(surface, opts) {
   console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
 
   const { userPrompt, promptImages, lastRaw } = await prepareRunDomeInputs(opts);
@@ -1598,6 +1613,10 @@ async function runDomeAgent(surface, opts) {
     unregisterLiveHarness(threadId);
     cleanup();
   }
+}
+
+function runDomeAgent(surface, opts) {
+  return require('../personality/memory-policy.cjs').withMemoryPolicy(opts, () => executeDomeAgent(surface, opts));
 }
 
 module.exports = {

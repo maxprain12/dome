@@ -66,7 +66,7 @@ describe('action-memory', () => {
     assert.equal(writes[0].domain, 'social');
   });
 
-  it('dedups same key within 24h', () => {
+  it('dedups unchanged values within 24h', () => {
     actionMemory.maybePersistFromToolResult(
       'email_send',
       { to: 'vip@example.com', subject: 'Follow up' },
@@ -75,7 +75,7 @@ describe('action-memory', () => {
     );
     const second = actionMemory.maybePersistFromToolResult(
       'email_send',
-      { to: 'vip@example.com', subject: 'Follow up again' },
+      { to: 'vip@example.com', subject: 'Follow up' },
       { success: true },
       false,
     );

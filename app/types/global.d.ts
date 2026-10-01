@@ -2502,6 +2502,7 @@ declare global {
         }>;
         getAgentMemoryContext: (params?: {
           memoryEnabled?: boolean;
+          conversationId?: string;
           projectId?: string | null;
           projectPath?: string | null;
           includeProject?: boolean;
@@ -2521,13 +2522,14 @@ declare global {
           error?: string;
         }>;
         readFile: (filename: string) => Promise<{ success: boolean; data?: string; error?: string }>;
-        writeFile: (filename: string, content: string) => Promise<{ success: boolean; error?: string }>;
+        writeFile: (filename: string, content: string, expectedRevision?: string) => Promise<{ success: boolean; error?: string }>;
         addMemory: (entry: string) => Promise<{ success: boolean; error?: string }>;
         listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
         rememberFact: (
           key: string,
           value: string,
           domain?: 'general' | 'social' | 'email' | string,
+          conversationId?: string,
         ) => Promise<{ success: boolean; domain?: string; error?: string }>;
         openFolder: () => Promise<{ success: boolean; data?: string; error?: string }>;
         listDailyMemory: (days?: number) => Promise<{
@@ -2535,7 +2537,7 @@ declare global {
           data?: Array<{ date: string; content: string }>;
           error?: string;
         }>;
-        writeDailyMemory: (date: string, content: string) => Promise<{ success: boolean; error?: string }>;
+        writeDailyMemory: (date: string, content: string, expectedRevision?: string) => Promise<{ success: boolean; error?: string }>;
       };
 
       approval: {

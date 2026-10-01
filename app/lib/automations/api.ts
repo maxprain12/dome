@@ -263,6 +263,8 @@ export async function startAgentRun(params: {
   pinnedResourceIds?: string[];
   /** USER.md / MEMORY.md block for context budget rules segment. */
   userMemory?: string;
+  memoryEnabled?: boolean;
+  conversationId?: string;
   /**
    * Absolute path of the local repository this run works in. Set when the turn
    * comes from an issue bound to a clone — unlocks the coding tool family once

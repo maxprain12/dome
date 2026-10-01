@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-01T22:00:31.433Z
+> Última generación: 2026-10-01T22:20:46.772Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -425,17 +425,19 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `permissions:open-settings` | `electron/ipc/core/permissions.cjs:38` |
 | `permissions:relaunch` | `electron/ipc/core/permissions.cjs:42` |
 | `permissions:request` | `electron/ipc/core/permissions.cjs:36` |
-| `personality:add-memory` | `electron/ipc/integrations/personality.cjs:92` |
-| `personality:get-agent-memory-context` | `electron/ipc/integrations/personality.cjs:31` |
-| `personality:get-context-files` | `electron/ipc/integrations/personality.cjs:19` |
-| `personality:get-prompt` | `electron/ipc/integrations/personality.cjs:50` |
-| `personality:list-daily-memory` | `electron/ipc/integrations/personality.cjs:150` |
-| `personality:list-files` | `electron/ipc/integrations/personality.cjs:105` |
-| `personality:open-folder` | `electron/ipc/integrations/personality.cjs:137` |
-| `personality:read-file` | `electron/ipc/integrations/personality.cjs:63` |
-| `personality:remember-fact` | `electron/ipc/integrations/personality.cjs:118` |
-| `personality:write-daily-memory` | `electron/ipc/integrations/personality.cjs:162` |
-| `personality:write-file` | `electron/ipc/integrations/personality.cjs:78` |
+| `personality:add-memory` | `electron/ipc/integrations/personality.cjs:113` |
+| `personality:get-agent-memory-context` | `electron/ipc/integrations/personality.cjs:51` |
+| `personality:get-context-files` | `electron/ipc/integrations/personality.cjs:39` |
+| `personality:get-prompt` | `electron/ipc/integrations/personality.cjs:71` |
+| `personality:list-daily-memory` | `electron/ipc/integrations/personality.cjs:172` |
+| `personality:list-files` | `electron/ipc/integrations/personality.cjs:126` |
+| `personality:memory-policy` | `electron/ipc/integrations/personality.cjs:21` |
+| `personality:open-folder` | `electron/ipc/integrations/personality.cjs:159` |
+| `personality:read-document` | `electron/ipc/integrations/personality.cjs:30` |
+| `personality:read-file` | `electron/ipc/integrations/personality.cjs:84` |
+| `personality:remember-fact` | `electron/ipc/integrations/personality.cjs:139` |
+| `personality:write-daily-memory` | `electron/ipc/integrations/personality.cjs:184` |
+| `personality:write-file` | `electron/ipc/integrations/personality.cjs:99` |
 | `pipelines:create` | `electron/ipc/agents/pipelines.cjs:189` |
 | `pipelines:delete` | `electron/ipc/agents/pipelines.cjs:243` |
 | `pipelines:export` | `electron/ipc/agents/pipelines.cjs:264` |
