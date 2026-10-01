@@ -134,7 +134,7 @@ function registerAll(deps) {
   imageHandlers.register({ ipcMain: secureIpcMain, windowManager, cropImage });
   ollamaHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ollamaService, getOllamaManager });
   authHandlers.register({ ipcMain: secureIpcMain, windowManager, authManager });
-  personalityHandlers.register({ ipcMain: secureIpcMain, windowManager, personalityLoader });
+  personalityHandlers.register({ ipcMain: secureIpcMain, windowManager, personalityLoader, database });
   aiHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ollamaService });
   aiToolsHandlers.register({ ipcMain: secureIpcMain, windowManager, aiToolsHandler });
   flashcardsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });

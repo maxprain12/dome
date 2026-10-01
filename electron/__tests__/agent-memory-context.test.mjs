@@ -78,6 +78,13 @@ describe('loadAgentMemoryContext', () => {
     assert.equal(ctx.user, '');
   });
 
+  it('memory off preserves project instructions', () => {
+    const ctx = contextFiles.loadAgentMemoryContext({ memoryEnabled: false, projectPath: tempRoot, includeProject: true });
+    assert.match(ctx.volatileMemory, /Be concise/);
+    assert.equal(ctx.memoryBlock, '');
+    assert.equal(ctx.domainMemory, '');
+  });
+
   it('memoryEnabled true includes USER + MEMORY + recent', () => {
     const ctx = contextFiles.loadAgentMemoryContext({
       memoryEnabled: true,

@@ -86,6 +86,10 @@
     "research": {
       "description": "Configure as fontes do Many, verifique o acesso e controle os custos. Capacidades do Agent-Reach adaptadas ao Dome.",
       "start": "Escolha uma fonte e teste uma operação. Provedores pagos exigem chave e permissão explícita."
+    },
+    "memory": {
+      "description": "Revise memórias pessoais, contexto por domínio e registros recentes.",
+      "start": "Desativar a memória exclui lembranças pessoais do novo contexto e impede gravações automáticas em todas as superfícies. SOUL, instruções do projeto e histórico da conversa são preservados. A edição manual continua disponível."
     }
   },
   "ai": {

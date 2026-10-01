@@ -607,6 +607,10 @@ function prepareAgentRunContext(runId, params) {
     pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
   });
   context.agentResumeOpts = {
+    userMemory: params.userMemory,
+    memoryEnabled: params.memoryEnabled,
+    conversationId: params.conversationId || params.threadId || params.ownerId,
+    projectId: params.projectId,
     messages: params.messages ?? [],
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
@@ -790,6 +794,9 @@ async function executeAgentRun(runId, params) {
       ownerType: params.ownerType,
       runtimeContext,
       userMemory: params.userMemory ?? null,
+      memoryEnabled: params.memoryEnabled,
+      conversationId: params.conversationId || params.threadId || params.ownerId,
+      projectId: params.projectId,
       workspacePath: params.workspacePath ?? null,
       thinkingLevel: params.thinkingLevel ?? 'off',
       agentMode: params.agentMode ?? 'agent',
@@ -922,6 +929,10 @@ async function runAgentResume(run, context, metadata, providerConfig, controller
     toolDefinitions: resumeOpts.toolDefinitions ?? [],
     mcpServerIds: resumeOpts.mcpServerIds,
     runtimeContext: resumeOpts.runtimeContext,
+    userMemory: resumeOpts.userMemory,
+    memoryEnabled: resumeOpts.memoryEnabled,
+    conversationId: resumeOpts.conversationId,
+    projectId: resumeOpts.projectId,
     subagentIds: resumeOpts.subagentIds,
     workspacePath: resumeOpts.workspacePath ?? null,
     thinkingLevel: resumeOpts.thinkingLevel ?? 'off',
@@ -1134,15 +1145,11 @@ function buildAutomationMessages(automation, title, targetLabel) {
   }
   if (automation.targetType === 'many') {
     const contextFiles = require('../personality/context-files.cjs');
-    const memoryCtx = contextFiles.loadAgentMemoryContext({
-      memoryEnabled: true,
-      projectId: automation.projectId ?? null,
-      includeProject: true,
-    });
-    const manyPersona = memoryCtx.soul.trim() || readCoreSection('roleMany') || '';
+    const soul = require('../personality/personality-loader.cjs').readContextFile('SOUL.md') || '';
+    const manyPersona = soul.trim() || readCoreSection('roleMany') || '';
     const systemContent = buildDomeSystemPrompt({
       staticPersona: manyPersona.trim(),
-      volatileContext: memoryCtx.volatileMemory || undefined,
+
     });
     return [
       { role: 'system', content: systemContent },

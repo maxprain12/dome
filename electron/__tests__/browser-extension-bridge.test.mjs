@@ -877,6 +877,7 @@ describe('Many browser runtime parity', () => {
     assert.equal(runs[0].messages[0].content.includes('do not call get_tool_definition for browser_*'), true);
     assert.deepEqual(memoryLoads[0], {
       memoryEnabled: false,
+      conversationId: 'browser-extension:configured-one',
       projectId: 'project-1',
       includeProject: true,
     });

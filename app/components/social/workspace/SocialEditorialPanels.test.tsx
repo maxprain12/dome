@@ -5,7 +5,10 @@ import i18n from '@/lib/i18n';
 import type { SocialPost } from '@/components/social/socialTypes';
 import { SocialEditorialQueue, SocialRecentPublications } from './SocialEditorialPanels';
 
-beforeEach(async () => { await i18n.changeLanguage('en'); });
+beforeEach(async () => {
+  vi.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000);
+  await i18n.changeLanguage('en');
+});
 const post = (id: string, status: SocialPost['status'], scheduledAt = 0): SocialPost => ({ id, status, body: id, scheduledAt, provider: 'linkedin', accountId: null, media: [], linkUrl: null, topics: [], campaign: null, publishedAt: null, externalPostId: null, externalUrl: null, error: null, createdBy: 'user', groupId: null, createdAt: Date.now(), updatedAt: Date.now() });
 
 it('sorts scheduled work chronologically and opens the selected draft or composer', async () => {

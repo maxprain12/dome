@@ -24,7 +24,8 @@
     "social": "Réseaux sociaux",
     "browser_extension": "Extension du navigateur",
     "remote_many": "Accès distant à Many",
-    "research": "Recherche sur internet"
+    "research": "Recherche sur internet",
+    "memory": "Mémoire"
   },
   "groups": {
     "account": "Compte",
@@ -166,7 +167,7 @@
     "context_unsaved_confirm": "Modifications non enregistrées. Les abandonner ?",
     "context_agent_view_hint": "Aperçu tronqué avec les mêmes limites de caractères que le harness à l'injection.",
     "context_over_limit": "Ce fichier dépasse la limite d'injection (~{{limit}} car.). Actuel : {{count}}. Il sera tronqué à l'exécution.",
-    "context_memory_toggle_hint": "Le toggle « Mémoire » du composeur contrôle uniquement l'écriture automatique (remember_fact), pas l'édition manuelle de ces fichiers.",
+    "context_memory_toggle_hint": "Désactiver la mémoire exclut les souvenirs personnels du nouveau contexte et bloque les écritures automatiques partout. SOUL, les instructions du projet et l’historique restent disponibles. La modification manuelle reste possible.",
     "embeddings": {
       "description": "Configurez le fournisseur d’embeddings pour la recherche sémantique et le graphe. Indépendant du chat.",
       "provider": "Fournisseur",
@@ -816,5 +817,12 @@
     "toast_error": "Erreur de connexion",
     "toast_disconnected": "Compte déconnecté",
     "toast_disconnect_error": "Erreur lors de la déconnexion"
+  },
+  "memory": {
+    "subtitle": "Consultez les souvenirs personnels, le contexte par domaine et les journaux récents.",
+    "policy": "Politique de mémoire",
+    "enabled": "Utiliser la mémoire personnelle",
+    "policy_hint": "Désactiver la mémoire exclut les souvenirs personnels du nouveau contexte et bloque les écritures automatiques partout. SOUL, les instructions du projet et l’historique restent disponibles. La modification manuelle reste possible.",
+    "effective": "Contexte effectif"
   }
 }

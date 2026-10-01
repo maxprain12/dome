@@ -129,12 +129,11 @@ function isSuccess(result, isError) {
   return true;
 }
 
-function shouldDedup(domain, key) {
-  const mapKey = `${domain}:${key}`;
+function shouldDedup(domain, key, value) {
+  const mapKey = `${domain}:${key}:${value}`;
   const now = Date.now();
   const prev = recentKeys.get(mapKey);
   if (prev && now - prev < DEDUP_MS) return true;
-  recentKeys.set(mapKey, now);
   // prune occasionally
   if (recentKeys.size > 200) {
     for (const [k, ts] of recentKeys) {
@@ -148,6 +147,7 @@ function shouldDedup(domain, key) {
  * @returns {{ persisted: boolean; reason?: string; key?: string; domain?: string }}
  */
 function maybePersistFromToolResult(toolName, args, result, isError) {
+  if (!require('./memory-policy.cjs').isMemoryEnabled()) return { persisted: false, reason: 'memory_disabled' };
   const name = String(toolName || '');
   const rule = WHITELIST[name];
   if (!rule) return { persisted: false, reason: 'not_whitelisted' };
@@ -161,7 +161,7 @@ function maybePersistFromToolResult(toolName, args, result, isError) {
   if (value.length > MAX_VALUE_CHARS) {
     return { persisted: false, reason: 'value_too_long' };
   }
-  if (shouldDedup(rule.domain, key)) return { persisted: false, reason: 'dedup' };
+  if (shouldDedup(rule.domain, key, value)) return { persisted: false, reason: 'dedup' };
 
   try {
     if (rule.domain === 'social' || rule.domain === 'email') {
@@ -170,10 +170,11 @@ function maybePersistFromToolResult(toolName, args, result, isError) {
       personalityLoader.updateLongTermMemory(key, value);
     }
     personalityLoader.addMemoryEntry(`**${key}** (${rule.domain}): ${value}`);
+    recentKeys.set(`${rule.domain}:${key}:${value}`, Date.now());
     return { persisted: true, key, domain: rule.domain };
   } catch (err) {
     console.warn('[ActionMemory] persist failed:', err?.message || err);
-    return { persisted: false, reason: 'write_failed' };
+    return { persisted: false, reason: 'write_failed', error: err.message };
   }
 }
 

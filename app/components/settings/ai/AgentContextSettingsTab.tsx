@@ -15,13 +15,15 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { SettingsGroup } from '../blocks';
+import { readContextDocument } from '@/lib/personality/memory-policy';
+import { useAppStore } from '@/lib/store/useAppStore';
+import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
 import {
-  loadPersonalityContextFiles,
   type PersonalityContextFiles,
 } from '@/lib/personality/contextFiles';
 
-type ContextDocId = 'SOUL' | 'USER' | 'MEMORY' | 'daily' | 'social' | 'email';
+type ContextDocId = 'SOUL' | 'USER' | 'MEMORY' | 'daily' | 'social' | 'email' | 'effective';
 type ViewMode = 'full' | 'agent';
 type EditMode = 'view' | 'edit';
 
@@ -45,11 +47,12 @@ function isCoreDoc(doc: ContextDocId): boolean {
 }
 
 function supportsViewEditToggle(doc: ContextDocId, viewMode: ViewMode): boolean {
+  if (doc === 'effective') return false;
   return viewMode === 'full' || doc === 'daily' || doc === 'social' || doc === 'email';
 }
 
 function shouldShowEditor(doc: ContextDocId, viewMode: ViewMode, editMode: EditMode): boolean {
-  return editMode === 'edit' && (viewMode === 'full' || doc === 'daily');
+  return doc !== 'effective' && editMode === 'edit' && (viewMode === 'full' || doc === 'daily');
 }
 
 function shouldShowAgentViewHint(doc: ContextDocId, viewMode: ViewMode): boolean {
@@ -107,7 +110,7 @@ function resolveDisplayedContent(opts: {
   agentView: PersonalityContextFiles | null;
 }): string {
   const { selectedDoc, viewMode, editMode, fullContent, draftContent, agentView } = opts;
-  if (selectedDoc === 'daily') return fullContent;
+  if (selectedDoc === 'daily' || selectedDoc === 'effective') return fullContent;
   if (selectedDoc === 'social' || selectedDoc === 'email') {
     return editMode === 'edit' ? draftContent : fullContent;
   }
@@ -239,9 +242,9 @@ function AgentContextEditorBody({
 }
 
 /** SOUL/USER/MEMORY + daily-log editor for the agent's persistent context files. */
-export default function AgentContextSettingsTab() {
+export default function AgentContextSettingsTab({ mode = 'identity' }: { mode?: 'identity' | 'memory' }) {
   const { t } = useTranslation();
-  const [selectedDoc, setSelectedDoc] = useState<ContextDocId>('SOUL');
+  const [selectedDoc, setSelectedDoc] = useState<ContextDocId>(mode === 'memory' ? 'USER' : 'SOUL');
   const [viewMode, setViewMode] = useState<ViewMode>('full');
   const [editMode, setEditMode] = useState<EditMode>('view');
   const [loading, setLoading] = useState(true);
@@ -249,6 +252,9 @@ export default function AgentContextSettingsTab() {
   const [fullContent, setFullContent] = useState('');
   const [draftContent, setDraftContent] = useState('');
   const [savedContent, setSavedContent] = useState('');
+  const [fileRevision, setFileRevision] = useState<string>();
+  const projectId = useAppStore((state) => state.currentProject?.id);
+  const conversationId = useManyStore((state) => state.currentSessionId);
   const [agentView, setAgentView] = useState<PersonalityContextFiles | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const [selectedDailyDate, setSelectedDailyDate] = useState<string | null>(null);
@@ -270,9 +276,11 @@ export default function AgentContextSettingsTab() {
   );
 
   const loadAgentView = useCallback(async () => {
-    const files = await loadPersonalityContextFiles();
-    setAgentView(files);
-  }, []);
+    const response = await window.electron.personality.getAgentMemoryContext({ projectId, conversationId: conversationId || undefined, includeDomains: ['social', 'email'] });
+    if (!response.success) throw new Error(response.error);
+    setAgentView(response.data || null);
+    return response.data;
+  }, [projectId, conversationId]);
 
   const loadDailyLogs = useCallback(async (): Promise<DailyLog[]> => {
     const api = window.electron?.personality;
@@ -290,11 +298,18 @@ export default function AgentContextSettingsTab() {
     async (doc: ContextDocId, dailyDate?: string | null) => {
       setLoading(true);
       try {
+        if (doc === 'effective') {
+          const context = await loadAgentView();
+          setFullContent(context?.volatileMemory || '');
+          return;
+        }
         if (doc === 'daily') {
           const logs = await loadDailyLogs();
           const date = dailyDate ?? selectedDailyDate ?? logs[0]?.date ?? null;
           setSelectedDailyDate(date);
-          const text = date ? (logs.find((d) => d.date === date)?.content ?? '') : '';
+          const document = date ? await readContextDocument(`memory/${date}.md`) : null;
+          const text = document?.content || '';
+          setFileRevision(document?.revision);
           setFullContent(text);
           setDraftContent(text);
           setSavedContent(text);
@@ -303,12 +318,15 @@ export default function AgentContextSettingsTab() {
 
         const api = window.electron?.personality;
         if (!api?.readFile) return;
-        const res = await api.readFile(filenameForDoc(doc));
-        const text = res.success && typeof res.data === 'string' ? res.data : '';
+        const document = await readContextDocument(filenameForDoc(doc));
+        const text = document.content;
+        setFileRevision(document.revision);
         setFullContent(text);
         setDraftContent(text);
         setSavedContent(text);
         await loadAgentView();
+      } catch (error) {
+        showToast('error', error instanceof Error ? error.message : String(error));
       } finally {
         setLoading(false);
       }
@@ -319,6 +337,12 @@ export default function AgentContextSettingsTab() {
   useEffect(() => {
     void loadDocument(selectedDoc, selectedDailyDate);
   }, [selectedDoc, selectedDailyDate, loadDocument]);
+
+  useEffect(() => {
+    const refresh = () => { void loadDocument(selectedDoc, selectedDailyDate); };
+    window.addEventListener('dome:memory-policy-changed', refresh);
+    return () => window.removeEventListener('dome:memory-policy-changed', refresh);
+  }, [loadDocument, selectedDoc, selectedDailyDate]);
 
   const handleRefresh = () => {
     void loadDocument(selectedDoc, selectedDailyDate);
@@ -350,15 +374,16 @@ export default function AgentContextSettingsTab() {
       const api = window.electron?.personality;
       if (selectedDoc === 'daily') {
         if (!selectedDailyDate || !api?.writeDailyMemory) return;
-        const res = await api.writeDailyMemory(selectedDailyDate, draftContent);
+        const res = await api.writeDailyMemory(selectedDailyDate, draftContent, fileRevision);
         if (!res.success) throw new Error(res.error || 'save failed');
       } else if (api?.writeFile) {
-        const res = await api.writeFile(filenameForDoc(selectedDoc), draftContent);
+        const res = await api.writeFile(filenameForDoc(selectedDoc), draftContent, fileRevision);
         if (!res.success) throw new Error(res.error || 'save failed');
       }
       setFullContent(draftContent);
       setSavedContent(draftContent);
       setEditMode('view');
+      await loadDocument(selectedDoc, selectedDailyDate);
       await loadAgentView();
       if (selectedDoc === 'daily') await loadDailyLogs();
       showToast('success', t('settings.ai.context_saved'));
@@ -372,18 +397,20 @@ export default function AgentContextSettingsTab() {
   const charLimit = getCharLimit(selectedDoc);
   const overLimit = isOverLimit(charLimit, draftContent);
 
-  const docOptions = [
+  const allDocOptions = [
     { value: 'SOUL' as const, label: t('settings.ai.context_doc_soul') },
     { value: 'USER' as const, label: t('settings.ai.context_doc_user') },
     { value: 'MEMORY' as const, label: t('settings.ai.context_doc_memory') },
     { value: 'social' as const, label: t('settings.ai.context_doc_social') },
     { value: 'email' as const, label: t('settings.ai.context_doc_email') },
     { value: 'daily' as const, label: t('settings.ai.context_doc_daily') },
+    { value: 'effective' as const, label: t('settings.memory.effective') },
   ];
 
+  const docOptions = allDocOptions.filter((doc) => mode === 'identity' ? doc.value === 'SOUL' : doc.value !== 'SOUL');
   return (
     <SettingsGroup
-      title={t('settings.ai.tab_context')}
+      title={t(mode === 'identity' ? 'settings.ai.tab_context' : 'settings.tabs.memory')}
       description={t('settings.ai.context_subtitle')}
       actions={
         <>

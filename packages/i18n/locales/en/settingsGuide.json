@@ -86,6 +86,10 @@
     "research": {
       "description": "Configure Many’s sources, check their access and control acquisition costs. Agent-Reach capabilities adapted to Dome.",
       "start": "Choose a source, review its route and test an operation. Paid providers need a key and explicit permission."
+    },
+    "memory": {
+      "description": "Review personal memories, domain context and recent logs.",
+      "start": "Disabling memory excludes personal memories from new context and prevents automatic writes on every surface. SOUL, project instructions and conversation history remain available. Manual editing is always available."
     }
   },
   "ai": {

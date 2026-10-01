@@ -5,6 +5,7 @@
  * Integrates with the vector database for embeddings-based search.
  */
 
+import { useManyStore } from '@/lib/store/useManyStore';
 import { Type } from '@sinclair/typebox';
 import { memoryToolDefinitions } from './memory-tool-definitions';
 import type { AnyAgentTool } from './types';
@@ -498,7 +499,8 @@ export function createRememberFactTool(): AnyAgentTool {
         const key = typeof params.key === 'string' ? params.key : '';
         const value = typeof params.value === 'string' ? params.value : '';
         const domain = typeof params.domain === 'string' ? params.domain : 'general';
-        await window.electron.personality.rememberFact(key, value, domain);
+        const result = await window.electron.personality.rememberFact(key, value, domain, useManyStore.getState().currentSessionId || undefined);
+        if (!result.success) throw new Error(result.error || 'Memory could not be saved');
         return jsonResult({ status: 'success', message: `Remembered: ${key}`, domain });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

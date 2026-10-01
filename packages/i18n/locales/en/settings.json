@@ -24,7 +24,8 @@
     "social": "Social accounts",
     "browser_extension": "Browser extension",
     "remote_many": "Remote access to Many",
-    "research": "Internet research"
+    "research": "Internet research",
+    "memory": "Memory"
   },
   "groups": {
     "account": "Account",
@@ -166,7 +167,7 @@
     "context_unsaved_confirm": "You have unsaved changes. Discard them?",
     "context_agent_view_hint": "Truncated preview using the same character limits the harness applies at injection time.",
     "context_over_limit": "This file exceeds the injection limit (~{{limit}} chars). Current: {{count}}. It will be truncated at runtime.",
-    "context_memory_toggle_hint": "The composer «Memory» toggle only controls automatic writes (remember_fact), not manual edits to these files.",
+    "context_memory_toggle_hint": "Disabling memory excludes personal memories from new context and prevents automatic writes on every surface. SOUL, project instructions and conversation history remain available. Manual editing is always available.",
     "embeddings": {
       "description": "Configure the embedding provider for semantic search and the knowledge graph. Independent from chat credentials.",
       "provider": "Provider",
@@ -816,5 +817,12 @@
     "toast_error": "Connection error",
     "toast_disconnected": "Account disconnected",
     "toast_disconnect_error": "Error disconnecting"
+  },
+  "memory": {
+    "subtitle": "Review personal memories, domain context and recent logs.",
+    "policy": "Memory policy",
+    "enabled": "Use personal memory",
+    "policy_hint": "Disabling memory excludes personal memories from new context and prevents automatic writes on every surface. SOUL, project instructions and conversation history remain available. Manual editing is always available.",
+    "effective": "Effective context"
   }
 }

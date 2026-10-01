@@ -249,6 +249,7 @@ function createManyService(deps = {}) {
 
   function buildBrowserSystemContext({
     memoryEnabled,
+    conversationId,
     projectId,
     toolsEnabled,
     url,
@@ -259,6 +260,7 @@ function createManyService(deps = {}) {
     try {
       memory = loadMemoryContext({
         memoryEnabled,
+        conversationId,
         projectId: projectId || null,
         includeProject: true,
       });
@@ -381,6 +383,7 @@ function createManyService(deps = {}) {
     const supportsVision = await detectVision(cfg);
     const promptContext = buildBrowserSystemContext({
       memoryEnabled,
+      conversationId: sessionId,
       projectId: effectiveProjectId,
       toolsEnabled,
       url,
@@ -448,6 +451,9 @@ function createManyService(deps = {}) {
         agentMode,
         thinkingLevel,
         userMemory: promptContext.userMemory,
+        memoryEnabled,
+        conversationId: sessionId,
+        projectId,
         runtimeContext:
           Array.isArray(pinnedResources) && pinnedResources.length > 0
             ? { pinnedResourceIds: pinnedResources.map((resource) => resource.id) }
@@ -595,6 +601,8 @@ function createManyService(deps = {}) {
           pending.effectiveConfig.toolDefinitions.length > 0 ||
           pending.effectiveConfig.mcpServerIds.length > 0,
         userMemory: pending.effectiveConfig.userMemory,
+        memoryEnabled: pending.effectiveConfig.memoryEnabled,
+        conversationId: pending.threadId,
         thinkingLevel: pending.thinkingLevel,
         agentMode: pending.effectiveConfig.agentMode,
         runtimeContext:
