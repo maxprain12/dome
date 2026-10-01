@@ -100,6 +100,8 @@ test.beforeEach(async () => {
     const now = Date.now();
     const state = ((globalThis as any).__test = {
       mode: 'rich',
+      sessionsFailure: false,
+      unavailableCount: 0,
       note: {
         id: 'note-research',
         title: 'Research notes',
@@ -332,7 +334,8 @@ test.beforeEach(async () => {
         });
       }
       if (url.endsWith('/ai/sessions')) {
-        return ok({ sessions: state.sessions });
+        if (state.sessionsFailure) return new Response(JSON.stringify({ success: false, error: 'History temporarily unavailable' }), { status: 503 });
+        return ok({ sessions: state.sessions, unavailableCount: state.unavailableCount });
       }
       const pinMatch = url.match(/\/ai\/sessions\/([^/]+)\/pin$/);
       if (pinMatch && method === 'PUT') {
@@ -916,6 +919,19 @@ test('busca, abre, fija y elimina sesiones enriquecidas', async () => {
         request.method === 'DELETE',
     ),
   ).toBe(true);
+});
+
+test('recupera el historial tras un fallo y conserva conversaciones válidas', async () => {
+  await worker.evaluate(() => { (globalThis as any).__test.sessionsFailure = true; });
+  await page.getByRole('tab', { name: 'Historial', exact: true }).click();
+  await expect(page.getByText('No se pudo cargar el historial. Vuelve a intentarlo.', { exact: true })).toBeVisible();
+  await worker.evaluate(() => { Object.assign((globalThis as any).__test, { sessionsFailure: false, unavailableCount: 3 }); });
+  await page.getByRole('button', { name: 'Reintentar historial', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Desktop conversation/ })).toBeVisible();
+  await expect(page.getByText('3 conversaciones no se pudieron cargar. Las demás siguen disponibles; tus datos no se han borrado.', { exact: true })).toBeVisible();
+  await expect(page.getByText('No se pudo cargar el historial. Vuelve a intentarlo.', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /Desktop conversation/ }).click();
+  await expect(page.getByText('Earlier answer', { exact: true })).toBeVisible();
 });
 
 test('muestra contexto, capacidades, configuración y herramientas de página', async () => {

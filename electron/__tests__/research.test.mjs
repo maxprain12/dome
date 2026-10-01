@@ -83,6 +83,17 @@ test('provider failure is conservatively charged and cancellation prevents subse
   await service.execute('research_search', { platform: 'exa_search', query: 'test' }, { signal: controller.signal });
   assert.equal(calls, 1); assert.equal(budget.ledger(q).spent, 0.007);
 });
+test('research reports a public-search outage with no fabricated evidence or paid fallback', async () => {
+  let paid = 0;
+  const service = createResearchService({ queries: queries(),
+    freeSearch: async () => { throw Object.assign(new Error('Public search unavailable'), { code: 'search_unavailable', retryAfterMs: 60000 }); },
+    searchProviders: { exa: async () => { paid++; } },
+  });
+  const result = await service.execute('research_search', { query: 'Unknown person' });
+  assert.equal(result.success, false); assert.equal(result.code, 'search_unavailable');
+  assert.equal(result.retryable, false); assert.equal(result.retryAfterMs, 60000);
+  assert.deepEqual(result.evidence, []); assert.equal(paid, 0);
+});
 test('collect saves cited evidence while retaining source failures and stops after cancellation', async () => {
   let saved;
   const q = queries();

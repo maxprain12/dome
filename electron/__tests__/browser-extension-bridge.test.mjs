@@ -565,6 +565,24 @@ describe('Many browser sessions', () => {
     await assert.rejects(many.readSession('canvas-hidden'), /not available/);
   });
 
+  it('isolates broken session branches instead of failing the whole history', async () => {
+    const metas = [{ id: 'healthy' }, { id: 'broken' }];
+    const repo = { list: async () => metas, open: async (meta) => ({ buildContext: async () => {
+      if (meta.id === 'broken') throw new Error('Entry private-entry not found at /Users/private/session');
+      return { messages: [{ role: 'user', content: 'Healthy conversation' }] };
+    } }) };
+    const many = createManyService({ getDatabase: () => ({}), getBridge: () => ({
+      SESSION_CWD: 'dome', getSessionRepo: async () => repo, isRootSessionMeta: () => true,
+      findSessionMetadata: async (id) => metas.find((meta) => meta.id === id),
+    }) });
+    const result = await many.listSessions();
+    assert.deepEqual(result.sessions.map((session) => session.id), ['healthy']);
+    assert.equal(result.unavailableCount, 1);
+    assert.equal((await many.readSession('healthy')).messages[0].text, 'Healthy conversation');
+    await assert.rejects(many.readSession('broken'), (error) => error.statusCode === 422 && error.message === 'Conversation could not be recovered');
+    await assert.rejects(many.readSession('missing'), (error) => error.statusCode === 404);
+  });
+
   it('reconstructs reasoning, bounded images and associated tool results safely', async () => {
     const messages = [
       {

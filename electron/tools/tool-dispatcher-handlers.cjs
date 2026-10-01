@@ -271,9 +271,9 @@ async function invokeWebFetch(ctx) {
   return result;
 }
 async function invokeWebSearch(ctx) {
-  const { fn, args } = ctx;
+  const { fn, args, toolContext } = ctx;
   let result;
-  result = await fn(args);
+  result = await fn(args, toolContext);
   return result;
 }
 /** Intentionally not async — mirrors historical `result = fn(args)` (no await). */

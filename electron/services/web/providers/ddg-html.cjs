@@ -75,6 +75,7 @@ async function search(request) {
         Accept: 'text/html,application/xhtml+xml',
         'Accept-Language': request.searchLang ? `${request.searchLang},en;q=0.5` : 'en-US,en;q=0.5',
       },
+      signal: request.signal,
     },
     request.timeoutMs,
   );
@@ -86,7 +87,7 @@ async function search(request) {
   const html = await response.text();
   const results = parseDdgHtml(html, request.count);
 
-  if (results.length === 0) {
+  if (results.length === 0 && !cheerio.load(html)('.no-results').length) {
     throw new Error('DuckDuckGo returned no parseable results');
   }
 

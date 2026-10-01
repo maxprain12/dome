@@ -37,16 +37,22 @@ async function searchOnInstance(baseUrl, request) {
         'User-Agent': request.userAgent,
         Accept: 'application/json',
       },
+      signal: request.signal,
     },
     request.timeoutMs,
   );
 
   if (!response.ok) {
-    throw new Error(`SearXNG HTTP ${response.status} at ${baseUrl}`);
+    const retry = response.headers.get('retry-after');
+    const retryAfterMs = response.status === 429 ? Math.max(300_000, Number(retry) * 1000 || Date.parse(retry) - Date.now() || 0) : 0;
+    throw Object.assign(new Error(`SearXNG HTTP ${response.status} at ${baseUrl}`), { retryAfterMs });
   }
 
-  const payload = await response.json();
-  const rawResults = Array.isArray(payload?.results) ? payload.results : [];
+  let payload;
+  try { payload = await response.json(); }
+  catch { throw new Error(`SearXNG returned an HTML challenge or invalid JSON at ${baseUrl}`); }
+  if (!Array.isArray(payload?.results)) throw new Error(`SearXNG search results missing at ${baseUrl}`);
+  const rawResults = payload.results;
   const entries = rawResults.map((item) => ({
     title: item.title || item.url || '',
     url: item.url || '',
@@ -55,10 +61,6 @@ async function searchOnInstance(baseUrl, request) {
   }));
 
   const results = mapSearchResults(entries, request.count);
-  if (results.length === 0) {
-    throw new Error(`SearXNG returned no results at ${baseUrl}`);
-  }
-
   return {
     success: true,
     provider: 'searxng',
@@ -71,16 +73,20 @@ async function searchOnInstance(baseUrl, request) {
 
 async function search(request) {
   const errors = [];
+  let retryAfterMs = 0;
 
   for (const baseUrl of nextInstances()) {
+    request.signal?.throwIfAborted();
     try {
       return await searchOnInstance(baseUrl, request);
     } catch (error) {
+      request.signal?.throwIfAborted();
+      retryAfterMs = Math.max(retryAfterMs, error.retryAfterMs || 0);
       errors.push(`${baseUrl}: ${error?.message || String(error)}`);
     }
   }
 
-  throw new Error(errors.join('; ') || 'All SearXNG instances failed');
+  throw Object.assign(new Error(errors.join('; ') || 'All SearXNG instances failed'), { retryAfterMs });
 }
 
 module.exports = { search };

@@ -2244,7 +2244,7 @@ function setCachedWebSearchResult(key, value) {
   WEB_SEARCH_CACHE.set(key, { createdAt: Date.now(), value });
 }
 
-async function webSearch(args) {
+async function webSearch(args, toolContext = null) {
   const query = args?.query;
   if (!query || typeof query !== 'string') {
     return { status: 'error', error: 'Query is required for web_search' };
@@ -2276,9 +2276,10 @@ async function webSearch(args) {
       searchLang,
       freshness,
       timeoutMs,
+      signal: toolContext?.signal,
     });
     if (!result?.success) {
-      throw new Error(result?.error || 'No se pudo completar la búsqueda web.');
+      throw Object.assign(new Error(result?.error || 'No se pudo completar la búsqueda web.'), { code: result?.code, retryAfterMs: result?.retryAfterMs });
     }
     const payload = {
       query,
@@ -2292,7 +2293,9 @@ async function webSearch(args) {
     return payload;
   } catch (err) {
     traceLog('webSearch', { query }, null, err);
-    return { status: 'error', error: err?.message || String(err) };
+    return { status: 'error', error: err?.message || String(err),
+      ...(err?.code === 'search_unavailable' ? { code: err.code, retryAfterMs: err.retryAfterMs, retryable: false, results: [] } : {}),
+    };
   }
 }
 

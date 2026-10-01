@@ -1,5 +1,5 @@
 /** Bump when prompt structure or core section semantics change (bench A/B). */
-export const PROMPT_VERSION = 'minimax-v5';
+export const PROMPT_VERSION = 'minimax-v6';
 
 export const DOME_LOAD_DOC_IDS = [
   'entity_rules',
