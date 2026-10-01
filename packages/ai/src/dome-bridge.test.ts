@@ -5,7 +5,7 @@ import {
   legacyUsageToDome,
   resolveDomeModel,
 } from './dome-bridge.js';
-import { getModel } from './models.js';
+import { getBuiltinModel as getModel } from './providers/all.js';
 import type { AssistantMessage, Usage } from './types.js';
 
 describe('resolveDomeModel', () => {
