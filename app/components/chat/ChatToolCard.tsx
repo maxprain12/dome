@@ -200,8 +200,9 @@ export default function ChatToolCard({
     );
   };
 
+  const pendingSocialAccess = (socialView?.type === 'profile' || socialView?.type === 'post') && socialView.model.limitations.includes('access_pending_enablement');
   const renderErrorBlock = (): ReactNode => {
-    if (!toolCall.error) return null;
+    if (!toolCall.error || pendingSocialAccess) return null;
     return <Alert variant="destructive"><AlertDescription>{toolCall.error}</AlertDescription></Alert>;
   };
 
@@ -505,7 +506,7 @@ export default function ChatToolCard({
 
   const hasResult = Boolean(toolCall.result || toolCall.error);
   const canExpand = !isPending && hasResult;
-  const showRichInline = Boolean(socialView) && !isPending && !toolCall.error;
+  const showRichInline = Boolean(socialView) && !isPending && (!toolCall.error || pendingSocialAccess);
   const cardSummary = smartToolSummary(toolCall.name, toolCall.arguments);
 
   const toolLabel = (

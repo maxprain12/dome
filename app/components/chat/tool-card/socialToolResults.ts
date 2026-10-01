@@ -20,6 +20,7 @@ function asLimitations(value: unknown): SocialCardLimitation[] {
       item === 'og_only' ||
       item === 'metrics_unavailable' ||
       item === 'requires_browser' ||
+      item === 'access_pending_enablement' ||
       item === 'login_wall' ||
       item === 'local_only',
   );
@@ -89,7 +90,7 @@ export function parseSocialToolResult(toolName: string, result: unknown): Social
   const name = String(toolName || '').toLowerCase();
   if (!name.startsWith('social_') && name !== 'browser_extract_social') return null;
   const obj = unwrapToolResultObject(result);
-  if (!obj || obj.success === false) return null;
+  if (!obj || (obj.success === false && obj.accessStatus !== 'pending_enablement')) return null;
 
   if (obj.card && typeof obj.card === 'object') {
     const model = publicCardToModel(obj.card as Record<string, unknown>);

@@ -116,3 +116,27 @@ describe('resolvePublicSocial local match', () => {
     assert.equal(next.limitations.includes('metrics_unavailable'), false);
   });
 });
+
+describe('LinkedIn access gate', () => {
+  it('returns pending enablement without an HTTP attempt or a browser-login workaround', async () => {
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; throw new Error('Unexpected network request'); };
+    try {
+      const result = await resolvePublicSocial({ store: { listPosts: () => [], listAccounts: () => [] } }, { url: 'https://www.linkedin.com/in/maria-sugasaga/', forceRefresh: true });
+      assert.equal(calls, 0); assert.equal(result.success, false);
+      assert.equal(result.accessStatus, 'pending_enablement');
+      assert.equal(result.card.body, null); assert.equal(result.card.followers, null);
+      assert.ok(result.card.limitations.includes('access_pending_enablement'));
+      assert.equal(result.card.limitations.includes('requires_browser'), false);
+      assert.ok(result.alternatives.includes('import_authorized_evidence'));
+    } finally { globalThis.fetch = originalFetch; }
+  });
+  it('still analyzes existing connected LinkedIn account data', async () => {
+    const account = { id: 'local', provider: 'linkedin', handle: 'maria-sugasaga', displayName: 'Provided name' };
+    const store = { listPosts: () => [], listAccounts: () => [account], getLatestAccountMetric: () => ({ followers: 12 }) };
+    const result = await resolvePublicSocial({ store }, { url: 'https://www.linkedin.com/in/maria-sugasaga/' });
+    assert.equal(result.success, true); assert.equal(result.card.fetchMethod, 'connected_account');
+    assert.equal(result.card.author.name, 'Provided name'); assert.equal(result.card.followers, 12);
+  });
+});

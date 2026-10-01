@@ -786,7 +786,8 @@
     "limitation_og_only": "Public metadata only — not official analytics.",
     "limitation_requires_browser": "Open this page in the browser to capture what you can see.",
     "limitation_login_wall": "This network requires a signed-in browser session.",
-    "limitation_local_only": "Local draft — not published yet."
+    "limitation_local_only": "Local draft — not published yet.",
+    "limitation_access_pending_enablement": "Automated research for this source is pending access approval. Import or paste evidence you are authorized to provide; signing in does not enable this connector."
   },
   "references": {
     "hint": "Save public creator profiles. Their posts live on the profile dossier as evidence, not as your drafts.",

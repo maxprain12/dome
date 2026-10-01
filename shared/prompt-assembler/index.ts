@@ -1,5 +1,5 @@
 /** Bump when prompt structure or core section semantics change (bench A/B). */
-export const PROMPT_VERSION = 'minimax-v3';
+export const PROMPT_VERSION = 'minimax-v4';
 
 export const DOME_LOAD_DOC_IDS = [
   'entity_rules',
@@ -98,7 +98,7 @@ const VOICE_LANGUAGE_NAMES: Record<string, string> = {
 const PINNED_SOURCE_TOOL_HINTS: Record<string, string> = {
   social_post: ' → social_post_get',
   social_reference: ' → social_reference_list',
-  social_profile: ' → social_public_resolve',
+  social_profile: ' → research_capabilities (analyze supplied evidence before remote reads)',
   social_campaign: ' → social_campaigns_list',
   email: ' → email_read',
   issue: ' → github_get_issue',

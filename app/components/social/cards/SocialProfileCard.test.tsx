@@ -24,3 +24,11 @@ describe('SocialProfileCard', () => {
     expect(document.querySelector('.chat-tool-enter')).toBeTruthy();
   });
 });
+
+it('explains pending source access without recommending browser login or automatic capture', async () => {
+  await i18n.changeLanguage('es');
+  render(<SocialProfileCard model={{ ...model, provider: 'linkedin', limitations: ['access_pending_enablement'], followers: null }} />);
+  expect(screen.getByText(/Importa o pega evidencia.*iniciar sesión no habilita/)).toBeVisible();
+  expect(screen.queryByText(/Abre esta página.*capturar/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/1,2.*mil/)).not.toBeInTheDocument();
+});

@@ -135,11 +135,12 @@ function collectPostAndProfileCards(calls: VisualCardToolCall[]): {
   const seen = new Set<string>();
 
   for (const call of calls) {
-    if (call.status !== 'success') continue;
     const name = String(call.name || '').toLowerCase();
     if (SKIP_REFERENCE_TOOLS.has(name)) continue;
 
     const view = parseSocialToolResult(call.name, call.result);
+    const pendingAccess = (view?.type === 'profile' || view?.type === 'post') && view.model.limitations.includes('access_pending_enablement');
+    if (call.status !== 'success' && !pendingAccess) continue;
     if (view) {
       switch (view.type) {
         case 'post':

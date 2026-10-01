@@ -786,7 +786,8 @@
     "limitation_og_only": "Métadonnées publiques uniquement — pas d’analytique officielle.",
     "limitation_requires_browser": "Ouvrez cette page dans le navigateur pour capturer ce qui est visible.",
     "limitation_login_wall": "Ce réseau exige une session navigateur connectée.",
-    "limitation_local_only": "Brouillon local — pas encore publié."
+    "limitation_local_only": "Brouillon local — pas encore publié.",
+    "limitation_access_pending_enablement": "La recherche automatique de cette source attend une autorisation d’accès. Importez ou collez des éléments que vous êtes autorisé à fournir ; la connexion n’active pas ce connecteur."
   },
   "references": {
     "hint": "Enregistrez des posts et profils d’autres créateurs. C’est une preuve, pas du contenu à publier.",

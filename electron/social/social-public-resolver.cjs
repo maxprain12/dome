@@ -272,6 +272,15 @@ async function resolvePublicSocial(deps, { url, forceRefresh = false, signal }) 
     return { success: true, source: 'social_public', card };
   }
 
+  // Legacy resolution must respect the same access gate as native research.
+  // Connected/local/cached evidence above remains readable; no remote attempt.
+  if (parsed.provider === 'linkedin') {
+    return { success: false, source: 'social_public', error: 'source_pending_enablement',
+      accessStatus: 'pending_enablement', alternatives: ['analyze_local_evidence', 'import_authorized_evidence'],
+      card: emptyCard(parsed, 'manual', ['access_pending_enablement', 'metrics_unavailable']),
+    };
+  }
+
   try {
     const og = await fetchPublicPage(parsed.canonicalUrl, parsed.provider, undefined, signal);
     const loginWall = og.status === 401 || og.status === 403

@@ -310,7 +310,7 @@ export function createSocialPublicResolveTool(): AnyAgentTool {
     label: 'Resolve public social URL',
     name: 'social_public_resolve',
     description:
-      'Resolve a public Instagram, X or LinkedIn profile/post URL into a structured card with honest limitations. Source: Social hub.',
+      'Resolve existing social evidence; third-party profile research starts with research_capabilities. Public Instagram/X snapshots and local matches only; LinkedIn remote access remains pending regardless of login. Source: Social hub.',
     parameters: Type.Object({
       url: Type.String({ description: 'Public https URL.' }),
     }),
