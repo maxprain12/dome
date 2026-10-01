@@ -287,7 +287,7 @@ export default function McpSection() {
               {t('settings.mcp.saved')}
             </span>
           ) : null}
-          <Button type="button" size="sm" onClick={() => void saveServers()} disabled={saving}>
+          <Button type="button" size="sm" onClick={() => { saveServers(); }} disabled={saving}>
             {saving ? (
               <Spinner data-icon="inline-start" />
             ) : (
@@ -312,7 +312,7 @@ export default function McpSection() {
           control={
             <Switch
               checked={mcpEnabled}
-              onCheckedChange={(v) => void handleMcpEnabledToggle(v)}
+              onCheckedChange={(v) => { handleMcpEnabledToggle(v); }}
               aria-label={t('settings.mcp.mcp_enabled')}
             />
           }
@@ -618,7 +618,7 @@ export default function McpSection() {
                       ) : null}
 
                       {server.url ? (
-                        <Button type="button" variant="outline" size="sm" onClick={() => void handleSignIn(index)} disabled={saving}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => { handleSignIn(index); }} disabled={saving}>
                           {t('settings.mcp.sign_in')}
                         </Button>
                       ) : null}
@@ -628,7 +628,7 @@ export default function McpSection() {
                           variant="outline"
                           size="sm"
                           className="self-start"
-                          onClick={() => void handleTestServer(index)}
+                          onClick={() => { handleTestServer(index); }}
                           disabled={testStatus === 'testing'}
                         >
                           {testStatus === 'testing' ? (

@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { fetchOpenRouterModels } = require('./openrouter-models.cjs');
 const { listOpenCodeModels } = require('./opencode-models.cjs');
 const {

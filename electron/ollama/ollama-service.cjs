@@ -4,8 +4,8 @@
  * Handles communication with Ollama API for embeddings and text generation
  */
 
-const http = require('http');
-const https = require('https');
+const http = require('node:http');
+const https = require('node:https');
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 const DEFAULT_EMBEDDING_MODEL = 'mxbai-embed-large';

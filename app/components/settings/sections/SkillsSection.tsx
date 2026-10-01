@@ -73,7 +73,7 @@ export default function SkillsSection() {
       )}
       actions={
         <>
-          <Button type="button" variant="outline" size="sm" onClick={() => void openSkillsFolder()}>
+          <Button type="button" variant="outline" size="sm" onClick={() => { openSkillsFolder(); }}>
             <HugeiconsIcon icon={FolderOpenIcon} data-icon="inline-start" />
             {t('settings.skills.open_personal_dir', 'Open skills folder')}
           </Button>
@@ -81,7 +81,7 @@ export default function SkillsSection() {
             type="button"
             variant="ghost"
             size="icon-sm"
-            onClick={() => void loadData()}
+            onClick={() => { loadData(); }}
             disabled={loading}
             aria-label={t('common.refresh', 'Refresh')}
             title={t('common.refresh', 'Refresh')}
@@ -91,7 +91,7 @@ export default function SkillsSection() {
         </>
       }
     >
-      <InstallFromGitHub onInstalled={() => void loadData()} />
+      <InstallFromGitHub onInstalled={() => { loadData(); }} />
 
       {error ? (
         <Alert variant="destructive">
@@ -308,7 +308,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void handleBrowse()}
+              onClick={() => { handleBrowse(); }}
               disabled={browsing || installing || !url.trim()}
             >
               {browsing ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Search01Icon} data-icon="inline-start" />}
@@ -317,7 +317,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
             <Button
               type="button"
               size="sm"
-              onClick={() => void handleInstall()}
+              onClick={() => { handleInstall(); }}
               disabled={installing || browsing || !url.trim()}
             >
               {installing ? <Spinner data-icon="inline-start" /> : <HugeiconsIcon icon={Download04Icon} data-icon="inline-start" />}
@@ -351,7 +351,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => void handleInstallRepoSkill(entry)}
+                      onClick={() => { handleInstallRepoSkill(entry); }}
                       disabled={installingIds.has(entry.id)}
                     >
                       {installingIds.has(entry.id) ? (

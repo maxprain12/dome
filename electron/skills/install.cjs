@@ -3,11 +3,11 @@
  * Skill installation from GitHub repos — compatible with anthropics/skills layout
  * and the npx skills add workflow (repo URL + skill name).
  */
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
+const fs = require('node:fs');
+const path = require('node:path');
+const https = require('node:https');
+const http = require('node:http');
+const { URL } = require('node:url');
 const githubClient = require('../marketplace/github-client.cjs');
 const { userSkillsDir } = require('./index.cjs');
 
