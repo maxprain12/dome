@@ -1423,10 +1423,10 @@ async function prepareRunDomeInputs(opts) {
   const contextMessages = ai.legacyMessagesToContext('', normalizedNonSystem).messages;
   let userPrompt = lastUserText(contextMessages);
   const lastRaw = lastRawUserMessage(rawNonSystem);
-  const promptImages = await attachmentsToImageContent(lastRaw?.attachments, {
-    provider: opts.provider,
-    modelId: opts.model,
-  });
+  const lastContextUser = [...contextMessages].reverse().find((message) => message.role === 'user');
+  const promptImages = lastRaw?.attachments?.images?.length
+    ? await attachmentsToImageContent(lastRaw.attachments, { provider: opts.provider, modelId: opts.model })
+    : (Array.isArray(lastContextUser?.content) ? lastContextUser.content.filter((block) => block.type === 'image') : []);
   if (!userPrompt.trim() && promptImages.length > 0) {
     userPrompt = '(see attached image)';
   }
