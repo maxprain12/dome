@@ -637,7 +637,6 @@ function ManyAssistantMessageTurn({
         <ManyPlanArtifactSlot
           messageId={message.id}
           content={message.content}
-          isLastInGroup={isLastInGroup}
         />
       ) : null}
 

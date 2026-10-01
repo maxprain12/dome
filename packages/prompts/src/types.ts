@@ -7,7 +7,7 @@
  */
 
 /** Bump when prompt structure or core section semantics change (bench A/B). */
-export const PROMPT_VERSION = 'minimax-v4';
+export const PROMPT_VERSION = 'minimax-v5';
 
 /**
  * On-demand reference doc ids consumed by the `dome_load_doc` tool.

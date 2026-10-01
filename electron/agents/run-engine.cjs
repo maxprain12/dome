@@ -586,6 +586,7 @@ function prepareAgentRunContext(runId, params) {
       contextId: params.contextId ?? null,
       sessionTitle: params.sessionTitle ?? null,
       toolIds: params.toolIds ?? [],
+      agentMode: parseManyAgentMode(params.agentMode),
     },
   });
   emitRunUiPhase(runId, context, 'starting');
@@ -662,6 +663,7 @@ async function finalizeAgentRunSuccess(runId, params, context) {
     threadId: context.threadId,
     metadata: {
       kind: 'harness',
+      agentMode: parseManyAgentMode(params.agentMode),
       provider: context.provider,
       model: context.model,
       toolCalls: context.toolCalls,

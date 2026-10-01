@@ -17,6 +17,7 @@ import {
   type PlanTodo,
 } from '@/lib/many/planDocument';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { parseManyAgentMode } from '@/lib/many/agentMode';
 import { cn } from '@/lib/utils';
 
 const ASK_CHIPS = [
@@ -34,20 +35,21 @@ function sendToMany(prompt: string): void {
 export function ManyPlanArtifactSlot({
   messageId,
   content,
-  isLastInGroup,
 }: {
   messageId: string;
   content?: string;
-  isLastInGroup: boolean;
 }) {
   const sessionId = useManyStore((s) => s.currentSessionId);
   const stored = useManyStore((s) => (sessionId ? s.planDocumentBySession[sessionId] : undefined));
   const todos = useManyStore((s) => (sessionId ? s.planTodosBySession[sessionId] ?? [] : []));
-  const extracted = useMemo(() => extractPlanDocument(content || ''), [content]);
-  const liveTodos = todos.length > 0 ? todos : extracted?.todos ?? [];
-  const document = stored ?? extracted ?? null;
+  const mode = useManyStore((s) => parseManyAgentMode(sessionId ? s.agentModeBySession[sessionId] : undefined));
+  // Only a completed run explicitly started in Plan may create this artifact.
+  // Lists or "voy a…" in an Agent answer are ordinary conversation content.
+  const liveTodos = todos.length > 0 ? todos : stored?.todos ?? [];
+  const document = stored ?? null;
   if (!document || liveTodos.length === 0) return null;
-  if (!extracted && !isLastInGroup) return null;
+  if (document.originMode !== 'plan' && mode !== 'plan') return null;
+  if (document.body !== (content || '').trim().slice(0, 12_000)) return null;
   return (
     <ManyPlanCard
       document={{ ...document, todos: liveTodos }}
@@ -111,6 +113,7 @@ export function ManyPlanCard({
 export function ManyPlanPanel() {
   const { t } = useTranslation();
   const sessionId = useManyStore((s) => s.currentSessionId);
+  const mode = useManyStore((s) => parseManyAgentMode(sessionId ? s.agentModeBySession[sessionId] : undefined));
   const document = useManyStore((s) => (sessionId ? s.planDocumentBySession[sessionId] : undefined));
   const open = useManyStore((s) =>
     sessionId ? s.planPanelOpenBySession[sessionId] === true : false,
@@ -143,7 +146,7 @@ export function ManyPlanPanel() {
       body: markdown,
       excerpt: markdown.slice(0, 180),
     };
-    setPlanDocumentForSession(sessionId, next);
+    setPlanDocumentForSession(sessionId, { ...next, originMode: document.originMode });
   }, [document, sessionId, setPlanDocumentForSession]);
 
   const schedulePersist = useCallback(() => {
@@ -160,22 +163,7 @@ export function ManyPlanPanel() {
     [],
   );
 
-  const lastAssistantText = useManyStore((s) => {
-    const id = s.currentSessionId;
-    if (!id) return '';
-    const messages = s.sessions.find((row) => row.id === id)?.messages ?? s.messages;
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message?.role === 'assistant' && message.content?.trim()) return message.content;
-    }
-    return '';
-  });
-  const liveDocument = document ?? extractPlanDocument(lastAssistantText) ?? undefined;
-
-  useEffect(() => {
-    if (!open || !sessionId || document || !liveDocument) return;
-    setPlanDocumentForSession(sessionId, liveDocument);
-  }, [document, liveDocument, open, sessionId, setPlanDocumentForSession]);
+  const liveDocument = document;
   const diagrams = useMemo(
     () => extractMermaidDiagrams(liveDocument?.body ?? ''),
     [liveDocument?.body],
@@ -207,6 +195,7 @@ export function ManyPlanPanel() {
   ]);
 
   if (!sessionId || !open || !liveDocument) return null;
+  if (liveDocument.originMode !== 'plan' && mode !== 'plan') return null;
 
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-[1.35] flex-col overflow-hidden border-l border-border bg-background">

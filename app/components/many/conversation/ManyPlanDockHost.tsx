@@ -1,7 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { parseManyAgentMode } from '@/lib/many/agentMode';
 import {
-  extractPlanDocument,
   formatExecutePrompt,
   questionnaireFromActionRequests,
 } from '@/lib/many/planDocument';
@@ -29,17 +28,6 @@ export function ManyPlanDockHost({
   const setAgentModeForSession = useManyStore((s) => s.setAgentModeForSession);
   const setPlanExecutingForSession = useManyStore((s) => s.setPlanExecutingForSession);
   const setPlanChoiceOpenForSession = useManyStore((s) => s.setPlanChoiceOpenForSession);
-  const setPlanDocumentForSession = useManyStore((s) => s.setPlanDocumentForSession);
-  const lastAssistantText = useManyStore((s) => {
-    const id = s.currentSessionId;
-    if (!id) return '';
-    const messages = s.sessions.find((row) => row.id === id)?.messages ?? [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message?.role === 'assistant' && message.content?.trim()) return message.content;
-    }
-    return '';
-  });
 
   const questions = useMemo(
     () => questionnaireFromActionRequests(pendingApproval?.actionRequests),
@@ -52,15 +40,6 @@ export function ManyPlanDockHost({
   const agentMode = parseManyAgentMode(
     currentSessionId ? agentModeBySession[currentSessionId] : 'agent',
   );
-
-  useEffect(() => {
-    if (!currentSessionId || agentMode !== 'plan' || todos.length > 0 || !lastAssistantText) return;
-    const recovered = extractPlanDocument(lastAssistantText);
-    if (recovered) {
-      setPlanDocumentForSession(currentSessionId, recovered);
-      setPlanChoiceOpenForSession(currentSessionId, true);
-    }
-  }, [agentMode, currentSessionId, lastAssistantText, setPlanChoiceOpenForSession, setPlanDocumentForSession, todos.length]);
 
   let phase: ManyPlanDockPhase | null = null;
   if (questions.length > 0) phase = 'questionnaire';

@@ -580,6 +580,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
       const storedDoc = parsePlanDocument({
         title: meta?.planTitle,
         body: meta?.planBody,
+        originMode: meta?.planOriginMode,
         todos: storedTodos,
       });
       if (storedDoc) {
@@ -761,8 +762,9 @@ export const useManyStore = create<ManyState>((set, get) => ({
       agentModeBySession: { ...state.agentModeBySession, [sessionId]: next },
       planExecutingBySession: {
         ...state.planExecutingBySession,
-        [sessionId]: next === 'agent' ? state.planExecutingBySession[sessionId] === true : false,
+        [sessionId]: false,
       },
+      planPanelOpenBySession: { ...state.planPanelOpenBySession, [sessionId]: false },
       planChoiceOpenBySession: {
         ...state.planChoiceOpenBySession,
         [sessionId]:
@@ -775,7 +777,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
       [sessionId]: {
         ...meta[sessionId],
         agentMode: next,
-        planExecuting: next === 'agent' ? meta[sessionId]?.planExecuting === true : false,
+        planExecuting: false,
       },
     });
   },
@@ -810,6 +812,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     }
     const parsed = parsePlanTodos(document.todos);
     const nextDoc: PlanDocument = {
+      originMode: document.originMode,
       title: document.title.slice(0, 80) || 'Plan',
       body: document.body.slice(0, 12_000),
       excerpt: document.excerpt.slice(0, 180),
@@ -827,6 +830,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
         planTodos: parsed,
         planTitle: nextDoc.title,
         planBody: nextDoc.body,
+        planOriginMode: nextDoc.originMode,
       },
     });
   },

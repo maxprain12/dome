@@ -138,6 +138,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
   const [appliedMessageId, setAppliedMessageId] = useState<string | null>(null);
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [agentMode, setAgentMode] = useState<ManyAgentMode>('agent');
+  const lastRunMode = useRef<ManyAgentMode>('agent');
   const [planTodos, setPlanTodos] = useState<PlanTodo[]>([]);
   const [planExecuting, setPlanExecuting] = useState(false);
   const [planChoiceOpen, setPlanChoiceOpen] = useState(false);
@@ -182,6 +183,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
 
   const clearChat = useCallback(() => {
     if (interactionLocked) return;
+    lastRunMode.current = 'agent';
     setMessages([]);
     setPrompt('');
     setUsage(null);
@@ -316,6 +318,10 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           return;
         }
         setThreadId(id);
+        lastRunMode.current = 'agent';
+        setPlanTodos([]);
+        setPlanExecuting(false);
+        setPlanChoiceOpen(false);
         setSessionTitle(readableLabel(result.data.title, t('newSession')));
         setMessages(
           result.data.messages.map((message, index) => ({
@@ -409,7 +415,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     const last = [...messages].reverse().find((message) => message.role === 'assistant');
     if (!last?.text || last.id === lastPlanExtractId.current) return;
     lastPlanExtractId.current = last.id;
-    if (agentMode === 'plan') {
+    if (lastRunMode.current === 'plan') {
       const extracted = extractPlanTodoItems(last.text);
       if (extracted.length > 0) {
         setPlanTodos(extracted);
@@ -422,11 +428,18 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
     }
   }, [agentMode, messages, pendingApproval, planExecuting, running]);
 
-  const run = async (instruction: string) => {
+  const changeMode = useCallback((mode: ManyAgentMode) => {
+    setAgentMode(mode);
+    setPlanExecuting(false);
+    setPlanChoiceOpen(false);
+    setPlanRefineArmed(false);
+  }, []);
+
+  const run = async (instruction: string, modeOverride?: ManyAgentMode) => {
     if (interactionLocked) return;
     const nextMode = parseComposerModeCommand(instruction);
     if (nextMode) {
-      setAgentMode(nextMode);
+      changeMode(nextMode);
       setPrompt('');
       return;
     }
@@ -450,6 +463,8 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       name: image.name,
     }));
     setImages([]);
+    const runMode = modeOverride ?? agentMode;
+    lastRunMode.current = runMode;
     await runTransport({
       displayPrompt,
       images: messageImages,
@@ -472,7 +487,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           pinnedResources: resourceToolsEnabled ? pins : [],
           attachments: bodyImages.length > 0 ? { images: bodyImages } : undefined,
           prompt: `${rawInstruction}\nRespond in ${i18n.language}. Task: ${task}. Use the browser tools whenever the request depends on the current page or asks you to navigate or interact.`,
-          agentMode,
+          agentMode: runMode,
       }),
       onStarted: () =>
         browser.storage.local.set({ 'dome.manyThread': threadId }),
@@ -562,7 +577,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       const mode = modeFromSlashId(skill.id);
       if (mode) {
         slash.removeSlashTokenFromInput(cursor);
-        setAgentMode(mode);
+        changeMode(mode);
         return;
       }
       slash.removeSlashTokenFromInput(cursor);
@@ -572,7 +587,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           : [...previous, { id: skill.id, title: skill.name }],
       );
     },
-    [prompt, slash],
+    [changeMode, prompt, slash],
   );
 
   const mentionItems: MentionItem[] = resourceResults.map((resource) => ({
@@ -639,7 +654,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
       <ManyModeSwitcher
         disabled={interactionLocked}
         mode={agentMode}
-        onModeChange={setAgentMode}
+        onModeChange={changeMode}
       />
       <ManyAssistantControls
       skills={skillItems}
@@ -1049,7 +1064,7 @@ const ManyAssistant = forwardRef<ManyAssistantHandle, ManyAssistantProps>(functi
           setAgentMode('agent');
           setPlanExecuting(true);
           setPlanChoiceOpen(false);
-          run(formatExecutePrompt(planTodos)).catch(() => setError(t('error')));
+          run(formatExecutePrompt(planTodos), 'agent').catch(() => setError(t('error')));
         }}
         onStay={() => setPlanChoiceOpen(false)}
         onRefine={() => {

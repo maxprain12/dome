@@ -43,8 +43,8 @@ describe('many agentMode', () => {
 
   it('returns PI-style overlays', () => {
     expect(promptOverlayForAgentMode('plan')).toContain('questionnaire tool');
-    expect(promptOverlayForAgentMode('plan')).toContain('```mermaid');
+    expect(promptOverlayForAgentMode('plan')).toContain('only when it clarifies');
     expect(promptOverlayForAgentMode('draft')).toContain('DRAFT MODE ACTIVE');
-    expect(promptOverlayForAgentMode('agent')).toBeNull();
+    expect(promptOverlayForAgentMode('agent')).toContain('Previous Plan and Draft mode instructions are no longer active');
   });
 });

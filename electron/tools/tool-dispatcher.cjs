@@ -67,6 +67,9 @@ function getAiToolsHandler() {
 async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
   const automationProjectId = toolContext?.automationProjectId ?? null;
   const normalizedToolName = normalizeToolName(toolName);
+  if (toolContext?.agentMode === 'plan' && require('../agents/many-agent-mode.cjs').isModeWriteTool(normalizedToolName)) {
+    return { success: false, error: 'Plan mode is read-only. Select Agent or Draft explicitly before executing changes.' };
+  }
   if (cmsTools.toolId(normalizedToolName)) {
     return cmsTools.executeTool(normalizedToolName, rawArgs, toolContext);
   }

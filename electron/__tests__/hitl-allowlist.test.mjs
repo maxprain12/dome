@@ -35,8 +35,10 @@ describe('hitl allowlist', () => {
 
   it('clearing the thread restores prompting', () => {
     allowlist.approveAllForThread('t1');
+    allowlist.approveAllForThread('t1:draft');
     allowlist.clearThread('t1');
     assert.equal(allowlist.isToolAutoApproved('t1', 'shell_exec'), false);
+    assert.equal(allowlist.isToolAutoApproved('t1:draft', 'shell_exec'), false);
   });
 
   it('ignores a missing thread id instead of granting globally', () => {

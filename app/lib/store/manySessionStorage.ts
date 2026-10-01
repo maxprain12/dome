@@ -28,6 +28,7 @@ export interface ManySessionUiMeta {
   planTodos?: unknown[];
   planTitle?: string;
   planBody?: string;
+  planOriginMode?: 'plan';
   planMessageId?: string;
   planExecuting?: boolean;
 }

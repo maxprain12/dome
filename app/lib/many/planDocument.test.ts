@@ -3,6 +3,7 @@ import {
   extractMermaidDiagrams,
   extractPlanTodoItems,
   extractPlanDocument,
+  planDocumentForRun,
   formatExecutePrompt,
   formatQuestionnaireResult,
   markCompletedSteps,
@@ -54,6 +55,13 @@ describe('planDocument questionnaire', () => {
 });
 
 describe('planDocument todos', () => {
+  it('creates an artifact only for a run explicitly started in Plan', () => {
+    const text = 'Plan:\n1. Buscar fuentes\n2. Analizar evidencias';
+    expect(planDocumentForRun(text, 'agent')).toBeNull();
+    expect(planDocumentForRun(text, 'draft')).toBeNull();
+    expect(planDocumentForRun(text, undefined)).toBeNull();
+    expect(planDocumentForRun(text, 'plan')?.originMode).toBe('plan');
+  });
   it('extracts numbered Plan: steps and marks [DONE:n]', () => {
     const todos = extractPlanTodoItems('Intro\n\nPlan:\n1. Leer el syllabus\n2. Redactar un esquema\n\nNotas');
     expect(todos.map((row) => row.text)).toEqual(['Leer el syllabus', 'Redactar un esquema']);
