@@ -1,13 +1,5 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { getAIConfig, type AIConfig } from '@/lib/ai';
-import {
-  findModelById,
-  getModelsForProvider,
-  modelSupportsVideo,
-  modelSupportsVision,
-  type AIProviderType,
-  type ModelDefinition,
-} from '@/lib/ai/models';
 
 export type ComposerMultimodalCapabilities = {
   supportsImage: boolean;
@@ -18,31 +10,12 @@ export type ComposerMultimodalCapabilities = {
 
 type CapsSetter = Dispatch<SetStateAction<ComposerMultimodalCapabilities>>;
 
-function resolveModel(provider: AIProviderType, modelId: string): ModelDefinition | undefined {
-  const found = findModelById(modelId);
-  if (found?.provider === provider) return found.model;
-  return getModelsForProvider(provider).find((m) => m.id === modelId);
-}
-
-function computeMultimodalCaps(cfg: AIConfig): Partial<ComposerMultimodalCapabilities> {
-  const provider = cfg.provider as AIProviderType;
-  const modelId =
-    provider === 'ollama' ? (cfg.ollamaModel ?? cfg.model ?? '') : (cfg.model ?? '');
-  const model = resolveModel(provider, modelId);
-  if (model) {
-    return {
-      supportsImage: modelSupportsVision(model),
-      supportsVideo: modelSupportsVideo(model),
-      modelId,
-    };
-  }
-  // Unknown model: be permissive (don't block paste) except for the one
-  // provider whose non-vision variants are common (minimax text models).
-  return {
-    supportsImage: provider !== 'minimax' || /^MiniMax-M3$/i.test(modelId),
-    supportsVideo: /^MiniMax-M3$/i.test(modelId),
-    modelId,
-  };
+async function computeMultimodalCaps(cfg: AIConfig): Promise<Partial<ComposerMultimodalCapabilities>> {
+  const modelId = cfg.provider === 'ollama' ? (cfg.ollamaModel ?? cfg.model ?? '') : (cfg.model ?? '');
+  if (!modelId) return { modelId, supportsImage: false, supportsVideo: false };
+  const result = await window.electron.invoke('ai:model:input', { provider: cfg.provider, model: modelId }) as { success: boolean; input?: string[]; error?: string };
+  if (!result.success) throw new Error(result.error);
+  return { modelId, supportsImage: result.input?.includes('image') === true, supportsVideo: false };
 }
 
 function applyCaps(
@@ -56,7 +29,7 @@ function applyCaps(
 
 export function useComposerMultimodalCapabilities(): ComposerMultimodalCapabilities {
   const [caps, setCaps] = useState<ComposerMultimodalCapabilities>({
-    supportsImage: true,
+    supportsImage: false,
     supportsVideo: false,
     modelId: '',
     loading: true,
@@ -66,9 +39,9 @@ export function useComposerMultimodalCapabilities(): ComposerMultimodalCapabilit
     let cancelled = false;
 
     const loadCaps = () => {
-      void getAIConfig().then((cfg) => {
-        applyCaps(setCaps, cancelled, cfg ? computeMultimodalCaps(cfg) : {});
-      });
+      void getAIConfig().then(async (cfg) => {
+        applyCaps(setCaps, cancelled, cfg ? await computeMultimodalCaps(cfg) : {});
+      }).catch(() => applyCaps(setCaps, cancelled, { supportsImage: false, supportsVideo: false }));
     };
 
     loadCaps();

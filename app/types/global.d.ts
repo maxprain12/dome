@@ -706,7 +706,7 @@ declare global {
       mcp: {
         testConnection: () => Promise<{ success: boolean; toolCount: number; error?: string }>;
         testServer: (server: MCPServerConfig) => Promise<{ success: boolean; toolCount: number; tools?: MCPToolConfig[]; error?: string }>;
-        startOAuthFlow: (providerId: string) => Promise<{ success: boolean; token?: string; error?: string }>;
+        startOAuthFlow: (providerId: string) => Promise<{ success: boolean; connected?: boolean; error?: string }>;
         getOAuthProviders: () => Promise<string[]>;
       };
 

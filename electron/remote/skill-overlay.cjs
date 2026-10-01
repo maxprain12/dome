@@ -1,12 +1,9 @@
 'use strict';
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { listAllSkills } = require('../skills/index.cjs');
+const { listAllSkills, readRegisteredSkillFile } = require('../skills/index.cjs');
 const { publicLabel } = require('./refs.cjs');
 
-const MAX_BODY = 3200;
-const MAX_SKILLS = 6;
+const MAX_BODY = 100_000;
 
 function stripFrontmatter(content) {
   const match = String(content || '').match(/^---\r?\n[\s\S]*?\r?\n---\r?\n([\s\S]*)$/);
@@ -27,12 +24,12 @@ async function buildSkillPromptOverlay(skills) {
   }
   const chunks = [];
   const seen = new Set();
-  for (const skill of skills.slice(0, MAX_SKILLS)) {
+  for (const skill of skills) {
     const name = publicLabel(skill?.name || skill?.title, '');
     const id = skillKey(skill?.id || name);
     if (!name || seen.has(id)) continue;
     const match = listed.find((row) => {
-      const folder = row?.path ? path.basename(path.dirname(row.path)) : '';
+      const folder = row.id;
       return (
         skillKey(row?.name) === skillKey(name)
         || skillKey(folder) === id
@@ -42,16 +39,16 @@ async function buildSkillPromptOverlay(skills) {
     if (!match?.path) continue;
     let body = '';
     try {
-      body = stripFrontmatter(fs.readFileSync(match.path, 'utf8'));
-    } catch {
-      continue;
+      body = stripFrontmatter(readRegisteredSkillFile(match.id, 'SKILL.md'));
+    } catch (error) {
+      throw new Error(`Cannot load invoked skill ${name}: ${error.message}`);
     }
     if (!body) continue;
     seen.add(id);
-    if (body.length > MAX_BODY) {
-      body = `${body.slice(0, MAX_BODY)}…`;
+    if (body.length + chunks.join('').length > MAX_BODY) {
+      throw new Error(`Skill ${name} exceeds the available instruction budget`);
     }
-    chunks.push(`### ${name}\n${body}`);
+    chunks.push(`### ${name}\nSkill ID: ${match.id}\nResolve auxiliary references from this skill directory with skill_read.\n${body}`);
   }
   if (chunks.length === 0) return '';
   return [

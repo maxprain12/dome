@@ -42,6 +42,7 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const models = await ollamaService.listModels(baseUrl, apiKey);
       const queries = database.getQueries();
+      require('../../ai/model-input.cjs').persistModelInputs(queries, 'ollama', baseUrl, models);
       const current = queries.getSetting.get('ollama_model')?.value;
       if (current) {
         const { fetchOllamaChatContextWindow, persistContextWindow } = require('../../ai/context-window.cjs');

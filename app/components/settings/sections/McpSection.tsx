@@ -158,6 +158,21 @@ export default function McpSection() {
     }
   };
 
+  const handleSignIn = async (index: number) => {
+    const server = servers[index];
+    if (!server?.name || !server.url) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const savedConfig = await saveMcpServersSetting(servers.map(({ listRowId: _rowId, ...config }) => config));
+      if (!savedConfig.success) throw new Error(savedConfig.error);
+      const result = await window.electron.mcp.startOAuthFlow(server.name);
+      if (!result.success) throw new Error(result.error);
+      await handleTestServer(index);
+    } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
+    finally { setSaving(false); }
+  };
+
   const addServer = () => {
     setServers((prev) => [
       ...prev,
@@ -602,6 +617,11 @@ export default function McpSection() {
                         </div>
                       ) : null}
 
+                      {server.url ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => void handleSignIn(index)} disabled={saving}>
+                          {t('settings.mcp.sign_in')}
+                        </Button>
+                      ) : null}
                       {server.command || server.url ? (
                         <Button
                           type="button"

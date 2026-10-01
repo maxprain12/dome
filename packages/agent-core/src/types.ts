@@ -343,6 +343,8 @@ export interface AgentState {
 
 /** Final or partial result produced by a tool. */
 export interface AgentToolResult<T> {
+	/** Tool-reported failure (for example MCP isError) without discarding its content. */
+	isError?: boolean;
 	/** Text or image content returned to the model. */
 	content: (TextContent | ImageContent)[];
 	/** Arbitrary structured details for logs or UI rendering. */

@@ -278,9 +278,9 @@ async function loadSkillFromFile(
 	};
 }
 
-function validateName(name: string, parentDirName: string): string[] {
+function validateName(name: string, _parentDirName: string): string[] {
 	const errors: string[] = [];
-	if (name !== parentDirName) errors.push(`name "${name}" does not match parent directory "${parentDirName}"`);
+
 	if (name.length > MAX_NAME_LENGTH) errors.push(`name exceeds ${MAX_NAME_LENGTH} characters (${name.length})`);
 	if (!/^[a-z0-9-]+$/.test(name)) {
 		errors.push("name contains invalid characters (must be lowercase a-z, 0-9, hyphens only)");

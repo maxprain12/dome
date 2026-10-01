@@ -15,10 +15,10 @@ const require = createRequire(import.meta.url);
 const mm = require('../ai/message-multimodal.cjs');
 
 describe('resolveModelCapabilities — vision gating', () => {
-  it('MiniMax-M3 supports image (and video) — case-insensitive', () => {
+  it('MiniMax-M3 supports image according to catalog — case-insensitive', () => {
     const caps = mm.resolveModelCapabilities('minimax', 'MiniMax-M3');
     assert.equal(caps.supportsImage, true);
-    assert.equal(caps.supportsVideo, true);
+    assert.equal(caps.supportsVideo, false);
     assert.ok(caps.input.includes('image'));
   });
 
@@ -45,13 +45,12 @@ describe('resolveModelCapabilities — vision gating', () => {
 describe('buildImageContent — image reaches the model as a real block', () => {
   const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-  it('M3 (anthropic-messages) → base64 image source block', () => {
+  it('M3 → canonical provider-independent image block', () => {
     const blocks = mm.buildImageContent('describe this', [PNG], { provider: 'minimax', modelId: 'MiniMax-M3' });
     const img = blocks.find((b) => b.type === 'image');
     assert.ok(img, 'an image block must be present');
-    assert.equal(img.source.type, 'base64');
-    assert.equal(img.source.media_type, 'image/png');
-    assert.ok(img.source.data && img.source.data.length > 0);
+    assert.equal(img.mimeType, 'image/png');
+    assert.ok(img.data && img.data.length > 0);
   });
 
   it('text-only model throws/strips rather than smuggling base64 text', () => {

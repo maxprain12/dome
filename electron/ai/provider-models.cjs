@@ -213,10 +213,7 @@ function isMiniMaxChatModel(id) {
  * @param {string} id
  * @returns {Array<'text'|'image'|'video'>}
  */
-function minimaxInputForModel(id) {
-  if (/^minimax-m3$/i.test(id)) return ['text', 'image', 'video'];
-  return ['text'];
-}
+
 
 /**
  * @param {string} apiKey
@@ -310,6 +307,7 @@ async function fetchOpenAiCompatModels(apiKey, baseUrl, provider = 'local') {
     models.push(makeModel(id, displayName, {
       api: 'openai-completions',
       contextWindow: fromRow > 0 ? fromRow : LOCAL_CHAT_CONTEXT_FALLBACK,
+      input: Array.isArray(rec.input) ? rec.input.filter((v) => ['text', 'image'].includes(v)) : (rec.capabilities?.vision === true ? ['text', 'image'] : ['text']),
     }));
   }
 
@@ -390,10 +388,6 @@ function normalizeGoogleModelRow(row, curated) {
   if (!id) return null;
   const displayName = typeof r.displayName === 'string' ? r.displayName : id;
   const ctx = Number(r.inputTokenLimit);
-  const input = /** @type {Array<'text'|'image'>} */ (['text']);
-  if (String(r.description || '').toLowerCase().includes('vision') || id.includes('vision')) {
-    input.push('image');
-  }
   return makeModel(id, displayName, {
     curated: curated.has(id),
     contextWindow: Number.isFinite(ctx) && ctx > 0 ? ctx : 1000000,
@@ -447,7 +441,7 @@ async function fetchMiniMaxModels(apiKey) {
     models.push(makeModel(id, id, {
       curated: curated.has(id),
       api: 'openai-completions',
-      input: minimaxInputForModel(id),
+      input: require('./model-input.cjs').resolveModelInput('minimax', id),
       contextWindow: /^minimax-m3$/i.test(id) ? 1000000 : 204800,
       recommended: /^minimax-m3$/i.test(id) || curated.has(id),
     }));
@@ -630,6 +624,7 @@ async function fetchProviderModels(provider, options = {}) {
     }
 
     if (result.success && result.models?.length) {
+      for (const model of result.models) model.input = require('./model-input.cjs').resolveModelInput(catalogProvider, model.id);
       setCached(catalogProvider, apiKey, result.models);
     }
     return result;

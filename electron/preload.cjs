@@ -382,6 +382,7 @@ const ALLOWED_CHANNELS = {
     'ai:openrouter:listModels',
     'ai:provider:listModels',
     'ai:model:thinkingLevels',
+    'ai:model:input',
     'minimax:files:upload',
     'ai:testWebSearch',
     'ai:webSearch',

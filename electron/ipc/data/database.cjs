@@ -1315,6 +1315,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         }
       });
       tx(Array.isArray(servers) ? servers : []);
+      void require('../../mcp/mcp-client.cjs').closeAllMcpClients();
       return { success: true };
     } catch (error) {
       console.error('[DB] Error replacing MCP servers:', error);
@@ -1339,6 +1340,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
       queries.upsertMcpGlobalSettings.run(enabled ? 1 : 0, Date.now());
+      void require('../../mcp/mcp-client.cjs').closeAllMcpClients();
       return { success: true };
     } catch (error) {
       console.error('[DB] Error updating MCP global settings:', error);

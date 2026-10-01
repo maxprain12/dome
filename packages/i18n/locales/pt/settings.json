@@ -738,7 +738,8 @@
     "server_url": "URL do servidor",
     "server_name": "Nome do servidor",
     "directory_tree_warning": "directory_tree vem desativada por padrão — pode travar o chat em pastas grandes (especialmente no Windows). Use file_tree ou file_list nativas do Dome.",
-    "directory_tree_tool_desc": "Árvore recursiva sem limites. Ative apenas em pastas pequenas; prefira file_tree nativa."
+    "directory_tree_tool_desc": "Árvore recursiva sem limites. Ative apenas em pastas pequenas; prefira file_tree nativa.",
+    "sign_in": "Entrar"
   },
   "skills": {
     "title": "Habilidades",
@@ -794,7 +795,10 @@
     "no_skills_found": "Nenhuma skill encontrada nesse repositório.",
     "browse_failed": "Não foi possível explorar esse repositório.",
     "skills_found": "skills encontradas",
-    "loadError": "Erro ao carregar skills"
+    "loadError": "Erro ao carregar skills",
+    "source_project": "Projeto",
+    "source_global": "Global",
+    "explicit_only": "Invocação explícita"
   },
   "cloud": {
     "title": "Armazenamento em Nuvem",

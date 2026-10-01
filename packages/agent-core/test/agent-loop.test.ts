@@ -213,6 +213,17 @@ describe('agent loop: tool execution', () => {
     expect(streamFn.callCount()).toBe(2); // the model gets a chance to recover
   });
 
+  it('preserves tool-reported failures and mixed image content', async () => {
+    const tool = echoTool({ execute: async () => ({ isError: true, details: { diagnostic: 1 },
+      content: [{ type: 'text', text: 'rejected' }, { type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' }] }) });
+    const streamFn = scriptedStreamFn([assistantToolCall([{ id: 't1', name: 'echo', arguments: { value: 'x' } }]), assistantText('recovered')]);
+    const { messages } = await run([userMsg('go')], makeContext([tool]), makeConfig(streamFn), streamFn);
+    const result = messages.find((m) => m.role === 'toolResult') as any;
+    expect(result.isError).toBe(true);
+    expect(result.content[1].type).toBe('image');
+    expect(result.details.diagnostic).toBe(1);
+  });
+
   it('converts a throwing tool into an error tool result', async () => {
     const tool = echoTool({
       execute: async () => {

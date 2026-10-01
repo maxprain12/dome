@@ -5,6 +5,7 @@ import {
   legacyUsageToDome,
   resolveDomeModel,
 } from './dome-bridge.js';
+import { getModel } from './models.js';
 import type { AssistantMessage, Usage } from './types.js';
 
 describe('resolveDomeModel', () => {
@@ -127,7 +128,7 @@ describe('resolveDomeModel', () => {
       api: 'anthropic-messages',
       provider: 'minimax',
       baseUrl: 'https://api.minimax.io/anthropic',
-      maxTokens: 16_384,
+      maxTokens: getModel('minimax', 'MiniMax-M3').maxTokens,
     });
 
     // Empty model becomes gpt-4o-mini before the dome helper (same as legacy).

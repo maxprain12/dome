@@ -85,6 +85,15 @@ async function streamWithOllama({ event, database, ollamaService, messages, mode
 }
 
 function register({ ipcMain, windowManager, database, ollamaService }) {
+  ipcMain.handle('ai:model:input', async (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const { z } = require('zod');
+      const { provider, model } = z.object({ provider: z.string().min(1), model: z.string().min(1) }).parse(params);
+      return { success: true, input: require('../../ai/model-input.cjs').resolveModelInput(provider, model, database.getQueries()) };
+    } catch (error) { return { success: false, error: error.message }; }
+  });
+
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
    * This runs in main process to avoid CORS issues
@@ -602,6 +611,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       if (result.success && Array.isArray(result.models)) {
         const { persistIfCurrentModel } = require('../../ai/context-window.cjs');
         persistIfCurrentModel(queries, provider, result.models);
+        require('../../ai/model-input.cjs').persistModelInputs(queries, provider, baseUrl, result.models);
       }
       return result;
     } catch (error) {

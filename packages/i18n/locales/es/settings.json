@@ -738,7 +738,8 @@
     "server_url": "URL del servidor",
     "server_name": "Nombre del servidor",
     "directory_tree_warning": "directory_tree está desactivada por defecto: puede congelar el chat en carpetas grandes (especialmente en Windows). Usa file_tree o file_list nativas de Dome.",
-    "directory_tree_tool_desc": "Árbol recursivo sin límites. Actívala solo en carpetas pequeñas; prefiere file_tree nativa."
+    "directory_tree_tool_desc": "Árbol recursivo sin límites. Actívala solo en carpetas pequeñas; prefiere file_tree nativa.",
+    "sign_in": "Iniciar sesión"
   },
   "skills": {
     "title": "Skills",
@@ -794,7 +795,10 @@
     "no_skills_found": "No se encontraron skills en ese repositorio.",
     "browse_failed": "No se pudo explorar ese repositorio.",
     "skills_found": "skills encontradas",
-    "loadError": "Error al cargar skills"
+    "loadError": "Error al cargar skills",
+    "source_project": "Proyecto",
+    "source_global": "Global",
+    "explicit_only": "Invocación explícita"
   },
   "cloud": {
     "title": "Almacenamiento en la nube",

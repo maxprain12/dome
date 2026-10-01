@@ -109,17 +109,11 @@ async function resolveSession(threadId, options = {}) {
 /**
  * @returns {Promise<{ skills: import('@dome/agent-core').Skill[] }>}
  */
-async function loadSkillsResources() {
-  const core = await import('@dome/agent-core');
-  const { NodeExecutionEnv } = await import('@dome/agent-core/node');
-  const skillsIndex = require('../skills/index.cjs');
-  const dir = skillsIndex.userSkillsDir();
-  const env = new NodeExecutionEnv({ cwd: dir });
-  const { skills, diagnostics } = await core.loadSkills(env, dir);
-  for (const d of diagnostics) {
-    console.warn(`[AgentHarness] skill ${d.code}: ${d.message} (${d.path})`);
-  }
-  return { skills: skills ?? [] };
+async function loadSkillsResources(projectPath) {
+  const { loadSkillCatalog } = require('../skills/index.cjs');
+  const { skills, diagnostics } = await loadSkillCatalog(projectPath);
+  for (const d of diagnostics) console.warn(`[AgentHarness] skill ${d.code}: ${d.message} (${d.path})`);
+  return { skills };
 }
 
 /**
@@ -129,7 +123,7 @@ async function loadSkillsResources() {
  */
 async function buildMcpAgentTools(database, mcpServerIds) {
   if (!Array.isArray(mcpServerIds) || mcpServerIds.length === 0) return [];
-  const { capToolResultString, getCapForTool, safeStringify, boundToolDetails } = require('../tools/tool-result-cap.cjs');
+  const { boundToolDetails } = require('../tools/tool-result-cap.cjs');
   const { getMCPTools } = require('../mcp/mcp-client.cjs');
   const mcpTools = await getMCPTools(database, mcpServerIds);
   if (!Array.isArray(mcpTools) || mcpTools.length === 0) return [];
@@ -149,16 +143,7 @@ async function buildMcpAgentTools(database, mcpServerIds) {
       parameters: schema,
       async execute(_toolCallId, params, signal) {
         const out = await mcpTool.invoke(params, { signal });
-        // safeStringify (not raw JSON.stringify): bounds serialization so a huge
-        // MCP payload can't OOM the main process before the char cap runs (ELECTRON-7).
-        // Native MCP tools already cap inside invoke; re-cap for defense in depth.
-        const text = safeStringify(out ?? '');
-        const capped = capToolResultString(name, text, { maxChars: getCapForTool(name) });
-        // boundToolDetails: the loop persists `details` verbatim into the session
-        // JSONL (createToolResultMessage → appendEntry → JSON.stringify). Returning
-        // the raw `out` would OOM the main process at persistence time even though
-        // `text` is capped — the actual ELECTRON-7 vector for huge snapshots.
-        return { content: [{ type: 'text', text: capped }], details: boundToolDetails(out) };
+        return { content: out.content, isError: out.isError, details: boundToolDetails(out.details) };
       },
     };
   });

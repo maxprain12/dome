@@ -47,6 +47,7 @@ export default function SkillsSection() {
       const res = await listSkills();
       if (res.success && Array.isArray(res.data)) {
         setSkills(res.data);
+        if (res.warnings?.length) setError(res.warnings.join('\n'));
       } else {
         setSkills([]);
         setError(res.error ?? t('settings.skills.loadError', 'Error loading skills'));
@@ -137,6 +138,8 @@ export default function SkillsSection() {
                   <Badge variant="outline" className="font-mono text-[10px]">
                     {skill.slug}
                   </Badge>
+                  <Badge variant="secondary">{t(`settings.skills.source_${skill.source || 'global'}`)}</Badge>
+                  {skill.disableModelInvocation ? <Badge variant="outline">{t('settings.skills.explicit_only')}</Badge> : null}
                 </ItemTitle>
                 {skill.description ? (
                   <ItemDescription className="line-clamp-2">{skill.description}</ItemDescription>

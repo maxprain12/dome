@@ -7,7 +7,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const { shell } = require('electron');
-const { listAllSkills, userSkillsDir } = require('../../skills/index.cjs');
+const { loadSkillCatalog, userSkillsDir } = require('../../skills/index.cjs');
 const skillInstall = require('../../skills/install.cjs');
 const { getElectronRoot } = require('../../paths.cjs');
 
@@ -18,18 +18,21 @@ function register({ ipcMain, windowManager, validateSender }) {
   ipcMain.handle('skills:list', async (event) => {
     try {
       validateSender(event, windowManager);
-      const skills = await listAllSkills();
+      const { skills, diagnostics } = await loadSkillCatalog();
       const data = skills.map((s) => {
-        const folderId = path.basename(path.dirname(s.path));
+        const folderId = s.id;
         return {
           id: folderId,
           name: s.name,
           slug: s.name,
+          canonicalPath: s.canonicalPath,
           description: s.description || '',
-          path: s.path,
+          path: s.canonicalPath,
+          source: s.source,
+          disableModelInvocation: s.disableModelInvocation,
         };
       });
-      return { success: true, data };
+      return { success: true, data, warnings: diagnostics.map((d) => d.message) };
     } catch (err) {
       console.error('[Skills] list:', err);
       return { success: false, error: err.message };
