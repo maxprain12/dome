@@ -6,6 +6,7 @@
   "description": "Dome WebExtension (Chrome, Edge, Firefox, Safari) for capturing contacts, notes and links.",
   "scripts": {
     "dev": "wxt",
+    "prepare:dev": "wxt build -b chrome && node scripts/dev-info.mjs",
     "build": "wxt build -b chrome && wxt build -b edge && wxt build -b firefox --mv3 && wxt build -b safari",
     "build:chrome": "wxt build -b chrome",
     "build:firefox": "wxt build -b firefox --mv3",
@@ -15,6 +16,7 @@
     "package:safari": "node ./scripts/package-safari.mjs",
     "test": "wxt prepare && vitest run",
     "test:e2e": "playwright test --config playwright.config.ts",
+    "test:e2e:dev": "playwright test --config playwright.dev.config.ts",
     "typecheck": "wxt prepare && tsc --noEmit"
   },
   "dependencies": {

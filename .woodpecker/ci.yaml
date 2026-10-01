@@ -111,3 +111,4 @@ steps:
       - EXTENSION_REQUIRE_BUILD=1 pnpm --filter @dome/browser-extension exec vitest run src/lib/manifest-smoke.test.ts
       - pnpm exec playwright install --with-deps chromium
       - xvfb-run --auto-servernum pnpm run extension:smoke
+      - xvfb-run --auto-servernum pnpm run extension:smoke:dev

@@ -10,9 +10,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { extensionBuildPath } from './build-path';
 
-const root = path.dirname(fileURLToPath(import.meta.url));
 const fixtureUrl = 'https://dome-fixture.test/article';
 const playwrightChromePath = chromium.executablePath();
 const playwrightArmChromePath = playwrightChromePath.replace(
@@ -57,8 +56,11 @@ async function expectNoHorizontalOverflow() {
 }
 
 test.beforeEach(async () => {
+  await expect.poll(() => existsSync(path.join(extensionBuildPath, 'manifest.json')), {
+    message: 'Extension build is missing', timeout: 10_000,
+  }).toBe(true);
   extensionPath = mkdtempSync(path.join(tmpdir(), 'dome-extension-test-'));
-  cpSync(path.resolve(root, '../.output/chrome-mv3'), extensionPath, {
+  cpSync(extensionBuildPath, extensionPath, {
     recursive: true,
   });
   const manifestPath = path.join(extensionPath, 'manifest.json');
