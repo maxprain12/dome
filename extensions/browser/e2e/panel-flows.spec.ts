@@ -170,6 +170,8 @@ test.beforeEach(async () => {
           input: ['text', 'image'],
         },
       };
+      if (url.endsWith('/research/poll')) return ok({ requests: [] });
+      if (url.endsWith('/research/result')) return ok({ accepted: true });
       if (url.endsWith('/context')) {
         return ok({
           projectId: 'default',
@@ -1262,4 +1264,19 @@ test('recuerda aceptar siempre en el sitio y permite revocarlo', async () => {
   await submit();
   await expect(page.getByRole('region', { name: 'Rellenar campo' })).toBeVisible();
   await page.getByRole('button', { name: 'Rechazar', exact: true }).click();
+});
+
+
+test('habilita y revoca la lectura de investigación de la pestaña elegida', async () => {
+  await page.getByRole('tab', { name: 'Contexto', exact: true }).click();
+  const enable = page.getByRole('button', { name: 'Habilitar investigación en esta pestaña', exact: true });
+  await expect(enable).toBeVisible();
+  expect((await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll'))).toBe(false);
+  await enable.click();
+  const stop = page.getByRole('button', { name: 'Detener acceso de investigación', exact: true });
+  await expect(stop).toBeVisible();
+  await expect.poll(async () => (await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll') && request.body.enabled === true && request.body.url === fixtureUrl)).toBe(true);
+  await stop.click();
+  await expect(enable).toBeVisible();
+  await expect.poll(async () => (await recordedRequests()).some((request) => String(request.url).endsWith('/research/poll') && request.body.enabled === false)).toBe(true);
 });

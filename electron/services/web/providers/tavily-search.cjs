@@ -12,6 +12,7 @@ async function search(request, apiKey) {
   const response = await fetchWithTimeout(
     'https://api.tavily.com/search',
     {
+      signal: request.signal,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

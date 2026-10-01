@@ -469,3 +469,13 @@ export function resumeMany(
     onTool,
   );
 }
+
+export function pollResearch(token: string, sessionId: string, url: string, enabled: boolean) {
+  return send<{ requests: Array<{ callId: string; name: string; args: Record<string, unknown>; expectedUrl: string }> }>({
+    type: 'DOME_HTTP', path: '/v1/research/poll', method: 'POST', token, body: { sessionId, url, enabled },
+  });
+}
+export function completeResearch(token: string, sessionId: string, callId: string, result: Record<string, unknown>) {
+  return send<{ accepted: boolean }>({ type: 'DOME_HTTP', path: '/v1/research/result', method: 'POST', token,
+    body: { sessionId, callId, result } });
+}

@@ -42,6 +42,8 @@ export type ToolFamily =
 
 /** Tool name → family. Source: getAllToolDefinitions() (123 tools). */
 export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
+  // Research shares the web tool family.
+  research_capabilities: 'web', research_search: 'web', research_read: 'web', research_profile: 'web', research_collect: 'web',
   // web
   web_search: 'web', web_fetch: 'web', deep_research: 'web',
   // resources

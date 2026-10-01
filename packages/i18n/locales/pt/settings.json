@@ -379,7 +379,24 @@
     "in_use": "Em uso",
     "not_in_use": "Não usado",
     "save_and_use": "Salvar e usar {{provider}}",
-    "test_unavailable": "O teste de conexão não está disponível nesta versão."
+    "test_unavailable": "O teste de conexão não está disponível nesta versão.",
+    "research": {
+      "title": "Fontes de pesquisa",
+      "hint": "A captura local não tem tarifa por solicitação. Ative serviços externos com sua chave. Os limites estimam aquisição e excluem modelos Many e embeddings. A faturação do provedor é a referência.",
+      "exa_key": "Chave API Exa",
+      "enable": "Ativar {{provider}}",
+      "run_limit": "Limite por pesquisa (USD)",
+      "month_limit": "Limite mensal (USD)",
+      "spend": "Aquisição mensal estimada: ${{amount}}",
+      "sources": "Capacidades das 16 fontes",
+      "enabled": "Ativado",
+      "pending_enablement": "Ativação pendente",
+      "configured": "Configurado; não verificado",
+      "unverified": "Não verificado",
+      "saved": "Guardado",
+      "error": "Não foi possível guardar as configurações",
+      "rates": "USD estimados por pesquisa: Brave US$ 0,005 · Tavily básico US$ 0,008 · Exa Auto US$ 0,007 (01/10/2026)."
+    }
   },
   "transcription": {
     "title": "Transcrição de voz",

@@ -22,6 +22,7 @@ async function search(request, apiKey) {
   const response = await fetchWithTimeout(
     searchUrl.toString(),
     {
+      signal: request.signal,
       method: 'GET',
       headers: {
         Accept: 'application/json',

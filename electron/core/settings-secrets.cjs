@@ -4,6 +4,9 @@
 const { encryptSecret, decryptSecret, isEncryptedSecret, maskSecret } = require('./secret-storage.cjs');
 
 const SECRET_KEYS = new Set([
+  'web_search_exa_api_key',
+  'web_search_brave_key',
+  'web_search_tavily_key',
   'ai_api_key',
   'openai_api_key',
   'ollama_api_key',

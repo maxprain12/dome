@@ -4,7 +4,7 @@
 
 const database = require('../../core/database.cjs');
 
-const VALID_SEARCH_PROVIDERS = new Set(['auto', 'tavily', 'brave', 'searxng', 'ddg']);
+const VALID_SEARCH_PROVIDERS = new Set(['auto', 'exa', 'tavily', 'brave', 'searxng', 'ddg']);
 const VALID_FETCH_PROVIDERS = new Set(['auto', 'jina', 'readability', 'tavily']);
 
 function readSetting(key, fallback = '') {
@@ -23,8 +23,9 @@ function getWebSettings() {
   return {
     searchProvider: VALID_SEARCH_PROVIDERS.has(searchProvider) ? searchProvider : 'auto',
     fetchProvider: VALID_FETCH_PROVIDERS.has(fetchProvider) ? fetchProvider : 'auto',
-    tavilyKey: readSetting('web_search_tavily_key', '').trim(),
-    braveKey: readSetting('web_search_brave_key', '').trim(),
+    exaKey: require('../../core/settings-secrets.cjs').readSettingSecret(database.getQueries(), 'web_search_exa_api_key') || '',
+    tavilyKey: require('../../core/settings-secrets.cjs').readSettingSecret(database.getQueries(), 'web_search_tavily_key') || '',
+    braveKey: require('../../core/settings-secrets.cjs').readSettingSecret(database.getQueries(), 'web_search_brave_key') || '',
   };
 }
 

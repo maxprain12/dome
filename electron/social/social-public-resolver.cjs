@@ -132,11 +132,13 @@ function cacheGet(database, url) {
   }
 }
 
-async function fetchPublicPage(url, provider, timeoutOverrideMs) {
+async function fetchPublicPage(url, provider, timeoutOverrideMs, signal) {
+  signal?.throwIfAborted();
   await assertPublicUrl(url);
   const userAgent = provider === 'instagram' ? INSTAGRAM_PUBLIC_UA : DEFAULT_USER_AGENT;
   const timeoutMs = timeoutOverrideMs ?? (provider === 'instagram' ? 15000 : 8000);
   const response = await fetchPublicWithTimeout(url, {
+    signal,
     headers: {
       Accept: 'text/html,application/xhtml+xml',
       'Accept-Language': 'en-US,en;q=0.9',
@@ -209,7 +211,7 @@ function applyPublicPostEnrichment(post, page) {
   );
 }
 
-async function enrichInstagramRecentPosts(posts) {
+async function enrichInstagramRecentPosts(posts, signal) {
   const slice = posts.slice(0, MAX_POST_ENRICH);
   const rest = posts.slice(MAX_POST_ENRICH);
   const enriched = await Promise.all(slice.map(async (post) => {
@@ -219,9 +221,10 @@ async function enrichInstagramRecentPosts(posts) {
       return post;
     }
     try {
-      const page = await fetchPublicPage(post.url, 'instagram', 8000);
+      const page = await fetchPublicPage(post.url, 'instagram', 8000, signal);
       return applyPublicPostEnrichment(post, page);
     } catch {
+      signal?.throwIfAborted();
       return post;
     }
   }));
@@ -233,7 +236,8 @@ async function enrichInstagramRecentPosts(posts) {
  * @param {{ store: object, database?: object }} deps
  * @param {{ url: string }} input
  */
-async function resolvePublicSocial(deps, { url, forceRefresh = false }) {
+async function resolvePublicSocial(deps, { url, forceRefresh = false, signal }) {
+  signal?.throwIfAborted();
   const parsed = parseSocialUrl(url);
   if (!parsed) {
     return { success: false, error: 'URL is not a supported Instagram, X or LinkedIn profile or post.' };
@@ -269,7 +273,7 @@ async function resolvePublicSocial(deps, { url, forceRefresh = false }) {
   }
 
   try {
-    const og = await fetchPublicPage(parsed.canonicalUrl, parsed.provider);
+    const og = await fetchPublicPage(parsed.canonicalUrl, parsed.provider, undefined, signal);
     const loginWall = og.status === 401 || og.status === 403
       || /log in|iniciar sesi[oó]n|sign in/i.test(`${og.title}${og.description}`);
     const ogCounts = parseProfileCounts(og.description);
@@ -293,7 +297,7 @@ async function resolvePublicSocial(deps, { url, forceRefresh = false }) {
         }))
       : [];
     if (parsed.provider === 'instagram' && parsed.kind === 'profile' && recentPosts.length > 0) {
-      recentPosts = await enrichInstagramRecentPosts(recentPosts);
+      recentPosts = await enrichInstagramRecentPosts(recentPosts, signal);
     }
     const htmlPosts = parsed.kind === 'post'
       ? extractPublicPostsFromHtml(og.html, parsed.provider)
@@ -348,6 +352,7 @@ async function resolvePublicSocial(deps, { url, forceRefresh = false }) {
     cacheSet(deps.database, card);
     return { success: true, source: 'social_public', card };
   } catch (err) {
+    signal?.throwIfAborted();
     const card = emptyCard(parsed, 'open_graph', ['requires_browser', 'metrics_unavailable']);
     return { success: true, source: 'social_public', card, warning: err.message };
   }

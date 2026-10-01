@@ -12,7 +12,7 @@ function getDomeToolsPkg() {
 
 function getPackageFamilyDefinitions() {
   const pkg = getDomeToolsPkg();
-  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions()];
+  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions(), ...pkg.researchToolDefinitions()];
 }
 
 function getPackageFamilyToolNames() {
@@ -47,6 +47,12 @@ const TOOL_HANDLER_MAP = {
   web_fetch: 'webFetch',
   web_search: 'webSearch',
   deep_research: 'deepResearch',
+  research_capabilities: 'research_capabilities',
+  research_search: 'research_search',
+  research_read: 'research_read',
+  research_profile: 'research_profile',
+  research_collect: 'research_collect',
+
   excel_get: 'excelGet',
   excel_get_file_path: 'excelGetFilePath',
   excel_set_cell: 'excelSetCell',
@@ -239,7 +245,7 @@ function getToolDefsBySubagent() {
   }
   const pick = (...names) => names.map((n) => byName[n]).filter(Boolean);
   return {
-    research: pick('web_search', 'web_fetch', 'deep_research'),
+    research: pick('web_search', 'web_fetch', 'deep_research', 'research_capabilities', 'research_search', 'research_read', 'research_profile', 'research_collect'),
     library: pick(
       'resource_hybrid_search',
       'resource_get',
@@ -333,6 +339,31 @@ function getToolDefsBySubagent() {
 function getAllToolDefinitions() {
   return [
     QUESTIONNAIRE_TOOL_DEFINITION,
+    { type: 'function', function: {
+        name: 'research_capabilities',
+        description: 'Research evidence with explicit access and cost controls.',
+        parameters: { type: 'object', properties: {} },
+    } },
+    { type: 'function', function: {
+        name: 'research_search',
+        description: 'Research evidence with explicit access and cost controls.',
+        parameters: { type: 'object', properties: {} },
+    } },
+    { type: 'function', function: {
+        name: 'research_read',
+        description: 'Research evidence with explicit access and cost controls.',
+        parameters: { type: 'object', properties: {} },
+    } },
+    { type: 'function', function: {
+        name: 'research_profile',
+        description: 'Research evidence with explicit access and cost controls.',
+        parameters: { type: 'object', properties: {} },
+    } },
+    { type: 'function', function: {
+        name: 'research_collect',
+        description: 'Research evidence with explicit access and cost controls.',
+        parameters: { type: 'object', properties: {} },
+    } },
     {
       type: 'function',
       function: {

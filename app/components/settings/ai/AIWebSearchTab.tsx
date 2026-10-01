@@ -1,3 +1,4 @@
+import ResearchSettings from './ResearchSettings';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -167,7 +168,7 @@ export default function AIWebSearchTab() {
       <SettingsGroup
         actions={
           <>
-            <Button type="button" size="sm" onClick={() => void handleSave()} disabled={saving}>
+            <Button type="button" size="sm" onClick={() => { void handleSave(); }} disabled={saving}>
               {saving ? <Spinner data-icon="inline-start" /> : null}
               {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
             </Button>
@@ -175,7 +176,7 @@ export default function AIWebSearchTab() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void handleTest()}
+              onClick={() => { void handleTest(); }}
               disabled={testing}
             >
               {testing ? (
@@ -271,6 +272,7 @@ export default function AIWebSearchTab() {
           ) : null}
         </div>
       </SettingsGroup>
+      <ResearchSettings />
     </div>
   );
 }

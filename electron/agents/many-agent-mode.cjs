@@ -22,6 +22,7 @@ const PLAN_WRITE_TOOLS = Object.freeze([
   'excel_set_range',
   'excel_add_row',
   'excel_add_sheet',
+  'research_collect',
   'social_post_draft',
   'social_post_publish',
   'social_campaign_create',

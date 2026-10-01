@@ -6,11 +6,27 @@ const { Readability } = require('@mozilla/readability');
 const { parseHTML } = require('linkedom');
 const { fetchPublicWithTimeout } = require('../url-guard.cjs');
 
+async function readBoundedHtml(response, maxBytes, signal) {
+  const reader = response.body.getReader();
+  const chunks = []; let size = 0;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > maxBytes) throw new Error('page_size_limit_exceeded');
+      chunks.push(Buffer.from(value));
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  } finally { await reader.cancel(); }
+}
+
 async function scrape(request) {
   const response = await fetchPublicWithTimeout(
     request.url,
     {
-      method: 'GET',
+      method: 'GET', signal: request.signal,
       headers: {
         'User-Agent': request.userAgent,
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -19,6 +35,7 @@ async function scrape(request) {
       redirect: 'follow',
     },
     request.timeoutMs,
+    request.validateTarget,
   );
 
   if (!response.ok) {
@@ -26,7 +43,7 @@ async function scrape(request) {
   }
 
   const finalUrl = response.url || request.url;
-  const html = await response.text();
+  const html = request.maxBytes ? await readBoundedHtml(response, request.maxBytes, request.signal) : await response.text();
   const { document } = parseHTML(html);
   const reader = new Readability(document);
   const article = reader.parse();

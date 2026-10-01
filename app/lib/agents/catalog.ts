@@ -28,6 +28,11 @@ export interface ToolCatalogEntry {
 
 export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   // Web
+  { id: 'research_capabilities', label: 'Research Capabilities', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
+  { id: 'research_search', label: 'Research Search', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
+  { id: 'research_read', label: 'Research Read', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
+  { id: 'research_profile', label: 'Research Profile', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
+  { id: 'research_collect', label: 'Research Collect', description: 'Native bounded research with cited evidence and explicit access limits.', group: 'web' },
   {
     id: 'web_search',
     label: 'Web Search',

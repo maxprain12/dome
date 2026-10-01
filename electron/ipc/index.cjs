@@ -8,6 +8,7 @@ const initHandlers = require('./core/init.cjs');
 const databaseHandlers = require('./data/database.cjs');
 const interactionsHandlers = require('./data/interactions.cjs');
 const codingHandlers = require('./data/coding.cjs');
+const researchHandlers = require('./ai/research.cjs');
 const semanticHandlers = require('./ai/semantic.cjs');
 const embeddingsHandlers = require('./ai/embeddings.cjs');
 const cloudLlmHandlers = require('./ai/cloud-llm.cjs');
@@ -190,6 +191,7 @@ function registerAll(deps) {
   permissionsHandlers.register({ ipcMain: secureIpcMain, windowManager });
   domeMcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  researchHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   domainSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database });

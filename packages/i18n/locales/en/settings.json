@@ -379,7 +379,24 @@
     "in_use": "In use",
     "not_in_use": "Not in use",
     "save_and_use": "Save and use {{provider}}",
-    "test_unavailable": "Connection test isn’t available in this version."
+    "test_unavailable": "Connection test isn’t available in this version.",
+    "research": {
+      "title": "Research sources",
+      "hint": "Local capture is free per request. Enable external services with your own key. Limits estimate acquisition costs and exclude Many models and embeddings. Provider billing is authoritative.",
+      "exa_key": "Exa API key",
+      "enable": "Enable {{provider}}",
+      "run_limit": "Per investigation limit (USD)",
+      "month_limit": "Monthly limit (USD)",
+      "spend": "Estimated monthly acquisition: ${{amount}}",
+      "sources": "16 source capabilities",
+      "enabled": "Enabled",
+      "pending_enablement": "Pending enablement",
+      "configured": "Configured; unverified",
+      "unverified": "Unverified",
+      "saved": "Saved",
+      "error": "Could not save research settings",
+      "rates": "Estimated USD per search: Brave $0.005 · Tavily basic $0.008 · Exa Auto $0.007 (2026-10-01)."
+    }
   },
   "transcription": {
     "title": "Voice transcription",

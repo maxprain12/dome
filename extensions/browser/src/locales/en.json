@@ -244,5 +244,9 @@
   "browserAlwaysAccept": "Always accept on this site",
   "browserAlwaysActive": "Actions automatically allowed on {{origin}}",
   "browserAskAgain": "Ask for permission again",
-  "browserPermissionSaveFailed": "Could not save this permission. Try again."
+  "browserPermissionSaveFailed": "Could not save this permission. Try again.",
+  "researchTabHint": "Allow Many Desktop to read this selected tab until you stop. Site permissions still apply.",
+  "researchTabEnable": "Enable research on this tab",
+  "researchTabStop": "Stop research access",
+  "researchDisconnected": "Desktop research disconnected."
 }

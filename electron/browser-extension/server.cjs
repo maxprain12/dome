@@ -599,6 +599,17 @@ function createServer({ pairing, capture, many, port = DEFAULT_PORT }) {
       return;
     }
 
+    if (req.method === 'POST' && path === '/v1/research/poll') {
+      const control = require('./research-control.cjs');
+      await handleAuthorizedJson(req, res, origin, control.Poll, (body, _req, client) => control.poll(client.id, body));
+      return;
+    }
+    if (req.method === 'POST' && path === '/v1/research/result') {
+      const control = require('./research-control.cjs');
+      await handleAuthorizedJson(req, res, origin, control.Result, (body, _req, client) => control.complete(client.id, body));
+      return;
+    }
+
     if (req.method === 'POST' && path === '/v1/ai/tool-result') {
       await handleAuthorizedJson(
         req,
