@@ -2,7 +2,7 @@
 /**
  * IPC handlers for MCP (Model Context Protocol) settings and testing.
  */
-const { getMCPTools, testSingleMcpServer } = require('../../mcp/mcp-client.cjs');
+const { parseMcpServersConfig, testSingleMcpServer } = require('../../mcp/mcp-client.cjs');
 const mcpOauth = require('../../mcp/mcp-oauth.cjs');
 
 function register({ ipcMain, windowManager, database, validateSender }) {
@@ -18,12 +18,17 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
-      const tools = await getMCPTools(database);
-      const toolCount = Array.isArray(tools) ? tools.length : 0;
-      return {
-        success: true,
-        toolCount,
-      };
+      const queries = database.getQueries();
+      if (queries.getMcpGlobalSettings.get()?.enabled === 0) throw new Error('MCP is disabled');
+      const rows = queries.listMcpServers.all();
+      const configs = rows.length ? rows.filter((r) => r.enabled !== 0).map((r) => ({
+        name: r.name, type: r.type, command: r.command, url: r.url,
+        args: JSON.parse(r.args_json || '[]'), headers: JSON.parse(r.headers_json || '{}'), env: JSON.parse(r.env_json || '{}'),
+      })) : parseMcpServersConfig(queries.getSetting.get('mcp_servers')?.value);
+      const results = await Promise.all(configs.map(async (server) => ({ server: server.name, ...await testSingleMcpServer(server) })));
+      const failed = results.filter((r) => !r.success);
+      return { success: configs.length > 0 && failed.length === 0, toolCount: results.reduce((n, r) => n + r.toolCount, 0),
+        results, error: failed.map((r) => `${r.server}: ${r.error}`).join('; ') || (configs.length ? undefined : 'No enabled MCP servers') };
     } catch (err) {
       console.warn('[MCP] Test connection failed:', err?.message);
       return {
@@ -71,7 +76,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
     try {
       const result = await mcpOauth.startOAuthFlow(providerId, database);
-      return { success: true, token: result.token };
+      return { success: true, connected: result.connected };
     } catch (err) {
       console.warn('[MCP OAuth] Flow failed:', err?.message);
       return { success: false, error: err?.message || String(err) };
@@ -89,7 +94,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       return { success: false, providers: [], error: 'Unauthorized' };
     }
     try {
-      return { success: true, providers: mcpOauth.getSupportedProviders() };
+      return { success: true, providers: mcpOauth.getSupportedProviders(database) };
     } catch (err) {
       console.warn('[MCP] Get OAuth providers failed:', err?.message);
       return { success: false, providers: [], error: err?.message || String(err) };

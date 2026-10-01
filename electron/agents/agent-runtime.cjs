@@ -846,11 +846,13 @@ async function setupHarness(surface, opts) {
   const nonSystem = (Array.isArray(messages) ? messages : []).filter((m) => m && m.role !== 'system');
 
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
-  const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model });
+  const input = require('../ai/model-input.cjs').resolveModelInput(provider, model, database.getQueries(), baseUrl);
+  const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model, input });
 
   const { readPersistedContextWindow } = require('../ai/context-window.cjs');
   const persistedWindow = readPersistedContextWindow(database.getQueries(), provider);
   let resolvedModel = ai.resolveDomeModel({
+    input,
     provider,
     model,
     baseUrl,
@@ -865,6 +867,9 @@ async function setupHarness(surface, opts) {
     !isLocalOpenAICompatProvider(provider)
   ) {
     resolvedModel = { ...resolvedModel, baseUrl };
+  }
+  if (baseSystemPrompt.includes('## Skills') && Math.ceil(baseSystemPrompt.length / 3) > resolvedModel.contextWindow - resolvedModel.maxTokens) {
+    throw new Error('Invoked skills exceed the available model instruction budget; choose a model with a larger context window.');
   }
   const contextMessages = ai.legacyMessagesToContext(baseSystemPrompt, normalizedNonSystem).messages;
 
@@ -999,7 +1004,7 @@ async function setupHarness(surface, opts) {
     activeToolNames = kept;
   }
 
-  const resources = await bridge.loadSkillsResources();
+  const resources = await bridge.loadSkillsResources(workspaceSession?.cwd ?? opts.workspacePath);
   const env = new NodeExecutionEnv({ cwd: workspaceSession?.cwd ?? process.cwd() });
   const harness = new core.AgentHarness({
     env,
@@ -1418,10 +1423,10 @@ async function prepareRunDomeInputs(opts) {
   const contextMessages = ai.legacyMessagesToContext('', normalizedNonSystem).messages;
   let userPrompt = lastUserText(contextMessages);
   const lastRaw = lastRawUserMessage(rawNonSystem);
-  const promptImages = await attachmentsToImageContent(lastRaw?.attachments, {
-    provider: opts.provider,
-    modelId: opts.model,
-  });
+  const lastContextUser = [...contextMessages].reverse().find((message) => message.role === 'user');
+  const promptImages = lastRaw?.attachments?.images?.length
+    ? await attachmentsToImageContent(lastRaw.attachments, { provider: opts.provider, modelId: opts.model })
+    : (Array.isArray(lastContextUser?.content) ? lastContextUser.content.filter((block) => block.type === 'image') : []);
   if (!userPrompt.trim() && promptImages.length > 0) {
     userPrompt = '(see attached image)';
   }

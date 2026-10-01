@@ -15,6 +15,10 @@ const {
   normalizeCallToolResult,
   testSingleMcpServer,
   buildStdioEnv,
+  exposedToolName,
+  loadToolsForServer,
+  closeAllMcpClients,
+  getMCPTools,
 } = require('../mcp/mcp-client.cjs');
 
 describe('mcp-client — config parsing', () => {
@@ -89,23 +93,18 @@ describe('mcp-client — config parsing', () => {
 });
 
 describe('mcp-client — callTool result normalization', () => {
-  it('prefers structuredContent', () => {
-    assert.deepEqual(
-      normalizeCallToolResult({ structuredContent: { ok: true }, content: [{ type: 'text', text: 'x' }] }),
-      { ok: true },
-    );
+  it('preserves text, images, structured content and tool errors', () => {
+    const result = normalizeCallToolResult({ isError: true, structuredContent: { ok: false },
+      content: [{ type: 'text', text: 'explanation' }, { type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' }] });
+    assert.equal(result.isError, true);
+    assert.equal(result.content[0].text, 'explanation');
+    assert.equal(result.content[1].type, 'image');
+    assert.deepEqual(result.details.structuredContent, { ok: false });
   });
-
-  it('joins text content parts', () => {
-    assert.equal(
-      normalizeCallToolResult({
-        content: [
-          { type: 'text', text: 'hello' },
-          { type: 'text', text: 'world' },
-        ],
-      }),
-      'hello\nworld',
-    );
+  it('namespaces identical tool names and resolves normalized collisions', () => {
+    assert.notEqual(exposedToolName('one', 'search'), exposedToolName('two', 'search'));
+    assert.notEqual(exposedToolName('one', 'a.b', true), exposedToolName('one', 'a-b', true));
+    assert.ok(exposedToolName('verylong'.repeat(20), 'tool').length <= 64);
   });
 });
 
@@ -142,4 +141,40 @@ describe('mcp-client — testSingleMcpServer against mock stdio server', () => {
     assert.equal(result.toolCount, 1);
     assert.equal(result.tools[0].name, 'echo');
   });
+});
+
+const mockConfig = { name: 'paged', type: 'stdio', command: process.execPath,
+  args: [fileURLToPath(new URL('./fixtures/mock-mcp-stdio-server.mjs', import.meta.url))], env: { DOME_TEST_PAGES: '1' } };
+it('paginates, pools calls, preserves mixed errors and cancels requests', async () => {
+  try {
+    const { tools } = await loadToolsForServer(mockConfig);
+    assert.equal(tools.length, 2);
+    const inspect = tools.find((t) => t.originalName === 'inspect');
+    const first = await inspect.invoke({});
+    const second = await inspect.invoke({});
+    assert.equal(first.details.structuredContent.pid, second.details.structuredContent.pid);
+    assert.equal(first.isError, true);
+    assert.equal(first.content[1].type, 'image');
+    const controller = new AbortController();
+    const pending = tools.find((t) => t.originalName === 'echo').invoke({ hang: true }, { signal: controller.signal });
+    setTimeout(() => controller.abort(), 20);
+    await assert.rejects(pending);
+    assert.equal((await inspect.invoke({})).details.structuredContent.pid, first.details.structuredContent.pid);
+  } finally { await closeAllMcpClients(); }
+});
+it('disabled dedicated rows cannot reactivate a legacy configuration', async () => {
+  const tools = await getMCPTools({ getQueries: () => ({
+    listMcpServers: { all: () => [{ name: 'disabled', enabled: 0 }] },
+    getSetting: { get: () => ({ value: JSON.stringify([mockConfig]) }) },
+  }) });
+  assert.deepEqual(tools, []);
+});
+it('server failures do not hide healthy servers', async () => {
+  try {
+    const tools = await getMCPTools({ getQueries: () => ({
+      listMcpServers: { all: () => [] },
+      getSetting: { get: () => ({ value: JSON.stringify([{ name: 'broken', type: 'stdio', command: '/nonexistent/dome-mcp' }, mockConfig]) }) },
+    }) });
+    assert.equal(tools.length, 2);
+  } finally { await closeAllMcpClients(); }
 });

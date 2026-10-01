@@ -46,7 +46,7 @@ async function resolveAuthOptions(ai, { provider, model, apiKey, baseUrl, option
   } catch {
     /* settings optional for standalone llm calls */
   }
-  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl, contextWindow });
+  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl, contextWindow, input: require('./model-input.cjs').resolveModelInput(provider, model, undefined, baseUrl) });
   const streamOpts = buildStreamOptions(options, apiKey);
   try {
     const { resolveRequestAuth } = require('./resolve-request-auth.cjs');
@@ -72,7 +72,8 @@ async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }
   const sysMsg = (messages || []).find((m) => m.role === 'system');
   const systemPrompt =
     typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
-  const context = ai.legacyMessagesToContext(systemPrompt, messages || []);
+  const normalized = require('./message-multimodal.cjs').normalizeMessagesForProvider(messages || [], { provider, modelId: model, input: resolvedModel.input });
+  const context = ai.legacyMessagesToContext(systemPrompt, normalized);
   const result = await ai.completeSimple(resolvedModel, context, streamOpts);
   return {
     text: ai.extractTextFromAssistantMessage(result),
@@ -95,7 +96,8 @@ async function stream({ provider, model, apiKey, baseUrl, messages, options = {}
   const sysMsg = (messages || []).find((m) => m.role === 'system');
   const systemPrompt =
     typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
-  const context = ai.legacyMessagesToContext(systemPrompt, messages || []);
+  const normalized = require('./message-multimodal.cjs').normalizeMessagesForProvider(messages || [], { provider, modelId: model, input: resolvedModel.input });
+  const context = ai.legacyMessagesToContext(systemPrompt, normalized);
   const eventStream = ai.streamSimple(resolvedModel, context, streamOpts);
 
   let full = '';

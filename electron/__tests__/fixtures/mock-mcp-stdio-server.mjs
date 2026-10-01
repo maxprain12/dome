@@ -49,9 +49,10 @@ function handleMessage(msg) {
       jsonrpc: '2.0',
       id,
       result: {
+        ...(process.env.DOME_TEST_PAGES && !params?.cursor ? { nextCursor: 'page2' } : {}),
         tools: [
           {
-            name: 'echo',
+            name: params?.cursor === 'page2' ? 'inspect' : 'echo',
             description: 'Echo input',
             inputSchema: {
               type: 'object',
@@ -65,6 +66,11 @@ function handleMessage(msg) {
   }
 
   if (method === 'tools/call') {
+    if (params?.arguments?.hang) return;
+    if (params?.name === 'inspect') {
+      writeMessage({ jsonrpc: '2.0', id, result: { isError: true, structuredContent: { pid: process.pid }, content: [{ type: 'text', text: 'diagnostic' }, { type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' }] } });
+      return;
+    }
     writeMessage({
       jsonrpc: '2.0',
       id,

@@ -70,14 +70,14 @@ export async function loadSkillsForRun(options: ResolveRunSkillsOptions): Promis
         skillId: meta.id,
         path: 'SKILL.md',
       })) as { success?: boolean; data?: { content?: string } };
-      if (!res?.success || !res.data?.content?.trim()) continue;
+      if (!res?.success || !res.data?.content?.trim()) throw new Error('Skill file could not be read');
       skills.push({
         id: meta.id,
         name: meta.name,
-        prompt: stripSkillFrontmatter(res.data.content),
+        prompt: `Skill ID: ${meta.id}\nResolve auxiliary references from this skill directory with skill_read.\n${stripSkillFrontmatter(res.data.content)}`,
       });
-    } catch {
-      /* skip unreadable skill */
+    } catch (error) {
+      throw new Error(`Cannot load invoked skill ${meta.name}: ${String(error)}`);
     }
   }
   return skills;
@@ -90,7 +90,7 @@ export async function appendRunSkillsToPrompt(
   const skills = await loadSkillsForRun(options);
   if (skills.length === 0) return basePrompt;
   const ids = skills.map((s) => s.id);
-  const maxBodyChars = skills.length > 1 ? 2400 : 3800;
+  const maxBodyChars = Math.floor(100_000 / skills.length);
   const withSkills = appendSkillsMarkdown(basePrompt, ids, skills, { maxBodyChars });
   return `${withSkills}\n\n## Skill invocation note\nThe user explicitly invoked the skill(s) above via /slash tokens. Their SKILL.md bodies are already loaded — follow them for this run. Do NOT call skill_read for SKILL.md or search the library for /skill-name paths. Use skill_read only for auxiliary files referenced inside a skill (e.g. references/pptx.md).`;
 }

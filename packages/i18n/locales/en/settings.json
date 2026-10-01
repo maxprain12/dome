@@ -738,7 +738,8 @@
     "server_url": "Server URL",
     "server_name": "Server name",
     "directory_tree_warning": "directory_tree is disabled by default — it can freeze the chat on large folders (especially on Windows). Use Dome native file_tree or file_list instead.",
-    "directory_tree_tool_desc": "Recursive tree without limits. Enable only for small folders; prefer native file_tree."
+    "directory_tree_tool_desc": "Recursive tree without limits. Enable only for small folders; prefer native file_tree.",
+    "sign_in": "Sign in"
   },
   "skills": {
     "title": "Skills",
@@ -794,7 +795,10 @@
     "no_skills_found": "No skills found in that repository.",
     "browse_failed": "Could not browse that repository.",
     "skills_found": "skills found",
-    "loadError": "Error loading skills"
+    "loadError": "Error loading skills",
+    "source_project": "Project",
+    "source_global": "Global",
+    "explicit_only": "Explicit invocation"
   },
   "cloud": {
     "title": "Cloud Storage",

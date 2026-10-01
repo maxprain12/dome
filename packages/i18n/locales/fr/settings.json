@@ -738,7 +738,8 @@
     "server_url": "URL du serveur",
     "server_name": "Nom du serveur",
     "directory_tree_warning": "directory_tree est désactivé par défaut — il peut bloquer le chat sur de grands dossiers (surtout sous Windows). Préférez file_tree ou file_list natifs de Dome.",
-    "directory_tree_tool_desc": "Arbre récursif sans limites. À activer uniquement sur de petits dossiers ; préférez file_tree natif."
+    "directory_tree_tool_desc": "Arbre récursif sans limites. À activer uniquement sur de petits dossiers ; préférez file_tree natif.",
+    "sign_in": "Se connecter"
   },
   "skills": {
     "title": "Compétences",
@@ -794,7 +795,10 @@
     "no_skills_found": "Aucune compétence trouvée dans ce dépôt.",
     "browse_failed": "Impossible d'explorer ce dépôt.",
     "skills_found": "compétences trouvées",
-    "loadError": "Erreur de chargement des compétences"
+    "loadError": "Erreur de chargement des compétences",
+    "source_project": "Projet",
+    "source_global": "Global",
+    "explicit_only": "Invocation explicite"
   },
   "cloud": {
     "title": "Stockage Cloud",

@@ -698,28 +698,9 @@ function resolveSkillDirectoryId(skillRef) {
  * @returns {string}
  */
 function readSkillFile(skillId, relativePath) {
-  const safeId = resolveSkillDirectoryId(skillId);
-
-  const skillRoot = path.resolve(userSkillsDir(), safeId);
-
-  const rel = String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!rel || rel.includes('..')) {
-    throw new Error('Invalid relative path');
-  }
-
-  const full = path.resolve(skillRoot, rel);
-  const rootWithSep = skillRoot.endsWith(path.sep) ? skillRoot : `${skillRoot}${path.sep}`;
-  if (!full.startsWith(rootWithSep) && full !== skillRoot) {
-    throw new Error('Path escapes skill directory');
-  }
-  if (!fs.existsSync(full)) {
-    throw new Error('File not found');
-  }
-  if (fs.statSync(full).isDirectory()) {
-    throw new Error('Path is a directory');
-  }
-
-  return fs.readFileSync(full, 'utf8');
+  const { readRegisteredSkillFile } = require('./index.cjs');
+  const id = /^(project|global):/.test(String(skillId)) ? skillId : resolveSkillDirectoryId(skillId);
+  return readRegisteredSkillFile(id, relativePath);
 }
 
 module.exports = {

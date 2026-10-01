@@ -7,6 +7,8 @@ export interface SkillItem {
   slug: string;
   description: string;
   path: string;
+  source?: 'project' | 'global';
+  disableModelInvocation?: boolean;
 }
 
 export interface SkillInstallResult {
@@ -33,9 +35,9 @@ function hasElectron(): boolean {
   return typeof window !== 'undefined' && !!window.electron?.invoke;
 }
 
-export async function listSkills(): Promise<{ success: boolean; data?: SkillItem[]; error?: string }> {
+export async function listSkills(): Promise<{ success: boolean; data?: SkillItem[]; warnings?: string[]; error?: string }> {
   if (!hasElectron()) return { success: false, error: 'Not in Electron' };
-  return window.electron.invoke('skills:list') as Promise<{ success: boolean; data?: SkillItem[]; error?: string }>;
+  return window.electron.invoke('skills:list') as Promise<{ success: boolean; data?: SkillItem[]; warnings?: string[]; error?: string }>;
 }
 
 export async function openSkillsFolder(): Promise<{ success: boolean; error?: string }> {

@@ -39,6 +39,8 @@ export interface ResolveDomeModelOptions {
   baseUrl?: string;
   /** Persisted or server-reported window. Overrides the resolver default. */
   contextWindow?: number;
+  /** Discovered or explicitly declared model capabilities (local providers). */
+  input?: ("text" | "image")[];
 }
 
 const OLLAMA_DEFAULT = 'http://127.0.0.1:11434/v1';
@@ -67,7 +69,7 @@ function openAiCompletionsModel(
     provider,
     baseUrl,
     reasoning: false,
-    input: ['text', 'image'],
+    input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow,
     maxTokens: 8192,
@@ -85,7 +87,7 @@ function anthropicModel(id: string, provider: KnownProvider = 'anthropic'): Mode
     provider,
     baseUrl: 'https://api.anthropic.com',
     reasoning: false,
-    input: ['text', 'image'],
+    input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 200_000,
     maxTokens: 8192,
@@ -99,7 +101,8 @@ function anthropicModel(id: string, provider: KnownProvider = 'anthropic'): Mode
  */
 function minimaxModel(id: string, baseUrl?: string): Model<'anthropic-messages'> {
   const modelId = id || 'MiniMax-M3';
-  const isM3 = /^MiniMax-M3$/i.test(modelId);
+  const fromCatalog = getModel('minimax', modelId as never);
+  if (fromCatalog) return withOptionalBaseUrl(fromCatalog as Model<'anthropic-messages'>, baseUrl);
   return {
     id: modelId,
     name: modelId,
@@ -107,10 +110,10 @@ function minimaxModel(id: string, baseUrl?: string): Model<'anthropic-messages'>
     provider: 'minimax',
     baseUrl: baseUrl || MINIMAX_ANTHROPIC,
     reasoning: false,
-    input: ['text', 'image'],
+    input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 200_000,
-    maxTokens: isM3 ? 16_384 : 8192,
+    maxTokens: 8192,
   };
 }
 
@@ -124,7 +127,7 @@ function googleModel(id: string): Model<'google-generative-ai'> {
     provider: 'google',
     baseUrl: 'https://generativelanguage.googleapis.com',
     reasoning: false,
-    input: ['text', 'image'],
+    input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 1_000_000,
     maxTokens: 8192,
@@ -165,7 +168,7 @@ function resolveOpenaiCodexModel(modelId: string, baseUrl?: string): Model<Api> 
     provider: 'openai-codex',
     baseUrl: baseUrl || 'https://chatgpt.com/backend-api',
     reasoning: true,
-    input: ['text', 'image'],
+    input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 1_050_000,
     maxTokens: 128_000,
@@ -316,9 +319,10 @@ export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
   const { provider, model, baseUrl, contextWindow } = opts;
   const modelId = model || 'gpt-4o-mini';
   const resolve = DOME_PROVIDER_RESOLVERS[provider];
-  const resolved = resolve
+  let resolved = resolve
     ? resolve(modelId, baseUrl)
     : resolveDefaultProviderModel(provider, modelId, baseUrl);
+  if (opts.input) resolved = { ...resolved, input: opts.input };
   if (typeof contextWindow === 'number' && contextWindow > 0) {
     return { ...resolved, contextWindow };
   }

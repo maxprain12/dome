@@ -8,10 +8,10 @@ export interface SkillLike {
   enabled?: boolean;
 }
 
-const DEFAULT_MAX_BODY_CHARS = 3800;
+const DEFAULT_MAX_BODY_CHARS = 100_000;
 
 export interface AppendSkillsMarkdownOptions {
-  /** Per-skill body cap to avoid blowing the agent context window (default 3800). */
+  /** Per-skill body cap to avoid blowing the agent context window (default 100000). */
   maxBodyChars?: number;
 }
 
@@ -29,10 +29,10 @@ export function appendSkillsMarkdown(
   for (const id of skillIds) {
     const s = skills.find((x) => x.id === id);
     if (!s || s.enabled === false) continue;
-    let body = (s.prompt || '').trim();
+    const body = (s.prompt || '').trim();
     if (!body) continue;
     if (body.length > maxBody) {
-      body = `${body.slice(0, maxBody)}…\n[Skill body truncated for context — reduce enabled skills or shorten prompts in Settings → Skills.]`;
+      throw new Error(`Skill ${s.name} exceeds the available instruction budget (${maxBody} characters).`);
     }
     chunks.push(`### ${s.name || 'Skill'}\n${body}\n`);
   }

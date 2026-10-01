@@ -209,10 +209,10 @@ async function listModels(baseUrl = DEFAULT_BASE_URL, apiKey = '') {
     const response = await makeRequest(`${baseUrl}/api/tags`, { apiKey });
 
     if (response && Array.isArray(response.models)) {
-      return response.models.map((model) => ({
-        name: model.name,
-        size: model.size || 0,
-        modified_at: model.modified_at || '',
+      return Promise.all(response.models.map(async (model) => {
+        const metadata = await makeRequest(`${baseUrl}/api/show`, { method: 'POST', apiKey, body: { model: model.name } });
+        return { name: model.name, size: model.size || 0, modified_at: model.modified_at || '',
+          input: metadata?.capabilities?.includes('vision') ? ['text', 'image'] : ['text'] };
       }));
     }
 

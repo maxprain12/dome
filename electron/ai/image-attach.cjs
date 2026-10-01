@@ -102,8 +102,8 @@ async function dataUrlToImageContent(image) {
  * @returns {Promise<Array<{ type: 'image', mimeType: string, data: string }>>}
  */
 async function attachmentsToImageContent(attachments, opts = {}) {
-  const caps = resolveModelCapabilities(opts.provider, opts.modelId);
-  if (!caps.supportsImage) return [];
+  const caps = resolveModelCapabilities(opts.provider, opts.modelId, opts.input);
+  if (!caps.supportsImage && attachments?.images?.length) throw new Error('The selected model does not support images');
 
   const images = attachments?.images;
   if (!Array.isArray(images) || images.length === 0) return [];
@@ -111,7 +111,8 @@ async function attachmentsToImageContent(attachments, opts = {}) {
   const out = [];
   for (const img of images) {
     const block = await dataUrlToImageContent(img);
-    if (block) out.push(block);
+    if (!block) throw new Error('Unable to decode image attachment');
+    out.push(block);
   }
   return out;
 }

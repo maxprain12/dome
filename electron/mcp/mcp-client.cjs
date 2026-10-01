@@ -13,9 +13,10 @@
 
 'use strict';
 
-const { createRequire } = require('module');
+const { createRequire } = require('node:module');
+const { createHash } = require('node:crypto');
 const { getPackageJsonPath } = require('../paths.cjs');
-const { capToolResultString, getCapForTool, safeStringify } = require('../tools/tool-result-cap.cjs');
+const { capToolResultString, safeStringify } = require('../tools/tool-result-cap.cjs');
 const {
   isMcpToolDisabledByDefault,
   normalizeMcpId,
@@ -398,13 +399,13 @@ async function connectMcpServer(server) {
       stderr: 'pipe',
     });
   } else if (server.type === 'http' && server.url) {
-    const opts = {};
+    const opts = { authProvider: require('./mcp-oauth.cjs').createAuthProvider(server.url, require('../core/database.cjs')) };
     if (server.headers && Object.keys(server.headers).length > 0) {
       opts.requestInit = { headers: server.headers };
     }
     transport = new StreamableHTTPClientTransport(new URL(server.url), opts);
   } else if (server.type === 'sse' && server.url) {
-    const opts = {};
+    const opts = { authProvider: require('./mcp-oauth.cjs').createAuthProvider(server.url, require('../core/database.cjs')) };
     if (server.headers && Object.keys(server.headers).length > 0) {
       opts.requestInit = { headers: server.headers };
     }
@@ -413,7 +414,12 @@ async function connectMcpServer(server) {
     throw new Error(`Unsupported MCP server type: ${server?.type || 'unknown'}`);
   }
 
-  await client.connect(transport);
+  try {
+    await client.connect(transport, { timeout: MCP_SERVER_LOAD_TIMEOUT_MS });
+  } catch (error) {
+    await client.close().catch(() => {});
+    throw error;
+  }
   return {
     client,
     close: async () => {
@@ -432,13 +438,31 @@ async function connectMcpServer(server) {
  * @param {(client: object) => Promise<T>} fn
  * @returns {Promise<T>}
  */
+const connections = new Map();
+function serverKey(server) {
+  return createHash('sha256').update(JSON.stringify({ name: server.name, type: server.type,
+    command: server.command, args: server.args, url: server.url, headers: server.headers, env: server.env })).digest('hex');
+}
 async function withMcpClient(server, fn) {
-  const { client, close } = await connectMcpServer(server);
-  try {
-    return await fn(client);
-  } finally {
-    await close();
+  const key = serverKey(server);
+  let pending = connections.get(key);
+  if (!pending) {
+    pending = connectMcpServer(server).then((connection) => {
+      connection.client.onclose = () => {
+        if (connections.get(key) === pending) connections.delete(key);
+        mcpToolsCache = null;
+      };
+      const { ToolListChangedNotificationSchema } = projectRequire('@modelcontextprotocol/sdk/types.js');
+      connection.client.setNotificationHandler(ToolListChangedNotificationSchema, () => { mcpToolsCache = null; });
+      return connection;
+    }).catch((error) => {
+      if (connections.get(key) === pending) connections.delete(key);
+      throw error;
+    });
+    connections.set(key, pending);
   }
+  const { client } = await pending;
+  return fn(client);
 }
 
 /**
@@ -447,25 +471,29 @@ async function withMcpClient(server, fn) {
  * @returns {unknown}
  */
 function normalizeCallToolResult(result) {
-  if (result == null) return '';
-  if (typeof result !== 'object') return result;
+  const source = result && typeof result === 'object' ? result : { content: [{ type: 'text', text: String(result ?? '') }] };
+  const content = [];
+  for (const part of source.content || []) {
+    if (part?.type === 'image' && typeof part.data === 'string' && typeof part.mimeType === 'string') {
+      if (part.data.length > 20_000_000) throw new Error('MCP image exceeds the attachment size limit');
+      content.push({ type: 'image', data: part.data, mimeType: part.mimeType });
+    } else {
+      const text = part?.type === 'text' ? part.text : safeStringify(part);
+      content.push({ type: 'text', text: capToolResultString('mcp', String(text ?? ''), { maxChars: 48_000 }) });
+    }
+  }
+  if (source.structuredContent != null) {
+    content.push({ type: 'text', text: capToolResultString('mcp', safeStringify(source.structuredContent), { maxChars: 48_000 }) });
+  }
+  return { content, isError: source.isError === true,
+    details: { structuredContent: source.structuredContent, metadata: source._meta, contentMetadata: (source.content || []).map(({ type, annotations, _meta }) => ({ type, annotations, _meta })) } };
+}
 
-  const structured = /** @type {{ structuredContent?: unknown, content?: unknown[], toolResult?: unknown, isError?: boolean }} */ (result);
-  if (structured.structuredContent != null) {
-    return structured.structuredContent;
-  }
-  if (structured.toolResult != null) {
-    return structured.toolResult;
-  }
-  if (Array.isArray(structured.content)) {
-    const texts = structured.content
-      .filter((part) => part && typeof part === 'object' && part.type === 'text' && typeof part.text === 'string')
-      .map((part) => part.text);
-    if (texts.length === 1) return texts[0];
-    if (texts.length > 1) return texts.join('\n');
-    return structured.content;
-  }
-  return result;
+function exposedToolName(serverName, toolName, collision = false) {
+  const base = `mcp__${normalizeServerId(serverName)}__${normalizeToolId(toolName)}`;
+  if (base.length <= 64 && !collision) return base;
+  const hash = createHash('sha256').update(`${serverName}\0${toolName}`).digest('hex').slice(0, 10);
+  return `${base.slice(0, 53)}_${hash}`;
 }
 
 /**
@@ -473,7 +501,7 @@ function normalizeCallToolResult(result) {
  * @param {{ name: string, description?: string, inputSchema?: object }} toolDef
  * @returns {{ name: string, description: string, schema: object, invoke: (input?: unknown, config?: { signal?: AbortSignal }) => Promise<string> }}
  */
-function createNativeMcpTool(server, toolDef) {
+function createNativeMcpTool(server, toolDef, collision = false) {
   const name = typeof toolDef.name === 'string' ? toolDef.name.trim() : 'mcp_tool';
   const description = typeof toolDef.description === 'string' ? toolDef.description : '';
   const schema = toolDef.inputSchema && typeof toolDef.inputSchema === 'object' && !Array.isArray(toolDef.inputSchema)
@@ -481,22 +509,24 @@ function createNativeMcpTool(server, toolDef) {
     : { type: 'object', properties: {} };
 
   return {
-    name,
+    name: exposedToolName(server.namespace || server.name, name, collision),
+    originalName: name,
+    serverName: server.name,
     description,
     schema,
     async invoke(input, config) {
+      config?.signal?.throwIfAborted();
       const args = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
       const signal = config?.signal;
       const out = await withMcpClient(server, async (client) => {
         const result = await client.callTool(
           { name, arguments: args },
           undefined,
-          signal ? { signal } : undefined,
+          { signal, timeout: 60_000, resetTimeoutOnProgress: true, maxTotalTimeout: 300_000 },
         );
         return normalizeCallToolResult(result);
       });
-      const text = safeStringify(out ?? '');
-      return capToolResultString(name, text, { maxChars: getCapForTool(name) });
+      return out;
     },
   };
 }
@@ -513,11 +543,12 @@ function filterToolsForServerPolicy(tools, server) {
     : null;
 
   return tools.filter((tool) => {
-    const id = normalizeMcpId(tool?.name);
+    const id = normalizeMcpId(tool?.originalName || tool?.name);
+    const exposedId = normalizeMcpId(tool?.name);
     if (isMcpToolDisabledByDefault(id, server)) {
-      return enabledSet?.has(id) ?? false;
+      return enabledSet?.has(id) || enabledSet?.has(exposedId) || false;
     }
-    if (enabledSet) return enabledSet.has(id);
+    if (enabledSet) return enabledSet.has(id) || enabledSet.has(exposedId);
     return true;
   });
 }
@@ -534,36 +565,36 @@ function invalidateMcpToolsCache() {
   mcpToolsCache = null;
 }
 
-/** Best-effort: drop cached tool handles (stdio clients are closed per discovery/invoke). */
-function closeAllMcpClients() {
+/** Close pooled clients on shutdown or configuration changes. */
+async function closeAllMcpClients() {
   invalidateMcpToolsCache();
+  const pending = [...connections.values()];
+  connections.clear();
+  await Promise.allSettled(pending.map(async (item) => (await item).close()));
 }
 
 async function loadToolsForServer(server) {
-  const loadPromise = (async () => {
-    const listed = await withMcpClient(server, async (client) => {
-      const result = await client.listTools();
-      return Array.isArray(result?.tools) ? result.tools : [];
-    });
-
-    const safeTools = listed.map((toolDef) => createNativeMcpTool(server, toolDef));
-    const manifest = safeTools.map((tool) => serializeTool(tool)).filter(Boolean);
-    return { tools: safeTools, manifest };
-  })();
-
-  let timeoutId;
-  const timeoutPromise = new Promise((resolve) => {
-    timeoutId = setTimeout(() => {
-      console.warn(`[MCP] ${server?.name || 'server'} tool load timed out after ${MCP_SERVER_LOAD_TIMEOUT_MS}ms`);
-      resolve({ tools: [], manifest: [] });
-    }, MCP_SERVER_LOAD_TIMEOUT_MS);
+  const listed = await withMcpClient(server, async (client) => {
+    const all = [];
+    const seen = new Set();
+    let cursor;
+    do {
+      const result = await client.listTools(cursor ? { cursor } : undefined,
+        { timeout: MCP_SERVER_LOAD_TIMEOUT_MS });
+      all.push(...(Array.isArray(result?.tools) ? result.tools : []));
+      cursor = result.nextCursor;
+      if (cursor && seen.has(cursor)) throw new Error('MCP server repeated a pagination cursor');
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return all;
   });
-
-  try {
-    return await Promise.race([loadPromise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
+  const counts = new Map();
+  for (const tool of listed) {
+    const id = normalizeToolId(tool.name);
+    counts.set(id, (counts.get(id) || 0) + 1);
   }
+  const tools = listed.map((tool) => createNativeMcpTool(server, tool, counts.get(normalizeToolId(tool.name)) > 1));
+  return { tools, manifest: tools.map((tool) => serializeTool({ ...tool, name: tool.originalName })).filter(Boolean) };
 }
 
 /**
@@ -577,16 +608,33 @@ async function getMCPTools(database, serverIds) {
   if (!queries) return [];
 
   const mcpEnabledRow = queries.getMcpGlobalSettings?.get?.();
-  if (mcpEnabledRow && mcpEnabledRow.enabled === 0) return [];
+  if (mcpEnabledRow && mcpEnabledRow.enabled === 0) { await closeAllMcpClients(); return []; }
 
   const rows = queries.listMcpServers?.all?.() ?? [];
   let servers = rows.map((row) => deserializeMcpServerRow(row)).filter(Boolean);
-  if (servers.length === 0) {
+  if (rows.length === 0) {
     const row = queries.getSetting?.get?.('mcp_servers');
     const raw = row?.value;
     servers = parseMcpServersConfig(raw);
   }
+  const activeKeys = new Set(servers.map(serverKey));
+  for (const [key, pending] of connections) {
+    if (!activeKeys.has(key)) {
+      connections.delete(key);
+      await pending.then((connection) => connection.close()).catch(() => {});
+    }
+  }
   if (servers.length === 0) return [];
+  const serverCounts = new Map();
+  for (const server of servers) {
+    const name = normalizeServerId(server.name);
+    serverCounts.set(name, (serverCounts.get(name) || 0) + 1);
+  }
+  for (const server of servers) {
+    if (serverCounts.get(normalizeServerId(server.name)) > 1) {
+      server.namespace = `${normalizeServerId(server.name)}_${createHash('sha256').update(server.name).digest('hex').slice(0, 10)}`;
+    }
+  }
 
   if (serverIds && serverIds.length > 0) {
     const idSet = new Set(serverIds.map((id) => String(id).trim().toLowerCase()));
@@ -594,7 +642,7 @@ async function getMCPTools(database, serverIds) {
     if (servers.length === 0) return [];
   }
 
-  const cacheKey = mcpCacheKey(serverIds);
+  const cacheKey = `${mcpCacheKey(serverIds)}:${servers.map(serverKey).join('|')}:${JSON.stringify(servers.map((s) => [s.tools, s.enabledToolIds]))}`;
   if (
     mcpToolsCache
     && mcpToolsCache.key === cacheKey
@@ -606,7 +654,13 @@ async function getMCPTools(database, serverIds) {
   try {
     const allTools = [];
     for (const server of servers) {
-      const { tools } = await loadToolsForServer(server);
+      let tools;
+      try {
+        ({ tools } = await loadToolsForServer(server));
+      } catch (error) {
+        console.warn(`[MCP] ${server.name} discovery failed:`, error?.message);
+        continue;
+      }
       const policyFiltered = filterToolsForServerPolicy(tools, server);
       const enabledToolIds = getEnabledToolIdsForServer(server);
       if (!enabledToolIds || enabledToolIds.length === 0) {
@@ -615,7 +669,7 @@ async function getMCPTools(database, serverIds) {
       }
 
       const enabledSet = new Set(enabledToolIds);
-      const filteredTools = policyFiltered.filter((tool) => enabledSet.has(normalizeToolId(tool?.name)));
+      const filteredTools = policyFiltered.filter((tool) => enabledSet.has(normalizeToolId(tool?.originalName || tool?.name)) || enabledSet.has(normalizeToolId(tool?.name)));
       allTools.push(...filteredTools);
     }
     mcpToolsCache = { key: cacheKey, tools: allTools, at: Date.now() };
@@ -653,6 +707,11 @@ async function testSingleMcpServer(server) {
       tools: [],
       error: err?.message || String(err),
     };
+  } finally {
+    const key = serverKey(normalized);
+    const pending = connections.get(key);
+    connections.delete(key);
+    if (pending) await pending.then((connection) => connection.close()).catch(() => {});
   }
 }
 
@@ -669,4 +728,6 @@ module.exports = {
   sanitizeArgs,
   buildStdioEnv,
   normalizeCallToolResult,
+  exposedToolName,
+  loadToolsForServer,
 };

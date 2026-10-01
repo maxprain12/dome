@@ -15,121 +15,14 @@ const OPENAI_STYLE_PROVIDERS = new Set([
 ]);
 const ANTHROPIC_STYLE_PROVIDERS = new Set(['anthropic', 'minimax']);
 
-const MINIMAX_M3_RE = /^minimax-m3$/i;
-
-/** Static capability hints when catalog lookup is unavailable in main process. */
-const STATIC_MODEL_INPUT = {
-  'minimax-m3': ['text', 'image', 'video'],
-  'gpt-5.6-sol': ['text', 'image'],
-  'gpt-5.6-terra': ['text', 'image'],
-  'gpt-5.6-luna': ['text', 'image'],
-  'gpt-5.6': ['text', 'image'],
-  'gpt-5.2': ['text', 'image'],
-  'gpt-5': ['text', 'image'],
-  'gpt-5-mini': ['text', 'image'],
-  'gpt-5-nano': ['text', 'image'],
-  'gpt-4o': ['text', 'image'],
-  'gpt-4o-mini': ['text', 'image'],
-  'gpt-4.1': ['text', 'image'],
-  'gpt-4.1-mini': ['text', 'image'],
-  'gpt-4.1-nano': ['text', 'image'],
-  'claude-fable-5': ['text', 'image'],
-  'claude-opus-4-8': ['text', 'image'],
-  'claude-sonnet-5': ['text', 'image'],
-  'claude-opus-4-7': ['text', 'image'],
-  'claude-opus-4-6': ['text', 'image'],
-  'claude-sonnet-4-6': ['text', 'image'],
-  'claude-sonnet-4-5': ['text', 'image'],
-  'claude-haiku-4-5': ['text', 'image'],
-  'gemini-3-flash': ['text', 'image'],
-  'gemini-3-flash-preview': ['text', 'image'],
-  'gemini-3-pro-preview': ['text', 'image'],
-  'gemini-2.5-flash': ['text', 'image'],
-  'gemini-2.5-flash-lite': ['text', 'image'],
-  'kimi-k2.5': ['text', 'image'],
-  'kimi-k2.6': ['text', 'image'],
-  'kimi-k2.7-code': ['text'],
-  'qwen3.6-plus': ['text', 'image'],
-  'qwen3.7-plus': ['text', 'image'],
-  'mimo-v2.5': ['text', 'image'],
-};
-
-/** Models on OpenCode that use anthropic-messages API (content block style). */
-const OPENCODE_ANTHROPIC_MODEL_IDS = new Set([
-  'claude-fable-5',
-  'claude-haiku-4-5',
-  'claude-sonnet-5',
-  'claude-sonnet-4-6',
-  'claude-sonnet-4-5',
-  'claude-opus-4-8',
-  'claude-opus-4-7',
-  'claude-opus-4-6',
-  'claude-opus-4-1',
-  'minimax-m2.5',
-  'minimax-m2.7',
-  'minimax-m3',
-  'qwen3.7-max',
-  'qwen3.7-plus',
-]);
-
-/**
- * @param {string} provider
- * @param {string} [modelId]
- * @returns {{ supportsImage: boolean, supportsVideo: boolean, input: ModelInputType[] }}
- */
-function resolveModelCapabilities(provider, modelId) {
-  const p = String(provider || '').toLowerCase();
-  const id = String(modelId || '').trim();
-  const lower = id.toLowerCase();
-
-  if (p === 'minimax') {
-    if (MINIMAX_M3_RE.test(id)) {
-      return { supportsImage: true, supportsVideo: true, input: ['text', 'image', 'video'] };
-    }
-    return { supportsImage: false, supportsVideo: false, input: ['text'] };
+/** Model capabilities are owned by the resolved provider catalog, not its name. */
+function resolveModelCapabilities(provider, modelId, declaredInput) {
+  let input = declaredInput;
+  if (!Array.isArray(input)) {
+    input = require('./model-input.cjs').resolveModelInput(provider, modelId);
   }
-
-  const staticInput = STATIC_MODEL_INPUT[lower];
-  if (staticInput) {
-    return {
-      supportsImage: staticInput.includes('image'),
-      supportsVideo: staticInput.includes('video'),
-      input: staticInput,
-    };
-  }
-
-  if (p === 'anthropic' || (p === 'openrouter' && /claude|anthropic/i.test(id))) {
-    return { supportsImage: true, supportsVideo: false, input: ['text', 'image'] };
-  }
-  if (p === 'google' || (p === 'openrouter' && /gemini/i.test(id))) {
-    return { supportsImage: true, supportsVideo: false, input: ['text', 'image'] };
-  }
-  if (p === 'openai' || (p === 'openrouter' && /gpt|openai/i.test(id))) {
-    const vision = /gpt-4|gpt-5|gpt-4o|o1|o3|o4|vision|vl/i.test(id);
-    return { supportsImage: vision, supportsVideo: false, input: vision ? ['text', 'image'] : ['text'] };
-  }
-  if (p === 'ollama' || p === 'vllm' || p === 'lmstudio') {
-    const vision = /llava|minicpm-v|glm4v|vision|vl|moondream|bakllava/i.test(id);
-    return { supportsImage: vision, supportsVideo: false, input: vision ? ['text', 'image'] : ['text'] };
-  }
-
-  if (p === 'opencode' || p === 'opencode-go') {
-    const staticInput = STATIC_MODEL_INPUT[lower];
-    if (staticInput) {
-      return {
-        supportsImage: staticInput.includes('image'),
-        supportsVideo: staticInput.includes('video'),
-        input: staticInput,
-      };
-    }
-    if (/claude|gemini|gpt-4|gpt-5|kimi|qwen.*plus|mimo|minimax-m3/i.test(id)) {
-      const hasVision = /claude|gemini|gpt-|kimi|qwen|mimo|minimax-m3/i.test(id);
-      return { supportsImage: hasVision, supportsVideo: false, input: hasVision ? ['text', 'image'] : ['text'] };
-    }
-    return { supportsImage: false, supportsVideo: false, input: ['text'] };
-  }
-
-  return { supportsImage: OPENAI_STYLE_PROVIDERS.has(p), supportsVideo: false, input: ['text'] };
+  input = Array.isArray(input) ? input : ['text'];
+  return { supportsImage: input.includes('image'), supportsVideo: input.includes('video'), input };
 }
 
 /**
@@ -151,7 +44,7 @@ function contentStyleForProvider(provider, modelId) {
   const p = String(provider || '').toLowerCase();
   const id = String(modelId || '').trim().toLowerCase();
   if (ANTHROPIC_STYLE_PROVIDERS.has(p)) return 'anthropic';
-  if ((p === 'opencode' || p === 'opencode-go') && (OPENCODE_ANTHROPIC_MODEL_IDS.has(id) || /^claude-/i.test(id))) {
+  if ((p === 'opencode' || p === 'opencode-go') && require('@dome/ai').resolveDomeModel({ provider: p, model: id }).api === 'anthropic-messages') {
     return 'anthropic';
   }
   return 'openai';
@@ -161,22 +54,10 @@ function contentStyleForProvider(provider, modelId) {
  * @param {{ dataUrl: string, mime?: string, name?: string }} image
  * @param {'openai'|'anthropic'} style
  */
-function imageBlock(image, style) {
-  const url = String(image.dataUrl || '').trim();
-  if (!url) return null;
-  if (style === 'anthropic') {
-    const parsed = parseDataUrl(url);
-    if (parsed) {
-      return {
-        type: 'image',
-        source: { type: 'base64', media_type: parsed.mediaType, data: parsed.data },
-      };
-    }
-    if (/^https?:\/\//i.test(url)) {
-      return { type: 'image', source: { type: 'url', url } };
-    }
-  }
-  return { type: 'image_url', image_url: { url } };
+function imageBlock(image) {
+  const parsed = parseDataUrl(image.dataUrl);
+  if (!parsed) throw new Error('Image input requires base64 encoded image data');
+  return { type: 'image', data: parsed.data, mimeType: parsed.mediaType };
 }
 
 /**
@@ -241,12 +122,12 @@ function validateMultimodalRequest(capabilities, payload) {
   const videoCount = (payload.videos || []).length;
   if (imageCount > 0 && !capabilities.supportsImage) {
     throw new Error(
-      'El modelo seleccionado no admite imágenes. Usa MiniMax-M3 u otro modelo con visión.',
+      'El modelo seleccionado no admite imágenes. Elige un modelo con visión.',
     );
   }
   if (videoCount > 0 && !capabilities.supportsVideo) {
     throw new Error(
-      'El modelo seleccionado no admite video. Solo MiniMax-M3 soporta video en chat.',
+      'El modelo seleccionado no admite video. Elige un modelo que declare soporte de video.',
     );
   }
 }
@@ -263,7 +144,7 @@ function validateMultimodalRequest(capabilities, payload) {
 function normalizeUserMessage(content, opts = {}) {
   const provider = String(opts.provider || 'openai').toLowerCase();
   const modelId = String(opts.modelId || '');
-  const capabilities = resolveModelCapabilities(provider, modelId);
+  const capabilities = resolveModelCapabilities(provider, modelId, opts.input);
 
   let text = '';
   let images = [];
@@ -284,7 +165,12 @@ function normalizeUserMessage(content, opts = {}) {
     text = extracted.text;
     images = extracted.images.map((img) => ({ dataUrl: img.dataUrl }));
   } else if (Array.isArray(content)) {
-    return content;
+    validateMultimodalRequest(capabilities, { images: content.filter((b) => b?.type === 'image' || b?.type === 'image_url'), videos: content.filter((b) => b?.type === 'video') });
+    return content.map((b) => {
+      if (b?.type === 'image_url') return imageBlock({ dataUrl: b.image_url?.url });
+      if (b?.type === 'image' && b.source?.type === 'base64') return { type: 'image', data: b.source.data, mimeType: b.source.media_type };
+      return b;
+    });
   } else {
     text = typeof content === 'string' ? content : JSON.stringify(content ?? '');
   }
@@ -308,7 +194,7 @@ function buildImageContent(userText, imageDataUrls, opts = {}) {
   const images = (imageDataUrls || []).filter(Boolean).map((dataUrl) => ({ dataUrl }));
   const provider = opts.provider || 'openai';
   const modelId = opts.modelId || '';
-  const capabilities = resolveModelCapabilities(provider, modelId);
+  const capabilities = resolveModelCapabilities(provider, modelId, opts.input);
   validateMultimodalRequest(capabilities, { images, videos: [] });
   return buildNativeContentBlocks({
     text: userText || '',
@@ -330,6 +216,7 @@ function normalizeMessagesForProvider(messages, opts = {}) {
     const normalized = normalizeUserMessage(m.content, {
       provider,
       modelId,
+      input: opts.input,
       attachments: m.attachments,
     });
     return { ...m, content: normalized };

@@ -1,208 +1,86 @@
-/* eslint-disable no-console */
-/**
- * MCP OAuth - Flujo PKCE para capturar tokens vía redirect (backlinks)
- *
- * Genera URL de autorización, abre el navegador y captura el token cuando
- * el proveedor redirige a dome://mcp-auth/oauth/callback
- */
-const crypto = require('crypto');
-const { shell } = require('electron');
-
+'use strict';
+const { randomBytes, createHash } = require('node:crypto');
+const { auth } = require('@modelcontextprotocol/sdk/client/auth.js');
+const { readSettingSecret, writeSettingSecret } = require('../core/settings-secrets.cjs');
 const REDIRECT_BASE = 'dome://mcp-auth/oauth/callback';
-
-/**
- * Genera code_verifier y code_challenge para PKCE
- */
-function generatePKCE() {
-  const codeVerifier = crypto.randomBytes(32).toString('base64url');
-  const hash = crypto.createHash('sha256').update(codeVerifier).digest();
-  const codeChallenge = hash.toString('base64url');
-  return { codeVerifier, codeChallenge };
+const pending = new Map();
+function credentialKey(serverUrl) {
+  return `mcp_oauth_${createHash('sha256').update(serverUrl).digest('hex')}_token`;
 }
-
-/**
- * Configuración OAuth por proveedor
- * client_id: registrar la app en el proveedor para obtenerlo
- */
-const OAUTH_CONFIG = {
-  neon: {
-    authUrl: 'https://mcp.neon.tech/api/authorize',
-    tokenUrl: 'https://mcp.neon.tech/api/token',
-    clientId: process.env.DOME_NEON_MCP_CLIENT_ID || '',
-    scopes: 'read write *',
-    resource: 'https://mcp.neon.tech/',
-  },
-};
-
-/**
- * Obtiene el client_id configurado para un proveedor
- * Prioridad: env var > database setting
- */
-async function getClientId(providerId, database) {
-  const config = OAUTH_CONFIG[providerId];
-  if (!config) return null;
-  if (config.clientId) return config.clientId;
-  if (database?.getQueries) {
-    const row = database.getQueries().getSetting?.get?.('mcp_oauth_' + providerId + '_client_id');
-    return row?.value ?? null;
-  }
-  return null;
+function createAuthProvider(serverUrl, database, interactive = false) {
+  const queries = () => database.getQueries();
+  const key = credentialKey(serverUrl);
+  const read = () => {
+    const value = readSettingSecret(queries(), key);
+    return value ? JSON.parse(value) : {};
+  };
+  const save = (patch) => writeSettingSecret(queries(), key, JSON.stringify({ ...read(), ...patch }));
+  let verifier;
+  const state = randomBytes(32).toString('base64url');
+  return {
+    redirectUrl: REDIRECT_BASE,
+    clientMetadata: { client_name: 'Dome', redirect_uris: [REDIRECT_BASE],
+      grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' },
+    state: () => state,
+    clientInformation: () => read().client,
+    saveClientInformation: (client) => save({ client }),
+    tokens: () => read().tokens,
+    saveTokens: (tokens) => save({ tokens }),
+    saveCodeVerifier: (value) => { verifier = value; },
+    codeVerifier: () => { if (!verifier) throw new Error('No pending OAuth verifier'); return verifier; },
+    redirectToAuthorization: async (url) => {
+      if (!interactive) throw new Error('MCP authentication required. Sign in from MCP settings.');
+      const entry = pending.get(state);
+      if (!entry) throw new Error('OAuth session has expired');
+      await require('electron').shell.openExternal(String(url));
+    },
+    invalidateCredentials: (scope) => {
+      if (scope === 'all') { writeSettingSecret(queries(), key, ''); verifier = undefined; }
+      else if (scope === 'client') save({ client: undefined });
+      else if (scope === 'tokens') save({ tokens: undefined });
+      else if (scope === 'verifier') verifier = undefined;
+    },
+  };
 }
-
-/**
- * Construye la URL de autorización OAuth con PKCE
- */
-function buildAuthUrl(providerId, codeChallenge, state, clientId) {
-  const config = OAUTH_CONFIG[providerId];
-  if (!config) throw new Error('Proveedor OAuth no soportado: ' + providerId);
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    redirect_uri: REDIRECT_BASE,
-    state,
-    scope: config.scopes || 'read write',
-  });
-  if (config.resource) params.set('resource', config.resource);
-
-  return `${config.authUrl}?${params.toString()}`;
-}
-
-/**
- * Intercambia el código de autorización por access_token
- */
-async function exchangeCodeForToken(providerId, code, codeVerifier, clientId) {
-  const config = OAUTH_CONFIG[providerId];
-  if (!config) throw new Error('Proveedor OAuth no soportado: ' + providerId);
-
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    code_verifier: codeVerifier,
-    client_id: clientId,
-    redirect_uri: REDIRECT_BASE,
-  });
-
-  const res = await fetch(config.tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Token exchange failed: ${res.status} ${text}`);
-  }
-
-  const data = await res.json();
-  return data.access_token || data.token;
-}
-
-const OAUTH_PENDING_TIMEOUT_MS = 10 * 60 * 1000;
-
-function registerOAuthPending(pendingMap, key, entry) {
-  const timer = setTimeout(() => {
-    if (pendingMap.delete(key)) {
-      entry.reject(new Error('OAuth timeout'));
-    }
-  }, OAUTH_PENDING_TIMEOUT_MS);
-  pendingMap.set(key, { ...entry, timer });
-}
-
-function consumeOAuthPending(pendingMap, key) {
-  const flow = pendingMap.get(key);
-  if (!flow) return null;
-  if (flow.timer) clearTimeout(flow.timer);
-  pendingMap.delete(key);
-  return flow;
-}
-
-/**
- * Inicia el flujo OAuth: abre el navegador y retorna una Promise que se resuelve
- * cuando llega el callback con el token.
- */
-function startOAuthFlow(providerId, database) {
-  return new Promise(async (resolve, reject) => {
-    const clientId = await getClientId(providerId, database);
-    if (!clientId) {
-      reject(new Error(
-        'Neon OAuth: falta client_id. Configura DOME_NEON_MCP_CLIENT_ID o registra Dome en Neon Partners (neon.tech/partners).'
-      ));
-      return;
-    }
-
-    const { codeVerifier, codeChallenge } = generatePKCE();
-    const state = Buffer.from(JSON.stringify({ id: 'user-Neon', providerId, ts: Date.now() })).toString('base64url');
-
-    const authUrl = buildAuthUrl(providerId, codeChallenge, state, clientId);
-
-    const pending = global.__mcpOAuthPending || (global.__mcpOAuthPending = new Map());
-    registerOAuthPending(pending, providerId, { resolve, reject, codeVerifier, state, clientId });
-
-    shell.openExternal(authUrl);
-  });
-}
-
-/**
- * Maneja el callback OAuth cuando el usuario es redirigido a dome://...
- */
-function handleOAuthCallback(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'dome:' || !parsed.pathname.includes('oauth/callback')) return false;
-
-    const code = parsed.searchParams.get('code');
-    const state = parsed.searchParams.get('state');
-    const error = parsed.searchParams.get('error');
-
-    if (error) {
-      const pending = global.__mcpOAuthPending;
-      if (pending) {
-        for (const [providerId, p] of pending) {
-          if (p.timer) clearTimeout(p.timer);
-          p.reject(new Error('OAuth rechazado: ' + (parsed.searchParams.get('error_description') || error)));
-          pending.delete(providerId);
-        }
+async function startOAuthFlow(serverId, database) {
+  const row = database.getQueries().listMcpServers.all().find((item) => item.name === serverId);
+  const serverUrl = row?.url || (serverId === 'neon' ? 'https://mcp.neon.tech/mcp' : null);
+  if (!serverUrl || !/^https?:\/\//.test(serverUrl)) throw new Error('Configure an HTTP MCP server before signing in');
+  const provider = createAuthProvider(serverUrl, database, true);
+  const state = provider.state();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pending.delete(state);
+      reject(new Error('OAuth timeout'));
+    }, 600_000);
+    pending.set(state, { provider, serverUrl, resolve, reject, timer });
+    auth(provider, { serverUrl }).then((result) => {
+      if (result === 'AUTHORIZED') {
+        clearTimeout(timer); pending.delete(state);
+        resolve({ connected: true });
       }
-      return true;
-    }
-
-    if (!code || !state) return false;
-
-    const pending = global.__mcpOAuthPending;
-    if (!pending) return false;
-
-    for (const [providerId, p] of pending) {
-      if (p.state === state) {
-        const flow = consumeOAuthPending(pending, providerId);
-        if (!flow) return true;
-        exchangeCodeForToken(providerId, code, flow.codeVerifier, flow.clientId)
-          .then((token) => flow.resolve({ token, providerId }))
-          .catch((err) => flow.reject(err));
-        return true;
-      }
-    }
-
-    console.warn('[MCP OAuth] Callback with unknown or expired state ignored');
-  } catch (e) {
-    console.warn('[MCP OAuth] Callback error:', e?.message);
-  }
-  return false;
+    }).catch((error) => { clearTimeout(timer); pending.delete(state); reject(error); });
+  });
 }
-
-/**
- * Soporta providerId para futuras integraciones (Atlassian, Linear, Slack)
- */
-function getSupportedProviders() {
-  return Object.keys(OAUTH_CONFIG);
+function handleOAuthCallback(value) {
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  if (`${url.protocol}//${url.host}${url.pathname}` !== REDIRECT_BASE) return false;
+  const state = url.searchParams.get('state');
+  const entry = pending.get(state);
+  if (!entry) return false;
+  pending.delete(state); clearTimeout(entry.timer);
+  const error = url.searchParams.get('error');
+  const code = url.searchParams.get('code');
+  if (error || !code) { entry.reject(new Error(error || 'OAuth callback has no code')); return true; }
+  auth(entry.provider, { serverUrl: entry.serverUrl, authorizationCode: code }).then((result) => {
+    if (result !== 'AUTHORIZED') throw new Error('MCP authorization did not complete');
+    void require('./mcp-client.cjs').closeAllMcpClients();
+    entry.resolve({ connected: true });
+  }).catch(entry.reject);
+  return true;
 }
-
-module.exports = {
-  startOAuthFlow,
-  handleOAuthCallback,
-  getSupportedProviders,
-  getClientId,
-  REDIRECT_BASE,
-};
+function getSupportedProviders(database) {
+  return database?.getQueries().listMcpServers.all().filter((row) => row.url).map((row) => row.name) || [];
+}
+module.exports = { createAuthProvider, credentialKey, startOAuthFlow, handleOAuthCallback, getSupportedProviders, REDIRECT_BASE };
