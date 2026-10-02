@@ -15,5 +15,5 @@ export function fireworksProvider(): Provider<"anthropic-messages" | "openai-com
 			"anthropic-messages": anthropicMessagesApi(),
 			"openai-completions": openAICompletionsApi(),
 		},
-	}) as Provider<"anthropic-messages" | "openai-completions">;
+	});
 }

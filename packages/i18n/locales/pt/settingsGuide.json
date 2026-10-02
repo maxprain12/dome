@@ -24,7 +24,7 @@
       "start": "Escolhe um modo ou ativa cada secção. Os modos não são planos pagos."
     },
     "ai": {
-      "description": "Liga a IA do Many e configura a pesquisa, a voz e o contexto.",
+      "description": "Conecte a IA do Many e configure os modelos, imagens, classificação e contexto.",
       "start": "Começa por Conversa. Os outros separadores são opcionais e independentes."
     },
     "cloud": {

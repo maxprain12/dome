@@ -75,6 +75,20 @@ const definitions = Object.entries(schemas).map(([name, schema]) => ({ type: 'fu
 } }));
 const names = new Set(Object.keys(schemas));
 
+async function frameContext(contents, frameId, signal) {
+  if (!frameId) return undefined;
+  return (await command(contents, 'Page.createIsolatedWorld', { frameId, worldName: 'dome-agent-frame' }, signal)).executionContextId;
+}
+
+async function remoteTarget(contents, attribute, token, frameId, signal) {
+  const contextId = await frameContext(contents, frameId, signal);
+  const { result } = await command(contents, 'Runtime.evaluate', {
+    expression: `document.querySelector('[${attribute}="${token}"]')`, ...(contextId ? { contextId } : {}),
+  }, signal);
+  if (!result.objectId || result.subtype === 'null') throw new Error('Target frame or element changed; read the page again');
+  return { objectId: result.objectId, contextId };
+}
+
 async function act(browser, item, name, args, context) {
   const signal = context.signal;
   const vision = item.options.useVision !== 'off' && context.supportsVision !== false;
@@ -92,6 +106,7 @@ async function act(browser, item, name, args, context) {
   if (name === 'browser_switch_tab') item.activeTabId = args.tabId;
   if (name === 'browser_close_tab') {
     if (item.tabs.size === 1) throw new Error('Cannot close the last controlled tab');
+    browser.unhost(tab);
     contents.close(); item.tabs.delete(tab.id); item.activeTabId = item.tabs.keys().next().value;
   }
   if (name === 'browser_tabs') return { tabs: [...item.tabs.values()].map((entry) => ({ id: entry.id, url: entry.view.webContents.getURL(), title: entry.view.webContents.getTitle() })), activeTabId: item.activeTabId };
@@ -103,25 +118,28 @@ async function act(browser, item, name, args, context) {
   if (name === 'browser_find') {
     const found = await browser.evaluate(item, `Array.from(document.querySelectorAll('h1,h2,h3,p,li,span')).find(n=>n.textContent.includes(${JSON.stringify(args.text)}))?.scrollIntoView({block:'center'}) ?? null`, signal, tab.id, args.frameId);
     // scrollIntoView returns undefined; verify the literal separately.
-    if (found === null && !(await browser.evaluate(item, `document.body.innerText.includes(${JSON.stringify(args.text)})`, signal, tab.id))) throw new Error('Text not observed');
+    if (found === null && !(await browser.evaluate(item, `document.body.innerText.includes(${JSON.stringify(args.text)})`, signal, tab.id, args.frameId))) throw new Error('Text not observed');
   }
   if (name === 'browser_wait') {
     const waitSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(args.timeoutMs)]) : AbortSignal.timeout(args.timeoutMs);
     await bounded((async () => {
-      while (!(await browser.evaluate(item, `document.body.innerText.includes(${JSON.stringify(args.text)})`, waitSignal, tab.id))) await bounded(new Promise((resolve) => setTimeout(resolve, 100)), waitSignal);
+      while (!(await browser.evaluate(item, `document.body.innerText.includes(${JSON.stringify(args.text)})`, waitSignal, tab.id, args.frameId))) await bounded(new Promise((resolve) => setTimeout(resolve, 100)), waitSignal);
     })(), waitSignal, args.timeoutMs);
   }
-  if (name === 'browser_send_keys') await sendKeys(contents, args.keys, signal);
+  if (name === 'browser_send_keys') {
+    if (args.frameId) await browser.evaluate(item, 'document.activeElement?.focus()', signal, tab.id, args.frameId);
+    await sendKeys(contents, args.keys, signal, await frameContext(contents, args.frameId, signal));
+  }
   if (name === 'browser_fill_secret') {
     const token = randomUUID();
     const targetResult = await browser.evaluate(item, `globalThis.__domePageAgent.secretTarget(${JSON.stringify(args.snapshotId)},${JSON.stringify(args.elementId)},${JSON.stringify(token)})`, signal, tab.id, args.frameId);
     if (!targetResult.success) throw new Error(targetResult.error);
     const secret = require('../core/settings-secrets.cjs').readSettingSecret(require('../core/database.cjs').getQueries(), `browser_secret_${args.secretRef}_token`);
     if (!secret) throw new Error('Secret reference is not configured');
-    const { result: remote } = await command(contents, 'Runtime.evaluate', { expression: `document.querySelector('[data-dome-secret="${token}"]')` }, signal);
+    const remote = await remoteTarget(contents, 'data-dome-secret', token, args.frameId, signal);
     const { nodeId } = await command(contents, 'DOM.requestNode', { objectId: remote.objectId }, signal);
     await command(contents, 'DOM.focus', { nodeId }, signal);
-    await sendKeys(contents, 'Primary+A', signal);
+    await sendKeys(contents, 'Primary+A', signal, remote.contextId);
     item.hasSecrets = true;
     item.secrets ||= new Set(); item.secrets.add(secret);
     await command(contents, 'Input.insertText', { text: secret }, signal);
@@ -132,13 +150,13 @@ async function act(browser, item, name, args, context) {
     const token = randomUUID();
     const result = await browser.evaluate(item, `globalThis.__domePageAgent.uploadTarget(${JSON.stringify(args.snapshotId)},${JSON.stringify(args.elementId)},${JSON.stringify(token)})`, signal, tab.id, args.frameId);
     if (!result.success) throw new Error(result.error);
-    const { result: remote } = await command(contents, 'Runtime.evaluate', { expression: `document.querySelector('[data-dome-upload="${token}"]')` }, signal);
+    const remote = await remoteTarget(contents, 'data-dome-upload', token, args.frameId, signal);
     await command(contents, 'DOM.setFileInputFiles', { files: [file], objectId: remote.objectId }, signal);
     await command(contents, 'Runtime.releaseObject', { objectId: remote.objectId }, signal);
   }
   if (name === 'browser_evaluate') {
     if (item.hasSecrets) throw new Error('JavaScript evaluation is disabled after secrets have been filled');
-    return { value: await browser.evaluate(item, args.script, signal, tab.id), snapshot: await browser.snapshot(item, signal, tab.id) };
+    return { value: await browser.evaluate(item, args.script, signal, tab.id, args.frameId), snapshot: await browser.snapshot(item, signal, tab.id) };
   }
   if (name === 'browser_downloads') return { downloads: item.downloads || [] };
   if (name === 'browser_extract') return require('./extraction.cjs').extract(browser, item, args, context);
@@ -155,7 +173,7 @@ async function execute(name, raw, context = {}) {
   if (!context.threadId && !context.browserSessionId && !context.executionId) throw new Error('Browser actions require a run-bound session');
   if (name === 'browser_configure') {
     await browser.finish(owner);
-    browser.close(owner);
+    await browser.close(owner);
     const options = { ...args.options, outputDirectory: context.browserOutputDirectory };
     await browser.create(owner, context.signal, options);
     return { success: true, sessionId: owner };

@@ -33,6 +33,10 @@ function copyPackage(realPkgDir, destDir) {
     fail(`package.json missing in ${realPkgDir}`);
   }
   fs.copyFileSync(pkgJsonSrc, path.join(destDir, 'package.json'));
+  for (const filename of ['LICENSE.upstream', 'UPSTREAM.md']) {
+    const source = path.join(realPkgDir, filename);
+    if (fs.existsSync(source)) fs.copyFileSync(source, path.join(destDir, filename));
+  }
 
   const distSrc = path.join(realPkgDir, 'dist');
   if (!fs.existsSync(distSrc)) {

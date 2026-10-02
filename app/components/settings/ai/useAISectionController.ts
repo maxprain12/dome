@@ -22,7 +22,7 @@ import {
   type TestResult,
 } from './aiSectionHelpers';
 
-export type AISettingsTab = 'chat' | 'context';
+export type AISettingsTab = 'chat' | 'context' | 'capabilities';
 
 export function useAISectionController() {
   const { t } = useTranslation();

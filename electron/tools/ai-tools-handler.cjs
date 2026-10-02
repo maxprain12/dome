@@ -4085,6 +4085,8 @@ module.exports = {
 
   // MCP file import
   importFileToLibrary,
+  imageGenerate: (args, context) => require('../ai/capabilities.cjs').generate(args, context),
+  aiClassify: (args, context) => require('../ai/capabilities.cjs').classify(args, context),
 
   pdfRenderPage,
 

@@ -12,6 +12,8 @@
  * the `'misc'` family via `familyOf()`.
  */
 
+import browserCatalog from './families/browser-catalog.json' with { type: 'json' };
+
 export type ToolFamily =
   | 'web'
   | 'resources'
@@ -41,7 +43,9 @@ export type ToolFamily =
   | 'misc';
 
 /** Tool name → family. Source: getAllToolDefinitions() (123 tools). */
-export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = { web_fetch: 'web',
+export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = { web_fetch: 'web', web_search: 'web',
+  image_generate: 'image', ai_classify: 'vision',
+  ...Object.fromEntries(browserCatalog.map(entry => [entry.function.name, 'browser' as const])),
   // resources
   resource_search: 'resources', resource_get: 'resources', resource_list: 'resources',
   get_document_structure: 'resources',

@@ -16,6 +16,25 @@ async function scopedPath(raw, context, writing = false) {
   throw new Error('File is outside the authorized workspace or selected files');
 }
 
+async function scopedOutputDirectory(raw, workspaceCwd) {
+  if (!workspaceCwd) throw new Error('Browser artifacts require an authorized workspace');
+  const root = await fs.realpath(workspaceCwd);
+  let ancestor = path.resolve(workspaceCwd, raw);
+  const missing = [];
+  while (true) {
+    try {
+      const real = await fs.realpath(ancestor);
+      const relative = path.relative(root, real);
+      if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Browser artifact directory is outside the authorized workspace');
+      return path.join(real, ...missing.reverse());
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      missing.push(path.basename(ancestor));
+      ancestor = path.dirname(ancestor);
+    }
+  }
+}
+
 async function fileAction(name, args, context) {
   const writing = name !== 'browser_read_file';
   const target = await scopedPath(args.path, context, writing);
@@ -28,6 +47,7 @@ async function fileAction(name, args, context) {
   try { await fs.lstat(target); await scopedPath(target, context); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   let text = args.text;
   if (name === 'browser_replace_file') {
+    if ((await fs.stat(target)).size > 400000) throw new Error('File exceeds text replace limit');
     const previous = await fs.readFile(target, 'utf8');
     if (!args.oldText || previous.split(args.oldText).length !== 2) throw new Error('Replacement requires exactly one matching occurrence');
     text = previous.replace(args.oldText, args.text);
@@ -36,4 +56,4 @@ async function fileAction(name, args, context) {
   await fs.writeFile(target, text, 'utf8');
   return { success: true, path: target };
 }
-module.exports = { scopedPath, fileAction };
+module.exports = { scopedPath, scopedOutputDirectory, fileAction };

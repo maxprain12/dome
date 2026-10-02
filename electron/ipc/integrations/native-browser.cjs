@@ -11,6 +11,7 @@ const BoundsSchema = IdSchema.extend({ bounds: z.object({
 const RecoverySchema = z.object({ recoveryId: z.string().uuid() }).strict();
 
 function register({ ipcMain, windowManager }) {
+  browser.getHostWindow = () => windowManager.get('main');
   const handler = (schema, fn) => async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try { return await fn(schema.parse(raw), event); }
@@ -28,7 +29,7 @@ function register({ ipcMain, windowManager }) {
     return { success: true };
   }));
   ipcMain.handle('native-browser:detach', handler(IdSchema, ({ sessionId }) => { browser.detach(sessionId); return { success: true }; }));
-  ipcMain.handle('native-browser:close', handler(IdSchema, ({ sessionId }) => { browser.close(sessionId); return { success: true }; }));
+  ipcMain.handle('native-browser:close', handler(IdSchema, async ({ sessionId }) => { await browser.close(sessionId); return { success: true }; }));
   ipcMain.handle('native-browser:get-options', handler(z.object({}).strict(), () => {
     const options = require('../../browser-native/run-options.cjs').readOptions(require('../../core/database.cjs'));
     const { env, proxy, ...safeBrowser } = options.browser;

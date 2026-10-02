@@ -93,6 +93,7 @@ export function createPageAgent(doc: Document = document, includeSensitive = fal
       node.scrollTo({ top: action.direction === 'top' ? 0 : action.direction === 'bottom' ? node.scrollHeight : node.scrollTop + node.clientHeight * 0.75 * (action.direction === 'up' ? -1 : 1), behavior: 'auto' });
     } else if (action.kind === 'click') {
       node.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+      node.focus({ preventScroll: true });
       node.click();
     } else if (action.kind === 'select') {
       if (node.tagName !== 'SELECT') return { success: false, error: 'Use select only with a native select; click custom options.' };
@@ -109,6 +110,7 @@ export function createPageAgent(doc: Document = document, includeSensitive = fal
         !['text', 'search', 'url', 'email', 'tel', 'number', 'textarea'].includes(input.type))
         return { success: false, error: 'This field cannot be filled.' };
       const proto = Object.getPrototypeOf(node);
+      input.focus({ preventScroll: true });
       Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(node, String(action.value || '').slice(0, 10000));
       node.dispatchEvent(new win.Event('input', { bubbles: true }));
       node.dispatchEvent(new win.Event('change', { bubbles: true }));

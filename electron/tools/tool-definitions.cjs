@@ -12,7 +12,7 @@ function getDomeToolsPkg() {
 
 function getPackageFamilyDefinitions() {
   const pkg = getDomeToolsPkg();
-  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions(), ...pkg.browserToolDefinitions()];
+  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions(), ...pkg.browserToolDefinitions(), ...pkg.aiCapabilityToolDefinitions()];
 }
 
 function getPackageFamilyToolNames() {
@@ -41,6 +41,8 @@ const TOOL_HANDLER_MAP = {
   resource_delete: 'resourceDelete',
   resource_move_to_folder: 'resourceMoveToFolder',
   flashcard_create: 'flashcardCreate',
+  image_generate: 'imageGenerate',
+  ai_classify: 'aiClassify',
   web_search: 'nativeWebSearch',
   web_fetch: 'webFetch',
 
@@ -233,7 +235,7 @@ function getToolDefsBySubagent() {
   }
   const pick = (...names) => names.map((n) => byName[n]).filter(Boolean);
   return {
-    web: pick('web_search', 'web_fetch'),
+    web: [...pick('web_search', 'web_fetch'), ...all.filter(def => def.function.name.startsWith('browser_'))],
     library: pick(
       'resource_search',
       'resource_get',

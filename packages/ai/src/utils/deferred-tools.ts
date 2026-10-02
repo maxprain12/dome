@@ -20,7 +20,7 @@ function collectToolResultDeferredNames(
 	deferredNames: Set<string>,
 	normalizeName: ToolNameNormalizer,
 ): void {
-	for (const name of message.addedToolNames ?? []) {
+	for (const name of (message as ToolResultMessage & { addedToolNames?: string[] }).addedToolNames ?? []) {
 		const normalizedName = normalizeName(name);
 		if (!usedNames.has(normalizedName)) deferredNames.add(normalizedName);
 	}

@@ -45,3 +45,31 @@ Electron remains sandboxed. Optional `playwright-core` connects only to an expli
 Passed: native action policy/file/CDP/history/completion tests; 546 renderer tests; TypeScript, lint, build, guardrails, Sonar, IPC/Zod/protocol inventory, tool-cap and packaged dependencies. Native Electron fixture verifies stale snapshot rejection, CDP input without window focus, file upload, multiple tabs, screenshots and cleanup. On this macOS host the smoke command uses `--disable-gpu` to avoid a platform startup crash; production sandbox settings are unchanged.
 
 Cross-platform installers and live external Chromium/profile/OAuth combinations remain acceptance checks requiring their respective installations/accounts. Trace output is a scrubbed network-event trace, rather than the Python Browser-Use trace format.
+
+## Phase 3 evidence
+
+Synchronized the vendored pi-ai implementation and lazy adapters to the fixed upstream commit, retaining Dome bridges and the legacy image collection API. Included generated mixed catalogs (chat, image, classifier), classification protocols, compact assistant frames, transcript/system-message support and deferred/provider contracts. Provider catalog data was generated using the pinned upstream generator on 2026-10-02; upstream excludes these generated files from Git. See `packages/ai/UPSTREAM.md` for adaptations and attribution.
+
+A profile collection shares Dome encrypted credentials and persisted dynamic catalogs across chat, the harness, generation and classification. Settings expose model selections, provider-scoped API/OAuth login, catalog refresh diagnostics and custom compatible providers. Agent tools persist generated images as library resources and return adapter classifier answers/usage. Model handoff checks reject image history on text-only models and preserve the session; existing reasoning clamping and context compaction remain active. The native completion tool ends the existing loop with schema validation.
+
+Passed: 160 SDK tests, 82 harness tests, ten image/classifier/auth/cancellation/handoff/catalog/credential/local-provider/JSON-mode contracts, native action and runtime characterization tests, 548 renderer tests, TypeScript, lint (existing warnings), build, guardrails, Sonar, IPC inventory/Zod, remote protocol, tool coverage/priorities, packaged dependency resolution and dependency-cruiser. Both Electron and installed Chrome passed the isolated browser/CDP/upload/tab/capture/GIF/HAR/trace fixture. Recordings are bounded and network traces omit secrets and request bodies.
+
+Remaining platform acceptance: macOS installer packaging and Windows/Linux installers must run on their corresponding build hosts; real account OAuth/provider smoke needs configured accounts. Public search engines can return captchas or change their DOM and are not deterministic acceptance fixtures. No historical automation/search-selection migration was changed or reactivated.
+
+## Final integration checks
+
+The user-reported main-process startup syntax error was corrected by making native tab creation asynchronous. `pnpm run check:main-syntax` now parses every CommonJS main/script source without executing it and runs in CI, alongside SDK and deterministic browser/AI contracts. CI also runs the native Electron browser fixture on Linux.
+
+Additional regression coverage: workspace artifact symlinks; manual captcha retry retaining its temporary isolated partition; recursive classifier tool schemas; concurrent credential refresh metadata; profile catalog persistence; signed Google organic redirects with private destination rejection. Frame interaction uses its own CDP context, and filling/clicking transfers DOM focus for subsequent keyboard actions. Native Electron and installed Chromium fixtures now verify frame input, background keyboard and upload as well as tabs, captures, GIF/HAR/traces; MP4 also passed on native Electron.
+
+Live local searches on 2026-10-02 returned organic sources from DuckDuckGo, Bing and Google. Google client redirects are awaited, and signed organic destination links are resolved by local HTTP with public URL checks, no page bodies or search API. The three-engine smoke completed with orderly session teardown. These smoke observations do not guarantee future public engine availability.
+
+The built Dome shell and AI capability settings were opened using an isolated `DOME_PROFILE`, following the `dome-reproduce-ui` workflow. No renderer errors were observed; IPC reported 42 providers and a mixed catalog of 1,531 chat, 59 image and 18 classifier models. Counts describe the generated catalog, not credential availability. The user's existing profile was not accessed.
+
+Merged phases: #1734 (browser/search), #1735 (actions/options). The third PR contains unified AI integration and the final browser regressions above.
+
+Mac arm64 unsigned application packaging passed, including native executable checks and full ASAR dependency resolution. The packaged app starts with an isolated profile and its AI catalog IPC returns all mixed model types. SDK attribution is included in materialized workspace packages. Signed installer/notarization and Windows/Linux installer checks remain separate platform acceptance requirements.
+
+Background screenshots and recording frames use CDP renderer captures, avoiding native window capture for unattached sessions. The Electron and installed Chromium fixtures verify PNG viewport dimensions, with native GIF/MP4 recording also passing. CI smoke logs separate navigation, input, files, frame actions, tabs and captures for platform diagnosis.
+
+Native background views share the existing main window compositor while remaining entirely outside its visible bounds; no additional product windows are created. The browser fixture supplies a hidden shell host, and deterministic tests cover background/visible transitions and parent cleanup on close.

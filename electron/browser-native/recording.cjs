@@ -22,7 +22,7 @@ async function startRecording(browser, item, directory) {
         recording.contents.add(contents);
       }
       if (item.options.record !== 'off' && !item.hasSecrets) {
-        const image = await bounded(contents.capturePage(), undefined, 5000);
+        const image = await bounded(require('./capture.cjs').capture(contents), undefined, 5000);
         const bytes = image.toPNG();
         recording.bytes += bytes.length;
         await fs.writeFile(path.join(directory, `${String(recording.frames).padStart(6, '0')}.png`), bytes);
@@ -39,9 +39,16 @@ async function startRecording(browser, item, directory) {
     const url = request?.url || response?.url;
     let safeUrl;
     try { const parsed = new URL(url); parsed.search = ''; parsed.hash = ''; parsed.username = ''; parsed.password = ''; safeUrl = parsed.toString(); } catch { return; }
-    recording.events.push({ method, requestId: params.requestId, timestamp: params.timestamp, url: safeUrl,
+    recording.events.push({ method, wallTime: params.wallTime, requestId: params.requestId, timestamp: params.timestamp, url: safeUrl,
       requestMethod: request?.method, status: response?.status, mimeType: response?.mimeType });
   };
+  recording.attach = async contents => {
+    if ((!item.options.recordHar && !item.options.traces) || recording.contents.has(contents)) return;
+    await command(contents, 'Network.enable');
+    contents.debugger.on('message', recording.onMessage);
+    recording.contents.add(contents);
+  };
+  await recording.attach(browser.tab(item).view.webContents);
   recording.tick = tick;
   await tick();
 }
@@ -60,7 +67,7 @@ async function finishRecording(item) {
   if (item.options.recordHar) {
     const target = path.join(recording.directory, 'network.har');
     const entries = recording.events.filter((event) => event.method === 'Network.responseReceived').map((event) => ({
-      startedDateTime: new Date().toISOString(), time: 0,
+      startedDateTime: new Date((recording.events.find(request => request.requestId === event.requestId && request.wallTime)?.wallTime || Date.now() / 1000) * 1000).toISOString(), time: 0,
       request: { method: recording.events.find(request => request.requestId === event.requestId && request.requestMethod)?.requestMethod || 'GET', url: event.url, httpVersion: '', cookies: [], headers: [], queryString: [], headersSize: -1, bodySize: -1 },
       response: { status: event.status, statusText: '', httpVersion: '', cookies: [], headers: [], content: { size: 0, mimeType: event.mimeType || '' }, redirectURL: '', headersSize: -1, bodySize: -1 },
       cache: {}, timings: { send: 0, wait: 0, receive: 0 },
@@ -72,7 +79,7 @@ async function finishRecording(item) {
     if (!paths) throw new Error('Packaged FFmpeg is unavailable');
     const target = path.join(recording.directory, `browser.${item.options.record}`);
     const process = spawn(paths.ffmpegPath, ['-y', '-framerate', String(item.options.recordFps), '-i', path.join(recording.directory, '%06d.png'),
-      ...(item.options.record === 'mp4' ? ['-pix_fmt', 'yuv420p'] : []), target], { stdio: ['ignore', 'ignore', 'pipe'] });
+      ...(item.options.record === 'mp4' ? ['-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-pix_fmt', 'yuv420p'] : []), target], { stdio: ['ignore', 'ignore', 'pipe'] });
     await bounded(new Promise((resolve, reject) => { process.on('error', reject); process.on('exit', (code) => code === 0 ? resolve() : reject(new Error('Browser recording encoding failed'))); }), undefined, 60000, () => process.kill());
     recording.outputs.push(target);
     for (let index = 0; index < recording.frames; index++) await fs.unlink(path.join(recording.directory, `${String(index).padStart(6, '0')}.png`)).catch(() => {});

@@ -86,6 +86,7 @@ import { SocialEvidenceCard } from '@/components/social/cards/SocialEvidenceCard
 import { SocialProfileCard } from '@/components/social/cards/SocialProfileCard';
 import { parseSocialToolResult } from '@/components/chat/tool-card/socialToolResults';
 
+import { GeneratedImagesResult } from './tool-card/GeneratedImagesResult';
 import { WebSearchResults } from './tool-card/WebSearchResults';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -482,6 +483,7 @@ export default function ChatToolCard({
   );
 
   const renderResultContent = (): ReactNode => {
+    if (toolCall.name === 'image_generate') { const images = <GeneratedImagesResult result={toolCall.result} />; if (!toolCall.error) return images; }
     if (toolCall.name === 'web_search') return <WebSearchResults result={toolCall.result} />;
     const skipDump = Boolean(socialView) && !showRawJson;
     const renderers: ReadonlyArray<() => ReactNode> = skipDump

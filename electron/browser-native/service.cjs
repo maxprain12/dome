@@ -10,9 +10,10 @@ const { bounded: wait } = require('./async.cjs');
 
 const WORLD = 1011;
 class NativeBrowserService {
-  constructor({ electron = () => require('electron'), validateUrl = assertPublicUrl } = {}) {
+  constructor({ electron = () => require('electron'), validateUrl = assertPublicUrl, getHostWindow = () => undefined } = {}) {
     this.electron = electron;
     this.validateUrl = validateUrl;
+    this.getHostWindow = getHostWindow;
     this.slots = new Slots(2);
     this.sessions = new Map();
     this.pending = new Map();
@@ -89,10 +90,13 @@ class NativeBrowserService {
 
   async newTab(item) {
     const view = await item.makeView();
-    await bounded(view.webContents.loadURL('about:blank'), undefined, 15000);
     const id = randomUUID();
+    const tab = { id, view, initializedUrl: null, hostWindow: null };
+    item.tabs.set(id, tab);
     view.setBounds({ x: 0, y: 0, ...item.options.viewport });
+    this.park(item, tab);
     if (item.options.userAgent) view.webContents.setUserAgent(item.options.userAgent);
+    await bounded(view.webContents.loadURL('about:blank'), undefined, 15000);
     view.webContents.setWindowOpenHandler(({ url }) => {
       // Keep popups inside the controlled session; never grant app IPC to them.
       void this.run(item.id, undefined, async (session) => {
@@ -101,8 +105,7 @@ class NativeBrowserService {
       }).catch(() => {});
       return { action: 'deny' };
     });
-    const tab = { id, view, initializedUrl: null };
-    item.tabs.set(id, tab);
+    await item.recording?.attach?.(view.webContents);
     item.activeTabId = id;
     return tab;
   }
@@ -131,7 +134,24 @@ class NativeBrowserService {
     assertDomain(target, item.options);
     const tab = this.tab(item, tabId);
     tab.initializedUrl = null;
-    await bounded(tab.view.webContents.loadURL(target), signal, 30000, () => tab.view.webContents.stop());
+    const contents = tab.view.webContents;
+    try {
+      await bounded(contents.loadURL(target), signal, 30000, () => contents.stop());
+    } catch (error) {
+      if (signal?.aborted || !(error.code === 'ERR_ABORTED' || error.errno === -3)) throw error;
+      // A page may replace its initial navigation with a client redirect.
+      // Keep the same deadline and inspect the settled destination, never the aborted document.
+      await bounded((async () => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          await wait(new Promise(resolve => setTimeout(resolve, 50)), signal);
+          const current = contents.getURL();
+          if (current !== target && /^https?:/.test(current) && !contents.isLoadingMainFrame?.()) {
+            await this.validateUrl(current); assertDomain(current, item.options); return;
+          }
+        }
+        throw error;
+      })(), signal, 5000);
+    }
     await require('./cdp.cjs').command(tab.view.webContents, 'Emulation.setDeviceMetricsOverride', { ...item.options.viewport, deviceScaleFactor: item.options.deviceScaleFactor, mobile: item.options.mobile }, signal);
     if (item.options.waitAfterLoadMs) await wait(new Promise((resolve) => setTimeout(resolve, item.options.waitAfterLoadMs)), signal);
     return this.snapshot(item, signal, tab.id);
@@ -175,7 +195,7 @@ class NativeBrowserService {
       const { window, view } = item.visible;
       this.attach(item.id, window, view.getBounds());
     }
-    if (includeScreenshot && !item.hasSecrets) data.screenshot = (await bounded(tab.view.webContents.capturePage(), signal)).toDataURL();
+    if (includeScreenshot && !item.hasSecrets) data.screenshot = (await require('./capture.cjs').capture(tab.view.webContents, signal)).toDataURL();
     if (item.secrets?.size) {
       let serialized = JSON.stringify(data);
       for (const secret of item.secrets) serialized = serialized.split(JSON.stringify(secret).slice(1, -1)).join('[redacted]');
@@ -196,7 +216,7 @@ class NativeBrowserService {
         return { success: true, url: data.url, title: data.title, content: String(content || '').slice(0, request.maxLength),
           metadata: { url: data.url, capturedAt: data.capturedAt }, screenshot: data.screenshot || null, screenshotFormat: 'png', provider: 'chromium' };
       });
-    } finally { this.close(owner); }
+    } finally { await this.close(owner); }
   }
 
   rememberRecovery(item, url) {
@@ -216,21 +236,52 @@ class NativeBrowserService {
     return this.run(owner, signal, (item) => this.navigate(item, saved.url, signal), { partition: saved.partition });
   }
 
+  recoveryPartition(urls) {
+    for (const saved of this.recovery.values()) {
+      if (saved.expires > Date.now() && urls.includes(saved.url)) return saved.partition;
+    }
+    return undefined;
+  }
+
   attach(owner, window, bounds) {
     const item = this.sessions.get(owner);
     if (!item) throw new Error('Browser session no longer exists');
     if (item.options.backend === 'chromium') throw new Error('The advanced Chromium backend uses its own local browser; choose headless=false to interact');
     this.detach(owner);
-    const view = this.tab(item).view;
+    const tab = this.tab(item);
+    this.unhost(tab);
+    const view = tab.view;
     window.contentView.addChildView(view);
+    tab.hostWindow = window;
     view.setBounds(bounds);
     item.visible = { window, view };
   }
 
   detach(owner) {
     const item = this.sessions.get(owner);
-    if (item?.visible && !item.visible.window.isDestroyed()) item.visible.window.contentView.removeChildView(item.visible.view);
+    if (item?.visible) {
+      const tab = [...item.tabs.values()].find(entry => entry.view === item.visible.view);
+      if (tab) { this.unhost(tab); this.park(item, tab); }
+    }
     if (item) item.visible = null;
+  }
+
+  park(item, tab) {
+    if (item.options.backend === 'chromium') return;
+    const window = this.getHostWindow();
+    if (!window || window.isDestroyed()) return;
+    this.unhost(tab);
+    // A window-backed compositor is required on Linux. Keep background tabs
+    // outside the shell's visible area, using its existing window only.
+    const { width, height } = item.options.viewport;
+    tab.view.setBounds({ x: -width - 1, y: -height - 1, width, height });
+    window.contentView.addChildView(tab.view);
+    tab.hostWindow = window;
+  }
+
+  unhost(tab) {
+    if (tab.hostWindow && !tab.hostWindow.isDestroyed()) tab.hostWindow.contentView.removeChildView(tab.view);
+    tab.hostWindow = null;
   }
 
   close(owner) {
@@ -239,17 +290,30 @@ class NativeBrowserService {
     this.detach(owner);
     if (item.recording) { item.recording.stopped = true; clearTimeout(item.recording.timer); }
     this.sessions.delete(owner);
-    for (const tab of item.tabs.values()) if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
-    if (item.partition && !item.options.profile && ![...this.recovery.values()].some((saved) => saved.partition === item.partition)) void item.browserSession.clearStorageData().catch(() => {});
-    if (item.dispose) void item.dispose().catch(() => {});
+    const closed = [...item.tabs.values()].map(tab => {
+      this.unhost(tab);
+      const { view } = tab;
+      const contents = view.webContents;
+      if (contents.isDestroyed()) return Promise.resolve();
+      if (!contents.once) { contents.close(); return Promise.resolve(); }
+      return new Promise(resolve => {
+        const timer = setTimeout(resolve, 1000);
+        contents.once('destroyed', () => { clearTimeout(timer); resolve(); });
+        contents.close({ waitForBeforeUnload: false });
+      });
+    });
     item.release();
+    return Promise.all(closed).then(async () => {
+      if (item.partition && !item.options.profile && ![...this.recovery.values()].some(saved => saved.partition === item.partition)) await item.browserSession.clearStorageData().catch(() => {});
+      if (item.dispose) await item.dispose().catch(() => {});
+    });
   }
 
   async finish(owner) {
     const item = this.sessions.get(owner);
     if (!item) return [];
     try { return await require('./recording.cjs').finishRecording(item); }
-    finally { if (!item.options.keepAlive) this.close(owner); }
+    finally { if (!item.options.keepAlive) await this.close(owner); }
   }
 }
 

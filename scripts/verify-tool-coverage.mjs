@@ -227,6 +227,11 @@ function main() {
     for (const entry of catalog) handlerKeys.add(entry.function.name);
   }
 
+  if (src.includes('...pkg.aiCapabilityToolDefinitions()')) {
+    const schemas = JSON.parse(fs.readFileSync(path.join(__dirname, '../packages/tools/src/families/ai.schema.json'), 'utf8'));
+    names.push(...schemas.map(entry => entry.function.name));
+  }
+
   const missing = [];
   for (const name of names) {
     const norm = normalizeToolName(name);

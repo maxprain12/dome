@@ -5,7 +5,6 @@
  * Refreshes OAuth (Copilot / Claude / Codex) on each agent or LLM call.
  */
 
-const { createDomeCredentialStore } = require('./dome-credential-store.cjs');
 
 const DOME_TO_PI_PROVIDER = {
   copilot: 'github-copilot',
@@ -15,15 +14,7 @@ const DOME_TO_PI_PROVIDER = {
   qwen: 'qwen-token-plan',
 };
 
-let cachedStore = null;
-let cachedDatabase = null;
-
-function credentialStoreFor(database) {
-  if (cachedStore && cachedDatabase === database) return cachedStore;
-  cachedDatabase = database;
-  cachedStore = createDomeCredentialStore(database);
-  return cachedStore;
-}
+const { credentialStoreFor, getModelCollection } = require('./model-collection.cjs');
 
 function piProviderId(domeProvider, resolvedModel) {
   if (resolvedModel?.provider) return resolvedModel.provider;
@@ -37,20 +28,12 @@ function piProviderId(domeProvider, resolvedModel) {
  */
 async function resolveRequestAuth(ai, opts) {
   const providerId = piProviderId(opts.provider, opts.resolvedModel);
-  const providers = typeof ai.builtinProviders === 'function' ? ai.builtinProviders() : [];
-  const provider = providers.find((p) => p && p.id === providerId);
+  const models = await getModelCollection(opts.database);
+  const provider = models.getProvider(providerId);
   if (!provider?.auth) return undefined;
-
-  const credentials = credentialStoreFor(opts.database);
-  const authContext =
-    typeof ai.defaultProviderAuthContext === 'function'
-      ? ai.defaultProviderAuthContext()
-      : { env: async () => undefined, fileExists: async () => false };
-
   const overrides = {};
   if (opts.apiKey && provider.auth.apiKey) overrides.apiKey = opts.apiKey;
-
-  const result = await ai.resolveProviderAuth(provider, credentials, authContext, overrides);
+  const result = await models.getAuth(opts.resolvedModel || providerId, overrides);
   if (!result?.auth) return undefined;
   return {
     apiKey: result.auth.apiKey,

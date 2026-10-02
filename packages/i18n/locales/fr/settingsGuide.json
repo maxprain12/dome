@@ -24,7 +24,7 @@
       "start": "Choisissez un mode ou activez les sections. Les modes ne sont pas des offres payantes."
     },
     "ai": {
-      "description": "Connectez l’IA de Many et configurez la recherche, la voix et le contexte.",
+      "description": "Connectez l’IA de Many et configurez ses modèles, ses images, sa classification et son contexte.",
       "start": "Commencez par Conversation. Les autres onglets sont facultatifs et indépendants."
     },
     "cloud": {

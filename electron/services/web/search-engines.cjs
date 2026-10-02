@@ -34,7 +34,7 @@ function inspectSearchPage(engine) {
     google: '#search div.MjjYud',
   };
   const entries = Array.from(document.querySelectorAll(selectors[engine])).flatMap((node) => {
-    const heading = node.querySelector(engine === 'duckduckgo' ? '[data-testid="result-title-a"], .result__a' : 'h2, h3');
+    const heading = node.querySelector(engine === 'duckduckgo' ? '[data-testid="result-title-a"], .result__a' : engine === 'google' ? 'h3' : 'h2');
     const anchor = heading?.closest('a') || heading?.querySelector('a');
     if (!anchor?.href || !heading?.textContent?.trim()) return [];
     const snippet = node.querySelector('[data-result="snippet"], [data-testid="result-snippet"], .result__snippet, .b_caption p, .VwiC3b');

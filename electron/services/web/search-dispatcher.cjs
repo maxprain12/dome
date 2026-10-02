@@ -20,6 +20,7 @@ function createSearchService(browser, now = Date.now) {
   async function execute(request, signal) {
     const engines = request.engine === 'auto' ? ['duckduckgo', 'bing'] : [request.engine];
     const owner = `search:${randomUUID()}`;
+    const partition = browser.recoveryPartition?.(engines.map((engine) => searchUrl(engine, request)));
     let last;
     try {
       return await browser.run(owner, signal, async (item) => {
@@ -28,7 +29,8 @@ function createSearchService(browser, now = Date.now) {
           try {
             await browser.navigate(item, url, signal);
             const inspected = await browser.evaluate(item, `(${inspectSearchPage.toString()})(${JSON.stringify(engine)})`, signal);
-            const results = normalizeResults(inspected.entries, request.count);
+            const entries = await require('./search-redirects.cjs').resolveEngineUrls(inspected.entries.slice(0, request.count * 2), signal);
+            const results = normalizeResults(entries, request.count);
             const status = inspected.status === 'success' && !results.length ? 'page_changed' : inspected.status;
             last = { success: ['success', 'empty'].includes(status), status, query: request.query, engine, searchUrl: url,
               capturedAt: new Date(now()).toISOString(), results };
@@ -40,8 +42,8 @@ function createSearchService(browser, now = Date.now) {
           }
         }
         return last;
-      });
-    } finally { browser.close(owner); }
+      }, partition ? { partition } : undefined);
+    } finally { await browser.close(owner); }
   }
 
   async function search(args, callerSignal) {

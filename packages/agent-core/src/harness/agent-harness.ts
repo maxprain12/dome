@@ -188,6 +188,7 @@ export class AgentHarness<
 	private runPromise?: Promise<void>;
 	private pendingSessionWrites: PendingSessionWrite[] = [];
 	private model: Model<any>;
+	private readonly models?: import("@dome/ai").Models;
 	private thinkingLevel: ThinkingLevel;
 	private systemPrompt: AgentHarnessOptions<TSkill, TPromptTemplate, TTool>["systemPrompt"];
 	private streamOptions: AgentHarnessStreamOptions;
@@ -208,6 +209,7 @@ export class AgentHarness<
 
 	constructor(options: AgentHarnessOptions<TSkill, TPromptTemplate, TTool>) {
 		this.env = options.env;
+		this.models = options.models;
 		this.session = options.session;
 		this.resources = options.resources ?? {};
 		this.streamOptions = cloneStreamOptions(options.streamOptions);
@@ -393,7 +395,7 @@ export class AgentHarness<
 				headers: mergeHeaders(turnState.streamOptions.headers, auth?.headers),
 			};
 			const requestOptions = await this.emitBeforeProviderRequest(model, turnState.sessionId, snapshotOptions);
-			return streamSimple(model, context, {
+			return (this.models ? this.models.streamSimple.bind(this.models) : streamSimple)(model, context, {
 				cacheRetention: requestOptions.cacheRetention,
 				headers: requestOptions.headers,
 				maxRetries: requestOptions.maxRetries,

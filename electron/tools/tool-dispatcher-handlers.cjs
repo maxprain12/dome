@@ -752,6 +752,8 @@ async function invokeShellExec(ctx) {
 }
 
 const HANDLER_INVOKERS = {
+  imageGenerate: ({ fn, args, toolContext }) => fn(args, toolContext),
+  aiClassify: ({ fn, args, toolContext }) => fn(args, toolContext),
   resourceSearch: invokeResourceSearch,
   resourceGet: invokeResourceGet,
   resourceGetActive: invokeResourceGetActive,

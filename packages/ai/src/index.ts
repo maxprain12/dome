@@ -34,3 +34,6 @@ export {
 	resolveOllamaMode,
 } from './ollama-mode.js';
 export type { OllamaMode } from './ollama-mode.js';
+
+export * from "./images-models.js";
+export type { ImageApi as ImagesApi, ImageModel as ImagesModel } from "./types.js";

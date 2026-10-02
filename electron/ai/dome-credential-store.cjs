@@ -31,6 +31,7 @@ function parseOAuthJson(raw) {
       typeof parsed.expires === 'number'
     ) {
       return {
+        ...parsed,
         type: 'oauth',
         access: parsed.access,
         refresh: parsed.refresh,
@@ -57,7 +58,7 @@ function createDomeCredentialStore(database) {
 
   async function read(providerId) {
     if (providerId === 'github-copilot') {
-      const ghToken = getQueries(database).getSetting.get(COPILOT_GH_TOKEN)?.value;
+      const ghToken = readSettingSecret(getQueries(database), COPILOT_GH_TOKEN);
       if (!ghToken) return undefined;
       return {
         type: 'oauth',
@@ -66,27 +67,22 @@ function createDomeCredentialStore(database) {
         expires: 0,
       };
     }
-    const oauthKey = OAUTH_SETTINGS[providerId];
+    const oauthKey = OAUTH_SETTINGS[providerId] || `ai_oauth_${providerId}_token`;
     if (oauthKey) {
       const oauth = parseOAuthJson(readSettingSecret(getQueries(database), oauthKey));
       if (oauth) return oauth;
     }
     const key = readProviderApiKey(getQueries(database), providerId);
-    if (key) return { type: 'api_key', key };
+    const envRaw = readSettingSecret(getQueries(database), `ai_provider_env_${providerId}_token`);
+    const env = envRaw ? JSON.parse(envRaw) : undefined;
+    if (key || env) return { type: 'api_key', ...(key ? { key } : {}), ...(env ? { env } : {}) };
     return undefined;
   }
 
   async function list() {
-    const ids = [
-      'openai',
-      'anthropic',
-      'google',
-      'openrouter',
-      'minimax',
-      'github-copilot',
-      'openai-codex',
-      'ollama',
-    ];
+    const ai = await import('@dome/ai');
+    const custom = JSON.parse(getQueries(database).getSetting.get('ai_custom_providers')?.value || '[]');
+    const ids = [...new Set([...ai.getProviders(), ...custom.map(provider => provider.id), 'ollama'])];
     const out = [];
     for (const providerId of ids) {
       const credential = await read(providerId);
@@ -99,26 +95,25 @@ function createDomeCredentialStore(database) {
     if (!credential) return;
     if (credential.type === 'oauth') {
       if (providerId === 'github-copilot' && credential.refresh) {
-        getQueries(database).setSetting.run(COPILOT_GH_TOKEN, credential.refresh, Date.now());
+        writeSettingSecret(getQueries(database), COPILOT_GH_TOKEN, credential.refresh);
         return;
       }
-      const oauthKey = OAUTH_SETTINGS[providerId];
+      const oauthKey = OAUTH_SETTINGS[providerId] || `ai_oauth_${providerId}_token`;
       if (oauthKey) {
+        writeProviderApiKey(getQueries(database), providerId, '');
+        writeSettingSecret(getQueries(database), `ai_provider_env_${providerId}_token`, '');
         writeSettingSecret(
           getQueries(database),
           oauthKey,
-          JSON.stringify({
-            access: credential.access,
-            refresh: credential.refresh,
-            expires: credential.expires,
-            accountId: typeof credential.accountId === 'string' ? credential.accountId : undefined,
-          }),
+          JSON.stringify(credential),
         );
       }
       return;
     }
-    if (credential.type === 'api_key' && credential.key) {
-      writeProviderApiKey(getQueries(database), providerId, credential.key);
+    if (credential.type === 'api_key') {
+      writeSettingSecret(getQueries(database), OAUTH_SETTINGS[providerId] || `ai_oauth_${providerId}_token`, '');
+      writeProviderApiKey(getQueries(database), providerId, credential.key || '');
+      writeSettingSecret(getQueries(database), `ai_provider_env_${providerId}_token`, credential.env ? JSON.stringify(credential.env) : '');
     }
   }
 
@@ -136,12 +131,13 @@ function createDomeCredentialStore(database) {
     delete(providerId) {
       return enqueue(providerId, async () => {
         if (providerId === 'github-copilot') {
-          getQueries(database).setSetting.run(COPILOT_GH_TOKEN, '', Date.now());
+          writeSettingSecret(getQueries(database), COPILOT_GH_TOKEN, '');
           return;
         }
-        const oauthKey = OAUTH_SETTINGS[providerId];
+        const oauthKey = OAUTH_SETTINGS[providerId] || `ai_oauth_${providerId}_token`;
         if (oauthKey) writeSettingSecret(getQueries(database), oauthKey, '');
         writeProviderApiKey(getQueries(database), providerId, '');
+        writeSettingSecret(getQueries(database), `ai_provider_env_${providerId}_token`, '');
       });
     },
   };

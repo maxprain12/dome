@@ -11,5 +11,5 @@ export function xiaomiTokenPlanAmsProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Xiaomi Token Plan AMS API key", ["XIAOMI_TOKEN_PLAN_AMS_API_KEY"]) },
 		models: Object.values(XIAOMI_TOKEN_PLAN_AMS_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

@@ -44,6 +44,42 @@ test('keyboard dispatch uses CDP, never foreground input', async () => {
   assert.equal(keys[1].args.type, 'keyUp');
   assert.ok(calls.some(call => call.method === 'Emulation.setFocusEmulationEnabled'));
 });
+test('background screenshots use CDP without a native window capture', async () => {
+  const { capture } = require('../browser-native/capture.cjs');
+  const contents = {
+    capturePage: () => { throw new Error('Native view is not attached'); },
+    debugger: { isAttached: () => true, sendCommand: async name => {
+      assert.equal(name, 'Page.captureScreenshot');
+      return { data: Buffer.from('png fixture').toString('base64') };
+    } },
+  };
+  const image = await capture(contents);
+  assert.equal(image.toPNG().toString(), 'png fixture');
+  assert.match(image.toDataURL(), /^data:image\/png;base64,/);
+});
+test('background tabs reuse the shell window and release their parent on close', async () => {
+  const { NativeBrowserService } = require('../browser-native/service.cjs');
+  const children = new Set(); let bounds; let released = 0; let closed = false;
+  const window = { isDestroyed: () => false, contentView: {
+    addChildView: view => children.add(view), removeChildView: view => children.delete(view),
+  } };
+  const browser = new NativeBrowserService({ getHostWindow: () => window });
+  const view = { setBounds: value => { bounds = value; }, webContents: {
+    isDestroyed: () => closed, close: () => { closed = true; },
+  } };
+  const tab = { id: 'tab', view };
+  const item = { id: 'run', options: { viewport: { width: 640, height: 480 } },
+    tabs: new Map([['tab', tab]]), activeTabId: 'tab', release: () => { released++; } };
+  browser.sessions.set(item.id, item);
+  browser.park(item, tab);
+  assert.ok(bounds.x + bounds.width < 0 && bounds.y + bounds.height < 0);
+  browser.attach(item.id, window, { x: 10, y: 20, width: 640, height: 480 });
+  assert.equal(children.size, 1); assert.equal(bounds.x, 10);
+  browser.detach(item.id);
+  assert.equal(children.size, 1); assert.ok(bounds.x < 0);
+  await browser.close(item.id);
+  assert.equal(children.size, 0); assert.equal(released, 1); assert.equal(closed, true);
+});
 test('history budget preserves whole turns and tool pairs', () => {
   const messages = [{role:'system'}, {role:'user'}, {role:'assistant'}, {role:'user'}, {role:'assistant',content:'call'}, {role:'toolResult'}];
   assert.deepEqual(trimHistory(messages, 3), [messages[0], ...messages.slice(3)]);
@@ -60,4 +96,15 @@ test('element actions require observed snapshots; state uses opaque references',
   assert.throws(() => schemas.browser_click.parse({ elementId:'e1' }));
   assert.throws(() => schemas.browser_import_state.parse({stateRef:'cookie contents'}));
   assert.throws(() => schemas.browser_upload_file.parse({snapshotId:'old',elementId:'e1',path:'file'}));
+});
+test('artifact directories reject workspace symlinks before downloads or recording create files', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dome-artifact-scope-'));
+  const workspace = path.join(root,'workspace'); await fs.mkdir(workspace);
+  await fs.symlink(root,path.join(workspace,'.dome'));
+  const {scopedOutputDirectory}=require('../browser-native/files.cjs');
+  try {
+    await assert.rejects(scopedOutputDirectory('.dome/browser-artifacts/run',workspace),/outside/);
+    assert.equal(await scopedOutputDirectory('safe/missing/run',workspace),path.join(await fs.realpath(workspace),'safe/missing/run'));
+    await assert.rejects(scopedOutputDirectory('../escape',workspace),/outside/);
+  } finally { await fs.rm(root,{recursive:true,force:true}); }
 });

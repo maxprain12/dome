@@ -32,6 +32,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   browser_import_state: 'Restore Browser State',
   browser_downloads: 'Browser Downloads',
   browser_done: 'Browser Result',
+  image_generate: 'Generate Image',
+  ai_classify: 'Classify Data',
   web_search: 'Web Search',
   web_fetch: 'Web Fetch',
   // File

@@ -24,7 +24,7 @@
       "start": "Choose a mode or enable individual sections. Modes are not paid plans."
     },
     "ai": {
-      "description": "Connect the AI Many will use and configure search, voice and context.",
+      "description": "Connect Many’s AI and configure its models, images, classification and context.",
       "start": "Start with Conversation. The other tabs are optional and configured separately."
     },
     "cloud": {

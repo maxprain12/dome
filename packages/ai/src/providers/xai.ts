@@ -20,5 +20,5 @@ export function xaiProvider(): Provider<"openai-responses"> {
 		},
 		models: Object.values(XAI_MODELS),
 		api: openAIResponsesApi(),
-	}) as Provider<"openai-responses">;
+	});
 }

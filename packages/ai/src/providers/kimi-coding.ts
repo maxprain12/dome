@@ -20,5 +20,5 @@ export function kimiCodingProvider(): Provider<"anthropic-messages"> {
 		},
 		models: Object.values(KIMI_CODING_MODELS),
 		api: anthropicMessagesApi(),
-	}) as Provider<"anthropic-messages">;
+	});
 }

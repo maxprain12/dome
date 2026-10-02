@@ -1,24 +1,33 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-02T11:22:18.498Z
+> Última generación: 2026-10-02T14:06:55.195Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
-| `ai:agent:abort` | `electron/ipc/ai/ai.cjs:354` |
-| `ai:agent:resume` | `electron/ipc/ai/ai.cjs:368` |
-| `ai:agent:stream` | `electron/ipc/ai/ai.cjs:216` |
-| `ai:chat` | `electron/ipc/ai/ai.cjs:101` |
+| `ai:agent:abort` | `electron/ipc/ai/ai.cjs:357` |
+| `ai:agent:resume` | `electron/ipc/ai/ai.cjs:371` |
+| `ai:agent:stream` | `electron/ipc/ai/ai.cjs:219` |
+| `ai:capability-catalog` | `electron/ipc/ai/model-collection.cjs:16` |
+| `ai:capability-configure` | `electron/ipc/ai/model-collection.cjs:27` |
+| `ai:chat` | `electron/ipc/ai/ai.cjs:104` |
+| `ai:chat-model-select` | `electron/ipc/ai/model-collection.cjs:46` |
 | `ai:model:input` | `electron/ipc/ai/ai.cjs:88` |
-| `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:629` |
-| `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:568` |
-| `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:585` |
-| `ai:stream` | `electron/ipc/ai/ai.cjs:153` |
+| `ai:model:thinkingLevels` | `electron/ipc/ai/ai.cjs:632` |
+| `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:571` |
+| `ai:provider-configure` | `electron/ipc/ai/model-collection.cjs:33` |
+| `ai:provider-key` | `electron/ipc/ai/model-collection.cjs:57` |
+| `ai:provider-login` | `electron/ipc/ai/model-auth.cjs:13` |
+| `ai:provider-login-answer` | `electron/ipc/ai/model-auth.cjs:42` |
+| `ai:provider-login-cancel` | `electron/ipc/ai/model-auth.cjs:48` |
+| `ai:provider-login-status` | `electron/ipc/ai/model-auth.cjs:39` |
+| `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:588` |
+| `ai:stream` | `electron/ipc/ai/ai.cjs:156` |
 | `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:293` |
 | `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:184` |
-| `ai:testConnection` | `electron/ipc/ai/ai.cjs:447` |
+| `ai:testConnection` | `electron/ipc/ai/ai.cjs:450` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai/ai-tools.cjs:790` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai/ai-tools.cjs:816` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai/ai-tools.cjs:777` |
@@ -340,13 +349,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `migration:getStatus` | `electron/ipc/core/migration.cjs:9` |
 | `migration:migrateResources` | `electron/ipc/core/migration.cjs:4` |
 | `minimax:files:upload` | `electron/ipc/media/minimax-files.cjs:75` |
-| `native-browser:attach` | `electron/ipc/integrations/native-browser.cjs:21` |
-| `native-browser:close` | `electron/ipc/integrations/native-browser.cjs:31` |
-| `native-browser:detach` | `electron/ipc/integrations/native-browser.cjs:30` |
-| `native-browser:get-options` | `electron/ipc/integrations/native-browser.cjs:32` |
-| `native-browser:recover` | `electron/ipc/integrations/native-browser.cjs:20` |
-| `native-browser:search` | `electron/ipc/integrations/native-browser.cjs:19` |
-| `native-browser:set-options` | `electron/ipc/integrations/native-browser.cjs:37` |
+| `native-browser:attach` | `electron/ipc/integrations/native-browser.cjs:22` |
+| `native-browser:close` | `electron/ipc/integrations/native-browser.cjs:32` |
+| `native-browser:detach` | `electron/ipc/integrations/native-browser.cjs:31` |
+| `native-browser:get-options` | `electron/ipc/integrations/native-browser.cjs:33` |
+| `native-browser:recover` | `electron/ipc/integrations/native-browser.cjs:21` |
+| `native-browser:search` | `electron/ipc/integrations/native-browser.cjs:20` |
+| `native-browser:set-options` | `electron/ipc/integrations/native-browser.cjs:38` |
 | `notebook:checkPython` | `electron/ipc/media/notebook.cjs:101` |
 | `notebook:checkVenv` | `electron/ipc/media/notebook.cjs:157` |
 | `notebook:createVenv` | `electron/ipc/media/notebook.cjs:121` |

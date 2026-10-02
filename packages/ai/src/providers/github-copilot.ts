@@ -30,5 +30,5 @@ export function githubCopilotProvider(): Provider<"anthropic-messages" | "openai
 			"openai-completions": openAICompletionsApi(),
 			"openai-responses": openAIResponsesApi(),
 		},
-	}) as Provider<"anthropic-messages" | "openai-completions" | "openai-responses">;
+	});
 }

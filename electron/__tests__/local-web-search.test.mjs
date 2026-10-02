@@ -89,3 +89,23 @@ test('one cancelled caller does not abort another subscriber; invalid inputs fai
   await assert.rejects(service.search({ query: ' ', count: 100 }));
   assert.equal(browser.calls, 1);
 });
+test('retry after manual captcha recovery reuses its isolated partition and never caches the challenge', async () => {
+  const browser = fakeBrowser(['captcha', 'success']);
+  const partitions = [];
+  browser.recoveryPartition = urls => urls.some(url => url.includes('duckduckgo.com')) ? 'captcha-isolated-partition' : undefined;
+  browser.run = async (_id, _signal, fn, options) => { partitions.push(options?.partition); return fn({}); };
+  const service = createSearchService(browser);
+  assert.equal((await service.search({query:'retry',engine:'duckduckgo'})).status,'captcha');
+  assert.equal((await service.search({query:'retry',engine:'duckduckgo'})).status,'success');
+  assert.deepEqual(partitions,['captcha-isolated-partition','captcha-isolated-partition']);
+  assert.equal(browser.calls,2);
+});
+test('signed Google organic redirects resolve locally, cancel bodies and reject private destinations', async () => {
+  const {resolveEngineUrls}=require('../services/web/search-redirects.cjs');
+  let cancelled=0;let requests=0;
+  const entries=[{title:'A',url:'https://www.google.com/goto?url=signed'},{title:'Unsafe',url:'https://www.google.com/goto?url=private'}];
+  const result=await resolveEngineUrls(entries,undefined,{validateUrl:async url=>{if(url.includes('127.0.0.1'))throw new Error('private');},fetch:async (url,options)=>{
+    requests++;assert.equal(options.redirect,'manual');return {status:302,headers:{get:()=>url.searchParams.get('url')==='private'?'http://127.0.0.1/secret':'https://example.org/final'},body:{cancel:async()=>{cancelled++;}}};
+  }});
+  assert.deepEqual(result,[{title:'A',url:'https://example.org/final'}]);assert.equal(requests,2);assert.equal(cancelled,2);
+});

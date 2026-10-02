@@ -90,7 +90,10 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     try {
       const { z } = require('zod');
       const { provider, model } = z.object({ provider: z.string().min(1), model: z.string().min(1) }).parse(params);
-      return { success: true, input: require('../../ai/model-input.cjs').resolveModelInput(provider, model, database.getQueries()) };
+      const models = await require('../../ai/model-collection.cjs').getModelCollection(database);
+      const catalogModel = models.getModel(provider, model);
+      return { success: true, input: catalogModel?.input || require('../../ai/model-input.cjs').resolveModelInput(provider, model, database.getQueries()),
+        ...(catalogModel ? { supportsTools: true, contextWindow: catalogModel.contextWindow, reasoning: catalogModel.reasoning } : {}) };
     } catch (error) { return { success: false, error: error.message }; }
   });
 

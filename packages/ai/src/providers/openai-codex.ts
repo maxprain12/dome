@@ -7,7 +7,7 @@ import { OPENAI_CODEX_MODELS } from "./openai-codex.models.js";
 export function openaiCodexProvider(): Provider<"openai-codex-responses"> {
 	return createProvider({
 		id: "openai-codex",
-		name: "OpenAI Codex",
+		name: "OpenAI Codex (legacy)",
 		baseUrl: "https://chatgpt.com/backend-api",
 		auth: {
 			oauth: lazyOAuth({
@@ -18,5 +18,5 @@ export function openaiCodexProvider(): Provider<"openai-codex-responses"> {
 		},
 		models: Object.values(OPENAI_CODEX_MODELS),
 		api: openAICodexResponsesApi(),
-	}) as Provider<"openai-codex-responses">;
+	});
 }

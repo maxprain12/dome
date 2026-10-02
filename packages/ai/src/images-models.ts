@@ -3,7 +3,7 @@ import { InMemoryCredentialStore } from "./auth/credential-store.js";
 import { type AuthResolutionOverrides, ModelsError, resolveProviderAuth } from "./auth/resolve.js";
 import type { AuthContext, AuthResult, CredentialStore, ProviderAuth } from "./auth/types.js";
 import type { CreateModelsOptions } from "./models.js";
-import type { AssistantImages, ImagesApi, ImagesContext, ImagesModel, ImagesOptions, ProviderImages } from "./types.js";
+import type { AssistantImages, ImageApi, ImagesContext, ImageModel, ImagesOptions, ProviderImages } from "./types.js";
 
 /**
  * An image-generation provider: the image-side counterpart of `Provider`.
@@ -26,7 +26,7 @@ export interface ImagesProvider {
 	 * (empty before the first). Must not throw; `ImagesModels` treats a
 	 * throwing implementation as having no models.
 	 */
-	getModels(): readonly ImagesModel<ImagesApi>[];
+	getModels(): readonly ImageModel<ImageApi>[];
 
 	/**
 	 * Dynamic providers only: fetch and update the model list. May reject
@@ -36,7 +36,7 @@ export interface ImagesProvider {
 	refreshModels?(): Promise<void>;
 
 	generateImages(
-		model: ImagesModel<ImagesApi>,
+		model: ImageModel<ImageApi>,
 		context: ImagesContext,
 		options?: ImagesOptions,
 	): Promise<AssistantImages>;
@@ -54,10 +54,10 @@ export interface ImagesModels {
 	 * Sync read of last-known models from one provider or all providers.
 	 * Best-effort: a provider whose `getModels()` throws yields no models.
 	 */
-	getModels(provider?: string): readonly ImagesModel<ImagesApi>[];
+	getModels(provider?: string): readonly ImageModel<ImageApi>[];
 
 	/** Sync runtime model lookup against last-known lists. */
-	getModel(provider: string, id: string): ImagesModel<ImagesApi> | undefined;
+	getModel(provider: string, id: string): ImageModel<ImageApi> | undefined;
 
 	/**
 	 * Ask dynamic providers to re-fetch their model lists. With a provider id,
@@ -73,7 +73,7 @@ export interface ImagesModels {
 	 * `ModelsError` ("oauth"/"auth") on real failures.
 	 */
 	getAuth(providerId: string, overrides?: AuthResolutionOverrides): Promise<AuthResult | undefined>;
-	getAuth(model: ImagesModel<ImagesApi>, overrides?: AuthResolutionOverrides): Promise<AuthResult | undefined>;
+	getAuth(model: ImageModel<ImageApi>, overrides?: AuthResolutionOverrides): Promise<AuthResult | undefined>;
 
 	/**
 	 * Generate images through the owning provider with auth resolved and
@@ -81,7 +81,7 @@ export interface ImagesModels {
 	 * returned as an `AssistantImages` with `stopReason: "error"`.
 	 */
 	generateImages(
-		model: ImagesModel<ImagesApi>,
+		model: ImageModel<ImageApi>,
 		context: ImagesContext,
 		options?: ImagesOptions,
 	): Promise<AssistantImages>;
@@ -124,7 +124,7 @@ class ImagesModelsImpl implements MutableImagesModels {
 		return this.providers.get(id);
 	}
 
-	getModels(provider?: string): readonly ImagesModel<ImagesApi>[] {
+	getModels(provider?: string): readonly ImageModel<ImageApi>[] {
 		if (provider !== undefined) {
 			const entry = this.providers.get(provider);
 			if (!entry) return [];
@@ -135,7 +135,7 @@ class ImagesModelsImpl implements MutableImagesModels {
 			}
 		}
 
-		const models: ImagesModel<ImagesApi>[] = [];
+		const models: ImageModel<ImageApi>[] = [];
 		for (const entry of this.providers.values()) {
 			try {
 				models.push(...entry.getModels());
@@ -146,7 +146,7 @@ class ImagesModelsImpl implements MutableImagesModels {
 		return models;
 	}
 
-	getModel(provider: string, id: string): ImagesModel<ImagesApi> | undefined {
+	getModel(provider: string, id: string): ImageModel<ImageApi> | undefined {
 		return this.getModels(provider).find((model) => model.id === id);
 	}
 
@@ -169,9 +169,9 @@ class ImagesModelsImpl implements MutableImagesModels {
 	}
 
 	getAuth(providerId: string, overrides?: AuthResolutionOverrides): Promise<AuthResult | undefined>;
-	getAuth(model: ImagesModel<ImagesApi>, overrides?: AuthResolutionOverrides): Promise<AuthResult | undefined>;
+	getAuth(model: ImageModel<ImageApi>, overrides?: AuthResolutionOverrides): Promise<AuthResult | undefined>;
 	async getAuth(
-		providerOrModel: string | ImagesModel<ImagesApi>,
+		providerOrModel: string | ImageModel<ImageApi>,
 		overrides?: AuthResolutionOverrides,
 	): Promise<AuthResult | undefined> {
 		const providerId = typeof providerOrModel === "string" ? providerOrModel : providerOrModel.provider;
@@ -181,7 +181,7 @@ class ImagesModelsImpl implements MutableImagesModels {
 	}
 
 	async generateImages(
-		model: ImagesModel<ImagesApi>,
+		model: ImageModel<ImageApi>,
 		context: ImagesContext,
 		options?: ImagesOptions,
 	): Promise<AssistantImages> {
@@ -235,7 +235,7 @@ export interface CreateImagesProviderOptions {
 	/** Required — every provider has auth semantics, even ambient/keyless ones. */
 	auth: ProviderAuth;
 	/** Initial model list (empty for purely dynamic providers). */
-	models: readonly ImagesModel<ImagesApi>[];
+	models: readonly ImageModel<ImageApi>[];
 	/**
 	 * Dynamic providers: fetch the current list. Stored on success; concurrent
 	 * calls share one in-flight fetch. May reject: the stored list then stays
@@ -243,7 +243,7 @@ export interface CreateImagesProviderOptions {
 	 * `refreshModels()` (wrapped as ModelsError "model_source" by
 	 * `ImagesModels.refresh(provider)`), and a later call retries.
 	 */
-	refreshModels?: () => Promise<readonly ImagesModel<ImagesApi>[]>;
+	refreshModels?: () => Promise<readonly ImageModel<ImageApi>[]>;
 	api: ProviderImages;
 }
 

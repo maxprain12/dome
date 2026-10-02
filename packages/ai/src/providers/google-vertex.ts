@@ -96,5 +96,5 @@ export function googleVertexProvider(): Provider<"google-vertex"> {
 		auth: { apiKey: vertexAuth },
 		models: Object.values(GOOGLE_VERTEX_MODELS),
 		api: googleVertexApi(),
-	}) as Provider<"google-vertex">;
+	});
 }

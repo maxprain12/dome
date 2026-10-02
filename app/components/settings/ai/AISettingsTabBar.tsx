@@ -10,6 +10,7 @@ import type { AISettingsTab } from './useAISectionController';
 
 const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: IconSvgElement }> = [
   { value: 'chat', labelKey: 'settings.ai.tab_chat', icon: Comment01Icon },
+  { value: 'capabilities', labelKey: 'ai_capabilities.title', icon: BrainIcon },
   { value: 'context', labelKey: 'settings.ai.tab_context', icon: BrainIcon },
 ];
 
@@ -40,7 +41,7 @@ export default function AISettingsTabBar({ activeTab, onTabChange, children, dis
         ))}
       </TabsList>
       <TabsContent value={activeTab} className="flex min-w-0 flex-col gap-6">
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{t(`settingsGuide.ai.${activeTab}`)}</p>
+        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{activeTab === 'capabilities' ? t('ai_capabilities.description') : t(`settingsGuide.ai.${activeTab}`)}</p>
         {children}
       </TabsContent>
     </Tabs>

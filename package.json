@@ -36,6 +36,7 @@
     "test:release": "node --test scripts/release/__tests__/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/",
+    "check:main-syntax": "node scripts/check-main-syntax.mjs",
     "extension:dev": "pnpm --filter @dome/browser-extension run dev",
     "extension:prepare:dev": "pnpm --filter @dome/browser-extension run prepare:dev",
     "extension:build": "pnpm --filter @dome/browser-extension run build",

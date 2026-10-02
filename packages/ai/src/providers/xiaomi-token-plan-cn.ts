@@ -11,5 +11,5 @@ export function xiaomiTokenPlanCnProvider(): Provider<"openai-completions"> {
 		auth: { apiKey: envApiKeyAuth("Xiaomi Token Plan CN API key", ["XIAOMI_TOKEN_PLAN_CN_API_KEY"]) },
 		models: Object.values(XIAOMI_TOKEN_PLAN_CN_MODELS),
 		api: openAICompletionsApi(),
-	}) as Provider<"openai-completions">;
+	});
 }

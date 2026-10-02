@@ -2,8 +2,18 @@ import { anthropicMessagesApi } from "../api/anthropic-messages.lazy.js";
 import { lazyOAuth } from "../auth/helpers.js";
 import { loadAnthropicOAuth } from "../auth/oauth/load.js";
 import type { ApiKeyAuth } from "../auth/types.js";
-import { ANTHROPIC_API_KEY_ENV, ANTHROPIC_AUTH_TOKEN_ENV, ANTHROPIC_OAUTH_TOKEN_ENV } from "../env-api-keys.js";
+import {
+	ANTHROPIC_API_KEY_ENV,
+	ANTHROPIC_AUTH_TOKEN_ENV,
+	ANTHROPIC_FEDERATION_RULE_ID_ENV,
+	ANTHROPIC_IDENTITY_TOKEN_FILE_ENV,
+	ANTHROPIC_OAUTH_TOKEN_ENV,
+	ANTHROPIC_ORGANIZATION_ID_ENV,
+	ANTHROPIC_SERVICE_ACCOUNT_ID_ENV,
+	ANTHROPIC_WORKSPACE_ID_ENV,
+} from "../env-api-keys.js";
 import { createProvider, type Provider } from "../models.js";
+import type { ProviderEnv } from "../types.js";
 import { ANTHROPIC_MODELS } from "./anthropic.models.js";
 
 function anthropicApiKeyAuth(): ApiKeyAuth {
@@ -35,7 +45,28 @@ function anthropicApiKeyAuth(): ApiKeyAuth {
 				signal.throwIfAborted();
 				if (apiKey) return { auth: { apiKey }, source: envVar };
 			}
-			return undefined;
+
+			// Workload identity federation: the Anthropic SDK exchanges the identity
+			// token for a short-lived access token and refreshes it itself. Last in
+			// line so keys and ANTHROPIC_AUTH_TOKEN keep winning, as in the SDK. The
+			// ids are provider config rather than auth, so they travel in `env`.
+			const federation: ProviderEnv = {};
+			for (const envVar of [
+				ANTHROPIC_FEDERATION_RULE_ID_ENV,
+				ANTHROPIC_ORGANIZATION_ID_ENV,
+				ANTHROPIC_IDENTITY_TOKEN_FILE_ENV,
+			]) {
+				const value = await ctx.env(envVar);
+				signal.throwIfAborted();
+				if (!value) return undefined;
+				federation[envVar] = value;
+			}
+			for (const envVar of [ANTHROPIC_SERVICE_ACCOUNT_ID_ENV, ANTHROPIC_WORKSPACE_ID_ENV]) {
+				const value = await ctx.env(envVar);
+				signal.throwIfAborted();
+				if (value) federation[envVar] = value;
+			}
+			return { auth: {}, env: federation, source: "workload identity federation" };
 		},
 	};
 }
@@ -55,5 +86,5 @@ export function anthropicProvider(): Provider<"anthropic-messages"> {
 		},
 		models: Object.values(ANTHROPIC_MODELS),
 		api: anthropicMessagesApi(),
-	}) as Provider<"anthropic-messages">;
+	});
 }

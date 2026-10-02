@@ -20,6 +20,8 @@ const imageHandlers = require('./media/images.cjs');
 const ollamaHandlers = require('./ai/ollama.cjs');
 const authHandlers = require('./integrations/auth.cjs');
 const personalityHandlers = require('./integrations/personality.cjs');
+const modelAuthHandlers = require('./ai/model-auth.cjs');
+const modelCollectionHandlers = require('./ai/model-collection.cjs');
 const aiHandlers = require('./ai/ai.cjs');
 const aiToolsHandlers = require('./ai/ai-tools.cjs');
 const flashcardsHandlers = require('./learn/flashcards.cjs');
@@ -121,6 +123,8 @@ function registerAll(deps) {
   ollamaHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ollamaService, getOllamaManager });
   authHandlers.register({ ipcMain: secureIpcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain: secureIpcMain, windowManager, personalityLoader, database });
+  modelAuthHandlers.register({ ipcMain: secureIpcMain, database, windowManager });
+  modelCollectionHandlers.register({ ipcMain: secureIpcMain, database, windowManager });
   aiHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ollamaService });
   aiToolsHandlers.register({ ipcMain: secureIpcMain, windowManager, aiToolsHandler });
   flashcardsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });

@@ -54,7 +54,7 @@ function legacyAssistantToMessage(m: LegacyMessage, timestamp: number): Message 
       type: 'toolCall',
       id: tc.id,
       name: tc.name,
-      arguments: tc.arguments ?? {},
+      arguments: (tc.arguments ?? {}) as import('./types.js').ToolCall['arguments'],
     });
   }
   return {
