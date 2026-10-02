@@ -203,7 +203,7 @@ export default function StructuredTranscriptWorkspace({
         onToggleMiniPlayer={onToggleMiniPlayer}
         noteId={noteId}
         onOpenNote={openLinkedNote}
-        onCopyTranscript={() => void handleCopyTranscript()}
+        onCopyTranscript={() => { handleCopyTranscript(); }}
         canCopy={canCopy}
         followPlayback={followPlayback}
         onFollowPlaybackChange={setFollowPlayback}
@@ -245,7 +245,7 @@ export default function StructuredTranscriptWorkspace({
                           [sid]: e.target.value,
                         }))
                       }
-                      onBlur={(e) => void flushSpeakerRename(sid, e.target.value)}
+                      onBlur={(e) => { flushSpeakerRename(sid, e.target.value); }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}

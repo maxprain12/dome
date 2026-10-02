@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const path = require('path');
+const path = require('node:path');
 const { app } = require('electron');
 const audioPlayback = require('../../speech/audio-playback.cjs');
 
