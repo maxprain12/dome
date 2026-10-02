@@ -117,9 +117,10 @@ class NativeBrowserService {
     const item = await this.create(owner, signal, options);
     const result = item.tail.catch(() => {}).then(() => {
       if (signal?.aborted) throw abortError();
+      item.busy = true;
       return bounded(operation(item), signal, 45000, () => {
       for (const tab of item.tabs.values()) if (!tab.view.webContents.isDestroyed()) tab.view.webContents.stop();
-      });
+      }).finally(() => { item.busy = false; });
     });
     item.tail = result;
     return result;
