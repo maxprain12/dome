@@ -25,6 +25,12 @@ const TOOL_CAP_PRIORITY = [
   'file_edit',
   'web_search',
   'web_fetch',
+  'browser_read_page',
+  'browser_navigate',
+  'browser_click',
+  'browser_fill',
+  'browser_tabs',
+  'browser_done',
 ];
 
 /**

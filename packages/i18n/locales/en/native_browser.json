@@ -3,5 +3,13 @@
   "resolve_captcha": "Open search in Dome",
   "recovery_help": "Resolve the search challenge, then ask the agent to continue using this browser session.",
   "closed": "This browser session has ended.",
-  "empty": "No results found."
+  "empty": "No results found.",
+  "saved": "Saved",
+  "local_description": "Search and navigate locally with Chromium. The extension is optional.",
+  "profile": "Browser profile",
+  "profile_help": "Leave empty for an isolated session. Named profiles retain site state.",
+  "domains": "Allowed domains",
+  "domains_help": "Comma-separated domains. Leave empty to allow public websites.",
+  "retain": "Keep browser session after a run",
+  "downloads": "Allow downloads to the authorized workspace"
 }

@@ -69,6 +69,17 @@ async function executeToolInMainImpl(toolName, rawArgs, toolContext) {
   if (toolContext?.agentMode === 'plan' && require('../agents/many-agent-mode.cjs').isModeWriteTool(normalizedToolName)) {
     return { success: false, error: 'Plan mode is read-only. Select Agent or Draft explicitly before executing changes.' };
   }
+  const nativeBrowser = require('../browser-native/actions.cjs');
+  if (nativeBrowser.names.has(normalizedToolName)) {
+    try {
+      const payload = await nativeBrowser.execute(normalizedToolName, rawArgs, toolContext);
+      const { splitScreenshot, serializeResult } = require('../browser-extension/browser-tools.cjs');
+      const { payload: textPayload, image } = splitScreenshot(payload);
+      const content = [{ type: 'text', text: serializeResult(textPayload) }];
+      if (toolContext?.supportsVision && image) content.push({ type: 'image', ...image });
+      return { content, isError: payload?.success === false, details: textPayload };
+    } catch (error) { return { success: false, error: error.message }; }
+  }
   if (cmsTools.toolId(normalizedToolName)) {
     return cmsTools.executeTool(normalizedToolName, rawArgs, toolContext);
   }

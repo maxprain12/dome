@@ -12,6 +12,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import NativeBrowserSettings from './NativeBrowserSettings';
 import { SettingsGroup, SettingsRow, SettingsSurface } from '../blocks';
 
 type PairingState = { active: boolean; expiresAt: number | null };
@@ -113,6 +114,7 @@ export default function BrowserExtensionSection() {
       title={t('browser_extension.title')}
       description={t('browser_extension.subtitle')}
     >
+      <NativeBrowserSettings />
       {error ? (
         <Alert variant="destructive">
           <HugeiconsIcon icon={AlertCircleIcon} />

@@ -3,5 +3,13 @@
   "resolve_captcha": "Abrir pesquisa no Dome",
   "recovery_help": "Resolva o bloqueio do buscador e peça ao agente para continuar com esta sessão.",
   "closed": "Esta sessão do navegador terminou.",
-  "empty": "Nenhum resultado encontrado."
+  "empty": "Nenhum resultado encontrado.",
+  "saved": "Guardado",
+  "local_description": "Pesquise e navegue localmente com Chromium. A extensão é opcional.",
+  "profile": "Perfil do navegador",
+  "profile_help": "Deixe vazio para uma sessão isolada. Perfis com nome mantêm o estado dos sites.",
+  "domains": "Domínios permitidos",
+  "domains_help": "Domínios separados por vírgulas. Vazio permite sites públicos.",
+  "retain": "Manter sessão após execução",
+  "downloads": "Permitir downloads no workspace autorizado"
 }

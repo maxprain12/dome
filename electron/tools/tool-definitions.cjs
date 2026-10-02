@@ -12,7 +12,7 @@ function getDomeToolsPkg() {
 
 function getPackageFamilyDefinitions() {
   const pkg = getDomeToolsPkg();
-  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions()];
+  return [...pkg.artifactsToolDefinitions(), ...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions(), ...pkg.browserToolDefinitions()];
 }
 
 function getPackageFamilyToolNames() {

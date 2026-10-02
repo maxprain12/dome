@@ -79,7 +79,18 @@
     "dome_append_note",
     "dome_save_contact",
     "task",
-    "delegate_to_agent"
+    "delegate_to_agent",
+    "browser_click",
+    "browser_fill",
+    "browser_fill_secret",
+    "browser_select",
+    "browser_send_keys",
+    "browser_upload_file",
+    "browser_evaluate",
+    "browser_write_file",
+    "browser_replace_file",
+    "browser_import_state",
+    "browser_export_state"
   ],
   "prompts": {
     "agent": [

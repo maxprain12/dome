@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-10-02T10:55:52.996Z
+> Última generación: 2026-10-02T11:22:18.498Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -343,8 +343,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `native-browser:attach` | `electron/ipc/integrations/native-browser.cjs:21` |
 | `native-browser:close` | `electron/ipc/integrations/native-browser.cjs:31` |
 | `native-browser:detach` | `electron/ipc/integrations/native-browser.cjs:30` |
+| `native-browser:get-options` | `electron/ipc/integrations/native-browser.cjs:32` |
 | `native-browser:recover` | `electron/ipc/integrations/native-browser.cjs:20` |
 | `native-browser:search` | `electron/ipc/integrations/native-browser.cjs:19` |
+| `native-browser:set-options` | `electron/ipc/integrations/native-browser.cjs:37` |
 | `notebook:checkPython` | `electron/ipc/media/notebook.cjs:101` |
 | `notebook:checkVenv` | `electron/ipc/media/notebook.cjs:157` |
 | `notebook:createVenv` | `electron/ipc/media/notebook.cjs:121` |
