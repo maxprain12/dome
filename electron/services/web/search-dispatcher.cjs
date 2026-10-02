@@ -17,49 +17,63 @@ const SearchSchema = z.object({
 function createSearchService(browser, now = Date.now) {
   const cache = new Map();
   const inflight = new Map();
-  async function execute(request, signal) {
+  async function execute(request, signal, binding) {
     const engines = request.engine === 'auto' ? ['duckduckgo', 'bing'] : [request.engine];
-    const owner = `search:${randomUUID()}`;
+    const owner = binding?.sessionId || `search:${randomUUID()}`;
     const partition = browser.recoveryPartition?.(engines.map((engine) => searchUrl(engine, request)));
     let last;
     try {
       return await browser.run(owner, signal, async (item) => {
+        const originalTabId = item.activeTabId;
+        const searchTab = binding ? await browser.newTab(item) : undefined;
+        if (binding) item.activeTabId = originalTabId;
+        try {
         for (const engine of engines) {
           const url = searchUrl(engine, request);
           try {
-            await browser.navigate(item, url, signal);
-            const inspected = await browser.evaluate(item, `(${inspectSearchPage.toString()})(${JSON.stringify(engine)})`, signal);
+            await browser.navigate(item, url, signal, searchTab?.id);
+            const inspected = await browser.evaluate(item, `(${inspectSearchPage.toString()})(${JSON.stringify(engine)})`, signal, searchTab?.id);
             const entries = await require('./search-redirects.cjs').resolveEngineUrls(inspected.entries.slice(0, request.count * 2), signal);
             const results = normalizeResults(entries, request.count);
             const status = inspected.status === 'success' && !results.length ? 'page_changed' : inspected.status;
             last = { success: ['success', 'empty'].includes(status), status, query: request.query, engine, searchUrl: url,
               capturedAt: new Date(now()).toISOString(), results };
             if (last.success) return last;
-            if (status === 'captcha') last.recoveryId = browser.rememberRecovery(item, url);
+            if (status === 'captcha' && !binding) last.recoveryId = browser.rememberRecovery(item, url);
+            if (status === 'captcha' && binding) last.searchUrl = url;
           } catch (error) {
             if (signal.aborted) throw error;
             last = { success: false, status: error.code || 'navigation_failed', error: error.message, query: request.query, engine, results: [] };
           }
         }
         return last;
-      }, partition ? { partition } : undefined);
-    } finally { await browser.close(owner); }
+        } finally {
+          if (searchTab) {
+            browser.unhost(searchTab); searchTab.view.webContents.close({ waitForBeforeUnload: false }); item.tabs.delete(searchTab.id);
+            if (item.tabs.has(originalTabId)) item.activeTabId = originalTabId;
+            if (item.visible) browser.attach(owner, item.visible.window, item.visible.view.getBounds());
+          }
+        }
+      }, !binding && partition ? { partition } : undefined);
+    } finally { if (!binding) await browser.close(owner); }
   }
 
-  async function search(args, callerSignal) {
+  async function search(args, callerSignal, binding) {
     const request = SearchSchema.parse(args);
     if (callerSignal?.aborted) return { success: false, status: 'aborted', results: [] };
-    const key = JSON.stringify(request);
+    // Authenticated sessions may change cookies after manual login. Never serve
+    // anonymous cached results or retain personalized results in the public cache.
+    const key = JSON.stringify([request, binding ? [binding.sessionId, binding.tabId] : null]);
     for (const [cachedKey, saved] of cache) if (saved.expires <= now()) cache.delete(cachedKey);
-    const saved = cache.get(key);
+    const saved = !binding && cache.get(key);
     if (saved) return { ...saved.value, cached: true };
     let job = inflight.get(key);
     if (!job) {
       const controller = new AbortController();
       job = { controller, callers: 0 };
       const timer = setTimeout(() => controller.abort(Object.assign(new Error('Search timed out'), { code: 'timeout' })), 45000);
-      job.promise = execute(request, controller.signal).then((result) => {
-        if (result.success) {
+      job.promise = execute(request, controller.signal, binding).then((result) => {
+        if (result.success && !binding) {
           if (cache.size >= 100) cache.delete(cache.keys().next().value);
           cache.set(key, { value: result, expires: now() + 300000 });
         }
@@ -82,8 +96,8 @@ function createSearchService(browser, now = Date.now) {
 }
 
 let instance;
-function search(args, signal) {
+function search(args, signal, binding) {
   instance ||= createSearchService(require('../../browser-native/service.cjs').browser);
-  return instance.search(args, signal);
+  return instance.search(args, signal, binding);
 }
 module.exports = { search, SearchSchema, createSearchService };

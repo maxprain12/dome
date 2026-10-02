@@ -21,6 +21,7 @@ const CORE_FULL_SCHEMA_TOOLS = [
   'resource_get_active',
   'web_search',
   'web_fetch',
+  'browser_open_in_dome', 'browser_read_page', 'browser_navigate', 'browser_tabs',
   'image_generate',
   'ai_classify',
   'task',

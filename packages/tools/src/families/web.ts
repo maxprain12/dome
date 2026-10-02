@@ -6,7 +6,7 @@
  * `electron/tool-dispatcher.cjs#getAllToolDefinitions()`. Renderer-safe (no Node deps).
  */
 
-import type { ToolDefinition } from '../types.js';
+import type { ToolDefinition } from '../definition-types.js';
 
 /** The web-family tool names (subset of the 103-tool catalog). */
 export const WEB_TOOL_NAMES = ['web_search', 'web_fetch'] as const;

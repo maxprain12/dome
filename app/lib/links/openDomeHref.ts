@@ -2,6 +2,7 @@ import i18n from '@/lib/i18n';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { openDomeBrowser } from '@/lib/browser/openDomeBrowser';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -205,7 +206,10 @@ async function openStudio(href: string): Promise<void> {
 /** Open a Dome, web or mail link from the editor or rendered Markdown. */
 export function openDomeHref(href: string): Promise<void> {
   const value = href.trim();
-  if (/^https?:\/\//i.test(value) || value.startsWith('mailto:')) return openExternal(value);
+  if (/^https?:\/\//i.test(value)) return openDomeBrowser(value).catch(error => {
+    showToast('error', error instanceof Error ? error.message : i18n.t('toast.external_link_error'));
+  });
+  if (value.startsWith('mailto:')) return openExternal(value);
   const folder = value.match(/^dome:\/\/folder\/([^/?#]+)/);
   if (folder) return openFolder(folder[1]);
   const person = value.match(/^dome:\/\/person\/([^/?#]+)/);

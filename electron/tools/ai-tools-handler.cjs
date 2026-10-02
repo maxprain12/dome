@@ -1621,7 +1621,11 @@ async function flashcardCreate(data) {
  * @returns {Promise<Object>} Result compatible with web_fetch tool format
  */
 async function nativeWebSearch(args, context = {}) {
-  return require('../services/web/search-dispatcher.cjs').search(args, context.signal);
+  const binding = require('../browser-native/workspace.cjs').workspace.resolve(context.threadId);
+  const { browser } = require('../browser-native/service.cjs');
+  const item = browser.sessions.get(context.browserSessionId || `agent:${context.threadId}`);
+  const session = binding || (item ? { sessionId: item.id, tabId: item.activeTabId } : undefined);
+  return require('../services/web/search-dispatcher.cjs').search(args, context.signal, session);
 }
 
 async function webFetch(args, context = {}) {

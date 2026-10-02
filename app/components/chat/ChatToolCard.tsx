@@ -88,6 +88,7 @@ import { parseSocialToolResult } from '@/components/chat/tool-card/socialToolRes
 
 import { GeneratedImagesResult } from './tool-card/GeneratedImagesResult';
 import { WebSearchResults } from './tool-card/WebSearchResults';
+import { BrowserOpenResult } from './tool-card/BrowserOpenResult';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -485,6 +486,7 @@ export default function ChatToolCard({
   const renderResultContent = (): ReactNode => {
     if (toolCall.name === 'image_generate') { const images = <GeneratedImagesResult result={toolCall.result} />; if (!toolCall.error) return images; }
     if (toolCall.name === 'web_search') return <WebSearchResults result={toolCall.result} />;
+    if (toolCall.name === 'browser_open_in_dome') return <BrowserOpenResult result={toolCall.result} />;
     const skipDump = Boolean(socialView) && !showRawJson;
     const renderers: ReadonlyArray<() => ReactNode> = skipDump
       ? [renderSoftConfirmation, renderErrorBlock, renderFormattedView]

@@ -35,6 +35,7 @@ import {
   type ActivityToolStatus,
 } from '@/lib/chat/manyActivityTrace';
 import { cn } from '@/lib/utils';
+import { openDomeHref } from '@/lib/links/openDomeHref';
 
 export type ActivityLinkMode = 'ipc' | 'anchor';
 
@@ -57,19 +58,10 @@ function kindIcon(kind: ActivityTraceKind) {
   }
 }
 
-function getElectronInvoke(): ((channel: string, ...args: unknown[]) => Promise<unknown>) | undefined {
-  const host = globalThis as {
-    window?: { electron?: { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> } };
-  };
-  return host.window?.electron?.invoke;
-}
-
 function openActivityUrl(url: string, mode: ActivityLinkMode, event: MouseEvent<HTMLAnchorElement>) {
   if (mode === 'anchor') return;
   event.preventDefault();
-  const invoke = getElectronInvoke();
-  if (!invoke) return;
-  invoke('open-external-url', url).catch(() => {});
+  openDomeHref(url).catch(() => {});
 }
 
 function rowTone(status: ActivityToolStatus): string {

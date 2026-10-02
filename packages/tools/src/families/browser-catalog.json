@@ -2,6 +2,27 @@
   {
     "type": "function",
     "function": {
+      "name": "browser_open_in_dome",
+      "description": "Open a website in Dome with its saved local cookies for manual login or exploration. Return an Open in Dome action. The user chooses Continue with Many to share the selected page; then use browser_read_page. Never request passwords in chat.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 8192
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "browser_configure",
       "description": "Configure this isolated local browser before navigation. Chromium launch options are optional; Electron is the default.",
       "parameters": {

@@ -59,6 +59,7 @@ interface ManyHeaderProps {
   viewLabels?: ManyViewLabels;
   viewPresentation?: 'icons' | 'labels';
   secondaryActions?: ReactNode;
+  primaryActions?: ReactNode;
   overflowActions?: ReactNode;
 }
 
@@ -393,6 +394,7 @@ export default memo(function ManyHeader({
   viewLabels,
   viewPresentation,
   secondaryActions,
+  primaryActions,
   overflowActions,
 }: ManyHeaderProps) {
   const { t } = useTranslation();
@@ -442,6 +444,7 @@ export default memo(function ManyHeader({
           t,
           overflowActions,
         )}
+        {primaryActions}
         {renderCloseButton(showCloseButton, onClose, t)}
       </div>
       {secondaryActions ? (
