@@ -38,6 +38,12 @@ export async function openDomeBrowser(url: string): Promise<void> {
   showDomeBrowser(response.data.sessionId);
 }
 
+export async function reopenDomeBrowser(): Promise<void> {
+  const response = await window.electron.invoke('native-browser:state', { sessionId: 'desktop:research' });
+  if (response.success && response.data?.sessionId) showDomeBrowser(response.data.sessionId);
+  else await openDomeBrowser('https://www.google.com/');
+}
+
 export async function continueBrowserWithMany(state: BrowserState, originConversationId?: string): Promise<void> {
   const origin = originConversationId || useTabStore.getState().tabs.find(tab => tab.id === `browser:${state.sessionId}`)?.browserConversationId;
   const many = useManyStore.getState();

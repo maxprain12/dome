@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDomeHref } from '@/lib/links/openDomeHref';
-import { continueBrowserWithMany, showDomeBrowser } from './openDomeBrowser';
+import { continueBrowserWithMany, reopenDomeBrowser, showDomeBrowser } from './openDomeBrowser';
 import type { BrowserState } from './openDomeBrowser';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
@@ -14,6 +14,18 @@ beforeEach(() => {
   useManyStore.setState({ isOpen: false });
 });
 describe('Dome browser handoff', () => {
+  it('reopens the retained page without creating a new search page', async () => {
+    vi.mocked(window.electron.invoke).mockResolvedValue({ success: true, data: state });
+    await reopenDomeBrowser();
+    expect(window.electron.invoke).toHaveBeenCalledWith('native-browser:state', { sessionId: state.sessionId });
+    expect(window.electron.invoke).not.toHaveBeenCalledWith('native-browser:open', expect.anything());
+    expect(useBrowserWorkspaceStore.getState().panels['research-chat']).toBe(state.sessionId);
+  });
+  it('starts the browser when no retained session exists', async () => {
+    vi.mocked(window.electron.invoke).mockResolvedValueOnce({ success: false, error: 'Closed' }).mockResolvedValueOnce({ success: true, data: state });
+    await reopenDomeBrowser();
+    expect(window.electron.invoke).toHaveBeenCalledWith('native-browser:open', { url: 'https://www.google.com/' });
+  });
   it('keeps a sidebar Many link beside the same conversation', () => {
     useTabStore.setState({ activeTabId: 'home' });
     useManyStore.setState({ isOpen: true });
