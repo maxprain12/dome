@@ -15,6 +15,7 @@ async function startRecording(browser, item, directory) {
     if (recording.stopped || recording.frames >= 1800 || recording.bytes >= 512000000 || Date.now() >= recording.expires) return;
     try {
       const contents = browser.tab(item).view.webContents;
+      if (!/^https?:/.test(contents.getURL())) { recording.timer = setTimeout(tick, 100); return; }
       if ((item.options.recordHar || item.options.traces) && !recording.contents.has(contents)) {
         await command(contents, 'Network.enable');
         contents.debugger.on('message', recording.onMessage);

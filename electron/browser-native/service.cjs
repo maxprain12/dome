@@ -89,6 +89,7 @@ class NativeBrowserService {
 
   async newTab(item) {
     const view = await item.makeView();
+    await bounded(view.webContents.loadURL('about:blank'), undefined, 15000);
     const id = randomUUID();
     view.setBounds({ x: 0, y: 0, ...item.options.viewport });
     if (item.options.userAgent) view.webContents.setUserAgent(item.options.userAgent);
