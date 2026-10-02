@@ -12,14 +12,14 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowUp02Icon, StopCircleIcon } from '@hugeicons/core-free-icons';
+import { ArrowUp02Icon, StopCircleIcon, Settings01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   InputGroup,
   InputGroupAddon,
 } from '@/components/ui/input-group';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Popover, PopoverContent, PopoverTitle, PopoverDescription, PopoverTrigger } from '@/components/ui/popover';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
 import { ThinkingLevelSwitcher } from '@/components/chat/ThinkingLevelSwitcher';
 import { ManyModeSwitcher } from './ManyModeSwitcher';
@@ -44,7 +44,6 @@ import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { db } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { parseComposerModeCommand, parseManyAgentMode, modeFromSlashId } from '@/lib/many/agentMode';
-import { composerModeIslandClass } from '@/lib/many/composerMode';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -261,6 +260,7 @@ const ManyComposer = memo(function ManyComposer({
   const setActiveSkillForSession = useManyStore((s) => s.setActiveSkillForSession);
   const currentSessionId = useManyStore((s) => s.currentSessionId);
   const agentModeBySession = useManyStore((s) => s.agentModeBySession);
+  const thinkingLevel = useManyStore(s => (currentSessionId ? s.thinkingLevelBySession[currentSessionId] : undefined) ?? 'off');
   const setAgentModeForSession = useManyStore((s) => s.setAgentModeForSession);
   const planTodosBySession = useManyStore((s) => s.planTodosBySession);
 
@@ -608,7 +608,7 @@ const ManyComposer = memo(function ManyComposer({
   );
 
   return (
-    <div className={cn('flex flex-col gap-1.5', !isWelcome && 'px-3 pb-3 pt-1')}>
+    <div className={cn('many-composer-surface flex flex-col gap-1.5', !isWelcome && (compact ? 'px-2 pb-2 pt-1' : 'px-3 pb-3 pt-1'))}>
       <div
         ref={containerRef}
         onDragOver={(e) => {
@@ -643,11 +643,8 @@ const ManyComposer = memo(function ManyComposer({
         <InputGroup
           className={cn(
             // shrink-0: never let the flex column stretch the island to fill leftover panel height
-            'h-auto max-h-[min(50vh,22rem)] w-full min-w-0 shrink-0 flex-col items-stretch gap-0 overflow-hidden rounded-2xl border border-input bg-card shadow-sm transition-[border-color,box-shadow,background-color]',
-            'has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/30',
-            composerModeIslandClass(agentMode),
-            isDragging && 'border-primary/50 bg-primary/5',
-            isWelcome && 'rounded-3xl shadow-md',
+            'h-auto max-h-80 w-full min-w-0 shrink-0 flex-col items-stretch overflow-hidden',
+            isDragging && 'outline outline-primary',
           )}
         >
           {attachments.length > 0 || pinnedResources.length > 0 || composerSkills.length > 0 ? (
@@ -735,18 +732,37 @@ const ManyComposer = memo(function ManyComposer({
                 }
                 disabled={isLoading}
               />
-              <ManyModeSwitcher
-                disabled={false}
-                mode={agentMode}
-                onModeChange={(next) => {
-                  if (!currentSessionId) return;
-                  setAgentModeForSession(currentSessionId, next);
-                }}
-              />
-              <span className="min-w-0 shrink">
+              <span className="many-composer-model min-w-0 shrink overflow-hidden">
                 <InlineModelSwitcher />
               </span>
-              <ThinkingLevelSwitcher disabled={false} />
+              <span className="many-composer-settings">
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size={agentMode === 'agent' ? 'icon-sm' : 'sm'}
+                        aria-label={`${t('many.composer_settings')} · ${t(`many.mode_${agentMode}`)} · ${t(`chat.thinking_level_${thinkingLevel}`)}`}
+                        title={`${t(`many.mode_${agentMode}`)} · ${t(`chat.thinking_level_${thinkingLevel}`)}`}
+                      />
+                    }
+                  >
+                    <HugeiconsIcon icon={Settings01Icon} data-icon="inline-start" />
+                    {agentMode !== 'agent' ? <span>{t(`many.mode_${agentMode}`)}</span> : null}
+                  </PopoverTrigger>
+                  <PopoverContent side="top" align="start">
+                    <div className="flex flex-col gap-3">
+                      <PopoverTitle>{t('many.composer_settings')}</PopoverTitle>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ManyModeSwitcher mode={agentMode} onModeChange={next => { if (currentSessionId) setAgentModeForSession(currentSessionId, next); }} />
+                        <ThinkingLevelSwitcher />
+                      </div>
+                      {showKeyboardHint ? <PopoverDescription>{t('many.composer_shortcuts')}</PopoverDescription> : null}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </span>
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
@@ -756,7 +772,6 @@ const ManyComposer = memo(function ManyComposer({
                   type="button"
                   variant="destructive"
                   size="icon-sm"
-                  className="rounded-full"
                   onClick={onAbort}
                   title={t('chat.stop')}
                   aria-label={t('chat.stop')}
@@ -768,7 +783,6 @@ const ManyComposer = memo(function ManyComposer({
                 <Button
                   type="button"
                   size="icon-sm"
-                  className="rounded-full"
                   onClick={submitComposer}
                   disabled={!canSend}
                   title={isLoading ? t('many.steer_send') : t('chat.send')}
@@ -781,47 +795,6 @@ const ManyComposer = memo(function ManyComposer({
           </InputGroupAddon>
         </InputGroup>
       </div>
-
-      {showKeyboardHint && !isWelcome ? (
-        <p
-          className={cn(
-            'flex flex-wrap items-center gap-x-2.5 gap-y-1 px-1.5 text-xs text-muted-foreground',
-            compact && 'text-[0.625rem]',
-          )}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Kbd>↵</Kbd>
-            {t('many.composer_hint_send')}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <KbdGroup>
-              <Kbd>⇧</Kbd>
-              <Kbd>↵</Kbd>
-            </KbdGroup>
-            {t('many.composer_hint_newline')}
-          </span>
-          {!compact ? (
-            <>
-              <span className="inline-flex items-center gap-1">
-                <Kbd>/</Kbd>
-                {t('many.composer_hint_skills')}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Kbd>/</Kbd>
-                {t('many.composer_hint_mode')}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Kbd>@</Kbd>
-                {t('many.composer_hint_docs')}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Kbd>#</Kbd>
-                MCP
-              </span>
-            </>
-          ) : null}
-        </p>
-      ) : null}
 
       <ManySkillPicker
         open={slash.slashActive}

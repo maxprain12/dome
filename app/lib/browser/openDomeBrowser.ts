@@ -12,18 +12,19 @@ export interface BrowserState {
   busy: boolean;
   persistent: boolean;
   shared?: boolean;
+  error?: string;
   canGoBack: boolean;
   canGoForward: boolean;
   tabs: Array<{ id: string; title: string; url: string }>;
 }
 
-export function showDomeBrowser(sessionId: string): void {
+export function showDomeBrowser(sessionId: string, originConversationId?: string): void {
   const { activeTabId, tabs } = useTabStore.getState();
   const existing = tabs.find(tab => tab.id === `browser:${sessionId}`);
   const many = useManyStore.getState();
   const sidebarConversation = many.isOpen ? many.currentSessionId : undefined;
-  const conversationId = activeTabId.startsWith('chat:') ? activeTabId.slice(5) : sidebarConversation || existing?.browserConversationId || undefined;
-  if (conversationId && (activeTabId.startsWith('chat:') || sidebarConversation)) {
+  const conversationId = originConversationId || (activeTabId.startsWith('chat:') ? activeTabId.slice(5) : sidebarConversation || existing?.browserConversationId || undefined);
+  if (conversationId && (originConversationId || activeTabId.startsWith('chat:') || sidebarConversation)) {
     if (sidebarConversation && !activeTabId.startsWith('chat:')) useTabStore.getState().openChatTab(conversationId, many.sessions.find(session => session.id === conversationId)?.title || i18n.t('many.many'));
     useBrowserWorkspaceStore.getState().openPanel(conversationId, sessionId);
     return;
@@ -33,9 +34,12 @@ export function showDomeBrowser(sessionId: string): void {
 }
 
 export async function openDomeBrowser(url: string): Promise<void> {
+  const activeTabId = useTabStore.getState().activeTabId;
+  const many = useManyStore.getState();
+  const origin = activeTabId.startsWith('chat:') ? activeTabId.slice(5) : many.isOpen ? many.currentSessionId : undefined;
   const response = await window.electron.invoke('native-browser:open', { url });
   if (!response.success || !response.data?.sessionId) throw new Error(response.error || i18n.t('native_browser.closed'));
-  showDomeBrowser(response.data.sessionId);
+  showDomeBrowser(response.data.sessionId, origin || undefined);
 }
 
 export async function reopenDomeBrowser(): Promise<void> {

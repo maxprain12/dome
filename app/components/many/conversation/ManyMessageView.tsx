@@ -242,7 +242,7 @@ function UserTurnFooter({
 }) {
   if (!show) return null;
   return (
-    <MessageFooter className="gap-1 opacity-0 transition-opacity group-hover/turn:opacity-100 motion-reduce:transition-none">
+    <MessageFooter className="gap-1 opacity-0 transition-opacity group-hover/turn:opacity-100 group-focus-within/turn:opacity-100 [@media(hover:none)]:opacity-100 motion-reduce:transition-none">
       {hasBody ? (
         <Button type="button" size="icon-xs" variant="ghost" onClick={onCopy} title={copyTitle}>
           <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
@@ -460,7 +460,7 @@ function AssistantTurnFooter({
   regenerateTitle: string;
 }) {
   return (
-    <MessageFooter className="gap-0.5 opacity-0 transition-opacity group-hover/turn:opacity-100 motion-reduce:transition-none">
+    <MessageFooter className="gap-0.5 opacity-0 transition-opacity group-hover/turn:opacity-100 group-focus-within/turn:opacity-100 [@media(hover:none)]:opacity-100 motion-reduce:transition-none">
       <Button type="button" size="icon-xs" variant="ghost" onClick={onCopy} title={copyTitle}>
         <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} />
       </Button>

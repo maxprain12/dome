@@ -64,7 +64,7 @@ test('background tabs reuse the shell window and release their parent on close',
     addChildView: view => children.add(view), removeChildView: view => children.delete(view),
   } };
   const browser = new NativeBrowserService({ getHostWindow: () => window });
-  const view = { setBounds: value => { bounds = value; }, webContents: {
+  const view = { getBounds: () => bounds, setBounds: value => { bounds = value; }, webContents: {
     isDestroyed: () => closed, close: () => { closed = true; },
   } };
   const tab = { id: 'tab', view };

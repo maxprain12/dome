@@ -40,7 +40,7 @@ steps:
       - pnpm run test:security
       - pnpm run build:packages
       - pnpm --filter @dome/ai run test
-      - node --test electron/__tests__/local-web-search.test.mjs electron/__tests__/native-browser-actions.test.mjs electron/__tests__/ai-capabilities.test.mjs
+      - node --test electron/__tests__/local-web-search.test.mjs electron/__tests__/native-browser-actions.test.mjs electron/__tests__/browser-workspace-performance.test.mjs electron/__tests__/ai-capabilities.test.mjs
       - pnpm --filter @dome/prompts test
       - node --test scripts/test-dome-prompts.mjs
       - node --experimental-sqlite --test electron/__tests__/text-search-retirement.test.mjs electron/__tests__/skill-catalog.test.mjs electron/__tests__/memory-policy.test.mjs electron/__tests__/agent-memory-context.test.mjs electron/__tests__/action-memory.test.mjs
@@ -81,6 +81,7 @@ steps:
       - xvfb-run --auto-servernum pnpm run test:e2e:electron:run
       - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-native-browser.cjs
       - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-browser-workspace.cjs
+      - xvfb-run --auto-servernum pnpm exec electron --no-sandbox --disable-gpu scripts/smoke-browser-polish.cjs
 
   - name: depcruise
     image: node:24-bookworm

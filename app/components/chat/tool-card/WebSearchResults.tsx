@@ -1,7 +1,14 @@
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { LinkSquare01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { openDomeHref } from '@/lib/links/openDomeHref';
+import { showToast } from '@/lib/store/useToastStore';
 import { showDomeBrowser } from '@/lib/browser/openDomeBrowser';
+
+export function searchResultDomain(url: string): string | null {
+  try { const parsed = new URL(url); return /^https?:$/.test(parsed.protocol) ? parsed.hostname : null; } catch { return null; }
+}
 
 export function WebSearchResults({ result }: { result: unknown }) {
   const { t } = useTranslation();
@@ -21,11 +28,11 @@ export function WebSearchResults({ result }: { result: unknown }) {
       {data.status === 'empty' ? <p className="text-sm text-muted-foreground">{t('native_browser.empty')}</p> : null}
       {data.recoveryId ? <Button variant="outline" onClick={() => { void recover(); }}>{t('native_browser.resolve_captcha')}</Button> : null}
       {!data.recoveryId && data.status === 'captcha' && data.searchUrl ? <Button variant="outline" onClick={() => { void openDomeHref(data.searchUrl!); }}>{t('native_browser.resolve_captcha')}</Button> : null}
-      {(data.results || []).filter((item) => /^https?:\/\//.test(item.url)).map((item) => (
-        <div key={item.url} className="rounded-md border p-3">
-          <a href={item.url} onClick={event => { event.preventDefault(); void openDomeHref(item.url); }} className="font-medium text-primary underline underline-offset-4">{item.title}</a>
-          <p className="text-xs text-muted-foreground">{item.siteName}</p>
-          {item.description ? <p className="mt-1 text-sm">{item.description}</p> : null}
+      {(data.results || []).filter((item) => searchResultDomain(item.url)).map((item) => (
+        <div key={item.url} className="flex flex-col gap-1 border-b py-2 last:border-b-0">
+          <a href={item.url} onClick={event => { event.preventDefault(); void openDomeHref(item.url).catch(error => showToast('error', String(error))); }} title={item.url} className="inline-flex items-center gap-1 text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-ring"><span>{item.title}</span><HugeiconsIcon icon={LinkSquare01Icon} className="size-3.5 shrink-0" /></a>
+          <p className="text-xs text-muted-foreground">{item.siteName || searchResultDomain(item.url)}</p>
+          {item.description ? <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p> : null}
         </div>
       ))}
     </div>

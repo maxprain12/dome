@@ -384,7 +384,7 @@ export default function ManyPanel({
     }
   }, [currentSessionId, planPanelOpen, t]);
 
-  if (isHeadless) {
+  if (isHeadless || !isVisible) {
     return null;
   }
 
@@ -452,33 +452,8 @@ export default function ManyPanel({
     <>
       <UICursorOverlay />
       <div
-        className={cn('flex h-full min-w-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-sidebar')}
-        style={
-          isFullscreen
-            ? {
-                position: 'relative',
-                width: '100%',
-                minWidth: 0,
-                maxWidth: 'none',
-                borderLeftWidth: 0,
-                opacity: 1,
-                pointerEvents: 'auto',
-              }
-            : {
-                position: 'relative',
-                width: isVisible ? '100%' : '0px',
-                minWidth: 0,
-                maxWidth: 'none',
-                height: '100%',
-                borderLeftWidth: isVisible ? undefined : '0px',
-                opacity: isVisible ? 1 : 0,
-                transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
-                pointerEvents: isVisible ? 'auto' : 'none',
-                transition:
-                  'transform var(--duration-ui) var(--ease-out), opacity var(--duration-fast) var(--ease-out)',
-                ['--many-panel-width' as string]: `${width}px`,
-              }
-        }
+        className={cn('relative flex h-full w-full min-w-0 flex-col overflow-hidden', isFullscreen ? 'bg-background' : 'bg-sidebar')}
+        style={{ ['--many-panel-width' as string]: `${width}px` }}
       >
         <ManyHeader
           status={status}

@@ -7,7 +7,6 @@ import { useBrowserWorkspaceStore } from '@/lib/store/useBrowserWorkspaceStore';
 import { continueBrowserWithMany } from '@/lib/browser/openDomeBrowser';
 import type { BrowserState } from '@/lib/browser/openDomeBrowser';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Field, FieldGroup } from '@/components/ui/field';
 import { InputGroup, InputGroupInput, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group';
@@ -38,35 +37,60 @@ export default function NativeBrowserPage({ sessionId, conversationId, embedded 
   useEffect(() => {
     if (!active || !container.current) return;
     let alive = true;
+    let resizeFrame = 0;
+    let refreshFrame = 0;
+    let overlayFrame = 0;
     const refresh = async () => {
       try {
         const response = await window.electron.invoke('native-browser:state', { sessionId, ...(chatId ? { conversationId: chatId } : {}) });
         if (!alive) return;
-        if (!response.success) { setError(response.error || t('native_browser.closed')); return; }
+        if (!response.success) { setError(response.error || t('native_browser.closed')); setPage(current => current && { ...current, loading: false, busy: false }); return; }
         const state = response.data as BrowserState;
-        setPage(state);
+        setPage(current => JSON.stringify(current) === JSON.stringify(state) ? current : state);
+        setError(state.error || '');
         if (!addressFocused.current) setAddress(state.url === 'about:blank' ? '' : state.url);
       } catch (reason) { if (alive) setError(String(reason)); }
     };
-    const observer = new ResizeObserver(() => { void attach(); });
+    const scheduleAttach = () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => { void attach(); }); };
+    const observer = new ResizeObserver(scheduleAttach);
     const updateOverlay = () => {
-      const visible = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].some(element => element.getAttribute('aria-hidden') !== 'true' && element.getBoundingClientRect().height > 0);
+      const bounds = container.current?.getBoundingClientRect();
+      const visible = !!bounds && [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-slot="popover-content"]')].some(element => {
+        const rect = element.getBoundingClientRect();
+        return !element.closest('[aria-hidden="true"]') && rect.width > 0 && rect.height > 0
+          && (element.getAttribute('aria-modal') === 'true'
+            || (rect.right > bounds.left && rect.left < bounds.right && rect.bottom > bounds.top && rect.top < bounds.bottom));
+      });
       if (visible === overlayVisible.current) return;
       overlayVisible.current = visible;
       if (visible) void window.electron.invoke('native-browser:detach', { sessionId });
       else void attach();
     };
-    const overlays = new MutationObserver(updateOverlay);
-    overlays.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['role', 'aria-hidden', 'data-state'] });
+    const dialogSelector = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-slot="popover-content"]';
+    const containsDialog = (node: Node) => node instanceof Element && (node.matches(dialogSelector) || !!node.querySelector(dialogSelector));
+    const overlays = new MutationObserver(records => {
+      const relevant = records.some(record => record.type === 'attributes'
+        ? record.target instanceof Element && (record.target.matches(dialogSelector) || !!record.target.closest(dialogSelector) || !!record.target.querySelector(dialogSelector))
+        : [...record.addedNodes, ...record.removedNodes].some(containsDialog));
+      if (!relevant) return;
+      cancelAnimationFrame(overlayFrame);
+      overlayFrame = requestAnimationFrame(updateOverlay);
+    });
+    overlays.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['role', 'aria-hidden', 'data-state', 'style', 'hidden'] });
     updateOverlay();
     observer.observe(container.current);
-    const interval = setInterval(() => { void refresh(); }, 1000);
-    window.addEventListener('resize', attach);
+    const unsubscribe = window.electron.on('native-browser:changed', (data: { sessionId?: string }) => {
+      if (data.sessionId !== sessionId) return;
+      cancelAnimationFrame(refreshFrame);
+      refreshFrame = requestAnimationFrame(() => { void refresh(); });
+    });
+    window.addEventListener('resize', scheduleAttach);
     void refresh(); void attach();
     return () => {
-      alive = false; observer.disconnect(); clearInterval(interval);
+      alive = false; observer.disconnect(); unsubscribe();
+      cancelAnimationFrame(resizeFrame); cancelAnimationFrame(refreshFrame); cancelAnimationFrame(overlayFrame);
       overlays.disconnect();
-      window.removeEventListener('resize', attach);
+      window.removeEventListener('resize', scheduleAttach);
       void window.electron.invoke('native-browser:detach', { sessionId });
     };
   }, [active, sessionId, t, attach, chatId]);
@@ -113,24 +137,22 @@ export default function NativeBrowserPage({ sessionId, conversationId, embedded 
   const busy = pending || page?.busy;
   return (
     <section aria-label={t('native_browser.title')} className="flex h-full min-w-0 flex-col bg-background">
-      <header className="flex shrink-0 flex-col gap-2 border-b p-3">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <HugeiconsIcon icon={Globe02Icon} className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate text-sm font-medium">{page?.title || t('native_browser.title')}</span>
-            {page?.persistent ? <Badge variant="secondary">{t('native_browser.saved_profile')}</Badge> : null}
-            {page?.shared ? <Badge variant="outline">{t('native_browser.shared')}</Badge> : null}
-            {page?.busy ? <Badge variant="outline">{t('native_browser.agent_working')}</Badge> : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {embedded ? <Button variant="ghost" size="icon-sm" aria-label={t('native_browser.expand')} title={t('native_browser.expand')} onClick={expand}><HugeiconsIcon icon={ArrowExpand01Icon} data-icon="inline-start" /></Button> : null}
-            <Button variant="ghost" size="icon-sm" aria-label={t('common.close')} title={t('common.close')} onClick={close}><HugeiconsIcon icon={Cancel01Icon} data-icon="inline-start" /></Button>
-          </div>
+      <header className="flex shrink-0 flex-col gap-1 border-b p-2">
+        <div className="flex min-w-0 items-center gap-1">
+          <nav aria-label={t('native_browser.pages')} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+            {page?.tabs.map(tab => <div key={tab.id} className="flex min-w-0 shrink-0 items-center">
+              <Button size="sm" variant={page.tabId === tab.id ? 'secondary' : 'ghost'} disabled={!!busy} aria-current={page.tabId === tab.id ? 'page' : undefined} title={tab.title || tab.url} onClick={() => { void perform('switch', { tabId: tab.id }); }}><span className="max-w-40 truncate">{tab.title || t('native_browser.new_page')}</span></Button>
+              {page.tabs.length > 1 ? <Button size="icon-sm" variant="ghost" disabled={!!busy} aria-label={t('native_browser.close_page', { title: tab.title || t('native_browser.new_page') })} onClick={() => { void perform('close', { tabId: tab.id }); }}><HugeiconsIcon icon={Cancel01Icon} data-icon="inline-start" /></Button> : null}
+            </div>)}
+            <Button size="icon-sm" variant="ghost" disabled={!!busy} aria-label={t('native_browser.new_page')} onClick={() => { void perform('new'); }}><HugeiconsIcon icon={Add01Icon} data-icon="inline-start" /></Button>
+          </nav>
+          {embedded ? <Button variant="ghost" size="icon-sm" aria-label={t('native_browser.expand')} title={t('native_browser.expand')} onClick={expand}><HugeiconsIcon icon={ArrowExpand01Icon} data-icon="inline-start" /></Button> : null}
+          <Button variant="ghost" size="icon-sm" aria-label={t('common.close')} title={t('common.close')} onClick={close}><HugeiconsIcon icon={Cancel01Icon} data-icon="inline-start" /></Button>
         </div>
         <div className="flex min-w-0 items-center gap-1">
           <Button variant="ghost" size="icon-sm" disabled={!page?.canGoBack || busy} aria-label={t('native_browser.back')} onClick={() => { void perform('back'); }}><HugeiconsIcon icon={ArrowLeft01Icon} data-icon="inline-start" /></Button>
           <Button variant="ghost" size="icon-sm" disabled={!page?.canGoForward || busy} aria-label={t('native_browser.forward')} onClick={() => { void perform('forward'); }}><HugeiconsIcon icon={ArrowRight01Icon} data-icon="inline-start" /></Button>
-          <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={t(page?.loading ? 'native_browser.stop' : 'native_browser.reload')} onClick={() => { void perform(page?.loading ? 'stop' : 'reload'); }}><HugeiconsIcon icon={page?.loading ? Cancel01Icon : RefreshIcon} data-icon="inline-start" /></Button>
+          <Button variant="ghost" size="icon-sm" disabled={pending && !page?.loading} aria-label={t(page?.loading ? 'native_browser.stop' : 'native_browser.reload')} onClick={() => { void perform(page?.loading ? 'stop' : 'reload'); }}><HugeiconsIcon icon={page?.loading ? Cancel01Icon : RefreshIcon} data-icon="inline-start" /></Button>
           <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); navigate(); }}>
             <FieldGroup><Field><InputGroup>
               <InputGroupInput aria-label={t('native_browser.address')} placeholder={t('native_browser.address')} value={address} onChange={event => setAddress(event.target.value)} onFocus={() => { addressFocused.current = true; }} onBlur={() => { addressFocused.current = false; }} disabled={!!busy} />
@@ -139,18 +161,12 @@ export default function NativeBrowserPage({ sessionId, conversationId, embedded 
           </form>
           <Button variant="ghost" size="icon-sm" disabled={!page?.url || page.url === 'about:blank'} aria-label={t('native_browser.external')} title={t('native_browser.external')} onClick={() => { if (page) void window.electron.invoke('open-external-url', page.url); }}><HugeiconsIcon icon={LinkSquare01Icon} data-icon="inline-start" /></Button>
         </div>
-        <nav aria-label={t('native_browser.pages')} className="flex items-center gap-1 overflow-x-auto">
-          {page?.tabs.map(tab => <div key={tab.id} className="flex shrink-0 items-center">
-            <Button size="sm" variant={page.tabId === tab.id ? 'secondary' : 'ghost'} disabled={!!busy} aria-current={page.tabId === tab.id ? 'page' : undefined} onClick={() => { void perform('switch', { tabId: tab.id }); }}><span className="max-w-40 truncate">{tab.title || t('native_browser.new_page')}</span></Button>
-            {page.tabs.length > 1 ? <Button size="icon-sm" variant="ghost" disabled={!!busy} aria-label={t('native_browser.close_page', { title: tab.title || t('native_browser.new_page') })} onClick={() => { void perform('close', { tabId: tab.id }); }}><HugeiconsIcon icon={Cancel01Icon} data-icon="inline-start" /></Button> : null}
-          </div>)}
-          <Button size="icon-sm" variant="ghost" disabled={!!busy} aria-label={t('native_browser.new_page')} onClick={() => { void perform('new'); }}><HugeiconsIcon icon={Add01Icon} data-icon="inline-start" /></Button>
-        </nav>
+
       </header>
       {error ? <Alert variant="destructive" className="shrink-0"><AlertDescription>{error}</AlertDescription></Alert> : null}
       <div ref={container} aria-label={t('native_browser.page_content')} className="min-h-0 flex-1" />
-      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t p-3">
-        <p className="min-w-0 flex-1 text-xs text-muted-foreground">{t(page?.shared ? 'native_browser.shared_help' : page?.persistent ? 'native_browser.session_help' : 'native_browser.recovery_help')}</p>
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground" title={t(page?.shared ? 'native_browser.shared_help' : page?.persistent ? 'native_browser.session_help' : 'native_browser.recovery_help')}><HugeiconsIcon icon={Globe02Icon} className="size-3.5 shrink-0" />{t(page?.loading ? 'native_browser.loading' : page?.shared ? 'native_browser.shared' : 'native_browser.saved_profile')}</span>
         {page?.shared ? <Button size="sm" variant="ghost" onClick={() => { void unshare(); }}>{t('native_browser.unshare')}</Button> : null}
         <Button size="sm" disabled={!page?.persistent || !page.url.startsWith('http') || page.loading || !!busy} onClick={() => { void share(); }}>{t('native_browser.continue_many')}</Button>
       </footer>

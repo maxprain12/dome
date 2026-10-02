@@ -1,0 +1,56 @@
+'use strict';
+// Local delayed HTTP fixture: no credentials, public websites or production profile.
+const { app, BaseWindow } = require('electron');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const http = require('node:http');
+const { browser } = require('../electron/browser-native/service.cjs');
+const { workspace } = require('../electron/browser-native/workspace.cjs');
+app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'dome-browser-polish-')));
+let release;
+const held = new Promise(resolve => { release = resolve; });
+const server = http.createServer(async (_request, response) => {
+  await held;
+  response.end('<html><title>Polish fixture</title><body><h1>Observed local source</h1></body></html>');
+});
+async function run() {
+  await app.whenReady();
+  const host = new BaseWindow({ show: false, width: 1280, height: 720 });
+  browser.getHostWindow = () => host;
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  browser.validateUrl = async url => { assert.equal(new URL(url).origin, origin); return url; };
+  const start = performance.now();
+  const opened = await Promise.all(Array.from({ length: 5 }, () => workspace.open(`${origin}/slow`)));
+  const elapsed = Math.round(performance.now() - start);
+  assert.ok(opened.every(state => state.loading));
+  assert.equal(workspace.state(opened[0].sessionId).tabs.length, 1);
+  const bounds = { x: 40, y: 100, width: 800, height: 500 };
+  browser.attach(opened[0].sessionId, host, bounds);
+  const calls = { add: 0, remove: 0, viewport: 0 };
+  const add = host.contentView.addChildView.bind(host.contentView);
+  const remove = host.contentView.removeChildView.bind(host.contentView);
+  const resize = browser.resizeViewport.bind(browser);
+  host.contentView.addChildView = (...args) => { calls.add++; return add(...args); };
+  host.contentView.removeChildView = (...args) => { calls.remove++; return remove(...args); };
+  browser.resizeViewport = (...args) => { calls.viewport++; return resize(...args); };
+  for (let index = 0; index < 50; index++) browser.attach(opened[0].sessionId, host, bounds);
+  assert.deepEqual(calls, { add: 0, remove: 0, viewport: 0 });
+  release(); await browser.sessions.get(opened[0].sessionId).tail;
+  const control = await workspace.control({ sessionId: opened[0].sessionId, action: 'switch', tabId: opened[0].tabId });
+  assert.equal(control.busy, false);
+  assert.equal(control.loading, false);
+  await workspace.open(`${origin}/slow`);
+  await browser.sessions.get(opened[0].sessionId).tail;
+  assert.equal(workspace.state(opened[0].sessionId).tabs.length, 1);
+  workspace.share('polish-fixture-chat', opened[0].sessionId, opened[0].tabId);
+  const snapshot = await browser.run(opened[0].sessionId, undefined, item => browser.snapshot(item));
+  assert.match(snapshot.readableText, /Observed local source/);
+  process.stdout.write(`${JSON.stringify({ allocationMs: elapsed, loadingBeforeRelease: true, repeatedAttach50: calls, duplicateClicks: 5, tabs: 1, busyAfterControl: control.busy })}\n`);
+  await browser.close(opened[0].sessionId);
+  host.destroy();
+}
+const deadline = setTimeout(() => { console.error('Browser polish fixture deadline exceeded'); app.exit(1); }, 20000);
+run().then(() => { clearTimeout(deadline); server.close(); app.exit(0); }, error => { clearTimeout(deadline); release(); console.error(error); server.close(); app.exit(1); });

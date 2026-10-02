@@ -341,5 +341,9 @@
   "visual_flashcards": "Flashcards",
   "visual_cards_count": "{{count}} tarjetas",
   "attached_skill": "Skill",
-  "visual_presentation": "Presentación"
+  "visual_presentation": "Presentación",
+  "sources": "Fuentes",
+  "source_pin": "Añadir fuente al contexto",
+  "source_unpin": "Quitar fuente del contexto",
+  "citation_label": "Fuente {{number}}: {{title}}"
 }

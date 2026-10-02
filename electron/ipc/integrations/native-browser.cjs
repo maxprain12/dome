@@ -26,6 +26,10 @@ function register({ ipcMain, windowManager }) {
     const window = windowManager.get('main');
     if (window && !window.isDestroyed()) window.webContents.send('native-browser:opened', data);
   };
+  workspace.onChanged = sessionId => {
+    const window = windowManager.get('main');
+    if (window && !window.isDestroyed()) window.webContents.send('native-browser:changed', { sessionId });
+  };
   const handler = (schema, fn) => async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try { return await fn(schema.parse(raw), event); }
@@ -39,7 +43,7 @@ function register({ ipcMain, windowManager }) {
   }));
   ipcMain.handle('native-browser:control', handler(ControlSchema, async args => ({ success: true, data: await workspace.control(args) })));
   ipcMain.handle('native-browser:share', handler(ShareSchema, ({ conversationId, sessionId, tabId }) => ({ success: true, data: workspace.share(conversationId, sessionId, tabId) })));
-  ipcMain.handle('native-browser:unshare', handler(ConversationSchema, ({ conversationId }) => { workspace.bindings.delete(conversationId); return { success: true }; }));
+  ipcMain.handle('native-browser:unshare', handler(ConversationSchema, ({ conversationId }) => { const binding = workspace.resolve(conversationId); workspace.bindings.delete(conversationId); if (binding) workspace.onChanged(binding.sessionId); return { success: true }; }));
   ipcMain.handle('native-browser:recover', handler(RecoverySchema, async ({ recoveryId }) => ({ success: true, data: await browser.recover(recoveryId) })));
   ipcMain.handle('native-browser:attach', handler(BoundsSchema, ({ sessionId, bounds }, event) => {
     const { BrowserWindow } = require('electron');

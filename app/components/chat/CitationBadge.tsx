@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
@@ -18,6 +19,7 @@ export default function CitationBadge({
   nodeTitle,
   onClickCitation,
 }: CitationBadgeProps) {
+  const { t } = useTranslation();
   const hasPreview = Boolean(sourceTitle || sourcePassage || pageLabel || nodeTitle);
   const metaLine = [nodeTitle, pageLabel].filter(Boolean).join(' · ');
 
@@ -26,11 +28,12 @@ export default function CitationBadge({
       type="button"
       onClick={() => onClickCitation?.(number)}
       className="not-typeset inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      aria-label={`Citation ${number}${sourceTitle ? `: ${sourceTitle}` : ''}`}
+      aria-label={t('chat.citation_label', { number, title: sourceTitle || '' })}
+      title={[sourceTitle, metaLine].filter(Boolean).join(' · ')}
     >
       <Badge
         variant="secondary"
-        className="h-auto max-w-full gap-1 border-transparent bg-primary/18 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+        className="max-w-full"
       >
         <span className="truncate">{String(number)}</span>
       </Badge>
@@ -47,7 +50,7 @@ export default function CitationBadge({
           <div className="mb-1 text-xs font-semibold text-foreground">{sourceTitle}</div>
         )}
         {metaLine && (
-          <div className={`text-[11px] text-muted-foreground ${sourcePassage ? 'mb-1.5' : ''}`}>
+          <div className={`text-xs text-muted-foreground ${sourcePassage ? 'mb-1.5' : ''}`}>
             {metaLine}
           </div>
         )}

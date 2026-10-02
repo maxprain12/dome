@@ -745,6 +745,7 @@ const ALLOWED_CHANNELS = {
   // Canales para on/once (main → renderer)
   on: [
     'native-browser:opened',
+    'native-browser:changed',
     // GitHub project sync (main → renderer broadcasts)
     'github:sync:status',
     'github:data:updated',

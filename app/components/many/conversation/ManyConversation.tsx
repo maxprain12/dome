@@ -51,10 +51,10 @@ function ScrollerHandleBridge({ handleRef }: { handleRef: Ref<ManyConversationHa
 
   useImperativeHandle(handleRef, () => ({
     scrollToEnd: (behavior: ScrollBehavior = 'auto') => {
-      scrollToEnd({ behavior });
+      scrollToEnd({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : behavior });
     },
     scrollToMessage: (messageId: string) => {
-      scrollToMessage(messageId, { align: 'start', behavior: 'smooth' });
+      scrollToMessage(messageId, { align: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     },
     resetScrollLock: () => {
       scrollToEnd({ behavior: 'auto' });
