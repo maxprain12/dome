@@ -13,7 +13,7 @@
   "packageManager": "pnpm@11.8.0",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/build-browser-page.mjs",
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "pnpm run build:packages && pnpm run build:prompt-assembler && concurrently \"pnpm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=4096 electron .\"",
@@ -128,7 +128,7 @@
     "bench:compare": "node scripts/bench/compare.mjs",
     "build:tools-index": "node scripts/build-tools-index.mjs",
     "build:prompt-assembler": "node scripts/build-prompt-assembler.mjs",
-    "build:packages": "pnpm --filter @dome/ai --filter @dome/agent-core --filter @dome/tools --filter @dome/db run build",
+    "build:packages": "pnpm --filter @dome/ai --filter @dome/agent-core --filter @dome/tools --filter @dome/db run build && node scripts/build-browser-page.mjs",
     "materialize:workspace-deps": "node scripts/materialize-workspace-deps.cjs",
     "restore:workspace-deps": "node scripts/materialize-workspace-deps.cjs --restore",
     "verify:workspace-deps": "node scripts/verify-workspace-deps.cjs",

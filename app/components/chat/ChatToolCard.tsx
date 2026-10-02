@@ -86,6 +86,7 @@ import { SocialEvidenceCard } from '@/components/social/cards/SocialEvidenceCard
 import { SocialProfileCard } from '@/components/social/cards/SocialProfileCard';
 import { parseSocialToolResult } from '@/components/chat/tool-card/socialToolResults';
 
+import { WebSearchResults } from './tool-card/WebSearchResults';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -481,6 +482,7 @@ export default function ChatToolCard({
   );
 
   const renderResultContent = (): ReactNode => {
+    if (toolCall.name === 'web_search') return <WebSearchResults result={toolCall.result} />;
     const skipDump = Boolean(socialView) && !showRawJson;
     const renderers: ReadonlyArray<() => ReactNode> = skipDump
       ? [renderSoftConfirmation, renderErrorBlock, renderFormattedView]

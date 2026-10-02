@@ -63,6 +63,7 @@ function normalizeFetchRequest(input) {
       120000,
     ),
     userAgent: typeof input.userAgent === 'string' ? input.userAgent : DEFAULT_USER_AGENT,
+    signal: input.signal,
   };
 }
 

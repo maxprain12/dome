@@ -1620,7 +1620,11 @@ async function flashcardCreate(data) {
  * @param {boolean} [args.includeMetadata=true] - Include page metadata
  * @returns {Promise<Object>} Result compatible with web_fetch tool format
  */
-async function webFetch(args) {
+async function nativeWebSearch(args, context = {}) {
+  return require('../services/web/search-dispatcher.cjs').search(args, context.signal);
+}
+
+async function webFetch(args, context = {}) {
   const url = args?.url;
   if (!url || typeof url !== 'string') {
     return { status: 'error', error: 'URL is required for web_fetch' };
@@ -1639,7 +1643,8 @@ async function webFetch(args) {
     const scraped = await webScraper.scrapeUrl({
       url,
       includeMetadata,
-      includeScreenshot: false,
+      includeScreenshot: args?.include_screenshot === true,
+      signal: context.signal,
       maxLength,
       selector,
     });
@@ -1672,6 +1677,7 @@ async function webFetch(args) {
         sourceUrl: scraped.url,
       };
     }
+    if (scraped.screenshot) out.screenshot = scraped.screenshot;
     if (Array.isArray(scraped?.warnings) && scraped.warnings.length > 0) {
       out.warnings = scraped.warnings;
     }
@@ -3966,6 +3972,7 @@ module.exports = {
   flashcardCreate,
 
   // Web tools (the agent runtime)
+  nativeWebSearch,
   webFetch,
 
   // Notebook tools

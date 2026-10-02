@@ -23,6 +23,7 @@ const TOOL_CAP_PRIORITY = [
   'file_read',
   'file_write',
   'file_edit',
+  'web_search',
   'web_fetch',
 ];
 

@@ -13,6 +13,8 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import WorkspaceSplitView from '@/components/workspace/WorkspaceSplitView';
 import TabPaneShell, { TabContentReadyNotifier } from '@/components/shell/TabPaneShell';
 
+const NativeBrowserPage = lazy(() => import('@/components/browser/NativeBrowserPage'));
+
 // Lazy-load heavy workspace components
 const WorkspaceClient = lazy(() => import('@/workspace/[[...params]]/client'));
 const NotebookWorkspaceClient = lazy(() => import('@/workspace/notebook/[[...params]]/client'));
@@ -195,6 +197,8 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
   }
 
   switch (tab.type) {
+    case 'browser':
+      return tab.browserSessionId ? <Suspense fallback={<Loading />}><NativeBrowserPage sessionId={tab.browserSessionId} /></Suspense> : <NoResource />;
     case 'plugin':
       return tab.pluginId ? (
         <TabBoundary tab={tab}>

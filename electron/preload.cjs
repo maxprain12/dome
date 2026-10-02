@@ -274,6 +274,11 @@ const ALLOWED_CHANNELS = {
     'migration:getStatus',
     // Web scraping
     'web:scrape',
+    'native-browser:search',
+    'native-browser:recover',
+    'native-browser:attach',
+    'native-browser:detach',
+    'native-browser:close',
     'browser:get-active-tab-macos',
     'web:get-youtube-thumbnail',
     'web:save-screenshot',

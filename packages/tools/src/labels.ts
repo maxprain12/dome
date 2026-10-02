@@ -4,6 +4,7 @@
  */
 export const TOOL_LABELS: Readonly<Record<string, string>> = {
   // Web
+  web_search: 'Web Search',
   web_fetch: 'Web Fetch',
   // File
   file_read: 'Read File',

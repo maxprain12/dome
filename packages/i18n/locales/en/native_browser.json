@@ -1,0 +1,7 @@
+{
+  "title": "Web browser",
+  "resolve_captcha": "Open search in Dome",
+  "recovery_help": "Resolve the search challenge, then ask the agent to continue using this browser session.",
+  "closed": "This browser session has ended.",
+  "empty": "No results found."
+}

@@ -40,6 +40,7 @@ const runsHandlers = require('./agents/runs.cjs');
 const pipelinesHandlers = require('./agents/pipelines.cjs');
 const marketplaceHandlers = require('./integrations/marketplace.cjs');
 const cloudStorageHandlers = require('./sync/cloud-storage.cjs');
+const nativeBrowserHandlers = require('./integrations/native-browser.cjs');
 const browserContextHandlers = require('./integrations/browser-context.cjs');
 const skillsHandlers = require('./integrations/skills.cjs');
 const shellHandlers = require('./core/shell.cjs');
@@ -146,6 +147,7 @@ function registerAll(deps) {
   pipelinesHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   marketplaceHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
   cloudStorageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  nativeBrowserHandlers.register({ ipcMain: secureIpcMain, windowManager });
   browserContextHandlers.register({ ipcMain: secureIpcMain, windowManager });
   skillsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender, app });
   shellHandlers.register({ ipcMain: secureIpcMain, windowManager, sanitizePath });
