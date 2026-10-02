@@ -1,3 +1,5 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import { LinkSquare01Icon } from '@hugeicons/core-free-icons';
 import { useMemo, useCallback, type ReactNode } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,6 +12,7 @@ import { isGithubHostedImageUrl } from '@/lib/github/client';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { openDomeHref } from '@/lib/links/openDomeHref';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/store/useToastStore';
 import { typesetDocsClass } from '@/lib/typeset';
 import ResourceIcon from '@/components/shared/ResourceIcon';
 import MermaidDiagram from './MermaidDiagram';
@@ -217,8 +220,8 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           e.preventDefault();
           e.stopPropagation();
           // External links: open via IPC so we don't navigate away from the app
-          if (typeof href === 'string' && (href.startsWith('http://') || href.startsWith('https://'))) {
-            openDomeHref(href).catch(() => {});
+          if (typeof href === 'string' && /^(https?:|mailto:)/i.test(href)) {
+            openDomeHref(href).catch(error => showToast('error', error instanceof Error ? error.message : String(error)));
           }
         };
 
@@ -246,14 +249,9 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         }
 
         return (
-          <button
-            type="button"
-            data-dome-href={undefined}
-            onClick={handleAllClicks}
-            className="md-external-link not-typeset"
-          >
-            {children}
-          </button>
+          <a href={href} title={href} onClick={handleAllClicks} className="md-external-link not-typeset">
+            {children}<HugeiconsIcon icon={LinkSquare01Icon} className="md-external-link-icon" />
+          </a>
         );
       },
 
@@ -353,7 +351,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
     if (!href || !href.startsWith('dome://')) return;
     e.preventDefault();
     e.stopPropagation();
-    openDomeHref(href).catch(() => {});
+    openDomeHref(href).catch(error => showToast('error', error instanceof Error ? error.message : String(error)));
   }, []);
 
   const markdownUrlTransform = useCallback((url: string) => {

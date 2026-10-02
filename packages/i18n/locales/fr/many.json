@@ -146,5 +146,7 @@
   "compact_failed": "Impossible de compacte ce chat.",
   "tree_entries": "{{count}} entrées de session",
   "steer_send": "Orienter Many",
-  "steer_failed": "Impossible d’orienter le tour en cours."
+  "steer_failed": "Impossible d’orienter le tour en cours.",
+  "composer_settings": "Réglages du chat",
+  "composer_shortcuts": "Entrée envoie · Maj+Entrée ajoute une ligne · / skills · @ documents · # MCP"
 }

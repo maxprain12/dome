@@ -41,6 +41,16 @@ describe('Dome browser handoff', () => {
     expect(useBrowserWorkspaceStore.getState().panels['research-chat']).toBe(state.sessionId);
     expect(useTabStore.getState().activeTabId).toBe('chat:research-chat');
   });
+  it('keeps the origin conversation when the user changes chats during allocation', async () => {
+    let finish!: (value: { success: boolean; data: BrowserState }) => void;
+    vi.mocked(window.electron.invoke).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const opening = openDomeHref(state.url);
+    useTabStore.setState({ activeTabId: 'chat:different-chat' });
+    finish({ success: true, data: state });
+    await opening;
+    expect(useBrowserWorkspaceStore.getState().panels['research-chat']).toBe(state.sessionId);
+    expect(useBrowserWorkspaceStore.getState().panels['different-chat']).toBeUndefined();
+  });
   it('shares only the selected page with the originating chat and prepares continuation', async () => {
     vi.mocked(window.electron.invoke).mockResolvedValue({ success: true });
     await continueBrowserWithMany(state, 'research-chat');

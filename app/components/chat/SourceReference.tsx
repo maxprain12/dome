@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Bookmark01Icon, CheckmarkCircle02Icon, File02Icon, PlusSignCircleIcon } from '@hugeicons/core-free-icons';
@@ -20,7 +21,10 @@ interface SourceReferenceProps {
 }
 
 export default function SourceReference({ sources, onClickSource }: SourceReferenceProps) {
-  const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
+  const { t } = useTranslation();
+  const pinnedResources = useManyStore(state => state.pinnedResources);
+  const addPinnedResource = useManyStore(state => state.addPinnedResource);
+  const removePinnedResource = useManyStore(state => state.removePinnedResource);
   const pinnedIds = new Set(pinnedResources.map((r) => r.id));
 
   if (!sources || sources.length === 0) return null;
@@ -28,7 +32,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
   return (
     <div className="mt-3 border-t pt-3">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Sources
+        {t('chat.sources')}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {sources.map((source) => {
@@ -40,13 +44,13 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                 variant="outline"
                 size="sm"
                 onClick={() => onClickSource?.(source)}
-                className="source-ref-btn h-auto max-w-64 justify-start gap-1.5 rounded-xl px-2 py-1"
+                className="max-w-64 justify-start gap-1.5"
                 title={[source.title, source.pageLabel, source.nodeTitle].filter(Boolean).join(' · ')}
               >
                 <span className="source-ref-number">
                   {source.number}
                 </span>
-                <HugeiconsIcon icon={File02Icon} className="size-3 shrink-0 text-muted-foreground" />
+                <HugeiconsIcon icon={File02Icon} data-icon="inline-start" />
                 <span className="flex min-w-0 flex-col">
                   <span className="block max-w-48 truncate">
                     {source.title}
@@ -59,7 +63,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                 </span>
                 {source.pageLabel ? (
                   <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-primary">
-                    <HugeiconsIcon icon={Bookmark01Icon} className="size-2.5" />
+                    <HugeiconsIcon icon={Bookmark01Icon} data-icon="inline-end" />
                     {source.pageLabel.replace(/^págs?\.\s*/i, 'p. ')}
                   </span>
                 ) : null}
@@ -78,12 +82,12 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                       addPinnedResource({ id: source.id, title: source.title, type: source.type });
                     }
                   }}
-                  title={isPinned ? 'Quitar del contexto' : 'Añadir al contexto del chat'}
-                  className={`source-ref-pin-btn ${isPinned ? 'is-pinned' : 'is-unpinned'}`}
+                  title={t(isPinned ? 'chat.source_unpin' : 'chat.source_pin')}
+                  aria-label={t(isPinned ? 'chat.source_unpin' : 'chat.source_pin')}
                 >
                   {isPinned
-                    ? <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3.5" />
-                    : <HugeiconsIcon icon={PlusSignCircleIcon} className="size-3.5" />
+                    ? <HugeiconsIcon icon={CheckmarkCircle02Icon} data-icon="inline-start" />
+                    : <HugeiconsIcon icon={PlusSignCircleIcon} data-icon="inline-start" />
                   }
                 </Button>
               )}

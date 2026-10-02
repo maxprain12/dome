@@ -45,7 +45,7 @@ async function run() {
   const read = await require('../electron/tools/tool-dispatcher.cjs').executeToolInMain('browser_read_page', {}, { threadId: 'fixture-chat', agentMode: 'agent' });
   assert.match(read.details.data.readableText, /Signed in profile: fixture researcher/);
   assert.equal(await browser.evaluate(browser.sessions.get(DESKTOP_SESSION), 'typeof window.electron'), 'undefined');
-  const second = await workspace.open(`${origin}/profile`);
+  const second = await workspace.open(`${origin}/other-profile`);
   await assert.rejects(execute('browser_read_page', { tabId: second.tabId }, { threadId: 'fixture-chat' }), /not been shared/);
   const tabs = await execute('browser_tabs', {}, { threadId: 'fixture-chat' });
   assert.equal(tabs.data.tabs.length, 1);
@@ -56,6 +56,7 @@ async function run() {
   await browser.close(DESKTOP_SESSION);
   assert.equal(workspace.resolve('fixture-chat'), undefined);
   const reopened = await workspace.open(`${origin}/profile`);
+  await browser.sessions.get(DESKTOP_SESSION).tail;
   const snapshot = await browser.snapshot(browser.sessions.get(DESKTOP_SESSION));
   assert.match(snapshot.readableText, /Signed in profile: fixture researcher/);
   assert.ok(reopened.persistent);

@@ -3,6 +3,7 @@ import { createRequire } from 'module';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import { plugin as shadcn } from '@shadcn/lint';
 
 const require = createRequire(import.meta.url);
 const eslintPluginDome = require('./tools/eslint-plugin-dome/index.cjs');
@@ -25,6 +26,23 @@ export default tseslint.config(
 
   // TypeScript rules (recommended — catches real bugs, not stylistic issues)
   ...tseslint.configs.recommended,
+
+  // Enforce primitive ownership on the refreshed browser/chat compositions.
+  // InputGroup addons own composer placement, so their spacing is an explicit contract.
+  {
+    files: ['app/components/browser/NativeBrowserPage.tsx', 'app/components/chat/{CitationBadge,SourceReference}.tsx', 'app/components/chat/tool-card/WebSearchResults.tsx', 'app/components/many/composer/ManyComposer.tsx'],
+    plugins: { shadcn },
+    rules: {
+      'shadcn/no-raw-colors': 'error',
+      'shadcn/no-inline-styles': 'error',
+      'shadcn/no-restyle': ['error', { allow: ['layout'], contracts: [
+        { pattern: '^InputGroup(Addon)?$', allow: ['layout', 'spacing', 'overflow-hidden', 'outline', 'outline-primary', 'border-0'] },
+        { pattern: '^HoverCardContent$', allow: ['layout', 'pointer-events-none'] },
+        { pattern: '^Button$', allow: ['layout', 'gap-*'] },
+      ] }],
+      'shadcn/no-arbitrary-values': 'error',
+    },
+  },
 
   // React Hooks rules
   {

@@ -61,4 +61,7 @@ export default memo(function ManyTurn({
       </MessageGroup>
     </MessageScrollerItem>
   );
-});
+}, (previous, next) => previous.onRegenerate === next.onRegenerate
+  && previous.assistantState === next.assistantState && previous.scrollAnchor === next.scrollAnchor
+  && previous.className === next.className && previous.messages.length === next.messages.length
+  && previous.messages.every((message, index) => message === next.messages[index]));

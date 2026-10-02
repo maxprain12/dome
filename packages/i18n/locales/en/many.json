@@ -146,5 +146,7 @@
   "compact_failed": "Could not compact this chat.",
   "tree_entries": "{{count}} session entries",
   "steer_send": "Steer Many",
-  "steer_failed": "Could not steer the running turn."
+  "steer_failed": "Could not steer the running turn.",
+  "composer_settings": "Chat settings",
+  "composer_shortcuts": "Enter sends · Shift+Enter adds a line · / skills · @ documents · # MCP"
 }

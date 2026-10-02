@@ -2026,3 +2026,19 @@ input[type='range'].dome-media-seekbar::-webkit-slider-thumb:hover {
   --shadow-xl: none;
   --shadow-2xl: none;
 }
+
+/* Many's frequent jump action fades without a delayed spatial exit. */
+[data-surface="many"] [data-slot="message-scroller-button"] {
+  translate: -50% 0;
+  scale: 1;
+  transition: opacity 120ms linear;
+}
+[dir="rtl"] [data-surface="many"] [data-slot="message-scroller-button"] { translate: 50% 0; }
+@media (prefers-reduced-motion: reduce) {
+  [data-surface="many"] [data-slot="message-scroller-button"] { transition-duration: 80ms; }
+}
+.many-composer-surface { container-type: inline-size; container-name: many-composer; }
+.many-composer-settings { display: block; }
+@container many-composer (max-width: 620px) {
+  .many-composer-model { max-width: 11rem; }
+}

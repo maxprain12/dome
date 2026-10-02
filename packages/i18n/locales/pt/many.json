@@ -146,5 +146,7 @@
   "compact_failed": "Não foi possível compactar este chat.",
   "tree_entries": "{{count}} entradas da sessão",
   "steer_send": "Guiar o Many",
-  "steer_failed": "Não foi possível guiar o turno em curso."
+  "steer_failed": "Não foi possível guiar o turno em curso.",
+  "composer_settings": "Definições do chat",
+  "composer_shortcuts": "Enter envia · Shift+Enter adiciona uma linha · / skills · @ documentos · # MCP"
 }

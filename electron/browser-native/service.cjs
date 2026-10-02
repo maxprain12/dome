@@ -18,6 +18,7 @@ class NativeBrowserService {
     this.sessions = new Map();
     this.pending = new Map();
     this.recovery = new Map();
+    this.onChanged = () => {};
   }
 
   async create(owner, signal, options = {}) {
@@ -66,7 +67,7 @@ class NativeBrowserService {
       const item = { id: owner, partition, browserSession, options, tabs: new Map(), activeTabId: '', tail: Promise.resolve(), release, visible: null };
       item.makeView = () => new WebContentsView({ webPreferences: {
         session: browserSession, contextIsolation: true, nodeIntegration: false, sandbox: true,
-        webSecurity: true, backgroundThrottling: false,
+        webSecurity: true, backgroundThrottling: true,
       } });
       this.sessions.set(owner, item);
       await this.newTab(item);
@@ -92,15 +93,22 @@ class NativeBrowserService {
     if (item.tabs.size >= 20) throw new Error('Close a browser page before opening another one');
     const view = await item.makeView();
     const id = randomUUID();
-    const tab = { id, view, initializedUrl: null, hostWindow: null };
+    const tab = { id, view, initializedUrl: null, hostWindow: null, ready: false };
+    for (const event of ['did-start-loading', 'did-stop-loading', 'did-navigate', 'did-navigate-in-page', 'page-title-updated']) {
+      view.webContents.on?.(event, () => this.onChanged(item.id));
+    }
     item.tabs.set(id, tab);
     // Reloads and manual sign-in redirects can end at the same URL with a new
     // document. Invalidate injected page helpers on every document commit.
     view.webContents.on?.('did-navigate', () => { tab.initializedUrl = null; });
+    view.webContents.on?.('did-fail-load', (_event, code, message, _url, mainFrame) => {
+      if (mainFrame && code !== -3) { tab.error = message; this.onChanged(item.id); }
+    });
     view.setBounds({ x: 0, y: 0, ...item.options.viewport });
     this.park(item, tab);
     if (item.options.userAgent) view.webContents.setUserAgent(item.options.userAgent);
     await bounded(view.webContents.loadURL('about:blank'), undefined, 15000);
+    tab.ready = true;
     view.webContents.setWindowOpenHandler(({ url }) => {
       // Keep popups inside the controlled session; never grant app IPC to them.
       void this.run(item.id, undefined, async (session) => {
@@ -112,6 +120,8 @@ class NativeBrowserService {
     });
     await item.recording?.attach?.(view.webContents);
     item.activeTabId = id;
+    this.updateThrottling(item);
+    this.onChanged(item.id);
     return tab;
   }
 
@@ -126,9 +136,11 @@ class NativeBrowserService {
     const result = item.tail.catch(() => {}).then(() => {
       if (signal?.aborted) throw abortError();
       item.busy = true;
+      this.updateThrottling(item);
+      this.onChanged(item.id);
       return bounded(operation(item), signal, 45000, () => {
       for (const tab of item.tabs.values()) if (!tab.view.webContents.isDestroyed()) tab.view.webContents.stop();
-      }).finally(() => { item.busy = false; });
+      }).finally(() => { item.busy = false; this.updateThrottling(item); this.onChanged(item.id); });
     });
     item.tail = result;
     return result;
@@ -139,6 +151,7 @@ class NativeBrowserService {
     assertDomain(target, item.options);
     const tab = this.tab(item, tabId);
     tab.initializedUrl = null;
+    tab.error = undefined;
     const contents = tab.view.webContents;
     try {
       await bounded(contents.loadURL(target), signal, 30000, () => contents.stop());
@@ -253,15 +266,22 @@ class NativeBrowserService {
     const item = this.sessions.get(owner);
     if (!item) throw new Error('Browser session no longer exists');
     if (item.options.backend === 'chromium') throw new Error('The advanced Chromium backend uses its own local browser; choose headless=false to interact');
-    this.detach(owner);
     const tab = this.tab(item);
-    this.unhost(tab);
     const view = tab.view;
-    window.contentView.addChildView(view);
-    tab.hostWindow = window;
+    const sameView = item.visible?.window === window && item.visible.view === view;
+    const current = view.getBounds();
+    if (sameView && ['x', 'y', 'width', 'height'].every(key => current[key] === bounds[key])) return;
+    if (!sameView) {
+      this.detach(owner);
+      this.unhost(tab);
+      window.contentView.addChildView(view);
+      tab.hostWindow = window;
+      item.visible = { window, view };
+    }
     view.setBounds(bounds);
-    item.visible = { window, view };
-    this.resizeViewport(item, tab, bounds);
+    // The first blank document must commit before CDP can attach on macOS.
+    if (tab.ready && (current.width !== bounds.width || current.height !== bounds.height)) this.resizeViewport(item, tab, bounds);
+    this.updateThrottling(item);
   }
 
   detach(owner) {
@@ -270,7 +290,7 @@ class NativeBrowserService {
       const tab = [...item.tabs.values()].find(entry => entry.view === item.visible.view);
       if (tab) { this.unhost(tab); this.park(item, tab); }
     }
-    if (item) item.visible = null;
+    if (item) { item.visible = null; this.updateThrottling(item); }
   }
 
   park(item, tab) {
@@ -280,13 +300,23 @@ class NativeBrowserService {
     this.unhost(tab);
     // A window-backed compositor is required on Linux. Keep background tabs
     // outside the shell's visible area, using its existing window only.
-    const { width, height } = item.options.viewport;
+    const { width, height } = tab.view.getBounds?.() || item.options.viewport;
     tab.view.setBounds({ x: -width - 1, y: -height - 1, width, height });
     window.contentView.addChildView(tab.view);
     tab.hostWindow = window;
     // Do not attach a debugger to a newly created, unloaded WebContents.
     // Existing loaded tabs already have the CDP session used by navigation.
-    if (tab.view.webContents.debugger?.isAttached()) this.resizeViewport(item, tab, { width, height });
+    // Retain metrics while parked; hiding the pane must not relayout the page.
+  }
+
+  updateThrottling(item) {
+    for (const tab of item.tabs.values()) {
+      if (tab.view.webContents.isDestroyed()) continue;
+      const awake = !!(item.busy || item.recording || item.visible?.view === tab.view);
+      tab.view.webContents.setBackgroundThrottling?.(!awake);
+      // Idle user tabs remain compositor-backed for Linux capture, but hidden.
+      if (item.options.profile) tab.view.setVisible?.(awake);
+    }
   }
 
   resizeViewport(item, tab, { width, height }) {
@@ -306,6 +336,7 @@ class NativeBrowserService {
     this.detach(owner);
     if (item.recording) { item.recording.stopped = true; clearTimeout(item.recording.timer); }
     this.sessions.delete(owner);
+    this.onChanged(owner);
     const closed = [...item.tabs.values()].map(tab => {
       this.unhost(tab);
       const { view } = tab;
